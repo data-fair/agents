@@ -1,11 +1,8 @@
 /**
  * The real chat, running on the server-held loop.
  *
- * This is the SWAP: it presents the surface `AgentChat.vue` already consumes — messages, status,
- * error, activity, tools, sendMessage, abort, reset — over `useAgentSession` instead of over the
- * in-browser loop in `use-agent-chat`. The component barely changes, which is the point: if pointing
- * the real chat at the server required rewriting the chat, the architecture would not be a drop-in
- * and §7's judgment would have to account for that.
+ * It presents the surface `AgentChat.vue` consumes — messages, status, error, activity, tools,
+ * sendMessage, abort, reset — over `useAgentSession`.
  *
  * What it is NOT is a second loop. There is no model call here, no tool orchestration, no history
  * management, no compaction — those are the server's now. This file is assembly: it turns a stream of
@@ -85,9 +82,6 @@ interface Turn {
 }
 
 export function useSessionChat (options: UseSessionChatOptions) {
-  // Matches `useAgentChat`'s contract so `AgentChat.vue`'s `if (!chatResult) throw` still guards SSR.
-  if (typeof window === 'undefined') return undefined
-
   const turns = ref<Turn[]>([])
   // What this conversation has cost, as the server reports it (the `cost` frame), and a counter the
   // Consumption tab watches to refetch the caller's quota windows after each turn.
@@ -207,7 +201,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       // A user turn is STORED wrapped when an action button supplied hidden context. The person must
       // see what they asked, not the context the page added on their behalf.
       // A refusal is stored as English text plus a structured part; the chat says it in its own
-      // language when it can (main's #74 did this for quotas in the browser loop).
+      // language when it can.
       const refusal = frame.parts.find((part: any) => part?.type === 'data-refusal') as { data?: RefusalInfo } | undefined
       const localized = refusal?.data ? options.formatRefusal?.(refusal.data) : undefined
       turn.message = frame.role === 'user'
@@ -281,13 +275,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
 
   // The consent sheet's trigger, and the answer's path back.
   //
-  // Two halves of one loop: the server advertises on `attached` that this account stores traces (the
-  // gateway did it with a response header), which is what makes the sheet appear; and the answer is
-  // sent back over the socket as well as written to the cookie, because the cookie is only read at
-  // UPGRADE — without the frame, accepting would do nothing until the page reloaded.
-  // Held back until the person has actually had an answer, which is when the gateway's response
-  // header used to arrive. Advertising on attach instead would put the sheet over the composer before
-  // they had said anything — asking for consent to store a conversation that does not exist yet.
+  // Two halves of one loop: the server advertises on `attached` that this account stores traces, which
+  // is what makes the sheet appear; and the answer is sent back over the socket as well as written to
+  // the cookie, because the cookie is only read at UPGRADE — without the frame, accepting would do
+  // nothing until the page reloaded.
+  // Held back until the person has actually had an answer: advertising on attach instead would put the
+  // sheet over the composer before they had said anything — asking for consent to store a
+  // conversation that does not exist yet.
   watch([agent.traceStorage, () => turns.value.some(turn => turn.message.role === 'assistant')],
     ([available, hasAnswer]) => { if (available && hasAnswer) traceStorageAvailable.value = true },
     { immediate: true })
@@ -562,5 +556,3 @@ export function useSessionChat (options: UseSessionChatOptions) {
     reportHostEvents: agent.reportHostEvents
   }
 }
-
-export default useSessionChat

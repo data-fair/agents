@@ -30,14 +30,11 @@ const debug = Debug('agents:agent-session')
 /** Live sessions, so a turn started elsewhere can reach the browser that owns it. */
 const sessions = new Map<WebSocket, AgentSession>()
 
-/** How many browsers are connected. The prototype's cheapest capacity signal. */
-export const liveAgentSessionCount = () => sessions.size
-
 /**
  * Call a contextual tool on the ONLY live session.
  *
  * A test seam, and deliberately a crude one: addressing a session properly means binding it to a
- * conversation, which is §4.4. Insisting on exactly one connection makes the ambiguity an error rather
+ * conversation. Insisting on exactly one connection makes the ambiguity an error rather
  * than a coin flip — a test that opened two sockets and asserted on "the" session would pass or fail by
  * iteration order.
  */
@@ -69,17 +66,15 @@ export const startAgentSessions = (server: Server) => {
     const agentSession: AgentSession = createAgentSession({
       send,
       sessionCookie: req.headers.cookie,
-      // Parsed from the upgrade request's cookies, which is the socket's equivalent of the
-      // `x-trace-consent` header the gateway read per request. Same cookie, same meaning.
+      // Parsed from the upgrade request's cookies.
       traceConsent: hasTraceConsent(req.headers.cookie),
       traceStorage: traceStorage === true,
       anonymous: !sessionState?.user,
       onAttach: conversationId => {
         if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
         boundConversationId = conversationId
-        // Registered as the conversation's watcher only ONCE THE OWNERSHIP CHECK HAS PASSED. It used to
-        // be registered first and checked after, which only gated the history: a socket naming someone
-        // else's conversation became its watcher anyway, and received the stream of their next turn.
+        // Registered as the conversation's watcher only ONCE THE OWNERSHIP CHECK HAS PASSED, or a socket
+        // naming someone else's conversation would receive the stream of their next turn.
         // Authorization is the ownership check the HTTP routes apply; an anonymous socket's thread was
         // checked by its hello, which only ever binds it to the thread it created.
         attaching = (sessionState?.user ? resolveOwnConversation(conversationId) : Promise.resolve(undefined))

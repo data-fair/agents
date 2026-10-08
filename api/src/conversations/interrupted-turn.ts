@@ -2,12 +2,9 @@
  * A turn the person interrupted — by writing during it, or by pressing Stop — and what the model is
  * told about it.
  *
- * Ported from main's ui/src/composables/interrupted-turn.ts (#73, #75), which did this for the
- * browser loop. The wording is main's, unchanged: judged runs are what tuned it. What changed is
- * where the work happens. The browser had to rebuild an aborted turn's messages from the stream it
- * had seen, because an aborted SDK call never reaches `result.response`. The server STORES every turn
- * as it goes, so an aborted turn's work is already in the record — except for the calls still open
- * when it stopped, which have no result. A call with no result is dropped on replay
+ * The wording was tuned by judged runs. The server STORES every turn as it goes, so an aborted turn's
+ * work is already in the record — except for the calls still open when it stopped, which have no
+ * result. A call with no result is dropped on replay
  * (`ignoreIncompleteToolCalls`), so without this the model never learned it had been waiting: judged
  * runs saw the person's two messages with nothing between, denied work they had done and redid it.
  *

@@ -70,8 +70,8 @@ export type ClientMessage =
    *
    * Sent as well as written to the cookie, because the cookie is only read at UPGRADE: without this
    * frame, accepting would have no effect until the page reloaded, which reads as the button not
-   * working. The server trusts it exactly as far as it trusted the gateway's per-request header —
-   * this says what THIS person agreed to about their own conversation, nothing more.
+   * working. The server trusts it only for what
+   * this says: THIS person agreed to about their own conversation, nothing more.
    */
   | { type: 'trace-consent', consented: boolean }
   /**
@@ -107,9 +107,8 @@ export interface HostEventFrame {
 
 export type ServerMessage =
   /**
-   * `traceStorage` is how the person gets ASKED. The gateway advertised it as an
-   * `x-trace-storage: available` response header, and the chat showed its consent sheet off that.
-   * Without an equivalent the sheet never appears, nobody can ever say yes, and the consent gate on
+   * `traceStorage` is how the person gets ASKED: the chat shows its consent sheet off it.
+   * Without it the sheet never appears, nobody can ever say yes, and the consent gate on
    * the server fails closed forever — a gate nobody can open is not a gate, it is an outage.
    */
   | { type: 'attached', conversationId: string, anonymous: boolean, traceStorage?: boolean }
@@ -147,7 +146,7 @@ export type ServerMessage =
      * Present when this is a sub-agent PANEL's phase line rather than the main one.
      *
      * Keyed on the delegating tool call, because several workers run concurrently when the lead
-     * delegates more than once in a step — the browser loop keyed its panels the same way, and without
+     * delegates more than once in a step — without
      * the key two panels would share one phase line.
      */
     parentToolCallId?: string
@@ -164,8 +163,7 @@ export type ServerMessage =
   /**
    * What this conversation has cost so far, in credits: every model call of every turn — moderation,
    * compaction and sub-agent workers included — summed from the runs. Sent once attached and again
-   * before each `turn-end`, as a total the client simply shows (main's #74 Consumption tab). Exact,
-   * where the browser loop could only add up what each gateway response reported and undercounted.
+   * before each `turn-end`, as a total the client simply shows (the Consumption tab).
    */
   | { type: 'cost', conversationCost: number }
   | { type: 'error', message: string }

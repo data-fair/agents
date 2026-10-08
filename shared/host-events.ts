@@ -246,12 +246,11 @@ export function hasHostState (snapshot: HostStateSnapshot): boolean {
 /**
  * Fold what the page has reported into the last user message of a history, for one model call.
  *
- * The server-side counterpart of what the browser loop did inline. It exists because moving the loop
- * left the store write-only: the socket filled it, `wait_for_user_action` drained its events, and the
- * retained STATE was never told to the model at all — so an assistant asked "what am I looking at?"
- * had the answer in memory beside it and no way to read it.
+ * Without it the store would be write-only: the socket fills it, `wait_for_user_action` drains its
+ * events, and the retained STATE would never be told to the model — an assistant asked "what am I
+ * looking at?" would have the answer in memory beside it and no way to read it.
  *
- * Three decisions, each the one the browser loop had already made:
+ * Three decisions:
  *
  *  - The LAST USER message, not the system prompt. The system prompt is the stable, cacheable prefix
  *    and page state changes every turn; and state presented as a standing instruction reads to the
@@ -279,8 +278,8 @@ export function withHostContext<M extends { role: string, content: unknown }> (
 ): M[] {
   const snapshot = store?.snapshot()
   // Drained whole, but only the UNKEYED events are reported: a keyed event is a state change, and the
-  // state block above already says what that state is now. Both used to be sent, so the model read the
-  // same fact twice in one turn — what the browser loop's activation filter had prevented. (Mid-turn,
+  // state block above already says what that state is now; sending both would tell the model the same
+  // fact twice in one turn. (Mid-turn,
   // events appended to a tool result keep their keyed entries: there is no state block there.)
   const events = store?.hasPending() ? store.takePending().filter(event => !event.key) : []
   const blocks = [

@@ -9,8 +9,7 @@
  * server does its own partition for the loop (`api/src/agent-session/sub-agents.ts`); this one answers
  * "what would it see", for a human looking at the dialog.
  *
- * Extracted from `use-agent-chat` (since removed) so the session path shares one copy rather than carrying a second
- * one that could drift in what it reserves — a tool counted as "main" here while the loop treats it as
+ * Kept in step with the loop's reserved tools — a tool counted as "main" here while the loop treats it as
  * a sub-agent's would make the dialog quietly disagree with what actually runs.
  */
 

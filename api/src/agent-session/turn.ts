@@ -105,7 +105,6 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
 
   const stored = await appendMessage(conversation, {
     role: 'user',
-    author: { kind: 'user', ...person },
     parts: [{ type: 'text', text }]
   })
 

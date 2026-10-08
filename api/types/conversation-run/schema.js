@@ -40,7 +40,7 @@ export default {
       additionalProperties: false,
       required: ['type', 'id'],
       properties: {
-        type: { type: 'string', enum: ['organization'] },
+        type: { type: 'string', enum: ['user', 'organization'] },
         id: { type: 'string' },
         name: { type: 'string' },
         department: { type: 'string' }

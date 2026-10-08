@@ -142,10 +142,9 @@ export const abortRunsOfConversation = (conversationId: string, why: 'spoke' | '
 /**
  * Stop every live turn of one autonomous agent. Returns how many this process actually stopped.
  *
- * The kill switch used to be checked only at the START of a turn, so disabling an agent — or deleting
- * it — left whatever it was already doing running to completion, tool calls included. For a control
- * whose entire purpose is "make it stop", the gap between "stop" and "stops eventually" is the bug: an
- * admin disabling a misbehaving agent means now.
+ * The kill switch is not only checked at the START of a turn: disabling an agent — or deleting it —
+ * must stop whatever it is already doing, tool calls included. An admin disabling a misbehaving agent
+ * means now, not eventually.
  *
  * Every `running` run of the agent is also marked, so a turn held by another API process stops at its
  * next poll (watchStopRequests) with the same reason. abort() remains a request the provider may
@@ -197,8 +196,8 @@ const watchStopRequests = (runId: string, controller: AbortController): (() => v
 
 /**
  * The abort reason of a turn stopped by a LATE moderation block — a verdict that lands after the gate
- * failed open (it does not wait longer than MODERATION_GATE_TIMEOUT_MS for the classifier). The gateway
- * aborted the response in that case; the executor's catch path recognises it and stores the refusal.
+ * failed open (it does not wait longer than MODERATION_GATE_TIMEOUT_MS for the classifier). The
+ * executor's catch path recognises it and stores the refusal.
  */
 const MODERATION_LATE_BLOCK = 'moderation: a late verdict blocked this message'
 
@@ -472,7 +471,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // The worker's transcript, streamed to its panel. The lead never sees it — it gets the summary.
       onTrace: trace => {
         // The FINAL transcript is also STORED, on the lead's message, so a reloaded thread and the
-        // review page show what the worker did: it used to be streamed only, and every panel was
+        // review page show what the worker did, where a streamed-only transcript would be
         // empty after a reload. As a `data-subagent` part, which the replay leaves out of what the
         // model is sent — the lead keeps seeing only the summary, the point of delegating.
         if (!trace.pending) storeSubAgentTrace(trace)
@@ -551,10 +550,10 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * THE TOOL SET IS LIVE FOR THE WHOLE TURN, not frozen when it starts.
    *
    * A page's tools change while a turn runs — the agent opens a panel, the panel mounts a component,
-   * the component registers a tool — and the page reports it with `tools-changed`. The browser loop
-   * re-read its tools before every step, so the agent could call the tool it had just caused to exist
-   * in the SAME turn. Built once on the server, it could not: the mock's chain seam said "tool
-   * set_display is not available", which is exactly what a real model meets after opening a panel.
+   * the component registers a tool — and the page reports it with `tools-changed`. The tool set is
+   * re-read before every step, so the agent can call the tool it had just caused to exist in the SAME
+   * turn. Built once, it could not: a real model would meet "tool set_display is not available" right
+   * after opening a panel.
    *
    * It works because the AI SDK re-reads the `tools` object it was given on every step — the per-step
    * advertisement is `Object.entries(tools)` and execution looks up `tools[name]` at call time — so a
@@ -727,9 +726,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   /**
    * What the assistant is doing, in the vocabulary the chat already renders.
    *
-   * The server is the only thing that knows this now, and it knows it better than the browser loop did:
-   * it sees the step boundaries, the tool results and the compaction directly rather than inferring
-   * them from a stream. `null` clears the label.
+   * The server sees the step boundaries, the tool results and the compaction directly. `null` clears
+   * the label.
    */
   const activity = (value: ChatActivity | null) => {
     target.frames.activity(value)
@@ -800,10 +798,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
 
   // THINKING, from the moment the turn is handed to the model until it says something.
   //
-  // The loop cleared this label on the first token and never set it, so the gap before that token —
-  // the only time it has anything to explain — showed nothing at all: a person who asked a question of
-  // a slow provider watched a still, silent chat. The browser loop set it locally, which is why the
-  // regression survived the move: the frame it replaced was never sent.
+  // The label is cleared on the first token, so it must be set before: the gap before that token is the
+  // only time it has anything to explain, and a slow provider would otherwise leave a still, silent chat.
   activity({ kind: 'thinking' })
 
   const isThisTurns = (toolCallId: string) => parts.some(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
@@ -1036,9 +1032,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
         : 'completed'
 
-  // An empty completion is a known provider failure mode with its own mock seam, and the
-  // browser loop had a fallback for it. Without one here the turn persists a blank message
-  // and a green run — the "conversation that simply stops" this module forbids.
+  // An empty completion is a known provider failure mode with its own mock seam. Without a
+  // fallback the turn persists a blank message and a green run — the "conversation that simply stops" this module forbids.
   //
   // Only when the turn OTHERWISE COMPLETED, though: a turn cut off by a guard, a budget or
   // the clock has no text by nature (it was mid-tool-chain), and runTurn appends that stop
@@ -1048,8 +1043,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const finalParts = emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts
   if (emptyCompletion) {
     // LOGGED, because it is a provider anomaly rather than a normal turn, and the person only ever
-    // sees the generic fallback. The browser loop warned to the devtools console for exactly this
-    // reason; on the server the operator's log is where that belongs. Ids only — no content, since
+    // sees the generic fallback, so the operator's log is where it belongs. Ids only — no content, since
     // this line is for diagnosis, not for a second copy of the conversation.
     const of = run.kind === 'task' ? `task ${run.taskId}` : `conversation ${run.conversationId}`
     console.warn(`[empty completion] treated as a bug: ${run.kind ?? 'conversation'} run ${run.id} of ${of} produced no text (model ${entry.id}, ${steps} step(s))`)
@@ -1187,7 +1181,6 @@ export const runTurn = async (run: ConversationTurnRun): Promise<void> => {
     // transient mongo error): the driver then closes the run bare.
     const message = await appendMessage(conversation, {
       role: 'assistant',
-      author: { kind: 'autonomous-agent', userName: conversation.title },
       parts: [],
       runId: run.id,
       pending: true

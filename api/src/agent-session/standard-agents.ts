@@ -1,11 +1,8 @@
 /**
  * The standard agents: fixed ids, personas held here as strings.
  *
- * This is what replaces a client-supplied `systemPrompt` (finding §5b.7). A host application used to
- * hand the loop its own prose — through a prop, and on one path through a URL query parameter — which
- * on a server-held loop would have left a client in control of the model's INSTRUCTIONS while every
- * other client-controlled input had been removed. A host now NAMES an agent instead, and the text lives
- * on this side where it cannot be tampered with.
+ * A host application NAMES an agent rather than supplying its own prose, so a client never controls the
+ * model's INSTRUCTIONS: the text lives on this side where it cannot be tampered with.
  *
  * Static strings for now, deliberately. A persona is product voice, so it belongs in configuration
  * rather than in a request — and a map in source is the cheapest thing that is already in the right
@@ -78,7 +75,7 @@ export const listStandardAgents = (): StandardAgentDescriptor[] =>
  * Every catalog entry, unfiltered: it acts as the person, so their own permissions are already the
  * ceiling. Narrowing here would be a second, weaker copy of an authorization decision that whatever the
  * tool calls already makes — and it is why an unreachable entry is skipped rather than fatal for these
- * agents (see §5b.2).
+ * agents (see ../mcp-servers/client.ts).
  *
  * The catalog is passed in rather than read from `#config`, following the rule `contextBudget` follows:
  * a module that imports `#config` cannot be unit tested, because that import validates the whole

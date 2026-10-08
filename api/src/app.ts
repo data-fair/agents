@@ -97,8 +97,7 @@ if (process.env.NODE_ENV === 'development') {
     await mongo.db.collection('agent-memory-versions').deleteMany({ 'owner.id': /^test/ })
     res.send()
   })
-  // Dev-only: run one `memory` tool command as an agent, so the service's agent-side paths (rename,
-  // retry) are reachable before the tool itself is wired into a turn.
+  // Dev-only: run one `memory` tool command as an agent, without a model turn to issue it.
   app.post('/api/test-env/memory-command/:agentId', async (req, res, next) => {
     try {
       const agent = await mongo.autonomousAgents.findOne({ id: req.params.agentId }, { projection: { _id: 0 } })
@@ -107,21 +106,6 @@ if (process.env.NODE_ENV === 'development') {
       res.json({ result: await executeMemoryCommand(agentStoreId(agent.id), agent.owner, req.body.input, author, { allowDelete: true }) })
     } catch (err) { next(err instanceof MemoryConflictError ? httpError(409, err.message) : err instanceof MemoryCommandError ? httpError(400, err.message) : err) }
   })
-  // Dev-only seams for the boot sweep. A restart is not reproducible from a test — dev
-  // processes are user-managed — so `orphan-run` manufactures the state a dead process
-  // leaves behind and `sweep-interrupted-runs` invokes the same function server.ts calls
-  // at boot. Without these the sweep would ship asserted only in prose.
-  // Dev-only seams that make the per-conversation serialisation testable deterministically.
-  // Without them the "two messages back to back" test is a race: with an in-process
-  // executor the first turn often finishes before the second post lands, so the lock is
-  // never contended and the pickup path never runs — a test that passes while proving
-  // nothing.
-  // Dev-only. Enrolment cannot be completed in the dev stack at all: simple-directory's
-  // FileStorage cannot create the NHI (`Method not implemented.`), which is why two of
-  // Plan B's tests are skipped. The write routes call assertEnrolmentWorks and would
-  // therefore reject any nhi a test tried to set, leaving everything downstream of
-  // enrolment untestable. This writes the field directly so the runtime can be exercised
-  // against MCP servers that need no session (auth: 'none').
   /**
    * Create an autonomous agent with a CHOSEN id, and a real enrolment.
    *
@@ -169,6 +153,9 @@ if (process.env.NODE_ENV === 'development') {
   /**
    * Attach a PLACEHOLDER enrolment to an existing autonomous agent.
    *
+   * Enrolment cannot be completed in the dev stack (simple-directory's FileStorage cannot create the
+   * NHI), and the write routes call assertEnrolmentWorks, so they reject any nhi a test sets.
+   *
    * Deliberately not a real one: it unblocks the executor's "no enrolled identity" refusal so a test
    * can exercise everything downstream, and that is all. It proves nothing about the token exchange,
    * and it only suffices because the MCP servers those tests use are `auth: 'none'` and need no
@@ -182,6 +169,9 @@ if (process.env.NODE_ENV === 'development') {
     )
     res.send()
   })
+  // Make the per-conversation serialisation testable deterministically: with an in-process executor the
+  // first of two back-to-back messages often finishes before the second lands, so without a held lock
+  // the contended path never runs.
   app.post('/api/test-env/lock-conversation', async (req, res) => {
     res.json({ acquired: await locks.acquire(`conversation:${req.body.conversationId}`, 'test') })
   })
@@ -228,6 +218,7 @@ if (process.env.NODE_ENV === 'development') {
     clearPushedTaskEvents()
     res.send()
   })
+  // Manufactures the state a dead process leaves behind: a restart is not reproducible from a test.
   app.post('/api/test-env/orphan-run', async (req, res) => {
     await mongo.runs.updateOne(
       { id: req.body.runId },

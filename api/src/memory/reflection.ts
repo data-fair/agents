@@ -1,6 +1,6 @@
 /**
  * Memory reflection: an out-of-loop pass that reads a conversation of an agent with memory and updates
- * that memory (docs/architecture/agent-memory.md §5.2).
+ * that memory (docs/architecture/agent-memory.md).
  *
  * It reads the STORED conversation, which is complete and never rewritten — so nothing has to be
  * flushed before the turn's context is compacted, and the person never waits for it. It writes through

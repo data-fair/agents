@@ -65,9 +65,7 @@ router.get('/history', async (req, res, next) => {
  * The caller's OWN consumption on this account: their quota windows, and the shared budgets as a
  * status — with numbers only for an admin of the owner (`getSelfUsage`).
  *
- * Port of main's #74, which served it from the gateway (`GET /api/gateway/:type/:id/usage`). The
- * gateway is gone and this is a usage question, so it lives here. Same identity resolution as a turn
- * — anonymous action token included — so it reports exactly the usage the turn gate enforces, and
+ * Same identity resolution as a turn — anonymous action token included — so it reports exactly the usage the turn gate enforces, and
  * refuses exactly whom the gate refuses.
  */
 router.get('/:type/:id/self', async (req, res, next) => {

@@ -1,9 +1,7 @@
 // Experimental chat flags, stored positively (matching the Settings checkboxes).
-// Persisted in a cookie scoped to the agents service path so they ride along on
-// every chat-completion call (the server records them onto stored traces) AND
-// stay readable by readFlags() on the UI pages, so the toggles survive reloads.
-// NOTE: keep this module free of `~/context` imports — it is imported by the
-// unit-tested trace reconstruction layer. `writeFlags` takes apiPath from its caller.
+// Persisted in a cookie scoped to the agents service path, readable by readFlags() on the UI pages,
+// so the toggles survive reloads. `writeFlags` takes apiPath from its caller, so this module needs
+// no `~/context` import.
 
 export interface AgentFlags {
   // Render delegations as a plain tool chip instead of an expandable trace

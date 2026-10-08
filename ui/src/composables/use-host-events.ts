@@ -30,9 +30,7 @@ function sanitizeEvent (raw: any): AgentEvent | null {
  * lives on the far side now, and it is the same `HostEventStore` class, so forwarding raw events
  * reproduces the browser's retention and coalescing instead of reimplementing them.
  *
- * This was split out of a `useHostEvents` that fed a store here directly. That function is gone with
- * the in-browser loop; what had to survive the move is the channel protocol and `sanitizeEvent`,
- * because the BroadcastChannel is still an untrusted boundary: a buggy or hostile host can post
+ * The channel protocol and `sanitizeEvent` live here because the BroadcastChannel is an untrusted boundary: a buggy or hostile host can post
  * anything on it, and a malformed `at` or a non-string `key` corrupts what the model is told.
  *
  * Posts one `agent-state-request` so pages that mounted before this chat re-emit their keyed state

@@ -346,9 +346,8 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
     const owner = reqOwner(req)
     const conversation = await requireConversation(owner, req.params.conversationId)
     await requireAutonomousAgent(owner, conversation.agentId)
-    // Your own thread, and nobody else's. This used to be the agent grant, which made erasure available
-    // to every instructor of the agent — defensible when the timeline was shared, wrong now that it is
-    // one person's.
+    // Your own thread, and nobody else's: not the agent grant, which would make erasure available to
+    // every instructor of the agent.
     assertOwnsConversation(conversation, session)
 
     // A live turn is stopped first, or it would keep writing messages into a conversation that is being

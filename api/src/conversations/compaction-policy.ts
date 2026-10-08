@@ -1,7 +1,7 @@
 /**
  * Pure decision layer for history compaction: when to compact, what to summarize
  * and what to keep verbatim. Deliberately free of I/O so every branch is unit
- * tested — the previous implementation lived inline in use-agent-chat and never was.
+ * tested.
  *
  * The shape follows the append-only rule that prompt caching imposes: evict from
  * the head (old, re-fetchable) and keep the tail intact, because rewriting the

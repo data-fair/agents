@@ -167,10 +167,8 @@ export function moderationApplies (settings: Settings, role: string): boolean {
 /**
  * What a person is told when their message is refused by input moderation.
  *
- * It lives here, and in English, because of where the refusal is now produced. The gateway never
- * wrote this text: it ended the stream with an OpenAI `content_filter` finish reason and the browser
- * rendered its own localized string. With the loop on the server, the refusal IS the turn's stored
- * answer, so the text has to exist server-side.
+ * It lives here, and in English, because the refusal IS the turn's stored answer, so the text has to
+ * exist server-side.
  *
  * The English text is what the model, review and the export read. The person reads it in their own
  * language: the refused turn also stores a `data-refusal` part, which the chat localizes (see

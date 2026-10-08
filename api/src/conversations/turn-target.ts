@@ -276,13 +276,7 @@ export const conversationTarget = (
       )
       // What the page has reported, folded into the last user turn at CALL time.
       //
-      // This closes a gap the prototype had: the socket collected host state and host events into the
-      // store, `wait_for_user_action` consumed the events, and the retained state was never told to the
-      // model at all — so an assistant asked "what am I looking at?" had the answer in memory beside it
-      // and no way to read it.
-      //
-      // In the last USER message rather than in the system prompt, which is where the browser loop put it
-      // and for the same two reasons: the system prompt is the stable, cacheable prefix and page state
+      // In the last USER message rather than in the system prompt, for two reasons: the system prompt is the stable, cacheable prefix and page state
       // changes every turn, and state presented as a standing instruction reads to the model as a rule
       // rather than as an observation. Not persisted — it decorates this request only, so the stored
       // conversation stays a record of what was said rather than of what was on screen each time.

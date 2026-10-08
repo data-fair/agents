@@ -23,14 +23,6 @@ import { getAutonomousAgent, assertOrganizationOwner } from '../autonomous-agent
 const debug = Debug('df-agents:conversations')
 
 /**
- * Authorization for every runtime route.
- *
- * Deliberately NOT assertAccountRole(owner, 'admin'): a listed instructor may legitimately
- * be a member of another account (the cross-account instruct grant), so the owner's role is
- * not the rule. canInstruct is the single source of truth — it already grants admins of the
- * owning account, listed instructors from anywhere, and superadmins in admin mode.
- */
-/**
  * Who may START a conversation with this agent.
  *
  * Still a grant, and still the sentence that matters when adding someone: a configured agent acts with
@@ -71,8 +63,7 @@ export const requireAutonomousAgent = async (owner: AccountKeys, agentId: string
 /**
  * The agent a conversation names: a configured one from the store, or the personal assistant.
  *
- * ONE resolver, because the claim this prototype tests is that the loop does not care which it is
- * serving. Everything downstream — the system prompt, the tool gathering, the guards, the spend — reads
+ * ONE resolver, because the loop does not care which kind of agent it is serving. Everything downstream — the system prompt, the tool gathering, the guards, the spend — reads
  * the same shape; only the reserved id and the absence of an `nhi` distinguish them, and the second is
  * what the identity port keys on.
  *
@@ -174,9 +165,7 @@ export const createAnonymousConversation = async (
   const conversation: Conversation = {
     id: nanoid(),
     agentId,
-    // Typed organization-only by the schema, but a standard agent's thread may sit on a personal
-    // account as well — the HTTP create route stores whatever account the agent resolved to.
-    owner: owner as Conversation['owner'],
+    owner,
     userId: usageUserId,
     userName: 'Anonymous',
     anonymous: true,
@@ -460,14 +449,6 @@ export const createTaskRun = async (run: Omit<ConversationRun, 'id' | 'version'>
 }
 
 /**
- * Add one step's spend to a run, as it happens.
- *
- * $inc rather than a value written at finish time: a turn abandoned at its deadline keeps
- * streaming (abort() is only a request, and a provider may ignore it), and its later steps
- * are really billed through recordUsage. If the run's own numbers were written once when it
- * was closed out, the run and the usage records would then disagree about what was spent.
- */
-/**
  * Record whether this thread may be read by an admin of the account.
  *
  * One flag on the conversation, which is what the privacy model describes: the thread is stored
@@ -497,6 +478,7 @@ export const setRunSystemPrompt = async (id: string, systemPrompt: string) => {
   await mongo.runs.updateOne({ id }, { $set: { systemPrompt } })
 }
 
+/** Add one step's spend to a run, as it happens ($inc: a turn abandoned at its deadline keeps spending). */
 export const incrementRunSpend = async (id: string, credits: number, steps: number) => {
   const buffer = runBuffers.get(id)
   if (buffer) { buffer.credits += credits; buffer.steps += steps; return }

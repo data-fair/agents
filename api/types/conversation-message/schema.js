@@ -4,7 +4,7 @@ export default {
   title: 'Conversation message',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'conversationId', 'agentId', 'owner', 'seq', 'role', 'author', 'createdAt'],
+  required: ['id', 'conversationId', 'agentId', 'owner', 'seq', 'role', 'createdAt'],
   properties: {
     id: { type: 'string' },
     conversationId: { type: 'string' },
@@ -14,7 +14,7 @@ export default {
       additionalProperties: false,
       required: ['type', 'id'],
       properties: {
-        type: { type: 'string', enum: ['organization'] },
+        type: { type: 'string', enum: ['user', 'organization'] },
         id: { type: 'string' },
         name: { type: 'string' },
         department: { type: 'string' }
@@ -22,18 +22,6 @@ export default {
     },
     seq: { type: 'number', minimum: 1 },
     role: { type: 'string', enum: ['user', 'assistant'] },
-    // Mandatory. A shared timeline means several people contribute, so an unattributed
-    // message is unreadable and un-erasable.
-    author: {
-      type: 'object',
-      additionalProperties: false,
-      required: ['kind'],
-      properties: {
-        kind: { type: 'string', enum: ['user', 'autonomous-agent'] },
-        userId: { type: 'string' },
-        userName: { type: 'string' }
-      }
-    },
     /**
      * The turn's content, as the AI SDK's ORDERED UIMessagePart list.
      *

@@ -20,7 +20,6 @@ export default router
 
 // The literal `mcp-servers` segment MUST stay registered before the `/:agentId`
 // param route below, or Express matches it as an autonomous agent id.
-// api/src/traces/router.ts has the same constraint for its /conversation route.
 router.get('/:type/:id/mcp-servers', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
@@ -234,9 +233,8 @@ router.delete('/:type/:id/:agentId', async (req, res, next) => {
     // no longer exists, and would write messages into a conversation on its way out.
     await abortRunsOfAgent(req.params.agentId)
     clearAutonomousAgentSession(req.params.agentId)
-    // CASCADE. Deleting the agent used to leave its conversations, their messages and their runs behind
-    // for ever, with no route that could reach them — the agent they belonged to was gone, and every
-    // read path resolves through it. That is orphaned data an admin cannot see, cannot export and
+    // CASCADE. Every read path resolves through the agent, so its conversations, messages and runs
+    // left behind would be orphaned data an admin cannot see, cannot export and
     // cannot erase, which is not a defensible state for a store that now holds whole tool results.
     const removed = await deleteAutonomousAgentData(req.params.agentId)
 

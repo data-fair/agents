@@ -32,8 +32,8 @@ import {
  */
 type Turn = Omit<StoredTurn, 'id'>
 
-const userTurn = (text: string, author?: { userId?: string, userName?: string }): Turn => ({
-  role: 'user', parts: [{ type: 'text', text }], author
+const userTurn = (text: string): Turn => ({
+  role: 'user', parts: [{ type: 'text', text }]
 })
 
 /** A tool call and its answer are ONE part in the AI SDK's model, moved through its states. */
@@ -182,7 +182,7 @@ test.describe('storedTurnsToModelMessages', () => {
     // turn from reading as another's. A conversation belongs to one person now, so there is nobody to
     // confuse them with: the envelope and the system-prompt clause that made it meaningful are both
     // gone, and what the person typed is what the model sees.
-    const messages = await replay([userTurn('do it', { userId: 'u1', userName: 'Alice' })])
+    const messages = await replay([userTurn('do it')])
     assert.equal(userText(messages[0]), 'do it')
   })
 

@@ -43,9 +43,8 @@ type Settings = Awaited<ReturnType<typeof getSettings>>
  *
  * A `data-refusal` part: the AI SDK validates it without a schema and leaves it out of what the
  * model is sent, so the model, review and the export read the English text while the chat renders
- * its own localized sentence. The browser loop localized quota refusals itself (main's #74); on the
- * server the refusal is stored text, and without this every person read it in English — the
- * moderation refusal too, ever since the loop moved.
+ * its own localized sentence. The refusal is stored text, and without this every person would read it
+ * in English.
  *
  * For a quota, the same fields `quotaErrorBody` discloses: never the shared budgets' numbers.
  */
@@ -93,7 +92,7 @@ export const checkQuotas = async (
  *
  * Returns a turn result when the turn must not proceed, or undefined to carry on. A fail-open
  * (timeout or classifier error) carries on by design: the gate must not take the service down with
- * it, which is the trade the gateway made too and the reason the event records WHY it opened.
+ * it, which is why the event records WHY it opened.
  */
 export const moderateTurn = async (
   run: ConversationRun,

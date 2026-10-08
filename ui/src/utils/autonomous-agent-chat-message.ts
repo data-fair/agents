@@ -17,16 +17,11 @@ import type { MessagePart } from '@agents/shared/message-parts'
 /**
  * The stored message as the UI reads it, described structurally so `shared/` needs no `#types`
  * alias (which resolves only inside the api workspace).
- *
- * Wider than the mapper itself needs: `runId` is not part of a ChatMessage at all, but it travels with
- * the message and the run-status strip reads it — that is where anything the transcript cannot carry
- * is surfaced.
  */
 export interface StoredConversationMessage {
   seq: number
   role: 'user' | 'assistant'
   pending?: boolean
-  runId?: string
   /**
    * The turn's ordered parts, as stored. This is the conversation of record — the same shape the model
    * is replayed from — so the UI renders the same thing the model saw rather than a parallel summary
@@ -95,23 +90,4 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
     }
   }
   return chat
-}
-
-/** In seq order, whatever order they arrived in — an incremental fetch does not promise one. */
-export function messagesToChat (messages: StoredConversationMessage[]): ChatMessage[] {
-  return [...messages].sort((a, b) => a.seq - b.seq).map(autonomousAgentMessageToChat)
-}
-
-/**
- * Merge an incremental batch into what is already held, keyed on `seq`.
- *
- * Keyed on seq rather than appended, because `?sinceVersion=` returns a message that was UPDATED
- * IN PLACE — the assistant's answer being filled in keeps its seq — so appending would duplicate
- * it on every revision.
- */
-export function mergeBySeq<T extends { seq: number }> (existing: T[], incoming: T[]): T[] {
-  if (!incoming.length) return existing
-  const bySeq = new Map(existing.map(message => [message.seq, message]))
-  for (const message of incoming) bySeq.set(message.seq, message)
-  return [...bySeq.values()].sort((a, b) => a.seq - b.seq)
 }

@@ -581,9 +581,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
                 // A JSON STRING, not a parsed object: LanguageModelV3's tool-call part is the
                 // raw provider payload, and the SDK parses and validates it itself (it calls
                 // .trim() on this). Emitting an object made every SDK-side tool execution
-                // fail with "toolCall.input.trim is not a function" — invisible until now,
-                // because the gateway handed tool calls to the browser to execute and no test
-                // had ever let the SDK run one server-side.
+                // fail with "toolCall.input.trim is not a function".
                 input: call.toolArgs || '{}'
               } as any)
             })

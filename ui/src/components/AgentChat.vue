@@ -168,12 +168,7 @@ const props = defineProps<{
   isAdmin?: boolean
   title?: string
   /**
-   * Which standard agent to talk to, by id. Replaces the former `systemPrompt` prop.
-   *
-   * Not yet consulted on THIS path: the browser loop assembles its own instructions and sends them to
-   * the gateway as `system`, so the gateway's client has full control of them by construction and no
-   * prop here can take that away. The id is carried so hosts migrate once; it becomes load-bearing when
-   * this component is pointed at the server-held session, which resolves the persona itself.
+   * Which standard agent to talk to, by id. The server resolves its persona and instructions.
    */
   agentId?: string
   narrowViewport?: boolean
@@ -274,7 +269,7 @@ const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
 const showReasoningEnabled = ref(initialFlags.showReasoning)
 
-const chatResult = useSessionChat({
+const chat = useSessionChat({
   accountType: props.accountType,
   accountId: props.accountId,
   // The page's `?agentId=` first, then the embedding component's init config: the drawer, menu and
@@ -299,13 +294,6 @@ const chatResult = useSessionChat({
     return t(`quota_${refusal.period ?? 'monthly'}`, { date })
   }
 })
-
-if (!chatResult) {
-  throw new Error('Chat not supported in SSR')
-}
-// chatResult is guaranteed to be defined after the throw guard above
-// but TypeScript doesn't narrow across script setup scope, so we re-bind
-const chat = chatResult
 
 const audited = computed(() => isAuditedAgentId(chat.activeAgentId.value))
 
@@ -497,7 +485,7 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   actionVisiblePrompt.value = visiblePrompt
   mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET
 
-  // The hidden context rides inside this user turn (see use-agent-chat sendMessage)
+  // The hidden context rides inside this user turn (see startActionSession)
   // instead of mutating the session system prompt, so it stays scoped to the turn
   // and surfaces in the trace reviewer.
   chat.sendMessage(visiblePrompt, { hiddenContext })

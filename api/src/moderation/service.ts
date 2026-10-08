@@ -19,7 +19,7 @@ import {
   STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
   type ModerationVerdict
 } from './operations.ts'
-import type { ModerationEvent, ModerationEventAction, ModerationVerdictRecord } from './types.ts'
+import type { ModerationEvent, ModerationEventAction } from './types.ts'
 
 // Run a moderator generateObject call with thinking disabled: reasoning_effort:none is
 // honoured by OpenAI-compatible reasoning models (Scaleway/GLM, …) so the short token
@@ -106,10 +106,6 @@ export interface ModerationRun {
   gate: Promise<ModerationGateResult>
   // fired if a block verdict arrives after the gate already failed open
   onLateBlock: (cb: () => void) => void
-  // best-known verdict info for trace embedding (undefined until the check settles)
-  traceInfo: () => ModerationVerdictRecord | undefined
-  // credits of the classifier call once it settled (0 before, or when it failed)
-  cost: () => number
   // the classifier call itself once it settled, for a caller that records per-call telemetry
   call: () => ModerationCall | undefined
 }
@@ -142,12 +138,10 @@ export function startModeration (params: {
 
   let lateBlockCb: (() => void) | undefined
   let timedOut = false
-  let trace: ModerationVerdictRecord | undefined
-  let cost = 0
   let call: ModerationCall | undefined
 
   // Exactly one event per check, written when the check settles.
-  const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { failOpen?: 'timeout' | 'error' }) => {
+  const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict) => {
     const latencyMs = Date.now() - startedAt
     recordEvent({
       ...eventBase,
@@ -157,13 +151,6 @@ export function startModeration (params: {
       latencyMs,
       ...(action === 'block' || action === 'late-block' ? { messageExcerpt: truncateExcerpt(params.message) } : {})
     })
-    trace = {
-      action: verdict?.action ?? 'allow',
-      ...(verdict?.category ? { category: verdict.category } : {}),
-      ...(verdict?.reason ? { reason: verdict.reason } : {}),
-      latencyMs,
-      ...(opts?.failOpen ? { failOpen: opts.failOpen } : {})
-    }
     // Strikes accrue for untrusted callers only — they drive the cooldown
     // lockout, which must never apply to trusted (org-member) callers even when
     // their category is moderated. Their messages are still blocked one by one.
@@ -197,7 +184,6 @@ export function startModeration (params: {
       entry,
       config.eurosPerCredit
     )
-    cost = credits.total
     call = {
       entry,
       usage: {
@@ -233,10 +219,10 @@ export function startModeration (params: {
       finalize('late-block', verdict)
       lateBlockCb?.()
     } else {
-      finalize('fail-open-timeout', verdict, { failOpen: 'timeout' })
+      finalize('fail-open-timeout', verdict)
     }
   }, () => {
-    finalize('fail-open-error', undefined, { failOpen: 'error' })
+    finalize('fail-open-error')
   })
 
   const gate: Promise<ModerationGateResult> = Promise.race([
@@ -247,12 +233,6 @@ export function startModeration (params: {
     new Promise<ModerationGateResult>(resolve => {
       const timer = setTimeout(() => {
         timedOut = true
-        // Publish a provisional trace verdict now: the response (and its trace)
-        // is recorded the instant the gate opens, which is before the real
-        // verdict settles and runs finalize(). Without this, the fail-open —
-        // the verdict an admin most needs to see — is silently dropped from the
-        // trace. finalize() overwrites it later for the event/late-block paths.
-        trace = { action: 'allow', failOpen: 'timeout', latencyMs: Date.now() - startedAt }
         resolve({ action: 'allow', timedOut: true })
       }, MODERATION_TIMEOUT_MS)
       // do not keep the process alive for the gate timer alone
@@ -260,7 +240,7 @@ export function startModeration (params: {
     })
   ])
 
-  return { gate, onLateBlock: (cb) => { lateBlockCb = cb }, traceInfo: () => trace, cost: () => cost, call: () => call }
+  return { gate, onLateBlock: (cb) => { lateBlockCb = cb }, call: () => call }
 }
 
 // ---- admin probe ----

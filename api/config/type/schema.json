@@ -200,14 +200,14 @@
     "turnCredits": {
       "type": "number",
       "title": "Turn credit budget",
-      "description": "Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this. Formerly autonomousAgentRunCredits.",
+      "description": "Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this.",
       "default": 5,
       "minimum": 0
     },
     "turnTimeoutSeconds": {
       "type": "number",
       "title": "Turn timeout (seconds)",
-      "description": "Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock. Formerly autonomousAgentRunTimeoutSeconds.",
+      "description": "Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock.",
       "default": 300,
       "minimum": 10
     }

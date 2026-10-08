@@ -63,7 +63,7 @@ export const loadHistory = async (
     .find(
       { conversationId, seq: recap ? { $gt: recap.coversUpToSeq, $lt: upToSeq } : { $lt: upToSeq } },
       // Only what builds the model's context. The whole post-recap window is materialised for every
-      // turn — bounded by compaction, but loaded in full — and `author`, `createdAt`, `updatedAt`,
+      // turn — bounded by compaction, but loaded in full — and `createdAt`, `updatedAt`,
       // `version`, `pending`, `runId` and `owner` were coming with it and reaching nothing. `id` and
       // `seq` stay: the replay reports which message it rejected, and `seqs` maps the compaction cut
       // back onto stored messages.
@@ -160,10 +160,9 @@ export const compactHistory = async (
     })
     const summary = generated.text
 
-    // A compaction is a real model call, so it is BILLED like one. It used to record only a trace —
-    // itself gated on settings.storeTraces, which is off by default — so summarizer tokens reached no
-    // ledger at all: not the run, not the account credit cap, not the usage histogram. The executor
-    // talks to the provider directly — there is no gateway in between any more — so nothing else would have.
+    // A compaction is a real model call, so it is BILLED like one: the executor talks
+    // to the provider directly, so nothing else records the summarizer tokens in the run, the account
+    // credit cap or the usage histogram.
     const compactionCredits = computeCreditBreakdown(
       {
         inputTokens: generated.usage?.inputTokens ?? 0,

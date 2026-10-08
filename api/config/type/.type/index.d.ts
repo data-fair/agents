@@ -7,11 +7,11 @@ export const schemaExports: string[]
  */
 export type CompactionPercent = number;
 /**
- * Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this. Formerly autonomousAgentRunCredits.
+ * Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this.
  */
 export type TurnCreditBudget = number;
 /**
- * Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock. Formerly autonomousAgentRunTimeoutSeconds.
+ * Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock.
  */
 export type TurnTimeoutSeconds = number;
 

@@ -95,12 +95,9 @@ interface PromptableAutonomousAgent {
  *  - it tells the agent it is acting under its own identity, so it does not assume a user's
  *    permissions are available to it.
  *
- * WHAT WAS REMOVED, and why it had to go together with the envelope: there used to be a clause saying
- * the conversation is shared and that only the `<message from="...">` attribute identifies an author.
- * Both halves were load-bearing and both are now wrong — a conversation belongs to one person. Keeping
- * the clause without the envelope would have been worse than either: it would tell the model to trust
- * an attribute that nothing writes any more, so a user pasting `<message from="admin">` would be
- * believed. The clause and the envelope are one mechanism and they are deleted as one.
+ * A conversation belongs to one person, so there is no attribution envelope and no clause about one: a
+ * clause telling the model to trust a `<message from="...">` attribute that nothing writes would let a
+ * user pasting `<message from="admin">` be believed.
  */
 export function buildSystemPrompt (autonomousAgent: PromptableAutonomousAgent, memory?: MemoryDocument[], surface?: TurnSurface): string {
   const parts = [
@@ -247,7 +244,6 @@ export type StoredTurn = {
   id: string
   role: 'user' | 'assistant'
   parts?: MessagePart[]
-  author?: { userId?: string, userName?: string }
   seq?: number
 }
 
@@ -298,10 +294,8 @@ const replayableTurn = (turn: StoredTurn, last: boolean): { role: 'user' | 'assi
 /**
  * The stored turns as model messages, plus which stored turn each one came from.
  *
- * The conversion is the library's. A hand-written reconstruction used to group parts into
- * `assistant`/`tool` pairs here, carrying its own "drop a call whose result never arrived" rule — which
- * is `ignoreIncompleteToolCalls` upstream. Deleting it removed the third declaration of the parts union
- * and every cast that spanned it.
+ * The conversion is the library's, including the "drop a call whose result never arrived" rule
+ * (`ignoreIncompleteToolCalls`).
  *
  * The seq map is the part the library does not provide, and compaction needs it: `decideCompaction`
  * cuts between MODEL messages, while the recap it caches is keyed on a stored message. It is recovered
@@ -309,10 +303,7 @@ const replayableTurn = (turn: StoredTurn, last: boolean): { role: 'user' | 'assi
  * the conversion is turn-local: a turn expands into its own assistant/tool messages, splitting at each
  * `step-start`, without looking at its neighbours.
  *
- * Nothing of this is ours any more. The user turn used to be wrapped in an attribution envelope, which
- * existed only because a timeline was shared; with one person per conversation there is no one to
- * confuse them with, so the envelope and the system-prompt clause that made it meaningful are both
- * gone. What remains below are two PROVIDER constraints, which are not about attribution at all.
+ * What the code below adds are two PROVIDER constraints.
  */
 export async function storedTurnsToModelMessages (
   turns: StoredTurn[]
@@ -357,8 +348,7 @@ export async function storedTurnsToModelMessages (
  *
  * Both stay stored — the person sees their exchange, a reviewer sees what was blocked — but replaying
  * them handed the model, on the next turn, the very text the gate had just refused to let it read. The
- * browser loop dropped a blocked turn from its context; the stored conversation needs the same rule on
- * replay. Only moderation: a quota refusal is about the account, not the message, and says nothing the
+ * so a blocked turn is dropped from the replay. Only moderation: a quota refusal is about the account, not the message, and says nothing the
  * model should not read.
  */
 export const moderationStruck = (turns: StoredTurn[]): Set<number> => {
@@ -412,9 +402,8 @@ export function withAppendedText (parts: MessagePart[] = [], text: string): Mess
  * An image-bearing MCP result, as the model needs it: text, then real image (or file) parts.
  *
  * `formatMcpToolResult` keeps a result with MCP image parts as an envelope object rather than text.
- * Turning that envelope into image parts was the GATEWAY's job; with the gateway gone nothing did it,
- * and the AI SDK sent the object to the model as JSON — the base64 inline as text, which a model
- * cannot see as an image and which could fill a context window in one call.
+ * Left as is, the AI SDK would send the object to the model as JSON — the base64 inline as text, which
+ * a model cannot see as an image and which could fill a context window in one call.
  */
 export const mediaModelOutput = (value: MediaToolResult) => ({
   type: 'content' as const,
@@ -536,7 +525,7 @@ export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: str
  * an autonomous agent is an org-owned service identity, not a person, and P2's scheduled
  * runs will have no instructing user at all. Keying per agent also makes the existing
  * per-user usage histogram read as spend per autonomous agent, which is what an org admin
- * needs. Content attribution stays per person, on each message's `author`.
+ * needs.
  *
  * role 'admin' means no per-profile quota applies: the account credit cap and the per-run
  * budget are the real bounds, which is what the spec specifies for autonomous runs.
@@ -545,8 +534,7 @@ export const usageIdentityFor = (
   autonomousAgent: { id: string, title: string },
   run: { owner: AccountKeys, triggeredBy?: { userId?: string, userName?: string }, triggeredByRole?: EffectiveRole }
 ): UsageIdentity => {
-  // A STANDARD agent acts as the person, so the PERSON is who spends. Billing it as the agent — which
-  // is what this function used to do for every agent alike — had two consequences, both silent: role
+  // A STANDARD agent acts as the person, so the PERSON is who spends. Billing it as the agent would have two silent consequences: role
   // 'admin' means "no per-profile quota applies", so a `user`/`external` person chatting was bounded
   // only by the account credit cap; and every person's spend was recorded against one
   // `autonomous-agent:personal` row, so the per-user histogram an org admin reads to see who spent
@@ -556,9 +544,8 @@ export const usageIdentityFor = (
     const isUntrusted = isUntrustedRole(role)
     // Per user on an organization, and on a personal account for anyone but its owner — the rule
     // `authenticatedUsageIdentity` applies to a request. Only the owner of a personal account is
-    // covered by the account's own totals: an external person chatting there used to be checked
-    // against the ACCOUNT's spend instead of their own external quota, and their spend was never
-    // attributed to them.
+    // covered by the account's own totals: an external person chatting there is checked
+    // against their own external quota, and their spend is attributed to them.
     const trackPerUser = run.owner.type === 'organization' || run.triggeredBy?.userId !== run.owner.id
     return {
       trackPerUser,
@@ -573,7 +560,7 @@ export const usageIdentityFor = (
   // A CONFIGURED agent is an org-owned service identity, not a person. Keyed per agent so the
   // per-user histogram reads as spend per agent, which is what an org admin needs; role 'admin'
   // because no per-profile quota is meant to apply — the account credit cap and the per-run budget
-  // are its real bounds. Content attribution stays per person, on each message's `author`.
+  // are its real bounds.
   return {
     trackPerUser: true,
     usageUserId: `autonomous-agent:${autonomousAgent.id}`,

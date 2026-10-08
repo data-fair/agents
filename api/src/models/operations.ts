@@ -46,8 +46,7 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
 
 /**
  * A request that offers TOOLS is served by a non-streaming call, replayed as a stream; any other
- * request streams as usual. See streamedToolCallsBroken: the gateway did this for those models, and
- * the server loop lost it with the gateway — a tool-using turn on GLM through Scaleway then ended
+ * request streams as usual. See streamedToolCallsBroken: without it a tool-using turn on GLM through Scaleway ends
  * silently, its tool call dropped by the upstream.
  */
 export const nonStreamingWithTools: LanguageModelMiddleware = (() => {
@@ -120,8 +119,7 @@ export const UNKNOWN_CONTEXT_WINDOW = 128_000
  * other Scaleway model tested (qwen3.5-397b, qwen3-235b, gpt-oss-120b — itself a
  * reasoning model — and devstral-2-123b) streams tool calls fine, so this is a
  * model-specific serving bug, not a provider-wide one. Worked around by serving a request that
- * offers tools from a NON-streaming call (`nonStreamingWithTools`, applied by createModel) — what
- * the gateway did, until it was removed and with it the workaround, for a while. Covers both the direct `scaleway` provider (model id "glm-5.2") and
+ * offers tools from a NON-streaming call (`nonStreamingWithTools`, applied by createModel) Covers both the direct `scaleway` provider (model id "glm-5.2") and
  * the `openai-compatible` → LiteLLM passthrough (model id "glm-5.2-scw").
  *
  * Re-check whether the upstream is still broken with `dev/scripts/scw-toolcall-probe.mjs`;

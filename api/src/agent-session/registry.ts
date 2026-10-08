@@ -54,6 +54,3 @@ export const detachSession = (conversationId: string, session: AgentSession) => 
  * turn simply has no page tools and streams to no one; the stored message is still the record.
  */
 export const sessionFor = (conversationId: string): AgentSession | undefined => byConversation.get(conversationId)
-
-/** How many conversations have a watcher. The prototype's per-conversation cost signal. */
-export const attachedSessionCount = () => byConversation.size

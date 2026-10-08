@@ -11,11 +11,10 @@ export interface StoredMessageLike {
   seq: number
   role: 'user' | 'assistant'
   parts: MessagePart[]
-  author?: { kind: 'task' }
   runId?: string
 }
 
 export const runAsMessages = (run: { id: string, prompt?: string, parts?: unknown[] }): StoredMessageLike[] => [
-  { seq: 1, role: 'user', parts: [textPart(run.prompt ?? '')], author: { kind: 'task' } },
+  { seq: 1, role: 'user', parts: [textPart(run.prompt ?? '')] },
   { seq: 2, role: 'assistant', parts: (run.parts ?? []) as MessagePart[], runId: run.id }
 ]

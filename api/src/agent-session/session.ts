@@ -31,18 +31,16 @@ export interface AgentSessionOptions {
   /**
    * Whether the person consented to their conversation being stored for admin review.
    *
-   * Read from the same cookie the gateway read as a header, at upgrade. It exists because the chat's
+   * Read from the cookie at upgrade. It exists because the chat's
    * privacy model has two layers: the conversation is stored so the person can come back to it and is
    * NOT visible to org admins, while a trace is admin-visible and therefore needs the person's
-   * explicit yes. Moving the loop server-side did not change what is being disclosed to whom, so it
-   * must not change who gets asked.
+   * explicit yes.
    */
   traceConsent?: boolean
   /**
    * Whether this account stores traces at all — advertised to the client on `attached`.
    *
-   * Replaces the gateway's `x-trace-storage: available` response header. It is what makes the chat
-   * show its consent sheet, so without it nobody can ever answer and the server-side consent gate
+   * It is what makes the chat show its consent sheet, so without it nobody can ever answer and the server-side consent gate
    * fails closed permanently.
    */
   traceStorage?: boolean
@@ -82,9 +80,7 @@ export interface AgentSession {
   /**
    * What the page has reported: retained state, and what the person has done.
    *
-   * The SAME store the browser loop used — `shared/host-events.ts` turned out to be free of Vue and of
-   * every browser API, so moving host events server-side was a move rather than a rewrite. The page now
-   * feeds it over the socket instead of directly, and `createWaitTool` works against it unchanged.
+   * The page feeds it over the socket, and `createWaitTool` works against it.
    */
   hostEvents: HostEventStore
   /**
@@ -180,8 +176,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           if (message.conversationId && message.conversationId !== boundTo) hostEvents.clearPending()
           boundTo = message.conversationId
           if (message.conversationId) options.onAttach?.(message.conversationId)
-          // conversationId is echoed back so a client that sent none learns the one it got. The
-          // conversation itself is §4.4's work; until then the session reports what it was given.
+          // conversationId is echoed back so a client that sent none learns the one it got.
           send({
             type: 'attached',
             conversationId: message.conversationId ?? 'pending',
