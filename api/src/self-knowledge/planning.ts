@@ -36,15 +36,24 @@ const forModel = (value: any): any => {
 }
 const taskSchema = forModel(taskWriteReqSchema)
 
-const APPROVAL_NOTE = 'The person in this chat will see the task and approve or reject it; nothing changes until they approve.'
+// Both halves: before the call, the person decides; once its result is in, it is done. Told only the
+// first, a judged run kept saying an approved and stored task still awaited approval, invented a
+// missing approval screen, and the person had the task deleted.
+const APPROVAL_NOTE = 'The person in this chat will see the task and approve or reject it; nothing changes until they approve. ' +
+  'When you receive this tool\'s result, the person has already approved it and the change is done: say so, never tell them it still needs approval.'
 const REFUSAL_NOTE = 'A refusal for the schedule, the minimum interval or the task cap is final: do not retry the same input, tell the person.'
 const SCHEDULE_NOTE = 'Schedules use the rule format of data-fair processings (see the schema): one or more monthly, weekly, daily or every-N-hours rules, each at a time in a time zone.'
 
 /** An HTTP error from the task service (400 cap or interval, invalid input, 404) keeps its status in the text. */
 const guarded = <T>(write: () => Promise<T>): Promise<T> => write().catch(asToolError)
 
-const planned = (task: { id: string, title: string, scheduling: unknown, nextRunAt?: string }) =>
-  `Task "${task.title}" planned (id ${task.id}): ${describeScheduling(task.scheduling as ScheduleRule[], 'en')}, next run ${task.nextRunAt ?? 'none'}.`
+// The result names the approval and the state the task is now in, so the model reports an outcome
+// rather than a request still in flight.
+const approvedBy = (actor: TaskActor) => `Approved by ${actor.userName ?? actor.userId}.`
+const planned = (actor: TaskActor, verb: 'planned' | 'updated', task: { id: string, title: string, scheduling: unknown, nextRunAt?: string, enabled: boolean }) => {
+  const when = `${describeScheduling(task.scheduling as ScheduleRule[], 'en')}, next run ${task.nextRunAt ?? 'none'}`
+  return `${approvedBy(actor)} Task "${task.title}" is ${verb} (id ${task.id}) and ${task.enabled ? `active: ${when}` : 'disabled: it will not run until it is enabled'}.`
+}
 
 export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<string, Tool> => {
   const owner = run.owner as AccountKeys
@@ -71,7 +80,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       needsApproval: true,
       execute: async (input: unknown) => {
         const task = await guarded(async () => createTask(owner, agent, taskWriteReq.returnValid(input, { name: 'input' }), actor(), log()))
-        return planned(task)
+        return planned(actor(), 'planned', task)
       }
     }),
     update_task: tool({
@@ -85,7 +94,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       execute: async (input: any) => {
         const { taskId, ...body } = input ?? {}
         const task = await guarded(async () => updateTask(owner, agent, String(taskId ?? ''), taskWriteReq.returnValid(body, { name: 'input' }), actor(), log()))
-        return planned(task)
+        return planned(actor(), 'updated', task)
       }
     }),
     delete_task: tool({
@@ -97,7 +106,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
         // Read first: a task deleted since the call was asked is a 404 here, not a silent success.
         const { title } = await guarded(() => getTask(owner, agent.id, taskId))
         await guarded(async () => deleteTask(owner, agent.id, taskId, log()))
-        return `Task "${title}" deleted.`
+        return `${approvedBy(actor())} Task "${title}" is deleted.`
       }
     })
   }

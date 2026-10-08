@@ -88,7 +88,9 @@ test.describe('Planning tools', () => {
     assert.equal(task.title, 'Weekly digest')
     assert.equal(task.createdBy.userId, 'test1-admin1')
     assert.equal(task.createdBy.conversationId, asked.conversationId)
-    assert.ok(part.output.includes(`Task "Weekly digest" planned (id ${task.id}): every Monday at 08:00 (Europe/Paris), next run ${task.nextRunAt}.`), part.output)
+    // The result states the outcome, so the model reports it rather than an approval still pending.
+    const by = task.createdBy.userName ?? task.createdBy.userId
+    assert.ok(part.output.includes(`Approved by ${by}. Task "Weekly digest" is planned (id ${task.id}) and active: every Monday at 08:00 (Europe/Paris), next run ${task.nextRunAt}.`), part.output)
 
     const fired = (await admin.post('/api/test-env/scheduler-pass', { now: new Date(Date.parse(task.nextRunAt) + 30_000).toISOString() })).data
     assert.equal(fired.fired, 1)
@@ -148,12 +150,18 @@ test.describe('Planning tools', () => {
     const [stored] = await tasksOf(agent.id)
     assert.equal(stored.title, 'Renamed digest')
     assert.equal(stored.updatedBy.userId, 'test1-admin1')
-    assert.ok(updated.part.output.includes(`Task "Renamed digest" planned (id ${task.id}): every Monday at 08:00 (Europe/Paris), next run ${stored.nextRunAt}.`), updated.part.output)
+    const by = stored.updatedBy.userName ?? stored.updatedBy.userId
+    assert.ok(updated.part.output.includes(`Approved by ${by}. Task "Renamed digest" is updated (id ${task.id}) and active: every Monday at 08:00 (Europe/Paris), next run ${stored.nextRunAt}.`), updated.part.output)
 
     const deleted = await decide(await ask(agent.id, 'delete_task', { taskId: task.id }), 'delete_task', { approved: true })
     assert.equal(deleted.part.state, 'output-available', JSON.stringify(deleted.part))
-    assert.ok(deleted.part.output.includes('Task "Renamed digest" deleted.'), deleted.part.output)
+    assert.ok(deleted.part.output.includes(`Approved by ${by}. Task "Renamed digest" is deleted.`), deleted.part.output)
     assert.deepEqual(await tasksOf(agent.id), [])
+
+    // Disabled by the change, it says so rather than "active".
+    const paused = (await admin.post(`${AGENTS}/${agent.id}/tasks`, digest)).data
+    const disabled = await decide(await ask(agent.id, 'update_task', { taskId: paused.id, ...digest, enabled: false }), 'update_task', { approved: true })
+    assert.ok(disabled.part.output.includes(`Task "Weekly digest" is updated (id ${paused.id}) and disabled: it will not run until it is enabled.`), disabled.part.output)
   })
 
   test('a task run is offered none of the planning tools, even with every approval on allow', async () => {
