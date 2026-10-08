@@ -269,7 +269,13 @@ export function useAgentSession (options: AgentSessionClientOptions) {
           debug('ignored an unrecognised server frame')
           return
         }
-        handle(message)
+        // A known frame is not re-checked field by field (see parseServerMessageForClient), so one
+        // with a broken shape could throw here: logged, and the socket keeps reading the next frames.
+        try {
+          handle(message)
+        } catch (err) {
+          console.error(`[df-agents] could not handle a ${message.type} frame`, err)
+        }
       }
       ws.onclose = () => {
         connected.value = false

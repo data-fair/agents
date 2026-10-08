@@ -112,7 +112,10 @@ test.describe('parseClientMessage', () => {
     assert.equal(reason({ type: 'hello', tools: [], account: null }), 'account must be { type: "user" | "organization", id } when present')
     assert.equal(reason({ type: 'prompt', content: '   ' }), 'content must be a non-blank string')
     assert.equal(reason({ type: 'tool-result', callId: 'c' }), 'a tool-result carries exactly one of result or error')
-    assert.equal(reason({ type: 'host-events', events: [{ name: '', at: 1 }] }), 'each event needs a non-empty name and a numeric at')
+    const eventReason = 'each event needs a non-empty name and a numeric at, and detail and key must be strings when present'
+    assert.equal(reason({ type: 'host-events', events: [{ name: '', at: 1 }] }), eventReason)
+    assert.equal(reason({ type: 'host-events', events: [{ name: 'saved', at: 1, detail: 3 }] }), eventReason)
+    assert.equal(reason({ type: 'host-events', events: [{ name: 'saved', at: 1, key: {} }] }), eventReason)
     assert.equal(reason({ type: 'approval', approvalId: 'a1', approved: false, reason: 'x'.repeat(1001) }), 'reason must be a string of at most 1000 characters')
     assert.equal(reason([]), 'a message must be an object')
   })

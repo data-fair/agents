@@ -5,6 +5,9 @@
 // Unknown properties are stripped rather than refused (`removeAdditional`), as they always were.
 // The one rule a schema cannot state — tool names unique within a list — is checked by
 // `parseClientMessage` right after this validator.
+//
+// The generated validator (.type/validate.js, ajv standalone) is ESM-only and imports ajv's runtime and
+// @data-fair/lib-validation, hence those dependencies of the shared workspace: import it, never require it.
 
 const TOOLS_MESSAGE = 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}'
 
@@ -188,7 +191,7 @@ export default {
           type: 'array',
           items: hostEventFrame,
           // These reach the model's context as prose, and `at` orders the coalescing.
-          errorMessage: { type: 'events must be an array', _: 'each event needs a non-empty name and a numeric at' }
+          errorMessage: { type: 'events must be an array', _: 'each event needs a non-empty name and a numeric at, and detail and key must be strings when present' }
         }
       }
     },

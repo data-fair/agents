@@ -36,11 +36,11 @@ import { getSettings } from '../settings/service.ts'
 const debug = Debug('agents:agent-session')
 
 /**
- * The `error` frame for a refusal or a failure: the status an `httpError` carries (400 malformed, 403
- * not allowed, 404 unknown, 409 conflict…), 500 for anything that has none.
+ * The `error` frame for a refusal or a failure: the 4xx status an `httpError` carries (400 malformed,
+ * 403 not allowed, 404 unknown, 409 conflict…), 500 for anything else.
  */
 const errorFrame = (err: any, fallback: string): ServerMessage =>
-  ({ type: 'error', status: typeof err?.status === 'number' ? err.status : 500, message: err?.message || fallback })
+  ({ type: 'error', status: err?.status >= 400 && err?.status < 500 ? err.status : 500, message: err?.message || fallback })
 
 /** Live sessions, so a turn started elsewhere can reach the browser that owns it. */
 const sessions = new Map<WebSocket, AgentSession>()
@@ -74,7 +74,7 @@ export const startAgentSessions = (server: Server) => {
     // The attach in progress: a prompt sent right behind the hello waits for it, or its turn could
     // start before this socket is registered as the watcher, without the page's tools.
     let attaching: Promise<void> = Promise.resolve()
-    // The turn starts asked for so far, chained so they happen in the order they were sent.
+    // The turn starts and Stops asked for so far, chained so they happen in the order they were sent.
     let prompts: Promise<void> = Promise.resolve()
     // What the first prompt of a connection bound to nothing creates, as its hello named it.
     let newThread: { owner: AccountKeys, agentId: string } | undefined
@@ -121,12 +121,15 @@ export const startAgentSessions = (server: Server) => {
       onAbort: (dismissWait) => {
         const conversationId = boundConversationId
         if (!conversationId) return
-        const allowed = attaching.then(() => sessionState?.user
-          ? resolveOwnConversation(conversationId).then(() => true)
-          : anonymousThread?.id === conversationId)
-        allowed.then(async ok => {
+        // Behind the prompts sent before it: a Stop right after a send must reach the run that send
+        // creates, not run before it exists.
+        prompts = prompts.then(async () => {
+          await attaching
+          const ok = sessionState?.user
+            ? await resolveOwnConversation(conversationId).then(() => true)
+            : anonymousThread?.id === conversationId
           if (!ok) return
-          abortRunsOfConversation(conversationId, 'stop')
+          await abortRunsOfConversation(conversationId, 'stop')
           // Declining a handover: settled as stopped, and nothing runs — there is nothing to answer.
           if (dismissWait) await settlePendingWait(conversationId, () => INTERRUPTED_RESULTS.stop)
         }).catch((err: any) => { send(errorFrame(err, 'the turn could not be stopped')) })
@@ -192,15 +195,13 @@ export const startAgentSessions = (server: Server) => {
         // below has no reason to read it again. An anonymous visitor's is checked inside the turn start.
         //
         // Started IN ORDER, one at a time: two prompts sent back to back would otherwise race to store
-        // their message, and the second's abort would miss the run the first was still creating.
+        // their message. Each turn start stops the conversation's running turns first (see
+        // startSessionTurn), so the later message is the one answered.
         prompts = prompts.then(async () => {
           await attaching
           const { owner, conversation } = caller.kind === 'anonymous'
             ? { owner: anonymousThread!.owner, conversation: undefined }
             : await resolveOwnConversation(conversationId).then(conversation => ({ owner: { type: conversation.owner.type, id: conversation.owner.id }, conversation }))
-          // Speaking takes the turn back: a live turn is stopped, and a pending wait is answered by the
-          // message itself (settled in startSessionTurn). Harmless when nothing is live.
-          abortRunsOfConversation(conversationId)
           await startSessionTurn({
             conversationId,
             owner,
@@ -305,7 +306,7 @@ export const startAgentSessions = (server: Server) => {
       const thread = anonymousThread
       if (!thread) return
       anonymousThread = undefined
-      abortRunsOfConversation(thread.id)
+      await abortRunsOfConversation(thread.id)
       await purgeConversation(thread.id)
     }
 

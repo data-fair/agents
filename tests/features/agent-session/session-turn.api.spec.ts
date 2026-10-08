@@ -13,6 +13,7 @@ import { openAgentSession, newThreadHello, type AgentSessionClient } from '../..
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../support/socket-turn.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/traces/trace-consent.ts'
+import { MongoClient } from 'mongodb'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -325,15 +326,16 @@ test.describe('A turn over the agent session', () => {
     // frames are handled in order, so only the first prompt creates the thread.
     const session = await open(await cookieOf(orgAdmin))
     session.send(newThreadHello())
-    session.send({ type: 'prompt', content: 'first' })
+    session.send({ type: 'prompt', content: 'slow hello' })
     session.send({ type: 'prompt', content: 'second' })
-    // Until the turn of the SECOND prompt ends: speaking again stops the first turn, or finds it over.
+    // The first answers slowly, so it is still running — live, or still waiting for the
+    // conversation's lock — when the second message arrives, which takes the turn back.
     const frames: any[] = []
     const isSecond = (f: any) => f.type === 'message' && f.role === 'user' && f.parts.some((p: any) => p.text === 'second')
     for (;;) {
       const frame = await session.next(15000)
       frames.push(frame)
-      if (frame.type === 'turn-end' && frames.some(isSecond)) break
+      if (frame.type === 'turn-end' && frames.some(isSecond) && frame.stopReason === 'completed') break
     }
     const threads = frames.filter(f => f.type === 'attached' && f.conversationId).map(f => f.conversationId)
     assert.equal(new Set(threads).size, 1, 'one thread')
@@ -341,6 +343,35 @@ test.describe('A turn over the agent session', () => {
     assert.deepEqual(listed.map((c: any) => c.id), [threads[0]])
     const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${threads[0]}/messages`)).data.results
     const userTexts = messages.filter((m: any) => m.role === 'user').map((m: any) => m.parts.find((p: any) => p.type === 'text')?.text)
-    assert.deepEqual(userTexts, ['first', 'second'])
+    assert.deepEqual(userTexts, ['slow hello', 'second'])
+    // The first turn was stopped by the second message, not left to answer the question before.
+    const runs = (await orgAdmin.get(`/api/conversations/organization/test1/${threads[0]}/runs`)).data.results
+      .sort((a: any, b: any) => a.startedAt.localeCompare(b.startedAt))
+    assert.deepEqual(runs.map((r: any) => r.status), ['aborted', 'done'])
+    const interrupted = messages.find((m: any) => m.role === 'assistant')
+    assert.ok(interrupted, 'the stopped turn still leaves its assistant message')
+  })
+
+  test('the history does not list a thread that has no message', async () => {
+    // A backstop: a thread whose first prompt's socket closed mid-creation is created but never
+    // spoken in. Written straight to the store, since that window cannot be hit reliably from here.
+    const listedId = await personalConversation()
+    const client = new MongoClient(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+    try {
+      await client.db().collection('conversations').insertOne({
+        id: 'test-empty-thread',
+        agentId: 'personal',
+        owner: { type: 'organization', id: 'test1' },
+        userId: 'test1-admin1',
+        title: 'never spoken in',
+        createdAt: new Date().toISOString(),
+        messageSeq: 0,
+        credits: 0
+      })
+    } finally {
+      await client.close()
+    }
+    const listed = (await orgAdmin.get('/api/conversations/organization/test1')).data.results.map((c: any) => c.id)
+    assert.deepEqual(listed, [listedId])
   })
 })

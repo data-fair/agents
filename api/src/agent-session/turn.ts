@@ -17,7 +17,7 @@ import {
   rejectPendingApprovals,
   type TurnCaller
 } from '../conversations/service.ts'
-import { startRun } from '../conversations/executor.ts'
+import { startRun, abortRunsOfConversation } from '../conversations/executor.ts'
 import { liveTurnOf } from '../conversations/turn-target.ts'
 import { settlePendingWait } from '../conversations/waits.ts'
 import { interruptedWaitResult } from '../conversations/interrupted-turn.ts'
@@ -81,6 +81,12 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
 
   const content = request.content.trim()
   if (!content) throw httpError(400, 'content is required')
+
+  // Speaking takes the turn back: the conversation's running turns are stopped — a live one, and one
+  // still waiting for the conversation's lock, which may be an earlier prompt's that had not started
+  // yet (the person redirected it before it began). Settled as interrupted by a message. Awaited, and
+  // before this turn's own run is created below, so that run is never caught.
+  await abortRunsOfConversation(conversation.id)
 
   // The wrapped form is what gets STORED, which is deliberate: the hidden context is part of the turn
   // the model saw, so a trace or a replay that dropped it would misrepresent what was asked. The chat

@@ -110,34 +110,35 @@ export const abortRun = async (runId: string): Promise<boolean> => {
 }
 
 /**
- * Stop the live turn of one conversation, so a new prompt can take the turn back.
+ * Stop the turns of one conversation, so a new prompt can take the turn back.
  *
  * A person who writes while the assistant is still working means to redirect it: their message is
  * what the next turn answers, and letting the current one run on would answer the question before.
  * (A pending wait is not a live turn — the message answers it directly, see ./waits.ts.)
  *
- * Returns how many this process actually stopped; a conversation has at most one live turn, because
- * the conversation lock serialises them.
+ * Aborted here when this process holds the turn, and recorded on the conversation's `running` runs,
+ * so a run that exists but is not live yet — created, still waiting for the conversation's lock — or
+ * one held by another process stops as soon as it reads its run (watchStopRequests), with the same
+ * reason. Called BEFORE the next turn's run is created, so that run is never caught. Resolves once the
+ * stop is recorded.
+ *
+ * A Stop records it on every running run. A message records it only on earlier PROMPTS' runs (trigger
+ * `user`): a queued approval continuation carries the person's decision and its replay already ends on
+ * the new message, so the approved call is settled as not run rather than as of unknown outcome. A
+ * live run of any trigger is still aborted here.
  */
-export const abortRunsOfConversation = (conversationId: string, why: 'spoke' | 'stop' = 'spoke'): number => {
-  let stopped = 0
+export const abortRunsOfConversation = async (conversationId: string, why: 'spoke' | 'stop' = 'spoke'): Promise<void> => {
   for (const live of liveRuns.values()) {
     if (live.conversationId !== conversationId) continue
     // The reason is read back when the turn is settled (interruptReason), so it must be the constant.
     // A Stop carries none: the settled calls then say the reply was
     // stopped, rather than that the person wrote.
     live.controller.abort(why === 'spoke' ? new Error(PERSON_SPOKE) : undefined)
-    stopped++
   }
-  // A Stop for a turn this process is not running — the socket reconnected to another instance mid-turn,
-  // which sticky sessions make rare — is left on the run for the instance that holds it
-  // (watchStopRequests). Only for a Stop: a person who SPOKE starts the next turn here, and that needs
-  // the previous one stopped where it runs, which is this process under the conversation's lock.
-  if (!stopped && why === 'stop') {
-    mongo.runs.updateMany({ conversationId, status: 'running' }, { $set: { abortRequestedAt: new Date().toISOString() } })
-      .catch(err => console.error('could not record a stop request', err))
-  }
-  return stopped
+  await mongo.runs.updateMany(
+    { conversationId, status: 'running', ...(why === 'spoke' ? { trigger: 'user' } : {}) },
+    { $set: { abortRequestedAt: new Date().toISOString(), ...(why === 'spoke' ? { abortReason: 'person-spoke' as const } : {}) } }
+  )
 }
 
 /**
@@ -180,7 +181,11 @@ const watchStopRequests = (runId: string, controller: AbortController): (() => v
       if (controller.signal.aborted) return
       // The reasons the local paths give, so the turn is settled the same wherever it was stopped.
       if (!stored) controller.abort(new Error(RUN_DELETED))
-      else if (stored.abortRequestedAt) controller.abort(stored.abortReason === 'agent-stopped' ? new Error(AGENT_STOPPED) : undefined)
+      else if (stored.abortRequestedAt) {
+        controller.abort(stored.abortReason === 'agent-stopped'
+          ? new Error(AGENT_STOPPED)
+          : stored.abortReason === 'person-spoke' ? new Error(PERSON_SPOKE) : undefined)
+      }
     } catch (err) {
       debug('could not read the stop requests of run %s: %o', runId, err)
     } finally {

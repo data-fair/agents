@@ -138,9 +138,10 @@ export default {
     // A stop asked for while the run was `running`, by whichever API process received it: the process
     // driving the turn polls its own run for it (see driveTurn), so a stop reaches a turn held by another
     // instance. `abortReason` says whose stop it was, so the turn is settled with the same reason a local
-    // stop gives: absent for a person's stop, 'agent-stopped' when the agent was disabled or deleted.
+    // stop gives: absent for a person's stop, 'agent-stopped' when the agent was disabled or deleted,
+    // 'person-spoke' when a new message took the turn back.
     abortRequestedAt: { type: 'string', format: 'date-time' },
-    abortReason: { type: 'string', enum: ['agent-stopped'] },
+    abortReason: { type: 'string', enum: ['agent-stopped', 'person-spoke'] },
     steps: { type: 'number', minimum: 0 },
     credits: { type: 'number', minimum: 0 },
     startedAt: { type: 'string', format: 'date-time' },
