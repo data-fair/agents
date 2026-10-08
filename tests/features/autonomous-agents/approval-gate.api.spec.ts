@@ -8,6 +8,7 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 import { openAgentSession } from '../../support/ws.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { decideOverSocket, decideOverSocketToRun, startTurnOverSocket, turnOverSocket } from '../../support/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -31,9 +32,7 @@ export const awaitRun = async (runId: string) => {
 }
 
 export const turn = async (conversationId: string, content: string) => {
-  const { runId } = (await orgAdmin.post(`${BASE}/${conversationId}/messages`, { content })).data
-  const run = await awaitRun(runId)
-  const messages = (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
+  const { runId, run, messages } = await turnOverSocket(orgAdmin, conversationId, content)
   return { run, messages, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
 }
 
@@ -86,31 +85,36 @@ test.describe('The approval gate', () => {
     const { assistant } = await turn(conv.id, 'call tool wipe_everything {}')
     return { agent, conv, approvalId: callPart(assistant, 'wipe_everything').approval.id as string, seq: assistant.seq as number }
   }
-  const decide = (conversationId: string, approvalId: string, body: any) =>
-    orgAdmin.post(`${BASE}/${conversationId}/approvals/${approvalId}`, body)
+  const decide = (conversationId: string, approvalId: string, body: { approved: boolean, reason?: string }) =>
+    decideOverSocket(orgAdmin, conversationId, approvalId, body)
+  const decideRun = (conversationId: string, approvalId: string, body: { approved: boolean, reason?: string }) =>
+    decideOverSocketToRun(orgAdmin, conversationId, approvalId, body)
   const messageAt = async (conversationId: string, seq: number) =>
     (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
-  test('a message posted while an approved call runs does not overwrite its result', async () => {
-    // The approval run executes the approved slow_lookup; a message posted meanwhile must reject only calls
-    // still undecided — the approved one finishes and keeps its real result.
+  test('speaking while an approved call runs stops that run and settles the call as unknown', async () => {
+    // Over the socket, writing takes the turn back (a live run is stopped), so a message can no longer land
+    // beside a running approval run and leave its call alone, as the HTTP route it replaces allowed. What
+    // must hold is that the call is not left dangling nor reported as not run: the tool was started, so
+    // its outcome is unknown, and it is never executed a second time.
     const agent = await createGatedAgent({ approvals: { readOnly: 'approve' } })
     const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
     const { assistant } = await turn(conv.id, 'call tool slow_lookup {}')
     const approvalId = callPart(assistant, 'slow_lookup').approval.id
-    const { runId: continuation } = (await decide(conv.id, approvalId, { approved: true })).data
+    const { runId: continuation } = await decideRun(conv.id, approvalId, { approved: true })
     await new Promise(resolve => setTimeout(resolve, 500)) // slow_lookup takes 2s
-    const { runId: answering } = (await orgAdmin.post(`${BASE}/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId: answering } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await awaitRun(continuation)
     await awaitRun(answering)
     const part = callPart(await messageAt(conv.id, assistant.seq), 'slow_lookup')
-    assert.equal(part.state, 'output-available', JSON.stringify(part))
+    assert.equal(part.state, 'output-error', JSON.stringify(part))
+    assert.equal(part.errorText, 'Approved, but its outcome is unknown: the turn ended before it reported (the person spoke).')
     assert.deepEqual(fixture.invokedTools(), ['slow_lookup'])
   })
 
   test('approving runs the call exactly once, settled on its original message', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
-    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     const run = await awaitRun(runId)
     assert.equal(run.trigger, 'approval')
     assert.equal(run.stopReason, 'completed')
@@ -130,7 +134,7 @@ test.describe('The approval gate', () => {
 
   test('a second decision is refused, and the tool still ran once', async () => {
     const { conv, approvalId } = await pendingApproval()
-    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await assert.rejects(decide(conv.id, approvalId, { approved: true }), { status: 409 })
     await awaitRun(runId)
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
@@ -138,7 +142,7 @@ test.describe('The approval gate', () => {
 
   test('rejecting tells the model why, and nothing runs', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
-    const { runId } = (await decide(conv.id, approvalId, { approved: false, reason: 'not today' })).data
+    const { runId } = await decideRun(conv.id, approvalId, { approved: false, reason: 'not today' })
     await awaitRun(runId)
     assert.deepEqual(fixture.invokedTools(), [])
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
@@ -158,7 +162,7 @@ test.describe('The approval gate', () => {
   test('only the person whose conversation it is decides', async () => {
     const { conv, approvalId } = await pendingApproval()
     const member = await axiosAuth('test1-user1', { org: 'test1' })
-    await assert.rejects(member.post(`${BASE}/${conv.id}/approvals/${approvalId}`, { approved: true }), { status: 403 })
+    await assert.rejects(decideOverSocket(member, conv.id, approvalId, { approved: true }), { status: 403 })
     assert.deepEqual(fixture.invokedTools(), [])
   })
 
@@ -170,7 +174,7 @@ test.describe('The approval gate', () => {
   test('an autonomous agent disabled before the decision does not run the approved call', async () => {
     const { agent, conv, approvalId, seq } = await pendingApproval()
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: false })
-    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await awaitRun(runId)
     assert.deepEqual(fixture.invokedTools(), [])
     // Settled as an error rather than left approved with no result, which every later replay would carry.
@@ -193,7 +197,7 @@ test.describe('The approval gate', () => {
     const { agent, conv, approvalId, seq } = await pendingApproval()
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: { destructive: 'deny' } })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
-    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await awaitRun(runId)
     assert.deepEqual(fixture.invokedTools(), [])
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
@@ -212,7 +216,7 @@ test.describe('The approval gate', () => {
 
   test('a decision flips only the call it names', async () => {
     const { conv, seq, first, second } = await twoPending()
-    assert.deepEqual((await decide(conv.id, first.approval.id, { approved: false })).data, { pending: 1 })
+    assert.deepEqual(await decide(conv.id, first.approval.id, { approved: false }), { pending: 1 })
     const parts = (await messageAt(conv.id, seq)).parts
     assert.equal(parts.find((p: any) => p.toolCallId === first.toolCallId).state, 'output-denied')
     assert.equal(parts.find((p: any) => p.toolCallId === second.toolCallId).state, 'approval-requested')
@@ -220,12 +224,12 @@ test.describe('The approval gate', () => {
 
   test('calls stopped in one step continue once all are decided, each running once', async () => {
     const { conv, seq, first, second } = await twoPending()
-    assert.deepEqual((await decide(conv.id, first.approval.id, { approved: true })).data, { pending: 1 })
+    assert.deepEqual(await decide(conv.id, first.approval.id, { approved: true }), { pending: 1 })
     const runs = (await orgAdmin.get(`${BASE}/${conv.id}/runs`)).data.results
     assert.ok(!runs.some((r: any) => r.trigger === 'approval'), 'no continuation while a call is undecided')
     assert.deepEqual(fixture.invokedTools(), [])
 
-    const { runId } = (await decide(conv.id, second.approval.id, { approved: true })).data
+    const { runId } = await decideRun(conv.id, second.approval.id, { approved: true })
     const run = await awaitRun(runId)
     assert.equal(run.stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything', 'wipe_everything'])
@@ -245,7 +249,7 @@ test.describe('The approval gate', () => {
 
   test('writing before a step is fully decided settles the call already approved', async () => {
     const { conv, seq, first, second } = await twoPending()
-    assert.deepEqual((await decide(conv.id, first.approval.id, { approved: true })).data, { pending: 1 })
+    assert.deepEqual(await decide(conv.id, first.approval.id, { approved: true }), { pending: 1 })
     await turn(conv.id, 'hello')
     const parts = (await messageAt(conv.id, seq)).parts
     const approved = parts.find((p: any) => p.toolCallId === first.toolCallId)
@@ -268,7 +272,7 @@ test.describe('The approval gate', () => {
     try {
       await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: [{ serverId: 'dev-apikey-mcp' }], enabled: true })
       await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
-      const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+      const { runId } = await decideRun(conv.id, approvalId, { approved: true })
       const run = await awaitRun(runId)
       assert.equal(run.status, 'error')
       const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
@@ -287,7 +291,7 @@ test.describe('The approval gate', () => {
     // writes — the call never ran, and the record of who approved it was erased.
     const agent = await createGatedAgent()
     const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`${BASE}/${conv.id}/messages`, { content: 'call tools slow_lookup wipe_everything' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'call tools slow_lookup wipe_everything')
     let asking: any
     for (let i = 0; i < 100 && !asking; i++) {
       const messages = (await orgAdmin.get(`${BASE}/${conv.id}/messages`)).data.results
@@ -307,7 +311,7 @@ test.describe('The approval gate', () => {
     const asked = await awaitRun(runId)
     assert.equal(asked.stopReason, 'awaiting-approval')
     assert.equal((await messageAt(conv.id, asking.seq)).pending, false)
-    const { runId: continuation } = (await decide(conv.id, approvalId, { approved: true })).data
+    const { runId: continuation } = await decideRun(conv.id, approvalId, { approved: true })
     assert.equal((await awaitRun(continuation)).stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools().sort(), ['slow_lookup', 'wipe_everything'])
     const part = callPart(await messageAt(conv.id, asking.seq), 'wipe_everything')
@@ -317,7 +321,7 @@ test.describe('The approval gate', () => {
 
   test('an approval run cut by a restart settles its approved call, and the conversation goes on', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
-    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await awaitRun(runId)
     // The state a process dying mid-run leaves: the run still `running`, the approved call with no result.
     await admin.post('/api/test-env/orphan-run', { runId, reopenApproved: true })
@@ -345,8 +349,8 @@ test.describe('The approval gate', () => {
     let continuation: string
     let next: string
     try {
-      continuation = (await decide(conv.id, approvalId, { approved: true })).data.runId
-      next = (await orgAdmin.post(`${BASE}/${conv.id}/messages`, { content: 'hello' })).data.runId
+      continuation = (await decideRun(conv.id, approvalId, { approved: true })).runId
+      next = (await startTurnOverSocket(orgAdmin, conv.id, 'hello')).runId
     } finally {
       await admin.post('/api/test-env/unlock-conversation', { conversationId: conv.id })
     }
@@ -367,7 +371,7 @@ test.describe('The approval gate', () => {
     const asking = await messageAt(conv.id, seq)
     const parts = asking.parts.map((p: any) => p.type === 'dynamic-tool' && p.approval?.id === approvalId ? { ...p, approval: { ...p.approval, signature: 'forged' } } : p)
     await admin.post('/api/test-env/corrupt-message', { conversationId: conv.id, seq, parts })
-    const { runId } = (await decide(conv.id, approvalId, { approved: true })).data
+    const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     assert.equal((await awaitRun(runId)).status, 'error')
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
     assert.equal(part.state, 'output-error')
@@ -381,7 +385,7 @@ test.describe('The approval gate', () => {
     const agent = await createGatedAgent({ approvals: { write: 'approve' } })
     const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
     const { assistant } = await turn(conv.id, 'call tool bulk {"chars":150000}')
-    const { runId } = (await decide(conv.id, callPart(assistant, 'bulk').approval.id, { approved: true })).data
+    const { runId } = await decideRun(conv.id, callPart(assistant, 'bulk').approval.id, { approved: true })
     await awaitRun(runId)
     const part = callPart(await messageAt(conv.id, assistant.seq), 'bulk')
     assert.equal(part.state, 'output-available')
@@ -395,7 +399,7 @@ test.describe('The approval gate', () => {
     // starts, under the conversation's lock, once the asking turn has closed its message.
     const agent = await createGatedAgent()
     const conv = (await orgAdmin.post(BASE, { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`${BASE}/${conv.id}/messages`, { content: 'call tools slow_lookup wipe_everything' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'call tools slow_lookup wipe_everything')
     let asking: any
     for (let i = 0; i < 100 && !asking; i++) {
       const messages = (await orgAdmin.get(`${BASE}/${conv.id}/messages`)).data.results
@@ -406,7 +410,7 @@ test.describe('The approval gate', () => {
     assert.ok(asking, 'the approval request is stored while the step still runs')
     assert.equal(asking.pending, true)
 
-    const { runId: answering } = (await orgAdmin.post(`${BASE}/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId: answering } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await awaitRun(runId)
     await awaitRun(answering)
 

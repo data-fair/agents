@@ -233,8 +233,8 @@ conversations:
   runs, filterable by kind, task, status and outcome, without content; one run with its content; abort; a
   JSONL download through the conversation export's builder, fed by the read-layer function that presents a
   task run's prompt and answer as messages (see "Runs: one collection, two kinds").
-- **Approvals** — `{ approved, reason? }` over the chat socket and
-  `POST /api/conversations/:type/:id/:conversationId/approvals/:toolCallId`.
+- **Approvals** — `{ approved, reason? }` over the chat socket only; there is no HTTP route for a decision,
+  and a conversation turn is likewise started and stopped from its chat (the abort route serves task runs).
 - **An admin page per agent**, three tabs: *Configuration* (the existing form plus approval levels);
   *Tasks* (schedule in plain words, next run, on/off, paused reason, run now; a form with processings'
   scheduling rules); *History* (the agent's runs newest first, task runs shown by default and conversation runs one

@@ -123,7 +123,7 @@ export const abortRunsOfConversation = (conversationId: string, why: 'spoke' | '
   for (const live of liveRuns.values()) {
     if (live.conversationId !== conversationId) continue
     // The reason is read back when the turn is settled (interruptReason), so it must be the constant.
-    // A Stop carries none, like the HTTP route's abort: the settled calls then say the reply was
+    // A Stop carries none: the settled calls then say the reply was
     // stopped, rather than that the person wrote.
     live.controller.abort(why === 'spoke' ? new Error(PERSON_SPOKE) : undefined)
     stopped++

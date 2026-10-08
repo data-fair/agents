@@ -67,7 +67,7 @@ Context growth is handled by one tiered policy: see [Context management](./conte
 
 ## A run, and its two invariants
 
-`POST /api/conversations/:type/:id/:conversationId/messages` (or a prompt over the chat's socket) appends
+A prompt over the chat's socket (the only way a turn begins) appends
 the person's turn and starts a run. The executor holds a lock keyed on the **conversation**, because one
 conversation is one serialised timeline.
 
@@ -144,7 +144,7 @@ envelope and the system-prompt clause that told the model to trust it were remov
 
 ## Stopping and erasing
 
-- **Abort** one turn: `POST /api/runs/:type/:id/:runId/abort`. A run does not migrate, so only the
+- **Abort** one turn: a conversation turn is stopped by the `abort` frame of its chat socket; `POST /api/runs/:type/:id/:runId/abort` serves task runs only (404 for a conversation run). A run does not migrate, so only the
   process holding it can abort its controller: the route aborts it at once when that is this process,
   and otherwise records `abortRequestedAt` on the still-`running` run, which the holding process reads
   within 2 s (every live turn polls its own run, `watchStopRequests` in `driveTurn`). It answers
@@ -203,10 +203,9 @@ agents** only: a standard agent's browser tools and the service's own tools are 
 - Approvals are **signed** by the AI SDK (`experimental_toolApprovalSecret` = the service `securityKey`), so a
   stored approval cannot be forged by editing a message.
 
-**The decision** is `{ approved, reason? }`, over the chat socket (frame `{ type: 'approval', approvalId, approved,
-reason? }`) or `POST /api/conversations/:type/:id/:conversationId/approvals/:approvalId`. Only the person whose
-conversation it is may decide — ownership (`assertOwnsConversation` on the route, `resolveOwnConversation` on the
-socket) **and** the grant to instruct the agent (`assertCanInstruct`, checked in `decideAndContinue`), both apply —
+**The decision** is `{ approved, reason? }`, over the chat socket only (frame `{ type: 'approval', approvalId, approved,
+reason? }`); there is no HTTP route for it. Only the person whose
+conversation it is may decide — ownership (`resolveOwnConversation` on the socket) **and** the grant to instruct the agent (`assertCanInstruct`, checked in `decideAndContinue`), both apply —
 and it is atomic: a second decision on the same approval is a `409`. So is a decision on a message **still being
 written** (`pending`), with "the turn is still finishing": the AI SDK asks for an approval before the step's other
 calls return, and the run's own last writes put the message's whole parts array back, which would restore the

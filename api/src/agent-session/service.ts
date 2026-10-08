@@ -187,7 +187,7 @@ export const startAgentSessions = (server: Server) => {
           echoTo: agentSession
         })).catch((err: any) => {
           // Reported on the socket rather than swallowed: the person pressed send, so a refusal has to
-          // reach them. The same reasons the HTTP route rejects for — not your conversation, empty
+          // reach them. The reasons a prompt is refused — not your conversation, empty
           // content — arrive here as a message.
           debug('prompt refused: %O', err)
           send({ type: 'error', message: err.message ?? 'the turn could not be started' })

@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { decideOverSocketToRun, startTurnOverSocket } from '../../support/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -30,7 +31,7 @@ const awaitRun = async (runId: string) => {
   throw new Error('run never ended')
 }
 const say = async (conversationId: string, content: string) => {
-  const { runId } = (await orgAdmin.post(`${BASE}/${conversationId}/messages`, { content })).data
+  const { runId } = await startTurnOverSocket(orgAdmin, conversationId, content)
   await awaitRun(runId)
 }
 const messages = async (conversationId: string) => (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
@@ -173,7 +174,7 @@ test.describe('Memory reflection and the approval gate', () => {
     assert.deepEqual(await reflect(conversationId), { reflected: false, reason: 'nothing-new' })
 
     const approvalId = asking.parts.find((p: any) => p.state === 'approval-requested').approval.id
-    const { runId } = (await orgAdmin.post(`${BASE}/${conversationId}/approvals/${approvalId}`, { approved: true })).data
+    const { runId } = await decideOverSocketToRun(orgAdmin, conversationId, approvalId, { approved: true })
     await awaitRun(runId)
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
     const after = await reflect(conversationId)

@@ -12,17 +12,13 @@ import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, type SessionStateAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { assertCanOwnAgent, getAutonomousAgent } from '../autonomous-agents/service.ts'
-import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, appendMessage, createRun, setReviewConsent, archiveConversation, purgeConversation, rejectPendingApprovals } from './service.ts'
+import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation } from './service.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
-import { startRun, abortRun } from './executor.ts'
-import { getEffectiveRole, assertCanUseModel } from '../auth.ts'
+import { abortRun } from './executor.ts'
+import { assertCanUseModel } from '../auth.ts'
 import { withinRetention } from '../retention.ts'
 import { isStandardAgentId, listStandardAgents } from '../agent-session/standard-agents.ts'
 import { getSettings } from '../settings/service.ts'
-import { hasTraceConsent } from '@agents/shared/trace-consent'
-import { settlePendingWait } from './waits.ts'
-import { interruptedWaitResult } from './interrupted-turn.ts'
-import { decideAndContinue } from './approvals.ts'
 
 const router = Router()
 export default router
@@ -46,13 +42,13 @@ export default router
 
 /**
  * Runs are read through their own mount (/api/runs) rather than nested
- * under a conversation: a caller holds a runId from the message POST and should not have
+ * under a conversation: a caller holds a runId (a task run has no conversation) and should not have
  * to remember which conversation it came from.
  */
 export const runsRouter = Router()
 
 /**
- * Who may read or abort a run.
+ * Who may read a run, or abort a task run.
  *
  * A conversation run belongs to a conversation, which belongs to ONE person: guarding it with the
  * agent grant let any instructor of the agent read — or abort — someone else's turn. A TASK run has no
@@ -69,8 +65,7 @@ const assertMayReachRun = async (owner: AccountKeys, run: ConversationRun, sessi
 }
 
 /**
- * Stop a running turn. Guarded by assertMayReachRun: a conversation run by the conversation's owner,
- * a task run by an admin of the owning account.
+ * Stop a running TASK run, by an admin of the owning account (assertMayReachRun).
  *
  * Reaches the turn wherever it is held: aborted at once when this process holds it, and recorded on the
  * run (`abortRequestedAt`) so the process that does hold it stops it within a few seconds.
@@ -85,6 +80,9 @@ runsRouter.post('/:type/:id/:runId/abort', async (req, res, next) => {
     )
     if (!run) throw httpError(404, 'unknown run')
     await assertMayReachRun(owner, run, session)
+    // A conversation turn is stopped from its chat (the socket's `abort` frame), which also settles a
+    // pending handover; this route would be a second, partial way to do the same thing.
+    if (run.kind !== 'task') throw httpError(404, 'a conversation turn is stopped from its chat')
 
     // `aborted: true` when this process stopped the turn or a stop was recorded on a still-running run
     // (another process holds it and stops it at its next poll); false for a run that has already ended.
@@ -440,87 +438,5 @@ router.get('/:type/:id/:conversationId/runs', async (req, res, next) => {
       .sort({ startedAt: 1 })
       .toArray()
     res.json({ results, count: results.length })
-  } catch (err) { next(err) }
-})
-
-router.post('/:type/:id/:conversationId/messages', async (req, res, next) => {
-  try {
-    const session = reqSessionAuthenticated(req)
-    const owner = reqOwner(req)
-    const conversation = await requireConversation(owner, req.params.conversationId)
-    // Still resolved, so a thread whose agent was deleted 404s rather than half-working; no longer the
-    // thing that authorizes the read or the write.
-    await requireAutonomousAgent(owner, conversation.agentId)
-    assertOwnsConversation(conversation, session)
-
-    const content = typeof req.body?.content === 'string' ? req.body.content.trim() : ''
-    if (!content) throw httpError(400, 'content is required')
-
-    // The same cookie the socket reads off its upgrade, recorded on the THREAD so consent does not
-    // depend on which transport carried the turn.
-    const consented = hasTraceConsent(req.headers.cookie)
-    if (consented !== (conversation.consentedToReview === true)) {
-      await setReviewConsent(conversation.id, consented)
-    }
-
-    // A message answers a pending wait, as it does over the socket (see startSessionTurn).
-    await settlePendingWait(conversation.id, wait => interruptedWaitResult(wait.expecting))
-    // A message also rejects a pending approval: the person moved on without deciding.
-    // Undecided calls only: an approved one may be executing in an `approval` run, whose result must survive.
-    await rejectPendingApprovals(conversation.id, undefined, undefined, { undecidedOnly: true })
-
-    const message = await appendMessage(conversation, {
-      role: 'user',
-      author: { kind: 'user', userId: session.user.id, userName: session.user.name },
-      // A user turn is one text part. Stored the same way as an assistant turn so there is a single
-      // shape to read: the conversation of record is the model messages, not two parallel formats.
-      parts: [{ type: 'text', text: content }]
-    })
-
-    const run = await createRun({
-      agentId: conversation.agentId,
-      conversationId: conversation.id,
-      owner: conversation.owner,
-      trigger: 'user',
-      triggeredBy: { userId: session.user.id, userName: session.user.name },
-      // See the schema note: only this boundary has the session to derive it from.
-      triggeredByRole: getEffectiveRole(session, owner),
-      status: 'running',
-      startedAt: new Date().toISOString()
-    })
-
-    eventsLog.info('agents.conversation.message', `message posted to conversation ${conversation.id}`, { req })
-
-    // Not awaited: the caller gets its runId immediately and follows the run document.
-    // A rejection here would otherwise become an unhandled rejection — the executor is
-    // responsible for turning its own failures into a terminal run and a message, so this
-    // catch is a backstop for a throw before it can do that.
-    startRun(run).catch(err => console.error('autonomous agent run failed to start', err))
-
-    res.json({ ...message, runId: run.id })
-  } catch (err) { next(err) }
-})
-
-/**
- * The person's decision on a call the approval gate stopped. The turn continues from it in a new run,
- * whose id is returned to follow, as a posted message's is.
- */
-router.post('/:type/:id/:conversationId/approvals/:approvalId', async (req, res, next) => {
-  try {
-    const session = reqSessionAuthenticated(req)
-    const owner = reqOwner(req)
-    const conversation = await requireConversation(owner, req.params.conversationId)
-    assertOwnsConversation(conversation, session)
-    const approved = req.body?.approved
-    if (typeof approved !== 'boolean') throw httpError(400, 'approved must be a boolean')
-    const reason = req.body?.reason
-    if (reason !== undefined && (typeof reason !== 'string' || reason.length > 1000)) throw httpError(400, 'reason must be a string of at most 1000 characters')
-    res.json(await decideAndContinue({
-      conversation,
-      session,
-      approvalId: req.params.approvalId,
-      approved,
-      ...(reason ? { reason } : {})
-    }))
   } catch (err) { next(err) }
 })

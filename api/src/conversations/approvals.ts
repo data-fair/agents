@@ -14,7 +14,7 @@ import { sessionFor } from '../agent-session/registry.ts'
 import { getEffectiveRole } from '../auth.ts'
 
 /**
- * Both the HTTP route and the socket come through here, so the grant is checked in ONE place: approvals
+ * The socket's `approval` frame is the only way in, and the grant is checked here: approvals
  * exist only on configured autonomous agents, and approving borrows the autonomous agent's permissions
  * exactly as instructing it does — someone whose grant was revoked since the request may not approve it.
  * That the conversation is the caller's own is the caller's check (it already holds the conversation).

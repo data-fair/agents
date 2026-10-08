@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { startTurnOverSocket } from '../../support/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -95,7 +96,7 @@ test.describe('Run history', () => {
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${otherRun}`), { status: 404 })
 
     const conversationId = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data.id
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conversationId}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
     await awaitRun(runId)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}/export`), { status: 404 })
     const meta = (await orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}`)).data
@@ -115,7 +116,7 @@ test.describe('Run history', () => {
     const taskRun = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
     await awaitRun(taskRun)
     const conversationId = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data.id
-    const { runId: conversationRun } = (await orgAdmin.post(`/api/conversations/organization/test1/${conversationId}/messages`, { content: 'hello' })).data
+    const { runId: conversationRun } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
     await awaitRun(conversationRun)
 
     const ids = async (kind: string) =>

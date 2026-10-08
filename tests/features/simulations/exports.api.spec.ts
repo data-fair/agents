@@ -10,6 +10,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { turnOverSocket } from '../../support/socket-turn.ts'
 import { fetchConversationExports, OWNER } from '../../../simulations/runner/settings.ts'
 import { parseConversationExport, recordedToolCalls } from '../../../lib-sim/conversation-export.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../../shared/trace-consent.ts'
@@ -22,12 +23,7 @@ const base = `/api/conversations/${OWNER.type}/${OWNER.id}`
 const say = async (conversationId: string, content: string, consent = true) => {
   // Through the client's cookie jar: it owns the Cookie header, and replaces one set by hand.
   await (user as any).cookieJar.setCookie(`${CONSENT_COOKIE}=${consent ? CONSENT_YES : 'no'}`, directoryUrl)
-  const { runId } = (await user.post(`${base}/${conversationId}/messages`, { content })).data
-  for (let i = 0; i < 100; i++) {
-    if ((await user.get(`/api/runs/${OWNER.type}/${OWNER.id}/${runId}`)).data.status !== 'running') return
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  throw new Error('run never finished')
+  await turnOverSocket(user, conversationId, content, { owner: `${OWNER.type}/${OWNER.id}` })
 }
 
 test.describe('Simulation evidence', () => {

@@ -9,6 +9,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession } from '../../support/ws.ts'
+import { startTurnOverSocket } from '../../support/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -22,7 +23,7 @@ const createAgent = async (memory?: { enabled: boolean }) => {
 }
 
 const turn = async (conversationId: string, content: string) => {
-  const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conversationId}/messages`, { content })).data
+  const { runId } = await startTurnOverSocket(orgAdmin, conversationId, content)
   let run: any
   for (let i = 0; i < 100; i++) {
     run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data

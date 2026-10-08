@@ -7,6 +7,7 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings, mockModels, mockModelRef } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { partsText } from '../../../api/src/conversations/operations.ts'
+import { startTurnOverSocket, turnOverSocket } from '../../support/socket-turn.ts'
 
 /**
  * The tool calls of a stored turn, read out of its ordered parts.
@@ -101,7 +102,7 @@ test.describe('Autonomous agent conversations', () => {
     // until someone types.
     await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Empty' })
     const used = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Used' })).data
-    await orgAdmin.post(`/api/conversations/organization/test1/${used.id}/messages`, { content: 'hello' })
+    await turnOverSocket(orgAdmin, used.id, 'hello')
 
     const list = await orgAdmin.get('/api/conversations/organization/test1')
     assert.equal(list.status, 200)
@@ -119,7 +120,7 @@ test.describe('Autonomous agent conversations', () => {
   test('one agent\'s list can be bounded, which is how the chat resumes its latest thread', async () => {
     const agent = await createAgent()
     const older = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Older' })).data
-    await orgAdmin.post(`/api/conversations/organization/test1/${older.id}/messages`, { content: 'hello' })
+    await turnOverSocket(orgAdmin, older.id, 'hello')
     // Newer but EMPTY: newest by activity, not by creation, so the thread the person was in wins.
     await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Newer' })
     const latest = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}&size=1`)).data.results
@@ -134,7 +135,7 @@ test.describe('Autonomous agent conversations', () => {
     // reopened whichever person's thread was the latest on the account.
     const agent = await createAgent()
     const theirs = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 'Theirs' })).data
-    await orgAdmin.post(`/api/conversations/organization/test1/${theirs.id}/messages`, { content: 'hello' })
+    await turnOverSocket(orgAdmin, theirs.id, 'hello')
     const history = (await admin.get('/api/conversations/organization/test1')).data
     assert.equal(history.results.some((c: any) => c.id === theirs.id), false)
     const oneAgent = (await admin.get(`/api/conversations/organization/test1?agentId=${agent.id}`)).data
@@ -165,13 +166,12 @@ test.describe('Autonomous agent conversations', () => {
     assert.ok(!memberList.some((a: any) => a.title === 'Hidden'))
   })
 
-  test('posting a message appends it, bumps the seq, and returns a runId', async () => {
+  test('prompting a conversation appends the message and bumps the seq', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
 
-    const posted = await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
-    assert.equal(posted.status, 200)
-    assert.ok(posted.data.runId, 'expected a runId so the caller can poll or abort')
+    const posted = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
+    assert.ok(posted.runId, 'a prompt creates a run, which the caller can follow')
 
     const messages = await orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`)
     const user = messages.data.results.find((m: any) => m.role === 'user')
@@ -198,10 +198,7 @@ test.describe('Autonomous agent conversations', () => {
 
     // ...but not read, write or erase the admin's thread.
     await assert.rejects(orgMember.get(`/api/conversations/organization/test1/${conv.id}/messages`), { status: 403 })
-    await assert.rejects(
-      orgMember.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' }),
-      { status: 403 }
-    )
+    await assert.rejects(turnOverSocket(orgMember, conv.id, 'hello'), { status: 403 })
     await assert.rejects(orgMember.delete(`/api/conversations/organization/test1/${conv.id}`), { status: 403 })
 
     // And listing shows each person only their own.
@@ -214,16 +211,13 @@ test.describe('Autonomous agent conversations', () => {
   test('an empty message is refused rather than starting a run', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    await assert.rejects(
-      orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: '   ' }),
-      { status: 400 }
-    )
+    await assert.rejects(turnOverSocket(orgAdmin, conv.id, '   '), { status: 400 })
   })
 
   test('sinceSeq returns only newer messages, so a poller can page forward', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     // Wait for the turn to finish first: the executor appends its own message, so without
     // this the assistant message can land between the two reads below and the assertion
     // becomes a race.
@@ -279,7 +273,7 @@ test.describe('Autonomous agent conversations', () => {
   test('a run reaches a terminal status and the assistant message is attributed to the autonomous agent', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
 
     const run = await pollRun(runId)
     assert.notEqual(run.status, 'running')
@@ -305,7 +299,7 @@ test.describe('Autonomous agent conversations', () => {
     assert.equal(locked.data.acquired, true)
     lockedConversations.push(conv.id)
 
-    const first = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const first = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await new Promise(resolve => setTimeout(resolve, 300))
     const blocked = (await orgAdmin.get(`/api/runs/organization/test1/${first.runId}`)).data
     assert.equal(blocked.status, 'running', 'a run whose conversation is locked must stay queued, not be dropped or failed')
@@ -316,7 +310,7 @@ test.describe('Autonomous agent conversations', () => {
 
     // The next post's executor acquires the freed lock and must drain BOTH pending runs,
     // the queued one first.
-    await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello again' })
+    await turnOverSocket(orgAdmin, conv.id, 'hello again')
     const assistants = await pollAssistants(conv.id, 2)
     assert.equal(assistants.length, 2, 'the queued run must not be dropped by the lock')
     // seq is monotonic, so ordering is observable
@@ -329,7 +323,7 @@ test.describe('Autonomous agent conversations', () => {
   test('a run left running by a restart is swept to interrupted, with a message', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await pollRun(runId)
 
     // Simulate the orphan a restart leaves behind: a run still marked running whose
@@ -360,7 +354,7 @@ test.describe('Autonomous agent conversations', () => {
     // while a 30s reaper resumed it.
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await pollRun(runId)
 
     await admin.post('/api/test-env/orphan-run', { runId })
@@ -383,7 +377,7 @@ test.describe('Autonomous agent conversations', () => {
     // can have happened — the message is created before the tools are opened.
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await pollRun(runId)
 
     // Enrolled, so the resumed turn can actually reach a model and produce an answer — otherwise it
@@ -408,7 +402,7 @@ test.describe('Autonomous agent conversations', () => {
     // for a turn that actually succeeded.
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await pollRun(runId)
 
     await admin.post('/api/test-env/orphan-run', { runId })
@@ -432,7 +426,7 @@ test.describe('Autonomous agent conversations', () => {
     // deliberately NOT enrolled, so the resumed turn declines for lack of an identity.
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await pollRun(runId)
 
     await admin.post('/api/test-env/orphan-run', { runId, dropMessage: true })
@@ -455,7 +449,7 @@ test.describe('Autonomous agent conversations', () => {
     // test comparing the document to the declared properties catches it.
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })
+    await turnOverSocket(orgAdmin, conv.id, 'hello')
 
     const stored = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`))
       .data.results.find((c: any) => c.id === conv.id)
@@ -469,7 +463,7 @@ test.describe('Autonomous agent conversations', () => {
   test('a run of another account cannot be read', async () => {
     const agent = await createAgent()
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
     await assert.rejects(
       orgAdmin.get(`/api/runs/organization/dev1/${runId}`),
       { status: 404 }
@@ -496,7 +490,7 @@ test.describe('Autonomous agent model loop', () => {
 
   /** One turn in an EXISTING conversation, so a test can assert what a later turn sees. */
   const runTurn = async (conversationId: string, content: string) => {
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conversationId}/messages`, { content })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conversationId, content)
     let run
     for (let i = 0; i < 100; i++) {
       run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
@@ -648,7 +642,7 @@ test.describe('Autonomous agent model loop', () => {
     const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
     await enrol(agent.id)
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'call tool echo {"value":"x"}' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'call tool echo {"value":"x"}')
     for (let i = 0; i < 100; i++) {
       const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
       if (run.status !== 'running') break
@@ -755,8 +749,8 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
 
   const startTurn = async (agentId: string, content: string) => {
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content })).data
-    return { conv, runId }
+    const turn = await startTurnOverSocket(orgAdmin, conv.id, content)
+    return { conv, runId: turn.runId, turn }
   }
 
   const messagesOf = async (conversationId: string) =>
@@ -856,11 +850,11 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     await enrol(agent.id)
     // 'stall' holds the response open for 30s — far longer than this test waits — so the
     // abort is what ends it.
-    const { conv, runId } = await startTurn(agent.id, 'stall')
+    const { conv, runId, turn } = await startTurn(agent.id, 'stall')
     await new Promise(resolve => setTimeout(resolve, 300))
 
-    const res = await orgAdmin.post(`/api/runs/organization/test1/${runId}/abort`, {})
-    assert.equal(res.data.aborted, true, 'the process holding the turn must report that it aborted it')
+    // The chat's Stop: a conversation turn is stopped over its socket, not by a route.
+    turn.abort()
 
     const run = await awaitRun(runId)
     assert.equal(run.status, 'aborted')
@@ -948,31 +942,25 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     )
   })
 
-  test('aborting follows OWNERSHIP of the thread, not the agent grant', async () => {
-    // It used to follow the agent grant, which meant any listed instructor could stop anyone else's
-    // turn — and read their run's status and spend. With one person per conversation that is a
-    // cross-user action, so it follows ownership like reading and erasing.
+  test('a conversation turn is stopped from its chat by its owner, and no route stops it', async () => {
+    // Stopping follows OWNERSHIP of the thread like reading and erasing: it used to follow the agent
+    // grant, which let any listed instructor stop anyone else's turn. The abort route now serves task
+    // runs only — a conversation run is stopped by the `abort` frame of the socket bound to its thread,
+    // which only the thread's owner can bind.
     const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     await enrol(agent.id)
     const live = await startTurn(agent.id, 'stall')
     await new Promise(resolve => setTimeout(resolve, 300))
 
-    // A listed instructor of the agent, but not this thread's owner.
-    await assert.rejects(
-      orgMember.post(`/api/runs/organization/test1/${live.runId}/abort`, {}),
-      { status: 403 }
-    )
-    // Reading the run is refused for the same reason: it carries status and spend.
-    await assert.rejects(
-      orgMember.get(`/api/runs/organization/test1/${live.runId}`),
-      { status: 403 }
-    )
+    // A listed instructor of the agent, but not this thread's owner: the run is not theirs to read, and
+    // the route is refused for the owner too, since it is not how a conversation turn is stopped.
+    await assert.rejects(orgMember.post(`/api/runs/organization/test1/${live.runId}/abort`, {}), { status: 403 })
+    await assert.rejects(orgMember.get(`/api/runs/organization/test1/${live.runId}`), { status: 403 })
+    await assert.rejects(orgAdmin.post(`/api/runs/organization/test1/${live.runId}/abort`, {}), { status: 404 })
+    assert.equal((await orgAdmin.get(`/api/runs/organization/test1/${live.runId}`)).data.status, 'running', 'the refused route stopped nothing')
 
-    // The owner can. Asserted against a LIVE turn — aborting a finished run returns 200 with
-    // {aborted:false}, which would pass while proving only that the 403 is gone.
-    const allowed = await orgAdmin.post(`/api/runs/organization/test1/${live.runId}/abort`, {})
-    assert.equal(allowed.status, 200)
-    assert.equal(allowed.data.aborted, true, 'the thread\'s owner must be able to stop a turn in flight')
+    // The owner's Stop, against a LIVE turn.
+    live.turn.abort()
     assert.equal((await awaitRun(live.runId)).status, 'aborted')
   })
 })
@@ -996,7 +984,7 @@ test.describe('Autonomous agent incremental reads', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, content)
     const run = await awaitRun(runId)
     return { conv, run }
   }
@@ -1011,7 +999,7 @@ test.describe('Autonomous agent incremental reads', () => {
     // A turn long enough (~4.5s) that the early catch-up below lands WHILE it runs: with an answer
     // that settles in milliseconds, that read could already see the final message, leaving no in-place
     // update for sinceVersion to return — a race the test lost once turns got faster.
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'long answer' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'long answer')
     // Catch up once, early, then wait for the turn to finish. The assistant message is created by
     // the executor, which the POST does not await, so wait for it to appear rather than assuming
     // it is there the instant the POST returns.
@@ -1062,9 +1050,10 @@ test.describe('Autonomous agent incremental reads', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'stall' })).data
+    const turn = await startTurnOverSocket(orgAdmin, conv.id, 'stall')
+    const runId = turn.runId
     await new Promise(resolve => setTimeout(resolve, 300))
-    await orgAdmin.post(`/api/runs/organization/test1/${runId}/abort`, {})
+    turn.abort()
 
     let run: any
     for (let i = 0; i < 100; i++) {
@@ -1094,7 +1083,7 @@ test.describe('Autonomous agent run traces', () => {
     const agent = await createAgent(agentOver)
     await enrol(agent.id)
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, content)
     let settled = false
     for (let i = 0; i < 100; i++) {
       const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
@@ -1181,7 +1170,7 @@ test.describe('Autonomous agent run traces', () => {
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
 
     const turn = async (content: string) => {
-      const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content })).data
+      const { runId } = await startTurnOverSocket(orgAdmin, conv.id, content)
       for (let i = 0; i < 100; i++) {
         const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
         if (run.status !== 'running') return run
@@ -1233,7 +1222,7 @@ test.describe('Autonomous agent run traces', () => {
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
 
     const turn = async (content: string) => {
-      const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content })).data
+      const { runId } = await startTurnOverSocket(orgAdmin, conv.id, content)
       for (let i = 0; i < 100; i++) {
         const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
         if (run.status !== 'running') return run
@@ -1303,7 +1292,7 @@ test.describe('Autonomous agent run traces', () => {
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
 
     const turn = async (content: string) => {
-      const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content })).data
+      const { runId } = await startTurnOverSocket(orgAdmin, conv.id, content)
       for (let i = 0; i < 100; i++) {
         const run = (await orgAdmin.get(`/api/runs/organization/test1/${runId}`)).data
         if (run.status !== 'running') return run

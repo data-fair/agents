@@ -15,6 +15,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 import { runTurn, setTraceConsent } from '../../support/turn.ts'
+import { turnOverSocket } from '../../support/socket-turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -58,8 +59,7 @@ test.describe('Deleting a reviewable conversation', () => {
     assert.deepEqual(await mineList(), [], 'it must disappear from their list')
     const read = await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
     assert.equal(read.status, 404, 'and not be readable')
-    const post = await user.post(`/api/conversations/${OWNER}/${conversationId}/messages`, { content: 'more' }).catch((err: any) => err.response ?? err)
-    assert.equal(post.status, 404, 'and not be continuable')
+    await assert.rejects(turnOverSocket(user, conversationId, 'more', { owner: OWNER }), { status: 404 }, 'and not be continuable')
 
     // Still there for review, flagged so an admin knows the person deleted their side.
     const review = await admin.get(`/api/review/${OWNER}`)

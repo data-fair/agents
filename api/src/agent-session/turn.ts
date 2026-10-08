@@ -1,10 +1,8 @@
 /**
  * Starting a turn from a socket prompt.
  *
- * Deliberately the SAME steps as the HTTP message route — append the user turn, create the run, start
- * it — because two ways to begin a turn is two places for the ownership check, the stored shape and the
- * run record to drift. What differs is only how the caller is identified and that there is no response
- * to return.
+ * The one way a turn begins: append the user turn, create the run, start it. The caller is identified
+ * by the socket, and there is no response to return — the browser follows the socket.
  */
 
 import { httpError } from '@data-fair/lib-express'
@@ -56,7 +54,7 @@ export interface SessionTurnRequest {
   /**
    * The socket to echo the stored user turn back on, when the prompt came from one.
    *
-   * Optional because the HTTP route has no socket — but for a socket client it is what makes the
+   * Optional for a caller with no socket to echo on — but for a socket client it is what makes the
    * SERVER the single source of the transcript. Without it a client has to add the user's own message
    * optimistically, and then two things claim to know what was said: the optimistic copy renders the
    * raw text while the stored one carries the hidden-context wrapper, so a reload silently changes
@@ -68,7 +66,7 @@ export interface SessionTurnRequest {
 /**
  * Append the prompt and run the turn. Returns the run id.
  *
- * Throws like the HTTP route does, so the caller can report the reason to the browser: a prompt for
+ * Throws an http error (403 not yours, 400 empty), so the caller can report the reason to the browser: a prompt for
  * someone else's conversation is a 403, not a silently dropped frame.
  */
 export const startSessionTurn = async (request: SessionTurnRequest): Promise<string> => {
@@ -102,7 +100,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   // history reads handover, interruption, message — and the turn this starts carries the reminder to
   // wait again (pendingWaitReminder).
   await settlePendingWait(conversation.id, wait => interruptedWaitResult(wait.expecting))
-  // And rejects a pending approval: the person moved on without deciding (as the HTTP route does).
+  // And rejects a pending approval: the person moved on without deciding.
   await rejectPendingApprovals(conversation.id, undefined, undefined, { undecidedOnly: true })
 
   const stored = await appendMessage(conversation, {
@@ -136,7 +134,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   })
 
   debug('starting run %s for conversation %s', run.id, conversation.id)
-  // Not awaited, exactly as the HTTP route does not await it: the executor owns turning its own
+  // Not awaited, the executor owns turning its own
   // failures into a terminal run and a message, and the browser follows the socket. The catch is the
   // backstop for a throw before the executor can do that.
   startRun(run).catch(err => console.error('agent session run failed to start', err))

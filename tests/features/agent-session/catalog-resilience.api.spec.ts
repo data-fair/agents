@@ -15,6 +15,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { startTurnOverSocket } from '../../support/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -63,7 +64,7 @@ test.describe('An unreachable catalog entry', () => {
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
 
     const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = (await orgAdmin.post(`/api/conversations/organization/test1/${conv.id}/messages`, { content: 'hello' })).data
+    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
 
     let run
     for (let i = 0; i < 100; i++) {
