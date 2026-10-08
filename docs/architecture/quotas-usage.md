@@ -24,8 +24,10 @@ flowchart TD
   RQ -->|OK| LLM[Run the turn]
   RQ -->|Exceeded| Refuse
 
-  LLM --> Record[recordUsage<br/>credits]
+  LLM --> Record[chargeModelCall per model call<br/>credits]
 ```
+
+**One function charges a model call**, whoever makes it: `chargeModelCall()` (`api/src/usage/charge.ts`) prices it, records it in the usage ledger (with the untrusted pool), and, when the call belongs to a run, adds it to the run's spend and records its telemetry entry on the run. The lead's steps, sub-agent workers, compaction, the moderation gate and its probe, memory reflection and the summary endpoint all go through it, so every call is priced the same way, cache tokens included. Its `identity` is explicit: `null` only for a call that is the account's own with no caller (the admin moderation probe).
 
 Every call is priced in **credits**, not currency — see [Configuration → Credits](./configuration.md#credits) for the exact formula (token counts against the model's per-class euro prices, divided by `EUROS_PER_CREDIT`). There is no per-role "cost ratio": each model's own prices are what make a cheaper model (e.g. the summarizer's model) consume fewer credits per token than a pricier one, and cache reads cost a fraction of fresh input on the same model.
 
@@ -71,7 +73,7 @@ Steps 2 and 3 go through `firstQuotaViolation()` (`api/src/usage/operations.ts`)
 A turn is not a request: it runs on the server, possibly after the socket that
 asked for it is gone. Its identity is derived from the run instead, by
 `usageIdentityFor()` (`api/src/conversations/operations.ts`), from the person who
-triggered it and their role at that moment. For a standard agent the rules above
+triggered it and their role at that moment. For the personal assistant the rules above
 apply unchanged — in particular, anyone but its owner is tracked per user on a
 personal account. A configured autonomous agent is billed as itself:
 `autonomous-agent:<id>` at role `admin`, so only the credit cap and the per-run

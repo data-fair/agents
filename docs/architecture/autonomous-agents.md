@@ -5,14 +5,14 @@ against MCP tools it reaches as its own identity, on conversations that each bel
 
 It was once the one part of this service that held server-side conversation state. The loop moved to
 the server for every agent, so a configured autonomous agent and the in-page chat's personal assistant
-(a *standard* agent, `api/src/agent-session/standard-agents.ts`) now run the same executor
+(the one built-in agent, `personalAgent()` in `api/src/agent-session/standard-agents.ts`) now run the same executor
 (`api/src/conversations/executor.ts`: `runTurn` → `performTurn` → `runModelLoop`) over the same
 collections. What still distinguishes an autonomous agent is WHO it acts as (its own non-human identity
 rather than the person's forwarded session), WHO it bills as (itself rather than the person), and that
 it is configured rather than built in.
 
 The UI converges too: there is ONE chat window. `GET /api/conversations/:type/:id/agents` lists what
-the caller may talk to — the standard agents they may use plus the enabled configured agents they may
+the caller may talk to — the personal assistant when they may use it, plus the enabled configured agents they may
 instruct — and `GET /api/conversations/:type/:id` (its `agentId` optional) feeds the history.
 Front-office embeds stay mono-agent; the back office sets `agents` on the embeddable components and
 gets the picker and history (see [Embedding](./embedding.md#back-office-mode-agents)). The standalone
@@ -30,7 +30,7 @@ any more, and the agent-session socket is now the service's only websocket endpo
 | `messages` | the turns, as ordered `UIMessage` parts — **the conversation of record** |
 | `runs` | one document per turn: status, stop reason, steps, credits, the system prompt and per-call telemetry (`calls`) |
 
-The three conversation collections are shared with every chat conversation, standard agent included.
+The three conversation collections are shared with every chat conversation, the personal assistant's included.
 
 Code: `api/src/autonomous-agents/` (configuration, identity, tool diagnostics),
 `api/src/conversations/` (conversations, messages, runs, the executor and its turn gates) and
@@ -135,11 +135,11 @@ envelope and the system-prompt clause that told the model to trust it were remov
   agent's permissions**, which is the sentence that matters when adding someone. The implicit
   owner-admin rule stays exact on department, so an admin of a department cannot instruct an org-root
   agent.
-- Reading, posting to, aborting a turn of, and erasing an existing thread is the owner's alone
-  (`assertOwnsConversation`); a superadmin in admin mode is the only exception. An org admin sees
-  nothing by default — reading someone else's thread is [conversation review](./conversation-review.md),
-  gated on consent.
-- Every message still carries an `author`: a user (id and name) or the agent itself.
+- Reading, prompting in, aborting a turn of, and erasing an existing thread is the owner's alone
+  (`assertOwnsConversation`, and `resolveOwnConversation` when a socket binds to the thread); a
+  superadmin in admin mode is the only exception. An org admin reads someone else's thread only
+  through [conversation review](./conversation-review.md), which a configured agent's thread always
+  allows, being audited.
 
 ## Stopping and erasing
 
@@ -193,7 +193,7 @@ A tool call is classified from the MCP `annotations` its server declares (`api/s
 an unannotated tool is a **write** — the safe reading of a tool that said nothing. Each agent carries
 `approvals`, one of `allow` / `approve` / `deny` per class; the defaults are `readOnly: 'allow'`,
 `write: 'allow'` and `destructive: 'approve'`. It applies to the **catalog tools of configured autonomous
-agents** only: a standard agent's browser tools and the service's own tools are exempt.
+agents** only: the personal assistant's tools and the service's own tools are exempt.
 
 - `deny` **removes** the tool from the set the model sees, so it cannot be asked for.
 - `approve` **stops the turn**: the call is stored in the AI SDK's `approval-requested` state and the run ends
@@ -270,7 +270,7 @@ like one.
 Who is billed is decided by `usageIdentityFor` (`api/src/conversations/operations.ts`). A configured
 autonomous agent is keyed on the **agent** (`autonomous-agent:<id>`, role `admin`, so no per-profile
 quota applies — the credit cap and per-run budget are its bounds): it is an org-owned service identity,
-and scheduled runs will have no instructing user at all. A standard agent bills as the **person** using
+and scheduled runs will have no instructing user at all. The personal assistant bills as the **person** using
 it, with their effective role, so per-profile and untrusted-pool quotas apply to them.
 
 ## Where it is going

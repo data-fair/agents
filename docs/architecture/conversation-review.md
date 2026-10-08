@@ -19,7 +19,7 @@ organization answers for what it does. The consent model below belongs to the pe
 | Thread with | Reviewable by an org admin | Person's delete | Expires |
 | --- | --- | --- | --- |
 | a configured agent | always, whatever `storeTraces` says, no consent needed | archives (never purges) | never; removed by agent deletion or GDPR erasure |
-| a standard agent (`personal`) | only with `storeTraces` + consent + inside the window | archives if consented and inside the window, else purges | 30 days after the last message once archived |
+| the personal assistant (`personal`) | only with `storeTraces` + consent + inside the window | archives if consented and inside the window, else purges | 30 days after the last message once archived |
 
 The review filter is `reviewableFilter` (`api/src/review/reviewable.ts`); the chat shows a
 non-dismissible notice on an audited thread and never offers the consent sheet there.

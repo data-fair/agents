@@ -86,7 +86,7 @@ This ensures the main agent cannot call tools that belong to a sub-agent, enforc
 
 The partition is **re-run mid-turn** when the page's tool names change (in the lead's `prepareStep`), because a component mounted during the turn may declare a sub-agent or a tool one reserves. The live tool map is mutated in place, which the AI SDK re-reads on every step. It is re-run only on a name change because each pass reads every sub-agent's config over the socket.
 
-The debug dialog does not partition anything in the browser: it shows the server's own record of the last turn's offered tools (the run's `calls[].toolNames`), read when it opens.
+The debug dialog does not partition anything in the browser. It lists the page's current tools as the chat has gathered them (name, title, description, input schema), and beside them the server's own record of what the last turn offered the model (the run's `calls[].toolNames`, so after the partition), read each time it opens.
 
 ---
 
@@ -208,17 +208,16 @@ cross-call statelessness.
 The main agent never sees the full sub-agent trace. The delegation's `execute` returns
 `subAgentModelOutput()` (`api/src/conversations/subagent-output.ts`), which decides what single text the lead receives.
 It is **not** a plain "last message content" read — the trailing message can
-carry flags that change the meaning:
+carry a flag that changes the meaning:
 
 ```typescript
 // subAgentModelOutput, by trailing-message flag:
-//   moderationBlocked → SUBAGENT_MODERATION_NOTICE  (a content-policy decision)
 //   stepLimitReached  → close-out answer prefixed with SUBAGENT_PARTIAL_PREFIX,
 //                       or SUBAGENT_STEP_LIMIT_NOTICE if nothing was recovered
 //   otherwise         → the trailing message text, or SUBAGENT_DONE_FALLBACK if empty
 ```
 
-The server delegation sets `stepLimitReached` when the worker stopped mid-chain or reached `STEP_LIMIT`; it never sets `moderationBlocked` (workers are not moderated), so that branch is unused on this path.
+The server delegation sets `stepLimitReached` when the worker stopped mid-chain or reached `STEP_LIMIT`. Workers are not moderated, so there is no moderation branch.
 
 This mirrors OpenAI's `as_tool(custom_output_extractor=…)` hook: the deliverable is chosen
 from the run rather than blindly taken as the raw last token. It keeps the main agent's

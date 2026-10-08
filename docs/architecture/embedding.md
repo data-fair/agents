@@ -114,7 +114,7 @@ All three components (drawer, menu, block) accept:
 | `accountId` | `string` | Account ID for the chat session |
 | `src` | `string` | Custom iframe URL (overrides account-based URL resolution) |
 | `chatTitle` | `string` | Title displayed in the chat header |
-| `agentId` | `string` | Which agent to talk to (`api/src/agent-session/standard-agents.ts` for the standard ones; `personal` is the default). Replaces `systemPrompt` |
+| `agentId` | `string` | Which agent to talk to: `personal` (the built-in personal assistant, `api/src/agent-session/standard-agents.ts`; the default) or a configured agent's id. Replaces `systemPrompt` |
 | `agents` | `boolean` | **Back-office mode**: the chat offers the agent switcher (the personal assistant plus every autonomous agent the caller may instruct in the account). Off — the front-office shape — embeds stay mono-agent. The conversation history is offered to every signed-in person either way |
 | `systemPrompt` | `string` | **Deprecated, ignored** — logs a one-time console warning (`hostInitConfig`) |
 | `initConfigKey` | `string` | Override the per-variant init-config key. Only needed when mounting several instances of the same variant in one tab (defaults to `'drawer'` / `'menu'` / `'block'`) |
@@ -321,7 +321,7 @@ The drawer/menu/block components then append `?initConfig=<key>` (see next secti
 
 ### Back-office mode (`agents`)
 
-The same chat window serves both offices. In the front office (portals) it is embedded with no `agents` prop: one agent. In the back office (data-fair) the host sets `agents`, and the header gains an **agent picker** fed by `GET /api/conversations/:type/:id/agents` — the standard agents the caller may use plus every enabled configured agent they may instruct (`canInstruct`), so the list cannot offer one the first message would be refused for — and a **New conversation** button in place of Reset.
+The same chat window serves both offices. In the front office (portals) it is embedded with no `agents` prop: one agent. In the back office (data-fair) the host sets `agents`, and the header gains an **agent picker** fed by `GET /api/conversations/:type/:id/agents` — the personal assistant when the caller may use it, plus every enabled configured agent they may instruct (`canInstruct`), so the list cannot offer one the first message would be refused for — and a **New conversation** button in place of Reset.
 
 Both offices, for any signed-in person:
 
@@ -336,7 +336,7 @@ Selecting a different agent resumes ITS latest thread; a conversation never chan
 
 The `agentId` and `chatTitle` props are handed to the iframe through **same-origin sessionStorage**, not the URL. This is a one-shot "set then get" handoff: the host writes the config before the iframe loads, and the iframe reads it once on mount. It is **not** a reactive channel — changing the prop after the iframe is running does not update the live agent.
 
-The mechanism was introduced to carry an arbitrarily long `systemPrompt` past nginx's request-line limit and out of logs and `Referer` headers. A host no longer supplies prose: with the loop on the server, a host-supplied prompt would be the one remaining client-controlled instruction, so a host names a standard agent instead and the persona lives server-side (`api/src/agent-session/standard-agents.ts`). The deprecated `prompt` field is ignored.
+The mechanism was introduced to carry an arbitrarily long `systemPrompt` past nginx's request-line limit and out of logs and `Referer` headers. A host no longer supplies prose: with the loop on the server, a host-supplied prompt would be the one remaining client-controlled instruction, so a host names an agent instead and its persona lives server-side (the personal assistant's in `api/src/agent-session/standard-agents.ts`, a configured agent's in its document). The deprecated `prompt` field is ignored.
 
 How it works:
 1. Each component writes `{ agentId, title }` to sessionStorage under a per-variant key via `setAgentInitConfig(key, hostInitConfig(props))` (`hostInitConfig` drops `systemPrompt` with a one-time warning).
