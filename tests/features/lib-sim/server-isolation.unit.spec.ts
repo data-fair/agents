@@ -49,6 +49,7 @@ async function captureQueryOptions (): Promise<Captured> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'haiku',
+        stream: true,
         messages: [
           { role: 'system', content: 'be brief' },
           { role: 'user', content: 'what is the weather' }
@@ -122,5 +123,38 @@ test.describe('bridge call site', () => {
     // Importing server.ts creates the process-wide neutral cwd at module load;
     // remove it so the suite does not leave a bridge-* dir behind per run.
     fs.rmSync(options.cwd, { recursive: true, force: true })
+  })
+})
+
+test.describe('bridge without streaming', () => {
+  // The AI SDK's generateText — memory reflection, for one — sends no `stream` and parses the body as
+  // one JSON value: an event stream failed it with "Invalid JSON response".
+  test('answers a request that did not ask to stream with one JSON completion', async () => {
+    const fakeQuery: BridgeQuery = () => (async function * () {
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }
+      yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 2 } }
+    })()
+    const server = createServer({ port: 0, query: fakeQuery })
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('listening', resolve)
+        server.once('error', reject)
+      })
+      const { port } = server.address() as AddressInfo
+      const res = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'haiku', messages: [{ role: 'user', content: 'hello' }] })
+      })
+      assert.equal(res.status, 200)
+      assert.match(res.headers.get('content-type') ?? '', /application\/json/)
+      const body = await res.json()
+      assert.equal(body.object, 'chat.completion')
+      assert.equal(body.choices[0].message.content, 'ok')
+      assert.equal(body.choices[0].finish_reason, 'stop')
+      assert.equal(body.usage.completion_tokens, 2)
+    } finally {
+      server.close()
+    }
   })
 })

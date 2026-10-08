@@ -101,6 +101,44 @@ export function finalChunk (id: string, model: string, finishReason: 'stop' | 't
 }
 
 /**
+ * One whole `chat.completion`, folded from the chunks a streamed answer is made of — for a request that
+ * did not ask to stream. A client calling without streaming (the AI SDK's generateText: memory
+ * reflection, for one) parses the body as a single JSON value, and an event stream fails it with "Invalid
+ * JSON response". Folding keeps ONE turn logic for both: the turn writes chunks either way.
+ *
+ * An error chunk anywhere makes the whole answer that error.
+ */
+export function completionOf (id: string, model: string, chunks: object[]):
+  { completion: object } | { error: ReturnType<typeof errorBody> } {
+  let content = ''
+  const toolCalls: OpenAIToolCall[] = []
+  let finishReason: string | null = null
+  let usage: object | undefined
+  for (const chunk of chunks as any[]) {
+    if (chunk.error) return { error: chunk }
+    const choice = chunk.choices?.[0]
+    if (typeof choice?.delta?.content === 'string') content += choice.delta.content
+    for (const call of choice?.delta?.tool_calls ?? []) toolCalls.push({ id: call.id, type: 'function', function: call.function })
+    if (choice?.finish_reason) finishReason = choice.finish_reason
+    if (chunk.usage) usage = chunk.usage
+  }
+  return {
+    completion: {
+      id,
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [{
+        index: 0,
+        message: { role: 'assistant', content: content || null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) },
+        finish_reason: finishReason ?? 'stop'
+      }],
+      ...(usage ? { usage } : {})
+    }
+  }
+}
+
+/**
  * The SDK also reports total_cost_usd, deliberately not forwarded: it is list-price
  * bookkeeping, while consumption is actually against the plan's rate limits. Showing
  * it in the usage UI would invite reading it as real spend.

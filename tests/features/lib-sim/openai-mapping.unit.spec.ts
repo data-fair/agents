@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   toolNameToMcp, mcpNameToTool, extractSystemPrompt, renderTranscript,
-  textChunk, toolCallsChunk, finalChunk, mapUsage, errorBody
+  textChunk, toolCallsChunk, finalChunk, mapUsage, errorBody, completionOf
 } from '../../../lib-sim/bridge/openai.ts'
 import type { OpenAIMessage } from '../../../lib-sim/bridge/openai.ts'
 
@@ -113,5 +113,30 @@ test.describe('usage and errors', () => {
     const e = errorBody('rate limited', 'rate_limit_error') as any
     assert.equal(e.error.message, 'rate limited')
     assert.equal(e.error.type, 'rate_limit_error')
+  })
+})
+
+test.describe('a whole completion, for a request that did not stream', () => {
+  const usage = { prompt_tokens: 10, completion_tokens: 3, total_tokens: 13 }
+
+  test('folds the text deltas, the finish reason and the usage', () => {
+    const folded = completionOf('c1', 'haiku', [textChunk('c1', 'haiku', 'Hello '), textChunk('c1', 'haiku', 'world'), finalChunk('c1', 'haiku', 'stop', usage)]) as any
+    assert.equal(folded.completion.object, 'chat.completion')
+    assert.equal(folded.completion.id, 'c1')
+    assert.deepEqual(folded.completion.choices, [{ index: 0, message: { role: 'assistant', content: 'Hello world' }, finish_reason: 'stop' }])
+    assert.deepEqual(folded.completion.usage, usage)
+  })
+
+  test('folds a tool-call hand-back into the message', () => {
+    const calls = [{ id: 'call_1', type: 'function' as const, function: { name: 'memory', arguments: '{"command":"view"}' } }]
+    const folded = completionOf('c2', 'haiku', [textChunk('c2', 'haiku', 'Let me look.'), toolCallsChunk('c2', 'haiku', calls), finalChunk('c2', 'haiku', 'tool_calls')]) as any
+    assert.deepEqual(folded.completion.choices[0].message, { role: 'assistant', content: 'Let me look.', tool_calls: calls })
+    assert.equal(folded.completion.choices[0].finish_reason, 'tool_calls')
+    assert.equal(folded.completion.usage, undefined)
+  })
+
+  test('an empty answer has a null content; an error chunk makes it an error', () => {
+    assert.equal((completionOf('c3', 'haiku', [finalChunk('c3', 'haiku', 'stop')]) as any).completion.choices[0].message.content, null)
+    assert.deepEqual(completionOf('c4', 'haiku', [textChunk('c4', 'haiku', 'x'), errorBody('upstream failed'), finalChunk('c4', 'haiku', 'stop')]), { error: errorBody('upstream failed') })
   })
 })
