@@ -257,6 +257,14 @@ export function useSessionChat (options: UseSessionChatOptions) {
     onError: message => {
       status.value = 'error'
       error.value = message
+    },
+
+    // No turn-end will come on a closed socket: a turn left streaming would show Stop forever. Idle,
+    // there is nothing to say — the next message reopens the socket.
+    onDisconnect: () => {
+      if (status.value !== 'streaming') return
+      status.value = 'error'
+      error.value = 'the connection to the server was lost, send your message again'
     }
   })
 

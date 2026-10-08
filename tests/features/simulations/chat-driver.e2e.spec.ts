@@ -41,6 +41,38 @@ test.describe('Simulation chat driver', () => {
     await expect.poll(() => fixture.invokedTools()).toEqual(['wipe_everything'])
   })
 
+  // The judged run that found this: the API restarted (a deploy, here a dev reload) while the person
+  // read the answer to their approval, and their next message was queued behind a socket that never
+  // opened again — Stop on screen for ten minutes, nothing on the server. The server closing the
+  // socket is played by the route; everything else is the real stack.
+  test('a message sent after the server closed the socket is answered, in the same conversation', async ({ page, goToWithAuth }) => {
+    const sockets: Array<{ close: () => Promise<void> }> = []
+    await page.routeWebSocket(/\/agent-session$/, ws => {
+      ws.connectToServer()
+      sockets.push(ws)
+    })
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    const chat = createChatDriver(page)
+    await chat.prepare()
+    await chat.sendMessage('call tool wipe_everything {}')
+    expect(await chat.waitForTurn()).toBe('approval')
+    await page.getByRole('button', { name: 'Approve' }).first().click()
+    expect(await chat.waitForTurn()).toBe('ended')
+    const before = (await chat.readConversation()).length
+
+    await sockets[sockets.length - 1].close()
+    await chat.sendMessage('hello')
+    expect(await chat.waitForTurn(15000)).toBe('ended')
+    const after = await chat.readConversation()
+    // The thread's history replayed into the transcript it already had, not appended a second time.
+    expect(after.length).toBe(before + 2)
+    expect(after.slice(-2)).toEqual([{ role: 'user', text: 'hello' }, { role: 'assistant', text: 'world' }])
+
+    // One conversation, holding the message: not a second thread started by the reopened socket.
+    const listed = (await admin.get('/api/review/organization/test1?size=10')).data.results
+    expect(listed.filter((c: any) => c.agentId === agentId)).toHaveLength(1)
+  })
+
   test('a new conversation empties the chat and takes the next message as its first', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
     const chat = createChatDriver(page)

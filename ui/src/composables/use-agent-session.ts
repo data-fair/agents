@@ -81,6 +81,12 @@ export interface AgentSessionClientOptions {
   /** A sub-agent panel's phase line, keyed by the delegating call. Never the main activity line. */
   onSubAgentActivity?: (parentToolCallId: string, activity: ChatActivity | null) => void
   onTurnEnd?: (stopReason: string, detail?: string) => void
+  /**
+   * The server closed the socket — a restart, a deploy — or a reopen failed. No frame of the turn in
+   * flight will arrive any more, and anything queued for that socket was dropped: the caller ends what
+   * it was waiting for. The next thing the page sends reopens the socket.
+   */
+  onDisconnect?: () => void
   /** What the conversation has cost so far, in credits — sent once attached and before each turn-end. */
   onCost?: (conversationCost: number) => void
   onError?: (message: string) => void
@@ -154,6 +160,13 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     if (ws?.readyState === WebSocket.OPEN) {
       ws.send(JSON.stringify(message))
       return
+    }
+    // The server closed it (a restart, a deploy): reopened by what the page says next, on the thread
+    // it was in. Without this a prompt was queued behind a socket that would never open again, and the
+    // chat showed Stop forever while nothing reached the server.
+    if (ws && ws.readyState >= WebSocket.CLOSING) {
+      if (boundTo) target = { conversationId: boundTo }
+      open()
     }
     // `hello` is never queued: `onopen` sends one for the latest target, and a queued copy would be a
     // second one arriving behind it and rebinding the connection.
@@ -246,6 +259,42 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     }
   }
 
+  /** Open a socket; it says hello for the latest target once open, then sends what was queued. */
+  const open = () => {
+    const socket = new WebSocket(options.url)
+    ws = socket
+    socket.onopen = () => {
+      connected.value = true
+      hello()
+      flush()
+    }
+    socket.onmessage = event => {
+      const message = parseServerMessageForClient(String(event.data))
+      if (!message) {
+        // A frame this client does not understand is a newer server, not a bug to crash on.
+        debug('ignored an unrecognised server frame')
+        return
+      }
+      // A known frame is not re-checked field by field (see parseServerMessageForClient), so one
+      // with a broken shape could throw here: logged, and the socket keeps reading the next frames.
+      try {
+        handle(message)
+      } catch (err) {
+        console.error(`[df-agents] could not handle a ${message.type} frame`, err)
+      }
+    }
+    socket.onclose = () => {
+      // The page's own close() let go of it, or a newer socket replaced it: nothing to report.
+      if (socket !== ws) return
+      connected.value = false
+      attached.value = false
+      activity.value = null
+      // Dropped, not kept for a later socket: the caller is told, and the person sends again.
+      outbox = []
+      options.onDisconnect?.()
+    }
+  }
+
   return {
     connected,
     attached,
@@ -256,31 +305,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     /** Open the socket and say hello for this target — or for a later one asked before it opened. */
     connect (initial: HelloTarget) {
       target = initial
-      ws = new WebSocket(options.url)
-      ws.onopen = () => {
-        connected.value = true
-        hello()
-        flush()
-      }
-      ws.onmessage = event => {
-        const message = parseServerMessageForClient(String(event.data))
-        if (!message) {
-          // A frame this client does not understand is a newer server, not a bug to crash on.
-          debug('ignored an unrecognised server frame')
-          return
-        }
-        // A known frame is not re-checked field by field (see parseServerMessageForClient), so one
-        // with a broken shape could throw here: logged, and the socket keeps reading the next frames.
-        try {
-          handle(message)
-        } catch (err) {
-          console.error(`[df-agents] could not handle a ${message.type} frame`, err)
-        }
-      }
-      ws.onclose = () => {
-        connected.value = false
-        attached.value = false
-      }
+      open()
     },
 
     /** Called when the aggregator's set changes — a navigation, or a frame appearing or going away. */
@@ -341,8 +366,10 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     },
 
     close () {
-      ws?.close()
+      // Let go first, so its close event is not taken for the server's.
+      const socket = ws
       ws = undefined
+      socket?.close()
     }
   }
 }
