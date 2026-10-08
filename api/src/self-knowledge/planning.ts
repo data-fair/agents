@@ -40,7 +40,12 @@ const taskSchema = forModel(taskWriteReqSchema)
 // first, a judged run kept saying an approved and stored task still awaited approval, invented a
 // missing approval screen, and the person had the task deleted.
 const APPROVAL_NOTE = 'The person in this chat will see the task and approve or reject it; nothing changes until they approve. ' +
-  'When you receive this tool\'s result, the person has already approved it and the change is done: say so, never tell them it still needs approval.'
+  'When you receive this tool\'s result, the person has already approved it and the change is done: tell them it is done, never that it still needs approval.'
+// How a run's findings reach anyone. A judged run accepted "report back to me" and wrote a task whose
+// findings would have ended `done`, which notifies nobody (docs/architecture/planned-tasks.md): the
+// promise was kept in words only. Told this, the agent can write the prompt so findings are flagged.
+const DELIVERY_NOTE = 'Nobody watches a task run. A person is notified only when a run fails, the task is paused, or the run reports the outcome needs-attention through report_outcome; any other outcome is only kept in the run history for administrators. ' +
+  'When the person wants to hear about what a task finds, say in its prompt when to report needs-attention (for example: "if there are closures, report needs-attention with the list"). Never promise to report back in any other way.'
 const REFUSAL_NOTE = 'A refusal for the schedule, the minimum interval or the task cap is final: do not retry the same input, tell the person.'
 const SCHEDULE_NOTE = 'Schedules use the rule format of data-fair processings (see the schema): one or more monthly, weekly, daily or every-N-hours rules, each at a time in a time zone.'
 
@@ -75,7 +80,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
 
   return {
     plan_task: tool({
-      description: `Plan a new task of yours: an instruction you will run on a schedule, with nobody present. ${APPROVAL_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
+      description: `Plan a new task of yours: an instruction you will run on a schedule, with nobody present. ${APPROVAL_NOTE} ${DELIVERY_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
       inputSchema: jsonSchema<unknown>(taskSchema),
       needsApproval: true,
       execute: async (input: unknown) => {
@@ -84,7 +89,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       }
     }),
     update_task: tool({
-      description: `Change one of your planned tasks: give its id and the whole new task (title, prompt, scheduling, enabled), not only what changes. ${APPROVAL_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
+      description: `Change one of your planned tasks: give its id and the whole new task (title, prompt, scheduling, enabled), not only what changes. ${APPROVAL_NOTE} ${DELIVERY_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
       inputSchema: jsonSchema<unknown>({
         ...taskSchema,
         required: ['taskId', ...taskSchema.required],
