@@ -15,7 +15,10 @@ import { runAsMessages } from '../tasks/run-messages.ts'
 
 export const SELF_KNOWLEDGE_TOOL_NAMES = ['get_my_configuration', 'list_my_runs', 'get_run'] as const
 
-/** The source a stored self-knowledge call names. */
+/** The planning tools (./planning.ts): the agent's writes to its own tasks, each approved in the chat. */
+export const PLANNING_TOOL_NAMES = ['plan_task', 'update_task', 'delete_task'] as const
+
+/** The source a stored self-knowledge or planning call names. */
 export const SELF_KNOWLEDGE_SERVER_ID = 'agent-self'
 
 /** How much of an outcome summary a run row shows: the row is a listing, `get_run` has the rest. */

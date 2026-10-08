@@ -5,9 +5,9 @@
  *  - when it applies — the SURFACE (a chat, or a planned task's run, which nobody watches) and the agent;
  *  - how it builds its tools for this turn.
  * Provenance and annotations come from the entry, so a stored call names its source like a catalog call
- * does. Service tools are outside the approval POLICY (approval-policy.ts covers catalog tools) — one
- * that must always be approved, `request_web_access`, sets `needsApproval` itself and goes through the
- * same gate. No page tool or sub-agent config can displace them (./service-tool-names.ts).
+ * does. Service tools are outside the approval POLICY (approval-policy.ts covers catalog tools) — those
+ * that must always be approved, `request_web_access` and the planning tools, set `needsApproval`
+ * themselves and go through the same gate. No page tool or sub-agent config can displace them (./service-tool-names.ts).
  */
 import { tool, jsonSchema, type Tool } from 'ai'
 import type { AutonomousAgent, ConversationRun } from '#types'
@@ -24,6 +24,7 @@ import { WEB_SERVER_ID } from '../web/operations.ts'
 import { saveWebAllowedUrls } from '../autonomous-agents/service.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { createSelfKnowledgeTools } from '../self-knowledge/tools.ts'
+import { createPlanningTools, PLANNING_TOOL_ANNOTATIONS } from '../self-knowledge/planning.ts'
 import { SELF_KNOWLEDGE_SERVER_ID } from '../self-knowledge/operations.ts'
 
 export type { TaskOutcome }
@@ -139,6 +140,21 @@ const ENTRIES: ServiceToolEntry[] = [
       for (const name of Object.keys(tools)) {
         into.serverByTool.set(name, SELF_KNOWLEDGE_SERVER_ID)
         into.annotationsByTool.set(name, { readOnlyHint: true })
+      }
+    }
+  },
+  {
+    // PLANNING (api/src/self-knowledge/planning.ts): a configured agent plans, changes and deletes its own
+    // tasks. Only in a chat: every call needs the person's approval, and a task run has nobody to give it.
+    // Decided by whoever may instruct the agent, like any other approval (conversations/approvals.ts):
+    // the admin routes stay the way to undo it.
+    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat',
+    build: async (ctx, into) => {
+      const tools = createPlanningTools(ctx)
+      Object.assign(into.tools, withProvenance(tools, () => SELF_KNOWLEDGE_SERVER_ID))
+      for (const name of Object.keys(tools)) {
+        into.serverByTool.set(name, SELF_KNOWLEDGE_SERVER_ID)
+        into.annotationsByTool.set(name, PLANNING_TOOL_ANNOTATIONS[name])
       }
     }
   },

@@ -16,7 +16,7 @@ const LIST_RUNS_DEFAULT = 10
 const LIST_RUNS_MAX = 20
 
 /** An HTTP error from the read layer keeps its status in the text the model reads (e.g. "404 unknown run"). */
-const asToolError = (err: any): never => {
+export const asToolError = (err: any): never => {
   throw new Error(err?.status ? `${err.status} ${err.message}` : err?.message ?? String(err))
 }
 

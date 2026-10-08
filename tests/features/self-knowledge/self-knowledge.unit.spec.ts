@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { renderConfiguration, renderRunRow, renderRun, SELF_KNOWLEDGE_TOOL_NAMES, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
+import { renderConfiguration, renderRunRow, renderRun, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
 import { SERVICE_TOOL_NAMES } from '../../../api/src/conversations/service-tool-names.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 
@@ -59,6 +59,12 @@ test.describe('renderConfiguration', () => {
     assert.ok(all.includes('- report_outcome'), text)
     assert.ok(all.includes('- t1: Morning check — every day at 08:00 (Europe/Paris) — next run: none — paused: paused after 3 consecutive failed runs'), text)
     assert.match(text, /## Memory\nOff/)
+  })
+
+  test('a task disabled by an admin, not paused, reads as disabled', () => {
+    const disabled = view('chat')
+    disabled.tasks = [{ id: 't2', title: 'Evening check', scheduling: [{ type: 'daily', hour: 18, minute: 0, timeZone: 'Europe/Paris' }], enabled: false }]
+    assert.ok(lines(renderConfiguration(disabled)).includes('- t2: Evening check — every day at 18:00 (Europe/Paris) — next run: none — disabled'))
   })
 })
 
@@ -121,6 +127,10 @@ test.describe('renderRun', () => {
 test.describe('self-knowledge names and prompt', () => {
   test('the three tools are reserved service tool names', () => {
     for (const name of SELF_KNOWLEDGE_TOOL_NAMES) assert.ok(SERVICE_TOOL_NAMES.has(name), name)
+  })
+
+  test('the three planning tools are reserved service tool names', () => {
+    for (const name of PLANNING_TOOL_NAMES) assert.ok(SERVICE_TOOL_NAMES.has(name), name)
   })
 
   test('a configured agent is told to check its configuration before refusing, the personal assistant is not', () => {
