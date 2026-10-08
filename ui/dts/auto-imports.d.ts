@@ -95,7 +95,6 @@ declare global {
   const repairInline: typeof import('../src/utils/markdown').repairInline
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token').resetAnonymousToken
   const resolveComponent: typeof import('vue').resolveComponent
-  const resolveToolsPartition: typeof import('../src/utils/tools-partition').resolveToolsPartition
   const rewriteSimpleDirectoryUrl: typeof import('../src/utils/simple-directory-url').rewriteSimpleDirectoryUrl
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags').serializeFlagsCookie
   const setBreadcrumbs: typeof import('../src/utils/breadcrumbs').setBreadcrumbs
@@ -181,9 +180,6 @@ declare global {
   // @ts-ignore
   export type { MermaidFailure } from '../src/utils/mermaid'
   import('../src/utils/mermaid')
-  // @ts-ignore
-  export type { ToolInfo, SubAgentInfo, DebugToolsPartition } from '../src/utils/tools-partition'
-  import('../src/utils/tools-partition')
   // @ts-ignore
   export type { UsageDimension, UsageEntry } from '../src/utils/usage-breakdown'
   import('../src/utils/usage-breakdown')
@@ -278,7 +274,6 @@ declare module 'vue' {
     readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
-    readonly resolveToolsPartition: UnwrapRef<typeof import('../src/utils/tools-partition')['resolveToolsPartition']>
     readonly rewriteSimpleDirectoryUrl: UnwrapRef<typeof import('../src/utils/simple-directory-url')['rewriteSimpleDirectoryUrl']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>

@@ -63,12 +63,53 @@
             -->
             <pre class="agent-chat__pre pa-3">{{ hostContextText }}</pre>
 
+            <!-- What this page registered right now: the descriptors the socket carries up to the server. -->
+            <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
+              {{ t('pageTools') }} ({{ pageToolList.length }})
+            </div>
+            <div
+              v-if="!pageToolList.length"
+              class="text-center text-medium-emphasis pa-4"
+            >
+              {{ t('noPageTools') }}
+            </div>
+            <v-expansion-panels
+              v-else
+              variant="accordion"
+              density="compact"
+              class="mt-1 agent-chat__tools-panels"
+              data-testid="page-tools"
+            >
+              <v-expansion-panel
+                v-for="dtool in pageToolList"
+                :key="dtool.name"
+                density="compact"
+              >
+                <v-expansion-panel-title class="text-caption py-0">
+                  <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
+                  <span
+                    v-if="dtool.title"
+                    class="text-medium-emphasis ml-1"
+                  >{{ dtool.name }}</span>
+                </v-expansion-panel-title>
+                <v-expansion-panel-text>
+                  <p class="text-caption mb-1">
+                    {{ dtool.description }}
+                  </p>
+                  <p class="text-caption text-medium-emphasis mb-1">
+                    {{ t('inputSchema') }}:
+                  </p>
+                  <pre class="agent-chat__pre pa-2">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
+                </v-expansion-panel-text>
+              </v-expansion-panel>
+            </v-expansion-panels>
+
             <!--
               The server's own record of the last turn: what the model was actually offered, which no
               page-side computation can claim to be. Names only, as stored on the run.
             -->
             <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
-              {{ t('tools') }} ({{ offeredTools.length }})
+              {{ t('offeredTools') }} ({{ offeredTools.length }})
             </div>
             <div
               v-if="!offeredTools.length"
@@ -175,7 +216,10 @@ fr:
   close: Fermer
   info: Info
   hostContext: Contexte transmis par la page
-  tools: Outils proposés au dernier tour
+  pageTools: Outils enregistrés par la page
+  noPageTools: Aucun outil enregistré par la page
+  offeredTools: Outils proposés au dernier tour
+  inputSchema: Schéma d'entrée
   noTools: Aucun outil proposé lors du dernier tour
   openReview: Ouvrir l'analyse
   settings: Paramètres
@@ -193,7 +237,10 @@ en:
   close: Close
   info: Info
   hostContext: Context reported by this page
-  tools: Tools offered on the last turn
+  pageTools: Tools registered by this page
+  noPageTools: No tools registered by this page
+  offeredTools: Tools offered on the last turn
+  inputSchema: Input Schema
   noTools: No tools offered on the last turn
   openReview: Open review
   settings: Settings
@@ -217,12 +264,15 @@ import { mdiArrowLeft, mdiOpenInNew } from '@mdi/js'
 import DfTutorialAlert from '@data-fair/lib-vuetify/tutorial-alert.vue'
 import type { SelfUsage } from '../../../../api/src/usage/operations'
 import AgentChatConsumption from './AgentChatConsumption.vue'
+import type { Tool } from 'ai'
 import { $apiPath, $fetch } from '~/context'
 import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
 
 const props = defineProps<{
   modelValue: boolean
   hostContext: Record<string, string | null>
+  /** The page's tools as the aggregator discovered them, i.e. what the socket sends up. */
+  pageTools: Record<string, Tool>
   /** Absent until the socket has attached: the server assigns it, so the client cannot know it earlier. */
   conversationId?: string
   isAdmin?: boolean
@@ -268,11 +318,20 @@ const activeDebugTab = ref('info')
 
 /**
  * The tools the model was offered on the conversation's last turn, read from the run when the dialog
- * opens. Empty before a first turn, and for an anonymous chat, which has no run to read.
+ * opens (cleared first, so another thread's list never lingers). Empty before a first turn, and for an anonymous chat, which has no run to read.
  */
+const pageToolList = computed(() => Object.entries(props.pageTools).map(([name, tool]) => ({
+  name,
+  title: (tool as any).title as string | undefined,
+  description: tool.description ?? '',
+  inputSchema: (tool as any).inputSchema?.jsonSchema ?? {}
+})))
+
 const offeredTools = ref<string[]>([])
 watch(() => props.modelValue, async open => {
-  if (!open || !props.conversationId) return
+  if (!open) return
+  offeredTools.value = []
+  if (!props.conversationId) return
   try {
     const res = await $fetch<{ results: Array<{ calls?: Array<{ toolNames?: string[] }> }> }>(
       `${$apiPath}/conversations/${props.accountType}/${props.accountId}/${props.conversationId}/runs`
@@ -303,6 +362,14 @@ const openReview = () => {
 </script>
 
 <style scoped>
+.agent-chat__tools-panels :deep(.v-expansion-panel-title) {
+  min-height: 28px;
+}
+
+.agent-chat__tools-panels :deep(.v-expansion-panel-text__wrapper) {
+  padding: 4px 12px 8px;
+}
+
 .agent-chat__pre {
   background: rgb(var(--v-theme-surface-variant));
   color: rgb(var(--v-theme-on-surface-variant));

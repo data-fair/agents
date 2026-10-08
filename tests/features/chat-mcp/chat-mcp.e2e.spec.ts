@@ -54,8 +54,10 @@ test.describe('Chat MCP UI', () => {
     await expect(page.getByLabel('Data')).toHaveValue('Hello World', { timeout: 10000 })
 
     // The structure arrived too, not just the side effect: the call renders as a finished tool chip
-    // (titled by the page's own tool title).
-    await expect(page.locator('.agent-chat .v-chip', { hasText: 'Data' }).first()).toBeVisible({ timeout: 10000 })
+    // (titled by the page's own tool title, in its done colour).
+    const chip = page.getByTestId('tool-chip').filter({ hasText: 'Data' })
+    await expect(chip).toHaveCount(1, { timeout: 10000 })
+    await expect(chip).toHaveClass(/text-success/)
   })
 
   test('A turn runs on the server and streams into the page', async ({ page, goToWithAuth }) => {
@@ -99,5 +101,22 @@ test.describe('Chat MCP UI', () => {
 
     await expect(page.locator('.assistant-content')).toHaveCount(0)
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible()
+  })
+
+  test('Debug dialog shows tool inputSchema', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await waitForPageTools(page, 'set_data')
+
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+    await page.getByRole('tab', { name: 'Info' }).click()
+
+    // Expand the tool panel to reveal the inputSchema
+    await page.getByTestId('page-tools').getByText('set_data', { exact: true }).click()
+
+    // The schema the page declared is not empty - it should contain the "data" property
+    const schemaBlock = page.getByTestId('page-tools').locator('.agent-chat__pre').last()
+    await expect(schemaBlock).toBeVisible()
+    await expect(schemaBlock).toContainText('"properties"')
+    await expect(schemaBlock).toContainText('"data"')
   })
 })

@@ -2,8 +2,6 @@
   <v-card
     class="agent-chat d-flex flex-column"
     :border="0"
-    data-testid="agent-chat"
-    :data-page-tools="Object.keys(chat.tools.value).sort().join(',')"
   >
     <agent-chat-header
       :is-admin="isAdmin"
@@ -95,6 +93,7 @@
     <agent-chat-debug-dialog
       v-model="showDebugDialog"
       :host-context="hostContext"
+      :page-tools="chat.tools.value"
       :conversation-id="chat.conversationId.value"
       :is-admin="isAdmin"
       :audited="audited"

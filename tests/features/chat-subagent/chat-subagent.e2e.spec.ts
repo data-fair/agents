@@ -78,11 +78,18 @@ test.describe('Chat Sub-Agent UI', () => {
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
 
-    // The record is read when the dialog opens: what the model was actually offered.
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    const offered = page.getByTestId('offered-tools')
-    await expect(offered).toContainText('set_display')
-    await expect(offered).toContainText('subagent_data_analyst')
+    // The record is read when the dialog opens, and the call record is written fire-and-forget, so
+    // open it until the turn's tools show up: what the model was actually offered.
+    await expect(async () => {
+      await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+      try {
+        const offered = page.getByTestId('offered-tools')
+        await expect(offered).toContainText('set_display', { timeout: 1500 })
+        await expect(offered).toContainText('subagent_data_analyst', { timeout: 1500 })
+      } finally {
+        await page.getByRole('button', { name: /Close|Fermer/ }).click()
+      }
+    }).toPass({ timeout: 15000 })
   })
 
   test('Main agent can call set_display tool', async ({ page, goToWithAuth }) => {
