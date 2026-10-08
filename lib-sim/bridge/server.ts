@@ -226,7 +226,9 @@ function finish (
   if (outcome.type === 'tools') {
     send(toolCallsChunk(id, model, outcome.calls))
     conv.handedBack(outcome.calls.length)
-    send(finalChunk(id, model, 'tool_calls'))
+    // With the usage of the model calls that made them: a turn stopped here for good (an approval
+    // gate) has no later request to carry it, and recorded a real model call as zero tokens.
+    send(finalChunk(id, model, 'tool_calls', outcome.usage))
     // The session stays alive: its handlers are suspended, waiting for the
     // results the client is about to compute.
   } else {

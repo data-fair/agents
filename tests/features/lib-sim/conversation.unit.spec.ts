@@ -64,6 +64,56 @@ test.describe('turn ending on suspended tool calls', () => {
   })
 })
 
+test.describe('usage of a turn that hands back tool calls', () => {
+  // Regression: usage was only read off the SDK's final `result`, so a turn that ended on tool
+  // calls reported none. A conversation whose last step was a tool call — one stopped by an approval
+  // gate, which never sends the results back — recorded a real model call as zero tokens.
+  test('reports the usage of the model call that made the tool calls', async () => {
+    const conv = new Conversation('k')
+    const never = new Promise<void>(() => {})
+    const usage = { input_tokens: 4, cache_read_input_tokens: 3000, cache_creation_input_tokens: 500, output_tokens: 60 }
+    const turn = conv.beginTurn(() => {}, openStream([
+      // One API response, delivered as one assistant message per content block sharing its id.
+      { type: 'assistant', message: { id: 'msg_1', content: [{ type: 'text', text: 'wiping' }], usage: { ...usage, output_tokens: 1 } } },
+      { type: 'assistant', message: { id: 'msg_1', content: [{ type: 'tool_use' }], usage } }
+    ], never))
+    await new Promise(resolve => setTimeout(resolve, 5))
+    conv.handleToolCall('mcp__bridge__wipe', {}).catch(() => {})
+    const outcome = await turn
+    assert.equal(outcome.type, 'tools')
+    assert.deepEqual(outcome.type === 'tools' && outcome.usage, {
+      prompt_tokens: 3504, completion_tokens: 60, total_tokens: 3564, prompt_tokens_details: { cached_tokens: 3000 }
+    })
+    conv.abort()
+  })
+
+  test('the final result reports only what the earlier hand-backs did not, so nothing is counted twice', async () => {
+    const conv = new Conversation('k')
+    let release!: () => void
+    const hold = new Promise<void>(resolve => { release = resolve })
+    const turn1 = conv.beginTurn(() => {}, (async function * (): AsyncIterable<SdkMessage> {
+      yield { type: 'assistant', message: { id: 'msg_1', content: [{ type: 'tool_use' }], usage: { input_tokens: 100, output_tokens: 10 } } }
+      await hold
+      yield { type: 'assistant', message: { id: 'msg_2', content: [{ type: 'text', text: 'done' }], usage: { input_tokens: 150, output_tokens: 20 } } }
+      // The SDK's result is the WHOLE query's usage, both model calls included.
+      yield { type: 'result', subtype: 'success', usage: { input_tokens: 250, output_tokens: 30 } }
+    })())
+    await new Promise(resolve => setTimeout(resolve, 5))
+    conv.handleToolCall('mcp__bridge__a', {}).catch(() => {})
+    const outcome1 = await within(turn1)
+    assert.deepEqual(outcome1.type === 'tools' && outcome1.usage, { prompt_tokens: 100, completion_tokens: 10, total_tokens: 110 })
+    const ids = outcome1.type === 'tools' ? outcome1.calls.map(c => c.id) : []
+    conv.handedBack(ids.length)
+
+    const turn2 = conv.beginTurn(() => {})
+    conv.deliverToolResults([{ id: ids[0], content: 'ok' }])
+    release()
+    const outcome2 = await within(turn2)
+    assert.equal(outcome2.type, 'done')
+    assert.deepEqual(outcome2.type === 'done' && outcome2.usage, { prompt_tokens: 150, completion_tokens: 20, total_tokens: 170 })
+  })
+})
+
 test.describe('turn ending on stream completion', () => {
   test('ends with done and maps usage when the query finishes', async () => {
     const conv = new Conversation('k')
