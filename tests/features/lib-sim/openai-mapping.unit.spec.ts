@@ -64,6 +64,31 @@ test.describe('transcript rendering', () => {
   })
 })
 
+test.describe('transcript framing', () => {
+  // Rendered as « user: … / assistant: … » lines and continued, the history taught the model
+  // to write the next « user: » line itself: judged haiku runs invented the person's turns and
+  // the application's « Reported by the application… » blocks, then answered them. A real
+  // provider receives structured messages and never sees such a transcript.
+  const messages: OpenAIMessage[] = [
+    { role: 'user', content: '<hidden-context>Reported by the application</hidden-context>\n\nbonjour' },
+    { role: 'assistant', content: 'Bonjour !' },
+    { role: 'user', content: 'et ensuite ?' }
+  ]
+
+  test('puts each message in its own tag, never a role-prefixed line', () => {
+    const out = renderTranscript(messages)
+    assert.ok(!/^(user|assistant): /m.test(out), out)
+    assert.match(out, /<user_message>[\s\S]*bonjour[\s\S]*<\/user_message>/)
+    assert.match(out, /<assistant_message>\s*Bonjour !\s*<\/assistant_message>/)
+  })
+
+  test('asks for the assistant reply only', () => {
+    const out = renderTranscript(messages)
+    assert.match(out, /only the assistant's next reply/)
+    assert.match(out, /never write a user message or an application event/)
+  })
+})
+
 test.describe('SSE chunks', () => {
   test('a text chunk carries the delta and no finish reason', () => {
     const c = textChunk('id1', 'haiku', 'hi') as any

@@ -47,26 +47,30 @@ export function extractSystemPrompt (messages: OpenAIMessage[]): string {
  * session). The continuation path never comes through here — it delivers tool
  * results into a query that is already holding the history.
  */
+// Each message in its own tag, not a « role: » line: continued as a script, a role-prefixed
+// transcript taught the model to write the next « user: » line itself — judged haiku runs
+// invented the person's turns and the application's host-event blocks, then answered them.
+// A real provider receives structured messages and never sees such a transcript.
 export function renderTranscript (messages: OpenAIMessage[]): string {
   const lines: string[] = ['<conversation_history>']
   for (const m of messages) {
     if (m.role === 'system') continue
     if (m.role === 'tool') {
-      lines.push(`tool result (id=${m.tool_call_id}): ${m.content ?? ''}`)
+      lines.push(`<tool_result id="${m.tool_call_id}">\n${m.content ?? ''}\n</tool_result>`)
       continue
     }
-    if (m.role === 'assistant' && m.tool_calls?.length) {
-      for (const c of m.tool_calls) {
-        lines.push(`assistant called tool (id=${c.id}) ${c.function.name} with ${c.function.arguments}`)
+    if (m.role === 'assistant') {
+      for (const c of m.tool_calls ?? []) {
+        lines.push(`<tool_call id="${c.id}" name="${c.function.name}">\n${c.function.arguments}\n</tool_call>`)
       }
-      if (m.content) lines.push(`assistant: ${m.content}`)
+      if (m.content) lines.push(`<assistant_message>\n${m.content}\n</assistant_message>`)
       continue
     }
-    lines.push(`${m.role}: ${m.content ?? ''}`)
+    lines.push(`<user_message>\n${m.content ?? ''}\n</user_message>`)
   }
   lines.push('</conversation_history>')
   lines.push('')
-  lines.push('Continue this conversation: produce the next assistant turn.')
+  lines.push("Write only the assistant's next reply, as the assistant: never write a user message or an application event, they come from the person and the application alone.")
   return lines.join('\n')
 }
 

@@ -151,9 +151,11 @@ returns.
 
 ### Give the persona eyes
 
-`createPagePerception(roots, opts?)` gives the simulated user a
-`look`/`click`/`type` MCP tool set over the real Playwright page(s), so it can
-check what is actually on screen instead of guessing. Pass one root per
+`createPagePerception(roots, opts?)` gives the simulated user an MCP tool set
+over the real Playwright page(s), so it can check what is actually on screen
+instead of guessing: `look` (the accessibility outline), `screenshot` (the
+screen as an image, for colours and layout), `click`, `type`, `press` (a key,
+in a named field or wherever the focus is) and `switch_tab`. Pass one root per
 visible surface — a chat embedded in an iframe has both the host page and the
 frame:
 
@@ -166,6 +168,16 @@ const perception = createPagePerception(
   { offLimits: [strings.input, strings.send, strings.stop, strings.reset] }
 )
 ```
+
+**Iframes.** A root's outline stops at its iframes unless the root sets
+`frames: true`: it then sees and acts inside them, nested ones included (acting
+needs a `Page` root). Use it instead of adding a root per frame — but not on top
+of one, or the frame's content is listed twice.
+
+**Tabs.** A link that opens a new tab (`target="_blank"`) takes the persona
+there, as it would a person: `look`, `click`, `type`, `press` and `screenshot`
+work on that tab, tab 1 being your roots, until `switch_tab` returns. It needs a
+`Page` among the roots, whose browser context is watched for new pages.
 
 **Pass `offLimits`.** It is the second argument's only option, and it is not
 optional in practice: it is the list of accessible names — typically the
@@ -187,8 +199,9 @@ perception.setTurn(i + 1)
 const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
 ```
 
-Every `look`/`click`/`type` call is recorded into `perception.observations` as
-`{ turn, tool, args, result }`; put that array into the transcript's
+Every tool call is recorded into `perception.observations` as
+`{ turn, tool, args, result }` (a screenshot as a line saying it was taken, not
+the image); put that array into the transcript's
 `observations` field so the judge can check a visual claim against what was
 actually seen. **Without `perception`, the persona cannot see the page at
 all** — do not write a case or a judge prompt that expects it to notice or

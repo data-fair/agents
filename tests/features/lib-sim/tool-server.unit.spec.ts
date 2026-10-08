@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { listToolsFor, createToolServer, TOOL_TIMEOUT_MS } from '../../../lib-sim/bridge/tool-server.ts'
+import { listToolsFor, createToolServer, TOOL_TIMEOUT_MS, MAX_RESULT_SIZE_CHARS } from '../../../lib-sim/bridge/tool-server.ts'
 import type { OpenAIToolDef } from '../../../lib-sim/bridge/openai.ts'
 
 const TOOLS: OpenAIToolDef[] = [{
@@ -28,6 +28,17 @@ test.describe('tool listing', () => {
   test('supplies an empty object schema when a tool declares no parameters', () => {
     const listed = listToolsFor([{ type: 'function', function: { name: 'ping' } }])
     assert.deepEqual(listed[0].inputSchema, { type: 'object', properties: {} })
+  })
+
+  test('lets a large result reach the model inline', () => {
+    // Claude Code spills an MCP result over its default size to a file and hands the model
+    // the path, with no tool to read it. A real provider sends the whole result: a judged
+    // run's form description (~85k characters) never reached the model, which then
+    // searched for paths it had never seen. The per-tool _meta lifts the ceiling (checked
+    // live: 179k characters arrived whole, where the default spilled them).
+    const listed = listToolsFor(TOOLS)
+    assert.equal(listed[0]._meta['anthropic/maxResultSizeChars'], MAX_RESULT_SIZE_CHARS)
+    assert.ok(MAX_RESULT_SIZE_CHARS >= 500000)
   })
 
   test('tolerates a missing description', () => {
