@@ -1,6 +1,6 @@
 /**
  * Web access for autonomous agents: reading one URL (`fetchUrl`) and narrowing a site through its
- * sitemaps (`listSitePages`). Everything an agent may reach is bounded by the `domains` it is given.
+ * sitemaps (`listSitePages`). Everything an agent may reach is bounded by the `allowedUrls` it is given.
  * Knows nothing of the agent loop: ./tools.ts adapts it to AI SDK tools.
  */
 
@@ -9,7 +9,7 @@ import { createWebClient, type WebClient, type WebResponse } from './client.ts'
 import { createExtractor, type Extractor } from './extractor.ts'
 import type { ExtractedFeed, ExtractedPage, PageForm } from './extract.ts'
 import {
-  charsetOf, checkUrl, classifyContent, filterEntries, hasFilter, hostAllowed, paginate, parseOpenSearchDescription, parseSitemap, robotsSitemaps,
+  charsetOf, checkUrl, classifyContent, filterEntries, hasFilter, hostAllowed, paginate, parseOpenSearchDescription, parseSitemap, robotsSitemaps, urlAllowed,
   SITEMAP_PAGE_SIZE, type SitemapEntry, type SitemapFilter
 } from './operations.ts'
 
@@ -20,7 +20,8 @@ const THIN_CONTENT = 200
 const MAX_CHILD_SITEMAPS = 25
 
 export interface WebContext {
-  domains: string[]
+  /** URL prefixes the agent may read under (see urlAllowed in ./operations.ts). */
+  allowedUrls: string[]
   client?: WebClient
   extractor?: Extractor
 }
@@ -66,14 +67,16 @@ export interface FetchUrlResult {
 }
 
 /**
- * The templates of a page's OpenSearch descriptions. Read through the same client, so allowlisted and
- * cached; one that cannot be read is skipped — the page itself was read, that is what was asked.
+ * The templates of a page's OpenSearch descriptions. Read through the same client, so cached, as a
+ * site's metadata (a description sits at the root, outside a narrower allowed URL); a template outside
+ * the allowlist is then refused when the agent fills it. One that cannot be read is skipped — the page
+ * itself was read, that is what was asked.
  */
 const openSearchTemplates = async (descriptions: string[], ctx: WebContext): Promise<string[]> => {
   const templates: string[] = []
   for (const description of descriptions) {
     try {
-      const res = await clientOf(ctx).get(description, ctx.domains)
+      const res = await clientOf(ctx).get(description, ctx.allowedUrls, 'site')
       if (res.status < 400) templates.push(...parseOpenSearchDescription(decode(res), res.url))
     } catch {}
   }
@@ -81,7 +84,7 @@ const openSearchTemplates = async (descriptions: string[], ctx: WebContext): Pro
 }
 
 export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<FetchUrlResult> => {
-  const res = await clientOf(ctx).get(input.url, ctx.domains)
+  const res = await clientOf(ctx).get(input.url, ctx.allowedUrls)
   if (res.status >= 400) throw httpError(res)
   const text = decode(res)
   const kind = classifyContent(res.contentType, text.slice(0, 500))
@@ -123,7 +126,7 @@ export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<F
 }
 
 export interface ListSitePagesInput extends SitemapFilter {
-  /** A domain or any URL of the site. */
+  /** A host name or any URL of the site. */
   site: string
   offset?: number
 }
@@ -131,7 +134,7 @@ export interface ListSitePagesInput extends SitemapFilter {
 export interface ListSitePagesResult {
   /** The sitemaps that were read, or found but not read. */
   sitemaps: SitemapEntry[]
-  /** Pages listed by those sitemaps, filtered, one page of them at a time. */
+  /** Pages listed by those sitemaps under the allowed URLs, filtered, one page of them at a time. */
   pages: SitemapEntry[]
   offset: number
   nextOffset?: number
@@ -140,7 +143,7 @@ export interface ListSitePagesResult {
 }
 
 const loadSitemap = async (url: string, ctx: WebContext) => {
-  const res = await clientOf(ctx).get(url, ctx.domains)
+  const res = await clientOf(ctx).get(url, ctx.allowedUrls, 'site')
   if (res.status >= 400) throw httpError(res)
   // a .xml.gz file, served as a file rather than with a content-encoding the client would undo
   const body = res.body[0] === 0x1f && res.body[1] === 0x8b ? gunzipSync(res.body) : res.body
@@ -148,15 +151,15 @@ const loadSitemap = async (url: string, ctx: WebContext) => {
 }
 
 export const listSitePages = async (input: ListSitePagesInput, ctx: WebContext): Promise<ListSitePagesResult> => {
-  const origin = checkUrl(input.site.includes('://') ? input.site : `https://${input.site}`, ctx.domains).origin
+  const origin = checkUrl(input.site.includes('://') ? input.site : `https://${input.site}`, ctx.allowedUrls, 'site').origin
 
   // where the site declares its sitemaps, or the conventional place
   let roots: string[] = []
   try {
-    const robots = await clientOf(ctx).get(`${origin}/robots.txt`, ctx.domains)
+    const robots = await clientOf(ctx).get(`${origin}/robots.txt`, ctx.allowedUrls, 'site')
     if (robots.status < 400) roots = robotsSitemaps(decode(robots))
   } catch {}
-  roots = roots.filter(loc => { try { return hostAllowed(new URL(loc).hostname, ctx.domains) } catch { return false } })
+  roots = roots.filter(loc => { try { return hostAllowed(new URL(loc).hostname, ctx.allowedUrls) } catch { return false } })
   if (!roots.length) roots = [`${origin}/sitemap.xml`]
 
   const sitemaps: SitemapEntry[] = []
@@ -187,14 +190,16 @@ export const listSitePages = async (input: ListSitePagesInput, ctx: WebContext):
     }
     if (children.length > MAX_CHILD_SITEMAPS) notes.push(`Only the first ${MAX_CHILD_SITEMAPS} of ${children.length} sitemaps were read.`)
     pages = filterEntries(pages, input)
-    // service-public.gouv.fr's pages are /vosdroits/F1709: a topic word is often not in the URL at all
-    if (!pages.length) notes.push('No listed page matches. URLs do not always contain the words of their topic: the site\'s own search (a GET form of fetch_url) may find more.')
   } else {
     sitemaps.push(...children)
     if (children.length) notes.push('This site splits its sitemap: filter with `contains` or `since` to search the pages they list.')
   }
   if (unreadable.length) notes.push(`Could not read: ${unreadable.join('; ')}`)
   if (!sitemaps.length && !pages.length) throw new Error(`no sitemap found for ${origin}${unreadable.length ? ` (${unreadable.join('; ')})` : ''}`)
+  // the sitemaps were read as the site's metadata: what they list reaches the agent only under the allowlist
+  pages = pages.filter(page => { try { return urlAllowed(new URL(page.loc), ctx.allowedUrls) } catch { return false } })
+  // service-public.gouv.fr's pages are /vosdroits/F1709: a topic word is often not in the URL at all
+  if (hasFilter(input) && !pages.length) notes.push('No listed page under the allowed URLs matches. URLs do not always contain the words of their topic: the site\'s own search (a GET form of fetch_url) may find more.')
 
   const offset = Math.max(0, input.offset ?? 0)
   const end = offset + SITEMAP_PAGE_SIZE

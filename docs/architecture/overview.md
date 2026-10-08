@@ -86,6 +86,7 @@ the router wraps the product's own outlet.
 | Configured agents with their own identity | [Autonomous agents](./autonomous-agents.md) |
 | What an agent remembers across conversations | [Agent memory](./agent-memory.md) |
 | Prompts an agent runs on a schedule, unattended | [Planned tasks](./planned-tasks.md) |
+| Reading web pages, feeds and sitemaps under an allowlist | [Web access](./web-access.md) |
 | Providers, models, roles | [Multi-provider AI abstraction](./providers.md), [Configuration](./configuration.md) |
 | Who may spend what, and what it cost | [Quotas & usage](./quotas-usage.md) |
 | Refusing abusive input | [Input moderation guard](./moderation.md) |

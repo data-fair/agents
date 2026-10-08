@@ -51,6 +51,16 @@ export type NeverOffer2 = "deny";
  * The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.
  */
 export type KeepAMemoryAcrossConversations = boolean;
+/**
+ * The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.
+ */
+export type ReadWebPages = boolean;
+/**
+ * An address can be read when it starts with one of these: "https://github.com/data-fair" allows the repositories of that organization only, "https://www.data.gouv.fr/" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.
+ *
+ * @maxItems 100
+ */
+export type AllowedURLs = string[];
 export type Enabled = boolean;
 
 export type AutonomousAgent = {
@@ -69,6 +79,7 @@ export type AutonomousAgent = {
   instructors?: WhoMayInstruct;
   approvals?: Approvals;
   memory?: Memory;
+  web?: WebAccess;
   enabled: Enabled;
   createdAt?: string;
   updatedAt?: string;
@@ -116,5 +127,12 @@ export type Approvals = {
 }
 export type Memory = {
   enabled: KeepAMemoryAcrossConversations;
+}
+/**
+ * Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.
+ */
+export type WebAccess = {
+  enabled: ReadWebPages;
+  allowedUrls?: AllowedURLs;
 }
 

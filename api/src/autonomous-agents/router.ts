@@ -14,6 +14,7 @@ import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMc
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { canInstruct } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/executor.ts'
+import { normalizeAllowedUrls } from '../web/operations.ts'
 
 /**
  * Splits a write body into the server-built `nhi` and the rest.
@@ -34,6 +35,19 @@ const rebuildNhi = <B extends { nhi?: { clientId?: string } }>(body: B, req: Req
     ? { clientId: clientNhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
     : undefined
   return { nhi, writable }
+}
+
+/**
+ * The web allowlist as the matcher compares it (https assumed, lowercase host, dot segments resolved),
+ * so what an admin reads back is what is enforced. An invalid entry is the admin's to fix: a 400.
+ */
+const normalizeWeb = <B extends { web?: { enabled: boolean, allowedUrls?: string[] } }>(body: B): B => {
+  if (!body.web?.allowedUrls) return body
+  try {
+    return { ...body, web: { ...body.web, allowedUrls: normalizeAllowedUrls(body.web.allowedUrls) } }
+  } catch (err: any) {
+    throw httpError(400, `web.allowedUrls: ${err.message}`)
+  }
 }
 
 const router = Router()
@@ -73,7 +87,7 @@ router.post('/:type/:id', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
-    const body = writeReqBody.returnValid(req.body, { name: 'body' })
+    const body = normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' }))
     assertKnownMcpServers(body.mcpServers)
 
     const { nhi, writable } = rebuildNhi(body, req)
@@ -162,7 +176,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
-    const body = writeReqBody.returnValid(req.body, { name: 'body' })
+    const body = normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' }))
     assertKnownMcpServers(body.mcpServers)
 
     const existing = await getAutonomousAgent(owner, req.params.agentId)

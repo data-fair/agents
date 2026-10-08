@@ -124,6 +124,19 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
   await listAutonomousAgentToolDescriptors(autonomousAgent, () => getAutonomousAgentSession(autonomousAgent))
 
 /**
+ * Saves an extended web allowlist, once an administrator approved the agent's `request_web_access`
+ * call. Only that field: the rest of the configuration is the admin form's, and a concurrent save of
+ * the form must not be undone by this write. Who approved is recorded on the call itself.
+ */
+export const saveWebAllowedUrls = async (agent: { id: string, owner: AccountKeys }, allowedUrls: string[]) => {
+  const result = await mongo.autonomousAgents.updateOne(
+    { id: agent.id, 'owner.type': agent.owner.type, 'owner.id': agent.owner.id, 'web.enabled': true },
+    { $set: { 'web.allowedUrls': allowedUrls, updatedAt: new Date().toISOString() } }
+  )
+  if (!result.matchedCount) throw new Error('web access was disabled for this agent in the meantime')
+}
+
+/**
  * Erase everything one autonomous agent accumulated: its memory, its conversations, their messages, their runs.
  *
  * A CASCADE rather than a TTL, deliberately. The stored conversation is the conversation of record —

@@ -12,6 +12,15 @@
       {{ t('server', { server: serverId }) }}
     </v-card-subtitle>
     <v-card-text>
+      <v-alert
+        v-if="serverId === WEB_SERVER_ID"
+        type="warning"
+        variant="tonal"
+        density="compact"
+        class="mb-2"
+        :text="t('webWarning')"
+        data-testid="approval-web-warning"
+      />
       <pre class="text-body-small approval-card__input">{{ formattedInput }}</pre>
       <v-text-field
         v-if="rejecting"
@@ -77,6 +86,7 @@ fr:
   reason: Raison (facultative)
   confirmReject: Confirmer le refus
   cancel: Annuler
+  webWarning: "L'agent pourra lire ces adresses, et un texte peut contenir des instructions : leurs auteurs pourront de fait lui en donner, avec son identité et tous ses outils. Seul un administrateur de l'organisation peut approuver."
 en:
   title: "Approve \"{name}\"?"
   server: "Server: {server}"
@@ -85,6 +95,7 @@ en:
   reason: Reason (optional)
   confirmReject: Confirm rejection
   cancel: Cancel
+  webWarning: "The agent will be able to read these addresses, and text can contain instructions: their authors will in effect be able to instruct it, with its identity and all its tools. Only an administrator of the organization can approve."
 </i18n>
 
 <script lang="ts" setup>
@@ -96,6 +107,9 @@ const props = defineProps<{ title: string, input?: unknown, serverId?: string, l
 const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
 
 const { t } = useI18n()
+// The source the service's web tools record (WEB_SERVER_ID in api/src/web/operations.ts): the only one of
+// them that asks for approval is the request to allow more of the web.
+const WEB_SERVER_ID = 'agent-web'
 const rejecting = ref(false)
 const reason = ref('')
 // Set once a decision is sent: the card stays, locked, until the server re-sends the message with the

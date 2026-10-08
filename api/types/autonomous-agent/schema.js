@@ -180,6 +180,45 @@ export default {
         }
       }
     },
+    web: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['enabled'],
+      title: 'Web access',
+      'x-i18n-title': { en: 'Web access', fr: 'Accès au web' },
+      description: 'Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.',
+      'x-i18n-description': {
+        en: 'Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.',
+        fr: "Les pages sous les URL autorisées sont lues par l'agent comme du texte, et un texte peut contenir des instructions : leurs auteurs peuvent de fait donner des instructions à cet agent, avec son identité et tous ses outils, et lui faire envoyer des informations à l'extérieur. N'activez cet accès que sur des agents aux capacités d'écriture et d'administration très restreintes."
+      },
+      properties: {
+        enabled: {
+          type: 'boolean',
+          default: false,
+          title: 'Read web pages',
+          'x-i18n-title': { en: 'Read web pages', fr: 'Lire des pages web' },
+          description: 'The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.',
+          'x-i18n-description': {
+            en: 'The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.',
+            fr: "L'agent peut lire les pages, flux et plans de site sous les URL autorisées, et demander à un administrateur de l'organisation, dans une conversation, d'en autoriser d'autres."
+          }
+        },
+        allowedUrls: {
+          type: 'array',
+          maxItems: 100,
+          default: [],
+          title: 'Allowed URLs',
+          'x-i18n-title': { en: 'Allowed URLs', fr: 'URL autorisées' },
+          description: 'An address can be read when it starts with one of these: "https://github.com/data-fair" allows the repositories of that organization only, "https://www.data.gouv.fr/" the whole site. A site\'s robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.',
+          'x-i18n-description': {
+            en: 'An address can be read when it starts with one of these: "https://github.com/data-fair" allows the repositories of that organization only, "https://www.data.gouv.fr/" the whole site. A site\'s robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.',
+            fr: "Une adresse peut être lue quand elle commence par l'une de celles-ci : « https://github.com/data-fair » n'autorise que les dépôts de cette organisation, « https://www.data.gouv.fr/ » tout le site. Le robots.txt, les plans de site et la description de recherche d'un site sont lisibles dès que l'une de ses adresses est autorisée."
+          },
+          layout: { if: 'parent.data?.enabled' },
+          items: { type: 'string', minLength: 1 }
+        }
+      }
+    },
     enabled: {
       type: 'boolean',
       default: true,

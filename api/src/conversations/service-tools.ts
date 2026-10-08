@@ -5,8 +5,9 @@
  *  - when it applies — the SURFACE (a chat, or a planned task's run, which nobody watches) and the agent;
  *  - how it builds its tools for this turn.
  * Provenance and annotations come from the entry, so a stored call names its source like a catalog call
- * does. Service tools are outside the approval gate (approval-policy.ts covers catalog tools), and no
- * page tool or sub-agent config can displace them (./service-tool-names.ts).
+ * does. Service tools are outside the approval POLICY (approval-policy.ts covers catalog tools) — one
+ * that must always be approved, `request_web_access`, sets `needsApproval` itself and goes through the
+ * same gate. No page tool or sub-agent config can displace them (./service-tool-names.ts).
  */
 import { tool, jsonSchema, type Tool } from 'ai'
 import type { AutonomousAgent, ConversationRun } from '#types'
@@ -18,6 +19,10 @@ import { loadMemory } from '../memory/service.ts'
 import { createMemoryTool } from '../memory/tool.ts'
 import { REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
 import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_MAX, type TaskOutcome } from '../tasks/operations.ts'
+import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS, REQUEST_WEB_ACCESS_ANNOTATIONS } from '../web/tools.ts'
+import { WEB_SERVER_ID } from '../web/operations.ts'
+import { saveWebAllowedUrls } from '../autonomous-agents/service.ts'
+import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 
 export type { TaskOutcome }
 
@@ -82,6 +87,29 @@ const ENTRIES: ServiceToolEntry[] = [
       }, () => MEMORY_SERVER_ID))
       into.serverByTool.set(MEMORY_TOOL_NAME, MEMORY_SERVER_ID)
       into.annotationsByTool.set(MEMORY_TOOL_NAME, MEMORY_TOOL_ANNOTATIONS)
+    }
+  },
+  {
+    // WEB ACCESS (api/src/web): reading pages, feeds and sitemaps under the agent's allowed URLs, on every
+    // surface — a planned task watching sites is the point. Never the personal assistant: what a page says
+    // could instruct it with the person's own permissions.
+    // `request_web_access` asks for more and always needs approval, so only in a chat, and only one with
+    // an administrator in it: only an administrator may approve it (conversations/approvals.ts), so
+    // offering it to anyone else would end their turn on a card they cannot decide. A run continuing
+    // from a decision was started by the decider, so the approved call finds its tool there.
+    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && !!ctx.agent.web?.enabled,
+    build: async ({ agent, run, surface }, into) => {
+      // One array for the run: an approved request extends it in place, so the readers see the new URLs.
+      const allowedUrls = [...(agent.web?.allowedUrls ?? [])]
+      const tools = createWebTools({ allowedUrls })
+      if (surface === 'chat' && run.triggeredByRole === 'admin') {
+        tools[REQUEST_WEB_ACCESS_TOOL_NAME] = createRequestWebAccessTool({ allowedUrls, save: urls => saveWebAllowedUrls(agent, urls) })
+      }
+      Object.assign(into.tools, withProvenance(tools, () => WEB_SERVER_ID))
+      for (const name of Object.keys(tools)) {
+        into.serverByTool.set(name, WEB_SERVER_ID)
+        into.annotationsByTool.set(name, name === REQUEST_WEB_ACCESS_TOOL_NAME ? REQUEST_WEB_ACCESS_ANNOTATIONS : WEB_TOOL_ANNOTATIONS)
+      }
     }
   },
   {

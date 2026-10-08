@@ -10,7 +10,7 @@ import http from 'node:http'
 import https from 'node:https'
 import axios, { type AxiosInstance } from 'axios'
 import Debug from 'debug'
-import { checkUrl } from './operations.ts'
+import { checkUrl, type UrlScope } from './operations.ts'
 import { envPublicIps, ipList, publicLookup } from './public-lookup.ts'
 
 const debug = Debug('agents:web')
@@ -42,7 +42,7 @@ export interface WebClientOptions {
 }
 
 export interface WebClient {
-  get: (url: string, domains: string[]) => Promise<WebResponse>
+  get: (url: string, allowedUrls: string[], scope?: UrlScope) => Promise<WebResponse>
   /** Forget every cached response. */
   clear: () => void
 }
@@ -148,8 +148,8 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
     return response
   }
 
-  const get = async (rawUrl: string, domains: string[]): Promise<WebResponse> => {
-    let url = checkUrl(rawUrl, domains).href
+  const get = async (rawUrl: string, allowedUrls: string[], scope: UrlScope = 'page'): Promise<WebResponse> => {
+    let url = checkUrl(rawUrl, allowedUrls, scope).href
     for (let hop = 0; ; hop++) {
       const response = await getOne(url)
       const location = response.headers.location
@@ -158,7 +158,7 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
       // the allowlist applies to every hop, not only to the URL the agent asked for
       const target = new URL(location, url).href
       try {
-        url = checkUrl(target, domains).href
+        url = checkUrl(target, allowedUrls, scope).href
       } catch (err: any) {
         throw new Error(`${url} redirects to ${target}, which cannot be fetched: ${err.message}`)
       }

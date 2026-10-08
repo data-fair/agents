@@ -65,10 +65,11 @@ const routes: Record<string, (req: http.IncomingMessage, res: http.ServerRespons
 }
 
 const extractor = createExtractor()
-const domains = ['localhost']
+/** The whole local site; set once the server listens. */
+let allowedUrls: string[]
 const publicIps = ['127.0.0.1', '::1']
 const context = (opts: Parameters<typeof createWebClient>[0] = {}): WebContext => ({
-  domains,
+  allowedUrls,
   client: createWebClient({ publicIps, ...opts }),
   extractor
 })
@@ -84,6 +85,7 @@ test.describe('web access', () => {
     })
     await new Promise<void>(resolve => server.listen(0, 'localhost', resolve))
     base = `http://localhost:${(server.address() as AddressInfo).port}`
+    allowedUrls = [`${base}/`]
   })
 
   test.afterAll(async () => {
@@ -94,13 +96,13 @@ test.describe('web access', () => {
   test.beforeEach(() => { for (const key of Object.keys(hits)) delete hits[key] })
 
   test('refuses a name resolving to a private address, by default', async () => {
-    const ctx: WebContext = { domains, client: createWebClient({ publicIps: [] }), extractor }
+    const ctx: WebContext = { allowedUrls, client: createWebClient({ publicIps: [] }), extractor }
     await assert.rejects(fetchUrl({ url: `${base}/page.html` }, ctx), /not a public address/)
     assert.equal(hits['/page.html'], undefined)
   })
 
-  test('refuses a domain outside the allowlist without any request', async () => {
-    await assert.rejects(fetchUrl({ url: `${base}/page.html` }, { ...context(), domains: ['example.com'] }), /"localhost" is not in this agent's allowed domains \(example.com\)/)
+  test('refuses a URL outside the allowlist without any request', async () => {
+    await assert.rejects(fetchUrl({ url: `${base}/page.html` }, { ...context(), allowedUrls: ['https://example.com/'] }), /is not under this agent's allowed URLs \(https:\/\/example.com\/\)/)
     assert.equal(hits['/page.html'], undefined)
   })
 
@@ -132,7 +134,7 @@ test.describe('web access', () => {
   test('follows a redirect inside the allowlist, refuses one leaving it', async () => {
     const result = await fetchUrl({ url: `${base}/redirect` }, context())
     assert.equal(result.url, `${base}/page.html`)
-    await assert.rejects(fetchUrl({ url: `${base}/away` }, context()), /redirects to https:\/\/example.com\/, which cannot be fetched: "example.com" is not in this agent's allowed domains/)
+    await assert.rejects(fetchUrl({ url: `${base}/away` }, context()), /redirects to https:\/\/example.com\/, which cannot be fetched: "https:\/\/example.com\/" is not under this agent's allowed URLs/)
   })
 
   test('passes JSON through, renders a feed, flags a JavaScript shell', async () => {
@@ -173,6 +175,17 @@ test.describe('web access', () => {
     const none = await listSitePages({ site: base, contains: 'passeport' }, context())
     assert.equal(none.total, 0)
     assert.match(none.note ?? '', /site's own search/)
+  })
+
+  test('a narrow allowed URL reads the site root sitemaps but lists only the pages under it', async () => {
+    const press = { ...context(), allowedUrls: [`${base}/press`] }
+    await assert.rejects(fetchUrl({ url: `${base}/page.html` }, press), /not under this agent's allowed URLs/)
+    const result = await listSitePages({ site: base, since: '2026-01-01' }, press)
+    assert.deepEqual(result.pages.map(p => p.loc), [`${base}/press/new-dataset`])
+    assert.ok(hits['/robots.txt'] && hits['/sitemap_index.xml'] && hits['/projects.xml.gz'], 'the metadata files were read')
+
+    const none = await listSitePages({ site: base, contains: 'projects' }, press)
+    assert.equal(none.total, 0, 'a page outside the prefix is never listed')
   })
 
   test('the tools stop a run at its call budget', async () => {

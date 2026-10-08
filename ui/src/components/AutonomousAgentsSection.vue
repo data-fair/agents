@@ -194,6 +194,15 @@
             :options="vjsfOptions"
           />
         </v-form>
+        <v-alert
+          v-if="webWithUnapprovedWrites"
+          type="warning"
+          variant="tonal"
+          class="mt-4"
+          :title="t('webRiskTitle')"
+          :text="t('webRisk')"
+          data-testid="autonomous-agent-web-risk"
+        />
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -250,6 +259,8 @@ en:
   enrolFailed: Could not enrol this autonomous agent.
   gated: Autonomous agents are still being rolled out. A superadmin in admin mode configures them for now.
   servers: "{count} MCP server(s)"
+  webRiskTitle: This agent reads the web and can write without approval
+  webRisk: "A page it reads can contain instructions, and the agent may follow them with its identity and all its tools. Prefer read-only tools for an agent with web access, or set Writing and Destructive approvals to \"Approve each call\" or \"Never offer\"."
 fr:
   memory: Mémoire
   autonomousAgents: Agents autonomes
@@ -274,6 +285,8 @@ fr:
   enrolFailed: Impossible d'enregistrer cet agent autonome.
   gated: Les agents autonomes sont en cours de déploiement progressif. Pour l'instant, un superadministrateur en mode administration les configure.
   servers: "{count} serveur(s) MCP"
+  webRiskTitle: Cet agent lit le web et peut écrire sans approbation
+  webRisk: "Une page qu'il lit peut contenir des instructions, et l'agent peut les suivre avec son identité et tous ses outils. Préférez des outils en lecture seule pour un agent qui accède au web, ou réglez les approbations Écriture et Destruction sur « Approuver chaque appel » ou « Ne jamais proposer »."
 </i18n>
 
 <script lang="ts" setup>
@@ -328,6 +341,11 @@ const formRef = ref<any>(null)
 const dialog = ref(false)
 const editing = ref<any | null>(null)
 const draft = ref<any>({})
+// Web access with writes still allowed without approval: what a page says could make the agent act. A
+// warning, never a block — the admin decides. Defaults as in api/src/conversations/approval-policy.ts.
+const webWithUnapprovedWrites = computed(() => !!draft.value.web?.enabled && (
+  (draft.value.approvals?.write ?? 'allow') === 'allow' || (draft.value.approvals?.destructive ?? 'approve') === 'allow'
+))
 const valid = ref<boolean | null>(null)
 const saving = ref(false)
 /**

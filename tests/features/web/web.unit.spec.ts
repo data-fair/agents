@@ -5,49 +5,65 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
-  normalizeDomain, normalizeDomains, hostAllowed, checkUrl, classifyContent, charsetOf, paginate,
+  normalizeAllowedUrl, normalizeAllowedUrls, urlAllowed, hostAllowed, checkUrl, classifyContent, charsetOf, paginate,
   robotsSitemaps, parseSitemap, filterEntries, normalizeSearchTemplate, parseOpenSearchDescription
 } from '../../../api/src/web/operations.ts'
 import { ipList, isPublicAddress } from '../../../api/src/web/public-lookup.ts'
 import { extractHtml, renderFeed } from '../../../api/src/web/extract.ts'
 
 test.describe('web allowlist', () => {
-  test('normalizes a domain, accepting a pasted URL', () => {
-    assert.equal(normalizeDomain(' Docs.Koumoul.com '), 'docs.koumoul.com')
-    assert.equal(normalizeDomain('https://www.data.gouv.fr/fr/datasets/'), 'www.data.gouv.fr')
-    assert.equal(normalizeDomain('example.com.'), 'example.com')
+  test('normalizes an allowed URL, https assumed', () => {
+    assert.equal(normalizeAllowedUrl(' github.com/data-fair '), 'https://github.com/data-fair')
+    assert.equal(normalizeAllowedUrl('https://WWW.Data.Gouv.fr'), 'https://www.data.gouv.fr/')
+    assert.equal(normalizeAllowedUrl('https://docs.koumoul.com/pages/../tutoriels/#top'), 'https://docs.koumoul.com/tutoriels/')
   })
 
-  test('refuses wildcards, IP addresses and garbage', () => {
-    assert.throws(() => normalizeDomain('*.example.com'), /wildcards/)
-    assert.throws(() => normalizeDomain('*'), /wildcards/)
-    assert.throws(() => normalizeDomain('192.168.1.1'), /IP addresses/)
-    assert.throws(() => normalizeDomain('[::1]'), /IP addresses/)
-    assert.throws(() => normalizeDomain(''), /empty/)
-    assert.throws(() => normalizeDomain('exa mple.com'), /not a valid domain/)
+  test('refuses wildcards, IP addresses, credentials and garbage', () => {
+    assert.throws(() => normalizeAllowedUrl('*.example.com'), /no wildcards/)
+    assert.throws(() => normalizeAllowedUrl('https://192.168.1.1/'), /IP address/)
+    assert.throws(() => normalizeAllowedUrl('[::1]'), /IP address/)
+    assert.throws(() => normalizeAllowedUrl('https://u:p@a.test/'), /credentials/)
+    assert.throws(() => normalizeAllowedUrl('ftp://a.test/'), /only http and https/)
+    assert.throws(() => normalizeAllowedUrl(''), /empty/)
+    assert.throws(() => normalizeAllowedUrl('exa mple.com'), /not a valid absolute URL/)
   })
 
   test('dedupes and caps a list', () => {
-    assert.deepEqual(normalizeDomains(['a.com', 'A.com', 'b.com']), ['a.com', 'b.com'])
-    assert.throws(() => normalizeDomains(Array.from({ length: 101 }, (_, i) => `d${i}.com`)), /at most 100/)
+    assert.deepEqual(normalizeAllowedUrls(['a.test/x', 'https://A.test/x', 'b.test']), ['https://a.test/x', 'https://b.test/'])
+    assert.throws(() => normalizeAllowedUrls(Array.from({ length: 101 }, (_, i) => `d${i}.test`)), /at most 100/)
   })
 
-  test('a domain covers itself and its subdomains, nothing else', () => {
-    assert.ok(hostAllowed('data.gouv.fr', ['data.gouv.fr']))
-    assert.ok(hostAllowed('www.data.gouv.fr', ['data.gouv.fr']))
-    assert.ok(!hostAllowed('evildata.gouv.fr', ['data.gouv.fr']))
-    assert.ok(!hostAllowed('data.gouv.fr.evil.com', ['data.gouv.fr']))
-    assert.ok(!hostAllowed('gouv.fr', ['data.gouv.fr']))
+  test('an allowed URL is a prefix, matched at a boundary', () => {
+    const allowed = ['https://github.com/data-fair', 'https://www.data.gouv.fr/']
+    const ok = (url: string) => urlAllowed(new URL(url), allowed)
+    assert.ok(ok('https://github.com/data-fair'))
+    assert.ok(ok('https://github.com/data-fair/agents/releases'))
+    assert.ok(ok('https://github.com/data-fair?tab=repositories'))
+    assert.ok(ok('http://github.com/data-fair/agents'), 'http and https are the same address')
+    assert.ok(ok('https://www.data.gouv.fr/datasets/ban'))
+    assert.ok(!ok('https://github.com/data-fair-evil/x'), 'not a path segment boundary')
+    assert.ok(!ok('https://github.com/other/repo'))
+    assert.ok(!ok('https://github.com/data-fair/../other'), 'dot segments are resolved first')
+    assert.ok(!ok('https://github.com/data-fair/%2e%2e/other'), 'encoded dot segments too')
+    assert.ok(!ok('https://data.gouv.fr/'), 'no implicit subdomain or parent')
+    assert.ok(!urlAllowed(new URL('https://data.gouv.fr.evil.test/'), ['https://data.gouv.fr']), 'not a host boundary')
+  })
+
+  test('a site metadata file is allowed on any host with an allowed URL', () => {
+    assert.ok(hostAllowed('github.com', ['https://github.com/data-fair']))
+    assert.ok(!hostAllowed('api.github.com', ['https://github.com/data-fair']))
+    assert.equal(checkUrl('https://github.com/robots.txt', ['https://github.com/data-fair'], 'site').href, 'https://github.com/robots.txt')
+    assert.throws(() => checkUrl('https://github.com/robots.txt', ['https://github.com/data-fair']), /not under this agent's allowed URLs/)
   })
 
   test('checkUrl names the allowlist when refusing', () => {
-    assert.equal(checkUrl('https://www.data.gouv.fr/a#b', ['data.gouv.fr']).href, 'https://www.data.gouv.fr/a')
-    assert.throws(() => checkUrl('https://example.com/', ['data.gouv.fr', 'koumoul.com']), /"example.com" is not in this agent's allowed domains \(data.gouv.fr, koumoul.com\)/)
+    assert.equal(checkUrl('https://www.data.gouv.fr/a#b', ['https://www.data.gouv.fr/']).href, 'https://www.data.gouv.fr/a')
+    assert.throws(() => checkUrl('https://example.com/', ['https://github.com/data-fair', 'https://docs.koumoul.com/']), /"https:\/\/example.com\/" is not under this agent's allowed URLs \(https:\/\/github.com\/data-fair, https:\/\/docs.koumoul.com\/\)/)
     assert.throws(() => checkUrl('https://example.com/', []), /\(none\)/)
-    assert.throws(() => checkUrl('ftp://data.gouv.fr/', ['data.gouv.fr']), /only http and https/)
-    assert.throws(() => checkUrl('https://u:p@data.gouv.fr/', ['data.gouv.fr']), /credentials/)
-    assert.throws(() => checkUrl('http://127.0.0.1/', ['data.gouv.fr']), /IP address/)
-    assert.throws(() => checkUrl('/relative', ['data.gouv.fr']), /not a valid absolute URL/)
+    assert.throws(() => checkUrl('ftp://a.test/', ['https://a.test/']), /only http and https/)
+    assert.throws(() => checkUrl('https://u:p@a.test/', ['https://a.test/']), /credentials/)
+    assert.throws(() => checkUrl('http://127.0.0.1/', ['https://a.test/']), /IP address/)
+    assert.throws(() => checkUrl('/relative', ['https://a.test/']), /not a valid absolute URL/)
   })
 })
 

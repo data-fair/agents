@@ -1,13 +1,21 @@
 /**
  * operations.ts contains pure stateless functions of the web access module (fetch and sitemaps for
- * autonomous agents): the domain allowlist, content classification, pagination, sitemap parsing.
+ * autonomous agents): the URL allowlist, content classification, pagination, sitemap parsing.
  * Design: docs/superpowers/specs/2026-10-08-web-fetch-search-research.md (§7f).
  */
 
 import net from 'node:net'
 
-/** How many domains an agent's allowlist may hold. */
-export const MAX_DOMAINS = 100
+export const FETCH_URL_TOOL_NAME = 'fetch_url'
+export const LIST_SITE_PAGES_TOOL_NAME = 'list_site_pages'
+export const REQUEST_WEB_ACCESS_TOOL_NAME = 'request_web_access'
+export const WEB_TOOL_NAMES = [FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME, REQUEST_WEB_ACCESS_TOOL_NAME]
+
+/** The source a stored web tool call names: the service's web access, not a catalog server. */
+export const WEB_SERVER_ID = 'agent-web'
+
+/** How many URL prefixes an agent's allowlist may hold. */
+export const MAX_ALLOWED_URLS = 100
 
 /** Characters of extracted content returned per call; the model reads on with `offset`. */
 export const PAGE_SIZE = 20_000
@@ -15,54 +23,78 @@ export const PAGE_SIZE = 20_000
 /** Sitemap entries returned per call. */
 export const SITEMAP_PAGE_SIZE = 200
 
-/**
- * Normalizes one allowlist entry to a bare lowercase host name, accepting a pasted URL.
- * An entry covers the host itself and every subdomain: no wildcard syntax, so none to get wrong.
- */
-export const normalizeDomain = (input: string): string => {
-  const trimmed = input.trim()
-  if (!trimmed) throw new Error('a domain cannot be empty')
-  if (trimmed.includes('*')) throw new Error(`"${input}": wildcards are not needed, a domain already covers its subdomains`)
-  let host: string
-  try {
-    host = new URL(trimmed.includes('://') ? trimmed : `http://${trimmed}`).hostname
-  } catch {
-    throw new Error(`"${input}" is not a valid domain`)
-  }
-  host = host.replace(/\.$/, '')
-  if (!host) throw new Error(`"${input}" is not a valid domain`)
-  if (net.isIP(host.replace(/^\[|\]$/g, ''))) throw new Error(`"${input}": IP addresses are not accepted, only domain names`)
-  return host
-}
-
-/** Normalizes and dedupes a whole allowlist; throws on the first invalid entry. */
-export const normalizeDomains = (inputs: string[]): string[] => {
-  const domains = [...new Set(inputs.map(normalizeDomain))]
-  if (domains.length > MAX_DOMAINS) throw new Error(`at most ${MAX_DOMAINS} domains are accepted`)
-  return domains
-}
-
-export const hostAllowed = (host: string, domains: string[]): boolean =>
-  domains.some(d => host === d || host.endsWith(`.${d}`))
-
-/**
- * Parses a URL the agent asked for and checks it against the allowlist. The message names the
- * allowlist, so the model can explain the refusal or ask for the domain to be added.
- */
-export const checkUrl = (raw: string, domains: string[]): URL => {
+const parseHttpUrl = (raw: string): URL => {
   let url: URL
   try {
     url = new URL(raw)
   } catch {
     throw new Error(`"${raw}" is not a valid absolute URL`)
   }
-  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error(`only http and https URLs can be fetched, not ${url.protocol}`)
+  if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error(`only http and https URLs are accepted, not ${url.protocol}`)
   if (url.username || url.password) throw new Error('URLs with credentials are not accepted')
   if (net.isIP(url.hostname.replace(/^\[|\]$/g, ''))) throw new Error('URLs with an IP address are not accepted, only domain names')
-  if (!hostAllowed(url.hostname, domains)) {
-    throw new Error(`"${url.hostname}" is not in this agent's allowed domains (${domains.join(', ') || 'none'})`)
-  }
   url.hash = ''
+  return url
+}
+
+/** A URL without its scheme: http and https are the same address for the allowlist. */
+const withoutScheme = (href: string) => href.replace(/^https?:\/\//, '')
+
+/**
+ * Normalizes one allowlist entry: an absolute URL prefix, `https://` assumed when no scheme is given.
+ * Through the URL parser, so it compares with the URLs it is matched against (lowercase host,
+ * percent-encoding, dot segments resolved).
+ */
+export const normalizeAllowedUrl = (input: string): string => {
+  const trimmed = input.trim()
+  if (!trimmed) throw new Error('an allowed URL cannot be empty')
+  if (trimmed.includes('*')) throw new Error(`"${input}": no wildcards, an allowed URL is a prefix`)
+  return parseHttpUrl(trimmed.includes('://') ? trimmed : `https://${trimmed}`).href
+}
+
+/** Normalizes and dedupes a whole allowlist; throws on the first invalid entry. */
+export const normalizeAllowedUrls = (inputs: string[]): string[] => {
+  const urls = [...new Set(inputs.map(normalizeAllowedUrl))]
+  if (urls.length > MAX_ALLOWED_URLS) throw new Error(`at most ${MAX_ALLOWED_URLS} allowed URLs are accepted`)
+  return urls
+}
+
+/**
+ * Prefix matching, at a boundary: "github.com/data-fair" allows "github.com/data-fair/agents" and
+ * "github.com/data-fair?tab=repositories", but not "github.com/data-fair-evil", and
+ * "https://data.gouv.fr" does not allow "data.gouv.fr.evil.com".
+ */
+export const urlAllowed = (url: URL, allowedUrls: string[]): boolean => {
+  const target = withoutScheme(url.href)
+  return allowedUrls.some(allowed => {
+    const prefix = withoutScheme(allowed)
+    if (!target.startsWith(prefix)) return false
+    return target.length === prefix.length || /[/?&=]$/.test(prefix) || /^[/?]/.test(target.slice(prefix.length))
+  })
+}
+
+/** Whether the host has any allowed URL: its robots.txt, sitemaps and search descriptions may then be read. */
+export const hostAllowed = (host: string, allowedUrls: string[]): boolean =>
+  allowedUrls.some(allowed => new URL(allowed).hostname === host)
+
+/**
+ * `page`: a URL the agent reads, which must be under an allowed URL. `site`: one of a site's own
+ * metadata files (robots.txt, a sitemap, an OpenSearch description), which sit at its root, outside
+ * any prefix narrower than the whole site — allowed on any host that has an allowed URL; what they
+ * list is filtered by the allowlist again before it reaches the agent.
+ */
+export type UrlScope = 'page' | 'site'
+
+/**
+ * Parses a URL and checks it against the allowlist. The message names the allowlist, so the model can
+ * explain the refusal or ask for an address to be added.
+ */
+export const checkUrl = (raw: string, allowedUrls: string[], scope: UrlScope = 'page'): URL => {
+  const url = parseHttpUrl(raw)
+  const allowed = scope === 'site' ? hostAllowed(url.hostname, allowedUrls) : urlAllowed(url, allowedUrls)
+  if (!allowed) {
+    throw new Error(`"${url.href}" is not under this agent's allowed URLs (${allowedUrls.join(', ') || 'none'})`)
+  }
   return url
 }
 

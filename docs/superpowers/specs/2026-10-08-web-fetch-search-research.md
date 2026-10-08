@@ -362,6 +362,11 @@ approval that write, destroy or come from an admin profile, and recommends restr
   them (questions left unanswered: default exposure, who pays, Staan's terms).
 - The injection warning only warns, never blocks.
 - Only admins of the owning organization approve an allowlist change.
+- The allowlist is **URL prefixes, not domains** (`web.allowedUrls`): the GitHub watcher of §7e
+  needs `github.com/data-fair`, not all of `github.com`. Matched at a path boundary; a site's
+  robots.txt, sitemaps and search description stay readable on any host with an allowed URL. The
+  tool proposed as `request_web_domains` is `request_web_access`. As built:
+  `docs/architecture/web-access.md`.
 
 ## Sources
 
