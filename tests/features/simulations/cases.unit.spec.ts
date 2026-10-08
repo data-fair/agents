@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { cases, spokeDuringWait, approvalDecided, memoryCarriedOver, outcomeReported } from '../../../simulations/cases/index.ts'
+import { cases, spokeDuringWait, approvalDecided, planTaskDecided, memoryCarriedOver, outcomeReported } from '../../../simulations/cases/index.ts'
 import devConfig from '../../../api/config/development.js'
 import { parseConversationExport } from '../../../lib-sim/conversation-export.ts'
 import { buildConversationExport, EXTRACT_THRESHOLD } from '../../../api/src/review/operations.ts'
@@ -128,6 +128,17 @@ test.describe('case registry', () => {
     assert.equal(approvalDecided.holds([exportOf('c', [toolPart('wipe_everything', { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false, reason: 'The person sent a new message instead of deciding.' } })])]), false)
     assert.equal(approvalDecided.holds([exportOf('c', [toolPart('list_road_closures', decision(true))])]), false)
     assert.equal(cases.find(c => c.name === 'autonomous-agent-approval')?.premise, approvalDecided)
+  })
+
+  test('the plan-task premise holds only when the person decided on a plan_task card', () => {
+    const decision = (approved: boolean) => ({ toolMetadata: { decision: { userId: 'test1-user1', approved, at: '2026-10-08T00:00:00.000Z' } } })
+    assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('plan_task', { approval: { id: 'a', approved: true }, ...decision(true) })])]), true)
+    assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('plan_task', { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false }, ...decision(false) })])]), true)
+    // Pending, talked past, another tool decided, or never gated: not the case.
+    assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('plan_task', { state: 'approval-requested', output: undefined, approval: { id: 'a' } })])]), false)
+    assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('plan_task', { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false, reason: 'The person sent a new message instead of deciding.' } })])]), false)
+    assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('wipe_everything', decision(true))])]), false)
+    assert.equal(cases.find(c => c.name === 'autonomous-agent-plans-task')?.premise, planTaskDecided)
   })
 
   test('the memory premise holds only for a write in a conversation before the last', () => {

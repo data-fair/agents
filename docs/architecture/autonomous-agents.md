@@ -179,13 +179,16 @@ A task run's target is the other implementation: its record is the run itself (`
 
 ## The service's own tools
 
-`buildServiceTools` (`api/src/conversations/service-tools.ts`) is a registry of the service's own tools, each entry declaring when it applies (the surface and the agent) and how it is built. Three entries:
+`buildServiceTools` (`api/src/conversations/service-tools.ts`) is a registry of the service's own tools, each entry declaring when it applies (the surface and the agent) and how it is built. Entries:
 
 - `wait_for_user_action`: only in a chat with someone watching (a session). Unwrapped: its result is the loop's own handover.
 - `memory`: a configured agent with memory enabled (`memoryEnabledFor`), on every surface. Provenance server `agent-memory`.
+- web readers (`api/src/web`): a configured agent with `web.enabled`, on every surface. Provenance server `agent-web`.
+- self-knowledge (`get_my_configuration`, `list_my_runs`, `get_run`): a configured agent, on every surface, read-only. Provenance server `agent-self`.
+- planning (`plan_task`, `update_task`, `delete_task`): a configured agent in a chat, each call approved by the person; see [planned tasks](./planned-tasks.md#self-knowledge-and-planning). Provenance server `agent-self`.
 - `report_outcome`: the task surface only, how a planned task's run reports its outcome. Provenance server `agent-service`.
 
-Service tools are added after the approval policy is applied, so they are outside the approval gate. None can be displaced: `api/src/conversations/service-tool-names.ts` holds `SERVICE_TOOL_NAMES` and the pure `mayBePageTool`, so a page tool of such a name is not treated as a page tool, a catalog tool does not stand in for one, and a sub-agent configuration never reserves one.
+Service tools are added after the approval policy is applied, so they are outside the approval policy; one that needs a person says so itself (`needsApproval`, as the planning tools and `request_web_access` do). None can be displaced: `api/src/conversations/service-tool-names.ts` holds `SERVICE_TOOL_NAMES` and the pure `mayBePageTool`, so a page tool of such a name is not treated as a page tool, a catalog tool does not stand in for one, and a sub-agent configuration never reserves one.
 
 ## The approval gate
 

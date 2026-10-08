@@ -109,7 +109,26 @@ Run now is the same run a slot starts, with trigger `manual`. It is **refused** 
 
 **Stopping a task run.** A task run is aborted with `POST /api/autonomous-agents/:type/:id/:agentId/runs/:runId/abort`, by an admin of the account (`api/src/tasks/router.ts`): it is the organization's audit record, not a person's thread. It has no socket, so this route is its only stop, and it works across API instances: `abortRun` aborts the turn at once when this process holds it, and records `abortRequestedAt` on the run while it is still `running`. Every live turn polls its own run every 2 s (`watchStopRequests` in `driveTurn`, `STOP_POLL_MS`) and aborts itself when the field is set, or when its run document is gone (its agent or conversation was deleted). The route answers `{ aborted: true }` when it aborted locally or recorded the request, `false` for a run that already ended. Disabling or deleting the agent does the same for all its running runs (`abortRunsOfAgent`, with `abortReason: 'agent-stopped'`, so the turn is settled as a local kill switch settles it).
 
-## What the next plans add
+## Self-knowledge and planning
 
-- **Plan 4, self-knowledge and `plan_task`**: tools through which the agent reads its own configuration and proposes a task, through the approval gate (a person approves, so `createdBy.conversationId` records the thread it came from).
-- **Plan 5, the admin page**: the UI for tasks and their runs, showing the paused state and reason before an admin saves, and simulations of an instructor planning a task.
+Service tools of a configured agent (never the personal assistant), registered in `api/src/conversations/service-tools.ts` and built in `api/src/self-knowledge/`. Their provenance server is `agent-self` (`SELF_KNOWLEDGE_SERVER_ID`).
+
+**Self-knowledge** (`tools.ts`, `operations.ts`; read-only; chats and task runs):
+
+- `get_my_configuration`: persona, instructions, approvals, whether memory is on, each catalog tool with its status (usable, needs approval, denied by policy, not selected by an administrator, server unreachable), the service tools offered this turn, and the catalog servers it is not connected to, and its tasks described by `describeScheduling` (`shared/task-schedule.ts`, the same text the admin UI shows);
+- `list_my_runs`, `get_run`: its own runs, chats and task runs, through `listRuns`/`getRun` in `api/src/tasks/service.ts`, the read path the admin routes use. A past run's content comes back enveloped as data, like any tool result: reported, not obeyed. Whoever triggered a run is never named.
+
+One system-prompt sentence for configured agents (`SELF_KNOWLEDGE_NOTE`, `api/src/conversations/operations.ts`) points at `get_my_configuration` before the agent says it cannot do something.
+
+**Planning** (`planning.ts`; chat surface only): `plan_task`, `update_task` (the whole new task, with its `taskId`) and `delete_task`. Their input is the admin form's own schema (`task-write-req`), so the schedule is data-fair processings' rule format.
+
+- **Approval.** Each carries `needsApproval: true` on the tool itself, since service tools are outside the approval policy and no policy can unset it. The card is titled from the annotation (`PLANNING_TOOL_ANNOTATIONS`: "Plan a task", "Change a task", "Delete a task") and shows the task in plain words, with Before and After for an update (`ui/src/components/agent-chat/ApprovalCard.vue`). Task runs are not offered them: nobody could approve.
+- **Actor.** The approved call executes inside the `approval` continuation run through `createTask`/`updateTask`/`deleteTask`, the same service functions as the admin routes. The task records the decider (the run's `triggeredBy`) as `createdBy`/`updatedBy`, with `conversationId` for the thread it came from. When two calls of one step are decided by different people, the last decider is recorded for both.
+- **Audit.** The events-log entry is written by the service, not the route: from a route with `{ req }`, from a tool with `{ account, user }` of the decider.
+- **Refusals are the call's error.** The task cap, the minimum interval, a schedule with no next slot, invalid input and a 404 (a task deleted since) come back as the tool's error text with their status, and the prompt tells the model not to retry the same input. The caps are the ones in [the schedule section](#tasks-and-their-schedule); there is no second set for agents.
+
+Known limit: the admin review page renders approval cards without a decide listener, so a pending card there cannot be decided (plan 5).
+
+## What the next plan adds
+
+- **Plan 5, the admin page**: the UI for tasks and their runs, showing the paused state and reason before an admin saves.

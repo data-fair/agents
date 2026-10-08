@@ -144,7 +144,7 @@ apply. Changes:
   approval". After the decision the card is gone: the call becomes a tool chip ("Declined: …" when
   refused). Who decided, and when, is stored on the call (`toolMetadata.decision`) for audit, and read by
   the admin history (plan 5), not shown in the chat;
-- the decision arrives over the **chat socket** as well as HTTP, like Stop; only the person whose
+- the decision arrives over the **chat socket only**, like Stop; only the person whose
   conversation it is decides (ownership, and the grant to instruct the agent); a decision on a message the
   turn is still writing is refused (409, "the turn is still finishing") and the card is locked until then;
 - the run that follows a decision has trigger **`approval`**, beside `user` and `wake`;
@@ -255,7 +255,7 @@ Five plans, each shippable and tested on its own:
    registry's first entry. The point to coordinate with the memory work. — done (2026-10): turn-target.ts and service-tools.ts.
 3. **Tasks, task runs and the scheduler** — the tasks collection and the `task` run kind, claiming, firing and skipping, recovery, the
    pause, notifications, run-now, abort, routes, export. — done (2026-10): see docs/architecture/planned-tasks.md.
-4. **Self-knowledge and self-configuration tools** — including `plan_task` through the gate.
+4. **Self-knowledge and self-configuration tools** — including `plan_task` through the gate. — done (2026-10): see docs/architecture/planned-tasks.md.
 5. **The admin page, and simulations** — e2e tests on the mock; a simulation case where an instructor asks
    the agent to plan a weekly report and approves it, with the premise that an approval happened. Judging
    scheduled runs from their export alone (a case with no persona) is noted for later, not designed here.
