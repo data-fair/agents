@@ -77,6 +77,9 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
       // What an approval card reads, so it speaks the tool's words rather than its name.
       ...(typeof (call as any).toolMetadata?.annotations?.title === 'string' ? { toolTitle: (call as any).toolMetadata.annotations.title } : {}),
       ...(typeof (call as any).toolMetadata?.description === 'string' ? { description: (call as any).toolMetadata.description } : {}),
+      // The decision recorded on the call (conversations/service.ts decideApproval). Without it an approved
+      // call's chip read like any other, and a judged agent could tell the person it still awaited approval.
+      ...((call as any).toolMetadata?.decision?.approved === true ? { approved: true as const } : {}),
       state: call.state === 'approval-requested'
         ? 'awaiting-approval'
         : call.state === 'output-denied'

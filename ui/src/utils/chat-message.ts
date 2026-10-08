@@ -26,6 +26,8 @@ export interface ChatMessage {
     toolTitle?: string
     /** The tool's description, recorded on a gated call: what an approval card says the call will do. */
     description?: string
+    /** Set on a gated call someone approved: its chip says so, as a denied one says it was declined. */
+    approved?: true
   }>
   // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
   // concurrent sub-agent calls under one assistant message render in separate panels

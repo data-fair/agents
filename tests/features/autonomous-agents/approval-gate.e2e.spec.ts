@@ -51,6 +51,7 @@ test.describe('Approval card', () => {
     expect(lockedAfterClick).toBe(true)
     await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
     await expect.poll(() => fixture.invokedTools()).toEqual(['wipe_everything'])
+    await expect(page.getByTestId('tool-chip').first()).toHaveText('Approved: Wipe everything', { timeout: 15000 })
   })
 
   test('the card shows locked while the turn that asked finishes, then becomes decidable without a reload', async ({ page, goToWithAuth }) => {
@@ -75,7 +76,7 @@ test.describe('Approval card', () => {
     await page.getByTestId('approval-reason').locator('input').fill('not today')
     await page.getByTestId('approval-confirm-reject').click()
     await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
-    await expect(page.getByTestId('tool-chip').first()).toContainText('Declined')
+    await expect(page.getByTestId('tool-chip').first()).toHaveText('Declined: Wipe everything')
     expect(fixture.invokedTools()).toEqual([])
   })
 })

@@ -132,6 +132,20 @@ test.describe('approval states', () => {
     assert.equal(chat.toolInvocations?.[0].approvalLocked, undefined, 'a closed message is decidable')
   })
 
+  test('a call someone approved says so; a rejected or never-gated one does not', () => {
+    const decided = (approved: boolean) => ({ userId: 'u1', userName: 'Una', approved, at: '2026-10-08T00:00:00.000Z' })
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'plan_task', state: 'output-available', input: {}, output: 'ok', approval: { id: 'ap1', approved: true }, toolMetadata: { decision: decided(true) } } as any,
+        { type: 'dynamic-tool', toolCallId: 'b', toolName: 'plan_task', state: 'output-denied', input: {}, approval: { id: 'ap2', approved: false }, toolMetadata: { decision: decided(false) } } as any,
+        { type: 'dynamic-tool', toolCallId: 'c', toolName: 'echo', state: 'output-available', input: {}, output: 'ok' } as any
+      ]
+    })
+    assert.deepEqual(chat.toolInvocations?.map(i => [i.state, i.approved]), [['done', true], ['denied', undefined], ['done', undefined]])
+  })
+
   test('a card is locked while the message asking is still being written, and unlocked once it is closed', () => {
     // The server refuses a decision on a pending message (it would be overwritten by the turn's last writes).
     const parts = [{ type: 'dynamic-tool', toolCallId: 'a', toolName: 'wipe', state: 'approval-requested', input: {}, approval: { id: 'ap1' } } as any]

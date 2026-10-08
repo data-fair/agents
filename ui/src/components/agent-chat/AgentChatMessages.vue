@@ -278,6 +278,7 @@ fr:
   activityApproval: "En attente de votre approbation : {name}"
   waitingChip: "En attente : {name}"
   declinedChip: "Refusé : {name}"
+  approvedChip: "Approuvé : {name}"
   waitedChip: "A attendu : {name}"
 en:
   reasoning: Reasoning
@@ -295,6 +296,7 @@ en:
   activityApproval: "Awaiting your approval: {name}"
   waitingChip: "Waiting for: {name}"
   declinedChip: "Declined: {name}"
+  approvedChip: "Approved: {name}"
   waitedChip: "Waited for: {name}"
 </i18n>
 
@@ -477,7 +479,7 @@ const subAgentTitle = (toolName: string) => {
 // Chip label for the simplified tool-chip row: sub-agents use their display title,
 // plain tools the host-provided tool title, and the built-in wait shows what the
 // agent said it is waiting for.
-const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string }) => {
+const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string, approved?: true }) => {
   if (invocation.toolName === WAIT_TOOL_NAME) {
     // Past tense once it settles. Every other chip is a noun, so this is the only
     // label that reads as a live instruction — and it stays in history forever. A
@@ -490,6 +492,7 @@ const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: u
   // A title the tool declared (its MCP annotation) first: it is recorded on the call, so it survives a reload.
   const title = invocation.toolTitle ?? props.toolTitle(invocation.toolName)
   if (invocation.state === 'denied') return t('declinedChip', { name: title })
+  if (invocation.approved) return t('approvedChip', { name: title })
   return invocation.toolName.startsWith('subagent_') ? subAgentTitle(invocation.toolName) : title
 }
 

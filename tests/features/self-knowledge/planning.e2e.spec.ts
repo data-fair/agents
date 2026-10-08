@@ -62,9 +62,13 @@ test.describe('Readable approval cards', () => {
 
     await page.getByTestId('approval-approve').click()
     await expect(card).toHaveCount(0, { timeout: 15000 })
-    await expect(page.getByTestId('tool-chip').first()).toBeVisible()
+    // The decision stays visible on the call, live and after a reload: an approved chip reading like any
+    // other let a judged agent tell the person their approval was still pending.
+    await expect(page.getByTestId('tool-chip').first()).toHaveText('Approved: Plan a task', { timeout: 15000 })
     await expect.poll(async () => (await admin.get(`${AGENTS}/${agent.id}/tasks`)).data.results.map((t: any) => t.title))
       .toEqual(['Weekly digest'])
+    await page.reload()
+    await expect(page.getByTestId('tool-chip').first()).toHaveText('Approved: Plan a task', { timeout: 15000 })
   })
 
   test('update_task shows the task before and after the change', async ({ page, goToWithAuth }) => {
