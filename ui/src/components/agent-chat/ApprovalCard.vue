@@ -9,10 +9,12 @@
       class="text-body-large"
       data-testid="approval-title"
     >
-      {{ heading }}
+      {{ t('heading', { name: heading }) }}
     </v-card-title>
+    <!-- Not for a planning call: the task below says what it does, and the description and server are
+         written for the model. -->
     <v-card-subtitle
-      v-if="clippedDescription || serverId"
+      v-if="!taskSections && (clippedDescription || serverId)"
       class="approval-card__subtitle"
     >
       <div
@@ -156,6 +158,7 @@
 
 <i18n lang="yaml">
 fr:
+  heading: "Approuver « {name} » ?"
   server: "Serveur : {server}"
   noArguments: aucun argument
   before: Avant
@@ -171,6 +174,7 @@ fr:
   cancel: Annuler
   webWarning: "L'agent pourra lire ces adresses, et un texte peut contenir des instructions : leurs auteurs pourront de fait lui en donner, avec son identité et tous ses outils. Seul un administrateur de l'organisation peut approuver."
 en:
+  heading: "Approve \"{name}\"?"
   server: "Server: {server}"
   noArguments: no arguments
   before: Before
@@ -247,22 +251,30 @@ const args = computed(() => Object.entries(inputObject.value).map(([key, value])
   [key, typeof value === 'string' ? value : JSON.stringify(value)]))
 
 type TaskShape = { title?: string, prompt?: string, scheduling?: ScheduleRule[], enabled?: boolean }
-const schedule = (scheduling: unknown) =>
-  Array.isArray(scheduling) ? describeScheduling(scheduling, locale.value === 'fr' ? 'fr' : 'en') : ''
+// The model's input, not a validated task: a malformed rule is skipped rather than breaking the card.
+const schedule = (scheduling: unknown) => Array.isArray(scheduling)
+  ? describeScheduling(scheduling.filter(rule => rule && typeof rule === 'object'), locale.value === 'fr' ? 'fr' : 'en')
+  : ''
 
 const planning = computed(() => props.serverId === SELF_SERVER_ID && PLANNING_TOOL_NAMES.includes(props.toolName) ? props.toolName : null)
 
 // What the task is now, for a change or a deletion: undefined while reading, null when it cannot be read.
 const current = ref<TaskShape | null | undefined>(undefined)
-watch(() => [planning.value, inputObject.value.taskId, props.agentPath] as const, async ([tool, taskId, agentPath]) => {
+// Sources rather than one getter: a getter building an array is a new value on every input change, so the
+// task was read again each time. A response that arrives after a newer read started is dropped.
+let reading = 0
+watch([planning, () => inputObject.value.taskId, () => props.agentPath], async ([tool, taskId, agentPath]) => {
   if (tool !== 'update_task' && tool !== 'delete_task') return
+  const read = ++reading
   current.value = undefined
   if (typeof taskId !== 'string' || !agentPath) { current.value = null; return }
+  let task: TaskShape | null
   try {
-    current.value = await $fetch<TaskShape>(`${agentPath}/tasks/${encodeURIComponent(taskId)}`)
+    task = await $fetch<TaskShape>(`${agentPath}/tasks/${encodeURIComponent(taskId)}`)
   } catch {
-    current.value = null
+    task = null
   }
+  if (read === reading) current.value = task
 }, { immediate: true })
 
 const taskSections = computed<{ label?: string, task?: TaskShape, missing?: boolean }[] | null>(() => {

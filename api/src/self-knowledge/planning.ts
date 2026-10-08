@@ -18,10 +18,12 @@ import taskWriteReqSchema from '#doc/autonomous-agents/task-write-req/schema.js'
 import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
 import { asToolError } from './tools.ts'
 
+// The `title` is the person's name for the call: it heads the approval card and labels the chip, where
+// the description is written for the model.
 export const PLANNING_TOOL_ANNOTATIONS: Record<string, Record<string, unknown>> = {
-  plan_task: { readOnlyHint: false, destructiveHint: false },
-  update_task: { readOnlyHint: false, destructiveHint: false },
-  delete_task: { destructiveHint: true }
+  plan_task: { title: 'Plan a task', readOnlyHint: false, destructiveHint: false },
+  update_task: { title: 'Change a task', readOnlyHint: false, destructiveHint: false },
+  delete_task: { title: 'Delete a task', destructiveHint: true }
 }
 
 /** The admin form's schema, without what only the form reads (i18n titles, layouts, ids): what the model reads. */

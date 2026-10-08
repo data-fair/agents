@@ -49,6 +49,10 @@ test.describe('Readable approval cards', () => {
 
     const card = page.getByTestId('approval-card')
     await expect(card).toBeVisible({ timeout: 15000 })
+    await expect(card.getByTestId('approval-title')).toHaveText('Approve "Plan a task"?')
+    // The model-facing description and the service's server id are not for the person deciding.
+    await expect(card.getByTestId('approval-description')).toHaveCount(0)
+    await expect(card).not.toContainText('agent-self')
     await expect(card).toContainText('Weekly digest')
     await expect(card).toContainText('Summarize the week.')
     await expect(card).toContainText('every Monday at 08:00 (Europe/Paris)')
@@ -78,7 +82,7 @@ test.describe('Readable approval cards', () => {
     await expect(card).toContainText('Renamed digest')
   })
 
-  test('a gated catalog call shows its title, its description and "no arguments"', async ({ page, goToWithAuth }) => {
+  test('a gated catalog call asks about its title, shows its description and "no arguments"', async ({ page, goToWithAuth }) => {
     const agentId = (await admin.post(AGENTS, {
       title: 'Gate probe', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
     })).data.id
@@ -88,7 +92,7 @@ test.describe('Readable approval cards', () => {
 
     const card = page.getByTestId('approval-card')
     await expect(card).toBeVisible({ timeout: 15000 })
-    await expect(card.getByTestId('approval-title')).toHaveText('Wipe everything')
+    await expect(card.getByTestId('approval-title')).toHaveText('Approve "Wipe everything"?')
     await expect(card.getByTestId('approval-description')).toHaveText('Declares destructive annotations, and does nothing')
     await expect(card).toContainText('no arguments')
     expect(await card.innerText()).not.toContain('{')
