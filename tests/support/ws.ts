@@ -9,8 +9,23 @@ import WebSocket from 'ws'
 export interface AgentSessionClient {
   send: (message: unknown) => void
   next: (timeoutMs?: number) => Promise<any>
+  /**
+   * The thread the server last said this socket is bound to (`attached`), as RECEIVED — whether or not
+   * `next` has read that frame yet. A thread is created by its first prompt, so this is how a test
+   * learns its id.
+   */
+  conversationId: () => string | undefined
   close: () => void
   closed: () => Promise<void>
+}
+
+/**
+ * A hello that starts a fresh thread: the account it is on (an `owner` path such as
+ * `organization/test1`) and the agent. The first prompt after it creates the thread.
+ */
+export const newThreadHello = (owner = 'organization/test1', extra: Record<string, unknown> = {}) => {
+  const [type, id] = owner.split('/')
+  return { type: 'hello', tools: [], account: { type, id }, agentId: 'personal', ...extra }
 }
 
 /**
@@ -27,8 +42,10 @@ export const openAgentSession = async (cookieString?: string): Promise<AgentSess
   })
   const inbox: any[] = []
   const waiters: ((msg: any) => void)[] = []
+  let conversationId: string | undefined
   ws.on('message', raw => {
     const msg = JSON.parse(raw.toString())
+    if (msg.type === 'attached') conversationId = msg.conversationId
     const waiter = waiters.shift()
     if (waiter) waiter(msg)
     else inbox.push(msg)
@@ -48,6 +65,7 @@ export const openAgentSession = async (cookieString?: string): Promise<AgentSess
   return {
     send: message => ws.send(JSON.stringify(message)),
     next,
+    conversationId: () => conversationId,
     close: () => ws.close(),
     closed: async () => { await new Promise<void>(resolve => { ws.once('close', () => resolve()) }) }
   }

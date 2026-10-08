@@ -14,9 +14,16 @@
 
 import type { AxiosInstance } from 'axios'
 import { directoryUrl } from './axios.ts'
-import { openAgentSession, type AgentSessionClient } from './ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from './ws.ts'
+import { readConsent } from '../../ui/src/traces/trace-consent.ts'
 
 type Ax = AxiosInstance & { cookieJar?: any }
+
+/**
+ * Which conversation a turn goes to: an existing one by id, or a fresh one with this agent, which the
+ * prompt creates — the only way a conversation starts.
+ */
+export type ConversationTarget = string | { agentId: string, title?: string }
 
 export interface SocketTurnOptions {
   /** The account path the conversation lives under. Default `organization/test1`. */
@@ -31,6 +38,7 @@ const statusOfRefusal = (message: string): number => {
   if (/content is required|must be/.test(message)) return 400
   if (/no pending approval|still finishing/.test(message)) return 409
   if (/^unknown /.test(message)) return 404
+  if (/can only be owned/.test(message)) return 400
   if (/belongs to someone else|not allowed|signed-in person/.test(message)) return 403
   return 500
 }
@@ -54,10 +62,26 @@ export const runOf = async (ax: Ax, conversationId: string, runId: string, owner
   return run
 }
 
-/** Open a socket as `ax`, bound to the conversation, past its `attached` frame. */
-const attach = async (ax: Ax, conversationId: string, timeoutMs: number) => {
-  const socket = await openAgentSession(await ax.cookieJar.getCookieString(directoryUrl))
-  socket.send({ type: 'hello', tools: [], conversationId })
+/**
+ * Open a socket as `ax`, past its `attached` frame: bound to the conversation, or ready to start a fresh
+ * one with the agent.
+ *
+ * The consent cookie is read out of the jar and said in the hello, as the chat does with its own
+ * cookie: the server never reads it.
+ */
+const attach = async (ax: Ax, target: ConversationTarget, owner: string, timeoutMs: number) => {
+  const cookie = await ax.cookieJar.getCookieString(directoryUrl)
+  const socket = await openAgentSession(cookie)
+  const consent = readConsent(cookie)
+  const traceConsent = consent ? { traceConsent: consent === 'yes' } : {}
+  if (typeof target !== 'string') {
+    // A refusal of the agent follows `attached` as an error frame, and is read as the prompt's.
+    socket.send(newThreadHello(owner, { ...target, ...traceConsent }))
+    const frame = await socket.next(timeoutMs)
+    if (frame.type !== 'attached') { socket.close(); throw refusal(frame.message ?? `unexpected ${frame.type} frame`) }
+    return { socket, history: [frame] }
+  }
+  socket.send({ type: 'hello', tools: [], conversationId: target, ...traceConsent })
   const history: any[] = []
   // `attached` is sent synchronously by the hello; a refusal to bind (not your conversation) follows it.
   // Otherwise the stored transcript follows, closed by a `cost` frame: read past it, so that history is
@@ -74,6 +98,8 @@ const attach = async (ax: Ax, conversationId: string, timeoutMs: number) => {
 
 export interface StartedSocketTurn {
   runId: string
+  /** The conversation the turn is in — the one it created, for a fresh thread. */
+  conversationId: string
   socket: AgentSessionClient
   /** Every frame since the prompt, once the turn has ended; rejects if the prompt was refused. */
   done: Promise<any[]>
@@ -82,21 +108,31 @@ export interface StartedSocketTurn {
 }
 
 /**
- * Prompt a conversation and return as soon as the run exists, leaving the turn running — for tests that
- * act while it does (stop it, speak again, read it mid-flight). `done` settles at `turn-end`, and the
- * socket is closed then.
+ * Prompt a conversation — or start one — and return as soon as the run exists, leaving the turn
+ * running — for tests that act while it does (stop it, speak again, read it mid-flight). `done` settles
+ * at `turn-end`, and the socket is closed then.
  */
 export const startTurnOverSocket = async (
   ax: Ax,
-  conversationId: string,
+  target: ConversationTarget,
   content: string,
   opts: SocketTurnOptions = {}
 ): Promise<StartedSocketTurn> => {
   const owner = opts.owner ?? 'organization/test1'
   const timeoutMs = opts.timeoutMs ?? 60_000
-  const known = new Set((await runsOf(ax, owner, conversationId).catch(() => [])).map(r => r.id))
-  const { socket, history } = await attach(ax, conversationId, timeoutMs)
+  const known = new Set(typeof target === 'string' ? (await runsOf(ax, owner, target).catch(() => [])).map(r => r.id) : [])
+  const { socket, history } = await attach(ax, target, owner, timeoutMs)
   socket.send({ type: 'prompt', content, ...(opts.hiddenContext ? { hiddenContext: opts.hiddenContext } : {}) })
+  // A fresh thread is named by the `attached` frame its creation sends, ahead of the turn's frames.
+  if (typeof target !== 'string') {
+    for (;;) {
+      const frame = await socket.next(timeoutMs)
+      history.push(frame)
+      if (frame.type === 'error') { socket.close(); throw refusal(frame.message) }
+      if (frame.type === 'attached' && frame.conversationId) break
+    }
+  }
+  const conversationId = typeof target === 'string' ? target : socket.conversationId()!
 
   let failure: Error | undefined
   let ended = false
@@ -123,7 +159,7 @@ export const startTurnOverSocket = async (
   for (;;) {
     if (failure) throw failure
     const created = (await runsOf(ax, owner, conversationId)).find(r => !known.has(r.id))
-    if (created) return { runId: created.id, socket, done, abort: () => socket.send({ type: 'abort' }) }
+    if (created) return { runId: created.id, conversationId, socket, done, abort: () => socket.send({ type: 'abort' }) }
     // A turn that ended before its run was seen cannot be located; surface the real reason.
     if (ended) { await done; throw new Error('the turn ended without a run being created') }
     if (Date.now() > deadline) throw new Error('no run was created by the prompt')
@@ -133,6 +169,7 @@ export const startTurnOverSocket = async (
 
 export interface SocketTurnResult {
   runId: string
+  conversationId: string
   /** The run that answered, read once the turn has ended. */
   run: any
   messages: any[]
@@ -141,20 +178,21 @@ export interface SocketTurnResult {
   frames: any[]
 }
 
-/** Prompt a conversation and wait for the turn to end. Throws like the old route did on a refusal. */
+/** Prompt a conversation — or start one — and wait for the turn to end. Throws on a refusal. */
 export const turnOverSocket = async (
   ax: Ax,
-  conversationId: string,
+  target: ConversationTarget,
   content: string,
   opts: SocketTurnOptions = {}
 ): Promise<SocketTurnResult> => {
   const owner = opts.owner ?? 'organization/test1'
-  const started = await startTurnOverSocket(ax, conversationId, content, opts)
+  const started = await startTurnOverSocket(ax, target, content, opts)
+  const { conversationId } = started
   const frames = await started.done
   const run = await runOf(ax, conversationId, started.runId, owner)
   const messages: any[] = (await ax.get(`${base(owner, conversationId)}/messages`)).data.results
   const assistant = [...messages].reverse().find(m => m.role === 'assistant')
-  return { runId: started.runId, run, messages, assistant, frames }
+  return { runId: started.runId, conversationId, run, messages, assistant, frames }
 }
 
 /**
@@ -174,7 +212,7 @@ export const decideOverSocket = async (
   const owner = opts.owner ?? 'organization/test1'
   const timeoutMs = opts.timeoutMs ?? 60_000
   const known = new Set((await runsOf(ax, owner, conversationId)).map(r => r.id))
-  const { socket } = await attach(ax, conversationId, timeoutMs)
+  const { socket } = await attach(ax, conversationId, owner, timeoutMs)
   socket.send({ type: 'approval', approvalId, approved: decision.approved, ...(decision.reason ? { reason: decision.reason } : {}) })
   // The socket stays open until the continuation ends, so its frames are still delivered to whoever
   // reads the record; closed in the background so the caller is not held for the whole run.

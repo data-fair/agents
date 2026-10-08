@@ -15,7 +15,7 @@ import {
   createPagePerception
 } from '@data-fair/lib-agents-sim'
 import { clean } from '../tests/support/axios.ts'
-import { CONSENT_COOKIE, CONSENT_YES } from '../shared/trace-consent.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../ui/src/traces/trace-consent.ts'
 
 const ASSISTANT_MODEL = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
 // The sub-agent, compaction and moderation roles, pinned separately and lower:

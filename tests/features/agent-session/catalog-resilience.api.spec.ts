@@ -14,7 +14,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../support/ws.ts'
 import { startTurnOverSocket, runOf } from '../../support/socket-turn.ts'
 
 const admin = await superAdmin
@@ -32,13 +32,9 @@ test.describe('An unreachable catalog entry', () => {
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
   test('is skipped for the personal assistant, and the turn still answers', async () => {
-    const conversation = (await orgAdmin.post('/api/conversations/organization/test1', {
-      agentId: 'personal', title: 'personal'
-    })).data
-
     const session = await openAgentSession(await cookieOf(orgAdmin))
     sockets.push(session)
-    session.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    session.send(newThreadHello())
     assert.equal((await session.next()).type, 'attached')
 
     session.send({ type: 'prompt', content: 'hello' })
@@ -63,17 +59,16 @@ test.describe('An unreachable catalog entry', () => {
     })).data
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
 
-    const conv = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data
-    const { runId } = await startTurnOverSocket(orgAdmin, conv.id, 'hello')
+    const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
 
     let run
     for (let i = 0; i < 100; i++) {
-      run = await runOf(orgAdmin, conv.id, runId)
+      run = await runOf(orgAdmin, conversationId, runId)
       if (run.status !== 'running') break
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     assert.equal(run.status, 'error')
-    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conv.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     const text = assistant.parts.find((p: any) => p.type === 'text')?.text ?? ''
     assert.match(text, /dev-public-mcp/, 'it must name the server that failed, so an admin can fix it')

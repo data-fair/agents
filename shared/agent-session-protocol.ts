@@ -25,20 +25,31 @@ export interface BrowserToolDescriptor {
 
 export type ClientMessage =
   /**
-   * First message. Binds the connection to a conversation and declares the page's contextual tools.
+   * First message, and every switch of thread. Declares the page's contextual tools, and either binds
+   * the connection to an existing conversation or prepares a new one.
    *
-   * An ANONYMOUS caller cannot create a conversation over HTTP, so for them the hello does it: one
-   * without `conversationId` starts a fresh thread on `account` with `agentId` (the `attached` reply
-   * names it), and `anonymousToken` is simple-directory's anonymous action token — carried here
-   * because a browser cannot set headers on a websocket upgrade. Both are ignored for a signed-in
-   * caller.
+   * ONE way to start a conversation, for a signed-in person and an anonymous visitor alike: a hello
+   * without `conversationId` binds to nothing, and names the `account` and `agentId` (default: the
+   * personal assistant) of the thread its first `prompt` will create, with its `title`. The `attached`
+   * frame sent then names the new thread. Whether this person may talk to that agent is checked right
+   * away as well, so a refusal reaches the chat when it opens rather than at the first message —
+   * as an `error` frame right after the `attached` one, and nothing is created.
+   *
+   * `anonymousToken` is simple-directory's anonymous action token, required for an anonymous visitor's
+   * new thread — carried here because a browser cannot set headers on a websocket upgrade.
+   *
+   * `traceConsent` is the person's current answer to the consent sheet, when they gave one. The server
+   * never reads the consent cookie: the browser reads its own and says it here, and in a
+   * `trace-consent` frame when it changes.
    */
   | {
     type: 'hello',
     conversationId?: string,
     agentId?: string,
     account?: { type: 'user' | 'organization', id: string },
+    title?: string,
     anonymousToken?: string,
+    traceConsent?: boolean,
     tools: BrowserToolDescriptor[]
   }
   /** The page navigated or its state changed: this is the tool set from now on. */
@@ -66,12 +77,9 @@ export type ClientMessage =
    */
   | { type: 'abort', dismissWait?: boolean }
   /**
-   * The person's answer to the consent sheet.
-   *
-   * Sent as well as written to the cookie, because the cookie is only read at UPGRADE: without this
-   * frame, accepting would have no effect until the page reloaded, which reads as the button not
-   * working. The server trusts it only for what
-   * this says: THIS person agreed to about their own conversation, nothing more.
+   * The person's answer to the consent sheet, when they give or change it — `hello` carries the answer
+   * they had when it was sent. The server trusts it only for what this says: THIS person agreed to
+   * about their own conversation, nothing more.
    */
   | { type: 'trace-consent', consented: boolean }
   /**
@@ -107,11 +115,14 @@ export interface HostEventFrame {
 
 export type ServerMessage =
   /**
+   * The answer to a `hello`, and the news that a first `prompt` created a thread: `conversationId` is
+   * the thread this connection is bound to, absent while the next prompt is still to create one.
+   *
    * `traceStorage` is how the person gets ASKED: the chat shows its consent sheet off it.
    * Without it the sheet never appears, nobody can ever say yes, and the consent gate on
    * the server fails closed forever — a gate nobody can open is not a gate, it is an outage.
    */
-  | { type: 'attached', conversationId: string, anonymous: boolean, traceStorage?: boolean }
+  | { type: 'attached', conversationId?: string, anonymous: boolean, traceStorage?: boolean }
   /** Token stream of the turn in progress. */
   | { type: 'delta', kind: 'text' | 'reasoning', text: string }
   /** Run this contextual tool and answer with a `tool-result` carrying the same callId. */
@@ -234,13 +245,22 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
       if (parsed.anonymousToken !== undefined && typeof parsed.anonymousToken !== 'string') {
         return { type: 'invalid', reason: 'anonymousToken must be a string when present' }
       }
+      if (parsed.title !== undefined && typeof parsed.title !== 'string') {
+        return { type: 'invalid', reason: 'title must be a string when present' }
+      }
+      // Strictly boolean, as in the `trace-consent` frame: a truthy string would make "no" read as consent.
+      if (parsed.traceConsent !== undefined && typeof parsed.traceConsent !== 'boolean') {
+        return { type: 'invalid', reason: 'traceConsent must be a boolean when present' }
+      }
       return {
         type: 'hello',
         tools,
         ...(typeof parsed.conversationId === 'string' ? { conversationId: parsed.conversationId } : {}),
         ...(typeof parsed.agentId === 'string' ? { agentId: parsed.agentId } : {}),
         ...(account ? { account: { type: account.type as 'user' | 'organization', id: account.id as string } } : {}),
-        ...(typeof parsed.anonymousToken === 'string' ? { anonymousToken: parsed.anonymousToken } : {})
+        ...(typeof parsed.title === 'string' ? { title: parsed.title } : {}),
+        ...(typeof parsed.anonymousToken === 'string' ? { anonymousToken: parsed.anonymousToken } : {}),
+        ...(typeof parsed.traceConsent === 'boolean' ? { traceConsent: parsed.traceConsent } : {})
       }
     }
     case 'tools-changed': {
@@ -342,8 +362,13 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
   if (!isRecord(parsed)) return undefined
   switch (parsed.type) {
     case 'attached':
-      if (typeof parsed.conversationId !== 'string') return undefined
-      return { type: 'attached', conversationId: parsed.conversationId, anonymous: parsed.anonymous === true, traceStorage: parsed.traceStorage === true }
+      if (parsed.conversationId !== undefined && typeof parsed.conversationId !== 'string') return undefined
+      return {
+        type: 'attached',
+        ...(typeof parsed.conversationId === 'string' ? { conversationId: parsed.conversationId } : {}),
+        anonymous: parsed.anonymous === true,
+        traceStorage: parsed.traceStorage === true
+      }
     case 'delta':
       if (parsed.kind !== 'text' && parsed.kind !== 'reasoning') return undefined
       if (typeof parsed.text !== 'string') return undefined

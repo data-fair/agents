@@ -10,7 +10,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../support/ws.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
@@ -41,10 +41,9 @@ test.describe('Tool listings across turns', () => {
   }
 
   const personalSession = async () => {
-    const conversation = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: 'personal', title: 't' })).data
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
     sockets.push(socket)
-    socket.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    socket.send(newThreadHello())
     await socket.next()
     return socket
   }

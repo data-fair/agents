@@ -184,7 +184,7 @@ declare global {
   export type { UsageDimension, UsageEntry } from '../src/utils/usage-breakdown'
   import('../src/utils/usage-breakdown')
   // @ts-ignore
-  export type { AgentSessionClientOptions } from '../src/composables/use-agent-session'
+  export type { HelloTarget, AgentSessionClientOptions } from '../src/composables/use-agent-session'
   import('../src/composables/use-agent-session')
   // @ts-ignore
   export type { OrgNhi } from '../src/composables/use-autonomous-agent-enrolment'

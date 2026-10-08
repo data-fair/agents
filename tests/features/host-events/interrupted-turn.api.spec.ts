@@ -16,7 +16,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../support/ws.ts'
 
 const admin = await superAdmin
 const user = await axiosAuth('test-standalone1')
@@ -34,13 +34,13 @@ test.describe('An interrupted turn in the history sent next', () => {
   })
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
+  /** A socket ready to start a thread: its first prompt creates it (`socket.conversationId()` then). */
   const openSession = async () => {
-    const conversation = (await user.post(`/api/conversations/${OWNER}`, { agentId: 'personal', title: 't' })).data
     const socket = await openAgentSession(await user.cookieJar.getCookieString(directoryUrl))
     sockets.push(socket)
-    socket.send({ type: 'hello', tools: [], conversationId: conversation.id })
+    socket.send(newThreadHello(OWNER))
     await socket.next()
-    return { socket, conversationId: conversation.id as string }
+    return { socket }
   }
 
   /** Frames until `done` holds for everything seen so far (publication order is not a contract). */
@@ -69,7 +69,7 @@ test.describe('An interrupted turn in the history sent next', () => {
       .filter((m: any) => m.role === 'assistant')
 
   test('speaking during a wait: the wait keeps a result, and the reminder is the last thing read', async () => {
-    const { socket, conversationId } = await openSession()
+    const { socket } = await openSession()
     socket.send({ type: 'prompt', content: 'wait for me' })
     await collect(socket, sawWaiting)
 
@@ -85,7 +85,7 @@ test.describe('An interrupted turn in the history sent next', () => {
 
     // In the record too: the wait is settled, and no "turn was stopped" notice was written as the
     // assistant's words — the person's message is what answers it.
-    const [interrupted] = await assistantMessages(conversationId)
+    const [interrupted] = await assistantMessages(socket.conversationId()!)
     const wait = interrupted.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'wait_for_user_action')
     assert.equal(wait.state, 'output-available')
     assert.equal(wait.output, SPOKE_DURING_WAIT)
@@ -107,7 +107,7 @@ test.describe('An interrupted turn in the history sent next', () => {
   })
 
   test('Stop during a wait: the wait keeps a result saying it was declined, and no reminder', async () => {
-    const { socket, conversationId } = await openSession()
+    const { socket } = await openSession()
     socket.send({ type: 'prompt', content: 'wait for me' })
     await collect(socket, all => sawWaiting(all) && all.some(f => f.type === 'turn-end'))
 
@@ -115,7 +115,7 @@ test.describe('An interrupted turn in the history sent next', () => {
     socket.send({ type: 'abort', dismissWait: true })
     await collect(socket, all => all.some(f => f.type === 'activity' && f.activity === null))
 
-    const [stopped] = await assistantMessages(conversationId)
+    const [stopped] = await assistantMessages(socket.conversationId()!)
     const wait = stopped.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'wait_for_user_action')
     assert.equal(wait.state, 'output-available')
     assert.equal(wait.output, STOPPED)

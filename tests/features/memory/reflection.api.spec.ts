@@ -22,7 +22,6 @@ const createAgent = async (memory = true, over: any = {}) => {
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
   return agent
 }
-const thread = async (agentId: string) => (await orgAdmin.post(BASE, { agentId, title: 't' })).data.id as string
 const awaitRun = async (conversationId: string, runId: string) => {
   for (let i = 0; i < 100; i++) {
     if ((await runOf(orgAdmin, conversationId, runId)).status !== 'running') return
@@ -30,9 +29,11 @@ const awaitRun = async (conversationId: string, runId: string) => {
   }
   throw new Error('run never ended')
 }
-const say = async (conversationId: string, content: string) => {
-  const { runId } = await startTurnOverSocket(orgAdmin, conversationId, content)
+/** A turn, waited for: the first of a new thread with an agent, or one in an existing thread. Returns the thread. */
+const say = async (target: string | { agentId: string }, content: string) => {
+  const { runId, conversationId } = await startTurnOverSocket(orgAdmin, target, content)
   await awaitRun(conversationId, runId)
+  return conversationId
 }
 const messages = async (conversationId: string) => (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
 const reflect = async (conversationId: string, extra: any = {}) => (await admin.post('/api/test-env/reflect-conversation', { conversationId, ...extra })).data
@@ -46,8 +47,7 @@ test.describe('Memory reflection', () => {
 
   test('learns from the stored conversation, attributed to the reflection', async () => {
     const agent = await createAgent()
-    const conversationId = await thread(agent.id)
-    await say(conversationId, 'remember: the sales dataset is ventes')
+    const conversationId = await say({ agentId: agent.id }, 'remember: the sales dataset is ventes')
     const result = await reflect(conversationId)
     assert.equal(result.reflected, true)
     assert.match((await core(agent.id)).content, /- the sales dataset is ventes/)
@@ -62,8 +62,7 @@ test.describe('Memory reflection', () => {
 
   test('a range is reflected once', async () => {
     const agent = await createAgent()
-    const conversationId = await thread(agent.id)
-    await say(conversationId, 'remember: x')
+    const conversationId = await say({ agentId: agent.id }, 'remember: x')
     assert.equal((await reflect(conversationId)).reflected, true)
     assert.deepEqual(await reflect(conversationId), { reflected: false, reason: 'nothing-new' })
   })
@@ -71,13 +70,11 @@ test.describe('Memory reflection', () => {
   test('memory off, or the agent deleted, means no reflection and nothing written', async () => {
     // Review Focus 5
     const off = await createAgent(false)
-    const offThread = await thread(off.id)
-    await say(offThread, 'remember: nope')
+    const offThread = await say({ agentId: off.id }, 'remember: nope')
     assert.equal((await reflect(offThread)).reason, 'memory-off')
 
     const gone = await createAgent()
-    const goneThread = await thread(gone.id)
-    await say(goneThread, 'remember: nope')
+    const goneThread = await say({ agentId: gone.id }, 'remember: nope')
     await admin.delete(`/api/autonomous-agents/organization/test1/${gone.id}`)
     assert.equal((await reflect(goneThread)).reflected, false)
     const data = (await admin.get(`/api/test-env/autonomous-agent-data/${gone.id}`)).data
@@ -86,9 +83,8 @@ test.describe('Memory reflection', () => {
 
   test('an agent deleted while its reflection is in flight gets nothing written after the cascade', async () => {
     const agent = await createAgent()
-    const conversationId = await thread(agent.id)
     // the seam holds the reflection's memory write back 1.5s
-    await say(conversationId, 'remember: written too late. reflect slowly')
+    const conversationId = await say({ agentId: agent.id }, 'remember: written too late. reflect slowly')
     const reflecting = reflect(conversationId)
     await new Promise(resolve => setTimeout(resolve, 300))
     await admin.delete(`/api/autonomous-agents/organization/test1/${agent.id}`)
@@ -105,8 +101,7 @@ test.describe('Memory reflection', () => {
     })
     const body = { title: 'Reflective', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } }
     const agent = await createAgent()
-    const conversationId = await thread(agent.id)
-    await say(conversationId, 'remember: billed anyway. reflect slowly')
+    const conversationId = await say({ agentId: agent.id }, 'remember: billed anyway. reflect slowly')
     const reflecting = reflect(conversationId)
     await new Promise(resolve => setTimeout(resolve, 300))
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { ...body, memory: { enabled: false } })
@@ -118,8 +113,7 @@ test.describe('Memory reflection', () => {
 
   test('the idle sweep reflects a thread that went quiet, and only then', async () => {
     const agent = await createAgent()
-    const conversationId = await thread(agent.id)
-    await say(conversationId, 'remember: idle fact')
+    await say({ agentId: agent.id }, 'remember: idle fact')
     // Counts are global to the dev database, so what is asserted is THIS thread's memory.
     await admin.post('/api/test-env/sweep-reflections', {}) // still active
     assert.equal(await core(agent.id), undefined)
@@ -130,8 +124,7 @@ test.describe('Memory reflection', () => {
 
   test('a long thread is reflected after the turn that crosses the threshold', async () => {
     const agent = await createAgent()
-    const conversationId = await thread(agent.id)
-    await say(conversationId, 'remember: long thread fact')
+    const conversationId = await say({ agentId: agent.id }, 'remember: long thread fact')
     // 1 exchange = 2 messages; 10 exchanges reach REFLECT_EVERY_MESSAGES (20)
     for (let i = 0; i < 8; i++) await say(conversationId, 'hello')
     // one exchange short of the threshold: nothing yet
@@ -159,8 +152,7 @@ test.describe('Memory reflection and the approval gate', () => {
 
   test('a thread stopped on an approval is reflected only up to before that message', async () => {
     const agent = await createAgent(true, { mcpServers: [{ serverId: 'dev-public-mcp' }] })
-    const conversationId = await thread(agent.id)
-    await say(conversationId, 'remember: before the approval')
+    const conversationId = await say({ agentId: agent.id }, 'remember: before the approval')
     await say(conversationId, 'call tool wipe_everything {}')
     const asking = (await messages(conversationId)).find((m: any) => m.role === 'assistant' &&
       m.parts.some((p: any) => p.type === 'dynamic-tool' && p.state === 'approval-requested'))
@@ -186,11 +178,9 @@ test.describe('Memory reflection and the approval gate', () => {
     const agent = await createAgent(true, { mcpServers: [{ serverId: 'dev-public-mcp' }] })
     // The OLDEST activity, so the oldest-first sweep meets it first: blocked on an undecided approval,
     // everything before it already reflected.
-    const blocked = await thread(agent.id)
-    await say(blocked, 'call tool wipe_everything {}')
+    const blocked = await say({ agentId: agent.id }, 'call tool wipe_everything {}')
     assert.equal((await reflect(blocked)).toSeq, 1)
-    const reflectable = await thread(agent.id)
-    await say(reflectable, 'remember: not starved')
+    await say({ agentId: agent.id }, 'remember: not starved')
 
     // One candidate per pass: the first pass meets the blocked thread and defers it…
     const later = new Date(Date.now() + 31 * 60000).toISOString()

@@ -1,9 +1,20 @@
 import { ref } from 'vue'
 
-// The name and the accepted value live in shared/: the SERVER reads this same cookie off the
-// websocket upgrade to decide whether a turn may be traced.
-import { CONSENT_COOKIE } from '@agents/shared/trace-consent'
-export { CONSENT_COOKIE }
+/**
+ * The trace-consent cookie: this browser's own memory of the person's answer to the consent sheet.
+ *
+ * The server never reads it — the chat says what it holds over the agent session (`hello`,
+ * `trace-consent`; see use-session-chat.ts). The harnesses that stand in for a person (simulations, dev
+ * fixtures, api tests) set the same cookie, so they import its name from here.
+ */
+export const CONSENT_COOKIE = 'agent-chat-trace-consent'
+
+/**
+ * The one value that means yes. Checked exactly, never truthily: "no" is also a non-empty string, and
+ * absent, unparseable and unrecognised all mean no — the right default for a question nobody answered.
+ */
+export const CONSENT_YES = 'yes'
+
 export type Consent = 'yes' | 'no'
 
 // Reactive: set true when the agent session's `attached` frame says `traceStorage` (see
@@ -13,7 +24,7 @@ export const traceStorageAvailable = ref(false)
 export function readConsent (cookieString = document.cookie): Consent | undefined {
   for (const part of cookieString.split(';')) {
     const [k, v] = part.trim().split('=')
-    if (k === CONSENT_COOKIE) return v === 'yes' ? 'yes' : v === 'no' ? 'no' : undefined
+    if (k === CONSENT_COOKIE) return v === CONSENT_YES ? 'yes' : v === 'no' ? 'no' : undefined
   }
   return undefined
 }

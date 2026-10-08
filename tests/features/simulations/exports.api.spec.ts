@@ -13,17 +13,19 @@ import { putMockSettings } from '../../support/settings.ts'
 import { turnOverSocket } from '../../support/socket-turn.ts'
 import { fetchConversationExports, OWNER } from '../../../simulations/runner/settings.ts'
 import { parseConversationExport, recordedToolCalls } from '../../../lib-sim/conversation-export.ts'
-import { CONSENT_COOKIE, CONSENT_YES } from '../../../shared/trace-consent.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/traces/trace-consent.ts'
 
 const admin = await superAdmin
 const user = await axiosAuth(OWNER.id)
-const base = `/api/conversations/${OWNER.type}/${OWNER.id}`
 
-/** A turn as the simulated person takes it: consent given, as the runner's cookie gives it. */
-const say = async (conversationId: string, content: string, consent = true) => {
+/**
+ * The first turn of a thread as the simulated person takes it: consent given, as the runner's cookie
+ * gives it — the socket helper reads the cookie and says it, as the chat does. Returns the thread.
+ */
+const say = async (content: string, consent = true) => {
   // Through the client's cookie jar: it owns the Cookie header, and replaces one set by hand.
   await (user as any).cookieJar.setCookie(`${CONSENT_COOKIE}=${consent ? CONSENT_YES : 'no'}`, directoryUrl)
-  await turnOverSocket(user, conversationId, content, { owner: `${OWNER.type}/${OWNER.id}` })
+  return (await turnOverSocket(user, { agentId: 'personal' }, content, { owner: `${OWNER.type}/${OWNER.id}` })).conversationId
 }
 
 test.describe('Simulation evidence', () => {
@@ -34,11 +36,9 @@ test.describe('Simulation evidence', () => {
   })
 
   test('the runner downloads the export of each conversation the person consented to', async () => {
-    const conversation = (await user.post(base, { agentId: 'personal', title: 't' })).data
     // 'call tool' makes the mock call a tool, so the export carries a tool call to count.
-    await say(conversation.id, 'call tool echo hi')
-    const declined = (await user.post(base, { agentId: 'personal', title: 'declined' })).data
-    await say(declined.id, 'hello', false)
+    const conversation = { id: await say('call tool echo hi') }
+    await say('hello', false)
 
     const exports = await fetchConversationExports(OWNER, OWNER.id)
     // Only the consented thread: the runner reads what review would show, nothing more.
@@ -51,8 +51,7 @@ test.describe('Simulation evidence', () => {
   })
 
   test('another person\'s threads on the same account are not this run\'s evidence', async () => {
-    const mine = (await user.post(base, { agentId: 'personal', title: 't' })).data
-    await say(mine.id, 'hello')
+    await say('hello')
     assert.deepEqual(await fetchConversationExports(OWNER, 'someone-else'), [])
   })
 })

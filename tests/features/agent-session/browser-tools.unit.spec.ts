@@ -21,6 +21,7 @@ const fakeSession = (over: Partial<AgentSession> = {}): AgentSession => ({
   tools: () => [{ name: 'select_row', description: 'selects a row' }],
   sessionCookie: () => undefined,
   traceConsent: () => false,
+  bind: () => {},
   send: () => {},
   hostEvents: new HostEventStore(),
   attached: () => true,

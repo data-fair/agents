@@ -6,7 +6,7 @@ import mongo from '#mongo'
 import config from '#config'
 import { personalAgent, isStandardAgentId, PERSONAL_AGENT_ID } from '../agent-session/standard-agents.ts'
 import { sessionFor } from '../agent-session/registry.ts'
-import { assertRoleQuota } from '../auth.ts'
+import { assertRoleQuota, assertCanUseModel } from '../auth.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
 import { expiredArchiveFilter } from '../retention.ts'
@@ -17,7 +17,8 @@ import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
-import { getAutonomousAgent, assertOrganizationOwner } from '../autonomous-agents/service.ts'
+import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '../autonomous-agents/service.ts'
+import { getSettings } from '../settings/service.ts'
 
 const debug = Debug('df-agents:conversations')
 
@@ -151,24 +152,89 @@ export const purgeConversation = async (conversationId: string): Promise<{ messa
  * session: a STANDARD agent only — a configured agent's instructors are named people, which an
  * anonymous visitor is not — and an account whose anonymous quota is open at all.
  */
-export const createAnonymousConversation = async (
+/**
+ * Who is asking: a signed-in person, or an anonymous visitor known only by the per-IP key their usage
+ * is charged to. The visitor has no session, so their ownership of the thread is the socket's (only
+ * the socket that created it may prompt into it) and their role is `anonymous` by definition.
+ */
+export type TurnCaller =
+  | { kind: 'person', session: SessionStateAuthenticated }
+  | { kind: 'anonymous', usageUserId: string }
+
+/**
+ * Whether this person may talk to this agent — and the two kinds of agent ask genuinely different
+ * questions.
+ *
+ * A CONFIGURED agent lends its own identity: instructing it means borrowing an NHI's permissions, so
+ * the gate is `canInstruct` — an account admin, or someone explicitly listed as an instructor.
+ *
+ * A STANDARD agent lends nothing. It acts as the person, through their own session, so the only
+ * question is whether that person may use this account's models at all — which is the role-quota
+ * gate every model call already answered. Applying `canInstruct` to it was a real regression and the
+ * narrowest kind: a plain member of an organization could not use the assistant embedded in their own
+ * application, because they are not an admin of the org and nobody had listed them as an instructor
+ * of an agent that does not exist as a document.
+ */
+const assertMayTalkTo = async (
+  autonomousAgent: InstructableAgent & { id: string },
+  owner: AccountKeys,
+  session: SessionStateAuthenticated
+) => {
+  if (!isStandardAgentId(autonomousAgent.id)) {
+    assertCanInstruct(autonomousAgent, session)
+    return
+  }
+  const settings = await getSettings(owner)
+  assertCanUseModel(session, owner, settings.quotas ?? {})
+}
+
+/**
+ * The checks a new thread passes: may this caller start a conversation with this agent on this
+ * account. Run when a socket names the agent (so a refusal shows when the chat opens) and again when
+ * its first prompt creates the thread. Returns the account the thread is stored under.
+ *
+ * A configured agent stays organization-only (`assertCanOwnAgent`); an anonymous visitor may only talk
+ * to a standard agent, on an account whose quotas let anonymous visitors in.
+ */
+export const assertMayStartConversation = async (owner: AccountKeys, agentId: string, caller: TurnCaller): Promise<AccountKeys> => {
+  if (caller.kind === 'anonymous') {
+    if (!isStandardAgentId(agentId)) throw httpError(403, 'an anonymous visitor can only talk to a standard agent')
+    assertRoleQuota('anonymous', (await getSettings(owner)).quotas ?? {})
+    return owner
+  }
+  assertCanOwnAgent(owner, agentId)
+  const autonomousAgent = await requireAutonomousAgent(owner, agentId)
+  await assertMayTalkTo(autonomousAgent, owner, caller.session)
+  return autonomousAgent.owner
+}
+
+/**
+ * Create a thread: the ONE way a conversation starts, called by the socket when the first prompt of a
+ * connection bound to nothing arrives (see the `hello` frame).
+ *
+ * A person's thread belongs to them (`userId`) on the ACCOUNT that pays for it (`owner`); an anonymous
+ * visitor's to the per-IP key their usage is charged to, and it lives as long as their socket.
+ */
+export const createConversation = async (
   owner: AccountKeys,
   agentId: string,
-  usageUserId: string,
-  quotas: Parameters<typeof assertRoleQuota>[1]
+  caller: TurnCaller,
+  title?: string
 ): Promise<Conversation> => {
-  if (!isStandardAgentId(agentId)) throw httpError(403, 'an anonymous visitor can only talk to a standard agent')
-  assertRoleQuota('anonymous', quotas)
-  const now = new Date().toISOString()
+  const threadOwner = await assertMayStartConversation(owner, agentId, caller)
   const conversation: Conversation = {
     id: nanoid(),
     agentId,
-    owner,
-    userId: usageUserId,
-    userName: 'Anonymous',
-    anonymous: true,
-    title: 'Anonymous conversation',
-    createdAt: now,
+    owner: threadOwner,
+    ...(caller.kind === 'person'
+      ? {
+          userId: caller.session.user.id,
+          ...(caller.session.user.name ? { userName: caller.session.user.name } : {}),
+          title: title?.trim() || 'New conversation'
+        }
+      : { userId: caller.usageUserId, userName: 'Anonymous', anonymous: true, title: 'Anonymous conversation' }),
+    createdAt: new Date().toISOString(),
+    // starts at 0: nextMessageSeq hands out 1 for the first message
     messageSeq: 0,
     credits: 0
   }

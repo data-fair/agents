@@ -12,17 +12,15 @@
 
 import type { AxiosInstance } from 'axios'
 import { turnOverSocket } from './socket-turn.ts'
-import { CONSENT_COOKIE, CONSENT_YES } from '@agents/shared/trace-consent'
+import { CONSENT_COOKIE, CONSENT_YES } from '../../ui/src/traces/trace-consent.ts'
 
 const apiOrigin = `http://localhost:${process.env.NGINX_PORT}/agents`
 
 /**
  * Give (or withhold) this caller's consent to admin-visible trace storage.
  *
- * Set in the COOKIE JAR rather than as a request header, because the jar is what also carries the
- * session cookie — an explicit `Cookie` header would replace it and the call would be anonymous.
- * This is the same cookie the browser writes from the consent sheet, and the one the websocket
- * upgrade reads.
+ * Set in the COOKIE JAR, as the browser keeps it: the same cookie the consent sheet writes. Like the
+ * chat, the socket helper reads it back and says it in its hello — the server never reads the cookie.
  */
 export async function setTraceConsent (ax: AxiosInstance & { cookieJar?: any }, consented: boolean): Promise<void> {
   await ax.cookieJar?.setCookie(`${CONSENT_COOKIE}=${consented ? CONSENT_YES : 'no'}; Path=/`, apiOrigin)
@@ -34,7 +32,7 @@ export interface RunTurnResult {
 }
 
 /**
- * Create a conversation with a standard agent and run one turn in it.
+ * Run one turn: the first of a new conversation with a standard agent, or one in `conversationId`.
  *
  * `owner` is the account path segment pair, e.g. `user/test-standalone1` or `organization/test1`.
  * Returns once the turn has ended, so a caller can immediately assert on
@@ -46,15 +44,7 @@ export async function runTurn (
   content = 'hello',
   opts?: { agentId?: string, conversationId?: string, title?: string }
 ): Promise<RunTurnResult> {
-  let conversationId = opts?.conversationId
-  if (!conversationId) {
-    const created = await ax.post(`/api/conversations/${owner}`, {
-      agentId: opts?.agentId ?? 'personal',
-      title: opts?.title ?? 'test turn'
-    })
-    conversationId = created.data.id as string
-  }
-
-  const { runId } = await turnOverSocket(ax, conversationId, content, { owner })
+  const target = opts?.conversationId ?? { agentId: opts?.agentId ?? 'personal', title: opts?.title ?? 'test turn' }
+  const { runId, conversationId } = await turnOverSocket(ax, target, content, { owner })
   return { conversationId, runId }
 }

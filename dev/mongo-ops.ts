@@ -32,20 +32,18 @@ const mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO
 const db = mongo.db()
 
 let cookie: string | undefined
-let conversationId: string | undefined
 if (!anonymous) {
   const member = await axiosAuth('test1-admin1', { org: 'test1' })
   cookie = await member.cookieJar.getCookieString(directoryUrl)
-  conversationId = (await member.post('/api/conversations/organization/test1', { agentId: 'personal', title: 'mongo-ops' })).data.id
 }
 const token = anonymous ? await getAnonymousActionToken() : undefined
+// Every turn profiled is a thread's first, created by its prompt — the one way a thread starts.
+const hello = { type: 'hello', tools: [], account: { type: 'organization', id: 'test1' }, ...(token ? { anonymousToken: token } : {}) }
 // A warm-up turn on its own thread, so the caches (settings, tool listings) are in the state a
 // running server keeps them in: the profile is of a steady-state turn, not a cold one.
 {
   const socket = await openAgentSession(cookie)
-  socket.send(anonymous
-    ? { type: 'hello', tools: [], account: { type: 'organization', id: 'test1' }, anonymousToken: token }
-    : { type: 'hello', tools: [], conversationId })
+  socket.send(hello)
   socket.send({ type: 'prompt', content: 'hello' })
   for (;;) { const f = await socket.next(20_000); if (f.type === 'turn-end') break }
   socket.close()
@@ -58,9 +56,7 @@ const since = new Date()
 await db.command({ profile: 2 })
 try {
   const socket = await openAgentSession(cookie)
-  socket.send(anonymous
-    ? { type: 'hello', tools: [], account: { type: 'organization', id: 'test1' }, anonymousToken: token }
-    : { type: 'hello', tools: [], conversationId })
+  socket.send(hello)
   socket.send({ type: 'prompt', content: 'hello' })
   for (;;) {
     const frame = await socket.next(20_000)

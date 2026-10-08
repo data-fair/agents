@@ -280,7 +280,6 @@ const chat = useSessionChat({
   // The picker's own conversations are titled by the date; a host chat title would name every
   // thread of an agent identically, which is exactly what a history list cannot afford.
   ...(chatTitle.value && !props.multiAgent ? { title: chatTitle.value } : {}),
-  lazyConversation: props.multiAgent,
   anonymous: !session.state.user,
   // Main's #74 quota sentences, and the moderation refusal, in the chat's language. The server stores
   // the English text beside these fields, so anything this cannot phrase stays readable.
@@ -376,7 +375,7 @@ const handleSelectConversation = (conversation: ConversationSummary) => {
 }
 
 // A thread becomes history once its first message is stored. The composed transcript arrives as
-// frames, so the end of a turn is the moment the list can gain a row (a lazy chat's first send) or
+// frames, so the end of a turn is the moment the list can gain a row (a thread's first message) or
 // change order — and it is the only moment either can happen.
 watch(() => chat.status.value, status => { if (status === 'ready') loadConversations() })
 

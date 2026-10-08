@@ -234,14 +234,20 @@ test.describe('Autonomous agent chat', () => {
   })
 
   test('reopening the chat without typing does not pile up empty threads', async ({ page, goToWithAuth }) => {
-    // This chat creates its thread on open. Resuming skipped empty threads, so each visit by someone
-    // who never typed left one more behind.
+    // Opening the chat creates nothing: a thread starts with its first message. It used to be created
+    // on open, and each visit by someone who never typed left one more behind.
+    const threads = async () => (await admin.get(`/api/conversations/organization/test1?agentId=${agentId}`)).data.results.length
     await openChat(goToWithAuth)
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
     await openChat(goToWithAuth)
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
-    await expect.poll(async () => (await admin.get(`/api/conversations/organization/test1?agentId=${agentId}`)).data.results.length)
-      .toBe(1)
+    expect(await threads()).toBe(0)
+
+    // The first message is what starts one — exactly one, which also proves the count above reads the
+    // threads this chat would have made.
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+    await expect.poll(threads).toBe(1)
   })
 
   test('a failed turn explains itself instead of leaving an empty bubble', async ({ page, goToWithAuth }) => {

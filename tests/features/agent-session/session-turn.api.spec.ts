@@ -9,8 +9,10 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../support/ws.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { turnOverSocket } from '../../support/socket-turn.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/traces/trace-consent.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -39,11 +41,13 @@ test.describe('A turn over the agent session', () => {
     return socket
   }
 
-  /** A conversation with the PERSONAL assistant — the reserved agent id, resolved rather than stored. */
+  /** A thread with the PERSONAL assistant that already has a turn in it, started by its first prompt. */
   const personalConversation = async () =>
-    (await orgAdmin.post('/api/conversations/organization/test1', {
-      agentId: 'personal', title: 'personal'
-    })).data
+    (await turnOverSocket(orgAdmin, { agentId: 'personal', title: 'personal' }, 'hello')).conversationId
+
+  /** The stored conversation, as its owner lists it. */
+  const storedConversation = async (id: string) =>
+    (await orgAdmin.get('/api/conversations/organization/test1?agentId=personal')).data.results.find((c: any) => c.id === id)
 
   /** Collect frames until one of `type` arrives, returning everything seen. */
   const collectUntil = async (socket: AgentSessionClient, type: string, timeoutMs = 15000) => {
@@ -55,23 +59,74 @@ test.describe('A turn over the agent session', () => {
     }
   }
 
-  test('the personal assistant exists without being stored, and a thread with it belongs to its user', async () => {
-    const conversation = await personalConversation()
+  test('the first prompt creates the thread, and the attached frame names it', async () => {
+    // One way to start a conversation: a hello naming the agent binds to nothing, and the thread exists
+    // from the first message on — so opening a chat and leaving it creates nothing.
+    const session = await open(await cookieOf(orgAdmin))
+    session.send(newThreadHello('organization/test1', { title: 'personal' }))
+    const hello = await session.next()
+    assert.equal(hello.type, 'attached')
+    assert.equal(hello.conversationId, undefined, 'nothing is created by the hello')
+    assert.equal((await orgAdmin.get('/api/conversations/organization/test1?agentId=personal')).data.count, 0)
+
+    session.send({ type: 'prompt', content: 'hello' })
+    const created = await session.next()
+    assert.equal(created.type, 'attached')
+    assert.ok(created.conversationId, 'the attached frame names the new thread')
+    const frames = await collectUntil(session, 'turn-end')
+    assert.equal(frames[frames.length - 1].stopReason, 'completed')
+
+    // The personal assistant exists without being stored, and a thread with it belongs to its user.
+    const conversation = await storedConversation(created.conversationId)
     assert.equal(conversation.agentId, 'personal')
     assert.equal(conversation.userId, 'test1-admin1')
+    assert.equal(conversation.title, 'personal')
+  })
+
+  test('a person who may not talk to the agent is refused at the hello and at the first prompt, and nothing is created', async () => {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Not theirs', persona: 'x', mcpServers: [], enabled: true })).data
+    const session = await open(await cookieOf(orgMember))
+    session.send(newThreadHello('organization/test1', { agentId: agent.id }))
+    assert.equal((await session.next()).type, 'attached')
+    // Right away, so the chat can say so when it opens.
+    const atHello = await session.next()
+    assert.equal(atHello.type, 'error')
+    assert.match(atHello.message, /not allowed to instruct/)
+
+    session.send({ type: 'prompt', content: 'hello' })
+    const atPrompt = await session.next()
+    assert.equal(atPrompt.type, 'error')
+    assert.match(atPrompt.message, /not allowed to instruct/)
+
+    const left = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
+    assert.equal(left.conversations, 0)
+  })
+
+  test('the consent said in the hello makes the thread reviewable; the cookie alone does not', async () => {
+    // The browser keeps the answer in its cookie and SAYS it: the server reads only what it is told.
+    const consentCookie = `${await cookieOf(orgAdmin)}; ${CONSENT_COOKIE}=${CONSENT_YES}`
+    const startThread = async (hello: Record<string, unknown>) => {
+      const session = await open(consentCookie)
+      session.send(newThreadHello('organization/test1', hello))
+      session.send({ type: 'prompt', content: 'hello' })
+      await collectUntil(session, 'turn-end')
+      return await storedConversation(session.conversationId()!)
+    }
+    assert.equal((await startThread({ traceConsent: true })).consentedToReview, true)
+    assert.notEqual((await startThread({})).consentedToReview, true, 'a consent cookie on the upgrade is not read')
   })
 
   test('a prompt runs a turn server-side and streams it to the browser', async () => {
     // The mock answers "hello" with "world". What is being asserted is the PATH: a prompt over the
     // socket starts a server-side turn, whose tokens arrive as deltas and whose end is announced —
     // none of which the browser loop was doing, and none of which needs polling.
-    const conversation = await personalConversation()
     const session = await open(await cookieOf(orgAdmin))
-    session.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    session.send(newThreadHello())
     assert.equal((await session.next()).type, 'attached')
 
     session.send({ type: 'prompt', content: 'hello' })
     const frames = await collectUntil(session, 'turn-end')
+    const conversation = { id: session.conversationId() }
 
     const text = frames.filter(f => f.type === 'delta' && f.kind === 'text').map(f => f.text).join('')
     assert.equal(text, 'world', 'the answer must arrive as a token stream, not as one lump at the end')
@@ -86,13 +141,10 @@ test.describe('A turn over the agent session', () => {
     // The bridge inside a real turn: the model asks for a tool the page declared, the server asks the
     // browser, the browser answers, and the model continues from that answer. The mock's `call tool`
     // seam drives it.
-    const conversation = await personalConversation()
     const session = await open(await cookieOf(orgAdmin))
-    session.send({
-      type: 'hello',
-      conversationId: conversation.id,
+    session.send(newThreadHello('organization/test1', {
       tools: [{ name: 'select_row', description: 'selects a row on this page', inputSchema: { type: 'object', properties: { id: { type: 'number' } } } }]
-    })
+    }))
     await session.next()
 
     session.send({ type: 'prompt', content: 'call tool select_row {"id":7}' })
@@ -116,7 +168,7 @@ test.describe('A turn over the agent session', () => {
 
     // The record proves the model got the answer: the stored call carries the page's result, inside the
     // provenance envelope, exactly as an MCP tool's would.
-    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversation.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${session.conversationId()}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     const call = (assistant.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'select_row')
     assert.ok(call, 'the page tool call must be in the conversation record')
@@ -137,11 +189,14 @@ test.describe('A turn over the agent session', () => {
     // was wrong, where this quietly narrows what the assistant can do. Recorded in §5b rather than
     // resolved here, because the skip decision currently conflates "the server is down" with "we have
     // no credential for it", and only the first is an availability event.
-    const conversation = await personalConversation()
     const session = await open(await cookieOf(orgAdmin))
-    session.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    session.send(newThreadHello())
     await session.next()
     session.send({ type: 'prompt', content: 'hello' })
+    // Gone as soon as the thread exists: its turn has been asked for, not yet started.
+    const created = await session.next()
+    assert.equal(created.type, 'attached')
+    const conversation = { id: created.conversationId }
     session.close()
     await session.closed()
 
@@ -164,9 +219,8 @@ test.describe('A turn over the agent session', () => {
     // Needed for any port of the real chat: the socket only carries what happens from now on, so
     // without this a reload shows an empty pane. Replayed as `message` frames so a client has one code
     // path for "render this turn" whether it arrived live or was loaded.
-    const conversation = await personalConversation()
     const first = await open(await cookieOf(orgAdmin))
-    first.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    first.send(newThreadHello())
     await first.next()
     first.send({ type: 'prompt', content: 'hello' })
     for (;;) { if ((await first.next(15000)).type === 'turn-end') break }
@@ -174,7 +228,7 @@ test.describe('A turn over the agent session', () => {
     await first.closed()
 
     const second = await open(await cookieOf(orgAdmin))
-    second.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    second.send({ type: 'hello', conversationId: first.conversationId(), tools: [] })
     const frames: any[] = []
     for (let i = 0; i < 6; i++) {
       frames.push(await second.next(5000))
@@ -190,9 +244,9 @@ test.describe('A turn over the agent session', () => {
   test('someone elses conversation cannot be attached to', async () => {
     // The ownership check the HTTP routes apply, applied on the socket too — and reported rather than
     // leaving the client to guess why no history arrived.
-    const conversation = await personalConversation()
+    const conversationId = await personalConversation()
     const intruder = await open(await cookieOf(orgMember))
-    intruder.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    intruder.send({ type: 'hello', conversationId, tools: [] })
     // Collected until the refusal, rather than a fixed count: only `attached` and the error arrive, so
     // reading a third frame would time out on a passing run.
     const frames: any[] = []
@@ -212,15 +266,11 @@ test.describe('A turn over the agent session', () => {
     // `activityLabelKey` consumes and there is no translation layer to drift. The server also knows it
     // better than the browser loop did: it sees the step boundaries and tool results directly rather
     // than inferring them from a stream.
-    const conversation = await personalConversation()
     const session = await open(await cookieOf(orgAdmin))
-    session.send({
-      type: 'hello',
-      conversationId: conversation.id,
+    session.send(newThreadHello('organization/test1', {
       tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }]
-    })
+    }))
     await session.next()
-    // Drain the replayed history, if any.
     session.send({ type: 'prompt', content: 'call tool select_row {}' })
 
     const activities: any[] = []
@@ -240,13 +290,13 @@ test.describe('A turn over the agent session', () => {
   test('a second connection takes the conversation over, and the first is told', async () => {
     // A reload, a second tab, a reconnect — all look the same, and the newest connection is the one the
     // person is looking at. The displaced tab is told rather than silently going deaf.
-    const conversation = await personalConversation()
+    const conversationId = await personalConversation()
     const first = await open(await cookieOf(orgAdmin))
-    first.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    first.send({ type: 'hello', conversationId, tools: [] })
     await first.next()
 
     const second = await open(await cookieOf(orgAdmin))
-    second.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    second.send({ type: 'hello', conversationId, tools: [] })
 
     // Past whatever the attach sent (the history, the conversation's cost): the next ERROR is the one.
     let displaced = await first.next()

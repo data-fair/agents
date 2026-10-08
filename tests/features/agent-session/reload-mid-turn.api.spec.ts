@@ -10,7 +10,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../support/ws.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -41,9 +41,8 @@ test.describe('Attaching mid-turn', () => {
   const textOf = (parts: any[]) => parts.filter(p => p.type === 'text').map(p => p.text).join('')
 
   test('a second tab gets the answer so far, then the rest live, then the end', async () => {
-    const conversation = (await orgAdmin.post(`/api/conversations/${OWNER}`, { agentId: 'personal', title: 't' })).data
     const first = await open()
-    first.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    first.send(newThreadHello(OWNER))
     first.send({ type: 'prompt', content: 'long answer' })
     // A good part of the answer in: the mock streams a character every 10ms.
     let streamed = ''
@@ -51,6 +50,7 @@ test.describe('Attaching mid-turn', () => {
       if (frame.type === 'delta' && frame.kind === 'text') streamed += frame.text
       return streamed.length > 100
     })
+    const conversation = { id: first.conversationId() }
 
     // While it streams, the store holds the pending message without the text: nothing is rewritten
     // per token or on a timer.
@@ -85,15 +85,15 @@ test.describe('Attaching mid-turn', () => {
   test('a reply stopped mid-sentence keeps what it had said, in the record', async () => {
     // The text is written at the end, so the stop path settles from the turn's memory — reading the
     // store instead would record the reply as nothing but the stop notice.
-    const conversation = (await orgAdmin.post(`/api/conversations/${OWNER}`, { agentId: 'personal', title: 't' })).data
     const socket = await open()
-    socket.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    socket.send(newThreadHello(OWNER))
     socket.send({ type: 'prompt', content: 'long answer' })
     let streamed = ''
     await until(socket, frame => {
       if (frame.type === 'delta' && frame.kind === 'text') streamed += frame.text
       return streamed.length > 100
     })
+    const conversation = { id: socket.conversationId() }
     socket.send({ type: 'abort' })
     const frames = await until(socket, frame => frame.type === 'turn-end')
     // Stopped for real, on the server: the frame used to be dropped, and the turn ran to the end.
@@ -109,10 +109,10 @@ test.describe('Attaching mid-turn', () => {
   })
 
   test('a socket that only NAMES someone else\'s conversation cannot stop its turn', async () => {
-    const conversation = (await orgAdmin.post(`/api/conversations/${OWNER}`, { agentId: 'personal', title: 't' })).data
     const owner = await open()
-    owner.send({ type: 'hello', conversationId: conversation.id, tools: [] })
+    owner.send(newThreadHello(OWNER))
     owner.send({ type: 'prompt', content: 'hello' })
+    const conversation = { id: (await until(owner, frame => frame.type === 'attached' && frame.conversationId)).pop().conversationId }
 
     const other = await axiosAuth('test1-user1', { org: 'test1' })
     const intruder = await openAgentSession(await other.cookieJar.getCookieString(directoryUrl))

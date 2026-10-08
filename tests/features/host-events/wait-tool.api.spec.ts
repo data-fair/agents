@@ -13,7 +13,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../support/ws.ts'
 
 const admin = await superAdmin
 const user = await axiosAuth('test-standalone1')
@@ -32,13 +32,13 @@ test.describe('wait_for_user_action over the socket', () => {
 
   const cookie = async () => await user.cookieJar.getCookieString(directoryUrl)
 
+  /** A socket bound to this thread, or ready to start one: its first prompt creates it. */
   const openSession = async (conversationId?: string) => {
-    const id = conversationId ?? (await user.post(`/api/conversations/${OWNER}`, { agentId: 'personal', title: 't' })).data.id
     const socket = await openAgentSession(await cookie())
     sockets.push(socket)
-    socket.send({ type: 'hello', tools: [], conversationId: id })
+    socket.send(conversationId ? { type: 'hello', tools: [], conversationId } : newThreadHello(OWNER))
     await socket.next()
-    return { socket, conversationId: id as string }
+    return { socket }
   }
 
   /**
@@ -72,7 +72,7 @@ test.describe('wait_for_user_action over the socket', () => {
     const session = await openSession()
     session.socket.send({ type: 'prompt', content: 'wait for me' })
     const frames = await collect(session.socket, all => sawWaiting(all) && turnEnds(all).length > 0)
-    return { ...session, frames }
+    return { ...session, conversationId: session.socket.conversationId()!, frames }
   }
 
   test('the wait is announced with WHAT it is waiting for', async () => {
@@ -159,9 +159,10 @@ test.describe('wait_for_user_action over the socket', () => {
     // The moment the wait call shows, the turn has not closed yet: the click may land before the
     // conversation records what it waits on. It is buffered, and the closing turn answers with it.
     // (An action before the call is not an answer at all: it reaches the model as context.)
-    const { socket, conversationId } = await openSession()
+    const { socket } = await openSession()
     socket.send({ type: 'prompt', content: 'wait for me' })
     const early = await collect(socket, all => !!waitPart(all, 'input-available'))
+    const conversationId = socket.conversationId()!
     socket.send({ type: 'host-events', events: [{ name: 'clicked Create', at: Date.now() }] })
     const frames = [...early, ...await collect(socket, all => turnEnds([...early, ...all]).length >= 2)]
     assert.deepEqual(turnEnds(frames).map(f => f.stopReason), ['waiting', 'completed'])
@@ -173,9 +174,10 @@ test.describe('wait_for_user_action over the socket', () => {
     // The post lands while the handing-over turn is still finishing: it finds no pending wait to settle,
     // and the turn's close then records one. The user run that answers the message settles it at its start.
     // The window is narrow, so this is also a regression guard for that start-of-run settle.
-    const { socket, conversationId } = await openSession()
+    const { socket } = await openSession()
     socket.send({ type: 'prompt', content: 'wait for me' })
     const early = await collect(socket, all => !!waitPart(all, 'input-available'))
+    const conversationId = socket.conversationId()!
     socket.send({ type: 'prompt', content: 'never mind' })
     await collect(socket, all => turnEnds([...early, ...all]).length >= 2)
     // let any trailing run close out
@@ -229,10 +231,11 @@ test.describe('wait_for_user_action over the socket', () => {
   })
 
   test('a page reloaded during the wait re-announcing where it was does not answer it; leaving does', async () => {
-    const { socket: first, conversationId } = await openSession()
+    const { socket: first } = await openSession()
     first.send({ type: 'host-state', state: { location: '/datasets' } })
     first.send({ type: 'prompt', content: 'wait for me' })
     await collect(first, all => sawWaiting(all) && turnEnds(all).length > 0)
+    const conversationId = first.conversationId()!
 
     // The reload: a new socket, whose page reports the same location on mount.
     const reloaded = await openSession(conversationId)

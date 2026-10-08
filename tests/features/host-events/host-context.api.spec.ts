@@ -21,7 +21,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../support/ws.ts'
 
 const admin = await superAdmin
 const user = await axiosAuth('test-standalone1')
@@ -41,17 +41,16 @@ test.describe('Host context reaching the model', () => {
   })
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
-  /** A socket bound to a fresh conversation, ready to prompt. */
+  /** A socket ready to start a fresh conversation, which its first prompt creates. */
   const openSession = async () => {
-    const conversation = (await user.post(`/api/conversations/${OWNER}`, { agentId: 'personal', title: 't' })).data
     const socket = await openAgentSession(await cookieOf(user))
     sockets.push(socket)
-    socket.send({ type: 'hello', tools: [], conversationId: conversation.id })
+    socket.send(newThreadHello(OWNER))
     await socket.next()
     // Per conversation: seqs restart at 1 for a fresh thread, so a tracker carried across tests
     // would reject every frame of the next one.
     lastAnsweredSeq = 0
-    return { socket, conversationId: conversation.id }
+    return { socket }
   }
 
   /**
@@ -152,9 +151,10 @@ test.describe('Host context reaching the model', () => {
     // Neither is in the conversation: host blocks are folded in at call time and not stored, and the
     // stored turn records the calls made, never the tools offered. So the run's telemetry is the only
     // place a reader — the export, a simulation judge — can learn either.
-    const { socket, conversationId } = await openSession()
+    const { socket } = await openSession()
     socket.send({ type: 'host-state', state: { page: 'the datasets list' } })
     await ask(socket, 'hello')
+    const conversationId = socket.conversationId()
     // The answer's settled frame is sent by the loop, BEFORE the run's close writes its telemetry;
     // `turn-end` is the frame that promises the record is written.
     for (let i = 0; i < 100 && (await socket.next(20_000)).type !== 'turn-end'; i++);
@@ -178,9 +178,8 @@ test.describe('Host context reaching the model', () => {
     socket.send({ type: 'host-state', state: { page: 'the datasets list' } })
     socket.send({ type: 'host-events', events: [{ name: 'clicked save', at: Date.now() }] })
 
-    // Re-hello onto a DIFFERENT conversation is the reset.
-    const second = (await user.post(`/api/conversations/${OWNER}`, { agentId: 'personal', title: 't2' })).data
-    socket.send({ type: 'hello', tools: [], conversationId: second.id })
+    // A hello for a fresh thread is the reset, as the chat's "new conversation" sends it.
+    socket.send(newThreadHello(OWNER))
     await socket.next()
 
     const answer = await ask(socket, 'where am i')

@@ -8,13 +8,22 @@
 
 import type { Server, IncomingMessage } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
-import { session as expressSession } from '@data-fair/lib-express'
+import { session as expressSession, type AccountKeys } from '@data-fair/lib-express'
+import eventsLog from '@data-fair/lib-express/events-log.js'
 import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, type ServerMessage, type ClientMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
-import { requireConversationById, assertOwnsConversation, conversationCost, createAnonymousConversation, purgeConversation } from '../conversations/service.ts'
-import { startSessionTurn, sendHistory, type TurnCaller } from './turn.ts'
+import {
+  requireConversationById,
+  assertOwnsConversation,
+  conversationCost,
+  createConversation,
+  assertMayStartConversation,
+  purgeConversation,
+  type TurnCaller
+} from '../conversations/service.ts'
+import { startSessionTurn, sendHistory } from './turn.ts'
 import { verifyAnonymousActionToken } from '../anonymous-token/service.ts'
 import { anonymousUsageUserId } from '../usage/enforce.ts'
 import { PERSONAL_AGENT_ID } from './standard-agents.ts'
@@ -22,7 +31,6 @@ import { abortRunsOfConversation } from '../conversations/executor.ts'
 import { decideAndContinue } from '../conversations/approvals.ts'
 import { settlePendingWait, wakeIfAnswered } from '../conversations/waits.ts'
 import { INTERRUPTED_RESULTS } from '../conversations/interrupted-turn.ts'
-import { hasTraceConsent } from '@agents/shared/trace-consent'
 import { getSettings } from '../settings/service.ts'
 
 const debug = Debug('agents:agent-session')
@@ -53,30 +61,34 @@ export const startAgentSessions = (server: Server) => {
       // writing to a closed socket throws rather than no-ops.
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message))
     }
-    // The cookie is taken from the UPGRADE request, which is the only moment it is available: a
-    // websocket frame carries no headers.
     // The conversation this connection is bound to, remembered so the close handler can detach the
     // right one. A session may re-attach (a navigation within the same tab), so this is not final.
     let boundConversationId: string | undefined
     // The attach in progress: a prompt sent right behind the hello waits for it, or its turn could
     // start before this socket is registered as the watcher, without the page's tools.
     let attaching: Promise<void> = Promise.resolve()
-    // The one thread an ANONYMOUS socket holds: created by its hello, purged when it closes.
-    let anonymousThread: { id: string, owner: { type: 'user' | 'organization', id: string }, usageUserId: string } | undefined
+    // What the first prompt of a connection bound to nothing creates, as its hello named it.
+    let newThread: { owner: AccountKeys, agentId: string, title?: string } | undefined
+    // The one thread an ANONYMOUS socket holds: created by its first prompt, purged when it closes.
+    let anonymousThread: { id: string, owner: AccountKeys, usageUserId: string } | undefined
     const agentSession: AgentSession = createAgentSession({
       send,
+      // The cookie is taken from the UPGRADE request, which is the only moment it is available: a
+      // websocket frame carries no headers.
       sessionCookie: req.headers.cookie,
-      // Parsed from the upgrade request's cookies.
-      traceConsent: hasTraceConsent(req.headers.cookie),
       traceStorage: traceStorage === true,
       anonymous: !sessionState?.user,
       onAttach: conversationId => {
         if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
         boundConversationId = conversationId
+        if (!conversationId) {
+          attaching = Promise.resolve()
+          return
+        }
         // Registered as the conversation's watcher only ONCE THE OWNERSHIP CHECK HAS PASSED, or a socket
         // naming someone else's conversation would receive the stream of their next turn.
-        // Authorization is the ownership check the HTTP routes apply; an anonymous socket's thread was
-        // checked by its hello, which only ever binds it to the thread it created.
+        // Authorization is the ownership check the HTTP routes apply; an anonymous socket only ever binds
+        // to the thread it created.
         attaching = (sessionState?.user ? resolveOwnConversation(conversationId) : Promise.resolve(undefined))
           .then(async conversation => {
             if (boundConversationId !== conversationId) return // rebound in the meantime
@@ -214,26 +226,56 @@ export const startAgentSessions = (server: Server) => {
       if (conversation.pendingWait) agentSession.send({ type: 'activity', activity: { kind: 'waiting', expecting: conversation.pendingWait.expecting ?? '' } })
     }
 
-    /**
-     * An anonymous visitor's hello: verify their token, and give them a fresh thread.
-     *
-     * The thread is created HERE because an anonymous caller has no HTTP route to create one with
-     * (see the `hello` frame). Any hello not naming the thread this socket already holds starts a new
-     * one and purges the previous — a reset, in the chat's terms — so a socket holds at most one, and
-     * a visitor can never bind to a thread they did not get from this very socket.
-     */
-    const anonymousHello = async (message: Extract<ClientMessage, { type: 'hello' }>): Promise<ClientMessage | undefined> => {
-      if (anonymousThread && message.conversationId === anonymousThread.id) return message
-      await verifyAnonymousActionToken(message.anonymousToken)
-      if (!message.account) throw new Error('an anonymous hello must name the account it talks to')
-      const owner = message.account
-      const settings = await getSettings(owner)
+    /** Who this socket speaks for, as the conversation service names a caller. */
+    const callerOf = (): TurnCaller => sessionState?.user
+      ? { kind: 'person', session: sessionState }
       // Charged per IP, under the same key the HTTP routes use: the self-usage route reads it back.
-      const usageUserId = anonymousUsageUserId(req)
-      const conversation = await createAnonymousConversation(owner, message.agentId ?? PERSONAL_AGENT_ID, usageUserId, settings.quotas ?? {})
-      await dropAnonymousThread()
-      anonymousThread = { id: conversation.id, owner, usageUserId }
-      return { ...message, conversationId: conversation.id }
+      : { kind: 'anonymous', usageUserId: anonymousUsageUserId(req) }
+
+    /**
+     * A hello: bind (or unbind) the connection, and check a fresh thread's agent right away.
+     *
+     * A hello without `conversationId` binds to nothing and names what the first prompt will create,
+     * for a signed-in person and an anonymous visitor alike. Whether they may talk to that agent is
+     * checked NOW, so a refusal (a revoked grant, an account closed to visitors) reaches the chat when it
+     * opens — as an `error` frame after the `attached` one — and nothing is created. The first prompt
+     * checks again, since a grant can change in between.
+     *
+     * An anonymous visitor can never bind to a thread they did not get from this very socket: a hello
+     * naming any other is a fresh one. Any fresh hello purges the thread the socket held — a reset, in
+     * the chat's terms — so a socket holds at most one.
+     */
+    const hello = async (message: Extract<ClientMessage, { type: 'hello' }>) => {
+      newThread = undefined
+      if (!sessionState?.user && message.conversationId && message.conversationId !== anonymousThread?.id) {
+        message = { ...message }
+        delete message.conversationId
+      }
+      if (!message.conversationId) await dropAnonymousThread()
+      agentSession.handle(message)
+      if (message.conversationId || !message.account) return
+      const target = { owner: message.account, agentId: message.agentId ?? PERSONAL_AGENT_ID, ...(message.title ? { title: message.title } : {}) }
+      try {
+        if (!sessionState?.user) await verifyAnonymousActionToken(message.anonymousToken)
+        newThread = target
+        await assertMayStartConversation(target.owner, target.agentId, callerOf())
+      } catch (err: any) {
+        debug('refused a hello: %O', err)
+        send({ type: 'error', message: err.message ?? 'this conversation could not be opened' })
+      }
+    }
+
+    /** The first prompt of a connection bound to nothing: create the thread its hello named, and bind. */
+    const startNewThread = async () => {
+      if (!newThread) throw new Error('this connection is not bound to a conversation')
+      // A tab closed right behind its first message: nobody is left to answer, so no thread is started.
+      if (ws.readyState !== ws.OPEN) throw new Error('the connection closed')
+      const caller = callerOf()
+      const conversation = await createConversation(newThread.owner, newThread.agentId, caller, newThread.title)
+      newThread = undefined
+      if (caller.kind === 'anonymous') anonymousThread = { id: conversation.id, owner: conversation.owner, usageUserId: caller.usageUserId }
+      else eventsLog.info('agents.conversation.create', `conversation created for agent ${conversation.agentId}`, { account: caller.session.account, user: caller.session.user })
+      agentSession.bind(conversation.id)
     }
 
     /** Purge the anonymous thread this socket holds, live turn first. */
@@ -253,22 +295,26 @@ export const startAgentSessions = (server: Server) => {
         send({ type: 'error', message: parsed.reason })
         return
       }
-      let message: ClientMessage | undefined = parsed
-      if (message.type === 'hello' && !sessionState?.user) {
+      if (parsed.type === 'hello') {
+        await hello(parsed)
+        return
+      }
+      if (parsed.type === 'prompt' && !boundConversationId && agentSession.attached()) {
         try {
-          message = await anonymousHello(message)
+          await startNewThread()
         } catch (err: any) {
-          debug('refused an anonymous hello: %O', err)
-          send({ type: 'error', message: err.message ?? 'this conversation could not be opened' })
+          // The person pressed send: a refusal to start the thread has to reach them.
+          debug('could not start a thread: %O', err)
+          send({ type: 'error', message: err.message ?? 'this conversation could not be started' })
           return
         }
       }
-      if (message) agentSession.handle(message)
+      agentSession.handle(parsed)
     }
 
-    // IN ORDER, one at a time. An anonymous hello is asynchronous (it creates the thread), and the
-    // client sends its first prompt straight after the hello without waiting for `attached`; handled
-    // concurrently, that prompt would arrive at a connection not bound to anything yet.
+    // IN ORDER, one at a time. A hello is asynchronous (it checks the agent), and so is the first prompt
+    // (it creates the thread); the client sends its first prompt straight after the hello without
+    // waiting for `attached`, and handled concurrently two prompts would start two threads.
     let frames: Promise<void> = Promise.resolve()
     ws.on('message', (raw) => {
       frames = frames.then(() => handleFrame(raw.toString())).catch(err => { debug('frame failed %O', err) })

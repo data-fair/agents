@@ -14,7 +14,8 @@ import {
   requireConversation,
   assertOwnsConversation,
   setReviewConsent,
-  rejectPendingApprovals
+  rejectPendingApprovals,
+  type TurnCaller
 } from '../conversations/service.ts'
 import { startRun } from '../conversations/executor.ts'
 import { liveTurnOf } from '../conversations/turn-target.ts'
@@ -22,20 +23,10 @@ import { settlePendingWait } from '../conversations/waits.ts'
 import { interruptedWaitResult } from '../conversations/interrupted-turn.ts'
 import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
-import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { wrapHiddenContext } from '@agents/shared/hidden-context'
 import { getEffectiveRole } from '../auth.ts'
 
 const debug = Debug('agents:agent-session-turn')
-
-/**
- * Who is asking: a signed-in person, or an anonymous visitor known only by the per-IP key their usage
- * is charged to. The visitor has no session, so their ownership of the thread is the socket's (only
- * the socket that created it may prompt into it) and their role is `anonymous` by definition.
- */
-export type TurnCaller =
-  | { kind: 'person', session: SessionStateAuthenticated }
-  | { kind: 'anonymous', usageUserId: string }
 
 export interface SessionTurnRequest {
   conversationId: string
@@ -82,7 +73,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   // onto every run. Written on each turn because the person can change their mind mid-conversation,
   // and the socket reports the current answer.
   // Never for an anonymous visitor: their thread is not reviewable (the account's consent sheet is not
-  // offered to them), and a consent cookie left from a signed-in visit must not make it so.
+  // offered to them), and a consent left in the browser from a signed-in visit must not make it so.
   const consented = caller.kind === 'person' ? request.echoTo?.traceConsent() : undefined
   if (consented !== undefined && consented !== (conversation.consentedToReview === true)) {
     await setReviewConsent(conversation.id, consented)

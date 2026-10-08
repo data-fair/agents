@@ -8,7 +8,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello } from '../../support/ws.ts'
 import { startTurnOverSocket, runOf } from '../../support/socket-turn.ts'
 
 const admin = await superAdmin
@@ -22,8 +22,9 @@ const createAgent = async (memory?: { enabled: boolean }) => {
   return agent
 }
 
-const turn = async (conversationId: string, content: string) => {
-  const { runId } = await startTurnOverSocket(orgAdmin, conversationId, content)
+/** A turn: the first of a new thread with an agent, or one in an existing thread. */
+const turn = async (target: string | { agentId: string }, content: string) => {
+  const { runId, conversationId } = await startTurnOverSocket(orgAdmin, target, content)
   let run: any
   for (let i = 0; i < 100; i++) {
     run = await runOf(orgAdmin, conversationId, runId)
@@ -31,9 +32,8 @@ const turn = async (conversationId: string, content: string) => {
     await new Promise(resolve => setTimeout(resolve, 100))
   }
   const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
-  return { run, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
+  return { conversationId, run, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
 }
-const thread = async (agentId: string) => (await orgAdmin.post('/api/conversations/organization/test1', { agentId, title: 't' })).data.id as string
 const call = (args: object) => `call tool memory ${JSON.stringify(args)}`
 
 test.describe('The memory tool', () => {
@@ -44,8 +44,7 @@ test.describe('The memory tool', () => {
 
   test('a write lands in the store with the run as its provenance', async () => {
     const agent = await createAgent({ enabled: true })
-    const conversationId = await thread(agent.id)
-    const { run, assistant } = await turn(conversationId, call({ command: 'create', path: '/memories/MEMORY.md', description: 'Core facts', file_text: '- prefers French' }))
+    const { run, assistant, conversationId } = await turn({ agentId: agent.id }, call({ command: 'create', path: '/memories/MEMORY.md', description: 'Core facts', file_text: '- prefers French' }))
     assert.equal(run.status, 'done')
     const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'memory')
     assert.equal(part.state, 'output-available')
@@ -64,7 +63,7 @@ test.describe('The memory tool', () => {
 
   test('a refused write is a failed call the model is told about', async () => {
     const agent = await createAgent({ enabled: true })
-    const { assistant } = await turn(await thread(agent.id), call({ command: 'str_replace', path: 'nope.md', old_str: 'a', new_str: 'b' }))
+    const { assistant } = await turn({ agentId: agent.id }, call({ command: 'str_replace', path: 'nope.md', old_str: 'a', new_str: 'b' }))
     const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'memory')
     assert.equal(part.state, 'output-error')
     assert.match(part.errorText, /does not exist/)
@@ -72,8 +71,8 @@ test.describe('The memory tool', () => {
 
   test('the NEXT run sees the memory in its recorded system prompt; the writing run does not', async () => {
     const agent = await createAgent({ enabled: true })
-    const conversationId = await thread(agent.id)
-    const first = await turn(conversationId, call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- the sales dataset is ventes' }))
+    const first = await turn({ agentId: agent.id }, call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- the sales dataset is ventes' }))
+    const { conversationId } = first
     const second = await turn(conversationId, 'hello')
     const review = (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data
     const prompts = Object.fromEntries(review.runs.map((r: any) => [r.id, r.systemPrompt]))
@@ -83,17 +82,15 @@ test.describe('The memory tool', () => {
 
   test('memory spans conversations: written in one, shown in another', async () => {
     const agent = await createAgent({ enabled: true })
-    await turn(await thread(agent.id), call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- shared fact' }))
-    const other = await thread(agent.id)
-    const { run } = await turn(other, 'hello')
+    await turn({ agentId: agent.id }, call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- shared fact' }))
+    const { run, conversationId: other } = await turn({ agentId: agent.id }, 'hello')
     const review = (await orgAdmin.get(`/api/review/organization/test1/${other}`)).data
     assert.match(review.runs.find((r: any) => r.id === run.id).systemPrompt, /shared fact/)
   })
 
   test('an agent without memory gets neither the tool nor the block', async () => {
     const agent = await createAgent()
-    const conversationId = await thread(agent.id)
-    const { run, assistant } = await turn(conversationId, call({ command: 'view' }))
+    const { run, assistant, conversationId } = await turn({ agentId: agent.id }, call({ command: 'view' }))
     const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool')
     // the model asked for a tool the turn does not offer
     assert.notEqual(part?.state, 'output-available')
@@ -104,8 +101,7 @@ test.describe('The memory tool', () => {
   test('turning memory off keeps the thread working', async () => {
     // Review Focus 3: history holds memory calls the next turn no longer offers.
     const agent = await createAgent({ enabled: true })
-    const conversationId = await thread(agent.id)
-    await turn(conversationId, call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- x' }))
+    const { conversationId } = await turn({ agentId: agent.id }, call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- x' }))
     // No `nhi` in the body (the PUT replaces the document and would otherwise un-enrol or re-exchange):
     // enrol again right after, as runtime.api.spec.ts does.
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Mem', persona: 'You answer briefly.', mcpServers: [], enabled: true, memory: { enabled: false } })
@@ -117,12 +113,11 @@ test.describe('The memory tool', () => {
 
   test('a page tool named `memory` does not displace the agent\'s memory tool', async () => {
     const agent = await createAgent({ enabled: true })
-    const conversationId = await thread(agent.id)
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
     try {
       // The page claims a tool by the service's name. Were it offered, the call would go to the page,
       // which never answers here — the turn would hang until its ceiling.
-      socket.send({ type: 'hello', conversationId, tools: [{ name: 'memory', description: 'page memory', inputSchema: { type: 'object', properties: {} } }] })
+      socket.send(newThreadHello('organization/test1', { agentId: agent.id, tools: [{ name: 'memory', description: 'page memory', inputSchema: { type: 'object', properties: {} } }] }))
       await socket.next()
       socket.send({ type: 'prompt', content: call({ command: 'view' }) })
       const frames: any[] = []

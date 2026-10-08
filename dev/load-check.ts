@@ -247,15 +247,14 @@ const main = async () => {
     console.log(`  after: ${await retainedHeapMb()}, anonymous threads left: ${await leftoverAnonymous(mongo) - leftBefore}\n`)
   }
 
-  // 3. SIGNED-IN BATCH. The same turn, but through the HTTP create and the ownership checks a
-  //    person's thread goes through — and leaving stored threads behind, as it should.
+  // 3. SIGNED-IN BATCH. The same turn, but through the checks a person's thread goes through — and
+  //    leaving stored threads behind, as it should.
   if (SIGNED_IN > 0) {
     const member = await axiosAuth('test1-contrib1', { org: 'test1' })
     const cookie = await member.cookieJar.getCookieString(directoryUrl)
     const signedInOpen = async () => {
-      const conversation = (await member.post('/api/conversations/organization/test1', { agentId: 'personal', title: 'load check' })).data
       const socket = await openAgentSession(cookie)
-      return { socket, hello: () => socket.send({ type: 'hello', tools: [], conversationId: conversation.id }) }
+      return { socket, hello: () => socket.send({ type: 'hello', tools: [], account: OWNER, title: 'load check' }) }
     }
     const { result: outcomes, latencies } = await probing(() =>
       Promise.allSettled(Array.from({ length: SIGNED_IN }, () => oneTurn(signedInOpen))))

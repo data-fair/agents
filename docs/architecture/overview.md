@@ -36,9 +36,11 @@ chat's personal assistant and configured [autonomous agents](./autonomous-agents
 talks to it over the agent session websocket (`shared/agent-session-protocol.ts`): it sends prompts and
 its page's contextual tools, and receives the stored turn as it is written, plus calls to those tools.
 
+A conversation starts one way, for everyone: the socket's `hello` names the account and the agent, and
+the first prompt creates the thread (`createConversation`) — opening a chat creates nothing.
 A signed-in person's conversations are stored and theirs to come back to. An **anonymous visitor's**
 thread is stored only for the loop's sake: the socket that created it is the only one that can use it,
-and it is purged when that socket closes (`createAnonymousConversation`, `purgeAbandonedAnonymous`).
+and it is purged when that socket closes (`purgeAbandonedAnonymous` sweeps one whose close never ran).
 Their turns are charged per IP, in the untrusted pool — see [Quotas & usage](./quotas-usage.md).
 
 AI provider/model configuration and credit-based quotas are layered across deploy-time env vars, per-org superadmin definitions, and org-admin distribution — see [Configuration](./configuration.md).

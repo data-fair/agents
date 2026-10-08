@@ -37,15 +37,16 @@ They are different questions, and each fails closed.
 the contract: *"conversations of consenting users with the personal assistant are stored on the server for 30 days for admin
 review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent."* When it is on, the session advertises availability and
 the chat asks the person once; their answer is a 1-year `agent-chat-trace-consent` cookie
-(`shared/trace-consent.ts`), read server-side on the websocket upgrade and on the HTTP message route
-and recorded as one flag on the thread. One flag, so the person can change their mind: withdrawing
+(`ui/src/traces/trace-consent.ts`) — the browser's own memory of it. The server never reads the
+cookie: the chat says the answer over the agent session (in its `hello`, and in a `trace-consent` frame
+when it changes), and each turn records it as one flag on the thread. One flag, so the person can change their mind: withdrawing
 consent hides a thread that was previously visible.
 
 A person's access to **their own** thread is not this gate — they may always read what they said.
 
 An **anonymous** visitor's thread (`conversation.anonymous`, created per socket) is never
-reviewable: the consent sheet is not offered to them, and a consent cookie left from a signed-in
-visit is ignored. Such a thread lives as long as its socket — purged on close, and by
+reviewable: the consent sheet is not offered to them, and a consent left in the browser from a
+signed-in visit is ignored. Such a thread lives as long as its socket — purged on close, and by
 `purgeAbandonedAnonymous` (24h after its last update) when the close never ran.
 
 ## Retention, and why deleting archives

@@ -34,19 +34,28 @@ import {
 
 const debug = Debug('df-agents:agent-session')
 
+/**
+ * What a `hello` binds the connection to: an existing thread, or a fresh one with this agent, which the
+ * first prompt creates on the server (see the frame).
+ */
+export type HelloTarget = { conversationId: string } | { agentId: string, title?: string }
+
 export interface AgentSessionClientOptions {
   /** Where the socket lives. Derived from the page's own origin by the caller, never configured. */
   url: string
   /** This page's contextual tools, as the aggregator produces them. */
   tools: Ref<Record<string, Tool>>
-  conversationId?: string
-  agentId?: string
+  /** The account a fresh thread is started on. */
+  account: { type: 'user' | 'organization', id: string }
   /**
-   * For an ANONYMOUS visitor only: the account to talk to, and their anonymous action token. The
-   * server creates their thread from these on `hello` (see the frame), since they cannot create one
-   * over HTTP. A function, because the token is fetched — and refreshed for a reset — after setup.
+   * For an ANONYMOUS visitor only: their anonymous action token, which a fresh thread needs. A function,
+   * because the token is fetched — and refreshed for a reset — after setup.
    */
-  anonymous?: { account: { type: 'user' | 'organization', id: string }, token: () => string | undefined }
+  anonymousToken?: () => string | undefined
+  /** The person's current answer to the consent sheet, undefined while they have not given one. */
+  traceConsent?: () => boolean | undefined
+  /** Every `attached` frame: the thread the connection is bound to now, undefined while none is. */
+  onAttached?: (conversationId: string | undefined) => void
   onDelta?: (kind: 'text' | 'reasoning', text: string) => void
   /**
    * The turn's structure as stored parts: tool calls and their states, step boundaries, reasoning.
@@ -98,26 +107,39 @@ export function useAgentSession (options: AgentSessionClientOptions) {
    * `kind === 'waiting'`, rather than a second piece of state that could disagree with this one.
    */
   const activity = shallowRef<ChatActivity | null>(null)
-  const conversationId = shallowRef<string | undefined>(options.conversationId)
   /** Whether this account stores traces at all, as advertised on `attached`. */
   const traceStorage = ref(false)
   let ws: WebSocket | undefined
+  /** What the next `hello` binds to — the latest asked for, even when asked before the socket opened. */
+  let target: HelloTarget | undefined
 
-  /** What an anonymous visitor's hello adds. An anonymous reset passes no id: the server starts a thread. */
-  const anonymousHello = () => {
-    if (!options.anonymous) return {}
-    const token = options.anonymous.token()
-    return { account: options.anonymous.account, ...(token ? { anonymousToken: token } : {}) }
+  /**
+   * Say hello for the current target. It carries the tool set as it is NOW, and the consent answer as
+   * the browser holds it now.
+   */
+  const hello = () => {
+    if (!target) return
+    const token = options.anonymousToken?.()
+    const consent = options.traceConsent?.()
+    send({
+      type: 'hello',
+      tools: toDescriptors(options.tools.value),
+      ...('conversationId' in target
+        ? { conversationId: target.conversationId }
+        : { account: options.account, agentId: target.agentId, ...(target.title ? { title: target.title } : {}) }),
+      ...(token ? { anonymousToken: token } : {}),
+      ...(consent !== undefined ? { traceConsent: consent } : {})
+    })
   }
 
   /**
    * Frames asked for before the socket was open.
    *
    * This queue is not a nicety. `send` used to drop anything that arrived before OPEN, silently — and
-   * the window is wide: the page renders, the composer enables, and the conversation still has to be
-   * created over HTTP before the socket is even constructed. Someone typing immediately lost their
-   * first message with no error anywhere, which is the failure mode that is hardest to report and
-   * easiest to blame on the model.
+   * the window is wide: the page renders, the composer enables, and the latest thread still has to be
+   * looked up before the socket is even constructed. Someone typing immediately lost their first
+   * message with no error anywhere, which is the failure mode that is hardest to report and easiest to
+   * blame on the model.
    */
   let outbox: ClientMessage[] = []
 
@@ -126,8 +148,8 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       ws.send(JSON.stringify(message))
       return
     }
-    // `hello` is never queued: it is sent from `onopen`, and a queued copy would be a second one
-    // arriving behind the first and rebinding the connection.
+    // `hello` is never queued: `onopen` sends one for the latest target, and a queued copy would be a
+    // second one arriving behind it and rebinding the connection.
     if (message.type === 'hello') return
     debug('queued a %s frame until the socket is open', message.type)
     outbox.push(message)
@@ -168,7 +190,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     switch (message.type) {
       case 'attached':
         attached.value = true
-        conversationId.value = message.conversationId
+        options.onAttached?.(message.conversationId)
         // Drives the consent sheet.
         //
         // Exposed as state rather than written to ~/traces/trace-consent from here: this module is
@@ -222,29 +244,14 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     traceStorage,
     activity,
     isWaitingForUser: computed(() => activity.value?.kind === 'waiting'),
-    conversationId,
 
-    /**
-     * Open the socket and say hello.
-     *
-     * The conversation id is an argument as well as an option, because a page typically creates the
-     * conversation over HTTP and only then knows which one to bind to.
-     */
-    connect (conversationId?: string) {
-      const bindTo = conversationId ?? options.conversationId
+    /** Open the socket and say hello for this target — or for a later one asked before it opened. */
+    connect (initial: HelloTarget) {
+      target = initial
       ws = new WebSocket(options.url)
       ws.onopen = () => {
         connected.value = true
-        // `hello` carries the tool set as it is NOW. A reconnect re-declares, because the page may have
-        // navigated while the socket was down and the server's copy would otherwise describe a page
-        // that no longer exists.
-        send({
-          type: 'hello',
-          tools: toDescriptors(options.tools.value),
-          ...(bindTo ? { conversationId: bindTo } : {}),
-          ...(options.agentId ? { agentId: options.agentId } : {}),
-          ...anonymousHello()
-        })
+        hello()
         flush()
       }
       ws.onmessage = event => {
@@ -268,25 +275,16 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     },
 
     /**
-     * Start a fresh conversation on the same socket.
-     *
-     * The caller creates the conversation and passes its id — or, for an anonymous visitor, passes
-     * none and the server creates it, because this composable owns the socket
-     * and not the HTTP surface. Nothing else is needed: re-attaching rebinds the registry, replays an
-     * empty history, and the server's own state for the thread is new by construction — which is why
-     * `reset` needs no frame of its own.
+     * Rebind the same socket: to an existing thread, which replays its history, or to a fresh one with
+     * an agent, which the next prompt creates. Nothing else is needed — the server's own state for a
+     * thread is new by construction, which is why a reset needs no frame of its own.
      */
-    reset (conversationId?: string) {
+    reset (next: HelloTarget) {
       // The label belonged to the thread being left — a pending wait above all. The new one's is sent
       // on attach when it has one.
       activity.value = null
-      send({
-        type: 'hello',
-        tools: toDescriptors(options.tools.value),
-        ...(conversationId ? { conversationId } : {}),
-        ...(options.agentId ? { agentId: options.agentId } : {}),
-        ...anonymousHello()
-      })
+      target = next
+      hello()
     },
 
     prompt (content: string, hiddenContext?: string) {
@@ -320,12 +318,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       send({ type: 'abort', ...(opts?.dismissWait ? { dismissWait: true } : {}) })
     },
 
-    /**
-     * Tell the server what the person answered about trace storage.
-     *
-     * Sent as well as written to the cookie: the cookie is only read at upgrade, so without this the
-     * answer would not take effect until the page reloaded.
-     */
+    /** Tell the server the person's new answer about trace storage: it applies from the next turn. */
     reportTraceConsent (consented: boolean) {
       send({ type: 'trace-consent', consented })
     },

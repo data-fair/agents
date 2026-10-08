@@ -325,10 +325,10 @@ The same chat window serves both offices. In the front office (portals) it is em
 
 Both offices, for any signed-in person:
 
-- the **history** menu is fed by `GET /api/conversations/:type/:id` without an `agentId` — the caller's own non-empty threads across the agents they may still use, newest first (at most 50), each labelled with its agent. Selecting one rebinds the socket to it and the server replays its stored transcript. It is always the caller's own threads, a superadmin's included: reading other people's is the review page's job.
+- the **history** menu is fed by `GET /api/conversations/:type/:id` without an `agentId` — the caller's own threads across the agents they may still use, newest first (at most 50), each labelled with its agent. Selecting one rebinds the socket to it and the server replays its stored transcript. It is always the caller's own threads, a superadmin's included: reading other people's is the review page's job.
 - opening the chat **resumes** the agent's thread with the latest activity (`?agentId=…&size=1`) rather than starting another.
 
-Selecting a different agent resumes ITS latest thread; a conversation never changes agent, since its identity is the agent that answered in it. The back office creates conversations lazily, on the first message, so switching to an agent with no thread leaves nothing behind; the front office creates its thread on open, and resuming it is what keeps reloads from piling up empty ones.
+Selecting a different agent resumes ITS latest thread; a conversation never changes agent, since its identity is the agent that answered in it. Both offices create a conversation on its first message (the socket's `hello` names the agent, the first prompt creates the thread), so opening the chat, switching to an agent with no thread or asking for a new conversation leaves nothing behind. The `hello` is also answered with a refusal when the person may not talk to that agent (a revoked grant), so the chat says so as it opens rather than at the first message.
 
 ---
 

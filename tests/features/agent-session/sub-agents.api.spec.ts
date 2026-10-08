@@ -24,7 +24,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings, mockProvider } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../support/ws.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -86,10 +86,7 @@ test.describe('A delegation over the agent session', () => {
    * Returns every frame seen, plus the tool names that were asked for, in order.
    */
   const runDelegation = async (socket: AgentSessionClient, prompt: string) => {
-    const conversation = (await orgAdmin.post('/api/conversations/organization/test1', {
-      agentId: 'personal', title: 'delegation'
-    })).data
-    socket.send({ type: 'hello', conversationId: conversation.id, tools: pageTools })
+    socket.send(newThreadHello('organization/test1', { title: 'delegation', tools: pageTools }))
     socket.send({ type: 'prompt', content: prompt })
 
     const frames: any[] = []
@@ -108,7 +105,7 @@ test.describe('A delegation over the agent session', () => {
       }
       if (frame.type === 'turn-end') break
     }
-    return { conversation, frames, asked }
+    return { conversation: { id: socket.conversationId() }, frames, asked }
   }
 
   test('the worker runs, its transcript streams, and the lead gets a summary', async () => {

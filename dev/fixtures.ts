@@ -21,8 +21,8 @@ import { axiosBuilder } from '@data-fair/lib-node/axios.js'
 import { axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 import { pathToFileURL } from 'node:url'
 import { encodeBreakdownKey } from '../api/src/usage/operations.ts'
-import { CONSENT_COOKIE, CONSENT_YES } from '../shared/trace-consent.ts'
-import { turnOverSocket } from '../tests/support/socket-turn.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../ui/src/traces/trace-consent.ts'
+import { turnOverSocket, type ConversationTarget } from '../tests/support/socket-turn.ts'
 
 const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
@@ -114,12 +114,12 @@ const chats: ChatFixture[] = [
 /** The text of a stored message. */
 const textOf = (parts: any[] = []) => parts.filter(part => part.type === 'text').map(part => part.text).join('')
 
-/** Prompt one turn over the chat's socket and wait until it has ended. */
-async function runChatTurn (ax: any, owner: string, conversationId: string, content: string) {
+/** Prompt one turn over the chat's socket — the first starts the thread — and wait until it has ended. */
+async function runChatTurn (ax: any, owner: string, target: ConversationTarget, content: string) {
   try {
-    return (await turnOverSocket(ax, conversationId, content, { owner })).assistant
+    return await turnOverSocket(ax, target, content, { owner })
   } catch (err: any) {
-    throw new Error(`a turn of ${conversationId} never settled (${err.message}) — check dev/logs/dev-api.log`)
+    throw new Error(`a turn of ${JSON.stringify(target)} never settled (${err.message}) — check dev/logs/dev-api.log`)
   }
 }
 
@@ -131,9 +131,14 @@ async function seedChats (sessions: Record<string, any>) {
       console.log(`  chat already seeded: ${chat.title}`)
       continue
     }
-    const conversation = (await ax.post(`/api/conversations/${chat.owner}`, { agentId: 'personal', title: chat.title })).data
+    // The first turn starts the thread, as the chat's first message does.
+    let conversationId: string | undefined
     let answer: any
-    for (const turn of chat.turns) answer = await runChatTurn(ax, chat.owner, conversation.id, turn)
+    for (const turn of chat.turns) {
+      const done = await runChatTurn(ax, chat.owner, conversationId ?? { agentId: 'personal', title: chat.title }, turn)
+      conversationId = done.conversationId
+      answer = done.assistant
+    }
     console.log(`  seeded chat "${chat.title}" (${chat.person} on ${chat.owner}): ${textOf(answer.parts).slice(0, 60).replace(/\s+/g, ' ')}`)
   }
 }
@@ -199,13 +204,12 @@ async function seedAutonomousAgent (adminAx: any, orgAx: any) {
       console.log(`  conversation already seeded: ${fixture.title}`)
       continue
     }
-    const conversation = (await orgAx.post(base, { agentId: AUTONOMOUS_AGENT_ID, title: fixture.title })).data
-    // The turn ends, or this throws: waiting for the socket's `turn-end` means the script's success says
+    // The first turn starts the thread. The turn ends, or this throws: waiting for the socket's `turn-end` means the script's success says
     // the history is really there — the same contract the trace seeding above holds itself to. Not
     // "is dev-mcp up?": with the MCP server down the tool fetch 502s and the run reaches a terminal
     // `error` state promptly, so it would have ended. A turn that never ends is something slower or
     // stuck — a model call, a lock, a hung stream — and naming dev-mcp would point away from it.
-    const { run } = await turnOverSocket(orgAx, conversation.id, fixture.message, { owner: 'organization/dev1' })
+    const { run } = await turnOverSocket(orgAx, { agentId: AUTONOMOUS_AGENT_ID, title: fixture.title }, fixture.message, { owner: 'organization/dev1' })
     console.log(`  seeded conversation "${fixture.title}" (${run.status}${run.stopReason ? `/${run.stopReason}` : ''})`)
   }
 }

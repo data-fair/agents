@@ -123,4 +123,17 @@ test.describe('reset, as a rebind', () => {
     session.handle({ type: 'hello', tools: [], conversationId: 'c1' })
     assert.equal(session.hostEvents.hasPending(), true)
   })
+
+  test('a hello for a FRESH thread is a reset too, and the thread its first prompt creates keeps what came before', () => {
+    const session = sessionWith()
+    session.handle({ type: 'hello', tools: [], conversationId: 'c1' })
+    session.handle({ type: 'host-events', events: [{ name: 'clicked save', at: Date.now() }] })
+    session.handle({ type: 'hello', tools: [] })
+    assert.equal(session.hostEvents.hasPending(), false, 'the new thread does not open with the old one\'s events')
+
+    // What the person did before their first message belongs to the thread that message starts.
+    session.handle({ type: 'host-events', events: [{ name: 'clicked create', at: Date.now() }] })
+    session.bind('c2')
+    assert.equal(session.hostEvents.hasPending(), true)
+  })
 })

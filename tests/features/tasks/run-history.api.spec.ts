@@ -95,8 +95,7 @@ test.describe('Run history', () => {
     await awaitRun(other.id, otherRun)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${otherRun}`), { status: 404 })
 
-    const conversationId = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data.id
-    const { runId } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
+    const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
     await awaitRun(agent.id, runId)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}/export`), { status: 404 })
     const meta = (await orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}`)).data
@@ -115,8 +114,7 @@ test.describe('Run history', () => {
     const task = (await admin.post(`${agentBase(agent.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
     const taskRun = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
     await awaitRun(agent.id, taskRun)
-    const conversationId = (await orgAdmin.post('/api/conversations/organization/test1', { agentId: agent.id, title: 't' })).data.id
-    const { runId: conversationRun } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
+    const { runId: conversationRun } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
     await awaitRun(agent.id, conversationRun)
 
     const ids = async (kind: string) =>

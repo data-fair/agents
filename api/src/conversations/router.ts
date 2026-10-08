@@ -6,13 +6,12 @@
 
 import { isAuditedAgentId } from '@agents/shared/agent-audit'
 import { Router } from 'express'
-import { nanoid } from 'nanoid'
 import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
-import { assertCanOwnAgent, getAutonomousAgent } from '../autonomous-agents/service.ts'
-import { assertCanInstruct, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation } from './service.ts'
-import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
+import { getAutonomousAgent } from '../autonomous-agents/service.ts'
+import { assertMayStartConversation, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation } from './service.ts'
+import { canInstruct } from '../autonomous-agents/operations.ts'
 import { abortRun } from './executor.ts'
 import { assertCanUseModel } from '../auth.ts'
 import { withinRetention } from '../retention.ts'
@@ -46,10 +45,11 @@ export default router
  * agent is involved: a standard agent runs on a person's own account (see `assertCanOwnAgent`). The
  * invariant has not been dropped — it moved to where the agent id is known:
  *
- *  - the create route calls `assertCanOwnAgent` with the id from the body;
+ *  - a thread is created by the socket through `createConversation`, which calls `assertCanOwnAgent`
+ *    with the agent's id;
  *  - every conversation-scoped route reaches its data through `requireConversation(owner, id)`, which
  *    scopes by owner, so a user-owned conversation is reachable only if it was created through that
- *    guarded route in the first place;
+ *    guarded path in the first place;
  *  - a CONFIGURED agent is still refused on a user account, now by `resolveAgent`.
  *
  * The agent CRUD router (../autonomous-agents/router.ts) keeps the blanket assertion in all eight of
@@ -57,33 +57,6 @@ export default router
  */
 const reqOwner = (req: any): AccountKeys => {
   return { type: req.params.type, id: req.params.id } as AccountKeys
-}
-
-/**
- * Whether this person may open a conversation with this agent — and the two kinds of agent ask
- * genuinely different questions.
- *
- * A CONFIGURED agent lends its own identity: instructing it means borrowing an NHI's permissions, so
- * the gate is `canInstruct` — an account admin, or someone explicitly listed as an instructor.
- *
- * A STANDARD agent lends nothing. It acts as the person, through their own session, so the only
- * question is whether that person may use this account's models at all — which is the role-quota
- * gate every model call already answered. Applying `canInstruct` to it was a real regression and the
- * narrowest kind: a plain member of an organization could not use the assistant embedded in their own
- * application, because they are not an admin of the org and nobody had listed them as an instructor
- * of an agent that does not exist as a document.
- */
-const assertMayTalkTo = async (
-  autonomousAgent: InstructableAgent & { id: string },
-  owner: AccountKeys,
-  session: Parameters<typeof assertCanInstruct>[1]
-) => {
-  if (!isStandardAgentId(autonomousAgent.id)) {
-    assertCanInstruct(autonomousAgent, session)
-    return
-  }
-  const settings = await getSettings(owner)
-  assertCanUseModel(session, owner, settings.quotas ?? {})
 }
 
 /**
@@ -132,38 +105,6 @@ router.get('/:type/:id/agents', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-router.post('/:type/:id', async (req, res, next) => {
-  try {
-    const session = reqSessionAuthenticated(req)
-    const owner = reqOwner(req)
-    const agentId = req.body?.agentId
-    if (typeof agentId !== 'string' || !agentId) throw httpError(400, 'agentId is required')
-    assertCanOwnAgent(owner, agentId)
-    const autonomousAgent = await requireAutonomousAgent(owner, agentId)
-    await assertMayTalkTo(autonomousAgent, owner, session)
-
-    const title = typeof req.body?.title === 'string' && req.body.title.trim() ? req.body.title.trim() : 'New conversation'
-    const now = new Date().toISOString()
-    const conversation = {
-      id: nanoid(),
-      agentId,
-      owner: autonomousAgent.owner,
-      // The ONE person this thread belongs to. `owner` stays the ACCOUNT, because that is what quotas
-      // and credits are charged to; `userId` is who may read it.
-      userId: session.user.id,
-      ...(session.user.name ? { userName: session.user.name } : {}),
-      title,
-      createdAt: now,
-      // starts at 0: nextMessageSeq hands out 1 for the first message
-      messageSeq: 0,
-      credits: 0
-    }
-    await mongo.conversations.insertOne({ ...conversation })
-    eventsLog.info('agents.conversation.create', `conversation created for autonomous agent ${agentId}`, { req })
-    res.json(conversation)
-  } catch (err) { next(err) }
-})
-
 /**
  * A person's conversations on this account, newest first, for the chat's history.
  *
@@ -176,8 +117,7 @@ router.post('/:type/:id', async (req, res, next) => {
  * With no agentId, each thread's agent is resolved instead: the account cannot be asked for the
  * blanket assertion (a configured agent is organization-only, a standard one is the normal case on a
  * personal account), and it must not be asked, because a conversation whose agent was deleted or
- * whose grant was revoked is no longer the caller's to see. Empty threads are dropped too: the
- * front-office chat creates its thread on open, and one nobody typed into is not history.
+ * whose grant was revoked is no longer the caller's to see.
  */
 /** How many threads the chat's history lists, newest first. */
 const HISTORY_LIMIT = 50
@@ -194,11 +134,8 @@ router.get('/:type/:id', async (req, res, next) => {
       throw httpError(400, `size must be an integer between 1 and ${HISTORY_LIMIT}`)
     }
 
-    if (agentId) {
-      assertCanOwnAgent(owner, agentId)
-      const autonomousAgent = await requireAutonomousAgent(owner, agentId)
-      await assertMayTalkTo(autonomousAgent, owner, session)
-    }
+    // One agent's threads are listed to whoever may start one with it: the same checks.
+    if (agentId) await assertMayStartConversation(owner, agentId, { kind: 'person', session })
 
     // Your own threads only, whoever you are. A conversation belongs to one person, so listing someone
     // else's would be a disclosure — an org admin's role does not grant it, and neither does a
@@ -215,8 +152,6 @@ router.get('/:type/:id', async (req, res, next) => {
       archivedAt: { $exists: false }
     }
     if (agentId) filter.agentId = agentId
-    // The history skips empty threads IN the query, so they cannot use up its bounded window.
-    else filter.messageSeq = { $gt: 0 }
 
     let results = await mongo.conversations
       .find(filter, {

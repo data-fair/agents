@@ -4,7 +4,8 @@
  * The gateway served anonymous chat until the loop moved to the server; the socket then refused it.
  * An anonymous thread is stored (the loop reads and writes through the collections) but scoped to the
  * socket that created it: only that socket can use it, and it is purged when the socket closes. Its
- * turns are charged per IP, in the untrusted pool, like the gateway's were.
+ * turns are charged per IP, in the untrusted pool, like the gateway's were. It starts the way every
+ * thread does: the hello names the account and the agent, and the first prompt creates it.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
@@ -58,6 +59,17 @@ test.describe('Anonymous chat over the agent session', () => {
     socket.send({ type: 'hello', tools: [], account: OWNER, anonymousToken: await getAnonymousActionToken(), ...extra })
   }
 
+  /** The thread a first prompt created: the `attached` frame that names one. */
+  const created = (socket: AgentSessionClient) => until(socket, f => f.type === 'attached' && !!f.conversationId)
+
+  /** A hello's refusal: it follows the hello's `attached` frame, and nothing is created. */
+  const refusalOf = async (socket: AgentSessionClient) => {
+    assert.equal((await socket.next(10_000)).type, 'attached')
+    const frame = await socket.next(10_000)
+    assert.equal(frame.type, 'error')
+    return frame
+  }
+
   /** The thread as an admin sees it: 404 once purged. */
   const adminReads = async (conversationId: string) =>
     (await admin.get(`/api/conversations/${OWNER_PATH}/${conversationId}/messages`).catch((err: any) => err.response ?? err)).status
@@ -66,11 +78,10 @@ test.describe('Anonymous chat over the agent session', () => {
     const socket = await open()
     await hello(socket)
     // Prompted straight after the hello, as the chat does: the frames are handled in order, so the
-    // prompt finds the thread the hello is still creating.
+    // prompt is handled once the hello is.
     socket.send({ type: 'prompt', content: 'hello' })
-    const attached = await until(socket, f => f.type === 'attached')
+    const attached = await created(socket)
     assert.equal(attached.anonymous, true)
-    assert.ok(attached.conversationId && attached.conversationId !== 'pending')
 
     const answer = await until(socket, f => f.type === 'message' && f.role === 'assistant' && f.pending === false)
     const text = answer.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
@@ -82,7 +93,7 @@ test.describe('Anonymous chat over the agent session', () => {
     const socket = await open()
     await hello(socket)
     socket.send({ type: 'prompt', content: 'hello' })
-    const { conversationId } = await until(socket, f => f.type === 'attached')
+    const { conversationId } = await created(socket)
     await until(socket, f => f.type === 'turn-end')
     assert.equal(await adminReads(conversationId), 200)
 
@@ -94,47 +105,45 @@ test.describe('Anonymous chat over the agent session', () => {
   test('another socket cannot bind to the thread: naming it starts a thread of its own', async () => {
     const first = await open()
     await hello(first)
-    const { conversationId } = await until(first, f => f.type === 'attached')
+    first.send({ type: 'prompt', content: 'hello' })
+    const { conversationId } = await created(first)
 
     const second = await open()
     await hello(second, { conversationId })
     const attached = await until(second, f => f.type === 'attached')
-    assert.notEqual(attached.conversationId, conversationId)
+    assert.equal(attached.conversationId, undefined, 'not bound to the thread it named')
+    second.send({ type: 'prompt', content: 'hello' })
+    assert.notEqual((await created(second)).conversationId, conversationId)
   })
 
   test('a new hello on the same socket is a reset: the previous thread is purged', async () => {
     const socket = await open()
     await hello(socket)
-    const first = await until(socket, f => f.type === 'attached')
+    socket.send({ type: 'prompt', content: 'hello' })
+    const first = await created(socket)
+    await until(socket, f => f.type === 'turn-end')
     await hello(socket)
-    const second = await until(socket, f => f.type === 'attached')
-    assert.notEqual(second.conversationId, first.conversationId)
+    await until(socket, f => f.type === 'attached')
     assert.equal(await adminReads(first.conversationId), 404)
   })
 
   test('without an anonymous action token the hello is refused', async () => {
     const socket = await open()
     socket.send({ type: 'hello', tools: [], account: OWNER })
-    const frame = await socket.next(10_000)
-    assert.equal(frame.type, 'error')
-    assert.match(frame.message, /anonymous action token/)
+    assert.match((await refusalOf(socket)).message, /anonymous action token/)
   })
 
   test('an account closed to anonymous visitors refuses the hello', async () => {
     await putSettings(admin, OWNER_PATH, settingsData({ anonymous: { unlimited: false, monthlyLimit: 0 } }))
     const socket = await open()
     await hello(socket)
-    const frame = await socket.next(10_000)
-    assert.equal(frame.type, 'error')
-    assert.match(frame.message, /permission/)
+    assert.match((await refusalOf(socket)).message, /permission/)
   })
 
   test('only a standard agent', async () => {
     const socket = await open()
     await hello(socket, { agentId: 'some-configured-agent' })
-    const frame = await socket.next(10_000)
-    assert.equal(frame.type, 'error')
-    assert.match(frame.message, /standard agent/)
+    assert.match((await refusalOf(socket)).message, /standard agent/)
   })
 
   test('the turn is charged per IP, where the self-usage route reads it back', async () => {
