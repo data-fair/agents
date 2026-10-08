@@ -199,8 +199,8 @@ export async function seedAutonomousAgent (route: string, instructorUserId: stri
     autonomousAgent: {
       ...DEFAULT_SIMULATED_AGENT,
       ...agent,
-      // A listed instructor, so the case can be driven by someone who is NOT an org admin — which is
-      // also the only kind of user the login fixture can address here (it derives <id>@test.com).
+      // A listed instructor, so a case can be driven by someone who is NOT an org admin. A case that plans
+      // tasks is driven by an org admin (test1-admin1), who may instruct anyway: listing them is harmless.
       instructors: [{ mode: 'member', type: 'user', id: instructorUserId }],
       enabled: true
     }

@@ -35,7 +35,7 @@ A run makes at most 50 web tool calls. Annotations are recorded on every call (`
 `request_web_access` sets `needsApproval` itself, so every call stops on the approval card like a gated catalog call. **Only an administrator of the owning organization may approve it**: allowing an address makes every author of the pages under it able, in effect, to instruct the agent. Two places hold this:
 
 - the tool is offered only in a chat whose run was started by an admin (`run.triggeredByRole`) — offering it to anyone else would end their turn on a card they cannot decide;
-- `decideAndContinue` (`api/src/conversations/approvals.ts`) refuses an approval of it by anyone else with a 403, before anything is recorded, so the call stays pending for an admin. Rejecting is anyone's.
+- `decideAndContinue` (`api/src/conversations/approvals.ts`, `ADMIN_DECISIONS`, which also holds the planning tools) refuses an approval of it by anyone else with a 403, before anything is recorded, so the call stays pending for an admin. Rejecting is anyone's.
 
 Approved, it saves only `web.allowedUrls` (`saveWebAllowedUrls`, so a concurrent save of the form is not undone) and extends the run's allowlist in place: the agent can read the new address in the turn that asked. Who approved is recorded on the call (`toolMetadata.decision`).
 

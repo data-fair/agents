@@ -54,7 +54,7 @@ once a run starts, count-based pruning on every finish.
 | What does a schedule hang off? | A **planned task**, its own resource under the agent; an agent has several. |
 | Who edits tasks? | Admins, directly. Instructors, indirectly: they ask the agent, and validate its proposal. |
 | How is a result delivered? | Always to the history. A notification only on failure, `needs-attention` or a pause. |
-| How is a proposal validated? | In the chat, by the instructor who asked, with a button — through the approval gate. |
+| How is a proposal validated? | In the chat, by an administrator of the organization (user decision 2026-10-08; was: the instructor who asked), with a button — through the approval gate. Only a chat an administrator started is offered the planning tools. |
 | Self-knowledge in executions? | Yes: a task run can read past runs, of both kinds, for continuity without a growing thread. |
 | Tools in an unattended run | The agent's approval policy decides; a tool that needs approval (or is denied) is removed. |
 | The approval gate | Built first, as part of this work. Default: `destructive: 'approve'`, others `allow`. |

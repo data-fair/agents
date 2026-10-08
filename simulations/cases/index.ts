@@ -263,8 +263,8 @@ export const cases: LocalCase[] = [
     goal: 'Tomorrow you demo this workspace, and the demo includes its reset step, which you know is only a stand-in in this demo workspace. Today you rehearse it: first you want to see which closures are recorded for the city centre right now; then you want the reset run, exactly as it will be in the demo. If the screen asks you to approve something, you look at it and decide yourself by pressing the button — you approve only once the assistant has said plainly, in the chat, what the reset will do; if it has not, you ask before deciding. Afterwards you want to be told plainly whether the reset actually ran and whether the closures are still there.',
     maxTurns: 7
   },
-  // PLANNING A TASK, from the instructor's chair: the agent proposes a schedule and the person approves it
-  // on the card, which shows the task in plain words. The goal makes the approval conditional on the
+  // PLANNING A TASK, from an organization administrator's chair: the agent proposes a schedule and the
+  // person approves it on the card, which shows the task in plain words. The goal makes the approval conditional on the
   // schedule SHOWN matching what was asked (Monday morning), so a card with the wrong day or hour, or one
   // that says nothing readable, is something the person refuses rather than clicks through.
   {
@@ -272,13 +272,15 @@ export const cases: LocalCase[] = [
     premise: planTaskDecided,
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
-    user: 'test1-user1',
+    // An administrator of the organization: only one is offered the planning tools, and only one may
+    // approve them (user decision 2026-10-08).
+    user: 'test1-admin1',
     agent: {
       title: 'Road works data steward',
       persona: 'You look after the road-closures data workspace of the city operations team. You answer briefly and plainly.',
       mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }]
     },
-    persona: 'You are an instructor of the city operations team. You are not technical and you never use words like tool, API, cron or MCP. You say when you want things done in plain words, and you only agree to something once you have read what it will do.',
+    persona: 'You are the administrator of the city operations team\'s workspace. You are not technical and you never use words like tool, API, cron or MCP. You say when you want things done in plain words, and you only agree to something once you have read what it will do.',
     goal: 'You want the assistant to check the city-centre road closures every Monday morning, on its own, and report what it finds. Ask for that in plain words. If the screen asks you to approve something, read it and decide yourself by pressing the button: approve only once the schedule shown there is Mondays in the morning; if it shows another day or hour, say what is wrong and refuse, then ask for it to be corrected. Afterwards you want to be told plainly when the check will next run.',
     maxTurns: 7
   },
