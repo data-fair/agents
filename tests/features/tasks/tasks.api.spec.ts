@@ -53,6 +53,13 @@ test.describe('Planned tasks', () => {
     })
   })
 
+  test('a rule carrying a key its type does not have is refused, and nothing is stored', async () => {
+    const agent = await createAgent()
+    // daily + hourStep would run every 2 hours while every description of it says once a day
+    await assert.rejects(admin.post(tasks(agent.id), { title: 't', prompt: 'p', scheduling: [{ ...daily, hourStep: 2 }] }), { status: 400 })
+    assert.equal((await admin.get(tasks(agent.id))).data.count, 0)
+  })
+
   test('at most maxPerAgent tasks per agent', async () => {
     const agent = await createAgent()
     for (let i = 0; i < 20; i++) await admin.post(tasks(agent.id), { title: `t${i}`, prompt: 'p', scheduling: [{ ...daily, hour: i % 24 }] })

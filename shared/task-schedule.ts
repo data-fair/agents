@@ -1,6 +1,9 @@
 /**
  * A planned task's schedule described in words. In shared/ because the browser renders it too (the approval
- * card, the admin page) as well as the agent reading about its own schedule.
+ * card) as well as the agent reading about its own schedule.
+ *
+ * Reads only the keys of each rule's own type, as `toCron` (api/src/tasks/operations.ts) does: the schema
+ * closes each type to its keys, so the words are the schedule that runs.
  */
 
 /** The fields the description reads: structural, so shared/ does not import the api's types. */
@@ -28,14 +31,14 @@ const describeRule = (rule: ScheduleRule, locale: 'en' | 'fr'): string => {
   const zone = `(${r.timeZone || 'Europe/Paris'})`
   if (locale === 'fr') {
     switch (r.type) {
-      case 'hours': return `toutes les ${r.hourStep} heures à la minute ${pad(r.minute)} ${zone}`
+      case 'hours': return `toutes les ${r.hourStep ?? 1} heures à la minute ${pad(r.minute)} ${zone}`
       case 'daily': return `tous les jours à ${time} ${zone}`
       case 'weekly': return `tous les ${DAYS.fr[Number(r.dayOfWeek)]}s à ${time} ${zone}`
       default: return r.lastDayOfMonth ? `le dernier jour du mois à ${time} ${zone}` : `le ${r.dayOfMonth} de chaque mois à ${time} ${zone}`
     }
   }
   switch (r.type) {
-    case 'hours': return `every ${r.hourStep} hours at minute ${pad(r.minute)} ${zone}`
+    case 'hours': return `every ${r.hourStep ?? 1} hours at minute ${pad(r.minute)} ${zone}`
     case 'daily': return `every day at ${time} ${zone}`
     case 'weekly': return `every ${DAYS.en[Number(r.dayOfWeek)]} at ${time} ${zone}`
     default: return r.lastDayOfMonth ? `on the last day of each month at ${time} ${zone}` : `on day ${r.dayOfMonth} of each month at ${time} ${zone}`

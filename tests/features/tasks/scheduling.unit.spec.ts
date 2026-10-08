@@ -2,6 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { toCron, nextRunAfter, minGapSeconds } from '../../../api/src/tasks/operations.ts'
 import { describeScheduling } from '../../../shared/task-schedule.ts'
+import * as taskWriteReq from '../../../api/doc/autonomous-agents/task-write-req/index.ts'
 
 const daily = (hour: number, minute = 0, timeZone = 'Europe/Paris') => ({ type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour, minute, timeZone }) as any
 const hourly = (hourStep: number, minute = 0) => ({ type: 'hours', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: '*', hourStep, minute, timeZone: 'UTC' }) as any
@@ -36,5 +37,25 @@ test.describe('task scheduling', () => {
     assert.equal(describeScheduling([daily(8, 5)], 'en'), 'every day at 08:05 (Europe/Paris)')
     assert.equal(describeScheduling([weekly('1', 9), hourly(2)], 'en'), 'every Monday at 09:00 (UTC); every 2 hours at minute 00 (UTC)')
     assert.equal(describeScheduling([daily(8)], 'fr'), 'tous les jours à 08:00 (Europe/Paris)')
+  })
+
+  // Each rule type is closed to its own keys: an extra key that toCron would read but the description
+  // ignores is refused, so the approval card cannot describe a schedule other than the one that runs.
+  test('a rule carrying a key its type does not have is refused', () => {
+    const body = (rule: any) => ({ title: 'Digest', prompt: 'Summarize', scheduling: [rule] })
+    assert.doesNotThrow(() => taskWriteReq.returnValid(body(daily(8)), { name: 'body' }))
+    // daily + hourStep would run every 2 hours from 08:00, described as once a day
+    assert.throws(() => taskWriteReq.returnValid(body({ ...daily(8), hourStep: 2 }), { name: 'body' }))
+    // daily + lastDayOfMonth would run once a month
+    assert.throws(() => taskWriteReq.returnValid(body({ ...daily(8), lastDayOfMonth: true }), { name: 'body' }))
+    // daily + dayOfMonthStep would run every 7 days
+    assert.throws(() => taskWriteReq.returnValid(body({ ...daily(8), dayOfMonthStep: 7 }), { name: 'body' }))
+  })
+
+  test('cron reads only the keys of the rule\'s type', () => {
+    const monthly = { type: 'monthly', month: '*', dayOfWeek: '*', dayOfMonth: 3, hour: 6, minute: 0, timeZone: 'UTC' } as any
+    assert.equal(toCron(monthly), '0 6 3 * *')
+    assert.equal(toCron({ ...monthly, lastDayOfMonth: true }), '0 6 L * *')
+    assert.equal(toCron({ ...daily(8), hourStep: 2, lastDayOfMonth: true } as any), '0 8 * * *')
   })
 })

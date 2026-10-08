@@ -13,13 +13,15 @@ import { partsText, type MessagePart } from '@agents/shared/message-parts'
 
 export type Scheduling = AutonomousAgentTask['scheduling'][number]
 
+/**
+ * Reads only the keys of the rule's own type, as `describeScheduling` (shared/task-schedule.ts) does: the
+ * schema closes each type to its keys, and what runs must be what the approver was shown.
+ */
 export const toCron = (rule: Scheduling): string => {
   const r = rule as any
-  const minute = r.minute + (r.minuteStep ? `/${r.minuteStep}` : '')
-  const hour = r.hour + (r.hourStep ? `/${r.hourStep}` : '')
-  const dayOfMonth = r.lastDayOfMonth ? 'L' : r.dayOfMonth + (r.dayOfMonthStep ? `/${r.dayOfMonthStep}` : '')
-  const month = r.month + (r.monthStep ? `/${r.monthStep}` : '')
-  return `${minute} ${hour} ${dayOfMonth} ${month} ${r.dayOfWeek}`
+  const hour = r.type === 'hours' ? `*/${r.hourStep ?? 1}` : r.hour
+  const dayOfMonth = r.type === 'monthly' && r.lastDayOfMonth ? 'L' : r.dayOfMonth
+  return `${r.minute} ${hour} ${dayOfMonth} ${r.month} ${r.dayOfWeek}`
 }
 
 /** The earliest slot strictly after `after`, across rules. */

@@ -62,8 +62,12 @@ export default {
         type: 'object',
         required: ['type', 'month', 'dayOfWeek', 'dayOfMonth', 'hour', 'minute'],
         oneOfLayout: { emptyData: true },
+        // Each variant is closed: a rule carries only the keys of its type, so `toCron` (what runs) and
+        // `describeScheduling` (what the approval card and the agent read) cannot disagree. Open, a daily
+        // rule with an `hourStep` validated, ran every 2 hours and was described as once a day.
         oneOf: [{
           title: 'Monthly',
+          additionalProperties: false,
           'x-i18n-title': { en: 'Monthly', fr: 'Mensuel' },
           properties: {
             type: { const: 'monthly' },
@@ -77,6 +81,7 @@ export default {
           }
         }, {
           title: 'Weekly',
+          additionalProperties: false,
           'x-i18n-title': { en: 'Weekly', fr: 'Hebdomadaire' },
           properties: {
             type: { const: 'weekly' },
@@ -93,6 +98,7 @@ export default {
           }
         }, {
           title: 'Daily',
+          additionalProperties: false,
           'x-i18n-title': { en: 'Daily', fr: 'Quotidien' },
           properties: {
             type: { const: 'daily' },
@@ -105,6 +111,7 @@ export default {
           }
         }, {
           title: 'Every N hours',
+          additionalProperties: false,
           'x-i18n-title': { en: 'Every N hours', fr: 'Toutes les N heures' },
           properties: {
             type: { const: 'hours' },
