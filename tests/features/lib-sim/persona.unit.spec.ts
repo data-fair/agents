@@ -40,7 +40,33 @@ test.describe('persona prompting', () => {
     ])
     assert.ok(p.includes('clicked "Enregistrer"'))
     assert.ok(!p.includes('## page'), 'looks are not actions')
-    assert.ok(!personaPrompt([{ role: 'assistant', text: 'x' }], 3).includes('What you have done'))
+    assert.ok(!personaPrompt([{ role: 'assistant', text: 'x' }], 3).includes('you, on the page'))
+  })
+
+  // A judged run: the persona approved a card, its message of that pass was dropped (the reply its
+  // click caused had arrived), and the next pass read the click listed AFTER the assistant's reply as
+  // `clicked "Approve" → clicked "Approve"` — it told the assistant "you say you already clicked
+  // Approve twice yourself" and went looking for the card it had decided.
+  test('places each action where it happened, and does not echo it as a second one', () => {
+    const p = personaPrompt([
+      { role: 'user', text: 'plan a weekly check' },
+      { role: 'assistant', text: '' },
+      { role: 'assistant', text: 'Done, the task is planned.' }
+    ], 3, [
+      { turn: 2, tool: 'look', args: {}, result: '## page Approve "Plan a task"?', at: 2 },
+      { turn: 2, tool: 'click', args: { name: 'Approve' }, result: 'clicked "Approve"', at: 2 }
+    ])
+    const click = p.indexOf('(you, on the page: clicked "Approve")')
+    assert.ok(click > p.indexOf('you: plan a weekly check'), 'after the message it answered')
+    assert.ok(click < p.indexOf('assistant: Done, the task is planned.'), 'before the reply it caused')
+    assert.equal(p.split('Approve').length - 1, 1, 'one click reads as one click')
+  })
+
+  test('an action whose result says something else keeps its result', () => {
+    const p = personaPrompt([{ role: 'assistant', text: 'x' }], 3, [
+      { turn: 1, tool: 'click', args: { name: 'Save' }, result: 'could not find anything called "Save" to click', at: 1 }
+    ])
+    assert.ok(p.includes('clicked "Save" → could not find anything called "Save" to click'))
   })
 
   test('a case with several conversations says so, and DONE ends only the current one', () => {
@@ -148,6 +174,16 @@ test.describe('nextUserMessage MCP wiring', () => {
     assert.deepEqual(options.tools, [])
     assert.deepEqual(options.settingSources, [])
     assert.equal(options.strictMcpConfig, true)
+  })
+
+  test('stamps what the pass did with the transcript it had read', async () => {
+    const observations: PagePerception['observations'] = [{ turn: 1, tool: 'click', args: { name: 'Old' }, result: 'clicked "Old"', at: 0 }]
+    const query = ((args: any) => {
+      observations.push({ turn: 2, tool: 'click', args: { name: 'Approve' }, result: 'clicked "Approve"' })
+      return fakeReply('ok')
+    }) as unknown as PersonaQuery
+    await nextUserMessage(c, [{ role: 'user', text: 'a' }, { role: 'assistant', text: 'b' }], 5, { perception: { ...fakePerception, observations }, query })
+    assert.deepEqual(observations.map(o => o.at), [0, 2], 'only this pass\'s actions, at the transcript it was given')
   })
 
   test('without perception there is no mcp wiring', async () => {

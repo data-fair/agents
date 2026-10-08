@@ -63,7 +63,11 @@ export async function settledRead (read: () => Promise<string>, opts: { interval
 
 /** `cap` overrides SNAPSHOT_CAP for this root: a dense page can deserve more than a chat panel. */
 export type PerceptionRoot = { label: string, root: ChatRoot, cap?: number }
-export type Observation = { turn: number, tool: string, args: unknown, result: string }
+/**
+ * `at`: how many transcript entries the person had read when it acted — where the action goes when
+ * it is told back to them (persona.ts). Stamped by the persona once its pass ends.
+ */
+export type Observation = { turn: number, tool: string, args: unknown, result: string, at?: number }
 
 export type PagePerception = {
   server: { type: 'sdk', name: string, instance: unknown, alwaysLoad: true }
