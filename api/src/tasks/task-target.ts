@@ -15,6 +15,7 @@ import { settleInterruptedParts } from '../conversations/interrupted-turn.ts'
 import { finishTaskRun } from '../conversations/service.ts'
 import type { TurnTarget } from '../conversations/turn-target.ts'
 import type { TaskOutcome } from '../conversations/service-tools.ts'
+import { afterTaskRun } from './follow-up.ts'
 
 /** Why a task run that ended on a wait or an approval request is recorded as failed. */
 export const CANNOT_WAIT = 'a task run cannot wait on a person'
@@ -25,14 +26,7 @@ const quotaRefusalText = (parts: MessagePart[]): string | undefined => {
   return partsText(parts)
 }
 
-/** What happens once a task run's outcome is known: notifications and the pause (./execution.ts). */
-export type TaskRunFollowUp = (run: ConversationRun, task: AutonomousAgentTask) => Promise<void>
-
-/**
- * `followUp` is passed in rather than imported: it lives with the code that starts task runs, which
- * imports this module.
- */
-export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask, followUp: TaskRunFollowUp): TurnTarget => {
+export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): TurnTarget => {
   let tracked: (() => MessagePart[]) | undefined
   // What report_outcome said last: a second call replaces the first.
   let outcome: TaskOutcome | undefined
@@ -50,7 +44,7 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask, foll
     try {
       if (!followedUp) {
         followedUp = true
-        await followUp({ ...run, ...patch }, task)
+        await afterTaskRun({ ...run, ...patch }, task)
       }
     } catch (err) {
       console.error(`task run ${run.id} could not be followed up`, err)

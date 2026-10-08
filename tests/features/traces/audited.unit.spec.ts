@@ -19,18 +19,18 @@ test.describe('audit rule', () => {
     const owner = { type: 'organization', id: 'o1' } as const
     const withTraces = reviewableFilter(owner, { storeTraces: true, cutoff: '2026-01-01T00:00:00.000Z' }) as any
     assert.equal(withTraces.$or.length, 2)
-    assert.deepEqual(withTraces.$or[0], { agentId: { $nin: [PERSONAL_AGENT_ID] } })
+    assert.deepEqual(withTraces.$or[0], { agentId: { $ne: PERSONAL_AGENT_ID } })
     assert.deepEqual(withTraces.$or[1], {
-      agentId: { $in: [PERSONAL_AGENT_ID] },
+      agentId: PERSONAL_AGENT_ID,
       consentedToReview: true,
       lastMessageAt: { $gte: '2026-01-01T00:00:00.000Z' }
     })
     const without = reviewableFilter(owner, { storeTraces: false, cutoff: 'x' }) as any
-    assert.deepEqual(without.$or, [{ agentId: { $nin: [PERSONAL_AGENT_ID] } }])
+    assert.deepEqual(without.$or, [{ agentId: { $ne: PERSONAL_AGENT_ID } }])
   })
 
   test('the archive sweep never selects an audited thread', () => {
     const filter = expiredArchiveFilter(new Date('2026-10-07T00:00:00Z')) as any
-    assert.deepEqual(filter.agentId, { $in: [PERSONAL_AGENT_ID] })
+    assert.deepEqual(filter.agentId, PERSONAL_AGENT_ID)
   })
 })

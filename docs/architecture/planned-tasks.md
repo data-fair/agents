@@ -61,7 +61,7 @@ In development the poll excludes `test*` owners (`schedulerScope` in `server.ts`
 
 ## The turn
 
-`driveTurn` (`api/src/conversations/executor.ts`) runs one turn to a terminal state whatever it is a turn OF: the abort controller, buffered telemetry, the deadline, `performTurn`, and the classification of a throw. What the record IS lives behind a `TurnTarget` (`api/src/conversations/turn-target.ts`). `conversationTarget` is a chat's; `taskTarget(run, task, followUp)` (`api/src/tasks/task-target.ts`) is a task run's:
+`driveTurn` (`api/src/conversations/executor.ts`) runs one turn to a terminal state whatever it is a turn OF: the abort controller, buffered telemetry, the deadline, `performTurn`, and the classification of a throw. What the record IS lives behind a `TurnTarget` (`api/src/conversations/turn-target.ts`). `conversationTarget` is a chat's; `taskTarget(run, task)` (`api/src/tasks/task-target.ts`) is a task run's:
 
 - history is the task's prompt as one user message (`Planned task "<title>": ...`); no frames, no page, no approvals to settle;
 - `persist` writes the parts to the run, conditionally on it still being `running`;
@@ -82,7 +82,7 @@ In development the poll excludes `test*` owners (`schedulerScope` in `server.ts`
 
 ## The pause and notifications
 
-`afterTaskRun(run, task)` (`api/src/tasks/execution.ts`) follows a run's end. The task target calls it BEFORE writing the terminal status (so a reader who stops on it finds what followed); recovery calls it for a run it interrupts. It can never prevent the close: the target catches its failure and the finish runs in a `finally`, and the follow-up runs once per run. The task is read afresh, and one deleted meanwhile is not followed up. In order:
+`afterTaskRun(run, task)` (`api/src/tasks/follow-up.ts`) follows a run's end. The task target calls it BEFORE writing the terminal status (so a reader who stops on it finds what followed); recovery calls it for a run it interrupts. It can never prevent the close: the target catches its failure and the finish runs in a `finally`, and the follow-up runs once per run. The task is read afresh, and one deleted meanwhile is not followed up. In order:
 
 1. A `done` run is **reflected**, fire-and-forget (see [agent memory](./agent-memory.md#reflection)).
 2. `outcome.status === 'needs-attention'` pushes a `needs-attention` event.

@@ -87,7 +87,7 @@ export const start = async () => {
   // config value that only the api runtime cares about.
   assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, config.turnTimeoutSeconds)
 
-  // BEFORE the recovery pass: a task run it interrupts is notified (tasks/execution.ts, afterTaskRun),
+  // BEFORE the recovery pass: a task run it interrupts is notified (tasks/follow-up.ts, afterTaskRun),
   // and pushing to a queue not yet started throws.
   if (config.privateEventsUrl) {
     if (!config.secretKeys?.events) {

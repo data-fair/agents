@@ -14,9 +14,9 @@ export const reviewableFilter = (owner: AccountKeys, opts: { storeTraces: boolea
   'owner.type': owner.type,
   'owner.id': owner.id,
   $or: [
-    { agentId: { $nin: [PERSONAL_AGENT_ID] } },
+    { agentId: { $ne: PERSONAL_AGENT_ID } },
     ...(opts.storeTraces
-      ? [{ agentId: { $in: [PERSONAL_AGENT_ID] }, consentedToReview: true, lastMessageAt: { $gte: opts.cutoff } }]
+      ? [{ agentId: PERSONAL_AGENT_ID, consentedToReview: true, lastMessageAt: { $gte: opts.cutoff } }]
       : [])
   ]
 })
