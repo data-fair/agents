@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { renderConfiguration, renderRunRow, renderRun, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
+import { renderConfiguration, renderRunRow, renderRun, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, PLANNED_TASKS_HEADER, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
 import { SERVICE_TOOL_NAMES } from '../../../api/src/conversations/service-tool-names.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 
@@ -73,6 +73,16 @@ test.describe('renderConfiguration', () => {
     const disabled = view('chat')
     disabled.tasks = [{ id: 't2', title: 'Evening check', scheduling: [{ type: 'daily', hour: 18, minute: 0, timeZone: 'Europe/Paris' }], enabled: false }]
     assert.ok(lines(renderConfiguration(disabled)).includes('- t2: Evening check — every day at 18:00 (Europe/Paris) — next run: none — disabled'))
+  })
+
+  // A judged run read its own approved task as still awaiting approval: the listing says it is not.
+  test('the planned tasks are said to exist and run, with no approval pending, right above them', () => {
+    const text = renderConfiguration(view('chat'))
+    assert.match(PLANNED_TASKS_HEADER, /none awaits approval/)
+    assert.ok(text.includes(`## Planned tasks\n${PLANNED_TASKS_HEADER}\n- t1: Morning check`), text)
+    const none = view('chat')
+    none.tasks = []
+    assert.ok(renderConfiguration(none).includes('## Planned tasks\nNone.'), 'nothing to vouch for when there is no task')
   })
 })
 

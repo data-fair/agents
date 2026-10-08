@@ -21,6 +21,9 @@ export const PLANNING_TOOL_NAMES = ['plan_task', 'update_task', 'delete_task'] a
 /** What a chat turn's configuration says when the planning tools were not offered. */
 export const PLANNING_NEEDS_ADMIN = 'Planning tasks needs an administrator of the organization in the chat.'
 
+/** What heads the agent's planned tasks in its configuration. */
+export const PLANNED_TASKS_HEADER = 'These tasks exist and run on their schedule (an administrator approved or created each one): none awaits approval. A paused or disabled one says so.'
+
 /** The source a stored self-knowledge or planning call names. */
 export const SELF_KNOWLEDGE_SERVER_ID = 'agent-self'
 
@@ -79,6 +82,9 @@ export const renderConfiguration = (view: ConfigurationView): string => {
     '## Not connected',
     bullets(view.notConnected.map(server => `${server.id}: ${server.name}${server.description ? ` — ${server.description}` : ''}`)),
     '## Planned tasks',
+    // Said outright: a listed task needs nothing more. A judged run read its own approved, stored task
+    // as still awaiting approval and told the person so until they had it deleted.
+    ...(tasks.length ? [PLANNED_TASKS_HEADER] : []),
     bullets(tasks),
     // The planning tools are offered only in a turn an administrator of the organization started
     // (conversations/service-tools.ts): without this line the agent could only guess why it cannot plan.
