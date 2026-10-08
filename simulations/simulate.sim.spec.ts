@@ -6,7 +6,7 @@
  */
 import { test } from '../tests/fixtures/login.ts'
 import { cases } from './cases/index.ts'
-import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, fetchConversationExports, runPlannedTask, fetchTaskRunExport, OWNER } from './runner/settings.ts'
+import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, fetchConversationExports, runPlannedTaskRepeatedly, fetchTaskRunExport, OWNER } from './runner/settings.ts'
 import {
   createChatDriver,
   nextUserMessage, isDone, resolveUserModel, NEW_CONVERSATION_ROLE,
@@ -48,8 +48,8 @@ for (const simCase of selected) {
     // Cast rather than annotated: it is assigned inside converse(), which control-flow analysis does
     // not follow, so an annotated `let` read after the call would be narrowed to `undefined`.
     let perception = undefined as ReturnType<typeof createPagePerception> | undefined
-    // Set by an unattended case: the run it started, whose export is the whole of its evidence.
-    let taskRun: { agentId: string, runId: string } | undefined
+    // Set by an unattended case: the runs it started, whose exports are the whole of its evidence.
+    let taskRuns: { agentId: string, runIds: string[] } | undefined
 
     /** The chat half of a case: a person, a page, and turns until they are done or out of turns. */
     const converse = async () => {
@@ -179,8 +179,9 @@ for (const simCase of selected) {
         // has. The runner plays the admin pressing "run now" and waits for the run to end; the route
         // only names the agent. Thrown when the case is malformed, so it is reported, not skipped.
         if (!simCase.task) throw new Error('an unattended case must declare the task it runs')
-        const { run, agentId } = await runPlannedTask(simCase.route, simCase.task)
-        taskRun = { agentId, runId: run.id }
+        // `runs`: the same task run again, as successive weekly slots would — what memory is for.
+        const { runs, agentId } = await runPlannedTaskRepeatedly(simCase.route, simCase.task, simCase.runs ?? 1)
+        taskRuns = { agentId, runIds: runs.map(run => run.id) }
       } else {
         await converse()
       }
@@ -196,8 +197,12 @@ for (const simCase of selected) {
     try {
       // A task run is not a conversation and is not listed with them: its export is read by the run's
       // own route, in the same format.
-      if (simCase.surface === 'unattended') exports = taskRun ? [await fetchTaskRunExport(owner, taskRun.agentId, taskRun.runId)] : []
-      else exports = await fetchConversationExports(owner, user)
+      if (simCase.surface === 'unattended') {
+        // Oldest first, as conversations are: a premise about memory reads which run came first.
+        for (const runId of taskRuns?.runIds ?? []) exports.push(await fetchTaskRunExport(owner, taskRuns!.agentId, runId))
+      } else {
+        exports = await fetchConversationExports(owner, user)
+      }
     } catch (err) {
       evidenceErrors.push(`could not export the run's conversations: ${err instanceof Error ? err.message : String(err)}`)
     }

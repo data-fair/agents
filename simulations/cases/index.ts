@@ -32,8 +32,9 @@ export interface Premise {
 // needs to know about, and so is a premise, which reads this service's export.
 // `agent` configures the autonomous agent an `autonomous-agent` or `unattended` case drives (see
 // seedAutonomousAgent); any field left out is the default agent's. `task` is what an `unattended`
-// case plans on that agent and runs (see runPlannedTask) — the only thing such a case does.
-export type LocalCase = SimulationCase & { embedded?: boolean, premise?: Premise, agent?: SimulatedAgentConfig, task?: SimulatedTask }
+// case plans on that agent and runs (see runPlannedTaskRepeatedly) — the only thing such a case does —
+// `runs` times in a row (1 by default), as successive scheduled slots would.
+export type LocalCase = SimulationCase & { embedded?: boolean, premise?: Premise, agent?: SimulatedAgentConfig, task?: SimulatedTask, runs?: number }
 
 /** The person wrote while a wait was pending: a wait settled with the interruption, in the API's own words. */
 const INTERRUPTED_WAIT = interruptedWaitResult('').split(' (')[0]
@@ -88,6 +89,36 @@ export const readTheWeb: Premise = {
   description: `a ${FETCH_URL_TOOL_NAME} or ${LIST_SITE_PAGES_TOOL_NAME} call succeeded`,
   holds: exports => exports.some(exported => recordedToolCalls(exported).some(call => WEB_READERS.has(call.toolName) && !call.failed))
 }
+
+/**
+ * The LAST run started with a non-empty memory, after an earlier run read the web. Read off the last
+ * run's recorded system prompt, where the memory is rendered as it stood when the run started
+ * (renderMemoryBlock, api/src/memory/operations.ts) — so it holds whichever way the earlier run wrote
+ * it: its own `memory` calls, or the reflection that follows a task run.
+ */
+export const memoryCarriedIntoLastRun: Premise = {
+  description: 'an earlier run read the web, and the last run started with a non-empty memory',
+  holds: exports => {
+    if (exports.length < 2 || !readTheWeb.holds(exports.slice(0, -1))) return false
+    const prompts = [...exports[exports.length - 1].blobs].filter(([ref]) => ref.startsWith('prompt:')).map(([, value]) => String(value))
+    return prompts.some(prompt => prompt.includes('<agent-memory>') && !prompt.includes('Your memory is empty.'))
+  }
+}
+
+/** The newsletter scout of the web cases, and the weekly task it runs. */
+const NEWSLETTER_SCOUT: SimulatedAgentConfig = {
+  title: 'Newsletter scout',
+  persona: 'You prepare the monthly newsletter of the Data Fair open-source project: you find what changed recently and suggest what is worth telling users about.',
+  instructions: 'Data Fair is developed in the GitHub organization data-fair. Its user documentation is at https://docs.koumoul.com/ and its product site at https://datafair.cloud/. Only report what you actually read; when you could not read something, say so.',
+  mcpServers: [],
+  web: { enabled: true, allowedUrls: ['https://github.com/data-fair', 'https://docs.koumoul.com/', 'https://datafair.cloud/'] }
+}
+const NEWSLETTER_TASK: SimulatedTask = {
+  title: 'Newsletter scouting',
+  prompt: 'Every week: find what changed in the last 30 days — the releases of the main data-fair repository (data-fair/data-fair), and the pages added or updated on the documentation and product sites — then report the outcome: three to five newsletter suggestions, each with its date and link, and any documentation gap you noticed (a released feature no documentation page covers).',
+  scheduling: [{ type: 'weekly', month: '*', dayOfMonth: '*', dayOfWeek: '1', hour: 8, minute: 0, timeZone: 'Europe/Paris' }]
+}
+const NEWSLETTER_READER = 'Nobody is present while this runs. The reader is the newsletter editor of the organization: they read the reported outcome in the run history and pick from its suggestions.'
 
 export const cases: LocalCase[] = [
   {
@@ -278,20 +309,30 @@ export const cases: LocalCase[] = [
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'unattended',
     user: 'test1-user1',
-    agent: {
-      title: 'Newsletter scout',
-      persona: 'You prepare the monthly newsletter of the Data Fair open-source project: you find what changed recently and suggest what is worth telling users about.',
-      instructions: 'Data Fair is developed in the GitHub organization data-fair. Its user documentation is at https://docs.koumoul.com/ and its product site at https://datafair.cloud/. Only report what you actually read; when you could not read something, say so.',
-      mcpServers: [],
-      web: { enabled: true, allowedUrls: ['https://github.com/data-fair', 'https://docs.koumoul.com/', 'https://datafair.cloud/'] }
-    },
-    task: {
-      title: 'Newsletter scouting',
-      prompt: 'Every week: find what changed in the last 30 days — the releases of the main data-fair repository (data-fair/data-fair), and the pages added or updated on the documentation and product sites — then report the outcome: three to five newsletter suggestions, each with its date and link, and any documentation gap you noticed (a released feature no documentation page covers).',
-      scheduling: [{ type: 'weekly', month: '*', dayOfMonth: '*', dayOfWeek: '1', hour: 8, minute: 0, timeZone: 'Europe/Paris' }]
-    },
-    persona: 'Nobody is present while this runs. The reader is the newsletter editor of the organization: they read the reported outcome in the run history and pick from its suggestions.',
+    agent: NEWSLETTER_SCOUT,
+    task: NEWSLETTER_TASK,
+    persona: NEWSLETTER_READER,
     goal: 'The editor wants newsletter suggestions they can trust without re-checking everything: each one taken from something the run actually read on the allowed sites, with a correct date and a working link, recent (the last 30 days) where the run could tell, and a status that fits what was found. A documentation gap is only useful if it is grounded in a release the run read and documentation it checked. Suggestions or dates the run did not read are the worst result for them; saying plainly what could not be read is fine.',
+    maxTurns: 0
+  },
+  // WEB ACCESS AND MEMORY: the same scout and task, with memory, run twice in a row as two weekly slots
+  // would. The first run has to find its way — which pages hold the releases, which sitemaps carry
+  // dates, which addresses failed — and is the one to remember it; the second should go straight to
+  // what worked. The memory clause asks the agent to record "where information lives" but not "anything
+  // you can simply fetch again", which is exactly the line a useful address sits on.
+  // Both runs are judged together, in order. Valid only if the second run started with a memory the
+  // first left; whether it was the right memory, and whether the second run used it, is the judge's.
+  {
+    name: 'web-memory-task-runs',
+    premise: memoryCarriedIntoLastRun,
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'unattended',
+    user: 'test1-user1',
+    agent: { ...NEWSLETTER_SCOUT, memory: { enabled: true } },
+    task: NEWSLETTER_TASK,
+    runs: 2,
+    persona: NEWSLETTER_READER,
+    goal: 'The editor relies on this weekly task run after run. They want the first run to leave the agent knowing where to look — which addresses hold the releases and the recent changes, and what did not work — and the next run to use that knowledge: going straight to the useful pages instead of exploring again, reaching an outcome at least as good with less searching. What was remembered must be durable knowledge about where information lives, not this week\'s findings presented as current next week. Each run\'s outcome must still be grounded in what that run read.',
     maxTurns: 0
   }
 ]

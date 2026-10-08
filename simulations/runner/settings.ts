@@ -275,19 +275,49 @@ export const TASK_RUN_TIMEOUT_MS = 10 * 60 * 1000
  * with a 409, so it surfaces here as a thrown error and the case is recorded invalid.
  */
 export async function runPlannedTask (route: string, task: SimulatedTask, timeoutMs = TASK_RUN_TIMEOUT_MS) {
+  const { runs, ...rest } = await runPlannedTaskRepeatedly(route, task, 1, timeoutMs)
+  return { ...rest, run: runs[0] }
+}
+
+/** How long to wait for a run's memory reflection before starting the next run anyway. */
+export const REFLECTION_TIMEOUT_MS = 5 * 60 * 1000
+
+type TaskRun = { id: string, status: string, error?: string, memoryReflection?: { at?: string } }
+
+/**
+ * Plan the task once and run it `times` times in a row, as successive scheduled slots would — so a
+ * later run starts with whatever the earlier ones left in the agent's memory.
+ *
+ * Between runs, waits for the finished run's MEMORY REFLECTION (api/src/memory/reflection.ts, started
+ * fire-and-forget when a `done` run closes on an agent with memory): starting the next run first would
+ * race it, and the next run would test a memory still being written. A run that was not reflected
+ * within the timeout — not `done`, no memory, a failed reflection — is not waited on further: the
+ * case's premise is what decides whether memory carried over.
+ */
+export async function runPlannedTaskRepeatedly (route: string, task: SimulatedTask, times: number, timeoutMs = TASK_RUN_TIMEOUT_MS) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
   const { owner, agentId } = parseAutonomousAgentRoute(route)
   const base = `/api/autonomous-agents/${owner.type}/${owner.id}/${agentId}`
   const created = (await admin.post(`${base}/tasks`, task)).data as { id: string }
-  const runId = (await admin.post(`${base}/tasks/${created.id}/run`)).data.runId as string
-  const deadline = Date.now() + timeoutMs
-  for (;;) {
-    const run = (await admin.get(`${base}/runs/${runId}`)).data as { id: string, status: string, error?: string }
-    if (run.status !== 'running') return { owner, agentId, taskId: created.id, run }
-    if (Date.now() > deadline) throw new Error(`task run ${runId} was still running after ${Math.round(timeoutMs / 1000)}s`)
-    await new Promise(resolve => setTimeout(resolve, 1000))
+  const poll = async (runId: string, done: (run: TaskRun) => boolean, ms: number) => {
+    const deadline = Date.now() + ms
+    for (;;) {
+      const run = (await admin.get(`${base}/runs/${runId}`)).data as TaskRun
+      if (done(run)) return run
+      if (Date.now() > deadline) return undefined
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
   }
+  const runs: TaskRun[] = []
+  for (let i = 0; i < times; i++) {
+    const runId = (await admin.post(`${base}/tasks/${created.id}/run`)).data.runId as string
+    const run = await poll(runId, r => r.status !== 'running', timeoutMs)
+    if (!run) throw new Error(`task run ${runId} was still running after ${Math.round(timeoutMs / 1000)}s`)
+    runs.push(run)
+    if (i < times - 1 && run.status === 'done') await poll(runId, r => !!r.memoryReflection?.at, REFLECTION_TIMEOUT_MS)
+  }
+  return { owner, agentId, taskId: created.id, runs }
 }
 
 /**
