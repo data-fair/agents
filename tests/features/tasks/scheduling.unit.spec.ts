@@ -1,6 +1,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { toCron, nextRunAfter, minGapSeconds, describeScheduling } from '../../../api/src/tasks/operations.ts'
+import { toCron, nextRunAfter, minGapSeconds } from '../../../api/src/tasks/operations.ts'
+import { describeScheduling } from '../../../shared/task-schedule.ts'
 
 const daily = (hour: number, minute = 0, timeZone = 'Europe/Paris') => ({ type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour, minute, timeZone }) as any
 const hourly = (hourStep: number, minute = 0) => ({ type: 'hours', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: '*', hourStep, minute, timeZone: 'UTC' }) as any

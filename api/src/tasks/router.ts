@@ -15,7 +15,7 @@ import * as writeReqBody from '#doc/autonomous-agents/task-write-req/index.ts'
 import { getAutonomousAgent, reqWriteSession, assertOrganizationOwner } from '../autonomous-agents/service.ts'
 import { canInstruct } from '../autonomous-agents/operations.ts'
 import mongo from '#mongo'
-import { listTasks, getTask, createTask, updateTask, deleteTask } from './service.ts'
+import { listTasks, getTask, listRuns, getRun, type RunFilters, createTask, updateTask, deleteTask } from './service.ts'
 import { buildConversationExport } from '../review/operations.ts'
 import { runAsMessages } from './run-messages.ts'
 import { startTaskRun, isTaskRunning, PREVIOUS_RUN_STILL_RUNNING } from './execution.ts'
@@ -67,39 +67,21 @@ router.get('/:type/:id/:agentId/runs', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     const agent = await loadAgent(owner, req.params.agentId)
-    const filter: Record<string, unknown> = { 'owner.type': owner.type, 'owner.id': owner.id, agentId: agent.id }
-    for (const key of ['taskId', 'status'] as const) {
-      if (typeof req.query[key] === 'string') filter[key] = req.query[key]
-    }
-    // A conversation run carries no `kind` (absent means conversation), so that value is "not a task".
-    if (req.query.kind === 'task') filter.kind = 'task'
-    else if (req.query.kind === 'conversation') filter.kind = { $ne: 'task' }
-    else if (req.query.kind !== undefined) throw httpError(400, '"kind" must be "task" or "conversation"')
-    if (typeof req.query.outcome === 'string') filter['outcome.status'] = req.query.outcome
-    if (typeof req.query.since === 'string') {
-      if (Number.isNaN(Date.parse(req.query.since))) throw httpError(400, '"since" must be a date')
-      filter.startedAt = { $gte: new Date(req.query.since).toISOString() }
-    }
-    const size = Math.min(Math.max(parseInt(String(req.query.size ?? '20'), 10) || 20, 1), 100)
-    const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1)
-    const [results, count] = await Promise.all([
-      mongo.runs
-        .find(filter, { projection: { _id: 0, parts: 0, prompt: 0, systemPrompt: 0, calls: 0 } })
-        .sort({ startedAt: -1 })
-        .skip((page - 1) * size)
-        .limit(size)
-        .toArray(),
-      mongo.runs.countDocuments(filter)
-    ])
-    res.json({ results, count })
+    const q = req.query
+    const str = (key: string) => typeof q[key] === 'string' ? q[key] as string : undefined
+    const results = await listRuns(owner, agent.id, {
+      kind: q.kind as RunFilters['kind'],
+      taskId: str('taskId'),
+      status: str('status'),
+      outcome: str('outcome'),
+      since: str('since')
+    }, {
+      page: Math.max(parseInt(String(q.page ?? '1'), 10) || 1, 1),
+      size: parseInt(String(q.size ?? '20'), 10) || 20
+    })
+    res.json(results)
   } catch (err) { next(err) }
 })
-
-const loadRun = async (owner: AccountKeys, agentId: string, runId: string) => {
-  const run = await mongo.runs.findOne({ id: runId, agentId, 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
-  if (!run) throw httpError(404, 'unknown run')
-  return run
-}
 
 // One run WITH its content: a task run's `prompt` and `parts`; a conversation run's metadata, which points
 // at its `conversationId` for the content.
@@ -110,7 +92,7 @@ router.get('/:type/:id/:agentId/runs/:runId', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     const agent = await loadAgent(owner, req.params.agentId)
-    const run = await loadRun(owner, agent.id, req.params.runId)
+    const run = await getRun(owner, agent.id, req.params.runId)
     // A conversation run is metadata only here (its content is the conversation's, read elsewhere): without
     // the telemetry and system prompt, as in the list.
     if (run.kind === 'task') res.json(run)
@@ -126,7 +108,7 @@ router.get('/:type/:id/:agentId/runs/:runId/export', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     const agent = await loadAgent(owner, req.params.agentId)
-    const run = await loadRun(owner, agent.id, req.params.runId)
+    const run = await getRun(owner, agent.id, req.params.runId)
     if (run.kind !== 'task') throw httpError(404, 'only a task run is exported here; a conversation is exported from its review page')
     const task = run.taskId ? await mongo.autonomousAgentTasks.findOne({ id: run.taskId }, { projection: { _id: 0, title: 1 } }) : null
     // The content travels as the two messages: left on the run record it would be written twice.
@@ -151,7 +133,7 @@ router.post('/:type/:id/:agentId/runs/:runId/abort', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     const agent = await loadAgent(owner, req.params.agentId)
-    const run = await loadRun(owner, agent.id, req.params.runId)
+    const run = await getRun(owner, agent.id, req.params.runId)
     if (run.kind !== 'task') throw httpError(404, 'a conversation turn is stopped from its chat')
     // `aborted: true` when this process stopped the run or a stop was recorded on a still-running run
     // (another process holds it and stops it at its next poll); false for a run that has already ended.

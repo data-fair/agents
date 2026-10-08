@@ -52,37 +52,6 @@ export const minGapSeconds = (rules: Scheduling[], from: Date, samples = 50): nu
   return min
 }
 
-const pad = (n: unknown) => String(n).padStart(2, '0')
-
-const DAYS = {
-  en: { 0: 'Sunday', 1: 'Monday', 2: 'Tuesday', 3: 'Wednesday', 4: 'Thursday', 5: 'Friday', 6: 'Saturday' },
-  fr: { 0: 'dimanche', 1: 'lundi', 2: 'mardi', 3: 'mercredi', 4: 'jeudi', 5: 'vendredi', 6: 'samedi' }
-} as Record<'en' | 'fr', Record<number, string>>
-
-const describeRule = (rule: Scheduling, locale: 'en' | 'fr'): string => {
-  const r = rule as any
-  const time = `${pad(r.hour)}:${pad(r.minute)}`
-  const zone = `(${r.timeZone || 'Europe/Paris'})`
-  if (locale === 'fr') {
-    switch (r.type) {
-      case 'hours': return `toutes les ${r.hourStep} heures à la minute ${pad(r.minute)} ${zone}`
-      case 'daily': return `tous les jours à ${time} ${zone}`
-      case 'weekly': return `tous les ${DAYS.fr[Number(r.dayOfWeek)]}s à ${time} ${zone}`
-      default: return r.lastDayOfMonth ? `le dernier jour du mois à ${time} ${zone}` : `le ${r.dayOfMonth} de chaque mois à ${time} ${zone}`
-    }
-  }
-  switch (r.type) {
-    case 'hours': return `every ${r.hourStep} hours at minute ${pad(r.minute)} ${zone}`
-    case 'daily': return `every day at ${time} ${zone}`
-    case 'weekly': return `every ${DAYS.en[Number(r.dayOfWeek)]} at ${time} ${zone}`
-    default: return r.lastDayOfMonth ? `on the last day of each month at ${time} ${zone}` : `on day ${r.dayOfMonth} of each month at ${time} ${zone}`
-  }
-}
-
-/** One phrase per rule, joined: read by the agent about its own schedule and by the UI. */
-export const describeScheduling = (rules: Scheduling[], locale: 'en' | 'fr'): string =>
-  rules.map(rule => describeRule(rule, locale)).join('; ')
-
 export type TaskOutcome = NonNullable<ConversationRun['outcome']>
 export const TASK_OUTCOME_STATUSES: TaskOutcome['status'][] = ['done', 'nothing-to-do', 'needs-attention']
 export const TASK_OUTCOME_SUMMARY_MAX = 10_000

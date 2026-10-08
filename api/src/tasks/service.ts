@@ -6,6 +6,7 @@ import mongo from '#mongo'
 import config from '#config'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
+import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import type { PlannedTask as TaskWriteReq } from '#doc/autonomous-agents/task-write-req/index.ts'
 import { minGapSeconds, nextRunAfter, toCron, type Scheduling } from './operations.ts'
@@ -119,4 +120,40 @@ export const updateTask = async (owner: AccountKeys, agent: { id: string }, task
 export const deleteTask = async (owner: AccountKeys, agentId: string, taskId: string) => {
   const result = await mongo.autonomousAgentTasks.deleteOne({ id: taskId, agentId, 'owner.type': owner.type, 'owner.id': owner.id })
   if (!result.deletedCount) throw httpError(404, 'unknown task')
+}
+
+export interface RunFilters { kind?: 'task' | 'conversation', taskId?: string, status?: string, outcome?: string, since?: string }
+
+/** Newest first, without content (parts, prompt, systemPrompt, calls). Throws 400 on an invalid kind or since. */
+export const listRuns = async (owner: AccountKeys, agentId: string, filters: RunFilters, page: { page: number, size: number }): Promise<{ results: ConversationRun[], count: number }> => {
+  const filter: Record<string, unknown> = { 'owner.type': owner.type, 'owner.id': owner.id, agentId }
+  if (filters.taskId !== undefined) filter.taskId = filters.taskId
+  if (filters.status !== undefined) filter.status = filters.status
+  // A conversation run carries no `kind` (absent means conversation), so that value is "not a task".
+  if (filters.kind === 'task') filter.kind = 'task'
+  else if (filters.kind === 'conversation') filter.kind = { $ne: 'task' }
+  else if (filters.kind !== undefined) throw httpError(400, '"kind" must be "task" or "conversation"')
+  if (filters.outcome !== undefined) filter['outcome.status'] = filters.outcome
+  if (filters.since !== undefined) {
+    if (Number.isNaN(Date.parse(filters.since))) throw httpError(400, '"since" must be a date')
+    filter.startedAt = { $gte: new Date(filters.since).toISOString() }
+  }
+  const size = Math.min(Math.max(page.size, 1), 100)
+  const [results, count] = await Promise.all([
+    mongo.runs
+      .find(filter, { projection: { _id: 0, parts: 0, prompt: 0, systemPrompt: 0, calls: 0 } })
+      .sort({ startedAt: -1 })
+      .skip((page.page - 1) * size)
+      .limit(size)
+      .toArray(),
+    mongo.runs.countDocuments(filter)
+  ])
+  return { results: results as ConversationRun[], count }
+}
+
+/** One run of this agent, with content. Throws 404. */
+export const getRun = async (owner: AccountKeys, agentId: string, runId: string): Promise<ConversationRun> => {
+  const run = await mongo.runs.findOne({ id: runId, agentId, 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
+  if (!run) throw httpError(404, 'unknown run')
+  return run as ConversationRun
 }
