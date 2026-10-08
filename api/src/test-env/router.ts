@@ -204,6 +204,9 @@ export const createTestEnvRouter = () => {
       // appendMessage, so the run has no message at all and the sweep must write one. That is
       // half of the "a run always leaves exactly one assistant message" invariant.
       await mongo.messages.deleteMany({ runId: req.body.runId })
+    } else if (req.body.messageClosed) {
+      // Reproduces the state a run is seen in when it FINISHED between recovery's candidate read and
+      // its lock read (or its holder died after closing the message): the message is already final.
     } else {
       await mongo.messages.updateMany({ runId: req.body.runId }, { $set: { pending: true } })
     }

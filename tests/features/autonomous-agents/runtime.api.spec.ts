@@ -315,6 +315,30 @@ test.describe('Autonomous agent conversations', () => {
     assert.ok(partsText(forRun[0].parts).length > 0)
   })
 
+  test('recovery never touches the message of a run that already finished', async () => {
+    // Recovery reads its candidates, then the held locks. A turn finishing between the two reads has
+    // closed its message, closed its run, released its lock and left the live set, so it passes both
+    // filters. Its finished answer must not gain an "interrupted by a restart" notice — text that
+    // would be replayed to the model as its own words. Manufactured here as a run left `running`
+    // beside a message already closed.
+    const agent = await createAgent()
+    const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
+    await pollRun(conversationId, runId)
+    const before = (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
+      .find((m: any) => m.role === 'assistant' && m.runId === runId)
+
+    await admin.post('/api/test-env/orphan-run', { runId, messageClosed: true })
+    await admin.post('/api/test-env/recover-ownerless-runs', {})
+
+    const after = (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
+      .filter((m: any) => m.role === 'assistant' && m.runId === runId)
+    assert.equal(after.length, 1)
+    assert.deepEqual(after[0].parts, before.parts, 'a closed message keeps its parts exactly')
+    assert.equal(after[0].pending, false)
+    const run = await runOf(orgAdmin, conversationId, runId)
+    assert.notEqual(run.status, 'running', 'the run itself is still closed')
+  })
+
   test('a run that already STARTED is never resumed, only interrupted', async () => {
     // The whole point of recovery having one rule. runTurn appends the assistant message before
     // performTurn opens the agent's tools, so "has an assistant message" means the turn began and its

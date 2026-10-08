@@ -8,7 +8,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
-import { putMockSettings } from '../../support/settings.ts'
+import { putMockSettings, mockModels, mockModelMapping } from '../../support/settings.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
@@ -350,6 +350,62 @@ test.describe('A turn over the agent session', () => {
     assert.deepEqual(runs.map((r: any) => r.status), ['aborted', 'done'])
     const interrupted = messages.find((m: any) => m.role === 'assistant')
     assert.ok(interrupted, 'the stopped turn still leaves its assistant message')
+  })
+
+  test('a run stopped while still queued runs no gate: the next message is moderated once', async () => {
+    // The back-to-back case above, forced into the state it usually takes and that its timing cannot
+    // guarantee: the first run is stopped by the second message BEFORE it is dequeued. Such a run
+    // used to pass its gates anyway, and moderation classifies the conversation's LATEST message —
+    // the second one, which its own run classifies again: billed twice, and a block was two strikes.
+    // The account moderates its admins here, with the deterministic mock moderator, so the gate runs.
+    const moderator = { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
+    await putMockSettings(admin, 'organization/test1', {
+      models: [...mockModels(), { model: moderator, usage: ['moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
+      modelMapping: { ...mockModelMapping, moderator: { provider: 'mock-provider', id: 'mock-moderator', name: 'Mock Moderator' } },
+      moderation: { enabled: true, categories: ['admin'] }
+    })
+    const conversationId = await personalConversation()
+    const runsOf = async () => (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/runs`)).data.results
+    const events = async () => (await admin.get('/api/moderation/organization/test1/events')).data.results
+    // Events are written fire-and-forget: wait for the first turn's one before counting from it.
+    let before: any[] = []
+    for (let i = 0; i < 40 && !before.length; i++) {
+      before = await events()
+      if (!before.length) await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    assert.equal(before.length, 1, 'the first turn was moderated, so the gate is on')
+
+    // Held, so neither prompt's run can start: both stay queued, and the second stops the first.
+    await admin.post('/api/test-env/lock-conversation', { conversationId })
+    const session = await open(await cookieOf(orgAdmin))
+    try {
+      session.send({ type: 'hello', conversationId, tools: [] })
+      session.send({ type: 'prompt', content: 'first' })
+      session.send({ type: 'prompt', content: 'second' })
+      for (let i = 0; i < 50 && (await runsOf()).length < 3; i++) await new Promise(resolve => setTimeout(resolve, 100))
+      assert.equal((await runsOf()).length, 3)
+    } finally {
+      await admin.post('/api/test-env/unlock-conversation', { conversationId })
+    }
+    // Recovery picks the queued runs up, oldest first: the stopped one, then the second message's.
+    await admin.post('/api/test-env/recover-ownerless-runs', {})
+    let runs: any[] = []
+    for (let i = 0; i < 100; i++) {
+      runs = await runsOf()
+      if (runs.every((r: any) => r.status !== 'running')) break
+      await new Promise(resolve => setTimeout(resolve, 100))
+    }
+    const [, stopped, answered] = runs
+    assert.equal(stopped.status, 'aborted')
+    assert.equal(answered.status, 'done')
+    assert.deepEqual(stopped.calls ?? [], [], 'the stopped run made no model call, the moderator included')
+    assert.ok(!stopped.credits, 'and spent nothing')
+    assert.ok(answered.calls.some((c: any) => c.modelRole === 'moderator'), 'the answering run did moderate')
+    await new Promise(resolve => setTimeout(resolve, 500))
+    assert.equal((await events()).length, 2, 'one moderation of the second message, not two')
+    // One assistant message per run still holds for the run that did nothing.
+    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
+    assert.equal(messages.filter((m: any) => m.role === 'assistant' && m.runId === stopped.id).length, 1)
   })
 
   test('the history does not list a thread that has no message', async () => {

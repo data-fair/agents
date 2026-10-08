@@ -134,8 +134,8 @@ export const recoverOwnerlessTaskRuns = async (): Promise<{ interrupted: number,
     if ((await finishRun(run, patch)).closed) {
       // Caught: one task's notification must not stop the others being recovered.
       await afterTaskRun({ ...run, ...patch }).catch(err => console.error('an interrupted task run could not be followed up', err))
+      interrupted++
     }
-    interrupted++
   }
   if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} task run(s) left behind by a dead process`)
   return { interrupted, skipped }

@@ -39,7 +39,7 @@ import {
   type TurnTarget, type TurnResult, type TurnFailure
 } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, bufferRunWrites, resolveAgent, setRunSystemPrompt, rejectPendingApprovals } from './service.ts'
+import { appendMessage, finishRun, bufferRunWrites, resolveAgent, setRunSystemPrompt, rejectPendingApprovals } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
@@ -171,7 +171,7 @@ export const abortRunsOfAgent = async (agentId: string): Promise<number> => {
  * abortRunsOfAgent), or when its run document is gone — its agent or conversation was deleted. One read
  * of one run every STOP_POLL_MS for as long as the turn lives; the returned function stops watching.
  */
-const watchStopRequests = (runId: string, controller: AbortController): (() => void) => {
+const watchStopRequests = (runId: string, controller: AbortController): { initial: Promise<void>, stop: () => void } => {
   let reading = false
   const check = async () => {
     if (reading || controller.signal.aborted) return
@@ -194,10 +194,11 @@ const watchStopRequests = (runId: string, controller: AbortController): (() => v
   }
   // Once at once, then on the clock: a stop recorded while the run was still queued (it waited for its
   // conversation's lock, or for recovery) must not let the turn start and fire tools until the first tick.
-  check()
+  // That first read is returned so driveTurn can await it before the turn's gates (see performTurn).
+  const initial = check()
   const timer = setInterval(check, STOP_POLL_MS)
   timer.unref()
-  return () => clearInterval(timer)
+  return { initial, stop: () => clearInterval(timer) }
 }
 
 /**
@@ -231,6 +232,10 @@ const nextPendingRun = async (conversationId: string) => {
  * producing a toolless turn that looks like a capability problem.
  */
 const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, target: TurnTarget): Promise<TurnResult> => {
+  // A run stopped before it began does nothing: no quota read, and above all no moderation, which
+  // classifies the conversation's LATEST message — the newer one that stopped this run, which its own
+  // run will classify again (a second moderator call, a second strike). Settled as any other abort.
+  abortSignal.throwIfAborted()
   const autonomousAgent = await resolveAgent(run.owner, run.agentId)
   if (!autonomousAgent) throw new Error('the autonomous agent no longer exists')
 
@@ -1045,7 +1050,7 @@ export const driveTurn = async (
   const abortController = new AbortController()
   liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId, taskId: run.taskId })
   // A stop received by another API process reaches this turn through its run document.
-  const stopWatching = watchStopRequests(run.id, abortController)
+  const { initial: initialStopRead, stop: stopWatching } = watchStopRequests(run.id, abortController)
   // The run's telemetry and spend are held from here until finishRun writes them (see bufferRunWrites).
   bufferRunWrites(run.id)
 
@@ -1068,6 +1073,11 @@ export const driveTurn = async (
   try {
     // Inside the try: opening can fail (the conversation vanished, a duplicate seq, a transient mongo
     // error) and that must still close the run out rather than escape and leave it `running` forever.
+    //
+    // The stop read comes first: a run stopped while queued — typically by the next message, which
+    // stops a run it finds between createRun and here — is then already aborted when performTurn checks.
+    // It still opens its record, so it leaves its one settled message, but runs no gate and no model.
+    await initialStopRead
     target = await open()
     const result = await Promise.race([performTurn(run, abortController.signal, target), deadline])
     await target.close(result)
@@ -1231,26 +1241,34 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
       startRun(run).catch(err => console.error('autonomous agent run failed to resume', err))
       continue
     }
-    interrupted++
-    // An approval run cut by the restart leaves no approved call without a result either: the rule
-    // runTurn applies on both of its own paths. Nothing else would ever settle it — a new message only
-    // touches calls still awaiting a decision — and every later replay would carry a call with no result,
-    // which providers reject: the conversation would fail on every turn from then on. Outcome UNKNOWN,
-    // not "did not run": the process may have died after the tool did its work.
-    if (run.trigger === 'approval') {
-      // Caught: one conversation's failure must not stop the others being recovered. The replay's own
-      // safety net (storedTurnsToModelMessages) still keeps such a call from reaching a provider bare.
-      await settleApprovedWithoutRunning(run.conversationId, existing.seq, unknownApprovedOutcome('interrupted by a restart'))
-        .catch(err => console.error('approved calls of an interrupted run could not be settled', err))
+    // Only while the message is still PENDING. A turn can finish between the candidate read and the
+    // lock read above: its message is then closed, its run closed, its lock released and it has left
+    // `liveRuns`, so it passes both filters. That order (message closed BEFORE the run, run closed
+    // before the lock is released) makes `pending` exact: a run that had a holder and is now neither
+    // locked nor live already has a closed message, which must not gain a restart notice. The write is
+    // guarded on `pending: true` too, so two instances recovering the same dead run append it once.
+    if (existing.pending) {
+      // An approval run cut by the restart leaves no approved call without a result either: the rule
+      // runTurn applies on both of its own paths. Nothing else would ever settle it — a new message only
+      // touches calls still awaiting a decision — and every later replay would carry a call with no
+      // result, which providers reject: the conversation would fail on every turn from then on. Outcome
+      // UNKNOWN, not "did not run": the process may have died after the tool did its work.
+      if (run.trigger === 'approval') {
+        // Caught: one conversation's failure must not stop the others being recovered. The replay's own
+        // safety net (storedTurnsToModelMessages) still keeps such a call from reaching a provider bare.
+        await settleApprovedWithoutRunning(run.conversationId, existing.seq, unknownApprovedOutcome('interrupted by a restart'))
+          .catch(err => console.error('approved calls of an interrupted run could not be settled', err))
+      }
+      // stopReason has no 'interrupted' member — the status carries that — so the reason is
+      // 'error' with the restart named as the detail.
+      const notice = runStopReasonMessage('error', 'interrupted by a restart')
+      await mongo.messages.updateOne(
+        { conversationId: run.conversationId, seq: existing.seq, pending: true },
+        { $set: { parts: withAppendedText(existing.parts, notice), pending: false, updatedAt: new Date().toISOString() } }
+      )
     }
-    // stopReason has no 'interrupted' member — the status carries that — so the reason is
-    // 'error' with the restart named as the detail.
-    const notice = runStopReasonMessage('error', 'interrupted by a restart')
-    await updateMessage(run.conversationId, existing.seq, {
-      parts: withAppendedText(existing.parts, notice),
-      pending: false
-    })
-    await finishRun(run, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
+    const { closed } = await finishRun(run, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
+    if (closed) interrupted++
   }
 
   if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} started run(s) left behind by a dead process`)
