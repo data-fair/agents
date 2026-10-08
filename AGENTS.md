@@ -99,7 +99,7 @@ Port assignments are in `.env`. Do not modify them.
 ## Testing
 
 Run tests: `npm run test`
-Run specific tests: `npm run test tests/features/settings.spec.ts`
+Run specific tests: `npm run test tests/features/settings/settings.api.spec.ts`
 
 If a test fails with a connection error, run `bash dev/status.sh` to diagnose, then stop and ask the user for help.
 
@@ -135,6 +135,11 @@ When e2e tests fail, follow this order:
 2. Use the Playwright MCP tools (`browser_open`, `browser_navigate`, `browser_snapshot`, `browser_console_messages`) to inspect failing pages — do NOT write custom Playwright scripts
 3. Check `test-results/` for traces and screenshots
 4. Only then dig into component code
+
+A single e2e test failing at random, a different one each run, is first a question for
+`dev/logs/dev-ui.log`: a vite `optimized dependencies changed. reloading` line during the run reloaded
+whatever page the test was on. `ui/vite.config.ts` gives vite every dependency at startup so this
+does not happen; a line naming a new dependency means that list missed it.
 
 ### Scenario simulations
 

@@ -15,7 +15,7 @@ test.describe('Settings UI', () => {
 
   test('Page loads with AI Providers section', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
   })
 
   test('Can add a new Mock provider', async ({ page, goToWithAuth }) => {
@@ -77,7 +77,7 @@ test.describe('Settings UI', () => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Wait for page to fully load
-    await expect(page.getByText('AI Providers')).toBeVisible()
+    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible()
 
     // Wait for any validation to complete
     await page.waitForTimeout(500)
@@ -129,7 +129,7 @@ test.describe('Settings UI', () => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Wait for page to load
-    await expect(page.getByText('AI Providers')).toBeVisible()
+    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible()
 
     // Precondition: this seeded config must load clean (no unsaved change).
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
@@ -160,7 +160,7 @@ test.describe('Settings UI', () => {
 
     // Reload: the new definition is persisted and the form is clean again
     await page.reload()
-    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
     await expect(page.getByText('Mock Tools Model (tools)')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Input price (per 1M tokens)', exact: true }).last()).toHaveValue('0.4')
     await page.waitForTimeout(800)
@@ -238,7 +238,7 @@ test.describe('Settings UI', () => {
     })
 
     await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
-    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)
 
     // The stored shape already matches what the form produces: no diff on load.
@@ -256,7 +256,7 @@ test.describe('Settings UI', () => {
     // And it stays that way across a reload — the original regression was the Save
     // button reappearing on every load.
     await page.reload()
-    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
@@ -270,7 +270,7 @@ test.describe('Settings UI', () => {
   // appear, i.e. exactly the transition this regression lived on).
   test('Saving an empty config converges: Save button stays hidden after reload', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
-    await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(500)
 
     // An empty config must already be clean, so the Save below is caused by the edit.
@@ -286,7 +286,7 @@ test.describe('Settings UI', () => {
     // Reload twice: the form must not report any unsaved change.
     for (let i = 0; i < 2; i++) {
       await page.reload()
-      await expect(page.getByText('AI Providers')).toBeVisible({ timeout: 10000 })
+      await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
       await page.waitForTimeout(800)
       await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
     }

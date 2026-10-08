@@ -1,4 +1,6 @@
 import path from 'node:path'
+import { readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { defineConfig } from 'vite'
 import Vue from '@vitejs/plugin-vue'
 import VueRouter from 'vue-router/vite'
@@ -13,9 +15,25 @@ import { commonjsDeps } from '@koumoul/vjsf/utils/build.js'
 import dotenv from 'dotenv'
 dotenv.config({ path: import.meta.resolve('../.env').replace('file://', '') })
 
+// Every vuetify component and directive, as the deep imports vite-plugin-vuetify injects at transform
+// time — which is why the dependency scan never sees them (see optimizeDeps below).
+const vuetifyDir = path.dirname(createRequire(import.meta.url).resolve('vuetify/package.json'))
+const vuetifyDeps = ['components', 'directives'].flatMap(kind =>
+  readdirSync(path.join(vuetifyDir, 'lib', kind), { withFileTypes: true })
+    .filter(entry => entry.isDirectory())
+    .map(entry => `vuetify/${kind}/${entry.name}`))
+
 export default defineConfig({
   base: '/agents',
-  optimizeDeps: { include: [...commonjsDeps, 'easymde'] },
+  // ALL the dependencies, known at startup. Left to discovery, vite finds a dependency the first time a
+  // page imports it, re-optimises, and RELOADS every open page — mid-test, on a dev server whose cache
+  // was just invalidated (a dependency or config change). That failed whichever e2e test was on screen,
+  // a different one each run. The scan misses two kinds: the pages, reached only through the router's
+  // virtual auto-routes module (hence `entries`), and the vuetify components the vuetify plugin injects.
+  optimizeDeps: {
+    entries: ['index.html', 'src/**/*.vue', 'src/**/*.ts'],
+    include: [...commonjsDeps, 'easymde', ...vuetifyDeps]
+  },
   resolve: {
     alias: {
       '~': path.resolve(__dirname, 'src/')
