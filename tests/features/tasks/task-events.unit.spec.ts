@@ -28,11 +28,11 @@ test.describe('taskEvent', () => {
   })
 
   test('a long summary is truncated in the title, and kept whole in the body', () => {
-    const long = { ...run, outcome: { status: 'needs-attention' as const, summary: 'x'.repeat(1000) } }
+    const long = { ...run, outcome: { status: 'needs-attention' as const, summary: 'x'.repeat(10_000) } }
     const event = taskEvent('needs-attention', task, long)
     assert.ok(String(event.title).length < 250)
     assert.match(String(event.title), /…$/)
-    assert.equal(event.body, 'x'.repeat(1000))
+    assert.equal(event.body, 'x'.repeat(10_000))
   })
 
   test('a needs-attention body carries the outcome summary', () => {

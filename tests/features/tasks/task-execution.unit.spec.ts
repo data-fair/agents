@@ -53,8 +53,8 @@ test.describe('validateTaskOutcome', () => {
   })
 
   test('an over-long or empty summary is refused', () => {
-    assert.throws(() => validateTaskOutcome({ status: 'done', summary: 'x'.repeat(1001) }), /at most 1000 characters/)
-    assert.doesNotThrow(() => validateTaskOutcome({ status: 'done', summary: `${'x'.repeat(1000)}   ` }))
+    assert.throws(() => validateTaskOutcome({ status: 'done', summary: 'x'.repeat(10_001) }), /at most 10000 characters/)
+    assert.doesNotThrow(() => validateTaskOutcome({ status: 'done', summary: `${'x'.repeat(10_000)}   ` }))
     assert.throws(() => validateTaskOutcome({ status: 'done', summary: '   ' }), /non-empty string/)
     assert.throws(() => validateTaskOutcome({ status: 'done', summary: 42 }), /non-empty string/)
   })

@@ -85,7 +85,7 @@ export const describeScheduling = (rules: Scheduling[], locale: 'en' | 'fr'): st
 
 export type TaskOutcome = NonNullable<ConversationRun['outcome']>
 export const TASK_OUTCOME_STATUSES: TaskOutcome['status'][] = ['done', 'nothing-to-do', 'needs-attention']
-export const TASK_OUTCOME_SUMMARY_MAX = 1000
+export const TASK_OUTCOME_SUMMARY_MAX = 10_000
 
 /**
  * What `report_outcome` was called with, checked. The AI SDK does not validate a tool's input against
