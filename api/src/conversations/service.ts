@@ -377,8 +377,10 @@ export const rejectPendingApprovals = async (
   // The messages it will change, by seq, so the watching page can be sent exactly those afterwards.
   const seqs = (await mongo.messages.find(filter, { projection: { _id: 0, seq: 1 } }).toArray()).map(m => m.seq)
   if (!seqs.length) return 0
+  // Only the messages read just above: one that starts matching in between is left for the next
+  // rejection rather than changed without the watcher being sent it.
   const result = await mongo.messages.updateMany(
-    filter,
+    { ...filter, seq: { $in: seqs } },
     {
       $set: {
         'parts.$[p].state': 'output-denied',

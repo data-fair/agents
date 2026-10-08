@@ -13,9 +13,8 @@ export type ModelCallUsage = Partial<TokenCounts> & { finishReason?: string }
 
 /**
  * Price one model call and record it everywhere it counts: the usage ledger (with the untrusted pool),
- * and the run's spend and telemetry when a run is given. ONE function, because the seven copies it
- * replaced had already drifted: compaction ignored cache tokens, and the pool id had been added at
- * three sites separately ("without it, their chat spend never reached the pool").
+ * and the run's spend and telemetry when a run is given. Every model call goes through it, so each is
+ * priced the same way (cache tokens included) and always reaches the untrusted pool.
  *
  * - `identity` null: the call is the account's own, with no caller (the admin moderation probe).
  * - `run.steps`: steps of the LEAD's loop this call was — 1 for a lead step, 0 (the default) for
