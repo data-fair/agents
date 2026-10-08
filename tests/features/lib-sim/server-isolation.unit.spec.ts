@@ -17,6 +17,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import os from 'node:os'
 import fs from 'node:fs'
+import path from 'node:path'
 import type { AddressInfo } from 'node:net'
 import { createServer, type BridgeQuery } from '../../../lib-sim/bridge/server.ts'
 
@@ -89,10 +90,21 @@ test.describe('bridge call site', () => {
     assert.deepEqual(options.settingSources, [], 'no project/user settings may be loaded')
     assert.deepEqual(options.tools, [], 'the SDK\'s built-in tools must not be offered')
     assert.equal(options.strictMcpConfig, true, 'only the bridge tool server may be reachable')
+    // The parent Claude Code session's env must be scrubbed; the one CLAUDE_CODE_
+    // variable present is the bridge's own.
     assert.deepEqual(
-      Object.keys(options.env).filter(k => k.startsWith('CLAUDE_CODE_')), [],
+      Object.keys(options.env).filter(k => k.startsWith('CLAUDE_CODE_')), ['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'],
       'the parent Claude Code session\'s env must be scrubbed'
     )
+
+    // The CLI's global config — where it reads the operator's email from and puts it in
+    // front of the model — is a private one inside the neutral cwd, with no email in it.
+    const configDir = options.env.CLAUDE_CONFIG_DIR
+    assert.ok(configDir, 'CLAUDE_CONFIG_DIR must be set, or the CLI reads the operator\'s own')
+    assert.ok(configDir.startsWith(options.cwd + path.sep), `CLAUDE_CONFIG_DIR ${configDir} must be the neutral one`)
+    const seeded = JSON.parse(fs.readFileSync(path.join(configDir, '.claude.json'), 'utf8'))
+    assert.equal(seeded.oauthAccount?.emailAddress, undefined, 'the operator\'s email must not reach the CLI')
+    assert.equal(options.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, '1')
 
     // Without this the query is unabortable and every eviction — TTL, LRU,
     // divergence, client disconnect — leaks a claude subprocess.

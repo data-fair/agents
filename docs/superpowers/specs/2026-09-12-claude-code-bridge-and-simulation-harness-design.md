@@ -87,6 +87,18 @@ passed `process.cwd()` through, every manual dev chat would be answered by a mod
 reading `AGENTS.md` and the memory index — flattering and wrong. **The neutral cwd is an
 invariant of the bridge, asserted by a test.**
 
+*Amended 2026-10-08:* the neutral cwd was not enough either. Every bridged session opened
+with a `session_context` block — "The user's email address is <the operator's>" — which
+the CLI builds from `oauthAccount.emailAddress` in its **global** config whatever
+`systemPrompt` and `settingSources` say; an agent with a memory tool stored that address
+as its simulated user's. Each query now runs on a private `CLAUDE_CONFIG_DIR` inside the
+neutral cwd, seeded with the account minus its email and names (and a fresh
+`profileFetchedAt`, or the CLI refetches the profile and writes the email back), with
+`CLAUDE_SECURESTORAGE_CONFIG_DIR` left on the operator's credential store and
+`CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1` (a background request otherwise wrote the
+email back ~250ms after the context was built). If the CLI ever writes the identity back
+anyway, the next query fails closed (`lib-sim/isolation.ts`).
+
 **1.3 A ~367-token preamble is irreducible.** A plain-string `systemPrompt` is a full
 custom replacement (6523 cached tokens for the `claude_code` preset → 371 total for a
 minimal custom prompt), but a floor remains and it contains the cwd path. The assistant
@@ -150,7 +162,7 @@ implement. `apiKey` is optional for this provider type, so none is needed.
    rendered into a single transcript prompt for a fresh session.
 4. Isolation, fixed and not caller-overridable: `tools: []`, `strictMcpConfig: true`,
    `settingSources: []`, freshly-created neutral temp cwd, `CLAUDE_CODE_*` scrubbed from
-   the child env. Without `tools: []` the first probe run had 27 built-in tools in scope
+   the child env, a private `CLAUDE_CONFIG_DIR` carrying no operator identity (§1.2). Without `tools: []` the first probe run had 27 built-in tools in scope
    and the model reached for `ToolSearch` instead of the tool it was given.
 
 #### 2.3 Response mapping and the suspended tool call
