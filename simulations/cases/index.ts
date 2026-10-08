@@ -12,6 +12,7 @@ import { recordedToolCalls, type SimulationCase, type ParsedExport } from '@data
 import { interruptedWaitResult } from '../../api/src/conversations/interrupted-turn.ts'
 import { MEMORY_TOOL_NAME } from '../../api/src/memory/operations.ts'
 import { REPORT_OUTCOME_TOOL_NAME } from '../../api/src/conversations/service-tool-names.ts'
+import { FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME } from '../../api/src/web/operations.ts'
 import type { SimulatedAgentConfig, SimulatedTask } from '../runner/settings.ts'
 
 /**
@@ -77,6 +78,15 @@ export const memoryCarriedOver: Premise = {
 export const outcomeReported: Premise = {
   description: `the task run called ${REPORT_OUTCOME_TOOL_NAME} successfully`,
   holds: exports => exports.some(exported => recordedToolCalls(exported).some(call => call.toolName === REPORT_OUTCOME_TOOL_NAME && !call.failed))
+}
+
+/** The web readers of docs/architecture/web-access.md. */
+const WEB_READERS = new Set([FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME])
+
+/** The agent read something from the web: a reader call that succeeded, not only refusals. */
+export const readTheWeb: Premise = {
+  description: `a ${FETCH_URL_TOOL_NAME} or ${LIST_SITE_PAGES_TOOL_NAME} call succeeded`,
+  holds: exports => exports.some(exported => recordedToolCalls(exported).some(call => WEB_READERS.has(call.toolName) && !call.failed))
 }
 
 export const cases: LocalCase[] = [
@@ -249,6 +259,36 @@ export const cases: LocalCase[] = [
     },
     persona: 'Nobody is present while this runs. The reader is the organization admin who planned the task: they read its reported outcome afterwards, in the run history, and act on it.',
     goal: 'The admin planned a weekly task: list the city-centre road closures and report the outcome. They want the run to have actually fetched the current city-centre closures, and its reported outcome — status and summary — to be true to what was fetched: the streets and dates as returned, a status that fits, nothing invented. An outcome claiming more than the run did is the worst result for them.',
+    maxTurns: 0
+  },
+  // WEB ACCESS, on the real web: an editorial watcher, unattended, reading our own public sites — the
+  // GitHub releases of the stack and the two documentation/product sites — under URL prefixes that
+  // allow the data-fair organization and not the rest of GitHub. What it exercises is whether a real
+  // model finds its way with the readers alone: release pages or the Atom feed, sitemaps with their
+  // dates, a site's search. No catalog server: the case is about the web, and any platform fact in the
+  // outcome would then have to come from nowhere.
+  // Live sites, so no two runs read the same thing: the judge checks the outcome against what THIS run
+  // fetched, which the export holds in full.
+  {
+    name: 'web-watch-task-run',
+    premise: readTheWeb,
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'unattended',
+    user: 'test1-user1',
+    agent: {
+      title: 'Newsletter scout',
+      persona: 'You prepare the monthly newsletter of the Data Fair open-source project: you find what changed recently and suggest what is worth telling users about.',
+      instructions: 'Data Fair is developed in the GitHub organization data-fair. Its user documentation is at https://docs.koumoul.com/ and its product site at https://datafair.cloud/. Only report what you actually read; when you could not read something, say so.',
+      mcpServers: [],
+      web: { enabled: true, allowedUrls: ['https://github.com/data-fair', 'https://docs.koumoul.com/', 'https://datafair.cloud/'] }
+    },
+    task: {
+      title: 'Newsletter scouting',
+      prompt: 'Every week: find what changed in the last 30 days — the releases of the main data-fair repository (data-fair/data-fair), and the pages added or updated on the documentation and product sites — then report the outcome: three to five newsletter suggestions, each with its date and link, and any documentation gap you noticed (a released feature no documentation page covers).',
+      scheduling: [{ type: 'weekly', month: '*', dayOfMonth: '*', dayOfWeek: '1', hour: 8, minute: 0, timeZone: 'Europe/Paris' }]
+    },
+    persona: 'Nobody is present while this runs. The reader is the newsletter editor of the organization: they read the reported outcome in the run history and pick from its suggestions.',
+    goal: 'The editor wants newsletter suggestions they can trust without re-checking everything: each one taken from something the run actually read on the allowed sites, with a correct date and a working link, recent (the last 30 days) where the run could tell, and a status that fits what was found. A documentation gap is only useful if it is grounded in a release the run read and documentation it checked. Suggestions or dates the run did not read are the worst result for them; saying plainly what could not be read is fine.',
     maxTurns: 0
   }
 ]

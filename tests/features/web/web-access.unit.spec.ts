@@ -60,7 +60,8 @@ const routes: Record<string, (req: http.IncomingMessage, res: http.ServerRespons
   },
   '/projects.xml.gz': (req, res) => {
     res.writeHead(200, { 'content-type': 'application/gzip' }).end(gzipSync(`<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-      <url><loc>${base}/projects/new-portal</loc><lastmod>2026-10-03</lastmod></url></urlset>`))
+      <url><loc>${base}/projects/new-portal</loc><lastmod>2026-10-03</lastmod></url>
+      <url><loc>${base}/projects/undated</loc></url></urlset>`))
   }
 }
 
@@ -168,6 +169,7 @@ test.describe('web access', () => {
     const recent = await listSitePages({ site: `${base}/any/page`, since: '2026-10-01' }, context())
     assert.deepEqual(recent.pages.map(p => p.loc), [`${base}/press/new-dataset`, `${base}/projects/new-portal`])
     assert.equal(recent.total, 2)
+    assert.match(recent.note ?? '', /1 listed page\(s\) have no modification date and were left out by `since`/)
 
     const press = await listSitePages({ site: base, contains: 'press' }, context())
     assert.deepEqual(press.pages.map(p => p.loc), [`${base}/press/new-dataset`, `${base}/press/old`])

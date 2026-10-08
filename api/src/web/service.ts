@@ -189,6 +189,9 @@ export const listSitePages = async (input: ListSitePagesInput, ctx: WebContext):
       }
     }
     if (children.length > MAX_CHILD_SITEMAPS) notes.push(`Only the first ${MAX_CHILD_SITEMAPS} of ${children.length} sitemaps were read.`)
+    // docs.koumoul.com dates its home page only: `since` alone made the rest of the site invisible
+    const undated = input.since ? pages.filter(page => !page.lastmod).length : 0
+    if (undated) notes.push(`${undated} listed page(s) have no modification date and were left out by \`since\`: list without it to see them.`)
     pages = filterEntries(pages, input)
   } else {
     sitemaps.push(...children)

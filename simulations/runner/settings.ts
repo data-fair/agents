@@ -149,6 +149,11 @@ export interface SimulatedAgentConfig {
   mcpServers?: Array<{ serverId: string, toolFilter?: string[] }>
   /** Whether the agent keeps a memory across conversations (off unless a case turns it on). */
   memory?: { enabled: boolean }
+  /**
+   * Web access (docs/architecture/web-access.md). Seeded as is, past the write route's normalization:
+   * give the prefixes in their normalized form (`https://`, a trailing `/` on a bare host).
+   */
+  web?: { enabled: boolean, allowedUrls?: string[] }
 }
 
 /** The agent a case gets when it configures nothing. */
@@ -161,7 +166,9 @@ export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
   mcpServers: [{ serverId: 'dev-review-session-mcp' }],
   // Off, as the product's own default: a case not about memory must not have its later conversations
   // shaped by what an earlier one wrote.
-  memory: { enabled: false }
+  memory: { enabled: false },
+  // Off too: a case not about the web must not reach it.
+  web: { enabled: false }
 }
 
 /**
