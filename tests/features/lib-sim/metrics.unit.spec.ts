@@ -70,7 +70,9 @@ test.describe('parseConversationExport', () => {
     // input, so the call has to be read back from the blob.
     const big = 'x'.repeat(EXTRACT_THRESHOLD + 1)
     const calls = recordedToolCalls(exported({ parts: [toolPart('list_road_closures', { city: 'Lyon' }, { output: big })] }))
-    assert.deepEqual(calls, [{ toolName: 'list_road_closures', input: { city: 'Lyon' }, failed: false }])
+    assert.deepEqual(calls.map(({ part, ...call }) => call), [{ toolName: 'list_road_closures', input: { city: 'Lyon' }, failed: false }])
+    // The whole part, from the blob — not the stub, which has no output.
+    assert.equal(calls[0].part.output, big)
   })
 })
 

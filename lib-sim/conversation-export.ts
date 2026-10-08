@@ -71,8 +71,13 @@ export function parseConversationExport (exported: ConversationExport): ParsedEx
   return parsed
 }
 
-/** A tool call the conversation recorded: one `dynamic-tool` part, whatever state it ended in. */
-export type RecordedToolCall = { toolName: string, input: unknown, failed: boolean }
+/**
+ * A tool call the conversation recorded: one `dynamic-tool` part, whatever state it ended in.
+ *
+ * `part` is that part whole, read back from its blob when it was lifted, for a host reading a field
+ * this type does not name — an approval's decision, its state — without re-implementing the lifting.
+ */
+export type RecordedToolCall = { toolName: string, input: unknown, failed: boolean, part: Record<string, unknown> }
 
 /** Every tool call of a conversation, in order, a lifted part read back from its blob. */
 export function recordedToolCalls (parsed: ParsedExport): RecordedToolCall[] {
@@ -81,7 +86,7 @@ export function recordedToolCalls (parsed: ParsedExport): RecordedToolCall[] {
     for (const stub of message.parts) {
       const part = (stub.__ref ? parsed.blobs.get(stub.__ref) as ExportPart | undefined : undefined) ?? stub
       if (part.type !== 'dynamic-tool' || !part.toolName) continue
-      calls.push({ toolName: part.toolName, input: part.input, failed: part.state === 'output-error' })
+      calls.push({ toolName: part.toolName, input: part.input, failed: part.state === 'output-error', part: part as Record<string, unknown> })
     }
   }
   return calls

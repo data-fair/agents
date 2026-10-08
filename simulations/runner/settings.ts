@@ -147,6 +147,8 @@ export interface SimulatedAgentConfig {
   instructions?: string
   /** Catalog entries from `api/config/development.js`, each optionally narrowed by a toolFilter. */
   mcpServers?: Array<{ serverId: string, toolFilter?: string[] }>
+  /** Whether the agent keeps a memory across conversations (off unless a case turns it on). */
+  memory?: { enabled: boolean }
 }
 
 /** The agent a case gets when it configures nothing. */
@@ -156,7 +158,10 @@ export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
   instructions: 'Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
   // The long-running review server (npm run dev-mcp), not the per-spec fixture: a simulation is
   // not a spec and nothing would be listening on the fixture's port.
-  mcpServers: [{ serverId: 'dev-review-session-mcp' }]
+  mcpServers: [{ serverId: 'dev-review-session-mcp' }],
+  // Off, as the product's own default: a case not about memory must not have its later conversations
+  // shaped by what an earlier one wrote.
+  memory: { enabled: false }
 }
 
 /**
@@ -226,12 +231,67 @@ export async function fetchConversationExports (owner: { type: string, id: strin
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
   const base = `/api/review/${owner.type}/${owner.id}`
-  const listed = (await admin.get(`${base}?size=200`)).data.results as Array<{ conversationId: string, userId?: string, agentId?: string }>
+  const listed = (await admin.get(`${base}?size=200`)).data.results as Array<{ conversationId: string, userId?: string, agentId?: string, startedAt?: string }>
   const exports: ConversationExport[] = []
-  for (const conversation of listed.filter(c => c.userId === userId)) {
+  // OLDEST FIRST, whatever order review lists them in (latest activity first): a case with several
+  // conversations has a premise about which came first — memory written in the first one, read in the
+  // next — and that must not hang on a listing order chosen for an admin's screen.
+  const mine = listed.filter(c => c.userId === userId).sort((a, b) => (a.startedAt ?? '').localeCompare(b.startedAt ?? ''))
+  for (const conversation of mine) {
     // responseType text: the body is JSONL, and axios would otherwise try to parse it as one JSON value.
     const res = await admin.get(`${base}/${conversation.conversationId}/export`, { responseType: 'text', transformResponse: [(data: string) => data] })
     exports.push({ conversationId: conversation.conversationId, agentId: conversation.agentId, jsonl: res.data })
   }
   return exports
+}
+
+/** What an unattended case plans: a task as an admin would write it (the task-write-req body). */
+export interface SimulatedTask {
+  title: string
+  prompt: string
+  /** data-fair processings' rule array; a rule here must respect the deployment's minimum interval. */
+  scheduling: Array<Record<string, unknown>>
+}
+
+/** Long enough for a slow multi-step turn; a task run has its own deadline well under this. */
+export const TASK_RUN_TIMEOUT_MS = 10 * 60 * 1000
+
+/**
+ * Plan the task on the agent a route names, press "run now", and wait for the run to end.
+ *
+ * Through the product's own routes, as an admin presses the button: the run is the same one a
+ * scheduled slot starts (trigger `manual`), so nothing about its content depends on how it was
+ * started. Not through the scheduler: in development its poll leaves `test*` accounts alone, and an
+ * injected-clock pass would add a seam to a case whose subject is the run, not the schedule.
+ *
+ * Returns the run as it ended. A `skipped` start (the account's credit cap) is refused by the route
+ * with a 409, so it surfaces here as a thrown error and the case is recorded invalid.
+ */
+export async function runPlannedTask (route: string, task: SimulatedTask, timeoutMs = TASK_RUN_TIMEOUT_MS) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const { owner, agentId } = parseAutonomousAgentRoute(route)
+  const base = `/api/autonomous-agents/${owner.type}/${owner.id}/${agentId}`
+  const created = (await admin.post(`${base}/tasks`, task)).data as { id: string }
+  const runId = (await admin.post(`${base}/tasks/${created.id}/run`)).data.runId as string
+  const deadline = Date.now() + timeoutMs
+  for (;;) {
+    const run = (await admin.get(`${base}/runs/${runId}`)).data as { id: string, status: string, error?: string }
+    if (run.status !== 'running') return { owner, agentId, taskId: created.id, run }
+    if (Date.now() > deadline) throw new Error(`task run ${runId} was still running after ${Math.round(timeoutMs / 1000)}s`)
+    await new Promise(resolve => setTimeout(resolve, 1000))
+  }
+}
+
+/**
+ * A task run's export: the SAME file format as a conversation's (meta, outline, the prompt and the
+ * answer as two messages, the run with its calls), from the route an admin downloads it with. So the
+ * judge reads an unattended run exactly as it reads a chat, and the premise and the metrics parse it
+ * with the same code. `conversationId` is the run's id: the evidence file is named after it.
+ */
+export async function fetchTaskRunExport (owner: { type: string, id: string }, agentId: string, runId: string): Promise<ConversationExport> {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const res = await admin.get(`/api/autonomous-agents/${owner.type}/${owner.id}/${agentId}/runs/${runId}/export`, { responseType: 'text', transformResponse: [(data: string) => data] })
+  return { conversationId: runId, agentId, jsonl: res.data }
 }

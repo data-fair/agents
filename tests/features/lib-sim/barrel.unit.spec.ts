@@ -15,13 +15,13 @@ test.describe('package barrel', () => {
     const expected: string[] = [
       'createNeutralCwd', 'scrubEnv', 'isolationOptions',
       'parseConversationExport', 'recordedToolCalls',
-      'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE',
+      'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE', 'NEW_CONVERSATION_ROLE',
       'PERSONA_MAX_TURNS', 'PERCEPTION_INSTRUCTIONS', 'DEFAULT_USER_MODEL', 'resolveUserModel',
       'writeEvidence', 'evidenceDir', 'exportFileName',
       'computeMetrics',
       'selectCases',
       'reportCases',
-      'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS', 'WAITING_SELECTOR',
+      'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS', 'WAITING_SELECTOR', 'APPROVAL_SELECTOR',
       'createPagePerception', 'truncate', 'SNAPSHOT_CAP', 'ACTION_TIMEOUT_MS', 'PAGE_MCP_SERVER_NAME'
     ]
     assert.deepEqual(Object.keys(pkg).sort(), expected.sort())

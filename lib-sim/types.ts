@@ -20,20 +20,41 @@ export type SimulationCase = {
    * What the case is dispatched as. Defaults to the in-page assistant; 'autonomous-agent' means the
    * chat is opened on a configured autonomous agent, so the runner seeds that agent. The UI is the
    * same chat either way, and so is the evidence.
+   *
+   * 'unattended' means NOBODY is in the loop — a run the host starts itself (a planned task), which no
+   * chat shows and no person answers. The runner drives no persona: `maxTurns` is 0, `persona` names
+   * the absent reader of the result (it is never simulated), and the run is judged from its export
+   * alone. Expressed as a surface rather than as an empty persona, so the transcript, the report and
+   * the judge can all say "nobody was there" instead of reading an empty conversation as a person who
+   * never spoke.
    */
-  surface?: 'in-page-chat' | 'autonomous-agent'
+  surface?: 'in-page-chat' | 'autonomous-agent' | 'unattended'
   /**
    * Who to log in as. Defaults to the account the runner seeds settings for. A case targeting an
    * existing autonomous agent needs someone who may instruct it, which that account is not.
    */
   user?: string
+  /**
+   * How many separate conversations the person has, one after the other. Defaults to 1. The person
+   * ends each one with DONE; the runner then opens a NEW conversation with the same assistant (the
+   * chat's reset button) and the person carries on. What a case about something outliving a
+   * conversation — an agent's memory — needs: one transcript, every conversation in it, judged
+   * together. `maxTurns` is the budget of the whole run, not of each conversation.
+   */
+  conversations?: number
 }
 
 export type Transcript = {
   case: string
+  /** The case's surface, when not the default: 'unattended' tells the judge nobody was there. */
+  surface?: SimulationCase['surface']
   goal: string
   persona: string
   route: string
+  /**
+   * What was said, as rendered. A case with several conversations has them all here, in order, each
+   * new one opened by an entry of role `NEW_CONVERSATION_ROLE` (persona.ts).
+   */
   conversation: Array<{ role: string, text: string }>
   consoleErrors: string[]
   observations: Observation[]

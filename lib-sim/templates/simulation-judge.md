@@ -40,6 +40,21 @@ A case name, the person's goal, and paths to the evidence. Read the files with
   facts, not as a score: nothing in `metrics` is a pass mark, and a number only
   means something once you have seen in the transcript what produced it.
 
+Two shapes of run differ from a single chat:
+
+- **Several conversations.** `conversation` may hold more than one, in order, each
+  new one opened by an entry of role `new-conversation`; there is one export per
+  conversation, oldest first. The person remembers the earlier ones; the assistant
+  only knows what it carried over (an agent's memory, for instance). Judge them
+  together, and count friction turns across the whole run.
+- **`surface: "unattended"`.** Nobody was there: a planned task ran on its own
+  and there are no persona turns, so `conversation` and `observations` are empty
+  by construction, not by silence. `persona` names the absent reader of the
+  result. The export is the run — the task's prompt as the user message, then
+  everything the agent did — and the goal says what that reader needed from it.
+  `satisfied` is whether the run did what the task asked and reported an outcome
+  that is true to what its tools returned. A friction's `turn` is then 1.
+
 **Read the architecture documentation before judging.** `docs/architecture/` in
 this repository describes what the assistant is supposed to be, what the tools
 promise, and what the chat harness does on its own. Start with the document

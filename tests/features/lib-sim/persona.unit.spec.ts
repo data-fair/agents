@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, PERSONA_MAX_TURNS, DEFAULT_USER_MODEL, resolveUserModel, type PersonaQuery } from '../../../lib-sim/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, NEW_CONVERSATION_ROLE, isDone, nextUserMessage, PERSONA_MAX_TURNS, DEFAULT_USER_MODEL, resolveUserModel, type PersonaQuery } from '../../../lib-sim/persona.ts'
 import type { PagePerception } from '../../../lib-sim/page-perception.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
@@ -41,6 +41,26 @@ test.describe('persona prompting', () => {
     assert.ok(p.includes('clicked "Enregistrer"'))
     assert.ok(!p.includes('## page'), 'looks are not actions')
     assert.ok(!personaPrompt([{ role: 'assistant', text: 'x' }], 3).includes('What you have done'))
+  })
+
+  test('a case with several conversations says so, and DONE ends only the current one', () => {
+    const p = personaSystemPrompt({ ...c, conversations: 2 })
+    assert.ok(p.includes('2 separate conversations'))
+    assert.ok(!personaSystemPrompt(c).includes('separate conversations'), 'a one-conversation case is unchanged')
+  })
+
+  test('after a new conversation is opened, the persona writes its first message in it', () => {
+    const p = personaPrompt([
+      { role: 'user', text: 'always list streets first' },
+      { role: 'assistant', text: 'noted' },
+      { role: NEW_CONVERSATION_ROLE, text: 'you opened a new conversation' }
+    ], 4)
+    // The earlier conversation is still the person's memory, the boundary is visible, and the ask is
+    // an opening message rather than a reply to the last assistant line.
+    assert.ok(p.includes('always list streets first'))
+    assert.ok(p.includes('--- you opened a new conversation ---'))
+    assert.ok(p.includes('new, empty conversation'))
+    assert.ok(!p.includes('assistant: you opened'), 'the boundary is not put in the assistant\'s mouth')
   })
 
   test('warns the persona when it is nearly out of turns', () => {

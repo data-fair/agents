@@ -71,7 +71,9 @@ export function reportCases (cases: SimulationCase[], evidenceDir: string): numb
       if (verdict.satisfied !== true) failures++
       frictions = String(verdict.frictions.length)
     }
-    rows.push([c.name, run?.assistantModel ?? '-', String(run?.turns ?? '-'), state, frictions, run ? `${Math.round(run.durationMs / 1000)}s` : '-'])
+    // 'unattended', not 0: nobody was there to take a turn, which is not a person who never spoke.
+    const turns = c.surface === 'unattended' ? 'unattended' : String(run?.turns ?? '-')
+    rows.push([c.name, run?.assistantModel ?? '-', turns, state, frictions, run ? `${Math.round(run.durationMs / 1000)}s` : '-'])
   }
 
   const widths = rows[0].map((_, i) => Math.max(...rows.map(r => r[i].length)))

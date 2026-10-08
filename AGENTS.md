@@ -160,7 +160,9 @@ imports it by package name, so a stale build silently runs the old code and
 still reports the run valid — and `npm run dev-bridge`. Orchestrated by the
 `/agents-sim` skill; cases live in `simulations/cases/index.ts`. A case may declare a `premise` —
 what must have happened for the run to test it, such as the person writing during a wait — and a run
-where it did not hold is recorded invalid rather than judged. Never added to
+where it did not hold is recorded invalid rather than judged. A case may span several conversations
+(`conversations`: the person's DONE ends one and the runner opens the next), or be `unattended`: a
+planned task the runner runs itself, with no persona at all, judged from the run's export. Never added to
 `playwright.config.ts` — a bare `npm run test` would otherwise spend plan
 quota.
 

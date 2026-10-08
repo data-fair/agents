@@ -8,9 +8,11 @@
  * the same WebMCP path a host application uses.
  */
 
-import type { SimulationCase, ParsedExport } from '@data-fair/lib-agents-sim'
+import { recordedToolCalls, type SimulationCase, type ParsedExport } from '@data-fair/lib-agents-sim'
 import { interruptedWaitResult } from '../../api/src/conversations/interrupted-turn.ts'
-import type { SimulatedAgentConfig } from '../runner/settings.ts'
+import { MEMORY_TOOL_NAME } from '../../api/src/memory/operations.ts'
+import { REPORT_OUTCOME_TOOL_NAME } from '../../api/src/conversations/service-tool-names.ts'
+import type { SimulatedAgentConfig, SimulatedTask } from '../runner/settings.ts'
 
 /**
  * What must have HAPPENED for a run to have tested its case — not what the product should do, which
@@ -20,15 +22,17 @@ import type { SimulatedAgentConfig } from '../runner/settings.ts'
  */
 export interface Premise {
   description: string
+  /** The run's exports, OLDEST conversation first (see fetchConversationExports). */
   holds: (exports: ParsedExport[]) => boolean
 }
 
 // The package's SimulationCase stays primitives-only; embedded is host-specific
 // wiring (whether the chat runs inside an iframe) that only this repo's runner
 // needs to know about, and so is a premise, which reads this service's export.
-// `agent` configures the autonomous agent an `autonomous-agent` case drives (see
-// seedAutonomousAgent); any field left out is the default agent's.
-export type LocalCase = SimulationCase & { embedded?: boolean, premise?: Premise, agent?: SimulatedAgentConfig }
+// `agent` configures the autonomous agent an `autonomous-agent` or `unattended` case drives (see
+// seedAutonomousAgent); any field left out is the default agent's. `task` is what an `unattended`
+// case plans on that agent and runs (see runPlannedTask) — the only thing such a case does.
+export type LocalCase = SimulationCase & { embedded?: boolean, premise?: Premise, agent?: SimulatedAgentConfig, task?: SimulatedTask }
 
 /** The person wrote while a wait was pending: a wait settled with the interruption, in the API's own words. */
 const INTERRUPTED_WAIT = interruptedWaitResult('').split(' (')[0]
@@ -36,6 +40,43 @@ export const spokeDuringWait: Premise = {
   description: 'the person wrote while a wait_for_user_action was pending',
   holds: exports => exports.some(exported => exported.messages.some(message => message.parts.some((part: any) =>
     part.type === 'dynamic-tool' && part.toolName === 'wait_for_user_action' && typeof part.output === 'string' && part.output.startsWith(INTERRUPTED_WAIT))))
+}
+
+/** The destructive fixture tool the approval case is about (tests/support/mcp-fixture.ts). */
+const DESTRUCTIVE_TOOL = 'wipe_everything'
+
+/**
+ * A call stopped for approval and DECIDED ON THE CARD by the person. Read off `toolMetadata.decision`,
+ * which only a decision through the card writes (api/src/conversations/service.ts decideApproval) — a
+ * request the person talked past is rejected too, but as "sent a new message instead of deciding",
+ * and with no decision recorded: that run never had the person decide, which is what the case is about.
+ */
+export const approvalDecided: Premise = {
+  description: `a ${DESTRUCTIVE_TOOL} call was stopped for approval and the person decided on it`,
+  holds: exports => exports.some(exported => recordedToolCalls(exported).some(call =>
+    call.toolName === DESTRUCTIVE_TOOL && typeof (call.part.toolMetadata as any)?.decision?.approved === 'boolean'))
+}
+
+/** The memory commands that change the store; `view` reads it. */
+const MEMORY_WRITES = new Set(['create', 'str_replace', 'insert', 'rename'])
+const wroteMemory = (exported: ParsedExport) => recordedToolCalls(exported).some(call =>
+  call.toolName === MEMORY_TOOL_NAME && !call.failed && MEMORY_WRITES.has(String((call.input as any)?.command)))
+
+/**
+ * Memory was written in an EARLIER conversation than the last one, and there was a later one to use it
+ * in. Through the tool, in the conversation: reflection would also write, but only past 20 messages or
+ * after 30 idle minutes, so in a run this short a write can only be the agent's own call. A write in the
+ * last conversation alone means the person restated what was to be remembered — the case did not run.
+ */
+export const memoryCarriedOver: Premise = {
+  description: 'the agent wrote its memory in a conversation before the last one',
+  holds: exports => exports.length >= 2 && exports.slice(0, -1).some(wroteMemory)
+}
+
+/** The task run reported its outcome: the call that ends a task run, succeeded (not a refused input). */
+export const outcomeReported: Premise = {
+  description: `the task run called ${REPORT_OUTCOME_TOOL_NAME} successfully`,
+  holds: exports => exports.some(exported => recordedToolCalls(exported).some(call => call.toolName === REPORT_OUTCOME_TOOL_NAME && !call.failed))
 }
 
 export const cases: LocalCase[] = [
@@ -137,5 +178,77 @@ export const cases: LocalCase[] = [
     persona: 'You are an office worker using an internal tool for the first time. You are not technical and you describe what you want in plain words. You are careful: before pressing a button that creates something, you always first ask a question in the chat to double-check, and you press it only once you have the answer. You never claim to have pressed a button you did not press.',
     goal: 'You want a list called "Team lunch" set up. When the assistant says it is ready, you first ask it in the chat what the list will be called, because you are not sure it got the name right; once it answers, you press the Create button yourself. After pressing it you wait: you expect the assistant to tell you on its own that the list was created, without you having to ask or report it.',
     maxTurns: 6
+  },
+  // THE APPROVAL GATE, from the person's chair: a destructive call stops the turn on a card in the
+  // chat, and the person decides. APPROVE rather than reject, because approving is the longer path and
+  // the one that can go wrong in more places: the decision goes over the socket, starts a NEW run that
+  // replays the step, executes the call, and the agent then has to report what it did — a claim the
+  // export can check against the call's real result. A rejection only replays a refusal.
+  // The goal makes the approval conditional on the agent having said plainly what will happen, so a
+  // card that appears with no explanation is something the person reacts to rather than clicks through.
+  // The card's Approve button is an ordinary button, which the persona's `click` reaches by its name;
+  // the driver reports a turn stopped on it as the person's move (TurnOutcome 'approval'), so the
+  // runner lets them decide before typing anything.
+  {
+    name: 'autonomous-agent-approval',
+    premise: approvalDecided,
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'autonomous-agent',
+    user: 'test1-user1',
+    agent: {
+      title: 'Road works data steward',
+      persona: 'You look after the road-closures data workspace of the city operations team. You answer briefly and plainly.',
+      // Honest about the fixture: wipe_everything's own description says it does nothing, and it does
+      // nothing. Telling the agent otherwise would make any truthful report it gives read as a lie.
+      instructions: 'list_road_closures reads the current road closures of a district. wipe_everything is this workspace\'s reset: it is declared destructive, so each call is put to the person in the chat for approval before it runs. This is a demonstration workspace and the reset is a stand-in: as its own description says, it changes no data. Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
+      mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures', DESTRUCTIVE_TOOL] }]
+    },
+    persona: 'You are the operations manager who owns the city\'s road-works data workspace. You are not technical and you never use words like tool, API or MCP. You are careful with anything that cannot be undone: you do not agree to it until someone has told you, in plain words, what it will do.',
+    goal: 'Before tomorrow\'s demo you want the workspace reset to a clean state. First you want to see which closures are recorded for the city centre right now; then you want the reset done. If the screen asks you to approve something, you look at it and decide yourself by pressing the button — you approve only once the assistant has said plainly, in the chat, what the reset will do; if it has not, you ask before deciding. Afterwards you want to be told plainly whether the reset actually happened.',
+    maxTurns: 7
+  },
+  // MEMORY ACROSS CONVERSATIONS: what the person said once should shape a later conversation they did
+  // not repeat it in. Two conversations in one run (`conversations: 2`): the person ends the first with
+  // DONE, the runner opens a new one with the chat's reset button, and both are exported and judged
+  // together — the second conversation only means something next to the first.
+  // A presentation preference rather than a fact, because its use is visible in the answer itself: a
+  // table with the street first either appears unasked or it does not.
+  {
+    name: 'autonomous-agent-memory',
+    premise: memoryCarriedOver,
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'autonomous-agent',
+    user: 'test1-user1',
+    conversations: 2,
+    agent: {
+      mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }],
+      memory: { enabled: true }
+    },
+    persona: 'You are an operations manager at a mid-sized French city. You are not technical and you never use words like tool, API or MCP. You have fixed habits about how you like information laid out, and you dislike repeating yourself.',
+    goal: 'You will have two conversations with this assistant. In the first, you tell it a lasting preference: whenever it gives you road closures, it must lay them out as a table with the street in the first column and the reopening date in the second — and you ask it to remember that for next time. Once it has confirmed it will, you end that conversation. In the second, new conversation you ask for the current road closures in the city centre WITHOUT repeating your preference, because you want to see whether it applies it on its own. If it does not, you say so.',
+    maxTurns: 8
+  },
+  // A PLANNED TASK'S RUN: the unattended path, where nobody is in the loop. No persona turns at all —
+  // `surface: 'unattended'`, `maxTurns: 0` — the runner plans the task, presses "run now" as an admin
+  // would, waits for the run to end and reads its export (the same file format as a chat's). The
+  // persona names the absent reader of the outcome; it is never simulated.
+  {
+    name: 'scheduled-task-run',
+    premise: outcomeReported,
+    // Names the agent the task belongs to; no page is opened.
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'unattended',
+    user: 'test1-user1',
+    agent: { mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }] },
+    task: {
+      title: 'Weekly city-centre road closures',
+      prompt: 'Every Monday: list the current road closures in the city centre, with the street, the dates and the reason for each, and report the outcome.',
+      // Monday 08:00, Paris: within the deployment's minimum interval, and it never fires on its own —
+      // in development the scheduler leaves `test*` accounts alone.
+      scheduling: [{ type: 'weekly', month: '*', dayOfMonth: '*', dayOfWeek: '1', hour: 8, minute: 0, timeZone: 'Europe/Paris' }]
+    },
+    persona: 'Nobody is present while this runs. The reader is the organization admin who planned the task: they read its reported outcome afterwards, in the run history, and act on it.',
+    goal: 'The admin planned a weekly task: list the city-centre road closures and report the outcome. They want the run to have actually fetched the current city-centre closures, and its reported outcome — status and summary — to be true to what was fetched: the streets and dates as returned, a status that fits, nothing invented. An outcome claiming more than the run did is the worst result for them.',
+    maxTurns: 0
   }
 ]

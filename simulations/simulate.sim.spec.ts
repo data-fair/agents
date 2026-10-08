@@ -6,10 +6,10 @@
  */
 import { test } from '../tests/fixtures/login.ts'
 import { cases } from './cases/index.ts'
-import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, fetchConversationExports, OWNER } from './runner/settings.ts'
+import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, fetchConversationExports, runPlannedTask, fetchTaskRunExport, OWNER } from './runner/settings.ts'
 import {
   createChatDriver,
-  nextUserMessage, isDone, resolveUserModel,
+  nextUserMessage, isDone, resolveUserModel, NEW_CONVERSATION_ROLE,
   writeEvidence, type TranscriptInput, parseConversationExport,
   selectCases,
   createPagePerception
@@ -45,24 +45,14 @@ for (const simCase of selected) {
     await page.context().addCookies([{ name: CONSENT_COOKIE, value: CONSENT_YES, url: `http://localhost:${process.env.NGINX_PORT}` }])
 
     const conversation: Array<{ role: string, text: string }> = []
-    let perception: ReturnType<typeof createPagePerception> | undefined
-    try {
-      // Setup lives inside the try too: a case that fails to dispatch (bridge
-      // down, seeding rejected) must still write an invalid sidecar naming the
-      // error, rather than leaving a previous run's evidence on disk to be
-      // mistaken for this run's result.
-      await assertBridgeUp()
-      await clean()
-      if (simCase.surface === 'autonomous-agent') {
-        owner = parseAutonomousAgentRoute(simCase.route).owner
-        await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL, owner)
-        // Seeded here rather than assumed present: `npm run dev-fixtures` would be an unstated
-        // prerequisite, and its agent lives on an account deliberately wired to the mock model.
-        await seedAutonomousAgent(simCase.route, user, simCase.agent)
-      } else {
-        await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL)
-      }
+    // Cast rather than annotated: it is assigned inside converse(), which control-flow analysis does
+    // not follow, so an annotated `let` read after the call would be narrowed to `undefined`.
+    let perception = undefined as ReturnType<typeof createPagePerception> | undefined
+    // Set by an unattended case: the run it started, whose export is the whole of its evidence.
+    let taskRun: { agentId: string, runId: string } | undefined
 
+    /** The chat half of a case: a person, a page, and turns until they are done or out of turns. */
+    const converse = async () => {
       // OWNER, not a literal: seedSettings configures that account, and logging in
       // as anyone else would fail every case with "no provider configured".
       // A case may name its own user: one driving an existing autonomous agent needs someone who may
@@ -90,38 +80,62 @@ for (const simCase of selected) {
       // Settings, which a real user can open and which chat-driver.ts's
       // Escape-and-retry is what makes survivable — Settings (and every other
       // ordinary product control) stays reachable to the persona.
-      perception = createPagePerception(
+      const perceived = createPagePerception(
         simCase.embedded
           ? [{ label: 'page', root: page }, { label: 'chat panel', root: page.frameLocator('iframe') }]
           : [{ label: 'page', root: page }],
         { offLimits: chat.offLimits }
       )
+      perception = perceived
 
-      // Set when the assistant ended a turn by declaring wait_for_user_action rather
-      // than by finishing: it handed control to the person, who only exists inside
-      // nextUserMessage — so the next pass is where they act on it.
+      // Set when the assistant ended a turn by handing control to the person rather than by
+      // finishing — a wait_for_user_action, or a call stopped for their approval: the person only
+      // exists inside nextUserMessage, so the next pass is where they act on it.
       let handedOver = false
 
+      // A case may span several conversations (memory outliving one is the reason). `conversation`
+      // keeps them all, in order; `closed` is how many of its entries belong to conversations already
+      // ended, so the screen — which only ever shows the current one — replaces only the rest.
+      const conversations = simCase.conversations ?? 1
+      let current = 1
+      let closed = 0
+      const showOnScreen = (read: Array<{ role: string, text: string }>) => {
+        conversation.length = closed
+        conversation.push(...read)
+      }
+
       for (let i = 0; i < simCase.maxTurns; i++) {
-        perception.setTurn(i + 1)
-        const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
+        perceived.setTurn(i + 1)
+        const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception: perceived })
         if (handedOver) {
-          // The pass above was the person's chance to act on the wait. If they took it,
-          // the wait resolved and the assistant is finishing the turn it paused: let it,
-          // rather than speaking over it or ending the run under it. Ignored, the wait is
-          // still armed and this returns 'waiting' at once.
-          handedOver = (await chat.waitForTurn()) === 'waiting'
+          // The pass above was the person's chance to act on the handover. If they took it,
+          // the assistant is finishing the turn it paused (or, for an approval, the turn their
+          // decision started): let it, rather than speaking over it or ending the run under it.
+          // Ignored, it is still pending and this returns at once — after the driver's short look
+          // for a Stop button, for an approval, since nothing is running then.
+          handedOver = (await chat.waitForTurn()) !== 'ended'
           const resumed = await chat.readConversation()
-          const changed = resumed.length !== conversation.length
-          conversation.length = 0
-          conversation.push(...resumed)
+          const changed = resumed.length !== conversation.length - closed
+          showOnScreen(resumed)
           // Whatever the person wrote in that pass, they wrote it before the reply their
           // action caused: a judged run ended on the click, others sent "what was just
           // created?" under the very message that said so, interrupting the next wait.
           // Drop it and let them read the reply first — stopping included.
           if (changed) continue
         }
-        if (isDone(message)) break
+        if (isDone(message)) {
+          if (current >= conversations) break
+          // DONE ends THIS conversation; the case asked for another. Opened by the runner, as the
+          // composer is sent by it: the reset button is off-limits to the persona. The boundary is
+          // an entry of the transcript, so the person (persona.ts), the judge and the metrics all
+          // read one record in order.
+          await chat.newConversation()
+          current++
+          conversation.push({ role: NEW_CONVERSATION_ROLE, text: `you opened a new conversation (${current} of ${conversations}); the chat is empty again` })
+          closed = conversation.length
+          handedOver = false
+          continue
+        }
         if (message === '') {
           // Distinct from a real stop: the persona subprocess produced no text
           // at all (refusal, swallowed error, empty completion). Recording this
@@ -131,16 +145,44 @@ for (const simCase of selected) {
           break
         }
         await chat.sendMessage(message)
-        handedOver = (await chat.waitForTurn()) === 'waiting'
+        handedOver = (await chat.waitForTurn()) !== 'ended'
         // Read first, then replace: clearing up front meant a throw from
         // readConversation left the transcript empty, losing every prior turn.
-        const read = await chat.readConversation()
-        conversation.length = 0
-        conversation.push(...read)
+        showOnScreen(await chat.readConversation())
         // Counted only once the turn is actually reflected in the transcript,
         // so a throw from sendMessage/waitForTurn/readConversation does not
         // inflate the sidecar's turn count past what the transcript shows.
         turns++
+      }
+    }
+
+    try {
+      // Setup lives inside the try too: a case that fails to dispatch (bridge
+      // down, seeding rejected) must still write an invalid sidecar naming the
+      // error, rather than leaving a previous run's evidence on disk to be
+      // mistaken for this run's result.
+      await assertBridgeUp()
+      await clean()
+      if (simCase.surface === 'autonomous-agent' || simCase.surface === 'unattended') {
+        owner = parseAutonomousAgentRoute(simCase.route).owner
+        await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL, owner)
+        // Seeded here rather than assumed present: `npm run dev-fixtures` would be an unstated
+        // prerequisite, and its agent lives on an account deliberately wired to the mock model.
+        await seedAutonomousAgent(simCase.route, user, simCase.agent)
+      } else {
+        await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL)
+      }
+
+      if (simCase.surface === 'unattended') {
+        // NOBODY IN THE LOOP: no page is opened and no persona is asked anything — a planned task's
+        // run has no chat and no person, and simulating one would test a situation the product never
+        // has. The runner plays the admin pressing "run now" and waits for the run to end; the route
+        // only names the agent. Thrown when the case is malformed, so it is reported, not skipped.
+        if (!simCase.task) throw new Error('an unattended case must declare the task it runs')
+        const { run, agentId } = await runPlannedTask(simCase.route, simCase.task)
+        taskRun = { agentId, runId: run.id }
+      } else {
+        await converse()
       }
     } catch (err) {
       error = err instanceof Error ? err.message : String(err)
@@ -152,7 +194,10 @@ for (const simCase of selected) {
     let exports: TranscriptInput['exports'] = []
     const evidenceErrors: string[] = []
     try {
-      exports = await fetchConversationExports(owner, user)
+      // A task run is not a conversation and is not listed with them: its export is read by the run's
+      // own route, in the same format.
+      if (simCase.surface === 'unattended') exports = taskRun ? [await fetchTaskRunExport(owner, taskRun.agentId, taskRun.runId)] : []
+      else exports = await fetchConversationExports(owner, user)
     } catch (err) {
       evidenceErrors.push(`could not export the run's conversations: ${err instanceof Error ? err.message : String(err)}`)
     }
@@ -169,6 +214,9 @@ for (const simCase of selected) {
 
     const transcript: TranscriptInput = {
       case: simCase.name,
+      // Present when not the default, so a judge reading 'unattended' knows the empty conversation is
+      // nobody having been there, not a person who never spoke.
+      ...(simCase.surface ? { surface: simCase.surface } : {}),
       goal: simCase.goal,
       persona: simCase.persona,
       route: simCase.route,

@@ -17,6 +17,13 @@ import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 export const DONE = 'DONE'
 
 /**
+ * The role of the transcript entry that opens a new conversation, in a case with several
+ * (`SimulationCase.conversations`). An entry rather than a second transcript, so the person, the
+ * judge and the metrics read one ordered record, and the boundary is where it happened.
+ */
+export const NEW_CONVERSATION_ROLE = 'new-conversation'
+
+/**
  * The model the simulated person runs on unless the caller overrides it.
  *
  * Exported because hosts record which model ran, in a sidecar whose whole point
@@ -121,6 +128,14 @@ export function personaSystemPrompt (c: SimulationCase, perceptionEnabled = fals
     'Reply with ONLY the message you would type next — no quotes, no narration, no stage directions.',
     `When you have what you wanted, or you are convinced you will not get it, reply with exactly ${DONE} and nothing else.`
   ]
+  // Said up front: otherwise the person reads DONE as the end of everything, and a run built to
+  // test what outlives a conversation ends with the first one.
+  if ((c.conversations ?? 1) > 1) {
+    lines.push('', `You will have ${c.conversations} separate conversations with this assistant, one after the other. ` +
+      `Reply ${DONE} to end the current one: a new, empty conversation is then opened for you and you go on with what ` +
+      'you want in it. You remember the earlier conversations; the chat on screen does not show them any more. ' +
+      `Reply ${DONE} in the last one when you are finished.`)
+  }
   if (perceptionEnabled) {
     lines.push('', PERCEPTION_INSTRUCTIONS)
     if (offLimitsActive) lines.push('', COMPOSER_OFF_LIMITS_INSTRUCTIONS)
@@ -153,7 +168,11 @@ export function actionRecap (observations: Observation[]): string | null {
 
 export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number, observations: Observation[] = []): string {
   if (conversation.length === 0) return 'Write your first message to the assistant.'
-  const transcript = conversation.map(m => `${m.role === 'user' ? 'you' : 'assistant'}: ${m.text}`).join('\n\n')
+  const transcript = conversation.map(m => m.role === NEW_CONVERSATION_ROLE
+    ? `--- ${m.text} ---`
+    : `${m.role === 'user' ? 'you' : 'assistant'}: ${m.text}`).join('\n\n')
+  // A conversation just opened: the person writes its first message, not a reply to the last one.
+  const fresh = conversation[conversation.length - 1].role === NEW_CONVERSATION_ROLE
   const warning = turnsLeft <= 1
     ? '\n\nThis is your last message. If you already have what you needed, reply ' + DONE + '.'
     : ''
@@ -164,7 +183,9 @@ export function personaPrompt (conversation: Array<{ role: string, text: string 
     transcript,
     '',
     ...(recap ? [recap, ''] : []),
-    `Write your next message, or ${DONE} if you are finished.${warning}`
+    fresh
+      ? `You are in a new, empty conversation. Write your first message in it.${warning}`
+      : `Write your next message, or ${DONE} if you are finished.${warning}`
   ].join('\n')
 }
 

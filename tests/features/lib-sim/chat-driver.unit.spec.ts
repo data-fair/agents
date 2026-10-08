@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { chatDriverStrings, createChatDriver, WAITING_SELECTOR } from '../../../lib-sim/chat-driver.ts'
+import { chatDriverStrings, createChatDriver, WAITING_SELECTOR, APPROVAL_SELECTOR } from '../../../lib-sim/chat-driver.ts'
 
 test.describe('chat driver composer strings', () => {
   test('serves the French strings', () => {
@@ -75,6 +75,15 @@ test.describe('chat driver composer strings', () => {
     const activity = readFileSync('shared/agent-activity.ts', 'utf8')
     assert.match(WAITING_SELECTOR, /data-activity="waiting"/)
     assert.ok(activity.includes("kind: 'waiting'"), "the 'waiting' activity kind is gone")
+  })
+
+  test('the approval selector names a kind the activity vocabulary has, sent when a turn stops on one', () => {
+    // An approval request ends the turn on the person, like a wait; the driver tells the two apart from
+    // a finished turn by this kind alone, so a renamed kind would silently turn every approval back
+    // into an "ended" turn and the runner would type over the continuation.
+    assert.match(APPROVAL_SELECTOR, /data-activity="approval"/)
+    assert.ok(readFileSync('shared/agent-activity.ts', 'utf8').includes("kind: 'approval'"), "the 'approval' activity kind is gone")
+    assert.ok(readFileSync('api/src/conversations/turn-target.ts', 'utf8').includes("kind: 'approval'"), 'the turn no longer announces an approval request')
   })
 
   test('the chat keeps the composer and the reset button off-limits', () => {
