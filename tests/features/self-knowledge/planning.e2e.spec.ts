@@ -53,6 +53,7 @@ test.describe('Readable approval cards', () => {
     // The model-facing description and the service's server id are not for the person deciding.
     await expect(card.getByTestId('approval-description')).toHaveCount(0)
     await expect(card).not.toContainText('agent-self')
+    await expect(card.getByTestId('approval-tool')).toHaveCount(0)
     await expect(card).toContainText('Weekly digest')
     await expect(card).toContainText('Summarize the week.')
     await expect(card).toContainText('every Monday at 08:00 (Europe/Paris)')
@@ -82,6 +83,39 @@ test.describe('Readable approval cards', () => {
     await expect(card).toContainText('Renamed digest')
   })
 
+  test('update_task without "enabled" keeps a disabled task disabled in the After column', async ({ page, goToWithAuth }) => {
+    const agent = await createAgent()
+    const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, { ...digest, enabled: false })).data
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
+    await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
+
+    const states = page.getByTestId('approval-card').getByTestId('approval-task-state')
+    await expect(states).toHaveText(['disabled', 'disabled'], { timeout: 15000 })
+  })
+
+  test('update_task on a paused task shows the pause, and that the change lifts it', async ({ page, goToWithAuth }) => {
+    const agent = await createAgent()
+    const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, digest)).data
+    // Paused by the scheduler, as for real: a schedule it cannot compute.
+    await admin.post('/api/test-env/task-next-run', {
+      taskId: task.id, nextRunAt: '2026-01-15T09:00:00.000Z', scheduling: [{ ...weekly, timeZone: 'Not/AZone' }]
+    })
+    await admin.post('/api/test-env/scheduler-pass', { now: '2026-01-15T10:00:00.000Z' })
+    await expect.poll(async () => (await admin.get(`${AGENTS}/${agent.id}/tasks/${task.id}`)).data.pausedReason).toBeTruthy()
+
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
+    await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
+
+    const card = page.getByTestId('approval-card')
+    const states = card.getByTestId('approval-task-state')
+    await expect(states).toHaveText([/^paused: its schedule cannot be computed/, 'enabled: this change lifts the pause and plans the next run'], { timeout: 15000 })
+
+    // What the card says is what happens.
+    await page.getByTestId('approval-approve').click()
+    await expect(card).toHaveCount(0, { timeout: 15000 })
+    await expect.poll(async () => (await admin.get(`${AGENTS}/${agent.id}/tasks/${task.id}`)).data.pausedReason, { timeout: 15000 }).toBeUndefined()
+  })
+
   test('a gated catalog call asks about its title, shows its description and "no arguments"', async ({ page, goToWithAuth }) => {
     const agentId = (await admin.post(AGENTS, {
       title: 'Gate probe', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
@@ -94,6 +128,8 @@ test.describe('Readable approval cards', () => {
     await expect(card).toBeVisible({ timeout: 15000 })
     await expect(card.getByTestId('approval-title')).toHaveText('Approve "Wipe everything"?')
     await expect(card.getByTestId('approval-description')).toHaveText('Declares destructive annotations, and does nothing')
+    // The server's title heads the card; its raw name stays beside the server, so a title cannot hide it.
+    await expect(card.getByTestId('approval-tool')).toHaveText('Server: dev-public-mcp · Tool: wipe_everything')
     await expect(card).toContainText('no arguments')
     expect(await card.innerText()).not.toContain('{')
   })

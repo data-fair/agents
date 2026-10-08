@@ -14,7 +14,7 @@
     <!-- Not for a planning call: the task below says what it does, and the description and server are
          written for the model. -->
     <v-card-subtitle
-      v-if="!taskSections && (clippedDescription || serverId)"
+      v-if="!taskSections"
       class="approval-card__subtitle"
     >
       <div
@@ -23,11 +23,13 @@
       >
         {{ clippedDescription }}
       </div>
+      <!-- The tool's own name beside its server: the heading and the description are the server's words,
+           and a title alone could make a destructive tool read innocuously. -->
       <div
-        v-if="serverId"
         class="text-caption"
+        data-testid="approval-tool"
       >
-        {{ t('server', { server: serverId }) }}
+        {{ [serverId && t('server', { server: serverId }), t('tool', { tool: toolName })].filter(Boolean).join(' · ') }}
       </div>
     </v-card-subtitle>
     <v-card-text>
@@ -75,8 +77,11 @@
             <div class="text-body-small">
               {{ schedule(section.task.scheduling) }}
             </div>
-            <div class="text-body-small text-medium-emphasis">
-              {{ section.task.enabled === false ? t('disabled') : t('enabled') }}
+            <div
+              class="text-body-small text-medium-emphasis"
+              data-testid="approval-task-state"
+            >
+              {{ state(section) }}
             </div>
           </template>
         </v-col>
@@ -160,6 +165,7 @@
 fr:
   heading: "Approuver « {name} » ?"
   server: "Serveur : {server}"
+  tool: "Outil : {tool}"
   noArguments: aucun argument
   before: Avant
   after: Après
@@ -167,6 +173,8 @@ fr:
   taskMissing: Cette tâche n'existe plus
   enabled: activée
   disabled: désactivée
+  paused: "en pause : {reason}"
+  resumes: "activée : cette modification lève la pause et planifie la prochaine exécution"
   approve: Approuver
   reject: Refuser
   reason: Raison (facultative)
@@ -176,6 +184,7 @@ fr:
 en:
   heading: "Approve \"{name}\"?"
   server: "Server: {server}"
+  tool: "Tool: {tool}"
   noArguments: no arguments
   before: Before
   after: After
@@ -183,6 +192,8 @@ en:
   taskMissing: This task no longer exists
   enabled: enabled
   disabled: disabled
+  paused: "paused: {reason}"
+  resumes: "enabled: this change lifts the pause and plans the next run"
   approve: Approve
   reject: Reject
   reason: Reason (optional)
@@ -250,7 +261,8 @@ const inputObject = computed<Record<string, unknown>>(() =>
 const args = computed(() => Object.entries(inputObject.value).map(([key, value]) =>
   [key, typeof value === 'string' ? value : JSON.stringify(value)]))
 
-type TaskShape = { title?: string, prompt?: string, scheduling?: ScheduleRule[], enabled?: boolean }
+type TaskShape = { title?: string, prompt?: string, scheduling?: ScheduleRule[], enabled?: boolean, pausedReason?: string }
+type TaskSection = { label?: string, task?: TaskShape, missing?: boolean, resumes?: boolean }
 // The model's input, not a validated task: a malformed rule is skipped rather than breaking the card.
 const schedule = (scheduling: unknown) => Array.isArray(scheduling)
   ? describeScheduling(scheduling.filter(rule => rule && typeof rule === 'object'), locale.value === 'fr' ? 'fr' : 'en')
@@ -277,10 +289,24 @@ watch([planning, () => inputObject.value.taskId, () => props.agentPath], async (
   if (read === reading) current.value = task
 }, { immediate: true })
 
-const taskSections = computed<{ label?: string, task?: TaskShape, missing?: boolean }[] | null>(() => {
+// After is what updateTask (api/src/tasks/service.ts) will store: the input, with a missing `enabled` keeping
+// the stored one. Any update that leaves a paused task enabled also lifts its pause, so After says so.
+const after = (): TaskSection => {
+  if (current.value === undefined) return { label: t('after') }
+  const task = { ...inputObject.value, enabled: (inputObject.value.enabled as boolean | undefined) ?? current.value?.enabled }
+  return { label: t('after'), task, resumes: !!current.value?.pausedReason && task.enabled !== false }
+}
+
+const state = ({ task, resumes }: TaskSection) => {
+  if (task?.enabled === false) return t('disabled')
+  if (task?.pausedReason) return t('paused', { reason: task.pausedReason })
+  return resumes ? t('resumes') : t('enabled')
+}
+
+const taskSections = computed<TaskSection[] | null>(() => {
   const before = { task: current.value ?? undefined, missing: current.value === null }
   if (planning.value === 'plan_task') return [{ task: inputObject.value }]
-  if (planning.value === 'update_task') return [{ label: t('before'), ...before }, { label: t('after'), task: inputObject.value }]
+  if (planning.value === 'update_task') return [{ label: t('before'), ...before }, after()]
   if (planning.value === 'delete_task') return [{ label: t('willDelete'), ...before }]
   return null
 })

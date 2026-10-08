@@ -253,8 +253,8 @@ gate asks the person.
 An approved call's result, settled on its original part by the next run, keeps `toolMetadata.truncated` when it was
 cut at the result bound, beside `toolMetadata.decision`.
 
-In the chat the call is an **approval card** (`ui/src/components/agent-chat/ApprovalCard.vue`): the tool, its server
-and arguments, Approve and Reject with an optional reason. It is locked while the message asking is still pending
+In the chat the call is an **approval card** (`ui/src/components/agent-chat/ApprovalCard.vue`): the tool's title, its
+description, its server and raw tool name (a server-declared title cannot hide the name), its arguments, Approve and Reject with an optional reason. It is locked while the message asking is still pending
 (`approvalLocked`, set by the mapper) and while the decision is sending (released on a chat error). Once decided the
 card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. Who decided, and
 when, is not shown in the chat; it is stored on the part (`toolMetadata.decision`) for audit, and read by the admin
