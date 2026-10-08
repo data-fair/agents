@@ -6,12 +6,12 @@
  * tests used to make a billable call. The gateway is gone, and the loop runs on the server now, so
  * the way to cause a turn is to ask for one: create a conversation, prompt it, wait for the turn to end.
  *
- * Deliberately the same door the UI uses (see ./socket-turn.ts). A test helper that reached into mongo to fabricate a usage
+ * Deliberately the same door the UI uses (see dev/socket-turn.ts). A test helper that reached into mongo to fabricate a usage
  * record would keep passing after the thing that writes usage records broke.
  */
 
 import type { AxiosInstance } from 'axios'
-import { turnOverSocket } from './socket-turn.ts'
+import { turnOverSocket } from '../../dev/socket-turn.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../ui/src/traces/trace-consent.ts'
 
 const apiOrigin = `http://localhost:${process.env.NGINX_PORT}/agents`

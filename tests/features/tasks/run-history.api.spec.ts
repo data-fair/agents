@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
-import { startTurnOverSocket } from '../../support/socket-turn.ts'
+import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })

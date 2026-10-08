@@ -22,7 +22,7 @@ import { axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 import { pathToFileURL } from 'node:url'
 import { encodeBreakdownKey } from '../api/src/usage/operations.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../ui/src/traces/trace-consent.ts'
-import { turnOverSocket, type ConversationTarget } from '../tests/support/socket-turn.ts'
+import { turnOverSocket, type ConversationTarget } from './socket-turn.ts'
 
 const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 const baseURL = `http://localhost:${process.env.DEV_API_PORT}`

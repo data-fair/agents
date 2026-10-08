@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl, getAnonymousActionToken } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import WebSocket from 'ws'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })

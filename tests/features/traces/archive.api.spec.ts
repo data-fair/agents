@@ -15,7 +15,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 import { runTurn, setTraceConsent } from '../../support/turn.ts'
-import { turnOverSocket } from '../../support/socket-turn.ts'
+import { turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin

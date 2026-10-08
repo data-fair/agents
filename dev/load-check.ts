@@ -11,13 +11,13 @@
  *
  * It drives ANONYMOUS sessions (no login per socket, and the anonymous path now runs the same
  * executor) against organization/test1, whose settings it overwrites — the test suites rewrite them
- * on every run anyway. Plus one signed-in batch, which adds the HTTP create and the ownership checks.
+ * on every run anyway. Plus one signed-in batch, which adds a person's session and permission checks.
  */
 import { readFileSync, readlinkSync, readdirSync } from 'node:fs'
 import { MongoClient } from 'mongodb'
 import { superAdmin, axiosAuth, getAnonymousActionToken, directoryUrl, defaultQuotas } from '../tests/support/axios.ts'
 import { putSettings } from '../tests/support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../tests/support/ws.ts'
+import { openAgentSession, type AgentSessionClient } from './agent-session-client.ts'
 
 const arg = (name: string, fallback: string) => {
   const at = process.argv.indexOf(`--${name}`)

@@ -1,5 +1,5 @@
 /**
- * A websocket client for api tests.
+ * A websocket client for the agent-session endpoint, for api tests and dev scripts.
  *
  * The session is resolved from the COOKIE on the upgrade request, so a client has to carry the same
  * cookie the axios clients use — hence the cookieString argument rather than a user id.
@@ -41,14 +41,21 @@ export const openAgentSession = async (cookieString?: string): Promise<AgentSess
     headers: cookieString ? { cookie: cookieString } : {}
   })
   const inbox: any[] = []
-  const waiters: ((msg: any) => void)[] = []
+  const waiters: { resolve: (msg: any) => void, reject: (err: Error) => void }[] = []
   let conversationId: string | undefined
+  let closedBy: string | undefined
   ws.on('message', raw => {
     const msg = JSON.parse(raw.toString())
     if (msg.type === 'attached') conversationId = msg.conversationId
     const waiter = waiters.shift()
-    if (waiter) waiter(msg)
+    if (waiter) waiter.resolve(msg)
     else inbox.push(msg)
+  })
+  // A closed socket sends nothing more: whoever waits is told so now, with the close code, rather
+  // than after their whole timeout — which, longer than a test's own, surfaced as a bare test timeout.
+  ws.on('close', (code, reason) => {
+    closedBy = `the agent-session socket closed (${code}${reason.length ? ` ${reason.toString()}` : ''})`
+    for (const waiter of waiters.splice(0)) waiter.reject(new Error(closedBy))
   })
   await new Promise<void>((resolve, reject) => {
     ws.once('open', () => resolve())
@@ -57,9 +64,18 @@ export const openAgentSession = async (cookieString?: string): Promise<AgentSess
   const next = async (timeoutMs = 5000): Promise<any> => {
     const buffered = inbox.shift()
     if (buffered) return buffered
+    if (closedBy) throw new Error(closedBy)
     return await new Promise((resolve, reject) => {
-      const timer = setTimeout(() => reject(new Error('no agent-session message within timeout')), timeoutMs)
-      waiters.push(msg => { clearTimeout(timer); resolve(msg) })
+      const waiter = {
+        resolve: (msg: any) => { clearTimeout(timer); resolve(msg) },
+        reject: (err: Error) => { clearTimeout(timer); reject(err) }
+      }
+      // A waiter that timed out leaves the queue: left in it, it would swallow the next frame.
+      const timer = setTimeout(() => {
+        waiters.splice(waiters.indexOf(waiter), 1)
+        reject(new Error('no agent-session message within timeout'))
+      }, timeoutMs)
+      waiters.push(waiter)
     })
   }
   return {
@@ -67,6 +83,6 @@ export const openAgentSession = async (cookieString?: string): Promise<AgentSess
     next,
     conversationId: () => conversationId,
     close: () => ws.close(),
-    closed: async () => { await new Promise<void>(resolve => { ws.once('close', () => resolve()) }) }
+    closed: async () => { if (!closedBy) await new Promise<void>(resolve => { ws.once('close', () => resolve()) }) }
   }
 }

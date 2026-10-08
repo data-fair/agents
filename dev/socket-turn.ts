@@ -3,8 +3,9 @@
  *
  * There is no HTTP route that starts a turn or decides an approval, because two ways to do each thing
  * is two places for the ownership check and the run record to drift. Tests that need a turn as the
- * thing under test, or as a side effect, therefore go through the same door as the UI, using the
- * client in ./ws.ts.
+ * thing under test, or as a side effect, and the dev seed (./fixtures.ts) therefore go through the same
+ * door as the UI, using the client in ./agent-session-client.ts. In dev/ rather than tests/ because the
+ * seed uses it, and a dev script does not depend on the test suite.
  *
  * What these helpers add is only the part a test would otherwise repeat: bind the socket to the
  * conversation, send the frame, find the run it caused (the socket's frames do not carry a run id, the
@@ -13,9 +14,10 @@
  */
 
 import type { AxiosInstance } from 'axios'
-import { directoryUrl } from './axios.ts'
-import { openAgentSession, newThreadHello, type AgentSessionClient } from './ws.ts'
-import { readConsent } from '../../ui/src/traces/trace-consent.ts'
+import { openAgentSession, newThreadHello, type AgentSessionClient } from './agent-session-client.ts'
+import { readConsent } from '../ui/src/traces/trace-consent.ts'
+
+const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 
 type Ax = AxiosInstance & { cookieJar?: any }
 
@@ -222,7 +224,15 @@ export const decideOverSocket = async (
       if (frame.type === 'error') throw refusal(frame)
       // The page shows the decision at once: this frame is the decided message, and it is how a
       // decision that leaves other calls undecided is told apart from the one that continues the turn.
-      if (frame.type === 'message' && frame.role === 'assistant') {
+      // Recognised by the call it decided being in the decided state, not by being an assistant
+      // message: a socket bound while an earlier continuation still runs also receives that run's
+      // frames, including the asking message again once the call's result is settled on it — taken
+      // for the answer, it hid the refusal that followed and left this waiting for a run that never
+      // came.
+      const decided = frame.type === 'message' && (frame.parts ?? []).some((p: any) =>
+        p.type === 'dynamic-tool' && p.approval?.id === approvalId &&
+        p.state === (decision.approved ? 'approval-responded' : 'output-denied'))
+      if (decided) {
         const undecided = (frame.parts ?? []).filter((p: any) => p.type === 'dynamic-tool' && p.state === 'approval-requested').length
         if (undecided) { socket.close(); return { pending: undecided } }
         break

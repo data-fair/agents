@@ -7,14 +7,14 @@
  * It sets organization/test1's settings first — the mock model PRICED, because a model call's usage
  * accounting only runs when the call costs something, and an unpriced profile hides it entirely.
  *
- * Signed in by default (test1-admin1, a thread created over HTTP first, so its creation is not
- * counted); `--anonymous` drives the anonymous path, whose hello creates the thread and whose close
- * purges it — both counted, since they are that path's per-thread cost.
+ * Signed in by default (test1-admin1); `--anonymous` drives the anonymous path, whose close also
+ * purges the thread. Either way the profiled turn is a thread's first, so the thread's creation by
+ * its prompt is counted: it is part of every thread's cost.
  */
 import { MongoClient } from 'mongodb'
 import { axiosAuth, superAdmin, getAnonymousActionToken, directoryUrl, defaultQuotas } from '../tests/support/axios.ts'
 import { putSettings } from '../tests/support/settings.ts'
-import { openAgentSession } from '../tests/support/ws.ts'
+import { openAgentSession } from './agent-session-client.ts'
 
 const anonymous = process.argv.includes('--anonymous')
 await putSettings(await superAdmin, 'organization/test1', {

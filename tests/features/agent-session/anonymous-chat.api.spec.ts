@@ -11,7 +11,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { superAdmin, clean, defaultQuotas, getAnonymousActionToken, nginxAx } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
-import { openAgentSession, type AgentSessionClient } from '../../support/ws.ts'
+import { openAgentSession, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
 

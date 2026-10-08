@@ -23,9 +23,9 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas, anonymousAx, directoryUrl, getAnonymousActionToken } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 import { runTurn } from '../../support/turn.ts'
-import { runOf } from '../../support/socket-turn.ts'
+import { runOf } from '../../../dev/socket-turn.ts'
 import { MODERATION_REFUSAL } from '../../../api/src/moderation/operations.ts'
-import { openAgentSession } from '../../support/ws.ts'
+import { openAgentSession } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
 const owner = await axiosAuth('test-standalone1')

@@ -7,7 +7,7 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings, mockModels, mockModelRef } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { partsText } from '../../../api/src/conversations/operations.ts'
-import { startTurnOverSocket, turnOverSocket, runOf } from '../../support/socket-turn.ts'
+import { startTurnOverSocket, turnOverSocket, runOf } from '../../../dev/socket-turn.ts'
 
 /**
  * The tool calls of a stored turn, read out of its ordered parts.

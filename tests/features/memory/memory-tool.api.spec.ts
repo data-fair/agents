@@ -8,8 +8,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { openAgentSession, newThreadHello } from '../../support/ws.ts'
-import { startTurnOverSocket, runOf } from '../../support/socket-turn.ts'
+import { openAgentSession, newThreadHello } from '../../../dev/agent-session-client.ts'
+import { startTurnOverSocket, runOf } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
