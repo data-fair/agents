@@ -86,7 +86,7 @@ This ensures the main agent cannot call tools that belong to a sub-agent, enforc
 
 The partition is **re-run mid-turn** when the page's tool names change (in the lead's `prepareStep`), because a component mounted during the turn may declare a sub-agent or a tool one reserves. The live tool map is mutated in place, which the AI SDK re-reads on every step. It is re-run only on a name change because each pass reads every sub-agent's config over the socket.
 
-The browser keeps one display-only copy of the partition (`ui/src/utils/tools-partition.ts`) for the debug dialog; it does not affect what runs.
+The debug dialog does not partition anything in the browser: it shows the server's own record of the last turn's offered tools (the run's `calls[].toolNames`), read when it opens.
 
 ---
 

@@ -15,6 +15,7 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { waitForPageTools, expectNoPageTool } from '../../support/page-tools.ts'
 
 test.describe('Live tool set (mid-turn refresh)', () => {
   test.beforeEach(async () => {
@@ -29,11 +30,8 @@ test.describe('Live tool set (mid-turn refresh)', () => {
 
     // Wait for the initial aggregate: open_panel is there, set_display is NOT — the panel
     // is closed, so nothing has registered it yet.
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.getByRole('button', { name: 'open_panel' })).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('button', { name: 'set_display' })).toHaveCount(0)
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
+    await waitForPageTools(page, 'open_panel')
+    await expectNoPageTool(page, 'set_display')
 
     // One turn, two steps: open_panel (which mounts the panel and registers set_display),
     // then set_display itself.
@@ -59,11 +57,7 @@ test.describe('Live tool set (mid-turn refresh)', () => {
 
     // Discovery is asynchronous; sending before it lands would start the turn with an
     // empty tool set and test nothing.
-    await expect(page.getByRole('button', { name: 'open_panel' })).toBeHidden()
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.getByRole('button', { name: 'open_panel' })).toBeVisible({ timeout: 5000 })
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
+    await waitForPageTools(page, 'open_panel')
 
     await page.getByPlaceholder('Type your message...').fill('chain open_panel set_display')
     await page.getByRole('button', { name: 'Send' }).click()
@@ -72,9 +66,7 @@ test.describe('Live tool set (mid-turn refresh)', () => {
 
     // Reload with the panel closed again: set_display must be gone from the aggregate.
     await page.reload()
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.getByRole('button', { name: 'open_panel' })).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('button', { name: 'set_display' })).toHaveCount(0)
+    await waitForPageTools(page, 'open_panel')
+    await expectNoPageTool(page, 'set_display')
   })
 })

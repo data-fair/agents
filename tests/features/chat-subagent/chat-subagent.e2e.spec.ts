@@ -11,6 +11,7 @@ import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { waitForPageTools } from '../../support/page-tools.ts'
 
 const admin = await superAdmin
 
@@ -44,22 +45,6 @@ const settingsData = {
   quotas: defaultQuotas
 }
 
-/**
- * Open the debug dialog's Tools tab and wait for a specific tool to appear.
- * Returns a locator scoped to the debug dialog's expansion panels.
- */
-async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string, locateAsText = false) {
-  await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-  await page.getByRole('tab', { name: 'Info' }).click()
-  const debugContent = page.locator('.v-dialog .v-window-item--active')
-  if (locateAsText) {
-    await expect(debugContent.getByText(toolName)).toBeVisible({ timeout: 5000 })
-  } else {
-    await expect(debugContent.getByRole('button', { name: toolName })).toBeVisible({ timeout: 5000 })
-  }
-  await page.getByRole('button', { name: /Close|Fermer/ }).click()
-}
-
 test.describe('Chat Sub-Agent UI', () => {
   test.beforeEach(async () => {
     await clean()
@@ -76,21 +61,33 @@ test.describe('Chat Sub-Agent UI', () => {
   test('All tools are discovered via MCP', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
 
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
+    // The tools, the sub-agent and the tools it reserves all reach the aggregate.
+    await waitForPageTools(page, 'set_display', 'subagent_data_analyst', 'get_schema', 'query_data')
+  })
 
-    // All tools + sub-agent should appear in the debug dialog
-    const debugContent = page.locator('.v-dialog .v-window-item--active')
-    await expect(debugContent.getByRole('button', { name: 'set_display' })).toBeVisible({ timeout: 5000 })
-    // Sub-agent is displayed as a labeled group, not a button
-    await expect(debugContent.getByText('data_analyst (2 tools)')).toBeVisible()
-    await expect(debugContent.getByRole('button', { name: 'get_schema' })).toBeVisible()
-    await expect(debugContent.getByRole('button', { name: 'query_data' })).toBeVisible()
+  test('The debug dialog shows the tools the server offered on the last turn', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
+    await waitForPageTools(page, 'set_display', 'subagent_data_analyst')
+
+    // Before any turn there is no server record to show.
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+    await expect(page.getByTestId('offered-tools-empty')).toBeVisible()
+    await page.getByRole('button', { name: /Close|Fermer/ }).click()
+
+    await page.getByPlaceholder('Type your message...').fill('hello')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
+
+    // The record is read when the dialog opens: what the model was actually offered.
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+    const offered = page.getByTestId('offered-tools')
+    await expect(offered).toContainText('set_display')
+    await expect(offered).toContainText('subagent_data_analyst')
   })
 
   test('Main agent can call set_display tool', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'set_display')
+    await waitForPageTools(page, 'set_display')
 
     // Ask the mock model to call set_display
     await page.getByPlaceholder('Type your message...').fill('call tool set_display {"text":"Hello from test"}')
@@ -103,7 +100,7 @@ test.describe('Chat Sub-Agent UI', () => {
   test('Main agent delegates to a sub-agent (simplified chip)', async ({ page, goToWithAuth }) => {
     await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
 
     // The sub-agent receives "hello" as task → mock responds "world"
     await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_analyst {"task":"hello"}')
@@ -117,7 +114,7 @@ test.describe('Chat Sub-Agent UI', () => {
   test('Sub-agent can use reserved tools (full panel)', async ({ page, goToWithAuth }) => {
     await seedFullPanelCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
 
     // Ask the mock model to call the sub-agent with a task that triggers a tool call
     // The sub-agent mock receives "call tool get_schema {}" → calls get_schema
@@ -142,7 +139,7 @@ test.describe('Chat Sub-Agent UI', () => {
   test('Sub-agent that loops to its step cap recovers a close-out answer', async ({ page, goToWithAuth }) => {
     await seedFullPanelCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
 
     // Task "loop forever" makes the sub-agent emit the SAME get_schema call on every
     // step (the mock also ignores the reminder injected at REPEATED_CALL_NUDGE_AT), so

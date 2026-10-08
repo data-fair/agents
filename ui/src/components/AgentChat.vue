@@ -2,6 +2,8 @@
   <v-card
     class="agent-chat d-flex flex-column"
     :border="0"
+    data-testid="agent-chat"
+    :data-page-tools="Object.keys(chat.tools.value).sort().join(',')"
   >
     <agent-chat-header
       :is-admin="isAdmin"
@@ -93,7 +95,6 @@
     <agent-chat-debug-dialog
       v-model="showDebugDialog"
       :host-context="hostContext"
-      :debug-tools-partition="debugToolsPartition"
       :conversation-id="chat.conversationId.value"
       :is-admin="isAdmin"
       :audited="audited"
@@ -568,8 +569,6 @@ watch(() => {
 }, (readableAt) => {
   if (readableAt) sendDFrameMessage({ type: 'unread', unread: true })
 })
-
-const debugToolsPartition = computed(() => chat.resolvedPartition.value)
 
 // Memoised: a page's tools are unregistered when it unmounts, and without this
 // a chip already in the scrollback would turn back into its raw snake_case name,

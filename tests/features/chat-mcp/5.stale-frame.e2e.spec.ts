@@ -18,6 +18,7 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { waitForPageTools, expectNoPageTool } from '../../support/page-tools.ts'
 
 const USER = 'test-standalone1'
 
@@ -28,40 +29,25 @@ test.describe('Tools from a frame that goes away', () => {
     await putMockSettings(admin, `user/${USER}`)
   })
 
-  async function openInfo (page: any) {
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-  }
-
-  async function closeInfo (page: any) {
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
-  }
-
   test('removing the frame removes its sub-agent tool from the aggregate', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-stale-frame', USER)
 
     // Discovery is asynchronous: wait until BOTH the live host sub-agent and the one
     // from the removable frame are part of the aggregate.
-    await openInfo(page)
-    await expect(page.getByText('Dataset notes')).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('Portals config')).toBeVisible({ timeout: 10000 })
-    await closeInfo(page)
+    await waitForPageTools(page, 'subagent_dataset_notes', 'subagent_portals_config')
 
     // Navigating away destroys the portals iframe document — no Vue scope disposal, no
     // `mcp-server-stopped`.
     await page.getByTestId('leave-portals').click()
 
-    await openInfo(page)
-    await expect(page.getByText('Portals config')).toHaveCount(0, { timeout: 5000 })
-    await expect(page.getByText('Dataset notes')).toBeVisible()
+    await expectNoPageTool(page, 'subagent_portals_config')
+    await waitForPageTools(page, 'subagent_dataset_notes')
   })
 
   test('a turn after leaving the portal page still reaches the model', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-stale-frame', USER)
 
-    await openInfo(page)
-    await expect(page.getByText('Portals config')).toBeVisible({ timeout: 10000 })
-    await closeInfo(page)
+    await waitForPageTools(page, 'subagent_portals_config')
 
     await page.getByTestId('leave-portals').click()
     await page.getByPlaceholder('Type your message...').fill('hello')

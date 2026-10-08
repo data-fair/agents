@@ -21,6 +21,7 @@ import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { createChatDriver } from '../../../lib-sim/chat-driver.ts'
 import { mockProvider, mockModelRef, putMockSettings } from '../../support/settings.ts'
+import { waitForPageTools } from '../../support/page-tools.ts'
 
 // The dedicated mock summarizer is mapped explicitly so the compaction round-trip
 // (used by the compaction-dedupe test below) actually runs instead of failing for
@@ -54,10 +55,7 @@ test.describe('Host events', () => {
     await goToWithAuth('/agents/_dev/chat-workflow', USER)
     // Discovery is asynchronous; a turn sent before the page tools land would be built
     // with an empty tool set (same guard as 3.live-tools.e2e.spec.ts).
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.getByRole('button', { name: 'select_type' })).toBeVisible({ timeout: 10000 })
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
+    await waitForPageTools(page, 'select_type')
   }
 
   async function send (page: any, text: string) {

@@ -10,6 +10,7 @@ import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { waitForPageTools } from '../../support/page-tools.ts'
 
 const admin = await superAdmin
 
@@ -93,10 +94,7 @@ test.describe('Sub-agent simplify toggle', () => {
     // Pin chip mode (a prior test may have toggled/persisted the flag off).
     await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.locator('.v-dialog .v-window-item--active').getByText('data_analyst (2 tools)')).toBeVisible({ timeout: 5000 })
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
+    await waitForPageTools(page, 'subagent_data_analyst')
 
     await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_analyst {"task":"hello"}')
     await page.getByRole('button', { name: 'Send' }).click()

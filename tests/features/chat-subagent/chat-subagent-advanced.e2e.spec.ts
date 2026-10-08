@@ -14,6 +14,7 @@ import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { waitForPageTools } from '../../support/page-tools.ts'
 
 const admin = await superAdmin
 
@@ -64,19 +65,6 @@ async function pollConversationId (): Promise<string> {
   return conversationId
 }
 
-async function waitForToolsReady (page: import('@playwright/test').Page, toolName: string, locateAsText = false) {
-  // The debug dialog has two tabs (Info / Settings); registered tools and
-  // sub-agents are listed under the default "Info" tab.
-  await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-  const debugContent = page.locator('.v-dialog .v-window-item--active')
-  if (locateAsText) {
-    await expect(debugContent.getByText(toolName)).toBeVisible({ timeout: 5000 })
-  } else {
-    await expect(debugContent.getByRole('button', { name: toolName })).toBeVisible({ timeout: 5000 })
-  }
-  await page.getByRole('button', { name: /Close|Fermer/ }).click()
-}
-
 async function sendMessage (page: import('@playwright/test').Page, text: string) {
   const input = page.getByPlaceholder('Type your message...')
   await expect(input).toBeEnabled({ timeout: 10000 })
@@ -95,7 +83,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // "Subagent trace appears on the review page", so this one needs no trace storage.
     await seedFullPanelCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
 
     // Trigger the sub-agent with a generic task — mock-tools will autonomously chain tools
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"analyze the data"}')
@@ -122,7 +110,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   test('Subagent works across multiple user messages', async ({ page, goToWithAuth }) => {
     await seedFullPanelCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
 
     // First call to sub-agent
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
@@ -148,7 +136,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   test('Mixed main agent tools and subagent delegation', async ({ page, goToWithAuth }) => {
     await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'set_display')
+    await waitForPageTools(page, 'set_display')
 
     // First: main agent calls set_display
     await sendMessage(page, 'call tool set_display {"text":"step1"}')
@@ -172,7 +160,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
     await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
 
     // Trigger a sub-agent call (default simple mode → chip)
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
@@ -205,7 +193,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   test('Two sub-agents delegated in one step render separate panels concurrently', async ({ page, goToWithAuth }) => {
     await seedFullPanelCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
 
     await sendMessage(page, 'parallel subagents')
 
@@ -241,7 +229,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     })
     await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForToolsReady(page, 'data_analyst (2 tools)', true)
+    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
 
     // First message to build history
     await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')

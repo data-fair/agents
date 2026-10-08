@@ -28,7 +28,6 @@ import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { useAgentSession } from '~/composables/use-agent-session'
 import { subscribeHostEvents } from '~/composables/use-host-events'
 import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-message'
-import { resolveToolsPartition, type DebugToolsPartition } from '~/utils/tools-partition'
 import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
 import { traceStorageAvailable, consentRef } from '~/traces/trace-consent'
@@ -92,7 +91,6 @@ export function useSessionChat (options: UseSessionChatOptions) {
   const error = ref<string | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
-  const resolvedPartition = ref<DebugToolsPartition>({ mainTools: [], subAgents: [] })
 
   /**
    * Sub-agent transcripts, keyed by the delegating tool call id.
@@ -126,15 +124,6 @@ export function useSessionChat (options: UseSessionChatOptions) {
   })
 
   let aggregator: FrameClientAggregator | null = null
-  let resolveGeneration = 0
-
-  const repartition = async () => {
-    const gen = ++resolveGeneration
-    const partition = await resolveToolsPartition(tools.value)
-    // A tool set that changed while a sub-agent's roster was being read must win over the stale answer.
-    if (gen !== resolveGeneration) return
-    resolvedPartition.value = partition
-  }
 
   /**
    * Find or create the turn a frame belongs to.
@@ -445,7 +434,6 @@ export function useSessionChat (options: UseSessionChatOptions) {
       onToolsChanged: discovered => {
         tools.value = { ...discovered }
         toolsVersion.value++
-        repartition()
         // Only meaningful once the socket is up; before that `hello` carries the set anyway.
         agent.toolsChanged()
       }
@@ -497,7 +485,6 @@ export function useSessionChat (options: UseSessionChatOptions) {
     subAgentActivities,
     tools,
     toolsVersion,
-    resolvedPartition,
     conversationId,
     conversationCost,
     usageVersion,

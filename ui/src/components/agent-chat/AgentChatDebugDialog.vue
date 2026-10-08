@@ -63,90 +63,32 @@
             -->
             <pre class="agent-chat__pre pa-3">{{ hostContextText }}</pre>
 
+            <!--
+              The server's own record of the last turn: what the model was actually offered, which no
+              page-side computation can claim to be. Names only, as stored on the run.
+            -->
             <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
-              {{ t('tools') }} ({{ totalToolCount }})
+              {{ t('tools') }} ({{ offeredTools.length }})
             </div>
             <div
-              v-if="!totalToolCount"
+              v-if="!offeredTools.length"
               class="text-center text-medium-emphasis pa-4"
+              data-testid="offered-tools-empty"
             >
               {{ t('noTools') }}
             </div>
-            <template v-else>
-              <v-expansion-panels
-                v-if="debugToolsPartition.mainTools.length"
-                variant="accordion"
-                density="compact"
-                class="mt-1 agent-chat__tools-panels"
+            <ul
+              v-else
+              class="text-caption px-2"
+              data-testid="offered-tools"
+            >
+              <li
+                v-for="name in offeredTools"
+                :key="name"
               >
-                <v-expansion-panel
-                  v-for="dtool in debugToolsPartition.mainTools"
-                  :key="dtool.name"
-                  density="compact"
-                >
-                  <v-expansion-panel-title class="text-caption py-0">
-                    <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
-                    <span
-                      v-if="dtool.title"
-                      class="text-medium-emphasis ml-1"
-                    >{{ dtool.name }}</span>
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <p class="text-caption mb-1">
-                      {{ dtool.description }}
-                    </p>
-                    <p class="text-caption text-medium-emphasis mb-1">
-                      {{ t('inputSchema') }}:
-                    </p>
-                    <pre class="agent-chat__pre pa-2">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
-
-              <template
-                v-for="sa in debugToolsPartition.subAgents"
-                :key="sa.name"
-              >
-                <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
-                  {{ sa.displayName }}
-                  <span class="text-medium-emphasis ml-1">({{ sa.tools.length }} {{ t('tools').toLowerCase() }})</span>
-                </div>
-                <p
-                  v-if="sa.description"
-                  class="text-caption text-medium-emphasis px-2 mb-1"
-                >
-                  {{ sa.description }}
-                </p>
-                <v-expansion-panels
-                  variant="accordion"
-                  density="compact"
-                  class="agent-chat__tools-panels"
-                >
-                  <v-expansion-panel
-                    v-for="dtool in sa.tools"
-                    :key="dtool.name"
-                    density="compact"
-                  >
-                    <v-expansion-panel-title class="text-caption py-0">
-                      <span class="font-weight-medium">{{ dtool.title || dtool.name }}</span>
-                      <span
-                        v-if="dtool.title"
-                        class="text-medium-emphasis ml-1"
-                      >{{ dtool.name }}</span>
-                    </v-expansion-panel-title>
-                    <v-expansion-panel-text>
-                      <p class="text-caption mb-1">
-                        {{ dtool.description }}
-                      </p>
-                      <p class="text-caption text-medium-emphasis mb-1">
-                        {{ t('inputSchema') }}:
-                      </p>
-                      <pre class="agent-chat__pre pa-2">{{ JSON.stringify(dtool.inputSchema, null, 2) }}</pre>
-                    </v-expansion-panel-text>
-                  </v-expansion-panel>
-                </v-expansion-panels>
-              </template>
-            </template>
+                {{ name }}
+              </li>
+            </ul>
           </v-window-item>
 
           <v-window-item value="settings">
@@ -233,9 +175,8 @@ fr:
   close: Fermer
   info: Info
   hostContext: Contexte transmis par la page
-  tools: Outils
-  noTools: Aucun outil enregistré
-  inputSchema: Schéma d'entrée
+  tools: Outils proposés au dernier tour
+  noTools: Aucun outil proposé lors du dernier tour
   openReview: Ouvrir l'analyse
   settings: Paramètres
   consumption: Consommation
@@ -252,9 +193,8 @@ en:
   close: Close
   info: Info
   hostContext: Context reported by this page
-  tools: Tools
-  noTools: No tools registered
-  inputSchema: Input Schema
+  tools: Tools offered on the last turn
+  noTools: No tools offered on the last turn
   openReview: Open review
   settings: Settings
   consumption: Consumption
@@ -270,20 +210,19 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRouter } from 'vue-router'
 import { mdiArrowLeft, mdiOpenInNew } from '@mdi/js'
 import DfTutorialAlert from '@data-fair/lib-vuetify/tutorial-alert.vue'
-import type { DebugToolsPartition } from '~/utils/tools-partition'
 import type { SelfUsage } from '../../../../api/src/usage/operations'
 import AgentChatConsumption from './AgentChatConsumption.vue'
+import { $apiPath, $fetch } from '~/context'
 import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
 
 const props = defineProps<{
   modelValue: boolean
   hostContext: Record<string, string | null>
-  debugToolsPartition: DebugToolsPartition
   /** Absent until the socket has attached: the server assigns it, so the client cannot know it earlier. */
   conversationId?: string
   isAdmin?: boolean
@@ -326,9 +265,23 @@ const { t } = useI18n()
 const router = useRouter()
 
 const activeDebugTab = ref('info')
-const totalToolCount = computed(() => {
-  const p = props.debugToolsPartition
-  return p.mainTools.length + p.subAgents.reduce((sum, sa) => sum + sa.tools.length, 0)
+
+/**
+ * The tools the model was offered on the conversation's last turn, read from the run when the dialog
+ * opens. Empty before a first turn, and for an anonymous chat, which has no run to read.
+ */
+const offeredTools = ref<string[]>([])
+watch(() => props.modelValue, async open => {
+  if (!open || !props.conversationId) return
+  try {
+    const res = await $fetch<{ results: Array<{ calls?: Array<{ toolNames?: string[] }> }> }>(
+      `${$apiPath}/conversations/${props.accountType}/${props.accountId}/${props.conversationId}/runs`
+    )
+    const last = res.results.filter(run => run.calls?.some(call => call.toolNames)).pop()
+    offeredTools.value = [...new Set((last?.calls ?? []).flatMap(call => call.toolNames ?? []))].sort()
+  } catch {
+    offeredTools.value = []
+  }
 })
 
 // Show the consent toggle as soon as storage is advertised, OR if a prior
@@ -359,13 +312,5 @@ const openReview = () => {
   max-height: 300px;
   white-space: pre-wrap;
   word-break: break-word;
-}
-
-.agent-chat__tools-panels :deep(.v-expansion-panel-title) {
-  min-height: 28px;
-}
-
-.agent-chat__tools-panels :deep(.v-expansion-panel-text__wrapper) {
-  padding: 4px 12px 8px;
 }
 </style>

@@ -104,9 +104,8 @@ export async function partitionSubAgents (
     try {
       // `{ task: '' }`, not `{}`: a page declares `task` as REQUIRED (see lib-vue/use-agent-sub-agent.ts),
       // and the browser validates a call against the declared schema, so an empty object is rejected
-      // before the tool runs. The client-side partition this replaced has always called it this way
-      // (ui/src/utils/tools-partition.ts) — the server passing `{}` is why every page-declared
-      // sub-agent read as misconfigured and silently stayed an ordinary tool.
+      // before the tool runs — which read as a misconfigured sub-agent and silently left it an
+      // ordinary tool.
       payload = await candidate.execute({ task: '' } as never, { toolCallId: `config:${name}`, messages: [] })
     } catch (err) {
       debug('could not read the config of %s: %O', name, err)
