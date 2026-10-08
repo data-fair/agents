@@ -88,9 +88,12 @@
                 >
                   <approval-card
                     v-if="invocation.state === 'awaiting-approval' && invocation.approvalId"
-                    :title="toolTitle(invocation.toolName)"
+                    :tool-name="invocation.toolName"
+                    :tool-title="invocation.toolTitle"
+                    :description="invocation.description"
                     :input="invocation.input"
                     :server-id="invocation.serverId"
+                    :agent-path="agentPath"
                     :locked="!!invocation.approvalLocked"
                     :failure="chatError"
                     @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
@@ -338,11 +341,14 @@ const props = withDefaults(defineProps<{
   // Render reasoning-model "thinking" as a foldable panel; when false the panel is
   // omitted entirely (compact mode), leaving only the live "Thinking…" activity line.
   showReasoning?: boolean
+  // The configured agent's API path, where an approval card reads the task a planning call changes.
+  agentPath?: string
 }>(), {
   activity: null,
   subAgentActivities: () => ({}),
   simpleSubAgents: true,
-  showReasoning: false
+  showReasoning: false,
+  agentPath: undefined
 })
 
 const isActionPrompt = (message: ChatMessage) => {

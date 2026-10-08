@@ -848,9 +848,14 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         awaitingApproval = true
         const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCall.toolCallId)
         if (call && call.type === 'dynamic-tool') {
+          // The tool's own description, so the card can say what the call will do: the person deciding
+          // reads it, and a reload or a reviewer reads the same words from the record. Gated calls only —
+          // every other call would carry a copy of its tool's description for nobody.
+          const description = liveTools[part.toolCall.toolName]?.description
           Object.assign(call, {
             state: 'approval-requested',
-            approval: { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) }
+            approval: { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) },
+            ...(description ? { toolMetadata: { ...call.toolMetadata, description } } : {})
           })
           sendMessageFrame(true)
           await persistStructure()

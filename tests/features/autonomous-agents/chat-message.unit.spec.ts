@@ -118,13 +118,16 @@ test.describe('approval states', () => {
       ...base,
       role: 'assistant',
       parts: [
-        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'wipe', state: 'approval-requested', input: {}, approval: { id: 'ap1' }, toolMetadata: { serverId: 'dev' } } as any,
+        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'wipe', state: 'approval-requested', input: {}, approval: { id: 'ap1' }, toolMetadata: { serverId: 'dev', annotations: { title: 'Wipe it all' }, description: 'Wipes.' } } as any,
         { type: 'dynamic-tool', toolCallId: 'b', toolName: 'wipe', state: 'output-denied', input: {}, approval: { id: 'ap2', approved: false } } as any
       ]
     })
     assert.equal(chat.toolInvocations?.[0].state, 'awaiting-approval')
     assert.equal(chat.toolInvocations?.[0].approvalId, 'ap1')
     assert.equal(chat.toolInvocations?.[0].serverId, 'dev')
+    // What the card reads: the tool's declared title and the description recorded on the gated call.
+    assert.equal(chat.toolInvocations?.[0].toolTitle, 'Wipe it all')
+    assert.equal(chat.toolInvocations?.[0].description, 'Wipes.')
     assert.equal(chat.toolInvocations?.[1].state, 'denied')
     assert.equal(chat.toolInvocations?.[0].approvalLocked, undefined, 'a closed message is decidable')
   })

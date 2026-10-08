@@ -22,6 +22,10 @@ export interface ChatMessage {
     approvalLocked?: boolean
     /** The catalog server the call goes to, shown on an approval card. */
     serverId?: string
+    /** The tool's declared annotation title: an approval card's heading. */
+    toolTitle?: string
+    /** The tool's description, recorded on a gated call: what an approval card says the call will do. */
+    description?: string
   }>
   // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
   // concurrent sub-agent calls under one assistant message render in separate panels

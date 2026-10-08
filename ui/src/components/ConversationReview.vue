@@ -140,6 +140,7 @@
         :mermaid-enabled="false"
         :simple-sub-agents="false"
         :show-reasoning="true"
+        :agent-path="agentPath"
       />
     </template>
   </v-container>
@@ -227,6 +228,8 @@ const showDetail = ref(false)
 const messages = ref<ChatMessage[]>([])
 const runs = ref<any[]>([])
 const systemPrompt = ref('')
+// Where an approval card left open in the thread reads the task a planning call would change.
+const agentPath = ref<string>()
 
 // The chip label for a tool name, memoised. No live tool set to ask here, so the name is the title.
 const toolTitle = createToolTitleMemo(() => undefined)
@@ -243,6 +246,9 @@ const load = async () => {
     const data = await $fetch(`${$apiPath}/review/${props.owner.type}/${props.owner.id}/${props.conversationId}`)
     messages.value = (data.messages ?? []).map((message: any) => autonomousAgentMessageToChat(message))
     runs.value = data.runs ?? []
+    agentPath.value = data.conversation?.agentId
+      ? `${$apiPath}/autonomous-agents/${props.owner.type}/${props.owner.id}/${data.conversation.agentId}`
+      : undefined
     // The prompt is per run and does not change within a conversation unless the agent does; the
     // last one is what a reviewer is looking at.
     systemPrompt.value = [...runs.value].reverse().find(run => run.systemPrompt)?.systemPrompt ?? ''

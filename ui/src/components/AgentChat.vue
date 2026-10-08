@@ -45,6 +45,7 @@
         :mermaid-enabled="mermaidEnabled"
         :simple-sub-agents="simpleSubAgentsEnabled"
         :show-reasoning="showReasoningEnabled"
+        :agent-path="agentPath"
         @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
         @fix-mermaid="handleFixMermaid"
         @mermaid-error="handleMermaidError"
@@ -296,6 +297,10 @@ const chat = useSessionChat({
 })
 
 const audited = computed(() => isAuditedAgentId(chat.activeAgentId.value))
+// Where an approval card reads the task a planning call would change. The personal assistant has no tasks.
+const agentPath = computed(() => chat.activeAgentId.value === PERSONAL_AGENT_ID
+  ? undefined
+  : `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${chat.activeAgentId.value}`)
 
 /**
  * The header's agent list and the person's conversation history.

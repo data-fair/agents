@@ -58,6 +58,8 @@ test.describe('The approval gate', () => {
     const part = callPart(assistant, 'wipe_everything')
     assert.equal(part.state, 'approval-requested')
     assert.ok(part.approval?.id, 'the request carries its approval id')
+    // What the card says the call will do: the tool's own description, recorded on the gated call.
+    assert.equal(part.toolMetadata.description, 'Declares destructive annotations, and does nothing')
     assert.deepEqual(fixture.invokedTools(), [], 'the tool must not have run')
   })
 

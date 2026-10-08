@@ -2,9 +2,10 @@
  * Maps a stored autonomous agent message onto the ChatMessage shape the in-page chat's transcript
  * component already renders.
  *
- * Shared so the two types meet in one tested place. The transcript is reused unchanged — no prop is
- * added to it for autonomous agents — so anything the ChatMessage shape cannot carry is surfaced
- * around the transcript rather than inside it.
+ * Shared so the two types meet in one tested place. The transcript is reused nearly unchanged — its
+ * one autonomous-agent prop is the agent's API path, where an approval card reads the task a planning
+ * call changes — so anything the ChatMessage shape cannot carry is surfaced around the transcript
+ * rather than inside it.
  */
 
 import { isDynamicToolUIPart } from 'ai'
@@ -73,6 +74,9 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
       // a decision until the turn has closed it (it would be overwritten by the turn's last writes).
       ...(call.state === 'approval-requested' && message.pending ? { approvalLocked: true } : {}),
       ...(typeof (call as any).toolMetadata?.serverId === 'string' ? { serverId: (call as any).toolMetadata.serverId } : {}),
+      // What an approval card reads, so it speaks the tool's words rather than its name.
+      ...(typeof (call as any).toolMetadata?.annotations?.title === 'string' ? { toolTitle: (call as any).toolMetadata.annotations.title } : {}),
+      ...(typeof (call as any).toolMetadata?.description === 'string' ? { description: (call as any).toolMetadata.description } : {}),
       state: call.state === 'approval-requested'
         ? 'awaiting-approval'
         : call.state === 'output-denied'
