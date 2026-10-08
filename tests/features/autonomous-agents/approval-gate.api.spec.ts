@@ -87,7 +87,7 @@ test.describe('The approval gate', () => {
   const decideRun = (conversationId: string, approvalId: string, body: { approved: boolean, reason?: string }) =>
     decideOverSocketToRun(orgAdmin, conversationId, approvalId, body)
   const messageAt = async (conversationId: string, seq: number) =>
-    (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+    (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
   test('speaking while an approved call runs stops that run and settles the call as unknown', async () => {
     // Over the socket, writing takes the turn back (a live run is stopped), so a message can no longer land
@@ -120,7 +120,7 @@ test.describe('The approval gate', () => {
     assert.equal(part.toolMetadata.decision.userId, 'test1-admin1')
     // The SDK executes an approved call on replay without announcing it again, so the continuation's own
     // message carries no second part for it.
-    const continuation = (await orgAdmin.get(`${BASE}/${conv.id}/messages`)).data.results.find((m: any) => m.runId === runId)
+    const continuation = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conv.id}/messages`)).data.results.find((m: any) => m.runId === runId)
     assert.equal(callPart(continuation, 'wipe_everything'), undefined, 'no duplicate call part')
 
     // A further turn replays an approved call WITH its result, so it must not run again.
@@ -237,7 +237,7 @@ test.describe('The approval gate', () => {
   })
 
   const noApprovedCallLeft = async (conversationId: string) => {
-    const messages = (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
     assert.ok(!messages.some((m: any) => (m.parts ?? []).some((p: any) => p.state === 'approval-responded' || p.state === 'approval-requested')),
       'no approved or pending call left without a result')
   }
@@ -288,7 +288,7 @@ test.describe('The approval gate', () => {
     const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'call tools slow_lookup wipe_everything')
     let asking: any
     for (let i = 0; i < 100 && !asking; i++) {
-      const messages = (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
       const message = messages.find((m: any) => m.runId === runId)
       if (message && callPart(message, 'wipe_everything')?.state === 'approval-requested') asking = message
       else await new Promise(resolve => setTimeout(resolve, 50))
@@ -394,7 +394,7 @@ test.describe('The approval gate', () => {
     const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'call tools slow_lookup wipe_everything')
     let asking: any
     for (let i = 0; i < 100 && !asking; i++) {
-      const messages = (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
       const message = messages.find((m: any) => m.runId === runId)
       if (message && callPart(message, 'wipe_everything')?.state === 'approval-requested') asking = message
       else await new Promise(resolve => setTimeout(resolve, 50))
@@ -409,7 +409,7 @@ test.describe('The approval gate', () => {
     const part = callPart(await messageAt(conversationId, asking.seq), 'wipe_everything')
     assert.equal(part.state, 'output-denied')
     assert.equal(part.approval.reason, 'The person sent a new message instead of deciding.')
-    const messages = (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
     assert.ok(!messages.some((m: any) => (m.parts ?? []).some((p: any) => p.state === 'approval-requested')))
     assert.ok(!fixture.invokedTools().includes('wipe_everything'))
   })
@@ -428,7 +428,7 @@ test.describe('Deciding over the socket', () => {
   }
 
   const messageAt = async (conversationId: string, seq: number) =>
-    (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+    (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
   test('the frame decides; a socket bound to another conversation cannot', async () => {
     const agent = await createGatedAgent()
@@ -474,7 +474,7 @@ test.describe('Deciding over the socket', () => {
     socket.send({ type: 'host-events', events: [{ name: 'clicked Create', detail: 'the wizard', at: Date.now() }] })
     const woke = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
     assert.equal(woke.find(f => f.type === 'turn-end').stopReason, 'completed')
-    const messages = (await orgAdmin.get(`${BASE}/${socket.conversationId()}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${socket.conversationId()}/messages`)).data.results
     const part = messages.find((m: any) => m.seq === pending.seq).parts.find((p: any) => p.toolName === 'wipe_everything')
     assert.equal(part.state, 'output-denied')
     assert.equal(part.approval.reason, 'The person acted on the page instead of deciding.')

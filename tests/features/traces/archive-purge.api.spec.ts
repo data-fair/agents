@@ -107,6 +107,6 @@ test.describe('Purging a conversation', () => {
     assert.ok(!(await listed()).includes(conversationId), 'out of the window: not listed')
     await assert.rejects(admin.get(`/api/review/${OWNER}/${conversationId}`), { status: 404 })
     // ...and still the person's own thread.
-    assert.equal((await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`)).status, 200)
+    assert.equal((await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`)).status, 200)
   })
 })

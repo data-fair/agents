@@ -137,7 +137,7 @@ test.describe('A turn over the agent session', () => {
     assert.equal(frames[frames.length - 1].stopReason, 'completed')
 
     // And it is stored, because the conversation is the record whether or not anyone was watching.
-    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversation.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversation.id}/messages`)).data.results
     assert.deepEqual(messages.map((m: any) => m.role), ['user', 'assistant'])
   })
 
@@ -172,7 +172,7 @@ test.describe('A turn over the agent session', () => {
 
     // The record proves the model got the answer: the stored call carries the page's result, inside the
     // provenance envelope, exactly as an MCP tool's would.
-    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${session.conversationId()}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${session.conversationId()}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     const call = (assistant.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'select_row')
     assert.ok(call, 'the page tool call must be in the conversation record')
@@ -205,7 +205,7 @@ test.describe('A turn over the agent session', () => {
     await session.closed()
 
     for (let i = 0; i < 100; i++) {
-      const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversation.id}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversation.id}/messages`)).data.results
       const assistant = messages.find((m: any) => m.role === 'assistant')
       if (assistant && assistant.pending === false) {
         const text = assistant.parts.find((p: any) => p.type === 'text')?.text ?? ''
@@ -341,7 +341,7 @@ test.describe('A turn over the agent session', () => {
     assert.equal(new Set(threads).size, 1, 'one thread')
     const listed = (await orgAdmin.get('/api/conversations/organization/test1?agentId=personal')).data.results
     assert.deepEqual(listed.map((c: any) => c.id), [threads[0]])
-    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${threads[0]}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${threads[0]}/messages`)).data.results
     const userTexts = messages.filter((m: any) => m.role === 'user').map((m: any) => m.parts.find((p: any) => p.type === 'text')?.text)
     assert.deepEqual(userTexts, ['slow hello', 'second'])
     // The first turn was stopped by the second message, not left to answer the question before.
@@ -404,7 +404,7 @@ test.describe('A turn over the agent session', () => {
     await new Promise(resolve => setTimeout(resolve, 500))
     assert.equal((await events()).length, 2, 'one moderation of the second message, not two')
     // One assistant message per run still holds for the run that did nothing.
-    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
     assert.equal(messages.filter((m: any) => m.role === 'assistant' && m.runId === stopped.id).length, 1)
   })
 

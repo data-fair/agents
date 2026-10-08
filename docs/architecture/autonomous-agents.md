@@ -54,7 +54,8 @@ Consequences worth stating, because they are what the design buys and costs:
   result.
 - `seq` orders the timeline. The socket is the only live channel: the chat follows a turn over it and
   keys messages by `seq` (the assistant message is created pending and finalised at the same `seq`).
-  `GET …/:conversationId/messages` and `…/runs` are plain full reads, for the export, review and tests.
+  `GET …/:conversationId/runs` is a plain full read; a transcript is read over the socket (the history
+  sent on attach) or through review, and the tests read it through `/api/test-env`.
 - The answer is **not written as it streams**. A watching browser gets every token, and a page that
   attaches mid-turn is served the answer so far from the executor's in-process `liveTurns`. The store
   gets tool calls as they open and settle, and the text at the end of the turn: a restart mid-answer
@@ -165,7 +166,7 @@ swept by their own purges.)
 
 ## The turn and its target
 
-`runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, message, conversation, wakeIfAnswered)` is a chat's, and `taskTarget(run, task)` (`api/src/tasks/task-target.ts`) a planned task's. Both are driven by `driveTurn` (`executor.ts`), which owns the abort controller, telemetry, deadline and failure classification, whatever the turn is of. The conversation target:
+`runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, message, conversation)` is a chat's, and `taskTarget(run, task)` (`api/src/tasks/task-target.ts`) a planned task's. Both are driven by `driveTurn` (`executor.ts`), which owns the abort controller, telemetry, deadline and failure classification, whatever the turn is of. The conversation target:
 
 - `session` and `historyUpToSeq`: the page in front of the person as the turn started (its tools and host events; undefined is normal), and the history bound recorded on the turn's telemetry.
 - `history`: the stored messages up to the turn's own, compacted within the budget, with the page's context (host events, the pending-wait reminder) folded into the last user message at call time and never persisted.

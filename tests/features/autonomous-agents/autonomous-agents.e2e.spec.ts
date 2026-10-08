@@ -379,7 +379,7 @@ test.describe('Agent switcher and conversation history', () => {
     const threadsOf = async (id: string) => (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${id}`)).data.results
     expect((await threadsOf('personal')).length).toBe(1)
     const [agentThread] = await threadsOf(agentId)
-    const agentMessages = (await orgAdmin.get(`/api/conversations/organization/test1/${agentThread.id}/messages`)).data.results
+    const agentMessages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${agentThread.id}/messages`)).data.results
     expect(agentMessages.filter((m: any) => m.role === 'user')).toHaveLength(1)
   })
 })

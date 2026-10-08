@@ -20,6 +20,7 @@
 import { validate } from './agent-session-client-frame/index.ts'
 import type { AgentSessionClientFrame, BrowserToolDescriptor, HostEventFrame } from './agent-session-client-frame/index.ts'
 import type { AgentSessionServerFrame } from './agent-session-server-frame/index.ts'
+import serverFrameSchema from './agent-session-server-frame/schema.js'
 
 export type { BrowserToolDescriptor, HostEventFrame }
 export type ClientMessage = AgentSessionClientFrame
@@ -53,9 +54,8 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
   return parsed
 }
 
-const SERVER_FRAME_TYPES = new Set<string>([
-  'attached', 'delta', 'tool-call', 'message', 'activity', 'subagent', 'turn-end', 'cost', 'error'
-] satisfies ServerMessage['type'][])
+/** Every frame type the server sends, read off the schema so a frame added there is never ignored. */
+const SERVER_FRAME_TYPES = new Set<string>(serverFrameSchema.oneOf.map(frame => frame.properties.type.const))
 
 /**
  * Parse a server frame on the CLIENT, leniently — the mirror image of parseClientMessage.

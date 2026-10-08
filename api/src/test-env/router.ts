@@ -12,7 +12,7 @@ import { Router } from 'express'
 import { nanoid } from 'nanoid'
 import locks from '@data-fair/lib-node/locks.js'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
-import { httpError } from '@data-fair/lib-express/index.js'
+import { httpError, reqSessionAuthenticated, type AccountKeys } from '@data-fair/lib-express/index.js'
 import mongo from '#mongo'
 import { getModelsForOwner } from '../models/router.ts'
 import { clearToolListings } from '../mcp-servers/client.ts'
@@ -23,9 +23,9 @@ import { maybeReflect, sweepIdleReflections } from '../memory/reflection.ts'
 import { runSchedulerPass } from '../tasks/scheduler.ts'
 import { recoverOwnerlessRuns } from '../conversations/executor.ts'
 import { recoverOwnerlessTaskRuns } from '../tasks/execution.ts'
-import { purgeExpiredArchives } from '../conversations/service.ts'
+import { purgeExpiredArchives, requireConversation, assertOwnsConversation } from '../conversations/service.ts'
 import { clearAutonomousAgentSession } from '../nhi/service.ts'
-import { callOnlyLiveAgentSession } from '../agent-session/service.ts'
+import { liveAgentSessions } from '../agent-session/service.ts'
 
 /**
  * The events pushed, newest last, capped. It lets the tests see a notification without the events
@@ -48,6 +48,24 @@ const recordPushedEvents = () => {
 export const createTestEnvRouter = () => {
   recordPushedEvents()
   const router = Router()
+
+  /**
+   * A thread's stored messages, for the person it belongs to.
+   *
+   * No product surface reads a transcript over HTTP: the chat gets it from the socket's history on
+   * attach, and review has its own route. Authorized with the same checks as that attach — the
+   * thread exists on this account and is not archived, and it is the caller's — so a spec asserting a
+   * refusal here asserts the product's.
+   */
+  router.get('/conversations/:type/:id/:conversationId/messages', async (req, res, next) => {
+    try {
+      const session = reqSessionAuthenticated(req)
+      const conversation = await requireConversation({ type: req.params.type, id: req.params.id } as AccountKeys, req.params.conversationId)
+      assertOwnsConversation(conversation, session)
+      const results = await mongo.messages.find({ conversationId: conversation.id }, { projection: { _id: 0 } }).sort({ seq: 1 }).toArray()
+      res.json({ results, count: results.length })
+    } catch (err) { next(err) }
+  })
 
   router.delete('/', async (req, res) => {
     getModelsForOwner.clear()
@@ -274,7 +292,12 @@ export const createTestEnvRouter = () => {
     // around the call itself so this endpoint's own HTTP overhead is not counted into it.
     const startedAt = performance.now()
     try {
-      const result = await callOnlyLiveAgentSession(req.body.name, req.body.input)
+      // The ONLY live session, deliberately crude: addressing a session properly means binding it to a
+      // conversation. Insisting on exactly one makes the ambiguity an error rather than a coin flip — a
+      // test that opened two sockets and asserted on "the" session would pass or fail by iteration order.
+      const sessions = liveAgentSessions()
+      if (sessions.length !== 1) throw new Error(`expected exactly one live agent session, found ${sessions.length}`)
+      const result = await sessions[0].callBrowserTool(req.body.name, req.body.input)
       res.json({ ok: true, result, durationMs: performance.now() - startedAt })
     } catch (err: any) {
       res.json({ ok: false, error: err.message, durationMs: performance.now() - startedAt })

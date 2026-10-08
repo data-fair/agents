@@ -114,7 +114,7 @@ test.describe('self usage endpoint', () => {
     // The turn is refused with the same redaction main's 429 body had: what was exceeded and when it
     // resets, never the shared pool's numbers — in the stored text as well as in the structured part.
     const { conversationId } = await runTurn(externalUser, 'user/test-standalone1')
-    const messages = (await externalUser.get(`/api/conversations/user/test-standalone1/${conversationId}/messages`)).data.results as any[]
+    const messages = (await externalUser.get(`/api/test-env/conversations/user/test-standalone1/${conversationId}/messages`)).data.results as any[]
     const answer = messages.filter(m => m.role === 'assistant').pop()
     const refusal = answer.parts.find((part: any) => part.type === 'data-refusal')
     assert.deepEqual(Object.keys(refusal.data).sort(), ['kind', 'period', 'resetsAt', 'scope'])
@@ -157,7 +157,7 @@ test.describe('self usage endpoint', () => {
     assert.equal((await externalUser.get('/api/usage/user/test-standalone1/self')).data.account.status, 'exhausted')
 
     const { conversationId } = await runTurn(externalUser, 'user/test-standalone1')
-    const messages = (await externalUser.get(`/api/conversations/user/test-standalone1/${conversationId}/messages`)).data.results as any[]
+    const messages = (await externalUser.get(`/api/test-env/conversations/user/test-standalone1/${conversationId}/messages`)).data.results as any[]
     const refusal = messages.filter(m => m.role === 'assistant').pop().parts.find((p: any) => p.type === 'data-refusal')
     assert.equal(refusal?.data?.scope, 'untrusted')
   })

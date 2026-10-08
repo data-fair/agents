@@ -42,22 +42,11 @@ const debug = Debug('agents:agent-session')
 const errorFrame = (err: any, fallback: string): ServerMessage =>
   ({ type: 'error', status: err?.status >= 400 && err?.status < 500 ? err.status : 500, message: err?.message || fallback })
 
-/** Live sessions, so a turn started elsewhere can reach the browser that owns it. */
+/** Live sessions, so shutdown can close every one of them. */
 const sessions = new Map<WebSocket, AgentSession>()
 
-/**
- * Call a contextual tool on the ONLY live session.
- *
- * A test seam, and deliberately a crude one: addressing a session properly means binding it to a
- * conversation. Insisting on exactly one connection makes the ambiguity an error rather
- * than a coin flip — a test that opened two sockets and asserted on "the" session would pass or fail by
- * iteration order.
- */
-export const callOnlyLiveAgentSession = async (name: string, input: unknown): Promise<unknown> => {
-  if (sessions.size !== 1) throw new Error(`expected exactly one live agent session, found ${sessions.size}`)
-  const [agentSession] = sessions.values()
-  return await agentSession.callBrowserTool(name, input)
-}
+/** The live sessions of this process, read-only. */
+export const liveAgentSessions = (): AgentSession[] => [...sessions.values()]
 
 export const startAgentSessions = (server: Server) => {
   const wss = new WebSocketServer({ noServer: true })
@@ -74,7 +63,8 @@ export const startAgentSessions = (server: Server) => {
     // The attach in progress: a prompt sent right behind the hello waits for it, or its turn could
     // start before this socket is registered as the watcher, without the page's tools.
     let attaching: Promise<void> = Promise.resolve()
-    // The turn starts and Stops asked for so far, chained so they happen in the order they were sent.
+    // The turn starts, Stops and approval decisions asked for so far, chained so they happen in the
+    // order they were sent.
     let prompts: Promise<void> = Promise.resolve()
     // What the first prompt of a connection bound to nothing creates, as its hello named it.
     let newThread: { owner: AccountKeys, agentId: string } | undefined
@@ -144,18 +134,22 @@ export const startAgentSessions = (server: Server) => {
           return
         }
         const session = sessionState
-        attaching.then(() => resolveOwnConversation(conversationId))
-          .then(conversation => decideAndContinue({
+        // Behind the prompts sent before it, like a Stop: a decision followed by a message is recorded
+        // before that message rejects whatever is still pending, in the order the person sent them.
+        prompts = prompts.then(async () => {
+          await attaching
+          const conversation = await resolveOwnConversation(conversationId)
+          await decideAndContinue({
             conversation,
             session,
             approvalId,
             approved,
             ...(reason ? { reason } : {})
-          }))
-          .catch((err: any) => {
-            debug('approval refused: %O', err)
-            send(errorFrame(err, 'the decision could not be recorded'))
           })
+        }).catch((err: any) => {
+          debug('approval refused: %O', err)
+          send(errorFrame(err, 'the decision could not be recorded'))
+        })
       },
       // The person acted on the page: if the bound conversation is waiting on them, this answers it.
       // Only once attached — `wakeIfAnswered` checks this socket is the conversation's watcher, which it
@@ -306,7 +300,9 @@ export const startAgentSessions = (server: Server) => {
       const thread = anonymousThread
       if (!thread) return
       anonymousThread = undefined
-      await abortRunsOfConversation(thread.id)
+      // 'stop', not the default 'spoke': a closed tab is nobody speaking, and a purge must also stop
+      // the thread's queued runs that are not a person's turn.
+      await abortRunsOfConversation(thread.id, 'stop')
       await purgeConversation(thread.id)
     }
 

@@ -184,7 +184,7 @@ export const turnOverSocket = async (
   const { conversationId } = started
   const frames = await started.done
   const run = await runOf(ax, conversationId, started.runId, owner)
-  const messages: any[] = (await ax.get(`${base(owner, conversationId)}/messages`)).data.results
+  const messages: any[] = (await ax.get(`/api/test-env/conversations/${owner}/${conversationId}/messages`)).data.results
   const assistant = [...messages].reverse().find(m => m.role === 'assistant')
   return { runId: started.runId, conversationId, run, messages, assistant, frames }
 }

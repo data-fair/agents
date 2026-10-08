@@ -65,7 +65,7 @@ test.describe('An interrupted turn in the history sent next', () => {
   }
 
   const assistantMessages = async (conversationId: string) =>
-    (await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`)).data.results
+    (await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`)).data.results
       .filter((m: any) => m.role === 'assistant')
 
   test('speaking during a wait: the wait keeps a result, and the reminder is the last thing read', async () => {

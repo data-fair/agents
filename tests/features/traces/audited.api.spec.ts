@@ -53,7 +53,7 @@ test.describe('Audited conversations', () => {
     const conversationId = await instructorThread(agent.id)
     await instructor.delete(`/api/conversations/organization/test1/${conversationId}`)
     // gone for them
-    await assert.rejects(instructor.get(`/api/conversations/organization/test1/${conversationId}/messages`), { status: 404 })
+    await assert.rejects(instructor.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`), { status: 404 })
     // still the organization's record, even after a sweep run far in the future
     await admin.post('/api/test-env/purge-expired-archives', { now: '2030-01-01T00:00:00.000Z' })
     const read = await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)

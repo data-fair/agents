@@ -316,10 +316,7 @@ const router = useRouter()
 
 const activeDebugTab = ref('info')
 
-/**
- * The tools the model was offered on the conversation's last turn, read from the run when the dialog
- * opens (cleared first, so another thread's list never lingers). Empty before a first turn, and for an anonymous chat, which has no run to read.
- */
+/** The tools the page in front of the person offers now. */
 const pageToolList = computed(() => Object.entries(props.pageTools).map(([name, tool]) => ({
   name,
   title: (tool as any).title as string | undefined,
@@ -327,6 +324,11 @@ const pageToolList = computed(() => Object.entries(props.pageTools).map(([name, 
   inputSchema: (tool as any).inputSchema?.jsonSchema ?? {}
 })))
 
+/**
+ * The tools the model was offered on the conversation's last turn, read from the run when the dialog
+ * opens (cleared first, so another thread's list never lingers). Empty before a first turn, and for an
+ * anonymous chat, which has no run to read.
+ */
 const offeredTools = ref<string[]>([])
 watch(() => props.modelValue, async open => {
   if (!open) return

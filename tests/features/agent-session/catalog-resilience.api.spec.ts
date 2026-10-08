@@ -68,7 +68,7 @@ test.describe('An unreachable catalog entry', () => {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     assert.equal(run.status, 'error')
-    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     const text = assistant.parts.find((p: any) => p.type === 'text')?.text ?? ''
     assert.match(text, /dev-public-mcp/, 'it must name the server that failed, so an admin can fix it')

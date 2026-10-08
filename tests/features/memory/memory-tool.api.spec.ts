@@ -31,7 +31,7 @@ const turn = async (target: string | { agentId: string }, content: string) => {
     if (run.status !== 'running') break
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/messages`)).data.results
+  const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
   return { conversationId, run, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
 }
 const call = (args: object) => `call tool memory ${JSON.stringify(args)}`

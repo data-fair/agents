@@ -143,7 +143,7 @@ test.describe('wait_for_user_action over the socket', () => {
     assert.equal(wake.triggeredBy.userId, 'test-standalone1', 'billed as the person who handed over')
     assert.equal((await conversation(conversationId)).pendingWait, undefined)
     // Exactly one message of the person's: a wake adds none.
-    const messages = (await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`)).data.results
+    const messages = (await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`)).data.results
     assert.equal(messages.filter((m: any) => m.role === 'user').length, 1)
   })
 
@@ -186,7 +186,7 @@ test.describe('wait_for_user_action over the socket', () => {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     assert.equal((await conversation(conversationId)).pendingWait, undefined, 'no wait is left pending')
-    const messages = (await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`)).data.results
+    const messages = (await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`)).data.results
     const open = messages.flatMap((m: any) => m.parts ?? []).filter((p: any) => p.toolName === 'wait_for_user_action' && p.state === 'input-available')
     assert.equal(open.length, 0, 'no wait call is left open')
 

@@ -54,7 +54,7 @@ test.describe('Attaching mid-turn', () => {
 
     // While it streams, the store holds the pending message without the text: nothing is rewritten
     // per token or on a timer.
-    const midway = (await orgAdmin.get(`/api/conversations/${OWNER}/${conversation.id}/messages`)).data.results
+    const midway = (await orgAdmin.get(`/api/test-env/conversations/${OWNER}/${conversation.id}/messages`)).data.results
     const pending = midway.find((m: any) => m.role === 'assistant')
     assert.equal(pending.pending, true)
     assert.equal(textOf(pending.parts ?? []), '')
@@ -78,7 +78,7 @@ test.describe('Attaching mid-turn', () => {
     assert.ok(settled, 'the settled answer must reach the page that is open')
     assert.equal(sofar + rest, textOf(settled.parts))
 
-    const stored = (await orgAdmin.get(`/api/conversations/${OWNER}/${conversation.id}/messages`)).data.results
+    const stored = (await orgAdmin.get(`/api/test-env/conversations/${OWNER}/${conversation.id}/messages`)).data.results
     assert.equal(textOf(stored.find((m: any) => m.role === 'assistant').parts), textOf(settled.parts))
   })
 
@@ -99,7 +99,7 @@ test.describe('Attaching mid-turn', () => {
     // Stopped for real, on the server: the frame used to be dropped, and the turn ran to the end.
     assert.equal(frames[frames.length - 1].stopReason, 'aborted')
 
-    const stored = (await orgAdmin.get(`/api/conversations/${OWNER}/${conversation.id}/messages`)).data.results
+    const stored = (await orgAdmin.get(`/api/test-env/conversations/${OWNER}/${conversation.id}/messages`)).data.results
     const answer = stored.find((m: any) => m.role === 'assistant')
     assert.equal(answer.pending, false)
     const text = textOf(answer.parts)

@@ -132,7 +132,7 @@ test.describe('A delegation over the agent session', () => {
 
     // The LEAD got a summary, not the config it would have got before. This is the assertion that
     // fails on the old behaviour: the config's text would be sitting in the tool output.
-    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${conversation.id}/messages`)).data
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversation.id}/messages`)).data
     const outputs = messages.results
       .flatMap((message: any) => message.parts ?? [])
       .filter((part: any) => part.type === 'dynamic-tool' && part.toolName === 'subagent_data_analyst')

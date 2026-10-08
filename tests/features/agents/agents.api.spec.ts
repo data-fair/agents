@@ -29,7 +29,7 @@ test.describe('Chat API', () => {
   test('a turn reaches the model and the answer is stored', async () => {
     const { conversationId } = await runTurn(user, 'user/test-standalone1', 'hello')
 
-    const res = await user.get(`/api/conversations/user/test-standalone1/${conversationId}/messages`)
+    const res = await user.get(`/api/test-env/conversations/user/test-standalone1/${conversationId}/messages`)
     const messages = res.data.results as any[]
 
     // The person's own turn is stored, not only the answer: the server is the single source of the

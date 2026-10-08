@@ -27,7 +27,7 @@ test.describe('Images from MCP tools', () => {
   })
 
   const messagesOf = async (conversationId: string) =>
-    (await orgAdmin.get(`/api/conversations/${OWNER}/${conversationId}/messages`)).data.results as any[]
+    (await orgAdmin.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`)).data.results as any[]
 
   test('the image is stored whole, and the next turn sends it to the model as an image', async () => {
     const { conversationId } = await runTurn(orgAdmin, OWNER, 'call tool snapshot {}')

@@ -257,28 +257,10 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-router.get('/:type/:id/:conversationId/messages', async (req, res, next) => {
-  try {
-    const session = reqSessionAuthenticated(req)
-    const owner = reqOwner(req)
-    const conversation = await requireConversation(owner, req.params.conversationId)
-    // Still resolved, so a thread whose agent was deleted 404s rather than half-working; no longer the
-    // thing that authorizes the read or the write.
-    await requireAutonomousAgent(owner, conversation.agentId)
-    assertOwnsConversation(conversation, session)
-
-    const results = await mongo.messages
-      .find({ conversationId: conversation.id }, { projection: { _id: 0 } })
-      .sort({ seq: 1 })
-      .toArray()
-    res.json({ results, count: results.length })
-  } catch (err) { next(err) }
-})
-
 /**
  * A thread's runs, in order.
  *
- * Authorized exactly like its messages: the one person it belongs to. It carries the per-call
+ * Authorized like the thread itself: the one person it belongs to. It carries the per-call
  * telemetry that replaced the trace collection, so this is where "which model answered, what did it
  * cost, how much context did it send" is read from for a thread you own.
  */

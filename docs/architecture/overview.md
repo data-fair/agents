@@ -39,7 +39,8 @@ on an approval: there is no HTTP route for either, and no polling. The chat send
 contextual tools, its host state and events, aborts and approval decisions; it receives the stored turn
 as it is written (`delta`, `message`, `activity`, `subagent`, `cost`, `turn-end`), plus calls to those
 tools. HTTP serves the rest: the agents a person may talk to, the history list, a conversation's
-messages and runs as plain reads, and deleting a thread.
+runs as a plain read, and deleting a thread. A transcript is read only over the socket (the history
+sent on attach) and through review.
 
 The frames are JSON schemas like every other boundary, compiled by `npm run build-types`:
 `shared/agent-session-client-frame/schema.js` is what a browser may send, strictly validated (an
@@ -69,9 +70,10 @@ AI provider/model configuration and credit-based quotas are layered across deplo
 
 **Development seams.** What the test suites need from the server — a reset of every `test*` document
 and in-process cache, state manufactured on purpose (orphaned runs, held locks), clocks passed in as
-data — lives in one router, `api/src/test-env/router.ts`, mounted under `/api/test-env` only when
-`NODE_ENV` is `development`. Product code does not know it exists: where a test must observe something
-(the task notifications pushed to the events service), the router wraps the product's own outlet.
+data, a thread's stored messages read over HTTP — lives in one router, `api/src/test-env/router.ts`,
+mounted under `/api/test-env` only when `NODE_ENV` is `development`. Product code does not know it
+exists: where a test must observe something (the task notifications pushed to the events service),
+the router wraps the product's own outlet.
 
 ## The other documents
 

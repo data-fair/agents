@@ -57,7 +57,7 @@ test.describe('Deleting a reviewable conversation', () => {
 
     // Gone for them, on every route that reads a thread — the list, the read, and posting to it.
     assert.deepEqual(await mineList(), [], 'it must disappear from their list')
-    const read = await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
+    const read = await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
     assert.equal(read.status, 404, 'and not be readable')
     await assert.rejects(turnOverSocket(user, conversationId, 'more', { owner: OWNER }), { status: 404 }, 'and not be continuable')
 
@@ -80,7 +80,7 @@ test.describe('Deleting a reviewable conversation', () => {
     const detail = await admin.get(`/api/review/${OWNER}/${conversationId}`).catch((err: any) => err.response ?? err)
     assert.equal(detail.status, 404)
     // The messages go with it rather than being orphaned in their own collection.
-    const read = await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
+    const read = await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
     assert.equal(read.status, 404)
   })
 
@@ -88,7 +88,7 @@ test.describe('Deleting a reviewable conversation', () => {
     const conversationId = await chat(false, true)
     await user.delete(`/api/conversations/${OWNER}/${conversationId}`)
     // storeTraces off leaves no personal-assistant thread reviewable, so assert on the person's side.
-    const read = await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
+    const read = await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
     assert.equal(read.status, 404)
   })
 
@@ -112,7 +112,7 @@ test.describe('Deleting a reviewable conversation', () => {
     assert.equal((await admin.get(`/api/review/${OWNER}`)).data.count, 0, 'no longer reviewable')
 
     await user.delete(`/api/conversations/${OWNER}/${conversationId}`)
-    const read = await user.get(`/api/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
+    const read = await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
     assert.equal(read.status, 404)
   })
 

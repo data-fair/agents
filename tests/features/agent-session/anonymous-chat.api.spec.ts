@@ -72,7 +72,7 @@ test.describe('Anonymous chat over the agent session', () => {
 
   /** The thread as an admin sees it: 404 once purged. */
   const adminReads = async (conversationId: string) =>
-    (await admin.get(`/api/conversations/${OWNER_PATH}/${conversationId}/messages`).catch((err: any) => err.response ?? err)).status
+    (await admin.get(`/api/test-env/conversations/${OWNER_PATH}/${conversationId}/messages`).catch((err: any) => err.response ?? err)).status
 
   test('a visitor gets a thread of their own and an answer', async () => {
     const socket = await open()

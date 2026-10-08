@@ -13,7 +13,6 @@ import { decideOverSocketToRun, startTurnOverSocket, runOf } from '../../../dev/
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const BASE = '/api/conversations/organization/test1'
 
 const createAgent = async (memory = true, over: any = {}) => {
   const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
@@ -35,7 +34,7 @@ const say = async (target: string | { agentId: string }, content: string) => {
   await awaitRun(conversationId, runId)
   return conversationId
 }
-const messages = async (conversationId: string) => (await orgAdmin.get(`${BASE}/${conversationId}/messages`)).data.results
+const messages = async (conversationId: string) => (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
 const reflect = async (conversationId: string, extra: any = {}) => (await admin.post('/api/test-env/reflect-conversation', { conversationId, ...extra })).data
 const core = async (agentId: string) => (await orgAdmin.get(`/api/memory/organization/test1/${agentId}/document`, { params: { path: 'MEMORY.md' } }).catch(() => ({ data: undefined }))).data
 

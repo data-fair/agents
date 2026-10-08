@@ -60,7 +60,7 @@ const settingsData = (overrides: any = {}) => ({
 /** The turn's answer, which is where a refusal arrives now. */
 const answerTo = async (ax: any, message: string, conversationId?: string) => {
   const result = await runTurn(ax, OWNER_PATH, message, conversationId ? { conversationId } : undefined)
-  const res = await ax.get(`/api/conversations/${OWNER_PATH}/${result.conversationId}/messages`)
+  const res = await ax.get(`/api/test-env/conversations/${OWNER_PATH}/${result.conversationId}/messages`)
   const messages = res.data.results as any[]
   const assistant = messages.filter(m => m.role === 'assistant').pop()
   const text = (assistant?.parts ?? []).filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
@@ -219,7 +219,7 @@ test.describe('Moderation admin API', () => {
     // still silent ('stall'). It used to be recorded and nothing more: the turn finished in full.
     const { text, conversationId } = await answerTo(externalUser, 'slow moderation, jailbreak\nstall')
     assert.equal(text, MODERATION_REFUSAL)
-    const messages = (await externalUser.get(`/api/conversations/${OWNER_PATH}/${conversationId}/messages`)).data.results as any[]
+    const messages = (await externalUser.get(`/api/test-env/conversations/${OWNER_PATH}/${conversationId}/messages`)).data.results as any[]
     const answer = messages.filter(m => m.role === 'assistant').pop()
     assert.deepEqual(answer.parts.find((p: any) => p.type === 'data-refusal')?.data, { kind: 'moderation' })
     const run = await runOf(externalUser, conversationId, answer.runId, OWNER_PATH)
