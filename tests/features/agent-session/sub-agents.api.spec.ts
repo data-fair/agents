@@ -86,8 +86,8 @@ test.describe('A delegation over the agent session', () => {
    * Returns every frame seen, plus the tool names that were asked for, in order.
    */
   const runDelegation = async (socket: AgentSessionClient, prompt: string) => {
-    socket.send(newThreadHello('organization/test1', { title: 'delegation', tools: pageTools }))
-    socket.send({ type: 'prompt', content: prompt })
+    socket.send(newThreadHello('organization/test1', { tools: pageTools }))
+    socket.send({ type: 'prompt', content: prompt, title: 'delegation' })
 
     const frames: any[] = []
     const asked: string[] = []

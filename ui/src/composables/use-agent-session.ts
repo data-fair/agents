@@ -38,7 +38,7 @@ const debug = Debug('df-agents:agent-session')
  * What a `hello` binds the connection to: an existing thread, or a fresh one with this agent, which the
  * first prompt creates on the server (see the frame).
  */
-export type HelloTarget = { conversationId: string } | { agentId: string, title?: string }
+export type HelloTarget = { conversationId: string } | { agentId: string }
 
 export interface AgentSessionClientOptions {
   /** Where the socket lives. Derived from the page's own origin by the caller, never configured. */
@@ -47,6 +47,11 @@ export interface AgentSessionClientOptions {
   tools: Ref<Record<string, Tool>>
   /** The account a fresh thread is started on. */
   account: { type: 'user' | 'organization', id: string }
+  /**
+   * The title of a fresh thread, sent with the prompt that creates it — computed then, so a default
+   * stamped with the time says when the conversation started rather than when the chat was opened.
+   */
+  newThreadTitle?: () => string
   /**
    * For an ANONYMOUS visitor only: their anonymous action token, which a fresh thread needs. A function,
    * because the token is fetched — and refreshed for a reset — after setup.
@@ -112,6 +117,8 @@ export function useAgentSession (options: AgentSessionClientOptions) {
   let ws: WebSocket | undefined
   /** What the next `hello` binds to — the latest asked for, even when asked before the socket opened. */
   let target: HelloTarget | undefined
+  /** The thread the server says this connection is bound to; undefined while the next prompt creates one. */
+  let boundTo: string | undefined
 
   /**
    * Say hello for the current target. It carries the tool set as it is NOW, and the consent answer as
@@ -126,7 +133,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       tools: toDescriptors(options.tools.value),
       ...('conversationId' in target
         ? { conversationId: target.conversationId }
-        : { account: options.account, agentId: target.agentId, ...(target.title ? { title: target.title } : {}) }),
+        : { account: options.account, agentId: target.agentId }),
       ...(token ? { anonymousToken: token } : {}),
       ...(consent !== undefined ? { traceConsent: consent } : {})
     })
@@ -190,6 +197,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     switch (message.type) {
       case 'attached':
         attached.value = true
+        boundTo = message.conversationId
         options.onAttached?.(message.conversationId)
         // Drives the consent sheet.
         //
@@ -284,11 +292,14 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       // on attach when it has one.
       activity.value = null
       target = next
+      boundTo = undefined
       hello()
     },
 
     prompt (content: string, hiddenContext?: string) {
-      send({ type: 'prompt', content, ...(hiddenContext ? { hiddenContext } : {}) })
+      // Only a prompt that may create the thread carries its title; the server ignores it otherwise.
+      const title = !boundTo && target && !('conversationId' in target) ? options.newThreadTitle?.() : undefined
+      send({ type: 'prompt', content, ...(hiddenContext ? { hiddenContext } : {}), ...(title ? { title } : {}) })
     },
 
     /**

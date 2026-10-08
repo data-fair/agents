@@ -145,14 +145,6 @@ export const purgeConversation = async (conversationId: string): Promise<{ messa
 }
 
 /**
- * Start an anonymous visitor's thread. It lives as long as the socket that asks for it (see the
- * `anonymous` field of the conversation schema).
- *
- * The checks the HTTP create route applies to a signed-in caller, restated for one who has no
- * session: a STANDARD agent only — a configured agent's instructors are named people, which an
- * anonymous visitor is not — and an account whose anonymous quota is open at all.
- */
-/**
  * Who is asking: a signed-in person, or an anonymous visitor known only by the per-IP key their usage
  * is charged to. The visitor has no session, so their ownership of the thread is the socket's (only
  * the socket that created it may prompt into it) and their role is `anonymous` by definition.

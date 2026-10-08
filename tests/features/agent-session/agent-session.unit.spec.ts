@@ -61,14 +61,16 @@ test.describe('parseClientMessage', () => {
     })
   })
 
-  test('a hello starting a thread carries its title, and the consent answer the browser holds', () => {
-    assert.deepEqual(parse({ type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', title: 'Mine', traceConsent: true }), {
-      type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', title: 'Mine', traceConsent: true
+  test('a hello starting a thread carries the consent answer the browser holds; its first prompt carries the title', () => {
+    assert.deepEqual(parse({ type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', traceConsent: true }), {
+      type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', traceConsent: true
     })
     assert.deepEqual(parse({ type: 'hello', tools: [], traceConsent: false }), { type: 'hello', tools: [], traceConsent: false })
     // Strictly boolean: a truthy string must not read as consent.
     assert.equal(parse({ type: 'hello', tools: [], traceConsent: 'yes' }).type, 'invalid')
-    assert.equal(parse({ type: 'hello', tools: [], title: 42 }).type, 'invalid')
+    // The title is stamped when the first message is sent, so it travels with that prompt.
+    assert.deepEqual(parse({ type: 'prompt', content: 'go', title: 'Mine' }), { type: 'prompt', content: 'go', title: 'Mine' })
+    assert.equal(parse({ type: 'prompt', content: 'go', title: 42 }).type, 'invalid')
   })
 
   test('a malformed account or token is refused rather than ignored', () => {
@@ -100,6 +102,19 @@ test.describe('parseClientMessage', () => {
     assert.deepEqual(parseClientMessage('{nope'), { type: 'invalid', reason: 'not valid JSON' })
     assert.equal(parseClientMessage('[]').type, 'invalid')
     assert.equal(parseClientMessage('"hello"').type, 'invalid')
+  })
+
+  test('a refusal names the field that was wrong', () => {
+    // The schema's custom messages: what the client is told, so a malformed frame is debuggable.
+    const reason = (value: unknown) => (parse(value) as { reason: string }).reason
+    assert.equal(reason({ type: 'hello', tools: [{ name: 'select row' }] }), 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}')
+    assert.equal(reason({ type: 'hello', tools: [{ name: 'x' }, { name: 'x' }] }), 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}')
+    assert.equal(reason({ type: 'hello', tools: [], account: null }), 'account must be { type: "user" | "organization", id } when present')
+    assert.equal(reason({ type: 'prompt', content: '   ' }), 'content must be a non-blank string')
+    assert.equal(reason({ type: 'tool-result', callId: 'c' }), 'a tool-result carries exactly one of result or error')
+    assert.equal(reason({ type: 'host-events', events: [{ name: '', at: 1 }] }), 'each event needs a non-empty name and a numeric at')
+    assert.equal(reason({ type: 'approval', approvalId: 'a1', approved: false, reason: 'x'.repeat(1001) }), 'reason must be a string of at most 1000 characters')
+    assert.equal(reason([]), 'a message must be an object')
   })
 
   test('refuses an unknown type, and says which', () => {
@@ -144,13 +159,13 @@ test.describe('parseServerMessageForClient — lenient, on purpose', () => {
   const parseServer = (value: unknown) => parseServerMessageForClient(JSON.stringify(value))
 
   test('accepts every frame the server actually sends', () => {
-    assert.deepEqual(parseServer({ type: 'attached', conversationId: 'c1', anonymous: false }), { type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false })
+    assert.deepEqual(parseServer({ type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false }), { type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false })
     // Bound to nothing yet: the next prompt creates the thread.
-    assert.deepEqual(parseServer({ type: 'attached', anonymous: false }), { type: 'attached', anonymous: false, traceStorage: false })
+    assert.deepEqual(parseServer({ type: 'attached', anonymous: false, traceStorage: false }), { type: 'attached', anonymous: false, traceStorage: false })
     assert.deepEqual(parseServer({ type: 'delta', kind: 'text', text: 'hi' }), { type: 'delta', kind: 'text', text: 'hi' })
     assert.deepEqual(parseServer({ type: 'tool-call', callId: 'c', name: 'n', input: { a: 1 } }), { type: 'tool-call', callId: 'c', name: 'n', input: { a: 1 } })
     assert.deepEqual(parseServer({ type: 'turn-end', stopReason: 'completed' }), { type: 'turn-end', stopReason: 'completed' })
-    assert.deepEqual(parseServer({ type: 'error', message: 'nope' }), { type: 'error', message: 'nope' })
+    assert.deepEqual(parseServer({ type: 'error', status: 403, message: 'nope' }), { type: 'error', status: 403, message: 'nope' })
   })
 
   test('ignores an unknown frame rather than throwing', () => {
@@ -159,18 +174,9 @@ test.describe('parseServerMessageForClient — lenient, on purpose', () => {
     assert.equal(parseServerMessageForClient('[]'), undefined)
   })
 
-  test('still refuses a frame of a KNOWN type with a broken shape', () => {
-    // Lenient about vocabulary, not about structure: a `delta` with no text would otherwise append
-    // `undefined` to what the user is reading.
-    assert.equal(parseServer({ type: 'delta', kind: 'text' }), undefined)
-    assert.equal(parseServer({ type: 'delta', kind: 'sideways', text: 'x' }), undefined)
-    assert.equal(parseServer({ type: 'tool-call', callId: 'c' }), undefined)
-    assert.equal(parseServer({ type: 'attached', conversationId: 42 }), undefined)
-  })
-
   test('a tool-call with no input is still a call', () => {
     // A zero-argument page tool is normal, and `input: undefined` must not look like a broken frame.
-    assert.deepEqual(parseServer({ type: 'tool-call', callId: 'c', name: 'refresh' }), { type: 'tool-call', callId: 'c', name: 'refresh', input: undefined })
+    assert.deepEqual(parseServer({ type: 'tool-call', callId: 'c', name: 'refresh' }), { type: 'tool-call', callId: 'c', name: 'refresh' })
   })
 })
 
@@ -234,7 +240,7 @@ test.describe('the session', () => {
     const h = harness()
     h.session.handle({ type: 'prompt', content: 'go' })
     assert.deepEqual(h.prompts, [])
-    assert.equal(h.last().type, 'error')
+    assert.deepEqual(h.last(), { type: 'error', status: 400, message: 'say hello before prompting' })
   })
 
   test('tools-changed replaces the set wholesale, as a navigation does', () => {
@@ -310,6 +316,7 @@ test.describe('the session', () => {
     h.session.handle(hello())
     h.session.handle({ type: 'tool-result', callId: 'never-issued', result: 1 })
     assert.match((h.last() as { message: string }).message, /no tool call is waiting for callId never-issued/)
+    assert.equal((h.last() as { status: number }).status, 404)
   })
 
   test('a late answer, after the timeout fired, does not resolve anything', async () => {

@@ -8,8 +8,8 @@
  *
  * What these helpers add is only the part a test would otherwise repeat: bind the socket to the
  * conversation, send the frame, find the run it caused (the socket's frames do not carry a run id, the
- * run is read back from the conversation's runs), and turn an `error` frame back into the status the
- * refusal used to have, so `assert.rejects(..., { status })` keeps reading the same.
+ * run is read back from the conversation's runs), and turn an `error` frame into a thrown error with
+ * the frame's `status`, so `assert.rejects(..., { status })` reads as it does for an HTTP route.
  */
 
 import type { AxiosInstance } from 'axios'
@@ -33,19 +33,9 @@ export interface SocketTurnOptions {
   hiddenContext?: string
 }
 
-/** The status a refusal had when it was an HTTP response, recovered from the socket's error text. */
-const statusOfRefusal = (message: string): number => {
-  if (/content is required|must be/.test(message)) return 400
-  if (/no pending approval|still finishing/.test(message)) return 409
-  if (/^unknown /.test(message)) return 404
-  if (/can only be owned/.test(message)) return 400
-  if (/belongs to someone else|not allowed|signed-in person/.test(message)) return 403
-  return 500
-}
-
-/** `data` is the text, where a caller used to read the response body. */
-const refusal = (message: string): Error & { status: number, data: string } =>
-  Object.assign(new Error(message), { status: statusOfRefusal(message), data: message })
+/** An `error` frame as a thrown error. `data` is the text, where a caller used to read the response body. */
+const refusal = (frame: { status?: number, message?: string }): Error & { status?: number, data?: string } =>
+  Object.assign(new Error(frame.message), { status: frame.status, data: frame.message })
 
 const base = (owner: string, conversationId: string) => `/api/conversations/${owner}/${conversationId}`
 
@@ -76,9 +66,9 @@ const attach = async (ax: Ax, target: ConversationTarget, owner: string, timeout
   const traceConsent = consent ? { traceConsent: consent === 'yes' } : {}
   if (typeof target !== 'string') {
     // A refusal of the agent follows `attached` as an error frame, and is read as the prompt's.
-    socket.send(newThreadHello(owner, { ...target, ...traceConsent }))
+    socket.send(newThreadHello(owner, { agentId: target.agentId, ...traceConsent }))
     const frame = await socket.next(timeoutMs)
-    if (frame.type !== 'attached') { socket.close(); throw refusal(frame.message ?? `unexpected ${frame.type} frame`) }
+    if (frame.type !== 'attached') { socket.close(); throw refusal(frame.type === 'error' ? frame : { message: `unexpected ${frame.type} frame` }) }
     return { socket, history: [frame] }
   }
   socket.send({ type: 'hello', tools: [], conversationId: target, ...traceConsent })
@@ -89,7 +79,7 @@ const attach = async (ax: Ax, target: ConversationTarget, owner: string, timeout
   for (let attached = false; ;) {
     const frame = await socket.next(timeoutMs)
     history.push(frame)
-    if (frame.type === 'error') { socket.close(); throw refusal(frame.message) }
+    if (frame.type === 'error') { socket.close(); throw refusal(frame) }
     if (frame.type === 'attached') attached = true
     else if (attached && frame.type === 'cost') break
   }
@@ -122,13 +112,15 @@ export const startTurnOverSocket = async (
   const timeoutMs = opts.timeoutMs ?? 60_000
   const known = new Set(typeof target === 'string' ? (await runsOf(ax, owner, target).catch(() => [])).map(r => r.id) : [])
   const { socket, history } = await attach(ax, target, owner, timeoutMs)
-  socket.send({ type: 'prompt', content, ...(opts.hiddenContext ? { hiddenContext: opts.hiddenContext } : {}) })
+  // A fresh thread's title travels with the prompt that creates it.
+  const title = typeof target !== 'string' && target.title ? { title: target.title } : {}
+  socket.send({ type: 'prompt', content, ...(opts.hiddenContext ? { hiddenContext: opts.hiddenContext } : {}), ...title })
   // A fresh thread is named by the `attached` frame its creation sends, ahead of the turn's frames.
   if (typeof target !== 'string') {
     for (;;) {
       const frame = await socket.next(timeoutMs)
       history.push(frame)
-      if (frame.type === 'error') { socket.close(); throw refusal(frame.message) }
+      if (frame.type === 'error') { socket.close(); throw refusal(frame) }
       if (frame.type === 'attached' && frame.conversationId) break
     }
   }
@@ -142,7 +134,7 @@ export const startTurnOverSocket = async (
       for (;;) {
         const frame = await socket.next(timeoutMs)
         frames.push(frame)
-        if (frame.type === 'error') throw refusal(frame.message)
+        if (frame.type === 'error') throw refusal(frame)
         if (frame.type === 'turn-end') return frames
       }
     } catch (err: any) {
@@ -227,7 +219,7 @@ export const decideOverSocket = async (
   try {
     for (;;) {
       const frame = await socket.next(timeoutMs)
-      if (frame.type === 'error') throw refusal(frame.message)
+      if (frame.type === 'error') throw refusal(frame)
       // The page shows the decision at once: this frame is the decided message, and it is how a
       // decision that leaves other calls undecided is told apart from the one that continues the turn.
       if (frame.type === 'message' && frame.role === 'assistant') {

@@ -201,7 +201,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           return
         case 'prompt':
           if (!attached) {
-            send({ type: 'error', message: 'say hello before prompting' })
+            send({ type: 'error', status: 400, message: 'say hello before prompting' })
             return
           }
           options.onPrompt?.(message.content, message.hiddenContext)
@@ -211,7 +211,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           // An unknown callId is reported, not ignored: it means a timeout already fired, the client is
           // confused, or something is replaying answers — all worth seeing rather than discarding.
           if (!call) {
-            send({ type: 'error', message: `no tool call is waiting for callId ${message.callId}` })
+            send({ type: 'error', status: 404, message: `no tool call is waiting for callId ${message.callId}` })
             return
           }
           if (message.error !== undefined) call.reject(new Error(message.error))

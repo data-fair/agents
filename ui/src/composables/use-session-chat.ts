@@ -149,6 +149,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
     ...(options.anonymous ? { anonymousToken: () => anonymousToken } : {}),
     // The cookie is the browser's memory of the answer; the server is told it, never reads it.
     traceConsent: () => consentRef.value === undefined ? undefined : consentRef.value === 'yes',
+    // Stamped when the first message is sent, so the history labels a thread by when it started.
+    newThreadTitle: () => options.title ?? new Date().toLocaleString(),
 
     /**
      * The thread the socket is bound to now — what the server says, after every hello and when a first
@@ -261,9 +263,6 @@ export function useSessionChat (options: UseSessionChatOptions) {
   /** Which agent the next conversation is with. A conversation carries its own agent. */
   const activeAgentId = ref(options.agentId ?? PERSONAL_AGENT_ID)
 
-  /** A fresh thread with an agent, created by the next message. */
-  const freshThread = (agentId: string) => ({ agentId, title: options.title ?? new Date().toLocaleString() })
-
   // The consent sheet's trigger, and the answer's path back.
   //
   // Two halves of one loop: the server advertises on `attached` that this account stores traces, which
@@ -342,7 +341,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       // An anonymous thread needs a fresh action token: a token is short-lived, and a reset can come
       // long after the page loaded.
       if (options.anonymous) await refreshAnonymousToken()
-      agent.reset(freshThread(agentId))
+      agent.reset({ agentId })
     } catch (err: any) {
       status.value = 'error'
       error.value = apiErrorMessage(err) ?? 'this conversation could not be opened'
@@ -384,7 +383,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
    * with is not offered, while no conversation is open. */
   const setActiveAgent = (agentId: string) => {
     activeAgentId.value = agentId
-    if (!conversationId.value) agent.reset(freshThread(agentId))
+    if (!conversationId.value) agent.reset({ agentId })
   }
 
   /**
@@ -423,7 +422,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       conversationId.value = latest.id
       agent.connect({ conversationId: latest.id })
     } else {
-      agent.connect(freshThread(activeAgentId.value))
+      agent.connect({ agentId: activeAgentId.value })
     }
   }
 

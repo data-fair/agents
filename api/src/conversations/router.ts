@@ -152,6 +152,8 @@ router.get('/:type/:id', async (req, res, next) => {
       archivedAt: { $exists: false }
     }
     if (agentId) filter.agentId = agentId
+    // A backstop: a thread whose first prompt's socket closed mid-creation has no message, and is not history.
+    else filter.messageSeq = { $gt: 0 }
 
     let results = await mongo.conversations
       .find(filter, {

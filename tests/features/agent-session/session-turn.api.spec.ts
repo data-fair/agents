@@ -63,13 +63,14 @@ test.describe('A turn over the agent session', () => {
     // One way to start a conversation: a hello naming the agent binds to nothing, and the thread exists
     // from the first message on — so opening a chat and leaving it creates nothing.
     const session = await open(await cookieOf(orgAdmin))
-    session.send(newThreadHello('organization/test1', { title: 'personal' }))
+    session.send(newThreadHello())
     const hello = await session.next()
     assert.equal(hello.type, 'attached')
     assert.equal(hello.conversationId, undefined, 'nothing is created by the hello')
     assert.equal((await orgAdmin.get('/api/conversations/organization/test1?agentId=personal')).data.count, 0)
 
-    session.send({ type: 'prompt', content: 'hello' })
+    // The title travels with the prompt that creates the thread: the chat stamps it at send time.
+    session.send({ type: 'prompt', content: 'hello', title: 'personal' })
     const created = await session.next()
     assert.equal(created.type, 'attached')
     assert.ok(created.conversationId, 'the attached frame names the new thread')
@@ -92,11 +93,13 @@ test.describe('A turn over the agent session', () => {
     const atHello = await session.next()
     assert.equal(atHello.type, 'error')
     assert.match(atHello.message, /not allowed to instruct/)
+    assert.equal(atHello.status, 403)
 
     session.send({ type: 'prompt', content: 'hello' })
     const atPrompt = await session.next()
     assert.equal(atPrompt.type, 'error')
     assert.match(atPrompt.message, /not allowed to instruct/)
+    assert.equal(atPrompt.status, 403)
 
     const left = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
     assert.equal(left.conversations, 0)
@@ -258,6 +261,7 @@ test.describe('A turn over the agent session', () => {
     const error = frames.find(f => f.type === 'error')
     assert.ok(error, `expected a refusal, got ${JSON.stringify(frames)}`)
     assert.match(error.message, /belongs to someone else/)
+    assert.equal(error.status, 403)
     assert.equal(frames.filter(f => f.type === 'message').length, 0, 'and no history may leak')
   })
 
@@ -302,5 +306,41 @@ test.describe('A turn over the agent session', () => {
     let displaced = await first.next()
     while (displaced.type !== 'error') displaced = await first.next()
     assert.match(displaced.message, /opened somewhere else/)
+    assert.equal(displaced.status, 409)
+  })
+
+  test('an error frame carries the status of its refusal', async () => {
+    const session = await open(await cookieOf(orgAdmin))
+    // 400: a malformed frame, refused with the field that was wrong.
+    session.send({ type: 'prompt', content: '   ' })
+    assert.deepEqual(await session.next(), { type: 'error', status: 400, message: 'content must be a non-blank string' })
+    // 404: a conversation that does not exist.
+    session.send({ type: 'hello', conversationId: 'no-such-conversation', tools: [] })
+    assert.equal((await session.next()).type, 'attached')
+    assert.deepEqual(await session.next(), { type: 'error', status: 404, message: 'unknown conversation' })
+  })
+
+  test('a hello and two prompts sent back to back make one thread, with both messages in order', async () => {
+    // The client does not wait for `attached` before its first prompt, and a person can type twice:
+    // frames are handled in order, so only the first prompt creates the thread.
+    const session = await open(await cookieOf(orgAdmin))
+    session.send(newThreadHello())
+    session.send({ type: 'prompt', content: 'first' })
+    session.send({ type: 'prompt', content: 'second' })
+    // Until the turn of the SECOND prompt ends: speaking again stops the first turn, or finds it over.
+    const frames: any[] = []
+    const isSecond = (f: any) => f.type === 'message' && f.role === 'user' && f.parts.some((p: any) => p.text === 'second')
+    for (;;) {
+      const frame = await session.next(15000)
+      frames.push(frame)
+      if (frame.type === 'turn-end' && frames.some(isSecond)) break
+    }
+    const threads = frames.filter(f => f.type === 'attached' && f.conversationId).map(f => f.conversationId)
+    assert.equal(new Set(threads).size, 1, 'one thread')
+    const listed = (await orgAdmin.get('/api/conversations/organization/test1?agentId=personal')).data.results
+    assert.deepEqual(listed.map((c: any) => c.id), [threads[0]])
+    const messages = (await orgAdmin.get(`/api/conversations/organization/test1/${threads[0]}/messages`)).data.results
+    const userTexts = messages.filter((m: any) => m.role === 'user').map((m: any) => m.parts.find((p: any) => p.type === 'text')?.text)
+    assert.deepEqual(userTexts, ['first', 'second'])
   })
 })

@@ -35,9 +35,13 @@ Every conversation runs on ONE loop, on the server (`api/src/conversations/execu
 chat's personal assistant and configured [autonomous agents](./autonomous-agents.md) alike. The chat
 talks to it over the agent session websocket (`shared/agent-session-protocol.ts`): it sends prompts and
 its page's contextual tools, and receives the stored turn as it is written, plus calls to those tools.
+The frames are JSON schemas like every other boundary (`shared/agent-session-client-frame`, validated;
+`shared/agent-session-server-frame`, typed), and an `error` frame carries the HTTP status its refusal
+would have had.
 
 A conversation starts one way, for everyone: the socket's `hello` names the account and the agent, and
-the first prompt creates the thread (`createConversation`) — opening a chat creates nothing.
+the first prompt creates the thread (`createConversation`), carrying its title — opening a chat creates
+nothing.
 A signed-in person's conversations are stored and theirs to come back to. An **anonymous visitor's**
 thread is stored only for the loop's sake: the socket that created it is the only one that can use it,
 and it is purged when that socket closes (`purgeAbandonedAnonymous` sweeps one whose close never ran).

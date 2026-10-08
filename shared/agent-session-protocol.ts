@@ -7,216 +7,32 @@
  * composable speaks them. That is the contract in `tests/features/shared-contract/` — a module with one
  * consumer belongs in that workspace, and this one has two as of the browser tool bridge.
  *
+ * The frames themselves are JSON schemas, like every other boundary of this service, and each frame's
+ * meaning is documented there: ./agent-session-client-frame/schema.js (what a browser may send — types
+ * and validator) and ./agent-session-server-frame/schema.js (what the server sends — types only),
+ * compiled by `npm run build-types` like those under api/types. This module is their entry point.
+ *
  * WHY NOT @data-fair/lib-express's pub/sub socket: it fans a channel out to several watchers through
  * mongo and accepts only `subscribe`/`unsubscribe` from a client. This protocol needs the server to ASK
  * the browser something and wait for the answer, in the process holding the connection.
  */
 
-import type { ChatActivity } from './agent-activity.ts'
-import type { MessagePart } from '@agents/shared/message-parts'
+import { validate } from './agent-session-client-frame/index.ts'
+import type { AgentSessionClientFrame, BrowserToolDescriptor, HostEventFrame } from './agent-session-client-frame/index.ts'
+import type { AgentSessionServerFrame } from './agent-session-server-frame/index.ts'
 
-/** A contextual tool the page offers. Only its advertisement — the page keeps the implementation. */
-export interface BrowserToolDescriptor {
-  name: string
-  description?: string
-  /** JSON Schema, passed to the model as-is. Unvalidated here: the model's provider is the judge. */
-  inputSchema?: unknown
-}
-
-export type ClientMessage =
-  /**
-   * First message, and every switch of thread. Declares the page's contextual tools, and either binds
-   * the connection to an existing conversation or prepares a new one.
-   *
-   * ONE way to start a conversation, for a signed-in person and an anonymous visitor alike: a hello
-   * without `conversationId` binds to nothing, and names the `account` and `agentId` (default: the
-   * personal assistant) of the thread its first `prompt` will create, with its `title`. The `attached`
-   * frame sent then names the new thread. Whether this person may talk to that agent is checked right
-   * away as well, so a refusal reaches the chat when it opens rather than at the first message —
-   * as an `error` frame right after the `attached` one, and nothing is created.
-   *
-   * `anonymousToken` is simple-directory's anonymous action token, required for an anonymous visitor's
-   * new thread — carried here because a browser cannot set headers on a websocket upgrade.
-   *
-   * `traceConsent` is the person's current answer to the consent sheet, when they gave one. The server
-   * never reads the consent cookie: the browser reads its own and says it here, and in a
-   * `trace-consent` frame when it changes.
-   */
-  | {
-    type: 'hello',
-    conversationId?: string,
-    agentId?: string,
-    account?: { type: 'user' | 'organization', id: string },
-    title?: string,
-    anonymousToken?: string,
-    traceConsent?: boolean,
-    tools: BrowserToolDescriptor[]
-  }
-  /** The page navigated or its state changed: this is the tool set from now on. */
-  | { type: 'tools-changed', tools: BrowserToolDescriptor[] }
-  /**
-   * A user turn.
-   *
-   * `hiddenContext` is what an action button supplies: context the model should have and the person
-   * should not see rendered back at them. It travels as its OWN field and the server does the wrapping
-   * (see `wrapHiddenContext`), rather than the client sending a pre-wrapped `content`. That is what
-   * keeps the sentinels from being something a client can place: a client that could wrap would be a
-   * client that could forge a false boundary inside its own visible text and smuggle the rest past the
-   * moderation gate, which classifies the whole wrapped message precisely so the wrapper is not an
-   * escape hatch.
-   */
-  | { type: 'prompt', content: string, hiddenContext?: string }
-  /** The answer to a `tool-call`. Exactly one of result/error. */
-  | { type: 'tool-result', callId: string, result?: unknown, error?: string }
-  /**
-   * Stop the turn in flight.
-   *
-   * `dismissWait`: also settle a pending handover (wait_for_user_action) as stopped, so the person can
-   * decline it. Only the chat's Stop says so — switching threads sends a plain abort, and must leave
-   * the thread being left still waiting.
-   */
-  | { type: 'abort', dismissWait?: boolean }
-  /**
-   * The person's answer to the consent sheet, when they give or change it — `hello` carries the answer
-   * they had when it was sent. The server trusts it only for what this says: THIS person agreed to
-   * about their own conversation, nothing more.
-   */
-  | { type: 'trace-consent', consented: boolean }
-  /**
-   * What is true on the page right now — retained, keyed facts.
-   *
-   * Replaces the previous state wholesale, because it answers "what is true now" rather than "what
-   * changed": the model is told it at the moments it has no history to integrate from (first turn,
-   * after a reset, after a compaction).
-   */
-  | { type: 'host-state', state: Record<string, unknown> }
-  /** Things the person did. Appended, coalesced and capped by the store, not by the wire. */
-  | { type: 'host-events', events: HostEventFrame[] }
-  /**
-   * The person's decision on a call the approval gate stopped. `reason` is optional, at most 1000
-   * characters. It names no conversation: it decides for the one this socket is bound to.
-   */
-  | { type: 'approval', approvalId: string, approved: boolean, reason?: string }
-
-/**
- * One thing that happened on the page, as it travels.
- *
- * Structurally identical to lib-vue's `AgentEvent`, and deliberately re-declared rather than imported:
- * `shared/` must not depend on a Vue package, and this is a WIRE type whose shape is now part of the
- * protocol — pinning it here is what stops a lib-vue refactor silently changing what the server parses.
- */
-export interface HostEventFrame {
-  name: string
-  detail?: string
-  /** Present on state-like events: a later event with the same key supersedes this one. */
-  key?: string
-  at: number
-}
-
-export type ServerMessage =
-  /**
-   * The answer to a `hello`, and the news that a first `prompt` created a thread: `conversationId` is
-   * the thread this connection is bound to, absent while the next prompt is still to create one.
-   *
-   * `traceStorage` is how the person gets ASKED: the chat shows its consent sheet off it.
-   * Without it the sheet never appears, nobody can ever say yes, and the consent gate on
-   * the server fails closed forever — a gate nobody can open is not a gate, it is an outage.
-   */
-  | { type: 'attached', conversationId?: string, anonymous: boolean, traceStorage?: boolean }
-  /** Token stream of the turn in progress. */
-  | { type: 'delta', kind: 'text' | 'reasoning', text: string }
-  /** Run this contextual tool and answer with a `tool-result` carrying the same callId. */
-  | { type: 'tool-call', callId: string, name: string, input: unknown }
-  /**
-   * The assistant turn as it stands, as STORED PARTS.
-   *
-   * One frame type instead of a parallel stream vocabulary. The transcript a client renders is the
-   * conversation of record — the same `UIMessagePart[]` the model is replayed from — so the same
-   * mapper serves the live chat and a thread reopened later, and there is no second format to keep in
-   * step. `delta` stays for token-level smoothness; this carries structure: tool calls, their states,
-   * step boundaries, reasoning.
-   *
-   * Throttled on the same clock as the partial persist, because the structure changes per tool call
-   * rather than per token.
-   */
-  | { type: 'message', seq: number, role: 'user' | 'assistant', parts: MessagePart[], pending: boolean }
-  /**
-   * What the assistant is doing right now, in the vocabulary the chat already renders.
-   *
-   * `ChatActivity` straight from `shared/agent-activity.ts` rather than a wire type of its own: that
-   * module was already free of Vue and of the `~` alias, so the server can produce exactly what
-   * `activityLabelKey` consumes and there is no translation layer to drift. `null` means idle.
-   *
-   * It also answers `isWaitingForUser`, which is `kind === 'waiting'` — one frame rather than two
-   * overlapping ones.
-   */
-  | {
-    type: 'activity'
-    activity: ChatActivity | null
-    /**
-     * Present when this is a sub-agent PANEL's phase line rather than the main one.
-     *
-     * Keyed on the delegating tool call, because several workers run concurrently when the lead
-     * delegates more than once in a step — without
-     * the key two panels would share one phase line.
-     */
-    parentToolCallId?: string
-  }
-  /**
-   * A worker's trace, as stored parts, for its panel.
-   *
-   * Same shape as the main turn's `message` frame and for the same reason: one way to render a turn.
-   * The lead still sees only the summary — this is the trace the UI shows when a panel is expanded,
-   * never something the model reads.
-   */
-  | { type: 'subagent', parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }
-  | { type: 'turn-end', stopReason: string, detail?: string }
-  /**
-   * What this conversation has cost so far, in credits: every model call of every turn — moderation,
-   * compaction and sub-agent workers included — summed from the runs. Sent once attached and again
-   * before each `turn-end`, as a total the client simply shows (the Consumption tab).
-   */
-  | { type: 'cost', conversationCost: number }
-  | { type: 'error', message: string }
+export type { BrowserToolDescriptor, HostEventFrame }
+export type ClientMessage = AgentSessionClientFrame
+export type ServerMessage = AgentSessionServerFrame
 
 /** Why a client message was rejected. The client is told, because a silent drop is undebuggable. */
 export interface InvalidMessage { type: 'invalid', reason: string }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === 'object' && value !== null && !Array.isArray(value)
+const TOOLS_REASON = 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}'
 
 /**
- * A tool descriptor list, or undefined when the shape is wrong.
- *
- * Tool NAMES are checked here because they end up as model-facing tool identifiers and in a
- * correlation table; everything else about a tool is the provider's problem. The name charset is
- * deliberately narrow — the same reason the MCP tool names are sanitised before they reach a prompt.
- */
-const parseTools = (value: unknown): BrowserToolDescriptor[] | undefined => {
-  if (!Array.isArray(value)) return undefined
-  const tools: BrowserToolDescriptor[] = []
-  for (const raw of value) {
-    if (!isRecord(raw)) return undefined
-    const name = raw.name
-    if (typeof name !== 'string' || !/^[a-zA-Z0-9_-]{1,64}$/.test(name)) return undefined
-    tools.push({
-      name,
-      ...(typeof raw.description === 'string' ? { description: raw.description } : {}),
-      ...(raw.inputSchema !== undefined ? { inputSchema: raw.inputSchema } : {})
-    })
-  }
-  // A page that registers the same name twice would make the correlation table ambiguous and would
-  // give the model two tools it cannot tell apart.
-  if (new Set(tools.map(tool => tool.name)).size !== tools.length) return undefined
-  return tools
-}
-
-/**
- * Parse one client frame, strictly.
- *
- * Strict on purpose: this is a browser-facing surface, so anything not explicitly allowed is refused
- * rather than coerced. A client that sends nonsense gets told which field was wrong, because the
- * alternative — dropping it — is the silent failure this project treats as the worst outcome.
+ * Parse one client frame, strictly: the schema's validator, whose `errorMessage`s name the field that
+ * was wrong. Unknown properties are stripped rather than refused.
  */
 export function parseClientMessage (raw: string): ClientMessage | InvalidMessage {
   let parsed: unknown
@@ -225,132 +41,30 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
   } catch {
     return { type: 'invalid', reason: 'not valid JSON' }
   }
-  if (!isRecord(parsed)) return { type: 'invalid', reason: 'a message must be an object' }
-
-  switch (parsed.type) {
-    case 'hello': {
-      const tools = parseTools(parsed.tools)
-      if (!tools) return { type: 'invalid', reason: 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}' }
-      if (parsed.conversationId !== undefined && typeof parsed.conversationId !== 'string') {
-        return { type: 'invalid', reason: 'conversationId must be a string when present' }
-      }
-      if (parsed.agentId !== undefined && typeof parsed.agentId !== 'string') {
-        return { type: 'invalid', reason: 'agentId must be a string when present' }
-      }
-      const account = parsed.account as { type?: unknown, id?: unknown } | null | undefined
-      if (account !== undefined && (typeof account !== 'object' || account === null ||
-        (account.type !== 'user' && account.type !== 'organization') || typeof account.id !== 'string' || !account.id)) {
-        return { type: 'invalid', reason: 'account must be { type: "user" | "organization", id } when present' }
-      }
-      if (parsed.anonymousToken !== undefined && typeof parsed.anonymousToken !== 'string') {
-        return { type: 'invalid', reason: 'anonymousToken must be a string when present' }
-      }
-      if (parsed.title !== undefined && typeof parsed.title !== 'string') {
-        return { type: 'invalid', reason: 'title must be a string when present' }
-      }
-      // Strictly boolean, as in the `trace-consent` frame: a truthy string would make "no" read as consent.
-      if (parsed.traceConsent !== undefined && typeof parsed.traceConsent !== 'boolean') {
-        return { type: 'invalid', reason: 'traceConsent must be a boolean when present' }
-      }
-      return {
-        type: 'hello',
-        tools,
-        ...(typeof parsed.conversationId === 'string' ? { conversationId: parsed.conversationId } : {}),
-        ...(typeof parsed.agentId === 'string' ? { agentId: parsed.agentId } : {}),
-        ...(account ? { account: { type: account.type as 'user' | 'organization', id: account.id as string } } : {}),
-        ...(typeof parsed.title === 'string' ? { title: parsed.title } : {}),
-        ...(typeof parsed.anonymousToken === 'string' ? { anonymousToken: parsed.anonymousToken } : {}),
-        ...(typeof parsed.traceConsent === 'boolean' ? { traceConsent: parsed.traceConsent } : {})
-      }
-    }
-    case 'tools-changed': {
-      const tools = parseTools(parsed.tools)
-      if (!tools) return { type: 'invalid', reason: 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}' }
-      return { type: 'tools-changed', tools }
-    }
-    case 'prompt': {
-      // Non-blank, matching the HTTP route's own rule: an empty turn is refused rather than started,
-      // because a provider rejects a whitespace-only text block anyway.
-      if (typeof parsed.content !== 'string' || !parsed.content.trim()) {
-        return { type: 'invalid', reason: 'content must be a non-blank string' }
-      }
-      // A present-but-wrong hiddenContext is rejected rather than coerced: it ends up inside the
-      // model's user turn, so silently stringifying an object would put "[object Object]" there.
-      if (parsed.hiddenContext !== undefined && typeof parsed.hiddenContext !== 'string') {
-        return { type: 'invalid', reason: 'hiddenContext must be a string when present' }
-      }
-      return {
-        type: 'prompt',
-        content: parsed.content,
-        ...(parsed.hiddenContext ? { hiddenContext: parsed.hiddenContext } : {})
-      }
-    }
-    case 'tool-result': {
-      if (typeof parsed.callId !== 'string' || !parsed.callId) {
-        return { type: 'invalid', reason: 'callId must be a non-empty string' }
-      }
-      const hasError = parsed.error !== undefined
-      const hasResult = parsed.result !== undefined
-      // Exactly one. Both would leave "did it work?" to a tie-break, which is how a failed tool came
-      // to be indistinguishable from a successful one elsewhere in this codebase.
-      if (hasError === hasResult) {
-        return { type: 'invalid', reason: 'a tool-result carries exactly one of result or error' }
-      }
-      if (hasError && typeof parsed.error !== 'string') {
-        return { type: 'invalid', reason: 'error must be a string' }
-      }
-      return hasError
-        ? { type: 'tool-result', callId: parsed.callId, error: parsed.error as string }
-        : { type: 'tool-result', callId: parsed.callId, result: parsed.result }
-    }
-    case 'abort':
-      return parsed.dismissWait === true ? { type: 'abort', dismissWait: true } : { type: 'abort' }
-    case 'trace-consent':
-      // Strictly boolean: a truthy string would make "no" read as consent.
-      if (typeof parsed.consented !== 'boolean') return { type: 'invalid', reason: 'consented must be a boolean' }
-      return { type: 'trace-consent', consented: parsed.consented }
-    case 'host-state': {
-      if (!isRecord(parsed.state)) return { type: 'invalid', reason: 'state must be an object of keyed facts' }
-      return { type: 'host-state', state: parsed.state }
-    }
-    case 'host-events': {
-      if (!Array.isArray(parsed.events)) return { type: 'invalid', reason: 'events must be an array' }
-      const events: HostEventFrame[] = []
-      for (const raw of parsed.events) {
-        // Validated rather than trusted: these reach the model's context as prose, and `at` orders the
-        // coalescing, so a missing name or a non-numeric timestamp corrupts what the model is told.
-        if (!isRecord(raw) || typeof raw.name !== 'string' || !raw.name || typeof raw.at !== 'number') {
-          return { type: 'invalid', reason: 'each event needs a non-empty name and a numeric at' }
-        }
-        events.push({
-          name: raw.name,
-          at: raw.at,
-          ...(typeof raw.detail === 'string' ? { detail: raw.detail } : {}),
-          ...(typeof raw.key === 'string' ? { key: raw.key } : {})
-        })
-      }
-      return { type: 'host-events', events }
-    }
-    case 'approval':
-      if (typeof parsed.approvalId !== 'string' || !parsed.approvalId) return { type: 'invalid', reason: 'approvalId must be a non-empty string' }
-      // Strictly boolean, as for consent: a truthy string must not read as an approval.
-      if (typeof parsed.approved !== 'boolean') return { type: 'invalid', reason: 'approved must be a boolean' }
-      if (parsed.reason !== undefined && (typeof parsed.reason !== 'string' || parsed.reason.length > 1000)) return { type: 'invalid', reason: 'reason must be a string of at most 1000 characters' }
-      return { type: 'approval', approvalId: parsed.approvalId, approved: parsed.approved, ...(parsed.reason ? { reason: parsed.reason } : {}) }
-    default:
-      return { type: 'invalid', reason: `unknown message type ${JSON.stringify(parsed.type)}` }
+  if (!validate(parsed)) {
+    const error = (validate as unknown as { errors?: Array<{ message?: string }> }).errors?.[0]
+    return { type: 'invalid', reason: error?.message ?? 'invalid message' }
   }
+  // The one rule a schema cannot state. A page registering the same name twice would make the
+  // correlation table ambiguous and give the model two tools it cannot tell apart.
+  if ('tools' in parsed && new Set(parsed.tools.map(tool => tool.name)).size !== parsed.tools.length) {
+    return { type: 'invalid', reason: TOOLS_REASON }
+  }
+  return parsed
 }
+
+const SERVER_FRAME_TYPES = new Set<string>([
+  'attached', 'delta', 'tool-call', 'message', 'activity', 'subagent', 'turn-end', 'cost', 'error'
+] satisfies ServerMessage['type'][])
 
 /**
  * Parse a server frame on the CLIENT, leniently — the mirror image of parseClientMessage.
  *
- * Deliberately the opposite posture. The server is strict with a browser because a browser-facing
- * surface should refuse what it does not recognise. The browser is lenient with the server because an
- * unrecognised frame means a newer server talking to an older tab, which is normal during a deploy:
- * ignoring it degrades one feature, while failing hard breaks the whole session.
- *
- * Returns undefined for anything it cannot place, so the caller logs and carries on.
+ * The server is strict with a browser because a browser-facing surface should refuse what it does not
+ * recognise. The browser only dispatches on `type` and ignores a type it does not know: that means a
+ * newer server talking to an older tab, which is normal during a deploy, and failing hard would break
+ * the whole session. A known frame is not re-checked field by field: it comes from our own server,
+ * typed by the same schema.
  */
 export function parseServerMessageForClient (raw: string): ServerMessage | undefined {
   let parsed: unknown
@@ -359,70 +73,8 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
   } catch {
     return undefined
   }
-  if (!isRecord(parsed)) return undefined
-  switch (parsed.type) {
-    case 'attached':
-      if (parsed.conversationId !== undefined && typeof parsed.conversationId !== 'string') return undefined
-      return {
-        type: 'attached',
-        ...(typeof parsed.conversationId === 'string' ? { conversationId: parsed.conversationId } : {}),
-        anonymous: parsed.anonymous === true,
-        traceStorage: parsed.traceStorage === true
-      }
-    case 'delta':
-      if (parsed.kind !== 'text' && parsed.kind !== 'reasoning') return undefined
-      if (typeof parsed.text !== 'string') return undefined
-      return { type: 'delta', kind: parsed.kind, text: parsed.text }
-    case 'tool-call':
-      if (typeof parsed.callId !== 'string' || typeof parsed.name !== 'string') return undefined
-      return { type: 'tool-call', callId: parsed.callId, name: parsed.name, input: parsed.input }
-    case 'message': {
-      if (typeof parsed.seq !== 'number') return undefined
-      if (parsed.role !== 'user' && parsed.role !== 'assistant') return undefined
-      if (!Array.isArray(parsed.parts)) return undefined
-      // Trusted as `MessagePart[]` beyond being an array, as every field of this lenient parser is:
-      // it reads frames from OUR OWN server, and the shape is checked where it matters — the server
-      // validates on the way into storage and `safeValidateUIMessages` validates on the way back to
-      // a model. A second structural check of the library's union here would be a third copy of it.
-      return { type: 'message', seq: parsed.seq, role: parsed.role, parts: parsed.parts as MessagePart[], pending: parsed.pending === true }
-    }
-    case 'activity':
-      // Structurally tolerant: the vocabulary may grow a kind, and an older tab should ignore one it
-      // does not know rather than drop the frame — the renderer already returns null for anything it
-      // cannot label.
-      if (parsed.activity !== null && !isRecord(parsed.activity)) return undefined
-      return {
-        type: 'activity',
-        activity: parsed.activity as ChatActivity | null,
-        ...(typeof parsed.parentToolCallId === 'string' ? { parentToolCallId: parsed.parentToolCallId } : {})
-      }
-    case 'subagent': {
-      if (typeof parsed.parentToolCallId !== 'string' || typeof parsed.name !== 'string') return undefined
-      if (!Array.isArray(parsed.parts)) return undefined
-      return {
-        type: 'subagent',
-        parentToolCallId: parsed.parentToolCallId,
-        name: parsed.name,
-        parts: parsed.parts as MessagePart[],
-        pending: parsed.pending === true
-      }
-    }
-    case 'turn-end':
-      if (typeof parsed.stopReason !== 'string') return undefined
-      return {
-        type: 'turn-end',
-        stopReason: parsed.stopReason,
-        ...(typeof parsed.detail === 'string' ? { detail: parsed.detail } : {})
-      }
-    case 'cost':
-      if (typeof parsed.conversationCost !== 'number') return undefined
-      return { type: 'cost', conversationCost: parsed.conversationCost }
-    case 'error':
-      if (typeof parsed.message !== 'string') return undefined
-      return { type: 'error', message: parsed.message }
-    default:
-      return undefined
-  }
+  const type = (parsed as { type?: unknown } | null)?.type
+  return typeof type === 'string' && SERVER_FRAME_TYPES.has(type) ? parsed as ServerMessage : undefined
 }
 
 /**

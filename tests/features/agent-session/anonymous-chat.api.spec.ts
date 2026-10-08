@@ -127,10 +127,16 @@ test.describe('Anonymous chat over the agent session', () => {
     assert.equal(await adminReads(first.conversationId), 404)
   })
 
-  test('without an anonymous action token the hello is refused', async () => {
+  test('without an anonymous action token the hello is refused, and so is a prompt after it', async () => {
     const socket = await open()
     socket.send({ type: 'hello', tools: [], account: OWNER })
-    assert.match((await refusalOf(socket)).message, /anonymous action token/)
+    const refusal = await refusalOf(socket)
+    assert.match(refusal.message, /anonymous action token/)
+    assert.equal(refusal.status, 401)
+    // The prompt is answered with the hello's own reason, not with a confusing "not bound".
+    socket.send({ type: 'prompt', content: 'hello' })
+    const atPrompt = await socket.next(10_000)
+    assert.deepEqual(atPrompt, refusal)
   })
 
   test('an account closed to anonymous visitors refuses the hello', async () => {

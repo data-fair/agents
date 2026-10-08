@@ -254,7 +254,7 @@ const main = async () => {
     const cookie = await member.cookieJar.getCookieString(directoryUrl)
     const signedInOpen = async () => {
       const socket = await openAgentSession(cookie)
-      return { socket, hello: () => socket.send({ type: 'hello', tools: [], account: OWNER, title: 'load check' }) }
+      return { socket, hello: () => socket.send({ type: 'hello', tools: [], account: OWNER }) }
     }
     const { result: outcomes, latencies } = await probing(() =>
       Promise.allSettled(Array.from({ length: SIGNED_IN }, () => oneTurn(signedInOpen))))

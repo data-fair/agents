@@ -8,7 +8,7 @@
 
 import type { Server, IncomingMessage } from 'node:http'
 import { WebSocketServer, type WebSocket } from 'ws'
-import { session as expressSession, type AccountKeys } from '@data-fair/lib-express'
+import { session as expressSession, httpError, type AccountKeys } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, type ServerMessage, type ClientMessage } from '@agents/shared/agent-session-protocol'
@@ -34,6 +34,13 @@ import { INTERRUPTED_RESULTS } from '../conversations/interrupted-turn.ts'
 import { getSettings } from '../settings/service.ts'
 
 const debug = Debug('agents:agent-session')
+
+/**
+ * The `error` frame for a refusal or a failure: the status an `httpError` carries (400 malformed, 403
+ * not allowed, 404 unknown, 409 conflict…), 500 for anything that has none.
+ */
+const errorFrame = (err: any, fallback: string): ServerMessage =>
+  ({ type: 'error', status: typeof err?.status === 'number' ? err.status : 500, message: err?.message || fallback })
 
 /** Live sessions, so a turn started elsewhere can reach the browser that owns it. */
 const sessions = new Map<WebSocket, AgentSession>()
@@ -67,8 +74,13 @@ export const startAgentSessions = (server: Server) => {
     // The attach in progress: a prompt sent right behind the hello waits for it, or its turn could
     // start before this socket is registered as the watcher, without the page's tools.
     let attaching: Promise<void> = Promise.resolve()
+    // The turn starts asked for so far, chained so they happen in the order they were sent.
+    let prompts: Promise<void> = Promise.resolve()
     // What the first prompt of a connection bound to nothing creates, as its hello named it.
-    let newThread: { owner: AccountKeys, agentId: string, title?: string } | undefined
+    let newThread: { owner: AccountKeys, agentId: string } | undefined
+    // Why the last hello could name no thread at all (an anonymous token refused): what its prompts
+    // are answered with, rather than a confusing "not bound".
+    let helloRefusal: unknown
     // The one thread an ANONYMOUS socket holds: created by its first prompt, purged when it closes.
     let anonymousThread: { id: string, owner: AccountKeys, usageUserId: string } | undefined
     const agentSession: AgentSession = createAgentSession({
@@ -100,7 +112,7 @@ export const startAgentSessions = (server: Server) => {
           .catch((err: any) => {
             // Reported rather than leaving the client to guess why nothing arrived.
             debug('could not attach: %O', err)
-            send({ type: 'error', message: err.message ?? 'this conversation could not be opened' })
+            send(errorFrame(err, 'this conversation could not be opened'))
           })
       },
       // The chat's Stop. It was never wired: the frame was parsed and dropped, so Stop only changed
@@ -117,7 +129,7 @@ export const startAgentSessions = (server: Server) => {
           abortRunsOfConversation(conversationId, 'stop')
           // Declining a handover: settled as stopped, and nothing runs — there is nothing to answer.
           if (dismissWait) await settlePendingWait(conversationId, () => INTERRUPTED_RESULTS.stop)
-        }).catch((err: any) => { send({ type: 'error', message: err.message ?? 'the turn could not be stopped' }) })
+        }).catch((err: any) => { send(errorFrame(err, 'the turn could not be stopped')) })
       },
       // A decision on a call the approval gate stopped, for the conversation this socket is bound to —
       // never one named in the frame, so a socket cannot decide on someone else's thread. An anonymous
@@ -125,7 +137,7 @@ export const startAgentSessions = (server: Server) => {
       onApproval: (approvalId, approved, reason) => {
         const conversationId = boundConversationId
         if (!conversationId || !sessionState?.user) {
-          send({ type: 'error', message: 'only a signed-in person decides on an approval' })
+          send({ type: 'error', status: 403, message: 'only a signed-in person decides on an approval' })
           return
         }
         const session = sessionState
@@ -139,7 +151,7 @@ export const startAgentSessions = (server: Server) => {
           }))
           .catch((err: any) => {
             debug('approval refused: %O', err)
-            send({ type: 'error', message: err.message ?? 'the decision could not be recorded' })
+            send(errorFrame(err, 'the decision could not be recorded'))
           })
       },
       // The person acted on the page: if the bound conversation is waiting on them, this answers it.
@@ -153,7 +165,7 @@ export const startAgentSessions = (server: Server) => {
       },
       onPrompt: (content, hiddenContext) => {
         if (!boundConversationId) {
-          send({ type: 'error', message: 'this connection is not bound to a conversation' })
+          send({ type: 'error', status: 400, message: 'this connection is not bound to a conversation' })
           return
         }
         // An anonymous visitor may prompt only into the thread this socket created for them: there is
@@ -164,12 +176,9 @@ export const startAgentSessions = (server: Server) => {
             ? { kind: 'anonymous', usageUserId: anonymousThread.usageUserId }
             : undefined
         if (!caller) {
-          send({ type: 'error', message: 'this conversation belongs to someone else' })
+          send({ type: 'error', status: 403, message: 'this conversation belongs to someone else' })
           return
         }
-        // Speaking takes the turn back: a live turn is stopped, and a pending wait is answered by the
-        // message itself (settled in startSessionTurn). Harmless when nothing is live.
-        abortRunsOfConversation(boundConversationId)
         // Captured, because the narrowing above does not survive into the callback below — and a
         // rebind mid-flight must not redirect this prompt to a different thread either.
         const conversationId = boundConversationId
@@ -181,23 +190,32 @@ export const startAgentSessions = (server: Server) => {
         // thread belongs to this person.
         // A person's thread is read once here, for the ownership check, and handed on: the turn starting
         // below has no reason to read it again. An anonymous visitor's is checked inside the turn start.
-        const resolved = attaching.then(async () => caller.kind === 'anonymous'
-          ? { owner: anonymousThread!.owner, conversation: undefined }
-          : await resolveOwnConversation(conversationId).then(conversation => ({ owner: { type: conversation.owner.type, id: conversation.owner.id }, conversation })))
-        resolved.then(({ owner, conversation }) => startSessionTurn({
-          conversationId,
-          owner,
-          ...(conversation ? { conversation } : {}),
-          caller,
-          content,
-          hiddenContext,
-          echoTo: agentSession
-        })).catch((err: any) => {
+        //
+        // Started IN ORDER, one at a time: two prompts sent back to back would otherwise race to store
+        // their message, and the second's abort would miss the run the first was still creating.
+        prompts = prompts.then(async () => {
+          await attaching
+          const { owner, conversation } = caller.kind === 'anonymous'
+            ? { owner: anonymousThread!.owner, conversation: undefined }
+            : await resolveOwnConversation(conversationId).then(conversation => ({ owner: { type: conversation.owner.type, id: conversation.owner.id }, conversation }))
+          // Speaking takes the turn back: a live turn is stopped, and a pending wait is answered by the
+          // message itself (settled in startSessionTurn). Harmless when nothing is live.
+          abortRunsOfConversation(conversationId)
+          await startSessionTurn({
+            conversationId,
+            owner,
+            ...(conversation ? { conversation } : {}),
+            caller,
+            content,
+            hiddenContext,
+            echoTo: agentSession
+          })
+        }).catch((err: any) => {
           // Reported on the socket rather than swallowed: the person pressed send, so a refusal has to
           // reach them. The reasons a prompt is refused — not your conversation, empty
           // content — arrive here as a message.
           debug('prompt refused: %O', err)
-          send({ type: 'error', message: err.message ?? 'the turn could not be started' })
+          send(errorFrame(err, 'the turn could not be started'))
         })
       }
     })
@@ -247,6 +265,7 @@ export const startAgentSessions = (server: Server) => {
      */
     const hello = async (message: Extract<ClientMessage, { type: 'hello' }>) => {
       newThread = undefined
+      helloRefusal = undefined
       if (!sessionState?.user && message.conversationId && message.conversationId !== anonymousThread?.id) {
         message = { ...message }
         delete message.conversationId
@@ -254,24 +273,27 @@ export const startAgentSessions = (server: Server) => {
       if (!message.conversationId) await dropAnonymousThread()
       agentSession.handle(message)
       if (message.conversationId || !message.account) return
-      const target = { owner: message.account, agentId: message.agentId ?? PERSONAL_AGENT_ID, ...(message.title ? { title: message.title } : {}) }
+      const target = { owner: message.account, agentId: message.agentId ?? PERSONAL_AGENT_ID }
       try {
-        if (!sessionState?.user) await verifyAnonymousActionToken(message.anonymousToken)
+        if (!sessionState?.user) await verifyAnonymousActionToken(message.anonymousToken).catch(err => { helloRefusal = err; throw err })
         newThread = target
         await assertMayStartConversation(target.owner, target.agentId, callerOf())
       } catch (err: any) {
         debug('refused a hello: %O', err)
-        send({ type: 'error', message: err.message ?? 'this conversation could not be opened' })
+        send(errorFrame(err, 'this conversation could not be opened'))
       }
     }
 
-    /** The first prompt of a connection bound to nothing: create the thread its hello named, and bind. */
-    const startNewThread = async () => {
-      if (!newThread) throw new Error('this connection is not bound to a conversation')
+    /**
+     * The first prompt of a connection bound to nothing: create the thread its hello named, titled as
+     * the prompt says (the chat stamps it when the message is sent), and bind.
+     */
+    const startNewThread = async (title: string | undefined) => {
+      if (!newThread) throw helloRefusal ?? httpError(400, 'this connection is not bound to a conversation')
       // A tab closed right behind its first message: nobody is left to answer, so no thread is started.
       if (ws.readyState !== ws.OPEN) throw new Error('the connection closed')
       const caller = callerOf()
-      const conversation = await createConversation(newThread.owner, newThread.agentId, caller, newThread.title)
+      const conversation = await createConversation(newThread.owner, newThread.agentId, caller, title)
       newThread = undefined
       if (caller.kind === 'anonymous') anonymousThread = { id: conversation.id, owner: conversation.owner, usageUserId: caller.usageUserId }
       else eventsLog.info('agents.conversation.create', `conversation created for agent ${conversation.agentId}`, { account: caller.session.account, user: caller.session.user })
@@ -292,7 +314,7 @@ export const startAgentSessions = (server: Server) => {
       if (parsed.type === 'invalid') {
         // Told, not dropped: a browser-facing surface that silently ignores a malformed frame is
         // undebuggable from the other side.
-        send({ type: 'error', message: parsed.reason })
+        send({ type: 'error', status: 400, message: parsed.reason })
         return
       }
       if (parsed.type === 'hello') {
@@ -301,11 +323,11 @@ export const startAgentSessions = (server: Server) => {
       }
       if (parsed.type === 'prompt' && !boundConversationId && agentSession.attached()) {
         try {
-          await startNewThread()
+          await startNewThread(parsed.title)
         } catch (err: any) {
           // The person pressed send: a refusal to start the thread has to reach them.
           debug('could not start a thread: %O', err)
-          send({ type: 'error', message: err.message ?? 'this conversation could not be started' })
+          send(errorFrame(err, 'this conversation could not be started'))
           return
         }
       }

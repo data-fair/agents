@@ -47,6 +47,8 @@ FROM installer AS types
 ADD api/types api/types
 ADD api/doc api/doc
 ADD api/config api/config
+# the socket protocol's frame schemas live in shared/ (see shared/agent-session-protocol.ts)
+ADD shared shared
 ADD ui/src/components ui/src/components
 RUN npm run build-types
 
@@ -56,7 +58,7 @@ FROM installer AS ui
 COPY --from=types /app/api/config api/config
 COPY --from=types /app/api/types api/types
 COPY --from=types /app/api/doc api/doc
-ADD /shared shared
+COPY --from=types /app/shared shared
 ADD /lib-vue lib-vue
 ADD /lib-vuetify lib-vuetify
 # The WHOLE api source, not the two files vite's config literally imports: `api/src/config.ts` pulls
@@ -82,7 +84,7 @@ FROM native-deps AS main
 
 COPY --from=api-installer /app/node_modules node_modules
 ADD /api api
-ADD /shared shared
+COPY --from=types /app/shared shared
 COPY --from=types /app/api/types api/types
 COPY --from=types /app/api/doc api/doc
 COPY --from=types /app/api/config api/config

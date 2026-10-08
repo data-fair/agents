@@ -28,7 +28,7 @@ const byConversation = new Map<string, AgentSession>()
 export const attachSession = (conversationId: string, session: AgentSession) => {
   const displaced = byConversation.get(conversationId)
   if (displaced && displaced !== session) {
-    displaced.send({ type: 'error', message: 'this conversation was opened somewhere else' })
+    displaced.send({ type: 'error', status: 409, message: 'this conversation was opened somewhere else' })
   }
   byConversation.set(conversationId, session)
   debug('attached %s, %d live', conversationId, byConversation.size)
