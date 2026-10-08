@@ -128,6 +128,14 @@ export const abortRunsOfConversation = (conversationId: string, why: 'spoke' | '
     live.controller.abort(why === 'spoke' ? new Error(PERSON_SPOKE) : undefined)
     stopped++
   }
+  // A Stop for a turn this process is not running — the socket reconnected to another instance mid-turn,
+  // which sticky sessions make rare — is left on the run for the instance that holds it
+  // (watchStopRequests). Only for a Stop: a person who SPOKE starts the next turn here, and that needs
+  // the previous one stopped where it runs, which is this process under the conversation's lock.
+  if (!stopped && why === 'stop') {
+    mongo.runs.updateMany({ conversationId, status: 'running' }, { $set: { abortRequestedAt: new Date().toISOString() } })
+      .catch(err => console.error('could not record a stop request', err))
+  }
   return stopped
 }
 
