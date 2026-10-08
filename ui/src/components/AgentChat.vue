@@ -168,7 +168,8 @@ const props = defineProps<{
   isAdmin?: boolean
   title?: string
   /**
-   * Which standard agent to talk to, by id. The server resolves its persona and instructions.
+   * Which agent to talk to: `personal` (the personal assistant, the default) or a configured agent's id.
+   * The server resolves its persona and instructions.
    */
   agentId?: string
   narrowViewport?: boolean
@@ -346,8 +347,8 @@ const loadAgents = async () => {
  *
  * The picker's list carries titles too, but only for the agents it offers — a chat may have been
  * pointed at one disabled agent (the admin's Open link), which still has a name even though it must
- * not run, and the list drops it. The configured-agent route answers for both. A standard agent has
- * no document there; its name is the built-in one the fallback title uses, so it is not asked.
+ * not run, and the list drops it. The configured-agent route answers for both. The personal assistant
+ * has no document there; its name is the built-in one the fallback title uses, so it is not asked.
  */
 const resolveAgentTitle = async () => {
   const agentId = props.agentId ?? initConfig?.agentId

@@ -7,20 +7,13 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { personalAgent, isStandardAgentId, PERSONAL_AGENT_ID } from '../../../api/src/agent-session/standard-agents.ts'
+import { personalAgent, PERSONAL_AGENT_ID } from '../../../api/src/agent-session/personal-agent.ts'
 import { createAgentSession } from '../../../api/src/agent-session/session.ts'
 
 /** A catalog, passed in rather than read from config — which is what keeps this unit testable. */
 const CATALOG = [{ id: 'dev-public-mcp' }, { id: 'dev-session-mcp' }]
 
-test.describe('standard agents', () => {
-  test('an unknown id is not a standard agent', () => {
-    // What makes the id the gate: a conversation naming something else falls through to the store,
-    // and a configured agent cannot shadow the personal id because it is checked first.
-    assert.equal(isStandardAgentId('not-a-standard-agent'), false)
-    assert.equal(isStandardAgentId(PERSONAL_AGENT_ID), true)
-  })
-
+test.describe('the personal assistant', () => {
   test('the persona does NOT restate the permission ceiling, which the prompt adds once', () => {
     // buildSystemPrompt states the ceiling for any agent without an NHI (asserted in the runtime spec),
     // derived from the identity rather than from a sentence the persona has to remember. A persona
@@ -38,7 +31,7 @@ test.describe('standard agents', () => {
     assert.equal(agent.enabled, true)
   })
 
-  test('the default agent has NO non-human identity, which is the defining difference', () => {
+  test('it has NO non-human identity, which is the defining difference', () => {
     // It acts as the person using it. An nhi here would mean it acts as itself, with permissions the
     // person may not have — the confused deputy this design must not create.
     assert.equal(personalAgent(CATALOG)!.nhi, undefined)

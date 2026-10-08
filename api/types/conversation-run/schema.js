@@ -58,10 +58,10 @@ export default {
     },
     // The effective role the triggering person held, for quotas and usage attribution.
     //
-    // Only a STANDARD agent needs it, and it is the difference between a quota that applies and one
+    // Only the PERSONAL assistant needs it, and it is the difference between a quota that applies and one
     // that does not. A configured autonomous agent is an org-owned service identity: it is billed as
-    // the agent at role 'admin', because no per-profile quota is meant to apply to it. A standard
-    // agent acts AS the person, so the person's own role is what bounds their spend — without this,
+    // the agent at role 'admin', because no per-profile quota is meant to apply to it. The personal
+    // assistant acts AS the person, so the person's own role is what bounds their spend — without this,
     // every chat turn resolved to 'admin' and the per-role quotas were silently unenforced, and every
     // person's usage was recorded against one `autonomous-agent:personal` row.
     //

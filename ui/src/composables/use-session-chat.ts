@@ -43,7 +43,7 @@ const debug = Debug('df-agents:use-session-chat')
 export interface UseSessionChatOptions {
   accountType: string
   accountId: string
-  /** Which standard agent to talk to. Defaults to the personal assistant. */
+  /** Which agent to talk to: `personal` (the personal assistant, the default) or a configured agent's id. */
   agentId?: string
   /** Shown before anything has been said. Never sent anywhere. */
   initialMessages?: ChatMessage[]

@@ -56,7 +56,7 @@
             </div>
             <!--
               What this PAGE tells the model, not the whole system prompt. The persona lives on the
-              server now (api/src/agent-session/standard-agents.ts) and is not client-readable, so a
+              server now (api/src/agent-session/personal-agent.ts) and is not client-readable, so a
               panel claiming to show "the system prompt" would be showing a fraction of it and
               labelling it as the whole. This is the client's entire contribution, which is the part a
               host integrator can actually affect and debug.

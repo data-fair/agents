@@ -26,11 +26,6 @@ export interface PersonalAgent extends AutonomousAgentForTools {
 }
 
 /**
- * Whether an id names the personal assistant. Also what makes the id reserved against configured agents.
- */
-export const isStandardAgentId = (id: string): boolean => id === PERSONAL_AGENT_ID
-
-/**
  * Build the personal assistant.
  *
  * Every catalog entry, unfiltered: it acts as the person, so their own permissions are already the

@@ -26,7 +26,7 @@ import {
 import { startSessionTurn, sendHistory } from './turn.ts'
 import { verifyAnonymousActionToken } from '../anonymous-token/service.ts'
 import { anonymousUsageUserId } from '../usage/enforce.ts'
-import { PERSONAL_AGENT_ID } from './standard-agents.ts'
+import { PERSONAL_AGENT_ID } from './personal-agent.ts'
 import { abortRunsOfConversation } from '../conversations/executor.ts'
 import { decideAndContinue } from '../conversations/approvals.ts'
 import { settlePendingWait, wakeIfAnswered } from '../conversations/waits.ts'

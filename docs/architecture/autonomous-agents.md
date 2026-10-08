@@ -5,7 +5,7 @@ against MCP tools it reaches as its own identity, on conversations that each bel
 
 It was once the one part of this service that held server-side conversation state. The loop moved to
 the server for every agent, so a configured autonomous agent and the in-page chat's personal assistant
-(the one built-in agent, `personalAgent()` in `api/src/agent-session/standard-agents.ts`) now run the same executor
+(the one built-in agent, `personalAgent()` in `api/src/agent-session/personal-agent.ts`) now run the same executor
 (`api/src/conversations/executor.ts`: `runTurn` → `performTurn` → `runModelLoop`) over the same
 collections. What still distinguishes an autonomous agent is WHO it acts as (its own non-human identity
 rather than the person's forwarded session), WHO it bills as (itself rather than the person), and that

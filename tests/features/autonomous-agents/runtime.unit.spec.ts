@@ -85,7 +85,7 @@ test.describe('buildSystemPrompt', () => {
   })
 
   test('an agent WITHOUT an nhi is told it acts as the person instead', () => {
-    // The two clauses are mutually exclusive, and that is the point of the pair. A standard agent has
+    // The two clauses are mutually exclusive, and that is the point of the pair. The personal assistant has
     // no non-human identity: it acts as the person through their forwarded session. Telling it that it
     // acts "under its own service identity, not on behalf of whoever wrote the last message" would
     // contradict the persona it was just given AND what its tools can actually reach — so it would

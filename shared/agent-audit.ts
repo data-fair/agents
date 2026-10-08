@@ -10,7 +10,7 @@
  * they say to it is theirs.
  *
  * Only the id is shared. The personal assistant's persona stays server-side
- * (api/src/agent-session/standard-agents.ts).
+ * (api/src/agent-session/personal-agent.ts).
  */
 export const PERSONAL_AGENT_ID = 'personal'
 

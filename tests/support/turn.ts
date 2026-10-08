@@ -32,7 +32,7 @@ export interface RunTurnResult {
 }
 
 /**
- * Run one turn: the first of a new conversation with a standard agent, or one in `conversationId`.
+ * Run one turn: the first of a new conversation with the personal assistant, or one in `conversationId`.
  *
  * `owner` is the account path segment pair, e.g. `user/test-standalone1` or `organization/test1`.
  * Returns once the turn has ended, so a caller can immediately assert on

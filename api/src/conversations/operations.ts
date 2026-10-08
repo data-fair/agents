@@ -15,7 +15,7 @@ import type { EffectiveRole } from '../auth.ts'
 import type { TurnSurface } from './service-tools.ts'
 import { isUntrustedRole, UNTRUSTED_POOL_ID } from '../usage/operations.ts'
 import { renderMemoryBlock, type MemoryDocument } from '../memory/operations.ts'
-import { isStandardAgentId } from '../agent-session/standard-agents.ts'
+import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 
 // Re-exported: the parts contract is shared/message-parts, and callers here already import from this
 // module. One definition, one import site.
@@ -77,8 +77,8 @@ interface PromptableAutonomousAgent {
   /**
    * The agent's own non-human identity, when it has one.
    *
-   * Its PRESENCE is what the identity clause below turns on, and that is not a detail: a standard
-   * agent has no NHI and acts as the person through their forwarded session, so telling it that it
+   * Its PRESENCE is what the identity clause below turns on, and that is not a detail: the personal
+   * assistant has no NHI and acts as the person through their forwarded session, so telling it that it
    * acts "under its own service identity, not on behalf of whoever wrote the last message" flatly
    * contradicts the persona it was just given — and contradicts what its tools can actually do.
    */
@@ -534,12 +534,12 @@ export const usageIdentityFor = (
   autonomousAgent: { id: string, title: string },
   run: { owner: AccountKeys, triggeredBy?: { userId?: string, userName?: string }, triggeredByRole?: EffectiveRole }
 ): UsageIdentity => {
-  // A STANDARD agent acts as the person, so the PERSON is who spends. Billing it as the agent would have two silent consequences: role
+  // The PERSONAL assistant acts as the person, so the PERSON is who spends. Billing it as the agent would have two silent consequences: role
   // 'admin' means "no per-profile quota applies", so a `user`/`external` person chatting was bounded
   // only by the account credit cap; and every person's spend was recorded against one
   // `autonomous-agent:personal` row, so the per-user histogram an org admin reads to see who spent
   // what showed a single line for the whole organization.
-  if (isStandardAgentId(autonomousAgent.id)) {
+  if (autonomousAgent.id === PERSONAL_AGENT_ID) {
     const role = run.triggeredByRole ?? 'user'
     const isUntrusted = isUntrustedRole(role)
     // Per user on an organization, and on a personal account for anyone but its owner — the rule

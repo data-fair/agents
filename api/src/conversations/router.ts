@@ -15,7 +15,7 @@ import { canInstruct } from '../autonomous-agents/operations.ts'
 import { abortRun } from './executor.ts'
 import { assertCanUseModel } from '../auth.ts'
 import { withinRetention } from '../retention.ts'
-import { isStandardAgentId, PERSONAL_AGENT_ID, PERSONAL_AGENT_TITLE } from '../agent-session/standard-agents.ts'
+import { PERSONAL_AGENT_ID, PERSONAL_AGENT_TITLE } from '../agent-session/personal-agent.ts'
 import { getSettings } from '../settings/service.ts'
 
 const router = Router()
@@ -42,7 +42,7 @@ export default router
  * The owner named in the path.
  *
  * It does NOT assert an organization any more, because on these runtime routes that depends on which
- * agent is involved: a standard agent runs on a person's own account (see `assertCanOwnAgent`). The
+ * agent is involved: the personal assistant runs on a person's own account (see `assertCanOwnAgent`). The
  * invariant has not been dropped — it moved to where the agent id is known:
  *
  *  - a thread is created by the socket through `createConversation`, which calls `assertCanOwnAgent`
@@ -60,15 +60,15 @@ const reqOwner = (req: any): AccountKeys => {
 }
 
 /**
- * The agents this caller may chat with on this account, standard first.
+ * The agents this caller may chat with on this account, the personal assistant first.
  *
  * This is the back-office chat's picker, and it exists because neither half of the list was
- * reachable: standard agents are synthetic and therefore not enumerable from any collection, and the
+ * reachable: the personal assistant is synthetic and therefore not enumerable from any collection, and the
  * autonomous-agents list route is admin-gated while the people who may run an agent are exactly the
  * non-admin instructors. `canInstruct` is the same predicate every runtime route applies, so the list
  * cannot offer an agent the caller would then be refused.
  *
- * A standard agent is listed only when the caller may use this account's models at all
+ * The personal assistant is listed only when the caller may use this account's models at all
  * (`assertCanUseModel`), which is the same gate conversation creation applies — otherwise the picker
  * would offer a personal assistant whose every conversation 403s. A configured agent is listed only
  * when it is enabled, since a disabled one keeps its configuration but must not run: the executor's
@@ -80,14 +80,14 @@ router.get('/:type/:id/agents', async (req, res, next) => {
     const owner = reqOwner(req)
     const settings = await getSettings(owner)
 
-    const results: Array<{ id: string, title: string, kind: 'standard' | 'configured' }> = []
+    const results: Array<{ id: string, title: string }> = []
     try {
       assertCanUseModel(session, owner, settings.quotas ?? {})
-      results.push({ id: PERSONAL_AGENT_ID, title: PERSONAL_AGENT_TITLE, kind: 'standard' })
+      results.push({ id: PERSONAL_AGENT_ID, title: PERSONAL_AGENT_TITLE })
     } catch { /* not usable with these quotas: not offered */ }
 
     // Configured agents are organizations only (their identity rests on an NHI), so on a personal
-    // account the list is just the standard agents.
+    // account the list is just the personal assistant.
     if (owner.type === 'organization') {
       const configured = await mongo.autonomousAgents
         .find(
@@ -97,7 +97,7 @@ router.get('/:type/:id/agents', async (req, res, next) => {
         .sort({ title: 1 })
         .toArray()
       for (const agent of configured) {
-        if (canInstruct(agent, session)) results.push({ id: agent.id, title: agent.title, kind: 'configured' })
+        if (canInstruct(agent, session)) results.push({ id: agent.id, title: agent.title })
       }
     }
 
@@ -115,7 +115,7 @@ router.get('/:type/:id/agents', async (req, res, next) => {
  * agents an account has configured.
  *
  * With no agentId, each thread's agent is resolved instead: the account cannot be asked for the
- * blanket assertion (a configured agent is organization-only, a standard one is the normal case on a
+ * blanket assertion (a configured agent is organization-only, the personal assistant is the normal case on a
  * personal account), and it must not be asked, because a conversation whose agent was deleted or
  * whose grant was revoked is no longer the caller's to see.
  */
@@ -176,7 +176,7 @@ router.get('/:type/:id', async (req, res, next) => {
       for (const conversation of results) {
         let ok = usable.get(conversation.agentId)
         if (ok === undefined) {
-          if (isStandardAgentId(conversation.agentId)) {
+          if (conversation.agentId === PERSONAL_AGENT_ID) {
             try {
               assertCanUseModel(session, owner, settings.quotas ?? {})
               ok = true

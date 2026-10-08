@@ -23,7 +23,7 @@ const props = defineProps<{
   accountId?: string
   src?: string
   chatTitle?: string
-  /** Which standard agent to talk to, by id. Replaces `systemPrompt`. */
+  /** Which agent to talk to: `personal` (the personal assistant, the default) or a configured agent's id. Replaces `systemPrompt`. */
   agentId?: string
   /** @deprecated Use `agentId`. Ignored, with a one-time console warning. */
   systemPrompt?: string

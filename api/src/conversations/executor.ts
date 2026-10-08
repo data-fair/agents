@@ -48,7 +48,7 @@ import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
 import { securityKey } from '../cipher/service.ts'
 import { getAutonomousAgentSession } from '../nhi/service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
-import { isStandardAgentId } from '../agent-session/standard-agents.ts'
+import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
@@ -260,10 +260,10 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // A CONFIGURED agent with no enrolment cannot run: its whole tool surface is reached as that
   // identity, so a toolless turn would look like a capability problem rather than a setup one.
   //
-  // A STANDARD agent is the deliberate exception — it has no non-human identity BY DESIGN and acts as
+  // The PERSONAL assistant is the deliberate exception — it has no non-human identity BY DESIGN and acts as
   // the person whose socket it is. This guard predates them and would have refused every such turn
   // with a message about enrolment, which is how the first end-to-end test failed.
-  if (!isStandardAgentId(autonomousAgent.id) && !autonomousAgent.nhi?.clientId) {
+  if (autonomousAgent.id !== PERSONAL_AGENT_ID && !autonomousAgent.nhi?.clientId) {
     return {
       parts: [{ type: 'text', text: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.' }],
       steps: 0,
@@ -277,7 +277,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // BEFORE ANY MODEL CALL: a refused turn must cost nothing.
   //
   // Read as a list, which is what extracting them bought. The identity is per agent — a configured
-  // agent bills as itself, a standard one as the person using it (see usageIdentityFor).
+  // agent bills as itself, the personal assistant as the person using it (see usageIdentityFor).
   const identity = usageIdentityFor(autonomousAgent, run)
   for (const gate of [
     () => checkQuotas(run, settings, identity, autonomousAgent.id),
@@ -306,12 +306,12 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   const sessionProvider: SessionProvider = autonomousAgent.nhi
     ? () => getAutonomousAgentSession(autonomousAgent)
     : async () => session?.sessionCookie()
-  // A standard agent takes the WHOLE catalog, so an unreachable entry is an availability event rather
+  // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
   const { tools: rawTools, serverByTool, annotationsByTool, skippedServers, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sessionProvider, {
-      onServerError: isStandardAgentId(autonomousAgent.id) ? 'skip' : 'throw'
+      onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
     })
   if (skippedServers.length) {
     debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
@@ -321,8 +321,8 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // THE APPROVAL GATE, on the catalog tools of a configured autonomous agent only. The personal assistant
   // has no policy, page tools act in the person's own browser, and service tools are the loop's own.
   // An UNATTENDED turn (a planned task's run) is offered only what the policy allows outright: nobody is
-  // there to decide on a gated call. A standard agent has no tasks; its branch stays first regardless.
-  const catalogTools = isStandardAgentId(autonomousAgent.id)
+  // there to decide on a gated call. The personal assistant has no tasks; its branch stays first regardless.
+  const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID
     ? rawTools
     : target.surface === 'task'
       ? withoutGatedTools(rawTools, annotationsByTool, autonomousAgent.approvals)

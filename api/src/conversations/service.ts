@@ -4,7 +4,7 @@
 
 import mongo from '#mongo'
 import config from '#config'
-import { personalAgent, isStandardAgentId, PERSONAL_AGENT_ID } from '../agent-session/standard-agents.ts'
+import { personalAgent, PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { assertRoleQuota, assertCanUseModel } from '../auth.ts'
 import { nanoid } from 'nanoid'
@@ -67,12 +67,12 @@ export const requireAutonomousAgent = async (owner: AccountKeys, agentId: string
  * the same shape; only the reserved id and the absence of an `nhi` distinguish them, and the second is
  * what the identity port keys on.
  *
- * A standard agent is built per call rather than stored,
- * so it costs no collection and no migration (see ../agent-session/standard-agents.ts).
+ * The personal assistant is built per call rather than stored,
+ * so it costs no collection and no migration (see ../agent-session/personal-agent.ts).
  */
 export const resolveAgent = async (owner: AccountKeys, agentId: string) => {
-  // Standard agents FIRST, which is also what reserves their ids: a configured agent sharing an id
-  // would otherwise shadow one, and a conversation naming it would resolve to the wrong identity.
+  // The personal assistant FIRST, which is also what reserves its id: a configured agent sharing it
+  // would otherwise shadow it, and a conversation naming it would resolve to the wrong identity.
   if (agentId === PERSONAL_AGENT_ID) return { ...personalAgent(config.mcpServers ?? []), owner } as unknown as AutonomousAgent
   // Anything else is a CONFIGURED agent, and those remain organization-owned: their identity rests on
   // an NHI, which simple-directory binds to exactly one organization. Asserted rather than left to the
@@ -160,7 +160,7 @@ export type TurnCaller =
  * A CONFIGURED agent lends its own identity: instructing it means borrowing an NHI's permissions, so
  * the gate is `canInstruct` — an account admin, or someone explicitly listed as an instructor.
  *
- * A STANDARD agent lends nothing. It acts as the person, through their own session, so the only
+ * The PERSONAL assistant lends nothing. It acts as the person, through their own session, so the only
  * question is whether that person may use this account's models at all — which is the role-quota
  * gate every model call already answered. Applying `canInstruct` to it was a real regression and the
  * narrowest kind: a plain member of an organization could not use the assistant embedded in their own
@@ -172,7 +172,7 @@ const assertMayTalkTo = async (
   owner: AccountKeys,
   session: SessionStateAuthenticated
 ) => {
-  if (!isStandardAgentId(autonomousAgent.id)) {
+  if (autonomousAgent.id !== PERSONAL_AGENT_ID) {
     assertCanInstruct(autonomousAgent, session)
     return
   }
@@ -186,11 +186,11 @@ const assertMayTalkTo = async (
  * its first prompt creates the thread. Returns the account the thread is stored under.
  *
  * A configured agent stays organization-only (`assertCanOwnAgent`); an anonymous visitor may only talk
- * to a standard agent, on an account whose quotas let anonymous visitors in.
+ * to the personal assistant, on an account whose quotas let anonymous visitors in.
  */
 export const assertMayStartConversation = async (owner: AccountKeys, agentId: string, caller: TurnCaller): Promise<AccountKeys> => {
   if (caller.kind === 'anonymous') {
-    if (!isStandardAgentId(agentId)) throw httpError(403, 'an anonymous visitor can only talk to a standard agent')
+    if (agentId !== PERSONAL_AGENT_ID) throw httpError(403, 'an anonymous visitor can only talk to the personal assistant')
     assertRoleQuota('anonymous', (await getSettings(owner)).quotas ?? {})
     return owner
   }

@@ -2,8 +2,8 @@
  * E2E tests for naming an agent, and for the prose path it replaced.
  *
  * A host used to hand the chat its own system prompt — through a prop, and on the chat route through a
- * `?systemPrompt=` query parameter. It now names a standard agent by id instead, and the persona text
- * lives on the server (api/src/agent-session/standard-agents.ts).
+ * `?systemPrompt=` query parameter. It now names an agent by id instead (`personal` or a configured agent's), and the persona text
+ * lives on the server (api/src/agent-session/personal-agent.ts).
  *
  * The second test is the one that matters: it is a regression guard on a REMOVED capability, and the
  * only kind of test that can hold it is one asserting absence. The query-param path was the sharpest

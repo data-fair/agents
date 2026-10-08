@@ -114,7 +114,7 @@ All three components (drawer, menu, block) accept:
 | `accountId` | `string` | Account ID for the chat session |
 | `src` | `string` | Custom iframe URL (overrides account-based URL resolution) |
 | `chatTitle` | `string` | Title displayed in the chat header |
-| `agentId` | `string` | Which agent to talk to: `personal` (the built-in personal assistant, `api/src/agent-session/standard-agents.ts`; the default) or a configured agent's id. Replaces `systemPrompt` |
+| `agentId` | `string` | Which agent to talk to: `personal` (the built-in personal assistant, `api/src/agent-session/personal-agent.ts`; the default) or a configured agent's id. Replaces `systemPrompt` |
 | `agents` | `boolean` | **Back-office mode**: the chat offers the agent switcher (the personal assistant plus every autonomous agent the caller may instruct in the account). Off — the front-office shape — embeds stay mono-agent. The conversation history is offered to every signed-in person either way |
 | `systemPrompt` | `string` | **Deprecated, ignored** — logs a one-time console warning (`hostInitConfig`) |
 | `initConfigKey` | `string` | Override the per-variant init-config key. Only needed when mounting several instances of the same variant in one tab (defaults to `'drawer'` / `'menu'` / `'block'`) |
@@ -336,7 +336,7 @@ Selecting a different agent resumes ITS latest thread; a conversation never chan
 
 The `agentId` and `chatTitle` props are handed to the iframe through **same-origin sessionStorage**, not the URL. This is a one-shot "set then get" handoff: the host writes the config before the iframe loads, and the iframe reads it once on mount. It is **not** a reactive channel — changing the prop after the iframe is running does not update the live agent.
 
-The mechanism was introduced to carry an arbitrarily long `systemPrompt` past nginx's request-line limit and out of logs and `Referer` headers. A host no longer supplies prose: with the loop on the server, a host-supplied prompt would be the one remaining client-controlled instruction, so a host names an agent instead and its persona lives server-side (the personal assistant's in `api/src/agent-session/standard-agents.ts`, a configured agent's in its document). The deprecated `prompt` field is ignored.
+The mechanism was introduced to carry an arbitrarily long `systemPrompt` past nginx's request-line limit and out of logs and `Referer` headers. A host no longer supplies prose: with the loop on the server, a host-supplied prompt would be the one remaining client-controlled instruction, so a host names an agent instead and its persona lives server-side (the personal assistant's in `api/src/agent-session/personal-agent.ts`, a configured agent's in its document). The deprecated `prompt` field is ignored.
 
 How it works:
 1. Each component writes `{ agentId, title }` to sessionStorage under a per-variant key via `setAgentInitConfig(key, hostInitConfig(props))` (`hostInitConfig` drops `systemPrompt` with a one-time warning).

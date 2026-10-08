@@ -121,7 +121,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
     owner: conversation.owner,
     trigger: 'user',
     triggeredBy: person,
-    // Recorded here because only this boundary has the session. It is what makes a standard agent's
+    // Recorded here because only this boundary has the session. It is what makes the personal assistant's
     // turn bill against the PERSON's quota rather than resolving to 'admin' (see the schema note) —
     // and an anonymous visitor's against the per-IP key, in the untrusted pool.
     triggeredByRole: caller.kind === 'person' ? getEffectiveRole(caller.session, request.owner) : 'anonymous',

@@ -146,10 +146,10 @@ test.describe('Anonymous chat over the agent session', () => {
     assert.match((await refusalOf(socket)).message, /permission/)
   })
 
-  test('only a standard agent', async () => {
+  test('only the personal assistant', async () => {
     const socket = await open()
     await hello(socket, { agentId: 'some-configured-agent' })
-    assert.match((await refusalOf(socket)).message, /standard agent/)
+    assert.match((await refusalOf(socket)).message, /personal assistant/)
   })
 
   test('the turn is charged per IP, where the self-usage route reads it back', async () => {

@@ -31,7 +31,7 @@ const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directory
 
 test.describe('Host context reaching the model', () => {
   const sockets: AgentSessionClient[] = []
-  // NO MCP FIXTURE, deliberately: a standard agent takes the whole catalog, and an unreachable entry
+  // NO MCP FIXTURE, deliberately: the personal assistant takes the whole catalog, and an unreachable entry
   // is SKIPPED rather than fatal for it (`onServerError: 'skip'`). Nothing here calls an MCP tool —
   // host state needs none and the wait tool is loop-provided — so starting a server on the shared
   // fixture port only adds a teardown that can hang.

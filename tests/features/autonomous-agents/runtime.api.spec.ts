@@ -132,7 +132,7 @@ test.describe('Autonomous agent conversations', () => {
     assert.equal(oneAgent.results.some((c: any) => c.id === theirs.conversationId), false)
   })
 
-  test('the agents list offers the standard agent and the enabled autonomous agents this person may instruct', async () => {
+  test('the agents list offers the personal assistant and the enabled autonomous agents this person may instruct', async () => {
     await putMockSettings(admin, 'organization/test1')
     const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     await createAgent({ title: 'Disabled', enabled: false })
@@ -141,8 +141,9 @@ test.describe('Autonomous agent conversations', () => {
     const adminList = (await orgAdmin.get('/api/conversations/organization/test1/agents')).data.results
     // The personal assistant is offered because the mock settings grant every role a model quota; it
     // is exactly the gate conversation creation applies.
-    assert.ok(adminList.some((a: any) => a.id === 'personal' && a.kind === 'standard'))
-    assert.ok(adminList.some((a: any) => a.id === agent.id && a.kind === 'configured'))
+    assert.ok(adminList.some((a: any) => a.id === 'personal'))
+    assert.ok(adminList.some((a: any) => a.id === agent.id))
+    assert.deepEqual(Object.keys(adminList[0]).sort(), ['id', 'title'], 'an entry is an id and a title, nothing more')
     assert.ok(adminList.some((a: any) => a.title === 'Hidden'), 'an account admin may instruct every enabled agent')
     assert.ok(!adminList.some((a: any) => a.title === 'Disabled'), 'a disabled agent must not be offered')
 

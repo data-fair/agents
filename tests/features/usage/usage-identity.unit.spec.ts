@@ -5,7 +5,7 @@
  * directly rather than inferring from an end-to-end quota test.
  *
  * It exists because of a defect the swap introduced and nothing caught: one `usageIdentityFor` served
- * every agent, so a person chatting with the standard assistant was billed as
+ * every agent, so a person chatting with the personal assistant was billed as
  * `autonomous-agent:personal` at role 'admin'. Role 'admin' means "no per-profile quota applies", so
  * the `user`/`external` quotas were silently unenforced for the chat — bounded only by the account
  * credit cap — and every person's spend landed on one histogram row, which is the figure an org admin
@@ -21,7 +21,7 @@ const configured = { id: 'support-triage', title: 'Support triage' }
 const org = { type: 'organization' as const, id: 'test1' }
 const personal = { type: 'user' as const, id: 'dmeadus0' }
 
-test.describe('usageIdentityFor — a standard agent bills the PERSON', () => {
+test.describe('usageIdentityFor — the personal assistant bills the PERSON', () => {
   test("carries the person's own role, so their quota applies", () => {
     const identity = usageIdentityFor(standard, {
       owner: org,
@@ -103,7 +103,7 @@ test.describe('usageIdentityFor — a configured agent bills the AGENT', () => {
 
   test("the instructing person's role does NOT lower it", () => {
     // An agent's permissions come from its own identity; whoever asked does not change what it may
-    // spend. This is the asymmetry with the standard agent above, and the reason the two branches
+    // spend. This is the asymmetry with the personal assistant above, and the reason the two branches
     // cannot be collapsed back into one.
     const asUser = usageIdentityFor(configured, { owner: org, triggeredBy: { userId: 'u1' }, triggeredByRole: 'external' })
     assert.equal(asUser.role, 'admin')

@@ -11,9 +11,6 @@
 export interface AgentOption {
   id: string
   title: string
-  /** `standard` is the personal assistant (acts as the person); `configured` is an autonomous agent
-   * (acts with its own identity). Kept for labelling, and to tell the two apart without a lookup. */
-  kind: 'standard' | 'configured'
 }
 
 /** One thread in the chat's history, newest first. */
