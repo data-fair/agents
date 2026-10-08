@@ -47,6 +47,19 @@ test.describe('parseConversationExport', () => {
     assert.deepEqual(parsed.runs[0].calls.map(c => c.modelRole), ['assistant', 'summarizer'])
   })
 
+  test('keeps a failed run\'s error, which says why the run is not judgeable', () => {
+    const parsed = parseConversationExport({
+      conversationId: 'c1',
+      jsonl: buildConversationExport({
+        conversation: { id: 'c1', agentId: 'personal' },
+        messages: [{ seq: 1, role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+        runs: [{ id: 'r1', status: 'error', stopReason: 'error', error: 'credit cap reached', credits: 0, calls: [] }]
+      })
+    })
+    assert.equal(parsed.runs[0].status, 'error')
+    assert.equal(parsed.runs[0].error, 'credit cap reached')
+  })
+
   test('refuses a file that is not an export, rather than reporting no activity', () => {
     assert.throws(() => parseConversationExport({ conversationId: 'x', jsonl: '<html>login</html>' }))
     assert.throws(() => parseConversationExport({ conversationId: 'x', jsonl: '' }), /not a conversation export/)

@@ -45,7 +45,8 @@ export type ParsedExport = {
   conversationId: string
   agentId?: string
   messages: Array<{ seq: number, role: string, parts: ExportPart[] }>
-  runs: Array<{ status?: string, stopReason?: string, credits?: number, calls: ExportCall[] }>
+  /** `error` says why a failed run failed (a refused turn, a provider failure). */
+  runs: Array<{ status?: string, stopReason?: string, error?: string, credits?: number, calls: ExportCall[] }>
   /** Blob values by `ref`, so a lifted part can be read back whole. */
   blobs: Map<string, unknown>
 }
@@ -64,7 +65,7 @@ export function parseConversationExport (exported: ConversationExport): ParsedEx
     if (index === 0) continue
     const record = parseLine(line, index)
     if (record.type === 'message') parsed.messages.push({ seq: record.seq, role: record.role, parts: record.parts ?? [] })
-    else if (record.type === 'run') parsed.runs.push({ status: record.status, stopReason: record.stopReason, credits: record.credits, calls: record.calls ?? [] })
+    else if (record.type === 'run') parsed.runs.push({ status: record.status, stopReason: record.stopReason, error: record.error, credits: record.credits, calls: record.calls ?? [] })
     else if (record.type === 'blob') parsed.blobs.set(record.ref, record.value)
   }
   return parsed
