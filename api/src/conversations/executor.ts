@@ -309,7 +309,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
-  const { tools: rawTools, serverByTool, annotationsByTool, skippedServers, close: closeTools } =
+  const { tools: rawTools, serverByTool, annotationsByTool, skippedServers, filteredOut, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sessionProvider, {
       onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
     })
@@ -339,7 +339,9 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     run,
     surface: target.surface,
     session,
-    ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {})
+    ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
+    // Copies: the service tools are merged into these maps below, and the catalog is the servers' own.
+    catalog: { serverByTool: new Map(serverByTool), annotationsByTool: new Map(annotationsByTool), filteredOut, skippedServers }
   })
   Object.assign(tools, service.tools)
   for (const [name, server] of service.serverByTool) serverByTool.set(name, server)

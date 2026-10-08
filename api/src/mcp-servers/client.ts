@@ -131,6 +131,8 @@ export interface OpenAutonomousAgentTools {
   annotationsByTool: Map<string, Record<string, unknown>>
   /** Catalog entries that could not be reached; always empty unless the caller asked to skip. */
   skippedServers: SkippedServer[]
+  /** Tools a server listed that the reference's toolFilter excluded: what the agent reads about itself. */
+  filteredOut: { name: string, server: string }[]
   /** MUST be called when the turn is over: until then the connections stay open. */
   close: () => Promise<void>
 }
@@ -205,6 +207,7 @@ export const openAutonomousAgentTools = async (
   const serverByTool = new Map<string, string>()
   const annotationsByTool = new Map<string, Record<string, unknown>>()
   const skippedServers: SkippedServer[] = []
+  const filteredOut: { name: string, server: string }[] = []
 
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
@@ -249,7 +252,10 @@ export const openAutonomousAgentTools = async (
     if (!entry) continue
     const { ref, server } = entry
     for (const t of entry.tools) {
-      if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
+      if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) {
+        filteredOut.push({ name: t.name, server: server.id })
+        continue
+      }
       // Last-write-wins on a name collision across servers, matching the browser
       // aggregator's Object.assign semantics — and the provenance map follows the same
       // winner, so the recorded server is the one whose tool will actually run.
@@ -288,7 +294,7 @@ export const openAutonomousAgentTools = async (
     connections.clear()
     for (const connection of open) await connection.then(c => c.close()).catch(() => {})
   }
-  return { tools, serverByTool, annotationsByTool, skippedServers, close }
+  return { tools, serverByTool, annotationsByTool, skippedServers, filteredOut, close }
 }
 
 export interface McpToolDescriptor {

@@ -23,6 +23,8 @@ import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAM
 import { WEB_SERVER_ID } from '../web/operations.ts'
 import { saveWebAllowedUrls } from '../autonomous-agents/service.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { createSelfKnowledgeTools } from '../self-knowledge/tools.ts'
+import { SELF_KNOWLEDGE_SERVER_ID } from '../self-knowledge/operations.ts'
 
 export type { TaskOutcome }
 
@@ -30,6 +32,16 @@ export type { TaskOutcome }
 const AGENT_SERVICE_ID = 'agent-service'
 
 export type TurnSurface = 'chat' | 'task'
+
+/** What the agent's catalog servers offered this turn, before the approval policy: what it reads about itself. */
+export interface TurnCatalog {
+  /** The tools the agent's servers listed, after its toolFilter: name → server, and declared annotations. */
+  serverByTool: Map<string, string>
+  annotationsByTool: Map<string, Record<string, unknown>>
+  /** Listed by a server but excluded by the reference's toolFilter. */
+  filteredOut: { name: string, server: string }[]
+  skippedServers: { id: string, reason: string }[]
+}
 
 export interface ServiceToolContext {
   agent: AutonomousAgent
@@ -39,6 +51,8 @@ export interface ServiceToolContext {
   session?: AgentSession
   /** Where a task run's `report_outcome` lands (the task target's holder); absent on a chat. */
   reportOutcome?: (outcome: TaskOutcome) => void
+  /** The turn's catalog tools, for the agent's own reading of what it can use. */
+  catalog?: TurnCatalog
 }
 
 export interface BuiltServiceTools {
@@ -109,6 +123,22 @@ const ENTRIES: ServiceToolEntry[] = [
       for (const name of Object.keys(tools)) {
         into.serverByTool.set(name, WEB_SERVER_ID)
         into.annotationsByTool.set(name, name === REQUEST_WEB_ACCESS_TOOL_NAME ? REQUEST_WEB_ACCESS_ANNOTATIONS : WEB_TOOL_ANNOTATIONS)
+      }
+    }
+  },
+  {
+    // SELF-KNOWLEDGE (api/src/self-knowledge): a configured agent reads its own configuration, tasks and
+    // runs, on both surfaces, so it can say why something is out of reach instead of guessing. Read-only;
+    // what a past run read comes back inside the envelope like any tool result: reported, not obeyed.
+    // The list of the turn's other service tools is read when called, so entries built after this one
+    // (report_outcome) are in it.
+    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID,
+    build: async (ctx, into) => {
+      const tools = createSelfKnowledgeTools(ctx, () => Object.keys(into.tools))
+      Object.assign(into.tools, withProvenance(tools, () => SELF_KNOWLEDGE_SERVER_ID))
+      for (const name of Object.keys(tools)) {
+        into.serverByTool.set(name, SELF_KNOWLEDGE_SERVER_ID)
+        into.annotationsByTool.set(name, { readOnlyHint: true })
       }
     }
   },
