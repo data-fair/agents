@@ -12,7 +12,7 @@ Code: `api/src/tasks/` (`operations.ts` pure rules, `service.ts` task CRUD, `exe
 
 Schema: `api/types/autonomous-agent-task/schema.js`; the write body is `task-write-req`.
 
-The schedule is data-fair processings' own rule array: each rule is monthly, weekly, daily or "every N hours", with its time zone (default `Europe/Paris`). `toCron` converts a rule to a cron expression and `nextRunAfter` (`api/src/tasks/operations.ts`) takes the earliest next slot across rules with `croner`, as processings does, so scheduling a task is scheduling a processing. `describeScheduling` renders it in `en` or `fr`.
+The schedule is data-fair processings' own rule array: each rule is monthly, weekly, daily or "every N hours", with its time zone (default `Europe/Paris`). `toCron` converts a rule to a cron expression and `nextRunAfter` (`api/src/tasks/operations.ts`) takes the earliest next slot across rules with `croner`, as processings does, so scheduling a task is scheduling a processing. `describeScheduling` renders it in `en` or `fr`. Each rule type is closed to its own keys in the schema, and both functions read only those, so the words are the schedule that runs.
 
 Caps, enforced on every write that sets a schedule (`assertSchedule` in `api/src/tasks/service.ts`), all from `config.tasks`:
 
@@ -115,17 +115,17 @@ Service tools of a configured agent (never the personal assistant), registered i
 
 **Self-knowledge** (`tools.ts`, `operations.ts`; read-only; chats and task runs):
 
-- `get_my_configuration`: persona, instructions, approvals, whether memory is on, each catalog tool with its status (usable, needs approval, denied by policy, not selected by an administrator, server unreachable), the service tools offered this turn, and the catalog servers it is not connected to, and its tasks described by `describeScheduling` (`shared/task-schedule.ts`, the same text the admin UI shows);
+- `get_my_configuration`: persona, instructions, approvals, whether memory is on, each catalog tool with its status (usable, needs approval, denied by policy, not selected by an administrator, server unreachable), the service tools offered this turn, and the catalog servers it is not connected to, and its tasks described by `describeScheduling` (`shared/task-schedule.ts`, the same text the planning tools reply with and the approval card shows);
 - `list_my_runs`, `get_run`: its own runs, chats and task runs, through `listRuns`/`getRun` in `api/src/tasks/service.ts`, the read path the admin routes use. A past run's content comes back enveloped as data, like any tool result: reported, not obeyed. Whoever triggered a run is never named.
 
 One system-prompt sentence for configured agents (`SELF_KNOWLEDGE_NOTE`, `api/src/conversations/operations.ts`) points at `get_my_configuration` before the agent says it cannot do something.
 
 **Planning** (`planning.ts`; chat surface only): `plan_task`, `update_task` (the whole new task, with its `taskId`) and `delete_task`. Their input is the admin form's own schema (`task-write-req`), so the schedule is data-fair processings' rule format.
 
-- **Approval.** Each carries `needsApproval: true` on the tool itself, since service tools are outside the approval policy and no policy can unset it. The card is titled from the annotation (`PLANNING_TOOL_ANNOTATIONS`: "Plan a task", "Change a task", "Delete a task") and shows the task in plain words, with Before and After for an update (`ui/src/components/agent-chat/ApprovalCard.vue`). Task runs are not offered them: nobody could approve.
+- **Approval.** Each carries `needsApproval: true` on the tool itself, since service tools are outside the approval policy and no policy can unset it. The card is titled from the annotation (`PLANNING_TOOL_ANNOTATIONS`: "Plan a task", "Change a task", "Delete a task") and shows the task in plain words, with Before and After for an update (`ui/src/components/agent-chat/ApprovalCard.vue`). After is what `updateTask` will store: a missing `enabled` keeps the stored one, and a paused task (shown with its reason in Before) is marked as resumed by the change, since any update that leaves it enabled lifts the pause. Task runs are not offered them: nobody could approve.
 - **Actor.** The approved call executes inside the `approval` continuation run through `createTask`/`updateTask`/`deleteTask`, the same service functions as the admin routes. The task records the decider (the run's `triggeredBy`) as `createdBy`/`updatedBy`, with `conversationId` for the thread it came from. When two calls of one step are decided by different people, the last decider is recorded for both.
 - **Audit.** The events-log entry is written by the service, not the route: from a route with `{ req }`, from a tool with `{ account, user }` of the decider.
-- **Refusals are the call's error.** The task cap, the minimum interval, a schedule with no next slot, invalid input and a 404 (a task deleted since) come back as the tool's error text with their status, and the prompt tells the model not to retry the same input. The caps are the ones in [the schedule section](#tasks-and-their-schedule); there is no second set for agents.
+- **Refusals are the call's error.** The task cap, the minimum interval, a schedule with no next slot, invalid input and a 404 (a task deleted since) come back as the tool's error text with their status, and the planning tools' description (`REFUSAL_NOTE` in `api/src/self-knowledge/planning.ts`) tells the model not to retry the same input. The caps are the ones in [the schedule section](#tasks-and-their-schedule); there is no second set for agents.
 
 Known limit: the admin review page renders approval cards without a decide listener, so a pending card there cannot be decided (plan 5).
 
