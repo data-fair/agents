@@ -20,6 +20,7 @@ import { pushedTaskEvents, clearPushedTaskEvents } from './tasks/notifications.t
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter, { runsRouter } from './conversations/router.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
+import { recoverOwnerlessTaskRuns } from './tasks/execution.ts'
 import { purgeExpiredArchives } from './conversations/service.ts'
 import locks from '@data-fair/lib-node/locks.js'
 import nhiRouter from './nhi/router.ts'
@@ -322,7 +323,9 @@ if (process.env.NODE_ENV === 'development') {
     res.send()
   })
   app.post('/api/test-env/recover-ownerless-runs', async (req, res) => {
-    res.json(await recoverOwnerlessRuns())
+    const conversations = await recoverOwnerlessRuns()
+    const tasks = await recoverOwnerlessTaskRuns()
+    res.json({ ...conversations, interrupted: conversations.interrupted + tasks.interrupted, skipped: conversations.skipped + tasks.skipped })
   })
   // Dev-only: run the archive sweep as if it were `now`, so a test can prove what it keeps.
   app.post('/api/test-env/purge-expired-archives', async (req, res) => {

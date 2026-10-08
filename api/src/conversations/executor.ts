@@ -39,22 +39,21 @@ import {
   type TurnTarget, type TurnResult, type TurnFailure
 } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, finishTaskRun, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, createRun, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
+import { appendMessage, updateMessage, finishRun, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, rejectPendingApprovals } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
 import { computeCreditBreakdown } from '../usage/operations.ts'
-import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
+import { openAutonomousAgentTools, type SessionProvider } from '../mcp-servers/client.ts'
 import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
 import { securityKey } from '../cipher/service.ts'
-import { nhiSessionProvider, forwardedSessionProvider } from '../agent-identity/service.ts'
+import { getAutonomousAgentSession } from '../nhi/service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
-import type { AgentSession } from '../agent-session/session.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
-import { waitHandover, repairWaitInput, formatHostEvents, WAIT_TOOL_NAME, WAIT_ACCEPTED, LOCATION_KEY } from '@agents/shared/host-events'
+import { waitHandover, repairWaitInput, WAIT_TOOL_NAME, WAIT_ACCEPTED } from '@agents/shared/host-events'
 import { settlePendingWait } from './waits.ts'
 import { PERSON_SPOKE, interruptedWaitResult, interruptReason } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
@@ -81,6 +80,9 @@ const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this 
  * abortRunsOfAgent.
  */
 const liveRuns = new Map<string, { controller: AbortController, agentId: string, conversationId?: string, taskId?: string }>()
+
+/** Whether this process is executing the run right now. */
+export const isRunLive = (runId: string) => liveRuns.has(runId)
 
 /** The abort reason of a turn whose agent was disabled or deleted: interruptReason reads it as `ended`. */
 const AGENT_STOPPED = 'autonomous agent stopped'
@@ -292,9 +294,9 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // with 'Not connected'. Released in the finally below.
   // WHO IT ACTS AS — the one port. A configured agent has a non-human identity and acts as itself; the
   // personal assistant has none and acts as the person whose socket this is.
-  const sessionProvider = autonomousAgent.nhi
-    ? nhiSessionProvider(autonomousAgent)
-    : forwardedSessionProvider(session?.sessionCookie())
+  const sessionProvider: SessionProvider = autonomousAgent.nhi
+    ? () => getAutonomousAgentSession(autonomousAgent)
+    : async () => session?.sessionCookie()
   // A standard agent takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
@@ -1194,7 +1196,7 @@ export const runTurn = async (run: ConversationTurnRun): Promise<void> => {
 
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.
-    return conversationTarget(run, message, conversation, wakeIfAnswered)
+    return conversationTarget(run, message, conversation)
   }, failure => closeConversationRunBare(run, failure))
 }
 
@@ -1223,61 +1225,6 @@ export const startRun = async (run: ConversationTurnRun): Promise<void> => {
     }
     if (!await nextPendingRun(run.conversationId)) return
   }
-}
-
-/**
- * Continue a conversation whose pending wait the person has just answered on the page.
- *
- * Called when the socket receives host events, and when a turn that handed over ends (an answer may
- * have arrived while it was finishing). The answer is what the wait tool used to return inside the
- * turn — the first thing the person did, then the followers of the same gesture and the refreshes
- * that arrived meanwhile — so the settled call and the turn that continues from it read exactly as
- * before. A `wake` run carries no message of the person's: its history ends on that settled result.
- *
- * `session` is the socket the events arrived on, which must be the conversation's watcher: events from
- * a socket attached elsewhere are not this conversation's to answer with.
- */
-export const wakeIfAnswered = async (conversationId: string, session: AgentSession | undefined = sessionFor(conversationId)): Promise<void> => {
-  if (!session || sessionFor(conversationId) !== session || !session.hostEvents.hasWaitAnswer()) return
-  // Checked before taking anything: events with no wait to answer stay pending, for the next turn.
-  const waiting = await mongo.conversations.findOne({ id: conversationId, pendingWait: { $exists: true } }, { projection: { _id: 0, pendingWait: 1 } })
-  if (!waiting?.pendingWait) return
-  // The page re-announcing where it already was — a reload during the wait — is not the person leaving.
-  const handedOverAt = waiting.pendingWait.location
-  const notNews = (event: { key?: string, detail?: string }) => event.key === LOCATION_KEY && handedOverAt !== undefined && event.detail === handedOverAt
-  if (!session.hostEvents.hasWaitAnswer(notNews)) return
-  // One macrotask, as the wait tool did, so the followers of the same gesture (a keyed location event
-  // posted right after a creation event) ride in the same answer.
-  await new Promise(resolve => setTimeout(resolve, 0))
-  const events = session.hostEvents.takeWaitAnswer(notNews)
-  if (!events) return
-  // A call the gate stopped in the SAME step as the wait (the handover won, so the turn ended `waiting`)
-  // is rejected, as a new message rejects it: the person moved on without deciding, and the wake turn
-  // continues without that call — its card, left pending in a message that is no longer the last, could
-  // never run if approved later. Before the wait is settled, whose write replaces the message's parts
-  // and would otherwise race a decision landing meanwhile.
-  await rejectPendingApprovals(conversationId, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED)
-  const wait = await settlePendingWait(conversationId, () => formatHostEvents(events))
-  if (!wait) {
-    // Another settler won (the person wrote at the same moment): the events are still owed.
-    session.hostEvents.restorePending(events)
-    return
-  }
-  const conversation = await mongo.conversations.findOne({ id: conversationId }, { projection: { _id: 0, agentId: 1, owner: 1 } })
-  if (!conversation) return
-  const run = await createRun({
-    agentId: conversation.agentId,
-    conversationId,
-    owner: conversation.owner,
-    trigger: 'wake',
-    ...(wait.triggeredBy ? { triggeredBy: wait.triggeredBy } : {}),
-    ...(wait.triggeredByRole ? { triggeredByRole: wait.triggeredByRole } : {}),
-    status: 'running',
-    startedAt: new Date().toISOString()
-  })
-  debug('woke conversation %s on its pending wait, run %s', conversationId, run.id)
-  // Not awaited, like a prompt's: the run is followed over the socket.
-  startRun(run).catch(err => console.error('a wake run failed to start', err))
 }
 
 /**
@@ -1314,7 +1261,7 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
       .map(doc => String(doc._id).slice(conversationLockId('').length))
   )
   const ownerless = candidates.filter(run => !heldLocks.has(run.conversationId!) && !liveRuns.has(run.id))
-  let skipped = candidates.length - ownerless.length
+  const skipped = candidates.length - ownerless.length
 
   let interrupted = 0
   let resumed = 0
@@ -1351,24 +1298,6 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
       pending: false
     })
     await finishRun(run, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
-  }
-
-  // TASK runs: never resumed — a task run that began may have fired its tools, and one that did not is
-  // simply the next slot's to run. Ownerless when nobody holds its task's lock and this process is not
-  // running it. Closed `interrupted`, which notifies and counts toward the task's pause like any failure.
-  const taskCandidates = await mongo.runs.find({ status: 'running', kind: 'task' }, { projection: { _id: 0 } }).toArray()
-  const heldTaskLocks = new Set((await mongo.db.collection<{ _id: string }>('locks')
-    .find({ _id: { $regex: '^task:' } }, { projection: { _id: 1 } }).toArray()).map(doc => String(doc._id).slice('task:'.length)))
-  for (const run of taskCandidates) {
-    if (liveRuns.has(run.id) || (run.taskId && heldTaskLocks.has(run.taskId))) { skipped++; continue }
-    const patch = { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' } as const
-    if (await finishTaskRun(run, patch)) {
-      // Imported lazily: ../tasks/execution.ts drives its turns through this module, so a static import
-      // would be a cycle. Caught: one task's notification must not stop the others being recovered.
-      const { afterTaskRun } = await import('../tasks/execution.ts')
-      await afterTaskRun({ ...run, ...patch }).catch(err => console.error('an interrupted task run could not be followed up', err))
-    }
-    interrupted++
   }
 
   if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} started run(s) left behind by a dead process`)

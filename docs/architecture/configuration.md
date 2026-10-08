@@ -134,7 +134,7 @@ SECRET_LIMITS=a-long-random-shared-secret
 
 ### Turn bounds: `TURN_CREDITS`, `TURN_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`
 
-JSON-parsed numbers, global rather than per account. They bound **every** turn of the server loop (`api/src/conversations/executor.ts`), the in-page chat's personal assistant as much as an autonomous agent. The first two were named `AUTONOMOUS_AGENT_RUN_CREDITS` / `AUTONOMOUS_AGENT_RUN_TIMEOUT_SECONDS` (config keys `autonomousAgentRunCredits` / `autonomousAgentRunTimeoutSeconds`); the old names are still read, with a deprecation warning, when the new ones are not set (`api/src/config-aliases.ts`):
+JSON-parsed numbers, global rather than per account. They bound **every** turn of the server loop (`api/src/conversations/executor.ts`), the in-page chat's personal assistant as much as an autonomous agent.
 
 | Variable | Default | Effect |
 | --- | --- | --- |

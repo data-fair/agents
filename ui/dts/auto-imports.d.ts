@@ -18,7 +18,6 @@ declare global {
   const EffectScope: typeof import('vue').EffectScope
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags').FLAGS_COOKIE
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
-  const TOOL_ARGUMENTS_LIMIT: typeof import('../src/utils/tool-arguments').TOOL_ARGUMENTS_LIMIT
   const apiErrorMessage: typeof import('../src/utils/api-error').apiErrorMessage
   const appendStreamingCaret: typeof import('../src/utils/markdown').appendStreamingCaret
   const autonomousAgentEditDraft: typeof import('../src/utils/autonomous-agent-draft').autonomousAgentEditDraft
@@ -61,7 +60,6 @@ declare global {
   const h: typeof import('vue').h
   const inject: typeof import('vue').inject
   const injectHead: typeof import('@unhead/vue').injectHead
-  const isEmptyTurn: typeof import('../src/composables/empty-turn').isEmptyTurn
   const isProxy: typeof import('vue').isProxy
   const isReactive: typeof import('vue').isReactive
   const isReadonly: typeof import('vue').isReadonly
@@ -69,8 +67,6 @@ declare global {
   const isShallow: typeof import('vue').isShallow
   const looksLikeIncompleteTable: typeof import('../src/utils/markdown').looksLikeIncompleteTable
   const markRaw: typeof import('vue').markRaw
-  const mergeBySeq: typeof import('../src/utils/autonomous-agent-chat-message').mergeBySeq
-  const messagesToChat: typeof import('../src/utils/autonomous-agent-chat-message').messagesToChat
   const nextTick: typeof import('vue').nextTick
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount
@@ -109,7 +105,6 @@ declare global {
   const shouldAutoFixMermaid: typeof import('../src/utils/mermaid-fix').shouldAutoFixMermaid
   const streamingSafeBuffer: typeof import('../src/utils/markdown').streamingSafeBuffer
   const subscribeHostEvents: typeof import('../src/composables/use-host-events').subscribeHostEvents
-  const summarizeToolArguments: typeof import('../src/utils/tool-arguments').summarizeToolArguments
   const toDescriptors: typeof import('../src/composables/use-agent-session').toDescriptors
   const toRaw: typeof import('vue').toRaw
   const toRef: typeof import('vue').toRef
@@ -128,7 +123,6 @@ declare global {
   const useCssVars: typeof import('vue').useCssVars
   const useEditFetch: typeof import('@data-fair/lib-vue/edit-fetch.js').useEditFetch
   const useFetch: typeof import('@data-fair/lib-vue/fetch.js').useFetch
-  const useFrameTools: typeof import('../src/composables/use-frame-tools').useFrameTools
   const useHead: typeof import('@unhead/vue').useHead
   const useHeadSafe: typeof import('@unhead/vue').useHeadSafe
   const useHostEvents: typeof import('../src/composables/use-host-events').useHostEvents

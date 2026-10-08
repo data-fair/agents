@@ -9,10 +9,10 @@
  * cookie, see trace-consent.ts) is the personal assistant's: that one acts AS the person, and what
  * they say to it is theirs.
  *
- * Only the ids are shared. The standard agents' personas stay server-side
- * (api/src/agent-session/standard-agents.ts); a unit test keeps the two lists equal.
+ * Only the id is shared. The personal assistant's persona stays server-side
+ * (api/src/agent-session/standard-agents.ts).
  */
-export const STANDARD_AGENT_IDS = ['personal'] as const
+export const PERSONAL_AGENT_ID = 'personal'
 
 export const isAuditedAgentId = (agentId: string | undefined): boolean =>
-  !!agentId && !(STANDARD_AGENT_IDS as readonly string[]).includes(agentId)
+  !!agentId && agentId !== PERSONAL_AGENT_ID

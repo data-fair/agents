@@ -1,4 +1,4 @@
-import { STANDARD_AGENT_IDS } from '@agents/shared/agent-audit'
+import { PERSONAL_AGENT_ID } from '@agents/shared/agent-audit'
 
 /**
  * How long this service keeps data that exists only so an admin can review it.
@@ -47,5 +47,5 @@ export const withinRetention = (lastMessageAt: string | undefined, now = new Dat
 export const expiredArchiveFilter = (now = new Date()) => ({
   archivedAt: { $exists: true },
   lastMessageAt: { $lt: retentionCutoff(now).toISOString() },
-  agentId: { $in: [...STANDARD_AGENT_IDS] }
+  agentId: { $in: [PERSONAL_AGENT_ID] }
 })

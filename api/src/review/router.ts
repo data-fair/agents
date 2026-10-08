@@ -30,7 +30,7 @@ import { purgeConversation } from '../conversations/service.ts'
 import { buildConversationExport, exportFilename } from './operations.ts'
 import { retentionCutoff } from '../retention.ts'
 import { reviewableFilter } from './reviewable.ts'
-import { STANDARD_AGENT_IDS } from '@agents/shared/agent-audit'
+import { PERSONAL_AGENT_ID } from '@agents/shared/agent-audit'
 
 const router = Router()
 export default router
@@ -65,7 +65,7 @@ router.get('/conversation/:conversationId', async (req, res, next) => {
   try {
     reqSessionAuthenticated(req)
     const conversation = await mongo.conversations.findOne(
-      { id: req.params.conversationId, $or: [{ consentedToReview: true }, { agentId: { $nin: [...STANDARD_AGENT_IDS] } }] },
+      { id: req.params.conversationId, $or: [{ consentedToReview: true }, { agentId: { $nin: [PERSONAL_AGENT_ID] } }] },
       { projection: { _id: 0, owner: 1 } }
     )
     if (!conversation) throw httpError(404, 'no reviewable conversation with this id')

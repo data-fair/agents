@@ -17,7 +17,7 @@ import { canInstruct, type InstructableAgent } from '../autonomous-agents/operat
 import { abortRun } from './executor.ts'
 import { assertCanUseModel } from '../auth.ts'
 import { withinRetention } from '../retention.ts'
-import { isStandardAgentId, listStandardAgents } from '../agent-session/standard-agents.ts'
+import { isStandardAgentId, PERSONAL_AGENT_ID, PERSONAL_AGENT_TITLE } from '../agent-session/standard-agents.ts'
 import { getSettings } from '../settings/service.ts'
 
 const router = Router()
@@ -175,12 +175,10 @@ router.get('/:type/:id/agents', async (req, res, next) => {
     const settings = await getSettings(owner)
 
     const results: Array<{ id: string, title: string, kind: 'standard' | 'configured' }> = []
-    for (const definition of listStandardAgents()) {
-      try {
-        assertCanUseModel(session, owner, settings.quotas ?? {})
-        results.push({ ...definition, kind: 'standard' })
-      } catch { /* not usable with these quotas: not offered */ }
-    }
+    try {
+      assertCanUseModel(session, owner, settings.quotas ?? {})
+      results.push({ id: PERSONAL_AGENT_ID, title: PERSONAL_AGENT_TITLE, kind: 'standard' })
+    } catch { /* not usable with these quotas: not offered */ }
 
     // Configured agents are organizations only (their identity rests on an NHI), so on a personal
     // account the list is just the standard agents.

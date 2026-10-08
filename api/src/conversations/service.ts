@@ -4,7 +4,7 @@
 
 import mongo from '#mongo'
 import config from '#config'
-import { standardAgent, isStandardAgentId } from '../agent-session/standard-agents.ts'
+import { personalAgent, isStandardAgentId, PERSONAL_AGENT_ID } from '../agent-session/standard-agents.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { assertRoleQuota } from '../auth.ts'
 import { nanoid } from 'nanoid'
@@ -73,8 +73,7 @@ export const requireAutonomousAgent = async (owner: AccountKeys, agentId: string
 export const resolveAgent = async (owner: AccountKeys, agentId: string) => {
   // Standard agents FIRST, which is also what reserves their ids: a configured agent sharing an id
   // would otherwise shadow one, and a conversation naming it would resolve to the wrong identity.
-  const standard = standardAgent(agentId, config.mcpServers ?? [])
-  if (standard) return { ...standard, owner } as unknown as AutonomousAgent
+  if (agentId === PERSONAL_AGENT_ID) return { ...personalAgent(config.mcpServers ?? []), owner } as unknown as AutonomousAgent
   // Anything else is a CONFIGURED agent, and those remain organization-owned: their identity rests on
   // an NHI, which simple-directory binds to exactly one organization. Asserted rather than left to the
   // lookup below returning nothing — it would, since configured agents are stored org-owned, but a 404

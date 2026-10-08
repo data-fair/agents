@@ -10,7 +10,6 @@ import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operat
 import { getAutonomousAgentSession, clearAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools } from '../mcp-servers/client.ts'
-import { nhiSessionProvider } from '../agent-identity/service.ts'
 import { agentStoreId } from '../memory/operations.ts'
 import { deleteMemoryStore } from '../memory/service.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
@@ -122,7 +121,7 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  * identity. Descriptions and annotations only — never a credential.
  */
 export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools) =>
-  await listAutonomousAgentToolDescriptors(autonomousAgent, nhiSessionProvider(autonomousAgent))
+  await listAutonomousAgentToolDescriptors(autonomousAgent, () => getAutonomousAgentSession(autonomousAgent))
 
 /**
  * Erase everything one autonomous agent accumulated: its memory, its conversations, their messages, their runs.

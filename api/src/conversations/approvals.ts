@@ -55,7 +55,7 @@ export const decideAndContinue = async (input: {
   if (pending) return { pending }
   watcher?.send({ type: 'activity', activity: null })
   // A WAIT HANDED OVER IN THE SAME STEP is settled by the decision, as acting on the page settles the
-  // approval (executor.ts wakeIfAnswered): the person moved, and the continuation must replay a step
+  // approval (waits.ts wakeIfAnswered): the person moved, and the continuation must replay a step
   // whose every call has a result. Only the wait of THIS message — a wait elsewhere is not this step's.
   const waiting = await mongo.conversations.findOne({ id: conversation.id }, { projection: { _id: 0, pendingWait: 1 } })
   if (waiting?.pendingWait?.messageSeq === message.seq) {

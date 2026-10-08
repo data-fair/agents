@@ -13,7 +13,6 @@ import { createHash } from 'node:crypto'
 import Debug from 'debug'
 import { credentialHeaders, type GlobalMcpServer } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
-import type { SessionProvider } from '../agent-identity/operations.ts'
 
 const debug = Debug('agents:mcp-client')
 
@@ -24,6 +23,13 @@ export const connectMcpServer = async (server: GlobalMcpServer, cookieHeader?: s
   await client.connect(transport)
   return { client, close: async () => { await client.close() } }
 }
+
+/**
+ * Produces the cookie header for a catalog entry whose `auth` is `nhi-session`, or undefined when the
+ * agent has no session to present. A function rather than a value, because the NHI case EXCHANGES on
+ * demand and caches: an agent whose entries are all `none`/`apiKey` must perform no exchange at all.
+ */
+export type SessionProvider = () => Promise<string | undefined>
 
 export interface AutonomousAgentForTools {
   id: string
@@ -55,7 +61,7 @@ export interface ListedMcpTool {
  * A session is obtained lazily and only once: an agent whose entries are all `none`/`apiKey` performs
  * no exchange at all.
  *
- * WHO it acts as is injected (see ../agent-identity/service.ts) rather than derived from the agent. That
+ * WHO it acts as is injected (see performTurn in conversations/executor.ts) rather than derived from the agent. That
  * is the one seam a personal assistant needs: it has no non-human identity, and acts as the person using
  * it through their forwarded session. Everything else about gathering tools is identical, which is the
  * point — one loop can serve both because only this line differs.

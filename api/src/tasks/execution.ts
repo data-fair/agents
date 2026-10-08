@@ -11,8 +11,8 @@ import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
-import { createTaskRun } from '../conversations/service.ts'
-import { driveTurn } from '../conversations/executor.ts'
+import { createTaskRun, finishTaskRun } from '../conversations/service.ts'
+import { driveTurn, isRunLive } from '../conversations/executor.ts'
 import { taskTarget } from './task-target.ts'
 import { taskEvent, failedInARow } from './operations.ts'
 import { pushTaskEvent } from './notifications.ts'
@@ -176,4 +176,29 @@ const pauseAfterFailures = async (run: ConversationRun, current: AutonomousAgent
     { $set: { pausedReason }, $unset: { nextRunAt: '' } }
   )
   return paused.modifiedCount ? max : undefined
+}
+
+/**
+ * Close the task runs left `running` by a dead process. Never resumed: a task run that began may have
+ * fired its tools, and one that did not is simply the next slot's to run. Ownerless when nobody holds its
+ * task's lock and this process is not running it. Closed `interrupted`, which notifies and counts toward
+ * the task's pause like any failure. The conversation half is `recoverOwnerlessRuns` (executor.ts).
+ */
+export const recoverOwnerlessTaskRuns = async (): Promise<{ interrupted: number, skipped: number }> => {
+  let interrupted = 0
+  let skipped = 0
+  const taskCandidates = await mongo.runs.find({ status: 'running', kind: 'task' }, { projection: { _id: 0 } }).toArray()
+  const heldTaskLocks = new Set((await mongo.db.collection<{ _id: string }>('locks')
+    .find({ _id: { $regex: '^task:' } }, { projection: { _id: 1 } }).toArray()).map(doc => String(doc._id).slice('task:'.length)))
+  for (const run of taskCandidates) {
+    if (isRunLive(run.id) || (run.taskId && heldTaskLocks.has(run.taskId))) { skipped++; continue }
+    const patch = { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' } as const
+    if (await finishTaskRun(run, patch)) {
+      // Caught: one task's notification must not stop the others being recovered.
+      await afterTaskRun({ ...run, ...patch }).catch(err => console.error('an interrupted task run could not be followed up', err))
+    }
+    interrupted++
+  }
+  if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} task run(s) left behind by a dead process`)
+  return { interrupted, skipped }
 }

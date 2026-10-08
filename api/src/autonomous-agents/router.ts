@@ -4,7 +4,7 @@
  * it is tested by api integration tests
  */
 
-import { Router } from 'express'
+import { Router, type Request } from 'express'
 import { nanoid } from 'nanoid'
 import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
@@ -14,6 +14,27 @@ import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMc
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { canInstruct } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/executor.ts'
+
+/**
+ * Splits a write body into the server-built `nhi` and the rest.
+ *
+ * Captured, not configured: this request came through the proxy from an admin who was browsing this
+ * service, so reqSiteUrl(req) is a site url that demonstrably resolves here. Everything the exchange
+ * needs — the signed audience, the declared x-forwarded-*, and the path it posts to — derives from this
+ * one value, so they cannot drift apart. See api/src/nhi/operations.ts.
+ *
+ * `nhi` is NEVER taken from the body. `readOnly` is not enforced by ajv, and siteUrl/issuer are KNOWN
+ * keys so `additionalProperties: false` does not reject them either — so the ONLY protection is that we
+ * strip the client's object and rebuild it. Stripping unconditionally matters: a present-but-falsy
+ * clientId (e.g. '') used to skip the rebuild and let the whole client-supplied nhi through.
+ */
+const rebuildNhi = <B extends { nhi?: { clientId?: string } }>(body: B, req: Request) => {
+  const { nhi: clientNhi, ...writable } = body
+  const nhi = clientNhi?.clientId
+    ? { clientId: clientNhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
+    : undefined
+  return { nhi, writable }
+}
 
 const router = Router()
 export default router
@@ -55,21 +76,7 @@ router.post('/:type/:id', async (req, res, next) => {
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
     assertKnownMcpServers(body.mcpServers)
 
-    // Captured, not configured: this request came through the proxy from an admin who was
-    // browsing this service, so reqSiteUrl(req) is a site url that demonstrably resolves
-    // here. Everything the exchange needs — the signed audience, the declared
-    // x-forwarded-*, and the path it posts to — derives from this one value, so they cannot
-    // drift apart. See api/src/nhi/operations.ts.
-    //
-    // `nhi` is NEVER taken from the body. `readOnly` is not enforced by ajv, and
-    // siteUrl/issuer are KNOWN keys so `additionalProperties: false` does not reject them
-    // either — so the ONLY protection is that we strip the client's object and rebuild it.
-    // Stripping unconditionally matters: a present-but-falsy clientId (e.g. '') used to skip
-    // the rebuild and let the whole client-supplied nhi through the spread below.
-    const { nhi: clientNhi, ...writable } = body
-    const nhi = clientNhi?.clientId
-      ? { clientId: clientNhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
-      : undefined
+    const { nhi, writable } = rebuildNhi(body, req)
 
     const now = new Date().toISOString()
     const autonomousAgent = {
@@ -161,20 +168,10 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     const existing = await getAutonomousAgent(owner, req.params.agentId)
     if (!existing) throw httpError(404, 'unknown autonomous agent')
 
-    // Captured, not configured — same as POST. Note this RE-CAPTURES rather than
-    // preserving the existing siteUrl/issuer: an admin re-saving from a different host
-    // is telling us the site url changed, and the enrolment check (Task 5) will
-    // immediately verify whether the new one actually works.
-    //
-    // `nhi` is NEVER taken from the body. `readOnly` is not enforced by ajv, and
-    // siteUrl/issuer are KNOWN keys so `additionalProperties: false` does not reject them
-    // either — so the ONLY protection is that we strip the client's object and rebuild it.
-    // Stripping unconditionally matters: a present-but-falsy clientId (e.g. '') used to skip
-    // the rebuild and let the whole client-supplied nhi through the spread below.
-    const { nhi: clientNhi, ...writable } = body
-    const nhi = clientNhi?.clientId
-      ? { clientId: clientNhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
-      : undefined
+    // Re-captures the site url rather than preserving the existing one: an admin re-saving from a
+    // different host is telling us the site url changed, and the enrolment check immediately verifies
+    // whether the new one actually works.
+    const { nhi, writable } = rebuildNhi(body, req)
 
     // Whole-document replace of the client-writable subset: one owner, one write
     // route, so there is no disjoint half to preserve the way settings has. The

@@ -147,7 +147,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
-import { isAuditedAgentId } from '@agents/shared/agent-audit'
+import { isAuditedAgentId, PERSONAL_AGENT_ID } from '@agents/shared/agent-audit'
 import { useSessionChat } from '~/composables/use-session-chat'
 import type { ChatMessage } from '~/utils/chat-message'
 import { formatMermaidFix, shouldAutoFixMermaid, MERMAID_AUTO_FIX_BUDGET } from '~/utils/mermaid-fix'
@@ -352,7 +352,7 @@ const loadAgents = async () => {
  */
 const resolveAgentTitle = async () => {
   const agentId = props.agentId ?? initConfig?.agentId
-  if (!agentId || agentId === 'personal' || !session.state.user) return
+  if (!agentId || agentId === PERSONAL_AGENT_ID || !session.state.user) return
   try {
     const agent = await $fetch<{ title: string }>(
       `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${agentId}`,

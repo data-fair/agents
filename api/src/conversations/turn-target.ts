@@ -19,6 +19,7 @@
 import mongo from '#mongo'
 import { InvalidToolApprovalSignatureError, type ModelMessage } from 'ai'
 import type { Conversation, ConversationMessage } from '#types'
+import { wakeIfAnswered } from './waits.ts'
 import {
   runStopReasonMessage, partsText, withAppendedText, textPart,
   type MessagePart, type ConversationTurnRun, type RunStopReason
@@ -243,14 +244,13 @@ export const closeConversationRunBare = async (run: ConversationTurnRun, failure
  * A conversation's turn: history from its messages, the record on its assistant message (`message`,
  * created empty and pending by runTurn), frames to whoever watches it NOW.
  *
- * `wakeIfAnswered` is the executor's, passed in rather than imported (that would be a cycle): a turn
- * that handed over looks, once closed, for an answer the person gave while it was finishing.
+ * A turn that handed over looks, once closed, for an answer the person gave while it was finishing
+ * (`wakeIfAnswered`, waits.ts).
  */
 export const conversationTarget = (
   run: ConversationTurnRun,
   message: Pick<ConversationMessage, 'id' | 'seq'>,
-  conversation: Conversation,
-  wakeIfAnswered: (conversationId: string) => Promise<void>
+  conversation: Conversation
 ): TurnTarget => {
   const messageSeq = message.seq
   // WHO SEES THIS TURN: whoever watches the conversation now, read at each send. The session the turn

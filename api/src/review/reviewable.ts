@@ -8,15 +8,15 @@
  *    person consented, and the exchange is inside the retention window.
  */
 import type { AccountKeys } from '@data-fair/lib-express'
-import { STANDARD_AGENT_IDS } from '@agents/shared/agent-audit'
+import { PERSONAL_AGENT_ID } from '@agents/shared/agent-audit'
 
 export const reviewableFilter = (owner: AccountKeys, opts: { storeTraces: boolean, cutoff: string }) => ({
   'owner.type': owner.type,
   'owner.id': owner.id,
   $or: [
-    { agentId: { $nin: [...STANDARD_AGENT_IDS] } },
+    { agentId: { $nin: [PERSONAL_AGENT_ID] } },
     ...(opts.storeTraces
-      ? [{ agentId: { $in: [...STANDARD_AGENT_IDS] }, consentedToReview: true, lastMessageAt: { $gte: opts.cutoff } }]
+      ? [{ agentId: { $in: [PERSONAL_AGENT_ID] }, consentedToReview: true, lastMessageAt: { $gte: opts.cutoff } }]
       : [])
   ]
 })

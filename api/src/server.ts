@@ -11,6 +11,7 @@ import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
+import { recoverOwnerlessTaskRuns } from './tasks/execution.ts'
 import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/service.ts'
 import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { startAgentSessions } from './agent-session/service.ts'
@@ -97,13 +98,14 @@ export const start = async () => {
   }
 
   await recoverOwnerlessRuns()
+  await recoverOwnerlessTaskRuns()
 
   // A queued run whose holder died is only picked up when someone posts to that conversation
   // again, which may be never. This reaper makes "running with nobody running it" recoverable
   // without a restart. The interval is well inside the 60s lock TTL, so it does not fight a
   // live holder.
   autonomousAgentReaper = setInterval(() => {
-    recoverOwnerlessRuns().catch(err => console.error('autonomous agent recovery failed', err))
+    Promise.all([recoverOwnerlessRuns(), recoverOwnerlessTaskRuns()]).catch(err => console.error('autonomous agent recovery failed', err))
   }, 30 * 1000)
 
   cleanupOldUsage().catch(err => console.error('initial usage cleanup failed', err))

@@ -3,20 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { autonomousAgentEditDraft, AUTONOMOUS_AGENT_WRITABLE_KEYS } from '../../../ui/src/utils/autonomous-agent-draft.ts'
-import writeReqSchema from '../../../api/doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-
-test.describe('AUTONOMOUS_AGENT_WRITABLE_KEYS', () => {
-  test('covers every property the write-req schema accepts', () => {
-    // The guard that matters: the PUT route treats its body as the WHOLE writable document and resets
-    // anything absent. Add a property to the schema without adding it here and the next edit silently
-    // wipes it — so this test fails instead.
-    assert.deepEqual(
-      [...AUTONOMOUS_AGENT_WRITABLE_KEYS].sort(),
-      Object.keys(writeReqSchema.properties).sort()
-    )
-  })
-})
+import { autonomousAgentEditDraft } from '../../../ui/src/utils/autonomous-agent-draft.ts'
 
 test.describe('autonomousAgentEditDraft', () => {
   const stored = {

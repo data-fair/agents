@@ -29,8 +29,8 @@ const quotaRefusalText = (parts: MessagePart[]): string | undefined => {
 export type TaskRunFollowUp = (run: ConversationRun, task: AutonomousAgentTask) => Promise<void>
 
 /**
- * `followUp` is passed in rather than imported, as conversationTarget's wakeIfAnswered is: it lives with
- * the code that starts task runs, which imports this module.
+ * `followUp` is passed in rather than imported: it lives with the code that starts task runs, which
+ * imports this module.
  */
 export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask, followUp: TaskRunFollowUp): TurnTarget => {
   let tracked: (() => MessagePart[]) | undefined
