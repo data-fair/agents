@@ -218,15 +218,23 @@ Self-knowledge and the admin routes read the same runs. Today the query lives in
 - [ ] **Step 3.** Lint-fix, check-types, the unit project, and the api specs touched (`planning`, `self-knowledge`, `approval-gate`, `tasks`).
 - [ ] **Step 4.** Commit `feat(planning): an agent plans its tasks, each change approved in the chat`.
 
-### Task 4: The approval card shows a planned task, not JSON
+### Task 4: Every approval card is readable; a planning call shows the task
+
+Decided by the user (2026-10-08) after the approval simulation's judge found the card written for developers: raw tool name, server id and `{}`, while the tool's readable title appeared only in the activity label and nothing said what the call would do.
 
 **Files:**
+- Modify: `api/src/conversations/executor.ts` (~846, where the gate's stop turns the call part `approval-requested`). Also record the tool's `description` in the call's `toolMetadata`, taken from the turn's tool set (the AI SDK `Tool.description`), on a gated call only.
 - Modify: `ui/src/components/agent-chat/ApprovalCard.vue`.
-- Modify: `ui/src/components/agent-chat/AgentChatMessages.vue`, only to pass `toolName` if it does not already.
-- Test: `tests/features/self-knowledge/planning.e2e.spec.ts`.
+- Modify: `ui/src/components/agent-chat/AgentChatMessages.vue`, to pass `toolName`, `annotations.title` and `description` from the part if it does not already.
+- Test: `tests/features/self-knowledge/planning.e2e.spec.ts`. The approval-gate api spec gains one assertion: the gated part's `toolMetadata.description` equals the tool's description.
 
 **Behaviour, exactly:**
-- **When.** The card renders a task view when `serverId === 'agent-self'` and the tool is one of the three planning tools. Every other card is unchanged: raw JSON, plus the web warning.
+- **Every card.**
+  - Heading: the tool's annotation `title` when declared, else its name with underscores as spaces.
+  - Under it: the recorded `description`, clipped to 300 chars, with the server named in small text.
+  - The arguments as a definition list: key and value, nested values as compact JSON on one line, an empty object shown as "no arguments". Never a raw JSON block.
+  - The web warning stays as it is.
+- **When.** The card renders a task view when `serverId === 'agent-self'` and the tool is one of the three planning tools.
 - **`plan_task`.** The title, the prompt (pre-wrapped, scrollable as today), the schedule as `describeScheduling(scheduling, locale)` (from `@agents/shared/task-schedule`), and "enabled" or "disabled".
 - **`update_task`.**
   - "Before" and "After" columns (stacked on mobile), each with title, prompt and schedule.
@@ -239,9 +247,10 @@ Self-knowledge and the admin routes read the same runs. Today the query lives in
   - `plan_task` shows the card with "every Monday at 08:00 (Europe/Paris)" and the title, and no `{`.
   - Approving shows the tool chip, and the task exists through the API.
   - `update_task` shows Before and After with both titles.
-- [ ] **Step 2.** Implement. Tests pass. Also run the approval-gate and web e2e specs, whose cards must be unchanged.
+  - A gated `wipe_everything` card shows "Wipe everything" as its heading, the fixture tool's description, and "no arguments".
+- [ ] **Step 2.** Implement. Tests pass. Also run the approval-gate and web e2e specs; adapt their card assertions only where they asserted the raw JSON block, and name each one.
 - [ ] **Step 3.** `npm -w ui run build`, lint-fix, check-types.
-- [ ] **Step 4.** Commit `feat(chat): a planning approval shows the task in plain words`.
+- [ ] **Step 4.** Commit `feat(chat): approval cards read as plain language; a planning call shows the task`.
 
 ### Task 5: Docs, spec correction, simulation case
 
