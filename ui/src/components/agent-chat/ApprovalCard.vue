@@ -14,7 +14,7 @@
     <!-- Not for a planning call: the task below says what it does, and the description and server are
          written for the model. -->
     <v-card-subtitle
-      v-if="!taskSections"
+      v-if="!taskSections && (clippedDescription || serverId)"
       class="approval-card__subtitle"
     >
       <div
@@ -23,13 +23,11 @@
       >
         {{ clippedDescription }}
       </div>
-      <!-- The tool's own name beside its server: the heading and the description are the server's words,
-           and a title alone could make a destructive tool read innocuously. -->
       <div
+        v-if="serverId"
         class="text-caption"
-        data-testid="approval-tool"
       >
-        {{ [serverId && t('server', { server: serverId }), t('tool', { tool: toolName })].filter(Boolean).join(' · ') }}
+        {{ t('server', { server: serverId }) }}
       </div>
     </v-card-subtitle>
     <v-card-text>
@@ -165,7 +163,6 @@
 fr:
   heading: "Approuver « {name} » ?"
   server: "Serveur : {server}"
-  tool: "Outil : {tool}"
   noArguments: aucun argument
   before: Avant
   after: Après
@@ -184,7 +181,6 @@ fr:
 en:
   heading: "Approve \"{name}\"?"
   server: "Server: {server}"
-  tool: "Tool: {tool}"
   noArguments: no arguments
   before: Before
   after: After
