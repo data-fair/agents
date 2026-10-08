@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { taskEvent, failedInARow } from '../../../api/src/tasks/operations.ts'
 
 const task = { id: 'task-1', title: 'Weekly check', owner: { type: 'organization' as const, id: 'test1', name: 'Test 1' } }
-const run = { id: 'run-1', status: 'error' as const, error: 'mock stream error', outcome: { status: 'needs-attention' as const, summary: 'two datasets are stale' } }
+const run = { id: 'run-1', agentId: 'agent-1', status: 'error' as const, error: 'mock stream error', outcome: { status: 'needs-attention' as const, summary: 'two datasets are stale' } }
 
 test.describe('taskEvent', () => {
   for (const kind of ['failed', 'needs-attention', 'paused'] as const) {
@@ -33,6 +33,14 @@ test.describe('taskEvent', () => {
     assert.ok(String(event.title).length < 250)
     assert.match(String(event.title), /…$/)
     assert.equal(event.body, 'x'.repeat(10_000))
+  })
+
+  test('an event links to the run in the agent page, a paused one to its tasks', () => {
+    const siteUrl = 'https://example.org/portal'
+    assert.equal(taskEvent('failed', task, run, { siteUrl }).url, 'https://example.org/portal/agents/organization/test1/agents/agent-1?tab=history&run=run-1')
+    assert.equal(taskEvent('needs-attention', task, run, { siteUrl }).url, 'https://example.org/portal/agents/organization/test1/agents/agent-1?tab=history&run=run-1')
+    assert.equal(taskEvent('paused', task, run, { siteUrl, failures: 5 }).url, 'https://example.org/portal/agents/organization/test1/agents/agent-1?tab=tasks')
+    assert.equal(taskEvent('failed', task, run).url, undefined)
   })
 
   test('a needs-attention body carries the outcome summary', () => {

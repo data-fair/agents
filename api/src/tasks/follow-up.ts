@@ -26,15 +26,19 @@ export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousA
   // A run that did not complete has nothing worth remembering; maybeReflectTaskRun checks the agent has memory.
   if (run.status === 'done') maybeReflectTaskRun(run.id, run).catch(err => console.error(`task run ${run.id} could not be reflected`, err))
 
-  if (run.outcome?.status === 'needs-attention') pushTaskEvent(taskEvent('needs-attention', current, run))
+  // The link in a notification needs the deployment's public URL, which only the agent's enrolment records.
+  const agent = await mongo.autonomousAgents.findOne({ id: run.agentId }, { projection: { _id: 0, 'nhi.siteUrl': 1 } })
+  const siteUrl = agent?.nhi?.siteUrl
+
+  if (run.outcome?.status === 'needs-attention') pushTaskEvent(taskEvent('needs-attention', current, run, { siteUrl }))
   // A timeout is an `error`; an abort is an admin's act, not a failure.
   if (run.status !== 'error' && run.status !== 'interrupted') return
 
   // THE PAUSE FIRST, the notifications after it: a notification is best-effort (pushTaskEvent never
   // throws) and the pause must never depend on one.
   const paused = await pauseAfterFailures(run, current)
-  pushTaskEvent(taskEvent('failed', current, run))
-  if (paused) pushTaskEvent(taskEvent('paused', current, run, { failures: paused }))
+  pushTaskEvent(taskEvent('failed', current, run, { siteUrl }))
+  if (paused) pushTaskEvent(taskEvent('paused', current, run, { failures: paused, siteUrl }))
 }
 
 /** Pause the task if this failed run completes a streak; returns the streak length when it paused it. */

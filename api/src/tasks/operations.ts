@@ -91,13 +91,15 @@ export type TaskEvent = Omit<Event, 'date'> & { topic: { key: string } }
  * processings' notifications. The body is what the reader needs to act on it: the run's error, or the
  * agent's own summary.
  *
- * `failures` is the streak that paused the task, for the `paused` title.
+ * `failures` is the streak that paused the task, for the `paused` title. `siteUrl` is the deployment's
+ * public URL (the agent's enrolment records it): with it the event links to the agent's page, on the run
+ * for a run's event and on the tasks for a pause, which is about the task rather than one run.
  */
 export const taskEvent = (
   kind: TaskEventKind,
   task: Pick<AutonomousAgentTask, 'id' | 'title' | 'owner'>,
-  run: Pick<ConversationRun, 'error' | 'outcome' | 'parts'>,
-  opts: { failures?: number } = {}
+  run: Pick<ConversationRun, 'id' | 'agentId' | 'error' | 'outcome' | 'parts'>,
+  opts: { failures?: number, siteUrl?: string } = {}
 ): TaskEvent => {
   const subject = `La tâche planifiée « ${task.title} »`
   const error = run.error ?? (partsText((run.parts ?? []) as MessagePart[]).trim() || undefined)
@@ -108,6 +110,8 @@ export const taskEvent = (
       ? `${subject} a été mise en pause après ${opts.failures ?? 'plusieurs'} exécutions en échec consécutives.`
       : `${subject} a échoué.`
   const body = kind === 'needs-attention' ? summary : error
+  const page = opts.siteUrl && `${opts.siteUrl.replace(/\/+$/, '')}/agents/${task.owner.type}/${task.owner.id}/agents/${run.agentId}`
+  const url = page && (kind === 'paused' ? `${page}?tab=tasks` : `${page}?tab=history&run=${run.id}`)
   return {
     title,
     topic: { key: `agents:task-${kind}:${task.id}` },
@@ -115,7 +119,8 @@ export const taskEvent = (
     visibility: 'private',
     resource: { type: 'autonomous-agent-task', id: task.id, title: task.title },
     originator: { internalProcess: { id: 'agents-scheduler', name: 'Agents scheduler' } },
-    ...(body ? { body } : {})
+    ...(body ? { body } : {}),
+    ...(url ? { url } : {})
   }
 }
 

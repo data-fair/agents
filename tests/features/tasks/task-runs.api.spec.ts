@@ -58,6 +58,20 @@ test.describe('Task runs', () => {
     assert.deepEqual(run.outcome, { status: 'done', summary: 'all good' })
     assert.ok(run.parts.some((p: any) => p.type === 'dynamic-tool' && p.toolName === 'report_outcome'))
     assert.match(run.systemPrompt, /scheduled execution/)
+    // read as the two messages the chat components render: the prompt, then the answer
+    assert.deepEqual(run.messages.map((m: any) => m.role), ['user', 'assistant'])
+    assert.equal(run.messages[0].parts[0].text, task.prompt)
+    assert.ok(run.messages[1].parts.some((p: any) => p.type === 'dynamic-tool' && p.toolName === 'report_outcome'))
+  })
+
+  test('a notification links to the run in the agent page', async () => {
+    const agent = await createAgent()
+    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id, siteUrl })
+    const task = await createTask(agent.id, 'call tool report_outcome {"status":"needs-attention","summary":"look"}')
+    const run = await awaitRun(agent.id, await runNow(agent.id, task.id))
+    const event = (await events()).find(e => e.topic.key === `agents:task-needs-attention:${task.id}`)
+    assert.equal(event.url, `${siteUrl}/agents/organization/test1/agents/${agent.id}?tab=history&run=${run.id}`)
   })
 
   test('no report_outcome leaves the outcome absent, not a guessed done', async () => {
