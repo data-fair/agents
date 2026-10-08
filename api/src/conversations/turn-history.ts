@@ -8,7 +8,6 @@
  */
 
 import mongo from '#mongo'
-import config from '#config'
 import { generateText, type ModelMessage } from 'ai'
 import Debug from 'debug'
 import type { Conversation } from '#types'
@@ -16,12 +15,10 @@ import type { UsageIdentity } from '../usage/enforce.ts'
 import { decideContextManagement, clearOldToolResults } from './compaction-policy.ts'
 import { compactionSystemPrompt, recapMessage } from './compaction-prompt.ts'
 import { storedTurnsToModelMessages, alignCutToStoredMessage, redactModelMedia, type ConversationTurnRun } from './operations.ts'
-import { saveCompaction, incrementRunSpend } from './service.ts'
+import { saveCompaction } from './service.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { computeCreditBreakdown } from '../usage/operations.ts'
-import { recordUsage } from '../usage/service.ts'
+import { chargeModelCall } from '../usage/service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
-import { recordCall } from './turn-telemetry.ts'
 import type { getSettings } from '../settings/service.ts'
 
 const debug = Debug('df-agents:turn-history')
@@ -160,50 +157,25 @@ export const compactHistory = async (
     })
     const summary = generated.text
 
-    // A compaction is a real model call, so it is BILLED like one: the executor talks
-    // to the provider directly, so nothing else records the summarizer tokens in the run, the account
-    // credit cap or the usage histogram.
-    const compactionCredits = computeCreditBreakdown(
-      {
-        inputTokens: generated.usage?.inputTokens ?? 0,
-        outputTokens: generated.usage?.outputTokens ?? 0
-      },
-      entry,
-      config.eurosPerCredit
-    )
-    // 0 steps: the spend is real but a compaction is not a step of the turn, and inflating the step
-    // count would make the step limit and the run's own record disagree.
-    await incrementRunSpend(run.id, compactionCredits.total, 0)
-    if (compactionCredits.total > 0) {
-      await recordUsage(run.owner, {
-        cost: compactionCredits.total,
-        userId: identity.usageUserId,
-        userName: identity.usageUserName,
-        // The untrusted pool too (anonymous + external combined): without it, their chat spend never
-        // reached the pool, and its cap counted only moderation and the summary endpoint.
-        poolId: identity.poolId,
-        dimensions: {
-          modelRole: 'summarizer',
-          model: entry.id,
-          profile: identity.role,
-          tokenCosts: { input: compactionCredits.input, cachedInput: compactionCredits.cachedInput, output: compactionCredits.output }
-        }
-      })
-    }
-
-    // Recorded too, so its cost is attributable rather than appearing as unexplained spend on the
-    // turn beside it.
-    recordCall(run, {
+    // A compaction is a real model call, so it is BILLED like one: the executor talks to the provider
+    // directly, so nothing else records the summarizer tokens in the run, the account credit cap or
+    // the usage histogram. 0 steps: a compaction is not a step of the turn. Its telemetry entry makes
+    // its cost attributable rather than unexplained spend on the turn beside it.
+    const details = generated.usage?.inputTokenDetails
+    const compactionCredits = await chargeModelCall({
+      owner: run.owner,
+      identity,
       modelRole: 'summarizer',
       entry,
       usage: {
-        inputTokens: generated.usage?.inputTokens ?? 0,
-        outputTokens: generated.usage?.outputTokens ?? 0
+        inputTokens: generated.usage?.inputTokens,
+        outputTokens: generated.usage?.outputTokens,
+        noCacheTokens: details?.noCacheTokens,
+        cacheReadTokens: details?.cacheReadTokens,
+        cacheWriteTokens: details?.cacheWriteTokens,
+        finishReason: generated.finishReason
       },
-      credits: compactionCredits.total,
-      creditBreakdown: { input: compactionCredits.input, cachedInput: compactionCredits.cachedInput, output: compactionCredits.output },
-      durationMs: Date.now() - startedAt,
-      finishReason: generated.finishReason
+      run: { run, durationMs: Date.now() - startedAt }
     })
     // PERSISTED, so the next turn does not re-summarise the same prefix. Without this, a conversation
     // past the budget paid a full summarizer call on every turn, for ever: nothing was stored, so the

@@ -130,7 +130,7 @@ Each `ToolLoopAgent` is configured with:
 
 ### Billing and ceilings
 
-`onUsage` is called, and awaited, on every worker `finish-step` and for the close-out call. The executor computes the step's credits from the seat's catalog entry and, exactly as for a lead step, adds them to the run's in-memory budget, records usage (`recordUsage`, with `modelRole: 'tools'` in its dimensions) and a telemetry entry in the run's `calls` (`recordCall`, under the worker's actual seat). It then checks the account credit cap and the run budget on every worker step; crossing either sets `budgetExceeded` (which stops the lead between its steps) and aborts every worker of the turn through a shared `AbortController`, composed with the run's own abort signal.
+`onUsage` is called, and awaited, on every worker `finish-step` and for the close-out call. The executor charges the step through `chargeModelCall`, exactly as a lead step is charged: priced from the seat's catalog entry, added to the run's spend (0 lead steps) and the turn's in-memory budget, recorded in usage under the worker's actual seat, and recorded as a telemetry entry in the run's `calls`. It then checks the account credit cap and the run budget on every worker step; crossing either sets `budgetExceeded` (which stops the lead between its steps) and aborts every worker of the turn through a shared `AbortController`, composed with the run's own abort signal.
 
 ### Loop-guard close-out
 

@@ -5,13 +5,11 @@
 import mongo from '#mongo'
 import { generateObject } from 'ai'
 import type { AccountKeys } from '@data-fair/lib-express'
-import type { Settings } from '#types'
+import type { ConversationRun, Settings } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
-import config from '#config'
 import { OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { recordUsage } from '../usage/service.ts'
-import { computeCreditBreakdown } from '../usage/operations.ts'
+import { chargeModelCall } from '../usage/service.ts'
 import {
   buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
   verdictSchema, isInCooldown, isReasoningEffortRejected,
@@ -106,15 +104,6 @@ export interface ModerationRun {
   gate: Promise<ModerationGateResult>
   // fired if a block verdict arrives after the gate already failed open
   onLateBlock: (cb: () => void) => void
-  // the classifier call itself once it settled, for a caller that records per-call telemetry
-  call: () => ModerationCall | undefined
-}
-
-export interface ModerationCall {
-  entry: ReturnType<typeof resolveRoleModel>['entry']
-  usage: { inputTokens: number, outputTokens: number, cacheReadTokens?: number, cacheWriteTokens?: number }
-  credits: { total: number, input: number, cachedInput: number, output: number }
-  durationMs: number
 }
 
 export function startModeration (params: {
@@ -124,6 +113,14 @@ export function startModeration (params: {
   message: string
   context: string
   modelRole: string
+  /**
+   * The turn this check gates. The classifier call belongs to its spend (port of main's #74): onto the
+   * run, so the per-run budget and the conversation's total see it, and into the run's telemetry like
+   * every other model call — a run whose credits exceeded its calls left the difference unexplained,
+   * and a blocked turn looked free. Not when the verdict lands AFTER the gate failed open: the run has
+   * moved on by then, so that call is in the usage ledger only.
+   */
+  run?: ConversationRun
 }): ModerationRun {
   const { settings, owner, identity, modelRole } = params
   const startedAt = Date.now()
@@ -138,7 +135,6 @@ export function startModeration (params: {
 
   let lateBlockCb: (() => void) | undefined
   let timedOut = false
-  let call: ModerationCall | undefined
 
   // Exactly one event per check, written when the check settles.
   const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict) => {
@@ -179,36 +175,20 @@ export function startModeration (params: {
     }
     const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...baseArgs, ...extra }))
     const details = usage?.inputTokenDetails
-    const credits = computeCreditBreakdown(
-      { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
-      entry,
-      config.eurosPerCredit
-    )
-    call = {
+    await chargeModelCall({
+      owner,
+      identity,
+      modelRole: 'moderator',
       entry,
       usage: {
-        inputTokens: usage?.inputTokens ?? 0,
-        outputTokens: usage?.outputTokens ?? 0,
-        ...(details?.cacheReadTokens !== undefined ? { cacheReadTokens: details.cacheReadTokens } : {}),
-        ...(details?.cacheWriteTokens !== undefined ? { cacheWriteTokens: details.cacheWriteTokens } : {})
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens,
+        noCacheTokens: details?.noCacheTokens,
+        cacheReadTokens: details?.cacheReadTokens,
+        cacheWriteTokens: details?.cacheWriteTokens
       },
-      credits: { total: credits.total, input: credits.input, cachedInput: credits.cachedInput, output: credits.output },
-      durationMs: Date.now() - startedAt
-    }
-    if (credits.total > 0) {
-      await recordUsage(owner, {
-        cost: credits.total,
-        userId: identity.usageUserId,
-        userName: identity.usageUserName,
-        poolId: identity.poolId,
-        dimensions: {
-          modelRole: 'moderator',
-          model: entry.id,
-          profile: identity.role,
-          tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
-        }
-      })
-    }
+      ...(params.run && !timedOut ? { run: { run: params.run, durationMs: Date.now() - startedAt } } : {})
+    })
     return object
   })()
 
@@ -240,7 +220,7 @@ export function startModeration (params: {
     })
   ])
 
-  return { gate, onLateBlock: (cb) => { lateBlockCb = cb }, call: () => call }
+  return { gate, onLateBlock: (cb) => { lateBlockCb = cb } }
 }
 
 // ---- admin probe ----
@@ -279,21 +259,19 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
       }
       const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...probeArgs, ...extra }))
       const details = usage?.inputTokenDetails
-      const credits = computeCreditBreakdown(
-        { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+      // The account's own call: no caller identity, so no per-user record and no profile.
+      await chargeModelCall({
+        owner,
+        modelRole: 'moderator',
         entry,
-        config.eurosPerCredit
-      )
-      if (credits.total > 0) {
-        await recordUsage(owner, {
-          cost: credits.total,
-          dimensions: {
-            modelRole: 'moderator',
-            model: entry.id,
-            tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
-          }
-        })
-      }
+        usage: {
+          inputTokens: usage?.inputTokens,
+          outputTokens: usage?.outputTokens,
+          noCacheTokens: details?.noCacheTokens,
+          cacheReadTokens: details?.cacheReadTokens,
+          cacheWriteTokens: details?.cacheWriteTokens
+        }
+      })
       results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })
     } catch (err: any) {
       results.push({ key: probe.key, message: probe.message, error: err?.message ?? 'moderation call failed', latencyMs: Date.now() - startedAt })

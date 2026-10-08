@@ -24,8 +24,6 @@ import {
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
 import { isStandardAgentId } from '../agent-session/standard-agents.ts'
 import { partsText, textPart, type RunStopReason, type MessagePart } from './operations.ts'
-import { incrementRunSpend } from './service.ts'
-import { recordCall } from './turn-telemetry.ts'
 import type { getSettings } from '../settings/service.ts'
 
 /** What every gate returns when it refuses: a finished turn carrying the reason, and no spend. */
@@ -135,30 +133,13 @@ export const moderateTurn = async (
     identity,
     message,
     context: buildModerationContext(recent),
-    modelRole: 'assistant'
+    modelRole: 'assistant',
+    // The classifier call is charged to this turn's run too (see startModeration).
+    run
   })
 
   const result = await moderation.gate
   if (result.timedOut && onLateBlock) moderation.onLateBlock(onLateBlock)
-
-  // The classifier call belongs to THIS turn's spend (port of main's #74, which added it to the
-  // response's reported cost): onto the run, so the per-run budget and the conversation's total see
-  // it, and into the run's telemetry like every other model call. It was already in the usage
-  // ledger — startModeration records it there — but a run whose credits exceeded its calls left the
-  // difference unexplained, and a blocked turn looked free. A verdict that lands AFTER the gate
-  // failed open is in the ledger only: the run has moved on by then.
-  const call = moderation.call()
-  if (call) {
-    await incrementRunSpend(run.id, call.credits.total, 0)
-    recordCall(run, {
-      modelRole: 'moderator',
-      entry: call.entry,
-      usage: call.usage,
-      credits: call.credits.total,
-      creditBreakdown: { input: call.credits.input, cachedInput: call.credits.cachedInput, output: call.credits.output },
-      durationMs: call.durationMs
-    })
-  }
 
   if (result.action !== 'block') return undefined
 

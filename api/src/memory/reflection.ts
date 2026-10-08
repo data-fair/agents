@@ -11,7 +11,6 @@
  * record whatever the person did with it in their own list (Arch D2).
  */
 import mongo from '#mongo'
-import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
 import { generateText, stepCountIs, type Tool } from 'ai'
@@ -27,8 +26,7 @@ import { createMemoryTool } from './tool.ts'
 import { withProvenance, usageIdentityFor } from '../conversations/operations.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { computeCreditBreakdown } from '../usage/operations.ts'
-import { recordUsage } from '../usage/service.ts'
+import { chargeModelCall } from '../usage/service.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 
 const debug = Debug('df-agents:memory-reflection')
@@ -205,26 +203,12 @@ const reflect = async (conversation: Conversation, agent: AutonomousAgent, now: 
 }
 
 /**
- * At the tools model's prices, under the agent's own identity — the accounting compaction uses
- * (turn-history.ts), minus the run: a reflection has none, so its cost lives in usage and on what it reflected.
+ * At the tools model's prices, under the agent's own identity, charged like any model call
+ * (chargeModelCall), minus the run: a reflection has none, so its cost lives in usage and on what it reflected.
  */
 const bill = async (owner: Conversation['owner'], agent: AutonomousAgent, entry: ReturnType<typeof resolveRoleModel>['entry'], spent: TokenCounts, onBilled: (credits: number) => Promise<void>) => {
-  const credits = computeCreditBreakdown(spent, entry, config.eurosPerCredit)
-  if (!(credits.total > 0)) return
-  const identity = usageIdentityFor(agent, { owner })
-  await recordUsage(owner, {
-    cost: credits.total,
-    userId: identity.usageUserId,
-    userName: identity.usageUserName,
-    poolId: identity.poolId,
-    dimensions: {
-      modelRole: 'tools',
-      model: entry.id,
-      profile: identity.role,
-      tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
-    }
-  })
-  await onBilled(credits.total)
+  const credits = await chargeModelCall({ owner, identity: usageIdentityFor(agent, { owner }), modelRole: 'tools', entry, usage: spent })
+  if (credits.total > 0) await onBilled(credits.total)
 }
 
 /**

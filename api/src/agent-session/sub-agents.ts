@@ -169,6 +169,7 @@ export async function partitionSubAgents (
 export interface WorkerUsage {
   inputTokens: number
   outputTokens: number
+  noCacheTokens?: number
   cacheReadTokens?: number
   cacheWriteTokens?: number
   finishReason?: string
@@ -266,6 +267,7 @@ export function subAgentDelegation (opts: {
             await opts.onUsage?.({
               inputTokens: usage?.inputTokens ?? 0,
               outputTokens: usage?.outputTokens ?? 0,
+              ...(details?.noCacheTokens !== undefined ? { noCacheTokens: details.noCacheTokens } : {}),
               ...(details?.cacheReadTokens !== undefined ? { cacheReadTokens: details.cacheReadTokens } : {}),
               ...(details?.cacheWriteTokens !== undefined ? { cacheWriteTokens: details.cacheWriteTokens } : {}),
               ...(typeof (part as any).finishReason === 'string' ? { finishReason: (part as any).finishReason } : {})
@@ -321,6 +323,7 @@ export function subAgentDelegation (opts: {
             await opts.onUsage?.({
               inputTokens: closeout.usage?.inputTokens ?? 0,
               outputTokens: closeout.usage?.outputTokens ?? 0,
+              ...(closeoutDetails?.noCacheTokens !== undefined ? { noCacheTokens: closeoutDetails.noCacheTokens } : {}),
               ...(closeoutDetails?.cacheReadTokens !== undefined ? { cacheReadTokens: closeoutDetails.cacheReadTokens } : {}),
               ...(closeoutDetails?.cacheWriteTokens !== undefined ? { cacheWriteTokens: closeoutDetails.cacheWriteTokens } : {}),
               ...(closeout.finishReason ? { finishReason: closeout.finishReason } : {})

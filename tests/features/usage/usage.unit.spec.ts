@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCredits, computeCreditBreakdown, priceTokens, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCreditBreakdown, priceTokens, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -151,21 +151,21 @@ test.describe('toCredits', () => {
   })
 })
 
-test.describe('computeCredits', () => {
+test.describe('computeCreditBreakdown total', () => {
   test('prices the tokens then converts to credits, in one call', () => {
     // 1M fresh input at 0.40 EUR/M = 0.40 EUR = exactly 1 credit at the 0.40 peg
-    const credits = computeCredits(
+    const credits = computeCreditBreakdown(
       { inputTokens: 1_000_000, outputTokens: 0 },
       { inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 },
       0.4
     )
-    assert.equal(credits, 1)
+    assert.equal(credits.total, 1)
   })
 
   test('a cached turn costs strictly less than the same turn uncached', () => {
     const prices = { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
-    const uncached = computeCredits({ inputTokens: 1_000_000, outputTokens: 0 }, prices, 0.4)
-    const cached = computeCredits({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices, 0.4)
+    const uncached = computeCreditBreakdown({ inputTokens: 1_000_000, outputTokens: 0 }, prices, 0.4).total
+    const cached = computeCreditBreakdown({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices, 0.4).total
     assert.equal(uncached, 1)
     // 100k @0.40 + 900k @0.08 = 0.112 EUR = 0.28 credits
     assert.ok(cached < uncached)
@@ -206,11 +206,11 @@ test.describe('priceTokensBreakdown', () => {
 })
 
 test.describe('computeCreditBreakdown', () => {
-  test('splits credits by token class and totals like computeCredits', () => {
+  test('splits credits by token class and totals like the priced euros converted', () => {
     const counts = { inputTokens: 1_000_000, outputTokens: 100_000, noCacheTokens: 500_000, cacheReadTokens: 500_000, cacheWriteTokens: 0 }
     const prices = { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
     const breakdown = computeCreditBreakdown(counts, prices, 0.4)
-    assert.equal(breakdown.total, computeCredits(counts, prices, 0.4))
+    assert.equal(breakdown.total, toCredits(priceTokens(counts, prices).total, 0.4))
     // 500k @0.40 = 0.20 EUR = 0.5 credit, 500k @0.08 = 0.04 EUR = 0.1 credit, 100k @0.80 = 0.08 EUR = 0.2 credit
     assert.equal(Number(breakdown.input.toFixed(10)), 0.5)
     assert.equal(Number(breakdown.cachedInput.toFixed(10)), 0.1)

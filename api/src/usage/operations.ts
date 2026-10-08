@@ -195,11 +195,6 @@ export function computeCreditBreakdown (counts: TokenCounts, prices: TokenPrices
   }
 }
 
-/** The single entry point every call site uses: token counts to billed credits. */
-export function computeCredits (counts: TokenCounts, prices: TokenPrices, eurosPerCredit: number): number {
-  return computeCreditBreakdown(counts, prices, eurosPerCredit).total
-}
-
 /**
  * Breakdown maps are stored as nested objects on the usage documents and incremented
  * with `$inc`, so their keys are MongoDB field path segments: '.' separates fields and

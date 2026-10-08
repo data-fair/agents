@@ -1,11 +1,9 @@
 import { Router } from 'express'
 import { generateText } from 'ai'
 import { type AccountKeys, reqSession, isAuthenticated } from '@data-fair/lib-express'
-import config from '#config'
 import { getSettings, defaultQuotas } from '../settings/service.ts'
 import { resolveRoleModel, type ResolvedRoleModel } from '../models/service.ts'
-import { recordUsage } from '../usage/service.ts'
-import { computeCreditBreakdown } from '../usage/operations.ts'
+import { chargeModelCall } from '../usage/service.ts'
 import { resolveUsageIdentity, enforceQuotas } from '../usage/enforce.ts'
 import { isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
 
@@ -48,8 +46,6 @@ router.post('/:type/:id', async (req, res, next) => {
     const quotas = settings.quotas ?? defaultQuotas
 
     const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, authenticated)
-    const { usageUserId, usageUserName, poolId } = identity
-
     const quotaCheck = await enforceQuotas(owner, quotas, identity)
     if (quotaCheck) {
       res.status(429).json({ error: quotaCheck.reason })
@@ -70,29 +66,20 @@ router.post('/:type/:id', async (req, res, next) => {
       messages: [{ role: 'user' as const, content: body.content }]
     })
 
-    // Record usage after completion (credits)
-    const inputTokens = usage?.inputTokens ?? 0
-    const outputTokens = usage?.outputTokens ?? 0
     const details = usage?.inputTokenDetails
-    const credits = computeCreditBreakdown(
-      { inputTokens, outputTokens, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+    await chargeModelCall({
+      owner,
+      identity,
+      modelRole: 'summarizer',
       entry,
-      config.eurosPerCredit
-    )
-    if (credits.total > 0) {
-      await recordUsage(owner, {
-        cost: credits.total,
-        userId: usageUserId,
-        userName: usageUserName,
-        poolId,
-        dimensions: {
-          modelRole: 'summarizer',
-          model: entry.id,
-          profile: identity.role,
-          tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
-        }
-      })
-    }
+      usage: {
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens,
+        noCacheTokens: details?.noCacheTokens,
+        cacheReadTokens: details?.cacheReadTokens,
+        cacheWriteTokens: details?.cacheWriteTokens
+      }
+    })
 
     res.json({ summary: text })
   } catch (err) {

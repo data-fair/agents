@@ -39,11 +39,10 @@ import {
   type TurnTarget, type TurnResult, type TurnFailure
 } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { appendMessage, updateMessage, finishRun, bufferRunWrites, incrementRunSpend, resolveAgent, setRunSystemPrompt, rejectPendingApprovals } from './service.ts'
+import { appendMessage, updateMessage, finishRun, bufferRunWrites, resolveAgent, setRunSystemPrompt, rejectPendingApprovals } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
-import { computeCreditBreakdown } from '../usage/operations.ts'
 import { openAutonomousAgentTools, type SessionProvider } from '../mcp-servers/client.ts'
 import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
 import { securityKey } from '../cipher/service.ts'
@@ -57,7 +56,7 @@ import { waitHandover, repairWaitInput, WAIT_TOOL_NAME, WAIT_ACCEPTED } from '@a
 import { settlePendingWait } from './waits.ts'
 import { PERSON_SPOKE, interruptedWaitResult, interruptReason } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
-import { recordUsage } from '../usage/service.ts'
+import { chargeModelCall } from '../usage/service.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { buildServiceTools } from './service-tools.ts'
 import { mayBePageTool } from './service-tool-names.ts'
@@ -487,53 +486,18 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // unless the sub-agent pins another), so the spend is attributable to it. A delegated turn is often most of the work; leaving it
       // unmetered would have let any page with a sub-agent spend without limit.
       onUsage: async usage => {
-        const stepCredits = computeCreditBreakdown(
-          {
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            cacheReadTokens: usage.cacheReadTokens,
-            cacheWriteTokens: usage.cacheWriteTokens
-          },
-          worker.entry,
-          config.eurosPerCredit
-        )
-        credits += stepCredits.total
-        // 0 steps: the spend is real, but a worker step is not a step of the LEAD's loop, and inflating
-        // the count would make the step limit and the run's own record disagree. Same call the
-        // summarizer makes for the same reason.
-        await incrementRunSpend(run.id, stepCredits.total, 0)
-        if (stepCredits.total > 0) {
-          await recordUsage(run.owner, {
-            cost: stepCredits.total,
-            userId: identity.usageUserId,
-            userName: identity.usageUserName,
-            // The untrusted pool too (anonymous + external combined): without it, their chat spend never
-            // reached the pool, and its cap counted only moderation and the summary endpoint.
-            poolId: identity.poolId,
-            dimensions: {
-              modelRole: seat,
-              model: worker.entry.id,
-              profile: identity.role,
-              tokenCosts: { input: stepCredits.input, cachedInput: stepCredits.cachedInput, output: stepCredits.output }
-            }
-          })
-        }
-        // One telemetry entry per worker step, so review and the export show the delegated work rather
-        // than a turn whose cost exceeds the calls that explain it.
-        recordCall(run, {
+        // 0 steps: the spend is real, but a worker step is not a step of the LEAD's loop. With its own
+        // telemetry entry, so review and the export show the delegated work rather than a turn whose
+        // cost exceeds the calls that explain it.
+        const stepCredits = await chargeModelCall({
+          owner: run.owner,
+          identity,
           modelRole: seat,
           entry: worker.entry,
-          usage: {
-            inputTokens: usage.inputTokens,
-            outputTokens: usage.outputTokens,
-            ...(usage.cacheReadTokens !== undefined ? { cacheReadTokens: usage.cacheReadTokens } : {}),
-            ...(usage.cacheWriteTokens !== undefined ? { cacheWriteTokens: usage.cacheWriteTokens } : {})
-          },
-          credits: stepCredits.total,
-          creditBreakdown: { input: stepCredits.input, cachedInput: stepCredits.cachedInput, output: stepCredits.output },
-          durationMs: Date.now() - startedAt,
-          ...(usage.finishReason ? { finishReason: usage.finishReason } : {})
+          usage,
+          run: { run, durationMs: Date.now() - startedAt }
         })
+        credits += stepCredits.total
         // The two ceilings, checked where the money was just spent. The lead's own `onStepFinish` does
         // this between ITS steps, which is too late to stop a worker that is still looping.
         const accountCap = await checkAccountCreditCap(run.owner)
@@ -632,17 +596,22 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     onStepFinish: async (step) => {
       const usage = step.usage
       const details = (usage as any)?.inputTokenDetails
-      const stepCredits = computeCreditBreakdown(
-        {
-          inputTokens: usage?.inputTokens ?? 0,
-          outputTokens: usage?.outputTokens ?? 0,
+      // Billed per step, not once per turn: a turn stopped by the budget or the clock must still bill
+      // what it actually consumed. Its telemetry entry is the turn's, recorded once after the loop.
+      const stepCredits = await chargeModelCall({
+        owner: run.owner,
+        identity,
+        modelRole: 'assistant',
+        entry,
+        usage: {
+          inputTokens: usage?.inputTokens,
+          outputTokens: usage?.outputTokens,
           noCacheTokens: details?.noCacheTokens,
           cacheReadTokens: details?.cacheReadTokens,
           cacheWriteTokens: details?.cacheWriteTokens
         },
-        entry,
-        config.eurosPerCredit
-      )
+        run: { run, steps: 1 }
+      })
       inputTokens += usage?.inputTokens ?? 0
       outputTokens += usage?.outputTokens ?? 0
       cacheReadTokens += details?.cacheReadTokens ?? 0
@@ -651,27 +620,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       creditBreakdown.input += stepCredits.input
       creditBreakdown.cachedInput += stepCredits.cachedInput
       creditBreakdown.output += stepCredits.output
-      // On the RUN as well as in usage, per step, so an abandoned turn's later steps still
-      // show up and the two never disagree.
-      await incrementRunSpend(run.id, stepCredits.total, 1)
-      if (stepCredits.total > 0) {
-        // Recorded per step, not once per turn: a turn stopped by the budget or the clock
-        // must still bill what it actually consumed.
-        await recordUsage(run.owner, {
-          cost: stepCredits.total,
-          userId: identity.usageUserId,
-          userName: identity.usageUserName,
-          // The untrusted pool too (anonymous + external combined): without it, their chat spend never
-          // reached the pool, and its cap counted only moderation and the summary endpoint.
-          poolId: identity.poolId,
-          dimensions: {
-            modelRole: 'assistant',
-            model: entry.id,
-            profile: identity.role,
-            tokenCosts: { input: stepCredits.input, cachedInput: stepCredits.cachedInput, output: stepCredits.output }
-          }
-        })
-      }
       // The ACCOUNT cap, re-read after recording this step. enforceQuotas ran once before the loop, so
       // a turn that was under the cap when it started could spend its whole per-run budget past an
       // exhausted one — and since nothing caps concurrent runs, N conversations posted together each

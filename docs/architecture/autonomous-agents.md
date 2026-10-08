@@ -166,7 +166,7 @@ swept by their own purges.)
 
 ## The turn and its target
 
-`runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, message, conversation, wakeIfAnswered)` is a chat's, and `taskTarget(run, task, followUp)` (`api/src/tasks/task-target.ts`) a planned task's. Both are driven by `driveTurn` (`executor.ts`), which owns the abort controller, telemetry, deadline and failure classification, whatever the turn is of. The conversation target:
+`runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, message, conversation, wakeIfAnswered)` is a chat's, and `taskTarget(run, task)` (`api/src/tasks/task-target.ts`) a planned task's. Both are driven by `driveTurn` (`executor.ts`), which owns the abort controller, telemetry, deadline and failure classification, whatever the turn is of. The conversation target:
 
 - `session` and `historyUpToSeq`: the page in front of the person as the turn started (its tools and host events; undefined is normal), and the history bound recorded on the turn's telemetry.
 - `history`: the stored messages up to the turn's own, compacted within the budget, with the page's context (host events, the pending-wait reminder) folded into the last user message at call time and never persisted.
@@ -262,8 +262,11 @@ label reads "Awaiting your approval", with a static icon rather than a spinner, 
 
 The executor talks to providers directly and does its own accounting: the quota/credit gate before the
 turn, per-step credits against the per-run budget, the account credit cap re-checked between steps, and
-`recordUsage` per model role — the moderation classifier and the summarizer's compaction call included,
-which are real model calls and are billed like one.
+every model call charged through one function, `chargeModelCall` (`api/src/usage/service.ts`): it
+prices the call (cache tokens included), records usage under its model role (with the untrusted pool)
+and, when the call belongs to a run, adds it to the run's spend and telemetry — the moderation
+classifier and the summarizer's compaction call included, which are real model calls and are billed
+like one.
 
 Who is billed is decided by `usageIdentityFor` (`api/src/conversations/operations.ts`). A configured
 autonomous agent is keyed on the **agent** (`autonomous-agent:<id>`, role `admin`, so no per-profile
