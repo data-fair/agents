@@ -9,6 +9,8 @@
  */
 import { tool, jsonSchema, type Tool } from 'ai'
 import type { AccountKeys } from '@data-fair/lib-express'
+import type { EventLogContext } from '@data-fair/lib-express/events-log.js'
+import type { Account } from '@data-fair/lib-common-types/session/index.js'
 import type { ServiceToolContext } from '../conversations/service-tools.ts'
 import { createTask, updateTask, deleteTask, getTask, type TaskActor } from '../tasks/service.ts'
 import * as taskWriteReq from '#doc/autonomous-agents/task-write-req/index.ts'
@@ -45,11 +47,19 @@ const planned = (task: { id: string, title: string, scheduling: unknown, nextRun
 export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<string, Tool> => {
   const owner = run.owner as AccountKeys
   // The continuation run's trigger: the person who approved the call. An approved call only ever runs in
-  // such a run, so a missing one is refused rather than recorded as nobody.
+  // such a run, so a missing one is refused rather than recorded as nobody. When two calls of one step are
+  // decided by different people, the run is triggered by the LAST decider (conversations/approvals.ts), so
+  // the recorded approver of the other call is that person: rare (a second instructor deciding in someone
+  // else's conversation) and accepted.
   const actor = (): TaskActor => {
     const { userId, userName } = run.triggeredBy ?? {}
     if (!userId) throw new Error('no person approved this change')
     return { userId, ...(userName ? { userName } : {}), ...(run.conversationId ? { conversationId: run.conversationId } : {}) }
+  }
+  // The same events-log entry as the admin route's, for the account and the approver (no request here).
+  const log = (): EventLogContext => {
+    const { userId, userName } = actor()
+    return { account: run.owner as Account, user: { id: userId, name: userName ?? userId } }
   }
 
   return {
@@ -58,7 +68,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       inputSchema: jsonSchema<unknown>(taskSchema),
       needsApproval: true,
       execute: async (input: unknown) => {
-        const task = await guarded(async () => createTask(owner, agent, taskWriteReq.returnValid(input, { name: 'input' }), actor()))
+        const task = await guarded(async () => createTask(owner, agent, taskWriteReq.returnValid(input, { name: 'input' }), actor(), log()))
         return planned(task)
       }
     }),
@@ -72,7 +82,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       needsApproval: true,
       execute: async (input: any) => {
         const { taskId, ...body } = input ?? {}
-        const task = await guarded(async () => updateTask(owner, agent, String(taskId ?? ''), taskWriteReq.returnValid(body, { name: 'input' }), actor()))
+        const task = await guarded(async () => updateTask(owner, agent, String(taskId ?? ''), taskWriteReq.returnValid(body, { name: 'input' }), actor(), log()))
         return planned(task)
       }
     }),
@@ -84,7 +94,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
         const taskId = String(input?.taskId ?? '')
         // Read first: a task deleted since the call was asked is a 404 here, not a silent success.
         const { title } = await guarded(() => getTask(owner, agent.id, taskId))
-        await guarded(() => deleteTask(owner, agent.id, taskId))
+        await guarded(async () => deleteTask(owner, agent.id, taskId, log()))
         return `Task "${title}" deleted.`
       }
     })

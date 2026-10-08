@@ -6,6 +6,7 @@ import mongo from '#mongo'
 import config from '#config'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
+import eventsLog, { type EventLogContext } from '@data-fair/lib-express/events-log.js'
 import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import type { PlannedTask as TaskWriteReq } from '#doc/autonomous-agents/task-write-req/index.ts'
@@ -56,7 +57,10 @@ const actorOf = (user: TaskActor, now: Date) => ({
   ...(user.conversationId ? { conversationId: user.conversationId } : {})
 })
 
-export const createTask = async (owner: AccountKeys, agent: { id: string }, body: TaskWriteReq, user: TaskActor) => {
+// Each write is logged to the events log HERE, so the two ways to write a task — an admin route, the agent's
+// own planning tool once a person approved it — leave the same audit entry. `log` is who it is logged for:
+// the route's `{ req }` (ip and host included), or the account and the approver.
+export const createTask = async (owner: AccountKeys, agent: { id: string }, body: TaskWriteReq, user: TaskActor, log: EventLogContext) => {
   const now = new Date()
   const nextRunAt = assertSchedule(body.scheduling as Scheduling[], now)
   const count = await mongo.autonomousAgentTasks.countDocuments({ agentId: agent.id })
@@ -78,10 +82,11 @@ export const createTask = async (owner: AccountKeys, agent: { id: string }, body
     updatedAt: now.toISOString()
   }
   await mongo.autonomousAgentTasks.insertOne({ ...task })
+  eventsLog.info('agents.task.create', `planned task ${task.id} created for agent ${agent.id} of ${owner.type}/${owner.id}`, log)
   return task
 }
 
-export const updateTask = async (owner: AccountKeys, agent: { id: string }, taskId: string, body: TaskWriteReq, user: TaskActor) => {
+export const updateTask = async (owner: AccountKeys, agent: { id: string }, taskId: string, body: TaskWriteReq, user: TaskActor, log: EventLogContext) => {
   const existing = await getTask(owner, agent.id, taskId)
   const now = new Date()
   const enabled = body.enabled ?? existing.enabled
@@ -114,12 +119,14 @@ export const updateTask = async (owner: AccountKeys, agent: { id: string }, task
     { id: taskId, agentId: agent.id },
     { $set, ...(Object.keys($unset).length ? { $unset } : {}) }
   )
+  eventsLog.info('agents.task.update', `planned task ${taskId} updated for agent ${agent.id} of ${owner.type}/${owner.id}`, log)
   return await getTask(owner, agent.id, taskId)
 }
 
-export const deleteTask = async (owner: AccountKeys, agentId: string, taskId: string) => {
+export const deleteTask = async (owner: AccountKeys, agentId: string, taskId: string, log: EventLogContext) => {
   const result = await mongo.autonomousAgentTasks.deleteOne({ id: taskId, agentId, 'owner.type': owner.type, 'owner.id': owner.id })
   if (!result.deletedCount) throw httpError(404, 'unknown task')
+  eventsLog.info('agents.task.delete', `planned task ${taskId} deleted for agent ${agentId} of ${owner.type}/${owner.id}`, log)
 }
 
 export interface RunFilters { kind?: 'task' | 'conversation', taskId?: string, status?: string, outcome?: string, since?: string }

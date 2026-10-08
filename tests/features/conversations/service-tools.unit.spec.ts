@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import { SERVICE_TOOL_NAMES, mayBePageTool } from '../../../api/src/conversations/service-tool-names.ts'
 
 test.describe('service tool names', () => {
-  test('the wait, the memory, the outcome, the web and the self-knowledge tools are the service\'s own', () => {
+  test('the wait, the memory, the outcome, the web, the self-knowledge and the planning tools are the service\'s own', () => {
     assert.deepEqual([...SERVICE_TOOL_NAMES].sort(), ['delete_task', 'fetch_url', 'get_my_configuration', 'get_run', 'list_my_runs', 'list_site_pages', 'memory', 'plan_task', 'report_outcome', 'request_web_access', 'update_task', 'wait_for_user_action'])
   })
 

@@ -153,8 +153,7 @@ router.post('/:type/:id/:agentId/tasks', async (req, res, next) => {
     reqWriteSession(req)
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
     const agent = await loadAgent(owner, req.params.agentId)
-    const task = await createTask(owner, agent, body, actorOf(req))
-    eventsLog.info('agents.task.create', `planned task ${task.id} created for agent ${agent.id} of ${owner.type}/${owner.id}`, { req })
+    const task = await createTask(owner, agent, body, actorOf(req), { req })
     res.status(201).json(task)
   } catch (err) { next(err) }
 })
@@ -168,8 +167,7 @@ router.put('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
     reqWriteSession(req)
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
     const agent = await loadAgent(owner, req.params.agentId)
-    const task = await updateTask(owner, agent, req.params.taskId, body, actorOf(req))
-    eventsLog.info('agents.task.update', `planned task ${task.id} updated for agent ${agent.id} of ${owner.type}/${owner.id}`, { req })
+    const task = await updateTask(owner, agent, req.params.taskId, body, actorOf(req), { req })
     res.json(task)
   } catch (err) { next(err) }
 })
@@ -204,8 +202,7 @@ router.delete('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
     assertAccountRole(session, owner, 'admin')
     reqWriteSession(req)
     const agent = await loadAgent(owner, req.params.agentId)
-    await deleteTask(owner, agent.id, req.params.taskId)
-    eventsLog.info('agents.task.delete', `planned task ${req.params.taskId} deleted for agent ${agent.id} of ${owner.type}/${owner.id}`, { req })
+    await deleteTask(owner, agent.id, req.params.taskId, { req })
     res.status(204).send()
   } catch (err) { next(err) }
 })
