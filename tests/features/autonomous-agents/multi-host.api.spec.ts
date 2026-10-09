@@ -88,6 +88,15 @@ test.describe('Sites of an autonomous agent', () => {
     assert.match(run.systemPrompt, new RegExp(`acting anonymously on ${foreignPortal.replace(/\./g, '\\.')}`))
   })
 
+  test('a conversation keeps the site it was started on, whatever socket continues it', async () => {
+    await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
+    const first = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami', { host: foreignPortal })
+    assert.deepEqual(whoami(first.assistant), { forwardedHost: foreignPortal, userId: null })
+    // continued through the default host: still the foreign site, still anonymous
+    const again = await turnOverSocket(orgAdmin, first.conversationId, 'call tool whoami')
+    assert.deepEqual(whoami(again.assistant), { forwardedHost: foreignPortal, userId: null })
+  })
+
   test('a portal that is not one of its organization\'s is refused by name', async () => {
     await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, `call tool whoami {"portal":"${foreignPortal}"}`)

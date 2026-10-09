@@ -22,6 +22,9 @@ export default {
      */
     userId: { type: 'string' },
     userName: { type: 'string' },
+    // The site (origin) of the socket that started the conversation. A configured agent acts on it for the
+    // whole conversation, so a later turn with no socket does not move it to another site. Server-written.
+    siteUrl: { type: 'string', readOnly: true },
     owner: {
       type: 'object',
       additionalProperties: false,

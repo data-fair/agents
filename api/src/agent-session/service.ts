@@ -292,7 +292,7 @@ export const startAgentSessions = (server: Server) => {
       // A tab closed right behind its first message: nobody is left to answer, so no thread is started.
       if (ws.readyState !== ws.OPEN) throw new Error('the connection closed')
       const caller = callerOf()
-      const conversation = await createConversation(newThread.owner, newThread.agentId, caller, title)
+      const conversation = await createConversation(newThread.owner, newThread.agentId, caller, title, siteOriginFromHeaders(req.headers))
       newThread = undefined
       if (caller.kind === 'anonymous') anonymousThread = { id: conversation.id, owner: conversation.owner, usageUserId: caller.usageUserId }
       else eventsLog.info('agents.conversation.create', `conversation created for agent ${conversation.agentId}`, { account: caller.session.account, user: caller.session.user })

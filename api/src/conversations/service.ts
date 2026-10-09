@@ -211,7 +211,8 @@ export const createConversation = async (
   owner: AccountKeys,
   agentId: string,
   caller: TurnCaller,
-  title?: string
+  title?: string,
+  siteUrl?: string
 ): Promise<Conversation> => {
   const threadOwner = await assertMayStartConversation(owner, agentId, caller)
   const conversation: Conversation = {
@@ -225,6 +226,7 @@ export const createConversation = async (
           title: title?.trim() || 'New conversation'
         }
       : { userId: caller.usageUserId, userName: 'Anonymous', anonymous: true, title: 'Anonymous conversation' }),
+    ...(siteUrl ? { siteUrl } : {}),
     createdAt: new Date().toISOString(),
     // starts at 0: nextMessageSeq hands out 1 for the first message
     messageSeq: 0,

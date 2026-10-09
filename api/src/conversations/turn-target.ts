@@ -123,6 +123,8 @@ export interface TurnTarget {
   surface: TurnSurface
   /** The page in front of the person, as the turn started: its tools and host events. Undefined is normal. */
   session?: AgentSession
+  /** The site the conversation was started on, when it recorded one: a configured agent's home. */
+  conversationSiteUrl?: string
   /** The history bound recorded on the turn's telemetry; a conversation's is the turn's own message. */
   historyUpToSeq?: number
   /** The model's context for this turn, within budget, as it is sent. */
@@ -263,6 +265,7 @@ export const conversationTarget = (
   return {
     surface: 'chat',
     session,
+    ...(conversation.siteUrl ? { conversationSiteUrl: conversation.siteUrl } : {}),
     historyUpToSeq: messageSeq,
     history: async ({ identity, budget, settings, abortSignal, agentId }) => {
       const compacted = await compactHistory(
