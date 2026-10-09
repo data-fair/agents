@@ -71,17 +71,6 @@ export const planTaskDecided: Premise = {
     call.toolName === PLAN_TASK_TOOL && typeof (call.part.toolMetadata as any)?.decision?.approved === 'boolean'))
 }
 
-/**
- * The person decided on a `plan_task` card AND the call then ended `output-error`: the refusal (a schedule
- * under the deployment's minimum interval) is what the case judges the agent's reply to. A call that
- * succeeded, or one never decided, leaves nothing to explain.
- */
-export const planTaskRefused: Premise = {
-  description: `a ${PLAN_TASK_TOOL} call was decided on and ended in an error`,
-  holds: exports => exports.some(exported => recordedToolCalls(exported).some(call =>
-    call.toolName === PLAN_TASK_TOOL && call.failed && typeof (call.part.toolMetadata as any)?.decision?.approved === 'boolean'))
-}
-
 /** The memory commands that change the store; `view` reads it. */
 const MEMORY_WRITES = new Set(['create', 'str_replace', 'insert', 'rename'])
 const wroteMemory = (exported: ParsedExport) => recordedToolCalls(exported).some(call =>
@@ -295,12 +284,14 @@ export const cases: LocalCase[] = [
     goal: 'You want the assistant to check the city-centre road closures every Monday morning, on its own, and report what it finds. Ask for that in plain words. If the screen asks you to approve something, read it and decide yourself by pressing the button: approve only once the schedule shown there is Mondays in the morning; if it shows another day or hour, say what is wrong and refuse, then ask for it to be corrected. Afterwards you want to be told plainly when the check will next run.',
     maxTurns: 7
   },
-  // A REFUSED PLAN: the schedule asked for is under the deployment's minimum interval (one hour), so the
-  // approved call ends in an error. The judge grades what the agent then says: plainly why, and the nearest
-  // schedule that is allowed, rather than a retry of the same input or silence.
+  // A SCHEDULE UNDER THE MINIMUM INTERVAL (one hour). The judge grades whether the person learns plainly
+  // that every 30 minutes is not possible and why, and gets the nearest allowed schedule planned. The
+  // premise is only that a plan was decided: a first version required the call to be REFUSED, but an agent
+  // that knows the limit (the schema and the tool description state it) says so before asking — the better
+  // behaviour — and every such run was recorded invalid (2026-10-09).
   {
     name: 'autonomous-agent-plans-too-often',
-    premise: planTaskRefused,
+    premise: planTaskDecided,
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
     user: 'test1-admin1',

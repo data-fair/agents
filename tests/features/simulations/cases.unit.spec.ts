@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { cases, spokeDuringWait, approvalDecided, planTaskDecided, planTaskRefused, memoryCarriedOver, outcomeReported } from '../../../simulations/cases/index.ts'
+import { cases, spokeDuringWait, approvalDecided, planTaskDecided, memoryCarriedOver, outcomeReported } from '../../../simulations/cases/index.ts'
 import devConfig from '../../../api/config/development.js'
 import { parseConversationExport } from '../../../lib-sim/conversation-export.ts'
 import { buildConversationExport, EXTRACT_THRESHOLD } from '../../../api/src/review/operations.ts'
@@ -139,17 +139,7 @@ test.describe('case registry', () => {
     assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('plan_task', { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false, reason: 'The person sent a new message instead of deciding.' } })])]), false)
     assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('wipe_everything', decision(true))])]), false)
     assert.equal(cases.find(c => c.name === 'autonomous-agent-plans-task')?.premise, planTaskDecided)
-  })
-
-  test('the refused-plan premise holds only when a decided plan_task call ended in an error', () => {
-    const decision = { toolMetadata: { decision: { userId: 'test1-admin1', approved: true, at: '2026-10-08T00:00:00.000Z' } } }
-    const refused = { state: 'output-error', output: undefined, errorText: 'the schedule runs more often than the minimum interval', approval: { id: 'a', approved: true }, ...decision }
-    assert.equal(planTaskRefused.holds([exportOf('c', [toolPart('plan_task', refused)])]), true)
-    // Succeeded, never decided, or another tool failed: nothing was refused to explain.
-    assert.equal(planTaskRefused.holds([exportOf('c', [toolPart('plan_task', { approval: { id: 'a', approved: true }, ...decision })])]), false)
-    assert.equal(planTaskRefused.holds([exportOf('c', [toolPart('plan_task', { ...refused, toolMetadata: undefined })])]), false)
-    assert.equal(planTaskRefused.holds([exportOf('c', [toolPart('wipe_everything', refused)])]), false)
-    assert.equal(cases.find(c => c.name === 'autonomous-agent-plans-too-often')?.premise, planTaskRefused)
+    assert.equal(cases.find(c => c.name === 'autonomous-agent-plans-too-often')?.premise, planTaskDecided)
   })
 
   test('the memory premise holds only for a write in a conversation before the last', () => {
