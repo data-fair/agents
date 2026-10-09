@@ -38,7 +38,8 @@ A site may publish the MCP servers it offers in an AI Catalog at `/.well-known/a
 `robots.txt` it is read as site metadata, on the **first page** (offset 0) of `fetch_url` and
 `list_site_pages`, through the same client and allowlist. Entries (the first 5) carry their card embedded
 or as a link; a linked card is fetched only when its URL is on an allowed site too. Only anonymous
-streamable-http endpoints are reported, as `mcpServers` in the result, with a note telling the agent
+streamable-http endpoints are reported (`http://` ones too, for dev and intranet: they stay behind the
+public-address guard of external servers, and `https` is expected in production), as `mcpServers` in the result, with a note telling the agent
 that an administrator can connect it with `request_mcp_access`. Any failure yields no servers: the page
 itself was read, which is what was asked.
 

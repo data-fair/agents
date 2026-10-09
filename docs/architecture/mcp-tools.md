@@ -211,7 +211,7 @@ Only the descriptors cross the socket. A page tool's implementation is the page'
 `openAutonomousAgentTools` (`api/src/mcp-servers/client.ts`) builds the catalog part of a turn's tool set from the agent's `mcpServers` references, each narrowed by its optional `toolFilter`.
 
 - **Which servers.** A configured autonomous agent uses the servers its admin selected. The personal assistant (`personalAgent()` in `api/src/agent-session/personal-agent.ts`) takes **every** catalog entry, unfiltered: it acts as the person, so their own permissions are already the ceiling.
-- **Who it acts as.** Injected as a `SessionProvider` (type in `mcp-servers/client.ts`, built in `performTurn`): `getAutonomousAgentSession` for a configured agent (its own non-human identity, exchanged and cached), the socket's cookie for the personal assistant (the cookie from the person's socket upgrade — held per connection, never stored; it cannot be refreshed server-side, so its life is the socket's). It is only requested when some referenced entry has `auth: 'nhi-session'`.
+- **Who it acts as.** Injected as `SiteCredentials` (type in `mcp-servers/operations.ts`, built in `performTurn`; see Sites below): `agentSiteCredentials` for a configured agent (its own non-human identity, exchanged and cached per site), `personSiteCredentials` for the personal assistant (the cookie from the person's socket upgrade — held per connection, never stored; it cannot be refreshed server-side, so its life is the socket's, and it is valid on the socket's site only). A session is only requested when some referenced entry has `auth: 'nhi-session'`.
 - **Listings are cached** for `TOOL_LISTING_TTL_MS` (60s) per server and credential (for session-authenticated entries, keyed by a hash of the cookie, so two identities never share a listing). Listing on every turn was half of an unloaded turn's time to first token. The cached value is the promise, so turns starting together share one listing; failures are not cached. Servers are listed in parallel.
 - **Connections are lazy.** A server is connected on the first call to one of its tools in the turn and the connection is reused by the turn's later calls; the executor closes them all when the turn ends. A turn that calls no catalog tool opens none.
 - **Unreachable servers.** For the personal assistant an unreachable entry is an availability event: it is **skipped** (and logged) rather than failing the turn. For a configured agent the selection is deliberate, so a failure **throws** (502 naming the server).
@@ -243,7 +243,9 @@ connection.
 An agent may list `externalMcpServers: [{ url }]` (at most 50): public MCP endpoints, another data-fair
 portal or any other, which it uses **anonymously** (`api/src/mcp-servers/external.ts`). Only an
 organization admin edits the list. URLs are normalized on save (`normalizeExternalMcpServers`: https
-assumed, lowercase host, no IP address, no credentials, deduplicated; a 400 otherwise).
+assumed, lowercase host, no IP address, no credentials, deduplicated; a 400 otherwise). An `http://` endpoint is accepted when it is listed (or discovered)
+explicitly, which dev and intranet setups need; it still goes through the public-address guard below,
+and `https` is expected in production.
 
 - **Egress guard.** The connection goes through the web access module's `publicLookup`, so it reaches
   public addresses only (`SSRF_PUBLIC_IPS` and `config.externalMcp.publicIps` declare exceptions) and

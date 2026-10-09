@@ -96,8 +96,6 @@ prefix is ignored, `api/src/sites/operations.ts`):
 5. **The personal assistant** acts as the person: their cookie is sent with their socket's site only;
    no portal, no external server.
 
-The design was written up in a spec (`docs/superpowers/specs/2026-10-09-multi-host-agents-design.md`)
-that is not tracked in this repository.
 
 ## The other documents
 
