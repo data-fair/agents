@@ -309,9 +309,11 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // socket only (see docs/architecture/overview.md, Hosts).
   const socketSite = session?.siteUrl()
   const sites: SiteCredentials = autonomousAgent.nhi
-    ? await agentSiteCredentials(autonomousAgent, socketSite)
+    ? await agentSiteCredentials(autonomousAgent, target.conversationSiteUrl ?? socketSite)
     : personSiteCredentials(socketSite, session?.sessionCookie())
-  const anonymousOn = sites.anonymousHome && sites.homeSite ? new URL(sites.homeSite).host : undefined
+  const anonymousHost = sites.anonymousHome && sites.homeSite ? new URL(sites.homeSite).host : undefined
+  const anonymousOn = sites.listingFailed ? undefined : anonymousHost
+  const unconfirmedOn = sites.listingFailed ? anonymousHost : undefined
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
@@ -368,7 +370,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     for (const [name, annotations] of service.annotationsByTool) annotationsByTool.set(name, annotations)
     const memory = service.memory
 
-    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn })
+    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn, unconfirmedOn })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -391,17 +393,18 @@ interface ModelLoopContext {
   autonomousAgent: AutonomousAgent
   /** The host of the site the turn acts on anonymously, when it is not one of the agent's own. */
   anonymousOn?: string
+  unconfirmedOn?: string
   /** Where the turn reads its context from and writes its record to (see ./turn-target.ts). */
   target: TurnTarget
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn } = ctx
+  const { run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn, unconfirmedOn } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target).
   const session = target.session
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
-  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn })
+  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn })
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })

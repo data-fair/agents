@@ -10,7 +10,6 @@ import axios from '@data-fair/lib-node/axios.js'
 import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, createSessionStore, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
 
-import Debug from 'debug'
 import type { SiteCredentials } from '../mcp-servers/operations.ts'
 
 /** The whole NHI feature is off when no signing key is configured. */
@@ -38,8 +37,6 @@ export const getNhiDiscovery = (req: Request): { issuer: string, jwks_uri: strin
 }
 
 export const getNhiJwks = (): { keys: NhiPublicJwk[] } => ({ keys: [toPublicJwk(requireNhi())] })
-
-const debug = Debug('agents:nhi')
 
 /** The shape the exchange needs off an autonomous agent document. */
 export interface EnrolledAutonomousAgent {
@@ -105,7 +102,7 @@ export const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgen
     // lib-node's axios interceptor attaches the request body (which carries the
     // assertion) to the rejected error — see sanitizeExchangeError. Never let the raw
     // error escape this call.
-    throw sanitizeExchangeError(err)
+    throw new Error(`${sanitizeExchangeError(err).message} (site ${site})`)
   }
   const setCookies: string[] = res.headers['set-cookie'] ?? []
   // keep only name=value, dropping attributes (Path, HttpOnly, …) — a Cookie request
@@ -186,12 +183,12 @@ export const listAccountSites = (autonomousAgent: EnrolledAutonomousAgent & { ow
 }
 
 /**
- * Where an autonomous agent's turn acts, and as whom. Home: the socket's site, else the site it was
- * enrolled on (a planned task, a chat turn nobody watches). Its own session on its account sites — an
+ * Where an autonomous agent's turn acts, and as whom. Home: the site the caller names (the conversation's
+ * own, else the socket's), else the site it was enrolled on (a planned task, a chat turn nobody watches). Its own session on its account sites — an
  * exchange that fails there is an error — and no credential anywhere else.
  *
- * When the account cannot be listed, it degrades to the enrolment site alone: no portal is offered,
- * and a chat on another of the organization's sites runs anonymously for that turn.
+ * When the account cannot be listed (`listingFailed`), it degrades to the enrolment site alone: no portal is
+ * offered, and a chat on another site runs anonymously for that turn without claiming that site is foreign.
  */
 export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys, mcpServers?: { serverId: string }[] }, socketSite?: string): Promise<SiteCredentials> => {
   const { siteUrl } = requireEnrolment(autonomousAgent)
@@ -205,16 +202,21 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     return { homeSite: home, portals: [], anonymousHome: false, cookieFor: async () => undefined }
   }
   let account: string[]
+  let listingFailed = false
   try {
     account = await listAccountSites(autonomousAgent)
   } catch (err: any) {
-    debug('could not list the account sites of %s: %s', autonomousAgent.id, err.message)
+    // Its own state, not "the account is just the enrolment site": no portal can be offered, and a home
+    // other than the enrolment site is UNCONFIRMED rather than known to be foreign (the prompt says so).
+    console.warn(`could not list the account sites of autonomous agent ${autonomousAgent.id}: ${err.message}`)
     account = [enrolled]
+    listingFailed = true
   }
   return {
     homeSite: home,
-    portals: account.filter(site => site !== home),
+    portals: listingFailed ? [] : account.filter(site => site !== home),
     anonymousHome: !account.includes(home),
+    ...(listingFailed ? { listingFailed } : {}),
     cookieFor: async site => account.includes(siteOrigin(site)) ? await getAutonomousAgentSession(autonomousAgent, site) : undefined
   }
 }

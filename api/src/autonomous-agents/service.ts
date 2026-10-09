@@ -87,6 +87,14 @@ export const assertKnownMcpServers = (mcpServers?: { serverId: string }[]) => {
 export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }) => {
   const cookieHeader = await getAutonomousAgentSession(autonomousAgent)
   const claims = decodeSessionClaims(cookieHeader)
+  // The listing is a diagnostic of its own: its failure must not hide the session this endpoint exists to show.
+  let accountSites: string[] | undefined
+  let accountSitesError: string | undefined
+  try {
+    accountSites = await listAccountSites(autonomousAgent)
+  } catch (err: any) {
+    accountSitesError = err.message
+  }
   return {
     userId: claims.id,
     userName: claims.name,
@@ -99,7 +107,8 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
     organization: claims.organizations?.[0]?.id,
     nhi: claims.nhi === 1 || claims.nhi === true,
     expiresIn: typeof claims.exp === 'number' ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : undefined,
-    accountSites: await listAccountSites(autonomousAgent)
+    accountSites,
+    ...(accountSitesError ? { accountSitesError } : {})
   }
 }
 

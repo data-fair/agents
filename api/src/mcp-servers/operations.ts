@@ -98,6 +98,8 @@ export interface SiteCredentials {
   portals: string[]
   /** The home site is outside the agent's account: it acts there anonymously. */
   anonymousHome: boolean
+  /** The account's sites could not be listed: `anonymousHome` is then unconfirmed rather than known. */
+  listingFailed?: boolean
   /** The cookie to send to a site, or undefined to call it anonymously. Rejects when an account site's exchange fails. */
   cookieFor: (siteUrl: string) => Promise<string | undefined>
 }

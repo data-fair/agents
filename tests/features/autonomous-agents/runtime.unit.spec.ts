@@ -84,6 +84,12 @@ test.describe('buildSystemPrompt', () => {
     assert.doesNotMatch(buildSystemPrompt(agent, undefined, 'chat'), /anonymously/)
   })
 
+  test('when the organization\'s sites could not be listed, it does not claim the site is foreign', () => {
+    const prompt = buildSystemPrompt(agent, undefined, 'chat', { unconfirmedOn: 'portal.example.org' })
+    assert.match(prompt, /could not be confirmed, so you are acting anonymously on portal\.example\.org/)
+    assert.doesNotMatch(prompt, /does not belong to your organization/)
+  })
+
   test('an agent WITH an nhi is told it acts under its own identity', () => {
     // Still what stops a configured agent assuming its user's permissions are available to it.
     assert.match(buildSystemPrompt(agent), /own service identity/i)
