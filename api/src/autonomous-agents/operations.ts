@@ -39,3 +39,21 @@ export function canInstruct (agent: InstructableAgent, session: SessionStateAuth
   if (ownsAccount && session.accountRole === 'admin') return true
   return (agent.instructors ?? []).some(accessRef => matchAccessRef(session, accessRef))
 }
+
+export interface StoredNhi { clientId: string, siteUrl?: string, issuer?: string }
+
+/**
+ * The server-built `nhi` of a write. Captured ONCE, on a first enrolment or a new client id: the site
+ * an agent is first configured on (the back-office, or its organization's main site) is its home for
+ * planned tasks and the issuer simple-directory knows it by. A later save from another of the
+ * organization's hosts used to re-point both, silently moving the agent's home with wherever an
+ * admin happened to click Save. `capture` is lazy: it reads the request's forwarded headers, which a
+ * save that keeps the identity does not need.
+ */
+export function buildNhi (clientId: string | undefined, existing: StoredNhi | undefined, capture: () => { siteUrl: string, issuer: string }): StoredNhi | undefined {
+  if (!clientId) return undefined
+  if (existing?.clientId === clientId && existing.siteUrl && existing.issuer) {
+    return { clientId, siteUrl: existing.siteUrl, issuer: existing.issuer }
+  }
+  return { clientId, ...capture() }
+}

@@ -12,7 +12,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, clearAutonomousAgentSession, deleteAutonomousAgentData } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
-import { canInstruct } from './operations.ts'
+import { buildNhi, canInstruct, type StoredNhi } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/executor.ts'
 import { normalizeAllowedUrls } from '../web/operations.ts'
 
@@ -29,11 +29,12 @@ import { normalizeAllowedUrls } from '../web/operations.ts'
  * strip the client's object and rebuild it. Stripping unconditionally matters: a present-but-falsy
  * clientId (e.g. '') used to skip the rebuild and let the whole client-supplied nhi through.
  */
-const rebuildNhi = <B extends { nhi?: { clientId?: string } }>(body: B, req: Request) => {
+const rebuildNhi = <B extends { nhi?: { clientId?: string } }>(body: B, req: Request, existing?: StoredNhi) => {
   const { nhi: clientNhi, ...writable } = body
-  const nhi = clientNhi?.clientId
-    ? { clientId: clientNhi.clientId, siteUrl: reqSiteUrl(req).replace(/\/+$/, ''), issuer: nhiIssuerUrl(reqSiteUrl(req)) }
-    : undefined
+  const nhi = buildNhi(clientNhi?.clientId, existing, () => ({
+    siteUrl: reqSiteUrl(req).replace(/\/+$/, ''),
+    issuer: nhiIssuerUrl(reqSiteUrl(req))
+  }))
   return { nhi, writable }
 }
 
@@ -182,10 +183,9 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     const existing = await getAutonomousAgent(owner, req.params.agentId)
     if (!existing) throw httpError(404, 'unknown autonomous agent')
 
-    // Re-captures the site url rather than preserving the existing one: an admin re-saving from a
-    // different host is telling us the site url changed, and the enrolment check immediately verifies
-    // whether the new one actually works.
-    const { nhi, writable } = rebuildNhi(body, req)
+    // Keeps the captured site of an unchanged identity (see buildNhi): an admin saving from another of
+    // the organization's hosts does not move the agent's home.
+    const { nhi, writable } = rebuildNhi(body, req, existing.nhi)
 
     // Whole-document replace of the client-writable subset: one owner, one write
     // route, so there is no disjoint half to preserve the way settings has. The
@@ -200,11 +200,12 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
       ...(existing.createdBy ? { createdBy: existing.createdBy } : {}),
       updatedAt: new Date().toISOString()
     }
-    // Re-verify whenever any part of the enrolment changed, not just the clientId: a
-    // re-save from a different host changes siteUrl/issuer, and those feed the signed
-    // audience and the exchange path, so an unverified change breaks the agent at its
-    // first tool call. An unchanged enrolment is deliberately NOT re-verified — the
-    // exchange is rate-limited per client_id and consumes a point even on success.
+    // Re-verify whenever any part of the enrolment changed, not just the clientId: siteUrl/issuer
+    // feed the signed audience and the exchange path, so an unverified change breaks the agent at
+    // its first tool call. buildNhi only changes them on a new clientId or a missing capture, but
+    // the comparison stays field-by-field so that invariant is not what this relies on. An unchanged
+    // enrolment is deliberately NOT re-verified — the exchange is rate-limited per client_id and
+    // consumes a point even on success.
     const enrolmentChanged = !!updated.nhi?.clientId && (
       updated.nhi.clientId !== existing.nhi?.clientId ||
       updated.nhi.siteUrl !== existing.nhi?.siteUrl ||

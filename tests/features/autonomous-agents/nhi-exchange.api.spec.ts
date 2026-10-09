@@ -198,4 +198,24 @@ test.describe('NHI exchange', () => {
     assert.equal(updated.data.title, 'No nhi renamed')
     assert.equal(updated.data.nhi, undefined)
   })
+
+  test('a save that keeps the identity keeps the captured site, whatever host it comes from', async () => {
+    // The fixture carries the site it was captured on, as a first enrolment would have stored it.
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-autonomous-agent-nhi',
+      siteUrl: publicUrl,
+      issuer,
+      autonomousAgent: { title: 'Home keeper', persona: 'x', mcpServers: [], enabled: true }
+    })
+    // `admin` reaches the API directly: no x-forwarded-host, so a re-capture would throw. Keeping the
+    // identity must not need one.
+    const res = await admin.put('/api/autonomous-agents/organization/test1/test-fixture', {
+      title: 'Home keeper, renamed', persona: 'x', mcpServers: [], enabled: true, nhi: { clientId: 'test-autonomous-agent-nhi' }
+    })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.nhi.siteUrl, publicUrl)
+    assert.equal(res.data.nhi.issuer, issuer)
+  })
 })

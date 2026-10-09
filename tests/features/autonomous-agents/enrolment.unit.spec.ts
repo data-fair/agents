@@ -5,6 +5,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { autonomousAgentNhiBody, autonomousAgentSubject } from '@agents/shared/autonomous-agent-identity'
 import { enrolmentErrorMessage } from '../../../ui/src/utils/autonomous-agent-enrolment-error.ts'
+import { buildNhi } from '../../../api/src/autonomous-agents/operations.ts'
 
 const issuer = 'https://example.test/agents/api/nhi'
 
@@ -95,5 +96,27 @@ test.describe('enrolmentErrorMessage', () => {
 
   test('reports the status when there is nothing else to say', () => {
     assert.match(enrolmentErrorMessage({ status: 403 }), /403/)
+  })
+})
+
+test.describe('buildNhi', () => {
+  const capture = () => ({ siteUrl: 'https://portal.example.org', issuer: 'https://portal.example.org/agents/api/nhi' })
+  const existing = { clientId: 'nhi-1', siteUrl: 'https://admin.example.org', issuer: 'https://admin.example.org/agents/api/nhi' }
+
+  test('no client id, no identity', () => {
+    assert.equal(buildNhi(undefined, existing, capture), undefined)
+    assert.equal(buildNhi('', existing, capture), undefined)
+  })
+  test('a first enrolment captures the site it is saved from', () => {
+    assert.deepEqual(buildNhi('nhi-1', undefined, capture), { clientId: 'nhi-1', ...capture() })
+  })
+  test('a save from another host keeps the captured site', () => {
+    assert.deepEqual(buildNhi('nhi-1', existing, () => { throw new Error('must not capture') }), existing)
+  })
+  test('a new client id is a new enrolment', () => {
+    assert.deepEqual(buildNhi('nhi-2', existing, capture), { clientId: 'nhi-2', ...capture() })
+  })
+  test('an existing identity missing its capture is captured now', () => {
+    assert.deepEqual(buildNhi('nhi-1', { clientId: 'nhi-1' }, capture), { clientId: 'nhi-1', ...capture() })
   })
 })
