@@ -16,6 +16,9 @@ import {
 /** Below this many characters, an HTML page probably renders its content with JavaScript. */
 const THIN_CONTENT = 200
 
+/** Links returned with a page, after keeping those under the allowed URLs. */
+const MAX_RETURNED_LINKS = 200
+
 /** Child sitemaps read by one filtered listing (service-public.gouv.fr has 14 of 1.1 MB each). */
 const MAX_CHILD_SITEMAPS = 25
 
@@ -58,8 +61,10 @@ export interface FetchUrlResult {
   offset: number
   nextOffset?: number
   totalLength: number
-  /** On the first page of an HTML document only. */
+  /** On the first page of an HTML document only: the page's links the agent may follow. */
   links?: string[]
+  /** How many of the page's links lead outside the allowed URLs, and were left out. */
+  linksElsewhere?: number
   forms?: PageForm[]
   /** URLs to fill by replacing `{searchTerms}`: the site's search, from OpenSearch or schema.org. */
   searchTemplates?: string[]
@@ -111,12 +116,17 @@ export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<F
   const searchTemplates = first
     ? [...new Set([...first.searchTemplates, ...await openSearchTemplates(first.openSearch, ctx)])]
     : []
+  // Only the links the agent can follow: GitHub's releases page carried ~250, a quarter of them GitHub's
+  // own navigation, and the whole list rode along in every later step of the run.
+  const links = (first?.links ?? []).filter(link => urlAllowed(new URL(link), ctx.allowedUrls))
+  const linksElsewhere = (first?.links.length ?? 0) - links.length
   return {
     url: res.url,
     contentType: res.contentType,
     ...(title ? { title } : {}),
     ...paginate(content, offset),
-    ...(first?.links.length ? { links: first.links } : {}),
+    ...(links.length ? { links: links.slice(0, MAX_RETURNED_LINKS) } : {}),
+    ...(linksElsewhere ? { linksElsewhere } : {}),
     ...(first?.forms.length ? { forms: first.forms } : {}),
     ...(searchTemplates.length ? { searchTemplates } : {}),
     ...(page && content.trim().length < THIN_CONTENT

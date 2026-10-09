@@ -17,7 +17,7 @@ import { createWebTools, FETCH_URL_TOOL_NAME } from '../../../api/src/web/tools.
 const article = `<!doctype html><html><head><title>BAN</title>
   <link rel="search" type="application/opensearchdescription+xml" href="/opensearch.xml">
   <link rel="search" type="application/opensearchdescription+xml" href="https://elsewhere.test/opensearch.xml"></head><body>
-  <nav><a href="/">Home</a></nav>
+  <nav><a href="/">Home</a><a href="https://example.com/pricing">Pricing</a></nav>
   <form action="/search"><input name="q"></form>
   <main><article><h1>Base Adresse Nationale</h1><p>${'La Base Adresse Nationale est le référentiel des adresses. '.repeat(10)}</p></article></main>
   </body></html>`
@@ -112,7 +112,8 @@ test.describe('web access', () => {
     assert.equal(result.url, `${base}/page.html`)
     assert.equal(result.title, 'BAN')
     assert.ok(result.content.includes('Base Adresse Nationale'))
-    assert.deepEqual(result.links, [`${base}/`])
+    assert.deepEqual(result.links, [`${base}/`], 'only the links the agent may follow')
+    assert.equal(result.linksElsewhere, 1)
     assert.deepEqual(result.forms, [{ method: 'GET', action: `${base}/search`, fields: ['q'] }])
     // the declared description was read for its template; the one off the allowlist was skipped
     assert.deepEqual(result.searchTemplates, [`${base}/search?q={searchTerms}&page=`])

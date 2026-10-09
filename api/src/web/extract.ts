@@ -8,8 +8,11 @@ import { parseHTML, DOMParser } from 'linkedom'
 import { Defuddle } from 'defuddle/node'
 import { normalizeSearchTemplate } from './operations.ts'
 
-/** Links returned with a page, for the model to follow; nav links included, that is what crawling needs. */
-export const MAX_LINKS = 200
+/**
+ * A bound on the links read off one page, only so a pathological page cannot fill the worker's answer.
+ * Not what the model gets: fetchUrl keeps the links under the agent's allowed URLs, and caps those.
+ */
+export const MAX_LINKS = 2000
 
 export interface PageForm {
   method: 'GET' | 'POST'
