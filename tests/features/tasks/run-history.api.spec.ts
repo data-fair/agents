@@ -58,8 +58,11 @@ test.describe('Run history', () => {
     assert.equal(past.count, 2)
 
     const one = (await orgAdmin.get(`${agentBase(agent.id)}/runs/${plain}`)).data
-    assert.equal(one.prompt, 'hello')
-    assert.ok(Array.isArray(one.parts) && one.parts.length > 0)
+    // the content once, as the two messages: the prompt and what the model produced
+    assert.equal(one.prompt, undefined)
+    assert.equal(one.parts, undefined)
+    assert.equal(one.messages[0].parts[0].text, 'hello')
+    assert.ok(one.messages[1].parts.length > 0)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/no-such-run`), { status: 404 })
 
     const exported = await orgAdmin.get(`${agentBase(agent.id)}/runs/${attention}/export`, { responseType: 'text', transformResponse: r => r })

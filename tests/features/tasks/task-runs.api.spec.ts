@@ -54,11 +54,12 @@ test.describe('Task runs', () => {
     assert.equal(run.kind, 'task')
     assert.equal(run.trigger, 'manual')
     assert.equal(run.status, 'done')
-    assert.equal(run.prompt, task.prompt)
     assert.deepEqual(run.outcome, { status: 'done', summary: 'all good' })
-    assert.ok(run.parts.some((p: any) => p.type === 'dynamic-tool' && p.toolName === 'report_outcome'))
     assert.match(run.systemPrompt, /scheduled execution/)
-    // read as the two messages the chat components render: the prompt, then the answer
+    // read as the two messages the chat components render: the prompt, then the answer — and only so,
+    // not also as the run's own prompt and parts
+    assert.equal(run.prompt, undefined)
+    assert.equal(run.parts, undefined)
     assert.deepEqual(run.messages.map((m: any) => m.role), ['user', 'assistant'])
     assert.equal(run.messages[0].parts[0].text, task.prompt)
     assert.ok(run.messages[1].parts.some((p: any) => p.type === 'dynamic-tool' && p.toolName === 'report_outcome'))
@@ -84,7 +85,7 @@ test.describe('Task runs', () => {
   test('a tool needing approval is not offered, and never runs', async () => {
     const agent = await createAgent()
     const run = await awaitRun(agent.id, await runNow(agent.id, (await createTask(agent.id, 'call tool wipe_everything {}')).id))
-    const part = run.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'wipe_everything')
+    const part = run.messages[1].parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'wipe_everything')
     assert.notEqual(part?.state, 'output-available')
     assert.deepEqual(fixture.invokedTools(), [])
     // REMOVED, not gated: a gated call would end the turn on an approval nobody can give (recorded as an

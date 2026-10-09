@@ -83,9 +83,9 @@ router.get('/:type/:id/:agentId/runs', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// One run WITH its content: a task run's `prompt` and `parts`, and the same as the two `messages` the
-// chat components render; a conversation run's metadata, which points
-// at its `conversationId` for the content.
+// One run WITH its content: a task run's content as the two `messages` the chat components render (and
+// only so — its `prompt` and `parts` would carry it twice, as in the export); a conversation run's
+// metadata, which points at its `conversationId` for the content.
 router.get('/:type/:id/:agentId/runs/:runId', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
@@ -96,8 +96,13 @@ router.get('/:type/:id/:agentId/runs/:runId', async (req, res, next) => {
     const run = await getRun(owner, agent.id, req.params.runId)
     // A conversation run is metadata only here (its content is the conversation's, read elsewhere): without
     // the telemetry and system prompt, as in the list.
-    if (run.kind === 'task') res.json({ ...run, messages: runAsMessages(run) })
-    else { const { systemPrompt, calls, ...metadata } = run; res.json(metadata) }
+    if (run.kind === 'task') {
+      const { prompt, parts, ...runWithoutContent } = run
+      res.json({ ...runWithoutContent, messages: runAsMessages(run) })
+    } else {
+      const { systemPrompt, calls, ...metadata } = run
+      res.json(metadata)
+    }
   } catch (err) { next(err) }
 })
 

@@ -30,7 +30,7 @@ A task run is a document of the `runs` collection with `kind: 'task'` (absent me
 
 A task run is created and closed by the same `createRun` and `finishRun` as a conversation's (`api/src/conversations/service.ts`), minus the conversation. The conversation invariant holds: a run always reaches a terminal status. `finishRun` is conditional on the run still being `running`.
 
-**The read layer.** Everything that reads a transcript expects messages. `runAsMessages` (`api/src/tasks/run-messages.ts`) presents a task run as two: the prompt (a user message authored by `{ kind: 'task' }`) and what the model produced (the assistant message, `runId` set). The export and memory reflection both read a task run through it.
+**The read layer.** Everything that reads a transcript expects messages. `runAsMessages` (`api/src/tasks/run-messages.ts`) presents a task run as two: the prompt (a user message authored by `{ kind: 'task' }`) and what the model produced (the assistant message, `runId` set). The run route, the export and memory reflection all read a task run through it; the agent page's History tab renders those messages with the chat's own transcript component (`ui/src/components/agent-page/TaskRunView.vue`).
 
 Task runs are deleted with their agent (the delete cascade in `api/src/autonomous-agents/service.ts`): `kind: 'task'` runs by `agentId`, and the agent's tasks, before the conversations; conversation runs keep their conversation-keyed deletion.
 
@@ -101,7 +101,7 @@ Notifications (`taskEvent` in `operations.ts`, `pushTaskEvent` in `api/src/tasks
 | `POST /tasks`, `PUT /tasks/:taskId`, `DELETE /tasks/:taskId` | admin of the account, behind the rollout gate (`reqWriteSession`) | `201`, `200`, `204` |
 | `POST /tasks/:taskId/run` | admin, rollout gate | **run now**: `202 { runId }` |
 | `GET /runs` | admin | runs of the agent, newest first, without `parts`, `prompt`, `systemPrompt`, `calls`; filters `taskId`, `kind` (`task`, or `conversation` — matched as "not `task`", since a conversation run carries no `kind`; any other value is a `400`), `status`, `outcome`, `since`; paged (`size` up to 100, `page`) |
-| `GET /runs/:runId` | admin | a task run with its content; a conversation run as metadata only (it points at its `conversationId`) |
+| `GET /runs/:runId` | admin | a task run with its content, as the two `messages` of `runAsMessages` (not also as `prompt`/`parts`); a conversation run as metadata only (it points at its `conversationId`) |
 | `POST /runs/:runId/abort` | admin | stop a task run (below); `404` for a conversation run |
 | `GET /runs/:runId/export` | admin | a task run's JSONL, the same file as a conversation's export, its content presented as two messages by `runAsMessages` (`404` for a conversation run) |
 
