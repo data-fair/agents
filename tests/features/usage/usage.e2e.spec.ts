@@ -37,8 +37,10 @@ test.describe('Usage UI', () => {
 
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
-    // Verify usage card title is visible
-    await expect(page.getByText('Usage', { exact: true })).toBeVisible()
+    // Verify usage card title is visible — the card's own title: the Activity section's "Usage" tab
+    // carries the same word, and matched alone while the card's fetch was pending (or both matched
+    // once it landed, a strict-mode violation)
+    await expect(page.locator('.v-card-title').getByText('Usage', { exact: true })).toBeVisible()
     // With no usage, should show "No usage recorded"
     await expect(page.getByText('No usage recorded')).toBeVisible()
     // An account with no pushed allowance has no cap: limit -1 reads "unlimited"

@@ -91,7 +91,10 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
       expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
     }).toPass({ timeout: 10000 })
     const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
-    await expect(frame.locator('.v-alert')).toBeVisible({ timeout: 15000 })
+    // The refusal in the transcript, not any alert: a named agent other than the personal one also
+    // shows the standing audited notice, which matched alone before the refusal landed — passing
+    // without the refusal — and alongside it after, a strict-mode violation.
+    await expect(frame.getByTestId('agent-chat-transcript').getByRole('alert')).toBeVisible({ timeout: 15000 })
   })
 
   test('prose in a ?systemPrompt= query parameter no longer reaches the system prompt', async ({ page, goToWithAuth }) => {
