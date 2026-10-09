@@ -27,6 +27,7 @@ export function autonomousAgentEditDraft (autonomousAgent: Record<string, any>):
   draft.approvals = { ...DEFAULT_APPROVALS, ...autonomousAgent.approvals }
   draft.memory = autonomousAgent.memory ?? { enabled: false }
   draft.web = autonomousAgent.web ?? { enabled: false }
+  draft.externalMcpServers = autonomousAgent.externalMcpServers ?? []
   // Only the client id is writable; siteUrl/issuer are derived by the server from the request that
   // enrolled the agent, and sending them back would be sending back values it ignores.
   if (autonomousAgent.nhi?.clientId) draft.nhi = { clientId: autonomousAgent.nhi.clientId }

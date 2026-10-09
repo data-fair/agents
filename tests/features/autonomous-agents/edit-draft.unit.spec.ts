@@ -61,6 +61,7 @@ test.describe('autonomousAgentEditDraft', () => {
     assert.deepEqual(draft.memory, { enabled: false })
     // not allowedUrls: it is hidden while web access is off, and vjsf leaves it out
     assert.deepEqual(draft.web, { enabled: false })
+    assert.deepEqual(draft.externalMcpServers, [])
   })
 
   test('keeps a stored value over its default, per approval level', () => {
