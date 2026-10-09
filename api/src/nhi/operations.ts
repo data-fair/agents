@@ -220,3 +220,20 @@ export function decodeSessionClaims (cookieHeader: string): Record<string, any> 
   if (segments.length < 2) throw new Error('id_token cookie is not a header.payload pair')
   return JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf8'))
 }
+
+/**
+ * Sessions by agent and site. A simple-directory session is host-only, so an agent acting on several
+ * of its organization's sites holds one per site; disabling or deleting the agent drops all of them.
+ */
+export function createSessionStore<T> () {
+  const byAgent = new Map<string, Map<string, T>>()
+  return {
+    get: (agentId: string, site: string): T | undefined => byAgent.get(agentId)?.get(site),
+    set: (agentId: string, site: string, value: T) => {
+      let sites = byAgent.get(agentId)
+      if (!sites) byAgent.set(agentId, sites = new Map())
+      sites.set(site, value)
+    },
+    clear: (agentId: string) => { byAgent.delete(agentId) }
+  }
+}

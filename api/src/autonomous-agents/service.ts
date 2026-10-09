@@ -7,7 +7,7 @@ import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operations.ts'
-import { getAutonomousAgentSession, clearAutonomousAgentSession, type EnrolledAutonomousAgent } from '../nhi/service.ts'
+import { getAutonomousAgentSession, clearAutonomousAgentSession, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools } from '../mcp-servers/client.ts'
 import { agentStoreId } from '../memory/operations.ts'
@@ -79,9 +79,10 @@ export const assertKnownMcpServers = (mcpServers?: { serverId: string }[]) => {
 /**
  * Obtain a session for this autonomous agent and report WHICH identity it got, without
  * ever returning the cookie. Diagnostic surface for admins, and the end-to-end proof
- * that issuer/jwks/claims/audience agree.
+ * that issuer/jwks/claims/audience agree — and where it has its account (the sites it acts on
+ * with its own session).
  */
-export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent) => {
+export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }) => {
   const cookieHeader = await getAutonomousAgentSession(autonomousAgent)
   const claims = decodeSessionClaims(cookieHeader)
   return {
@@ -95,7 +96,8 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
     // the NHI token route refuses any identity whose `organizations.length !== 1`.
     organization: claims.organizations?.[0]?.id,
     nhi: claims.nhi === 1 || claims.nhi === true,
-    expiresIn: typeof claims.exp === 'number' ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : undefined
+    expiresIn: typeof claims.exp === 'number' ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : undefined,
+    accountSites: await listAccountSites(autonomousAgent)
   }
 }
 

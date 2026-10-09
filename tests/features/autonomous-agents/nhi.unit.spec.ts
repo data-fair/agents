@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertNhiConfig, assertSessionOutlivesRun, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, shouldRefreshSession, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { assertNhiConfig, assertSessionOutlivesRun, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, shouldRefreshSession, decodeSessionClaims, sanitizeExchangeError, createSessionStore, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -312,5 +312,26 @@ test.describe('assertSessionOutlivesRun', () => {
     // silently, since the boot assertion is the only thing connecting the two.
     assert.equal(ASSERTION_TTL_SECONDS, 300)
     assert.doesNotThrow(() => assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, 300))
+  })
+})
+
+test.describe('createSessionStore', () => {
+  test('keeps one value per agent and site', () => {
+    const store = createSessionStore<string>()
+    store.set('a1', 'https://admin.example.org', 'c1')
+    store.set('a1', 'https://portal.example.org', 'c2')
+    assert.equal(store.get('a1', 'https://admin.example.org'), 'c1')
+    assert.equal(store.get('a1', 'https://portal.example.org'), 'c2')
+    assert.equal(store.get('a2', 'https://admin.example.org'), undefined)
+  })
+  test('clearing an agent drops every site of it, and only of it', () => {
+    const store = createSessionStore<string>()
+    store.set('a1', 'https://admin.example.org', 'c1')
+    store.set('a1', 'https://portal.example.org', 'c2')
+    store.set('a2', 'https://admin.example.org', 'c3')
+    store.clear('a1')
+    assert.equal(store.get('a1', 'https://admin.example.org'), undefined)
+    assert.equal(store.get('a1', 'https://portal.example.org'), undefined)
+    assert.equal(store.get('a2', 'https://admin.example.org'), 'c3')
   })
 })
