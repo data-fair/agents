@@ -31,18 +31,19 @@
               data-testid="autonomous-agent-list"
               density="comfortable"
             >
+              <!-- A link to the agent's page, the one place an agent is edited. The state chips stay:
+                   a stopped agent or one without an identity must be visible at a glance here. -->
               <v-list-item
                 v-for="agent of agents"
                 :key="agent.id"
                 :title="agent.title"
                 :subtitle="subtitle(agent)"
+                :to="`/${accountType}/${accountId}/agents/${agent.id}`"
               >
                 <template #prepend>
                   <v-icon :icon="agent.enabled ? mdiRobotOutline : mdiRobotOffOutline" />
                 </template>
                 <template #append>
-                  <!-- Not enabled is shown explicitly: it is a real kill switch, so an admin must
-                       see at a glance that an autonomous agent is stopped. -->
                   <v-chip
                     v-if="!agent.enabled"
                     size="small"
@@ -51,64 +52,20 @@
                     class="mr-2"
                     :text="t('disabled')"
                   />
-                  <!-- Actionable rather than merely informative: the identity is created in
-                       simple-directory from here, so the admin never leaves this UI. -->
-                  <v-btn
-                    v-if="canConfigure && !agent.nhi?.clientId"
-                    size="small"
-                    color="warning"
-                    variant="tonal"
-                    class="mr-2"
-                    :loading="enrolling && enrolTarget === agent.id"
-                    :text="t('enrol')"
-                    @click="startEnrol(agent)"
-                  />
                   <v-chip
-                    v-else-if="!agent.nhi?.clientId"
+                    v-if="!agent.nhi?.clientId"
                     size="small"
                     color="warning"
                     variant="tonal"
-                    class="mr-2"
                     :text="t('notEnrolled')"
                   />
                   <v-chip
                     v-else
                     size="small"
                     variant="tonal"
-                    class="mr-2"
                     :title="agent.nhi.clientId"
                     :text="t('enrolled')"
                   />
-                  <!-- Memory is the agent's own and admin-only: it can hold what other instructors said.
-                       Offered even with memory turned off: the store keeps its notes, and the way to
-                       inspect or clean a suspect one is to switch memory off and then open it here. -->
-                  <v-btn
-                    variant="text"
-                    size="small"
-                    :data-testid="`autonomous-agent-memory-${agent.id}`"
-                    :text="t('memory')"
-                    @click="memoryAgent = agent; memoryDialog = true"
-                  />
-                  <!-- Mono-agent, exactly like a host embed: this is the agent's own page, not the
-                       back-office switcher (which belongs to data-fair's layout and asks for it with
-                       `agents=1`). A disabled agent is still openable — the turn refusal is the
-                       message an admin checking the kill switch needs to see. -->
-                  <v-btn
-                    :to="{ path: `/${accountType}/${accountId}/chat`, query: { agentId: agent.id } }"
-                    variant="text"
-                    size="small"
-                    :text="t('open')"
-                  />
-                  <v-btn
-                    v-if="canConfigure"
-                    icon
-                    variant="text"
-                    size="small"
-                    :title="t('edit')"
-                    @click="startEdit(agent)"
-                  >
-                    <v-icon :icon="mdiPencil" />
-                  </v-btn>
                 </template>
               </v-list-item>
             </v-list>
@@ -129,79 +86,19 @@
   </df-section-tabs>
 
   <v-dialog
-    v-model="enrolDialog"
-    max-width="620"
-  >
-    <v-card :title="t('enrolTitle')">
-      <v-card-text>
-        <p class="text-body-2 mb-4">
-          {{ t('enrolExplain') }}
-        </p>
-        <v-alert
-          v-if="enrolError"
-          type="warning"
-          variant="tonal"
-          density="compact"
-          class="mb-4"
-          data-testid="autonomous-agent-enrol-error"
-          :text="enrolError"
-        />
-        <v-select
-          v-model="reuseClientId"
-          :items="reusableNhis"
-          item-title="label"
-          item-value="id"
-          clearable
-          :label="t('reuseExisting')"
-          :hint="t('reuseHint')"
-          persistent-hint
-          data-testid="autonomous-agent-enrol-reuse"
-        />
-      </v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
-          variant="text"
-          :text="t('cancel')"
-          @click="enrolDialog = false"
-        />
-        <v-btn
-          color="primary"
-          variant="flat"
-          :loading="enrolling"
-          data-testid="autonomous-agent-enrol-confirm"
-          :text="reuseClientId ? t('attach') : t('createIdentity')"
-          @click="confirmEnrol()"
-        />
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
-
-  <v-dialog
     v-model="dialog"
     max-width="900"
     scrollable
   >
-    <v-card :title="editing ? t('edit') : t('add')">
+    <!-- Creating only: a page exists once the agent does, and the page is where it is edited. -->
+    <v-card :title="t('add')">
       <v-card-text>
-        <v-form
+        <autonomous-agent-form
           ref="formRef"
-          v-model="valid"
-        >
-          <vjsf-autonomous-agent-write-req
-            v-model="draft"
-            :locale="locale"
-            :options="vjsfOptions"
-          />
-        </v-form>
-        <v-alert
-          v-if="webWithUnapprovedWrites"
-          type="warning"
-          variant="tonal"
-          class="mt-4"
-          :title="t('webRiskTitle')"
-          :text="t('webRisk')"
-          data-testid="autonomous-agent-web-risk"
+          v-model="draft"
+          v-model:valid="valid"
+          :account-type="accountType"
+          :account-id="accountId"
         />
       </v-card-text>
       <v-card-actions>
@@ -224,24 +121,13 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
-
-  <agent-memory-dialog
-    v-model="memoryDialog"
-    :agent="memoryAgent"
-    :account-type="accountType"
-    :account-id="accountId"
-    :can-configure="canConfigure"
-  />
 </template>
 
 <i18n lang="yaml">
 en:
-  memory: Memory
   autonomousAgents: Autonomous agents
   list: Autonomous agents
   add: Create an autonomous agent
-  edit: Edit
-  open: Open
   save: Save
   cancel: Cancel
   none: No autonomous agent yet.
@@ -249,25 +135,12 @@ en:
   disabled: Disabled
   notEnrolled: No identity
   enrolled: Identity enrolled
-  enrol: Enrol an identity
-  enrolTitle: Enrol a non-human identity
-  enrolExplain: An autonomous agent acts under its own identity, registered in the directory. Creating one here binds it to this agent; you can also reuse an identity that already exists.
-  reuseExisting: Reuse an existing identity
-  reuseHint: Leave empty to create a new one for this autonomous agent.
-  createIdentity: Create and enrol
-  attach: Attach
-  enrolFailed: Could not enrol this autonomous agent.
   gated: Autonomous agents are still being rolled out. A superadmin in admin mode configures them for now.
   servers: "{count} MCP server(s)"
-  webRiskTitle: This agent reads the web and can write without approval
-  webRisk: "A page it reads can contain instructions, and the agent may follow them with its identity and all its tools. Prefer read-only tools for an agent with web access, or set Writing and Destructive approvals to \"Approve each call\" or \"Never offer\"."
 fr:
-  memory: Mémoire
   autonomousAgents: Agents autonomes
   list: Agents autonomes
   add: Créer un agent autonome
-  edit: Modifier
-  open: Ouvrir
   save: Enregistrer
   cancel: Annuler
   none: Aucun agent autonome pour le moment.
@@ -275,34 +148,21 @@ fr:
   disabled: Désactivé
   notEnrolled: Pas d'identité
   enrolled: Identité enregistrée
-  enrol: Enregistrer une identité
-  enrolTitle: Enregistrer une identité non humaine
-  enrolExplain: Un agent autonome agit sous sa propre identité, enregistrée dans l'annuaire. En créer une ici la lie à cet agent ; vous pouvez aussi réutiliser une identité existante.
-  reuseExisting: Réutiliser une identité existante
-  reuseHint: Laissez vide pour en créer une nouvelle pour cet agent autonome.
-  createIdentity: Créer et enregistrer
-  attach: Rattacher
-  enrolFailed: Impossible d'enregistrer cet agent autonome.
   gated: Les agents autonomes sont en cours de déploiement progressif. Pour l'instant, un superadministrateur en mode administration les configure.
   servers: "{count} serveur(s) MCP"
-  webRiskTitle: Cet agent lit le web et peut écrire sans approbation
-  webRisk: "Une page qu'il lit peut contenir des instructions, et l'agent peut les suivre avec son identité et tous ses outils. Préférez des outils en lecture seule pour un agent qui accède au web, ou réglez les approbations Écriture et Destruction sur « Approuver chaque appel » ou « Ne jamais proposer »."
 </i18n>
 
 <script lang="ts" setup>
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { mdiPencil, mdiRobotOffOutline, mdiRobotOutline } from '@mdi/js'
+import { useRouter } from 'vue-router'
+import { mdiRobotOffOutline, mdiRobotOutline } from '@mdi/js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
-import AgentMemoryDialog from '~/components/AgentMemoryDialog.vue'
-import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
-import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
-import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
-import { useAutonomousAgentEnrolment } from '~/composables/use-autonomous-agent-enrolment'
-import { $apiPath, $fetch, $sdUrl, $uiConfig } from '~/context'
+import AutonomousAgentForm from '~/components/AutonomousAgentForm.vue'
+import { $apiPath, $fetch, $uiConfig } from '~/context'
 
 const props = defineProps<{
   id: string
@@ -310,12 +170,10 @@ const props = defineProps<{
   accountId: string
 }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const router = useRouter()
 const session = useSession()
 const { sendUiNotif } = useUiNotif()
-
-const memoryDialog = ref(false)
-const memoryAgent = ref<any | null>(null)
 
 const tab = ref('list')
 const tabs = computed(() => [{ key: 'list', title: t('list'), icon: mdiRobotOutline }])
@@ -337,114 +195,29 @@ const agents = computed(() => agentsFetch.data.value?.results ?? [])
 
 const subtitle = (agent: any) => t('servers', { count: agent.mcpServers?.length ?? 0 })
 
-const formRef = ref<any>(null)
+const formRef = ref<InstanceType<typeof AutonomousAgentForm> | null>(null)
 const dialog = ref(false)
-const editing = ref<any | null>(null)
 const draft = ref<any>({})
-// Web access with writes still allowed without approval: what a page says could make the agent act. A
-// warning, never a block — the admin decides. Defaults as in api/src/conversations/approval-policy.ts.
-const webWithUnapprovedWrites = computed(() => !!draft.value.web?.enabled && (
-  (draft.value.approvals?.write ?? 'allow') === 'allow' || (draft.value.approvals?.destructive ?? 'approve') === 'allow'
-))
 const valid = ref<boolean | null>(null)
 const saving = ref(false)
-/**
- * `context` is load-bearing, not decoration: the MCP server picker is an autocomplete whose
- * getItems url interpolates ${context.apiPath}/${context.accountType}/${context.accountId}, and
- * the access-ref variants of the instructors field use ${context.owner.*} and gate their
- * `layout.if` on context.owner.type — without these the pickers fetch a broken url and silently
- * offer nothing.
- *
- * `fetch` is json-layout's getItems fetcher, not the app's $fetch (which carries our API baseURL
- * and would prefix simple-directory urls into it, see use-autonomous-agent-enrolment.ts). The
- * access-ref schema names simple-directory root-absolute, so it is rewritten onto $sitePath here.
- */
-const vjsfOptions = computed(() => ({
-  validateOn: 'input' as const,
-  // 'input', not 'blur': this is a dialog the admin saves and closes, so a toggle that only reaches
-  // the model on blur would be read as unchanged by save() — a checkbox flipped and then saved
-  // directly did nothing at all.
-  updateOn: 'input' as const,
-  density: 'comfortable' as const,
-  titleDepth: 4,
-  readOnlyPropertiesMode: 'hide' as const,
-  initialValidation: 'always' as const,
-  context: {
-    apiPath: $apiPath,
-    accountType: props.accountType,
-    accountId: props.accountId,
-    owner: { type: props.accountType, id: props.accountId }
-  },
-  fetch: async (url: string, fetchOptions: RequestInit) => {
-    const response = await globalThis.fetch(rewriteSimpleDirectoryUrl(url, $sdUrl), { credentials: 'include', ...fetchOptions })
-    return await response.json()
-  }
-}))
 
 const startCreate = () => {
-  editing.value = null
   draft.value = { enabled: true, mcpServers: [] }
   dialog.value = true
 }
 
-const startEdit = (agent: any) => {
-  editing.value = agent
-  // The projection lives in a tested function, not inline: the write route treats its body as the
-  // whole writable document, so a property added to the schema and forgotten here would be silently
-  // wiped — and for nhi that un-enrols the agent.
-  draft.value = autonomousAgentEditDraft(agent)
-  dialog.value = true
-}
-
-// ---- enrolment (federated with simple-directory, client-side) ----
-const { enrolling, error: enrolError, listNhis, enrol, attach } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
-const enrolDialog = ref(false)
-const enrolTarget = ref<string | null>(null)
-const reuseClientId = ref<string | null>(null)
-const reusableNhis = ref<{ id: string, label: string }[]>([])
-
-const startEnrol = async (agent: any) => {
-  enrolTarget.value = agent.id
-  reuseClientId.value = null
-  reusableNhis.value = []
-  enrolError.value = null
-  enrolDialog.value = true
-  try {
-    // Offered, not required: listing is mongo-only in simple-directory, so on a file-storage
-    // deployment this comes back empty and the admin simply creates a new identity.
-    const existing = await listNhis()
-    reusableNhis.value = existing.map(nhi => ({ id: nhi.id, label: `${nhi.name ?? nhi.id} — ${nhi.nhi?.subject ?? ''}` }))
-  } catch { /* leave the list empty; creating a new identity still works */ }
-}
-
-const confirmEnrol = async () => {
-  const agent = agents.value.find((a: any) => a.id === enrolTarget.value)
-  if (!agent) return
-  try {
-    if (reuseClientId.value) await attach(agent, reuseClientId.value)
-    else await enrol(agent)
-    enrolDialog.value = false
-    await agentsFetch.refresh()
-  } catch {
-    // enrolError carries simple-directory's own message; the dialog stays open showing it.
-  }
-}
-
 const save = async () => {
-  // Validate explicitly rather than disabling Save while v-form still reports null: a disabled
-  // button on an unvalidated form blocks a legitimate save, while an unvalidated submit would 400.
-  const validation = await formRef.value?.validate()
-  if (validation && validation.valid === false) return
+  if (formRef.value && !await formRef.value.validate()) return
   saving.value = true
   try {
-    const url = editing.value ? `${apiBase.value}/${editing.value.id}` : apiBase.value
-    await $fetch(url, { method: editing.value ? 'PUT' : 'POST', body: draft.value, credentials: 'include' })
+    const created = await $fetch<{ id: string }>(apiBase.value, { method: 'POST', body: draft.value, credentials: 'include' })
     dialog.value = false
-    await agentsFetch.refresh()
+    // Everything after creation — identity, memory, tasks — happens on the agent's page.
+    await router.push(`/${props.accountType}/${props.accountId}/agents/${created.id}`)
   } catch (error) {
     // Bare $fetch does not notify, unlike useFetch. Without this the admin clicks Save, the spinner
     // stops, the dialog stays open and nothing says why — and there are several real 400/403s here:
-    // an unknown MCP server, a failed enrolment check, the rollout gate.
+    // an unknown MCP server, the rollout gate.
     sendUiNotif({ type: 'error', msg: t('saveFailed'), error })
   } finally {
     saving.value = false

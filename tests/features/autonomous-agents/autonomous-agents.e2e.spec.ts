@@ -29,7 +29,7 @@ test.describe('Autonomous agents configuration', () => {
   // (autonomousAgentsRequireAdminMode), so every write here needs a superadmin in admin mode.
   const asSuperAdmin = { adminMode: true } as const
 
-  test('an admin creates an autonomous agent and sees it listed', async ({ page, goToWithAuth }) => {
+  test('an admin creates an autonomous agent, lands on its page, and sees it listed', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
 
     // Generous: the first navigation after a dev-server restart pays vite's compile cost.
@@ -38,6 +38,11 @@ test.describe('Autonomous agents configuration', () => {
     await page.getByRole('textbox', { name: 'Persona' }).fill('You triage support questions.')
     await page.getByTestId('autonomous-agent-save').click()
 
+    // Creating leads to the agent's page, where everything after creation is done.
+    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/)
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Support triage', { timeout: 20000 })
+
+    await page.goBack()
     await expect(page.getByTestId('autonomous-agent-list')).toContainText('Support triage')
   })
 
@@ -48,14 +53,16 @@ test.describe('Autonomous agents configuration', () => {
     await page.getByRole('textbox', { name: 'Name' }).fill('Persisted agent')
     await page.getByRole('textbox', { name: 'Persona' }).fill('x')
     await page.getByTestId('autonomous-agent-save').click()
-    await expect(page.getByTestId('autonomous-agent-list')).toContainText('Persisted agent', { timeout: 20000 })
+    // The url first: the create dialog's own Name field holds the same value until it closes.
+    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/)
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Persisted agent', { timeout: 20000 })
 
     await page.reload()
-    await expect(page.getByTestId('autonomous-agent-list')).toContainText('Persisted agent')
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Persisted agent', { timeout: 20000 })
   })
 
-  test('the edit dialog opens pre-filled from the stored autonomous agent', async ({ page, goToWithAuth }) => {
-    // What only e2e can show: that Edit actually loads the stored values into the form. The dangerous
+  test('the agent page opens pre-filled from the stored autonomous agent', async ({ page, goToWithAuth }) => {
+    // What only e2e can show: that the page actually loads the stored values into the form. The dangerous
     // half — that the body it builds keeps every writable field, nhi included — is pinned
     // deterministically in edit-draft.unit.spec.ts, including a guard that fails if the write-req
     // schema gains a property the form does not carry.
@@ -64,14 +71,11 @@ test.describe('Autonomous agents configuration', () => {
     })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: created.data.id })
 
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
-    await page.getByTestId('autonomous-agent-list').getByTitle('Edit').first().click({ timeout: 20000 })
-    const dialog = page.locator('.v-overlay--active')
-    await expect(dialog.getByTestId('autonomous-agent-save')).toBeVisible()
-    await expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue('Editable agent', { timeout: 10000 })
-    await expect(dialog.getByRole('textbox', { name: 'Persona' })).toHaveValue('You answer briefly.')
+    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Editable agent', { timeout: 20000 })
+    await expect(page.getByRole('textbox', { name: 'Persona' })).toHaveValue('You answer briefly.')
     // The enrolment is loaded into the form, which is what stops a save from dropping it.
-    await expect(dialog.getByRole('textbox', { name: 'Client id' })).toHaveValue('dev-fixture-nhi')
+    await expect(page.getByRole('textbox', { name: 'Client id' })).toHaveValue('dev-fixture-nhi')
   })
 
   test('an unenrolled autonomous agent offers to enrol it, and reports what the directory says', async ({ page, goToWithAuth }) => {
@@ -87,8 +91,8 @@ test.describe('Autonomous agents configuration', () => {
     })
     expect(created.data.nhi?.clientId).toBeFalsy()
 
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
-    await page.getByTestId('autonomous-agent-list').getByRole('button', { name: 'Enrol an identity' }).first().click({ timeout: 20000 })
+    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
+    await page.getByRole('button', { name: 'Enrol an identity' }).click({ timeout: 20000 })
 
     const dialog = page.locator('.v-overlay--active')
     await expect(dialog.getByTestId('autonomous-agent-enrol-confirm')).toBeVisible()
@@ -125,7 +129,10 @@ test.describe('Autonomous agents configuration', () => {
 
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-list')).toContainText('Identity enrolled', { timeout: 20000 })
-    await expect(page.getByTestId('autonomous-agent-list').getByRole('button', { name: 'Enrol an identity' })).toHaveCount(0)
+
+    await goToWithAuth('/agents/organization/test1/agents/test-fixture', 'superadmin', asSuperAdmin)
+    await expect(page.getByText('Identity enrolled')).toBeVisible({ timeout: 20000 })
+    await expect(page.getByRole('button', { name: 'Enrol an identity' })).toHaveCount(0)
   })
 
   test('the MCP server picker offers the catalog the API serves', async ({ page, goToWithAuth }) => {
@@ -152,17 +159,19 @@ test.describe('Autonomous agents configuration', () => {
     await page.getByRole('textbox', { name: 'Name' }).fill('Journey agent')
     await page.getByRole('textbox', { name: 'Persona' }).fill('You answer briefly.')
     await page.getByTestId('autonomous-agent-save').click()
-    await expect(page.getByTestId('autonomous-agent-list')).toContainText('Journey agent')
+    // The url first: the create dialog's own Name field holds the same value until it closes.
+    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/)
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Journey agent', { timeout: 20000 })
 
     const listed = (await admin.get('/api/autonomous-agents/organization/test1')).data.results
     const journeyAgent = listed.find((agent: any) => agent.title === 'Journey agent')
     expect(journeyAgent).toBeTruthy()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: journeyAgent.id })
 
-    // Follow the link a person would, rather than navigating by url. It lands on the shared chat,
-    // mono-agent on that agent — the standalone thread page was removed.
+    // Follow the link a person would, rather than navigating by url: from the agent's page to the
+    // shared chat, mono-agent on that agent — the standalone thread page was removed.
     await page.reload()
-    await page.getByTestId('autonomous-agent-list').getByRole('link', { name: 'Open' }).first().click()
+    await page.getByRole('link', { name: 'Open chat' }).click({ timeout: 20000 })
 
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
     // The chat names the agent it was opened on. Without this, a page pointed at an autonomous agent

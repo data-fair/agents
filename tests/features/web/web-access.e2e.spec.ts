@@ -16,13 +16,12 @@ const createAgent = async (title: string, over: any = {}) => {
     title, persona: 'You answer briefly.', mcpServers: [], enabled: true, web: { enabled: true, allowedUrls: ['github.com/data-fair'] }, ...over
   })
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: created.data.id })
+  return created.data.id as string
 }
 
-const openEdit = async (page: Page, title: string) => {
-  await page.getByTestId('autonomous-agent-list').locator('.v-list-item', { hasText: title }).getByTitle('Edit').click({ timeout: 20000 })
-  const dialog = page.locator('.v-overlay--active')
-  await expect(dialog.getByRole('textbox', { name: 'Name' })).toHaveValue(title, { timeout: 10000 })
-  return dialog
+const openPage = async (page: Page, goToWithAuth: any, agentId: string, title: string) => {
+  await goToWithAuth(`/agents/organization/test1/agents/${agentId}`, 'superadmin', { adminMode: true })
+  await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue(title, { timeout: 20000 })
 }
 
 test.describe('Web access configuration', () => {
@@ -32,20 +31,20 @@ test.describe('Web access configuration', () => {
   })
 
   test('warns while writes need no approval, not once they do', async ({ page, goToWithAuth }) => {
-    await createAgent('Open writer')
-    await createAgent('Careful reader', { approvals: { readOnly: 'allow', write: 'approve', destructive: 'deny' } })
-    await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
+    const openWriter = await createAgent('Open writer')
+    const carefulReader = await createAgent('Careful reader', { approvals: { readOnly: 'allow', write: 'approve', destructive: 'deny' } })
 
-    const open = await openEdit(page, 'Open writer')
-    await expect(open.getByText('Web access', { exact: true })).toBeVisible()
-    await expect(open.getByText('https://github.com/data-fair')).toBeVisible()
-    await expect(open.getByTestId('autonomous-agent-web-risk')).toBeVisible()
-    await expect(open.getByTestId('autonomous-agent-save')).toBeEnabled()
-    await page.keyboard.press('Escape')
-    await expect(open).toHaveCount(0)
+    await openPage(page, goToWithAuth, carefulReader, 'Careful reader')
+    await expect(page.getByText('https://github.com/data-fair')).toBeVisible()
+    await expect(page.getByTestId('autonomous-agent-web-risk')).toHaveCount(0)
 
-    const careful = await openEdit(page, 'Careful reader')
-    await expect(careful.getByText('https://github.com/data-fair')).toBeVisible()
-    await expect(careful.getByTestId('autonomous-agent-web-risk')).toHaveCount(0)
+    await openPage(page, goToWithAuth, openWriter, 'Open writer')
+    await expect(page.getByText('Web access', { exact: true })).toBeVisible()
+    await expect(page.getByText('https://github.com/data-fair')).toBeVisible()
+    await expect(page.getByTestId('autonomous-agent-web-risk')).toBeVisible()
+    // a warning, never a block: an edit can still be saved (checked last, so no navigation away follows
+    // an unsaved change and meets the leave guard)
+    await page.getByRole('textbox', { name: 'Persona' }).fill('You answer at length.')
+    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })
 })

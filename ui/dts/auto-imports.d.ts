@@ -26,6 +26,7 @@ declare global {
   const breakdownDatasets: typeof import('../src/utils/usage-breakdown').breakdownDatasets
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid').buildMermaidThemeVariables
   const canSendNow: typeof import('../src/composables/chat-send').canSendNow
+  const canonical: typeof import('../src/composables/use-settings-form').canonical
   const computed: typeof import('vue').computed
   const computedDeepDiff: typeof import('@data-fair/lib-vue/deep-diff.js').computedDeepDiff
   const createApp: typeof import('vue').createApp
@@ -220,6 +221,7 @@ declare module 'vue' {
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
     readonly canSendNow: UnwrapRef<typeof import('../src/composables/chat-send')['canSendNow']>
+    readonly canonical: UnwrapRef<typeof import('../src/composables/use-settings-form')['canonical']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
