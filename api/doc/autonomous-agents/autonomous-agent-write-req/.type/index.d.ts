@@ -65,6 +65,684 @@ export type ReadWebPages = boolean;
  * @maxItems 100
  */
 export type AllowedURLs = string[];
+/**
+ * Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.
+ *
+ * @maxItems 20
+ */
+export type ExternalMCPServers =
+  | []
+  | [
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ]
+  | [
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      },
+      {
+        url: URL;
+      }
+    ];
+export type URL = string;
 export type Enabled = boolean;
 
 export type AutonomousAgent = {
@@ -77,6 +755,7 @@ export type AutonomousAgent = {
   approvals?: Approvals;
   memory?: Memory;
   web?: WebAccess;
+  externalMcpServers?: ExternalMCPServers;
   enabled: Enabled;
 }
 export type NonHumanIdentity = {

@@ -4,6 +4,7 @@
  */
 
 import { createHash } from 'node:crypto'
+import net from 'node:net'
 import { forwardedSiteHeaders } from '../sites/operations.ts'
 
 /**
@@ -178,4 +179,44 @@ export function splitPortalArgument (args: Record<string, unknown> | undefined, 
   const portal = all[PORTAL_ARGUMENT]
   delete all[PORTAL_ARGUMENT]
   return typeof portal === 'string' ? { portal, args: all } : { args: all }
+}
+
+/** External MCP calls one run may make, across all its external servers; like web access's budget. */
+export const EXTERNAL_MAX_CALLS = 50
+
+const normalizeExternalMcpUrl = (raw: string): string => {
+  const trimmed = raw.trim()
+  let url: URL
+  try {
+    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
+  } catch {
+    throw new Error(`"${raw}" is not a URL`)
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error(`"${raw}" is not an http(s) URL`)
+  if (url.username || url.password) throw new Error(`"${raw}" must not carry credentials`)
+  if (net.isIP(url.hostname.replace(/^\[|\]$/g, ''))) throw new Error(`"${raw}" must name a host, not an IP address`)
+  url.hash = ''
+  return url.href
+}
+
+/**
+ * The external MCP servers of an agent, as the client connects to them: https assumed, host lowercased,
+ * no IP address, no credentials, once each. Its admin's list; anonymous only (see ./external.ts).
+ */
+export function normalizeExternalMcpServers (servers: { url: string }[]): { url: string }[] {
+  const urls = [...new Set(servers.map(s => normalizeExternalMcpUrl(s.url)))]
+  return urls.map(url => ({ url }))
+}
+
+/** The prefix of an external server's tools: its host, as a tool name may spell it. */
+export function externalToolPrefix (url: string): string {
+  return new URL(url).host.toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 30)
+}
+
+/**
+ * An external tool's name for the model: prefixed, so it can collide neither with a catalog tool nor
+ * with another server's, and within the 64 characters providers accept.
+ */
+export function externalToolName (url: string, toolName: string): string {
+  return `${externalToolPrefix(url)}__${toolName.replace(/[^a-zA-Z0-9_-]+/g, '_')}`.slice(0, 64)
 }

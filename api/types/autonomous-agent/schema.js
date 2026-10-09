@@ -219,6 +219,27 @@ export default {
         }
       }
     },
+    externalMcpServers: {
+      type: 'array',
+      maxItems: 20,
+      default: [],
+      title: 'External MCP servers',
+      'x-i18n-title': { en: 'External MCP servers', fr: 'Serveurs MCP externes' },
+      description: 'Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.',
+      'x-i18n-description': {
+        en: 'Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.',
+        fr: "Serveurs MCP publics que l'agent utilise de façon anonyme — un autre portail de données, sur cette plateforme ou ailleurs. Leurs auteurs écrivent les descriptions que l'agent lit, et ce qu'il leur envoie quitte la plateforme : comme l'accès au web, cela leur permet de fait de donner des instructions à l'agent."
+      },
+      layout: { itemTitle: 'item?.url || ""', listActions: ['add', 'edit', 'delete'] },
+      items: {
+        type: 'object',
+        additionalProperties: false,
+        required: ['url'],
+        properties: {
+          url: { type: 'string', minLength: 1, title: 'URL', 'x-i18n-title': { en: 'URL', fr: 'URL' } }
+        }
+      }
+    },
     enabled: {
       type: 'boolean',
       default: true,

@@ -15,6 +15,7 @@ import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { buildNhi, canInstruct, type StoredNhi } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/executor.ts'
 import { normalizeAllowedUrls } from '../web/operations.ts'
+import { normalizeExternalMcpServers } from '../mcp-servers/operations.ts'
 
 /**
  * Splits a write body into the server-built `nhi` and the rest.
@@ -48,6 +49,16 @@ const normalizeWeb = <B extends { web?: { enabled: boolean, allowedUrls?: string
     return { ...body, web: { ...body.web, allowedUrls: normalizeAllowedUrls(body.web.allowedUrls) } }
   } catch (err: any) {
     throw httpError(400, `web.allowedUrls: ${err.message}`)
+  }
+}
+
+/** The external MCP servers as the client connects to them (see normalizeExternalMcpServers). */
+const normalizeExternal = <B extends { externalMcpServers?: { url: string }[] }>(body: B): B => {
+  if (!body.externalMcpServers) return body
+  try {
+    return { ...body, externalMcpServers: normalizeExternalMcpServers(body.externalMcpServers) }
+  } catch (err: any) {
+    throw httpError(400, `externalMcpServers: ${err.message}`)
   }
 }
 
@@ -88,7 +99,7 @@ router.post('/:type/:id', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
-    const body = normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' }))
+    const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
     assertKnownMcpServers(body.mcpServers)
 
     const { nhi, writable } = rebuildNhi(body, req)
@@ -165,8 +176,8 @@ router.get('/:type/:id/:agentId/tools', async (req, res, next) => {
     const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
     if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
 
-    const results = await describeAutonomousAgentTools(autonomousAgent)
-    res.json({ results, count: results.length })
+    const { results, skipped } = await describeAutonomousAgentTools(autonomousAgent)
+    res.json({ results, count: results.length, skipped })
   } catch (err) { next(err) }
 })
 
@@ -177,7 +188,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     assertOrganizationOwner(owner)
     assertAccountRole(session, owner, 'admin')
     reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
-    const body = normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' }))
+    const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
     assertKnownMcpServers(body.mcpServers)
 
     const existing = await getAutonomousAgent(owner, req.params.agentId)

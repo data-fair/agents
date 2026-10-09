@@ -44,6 +44,8 @@ import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
+import { openExternalMcpTools } from '../mcp-servers/external.ts'
+import { envPublicIps } from '../web/public-lookup.ts'
 import { personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
 import { securityKey } from '../cipher/service.ts'
@@ -317,6 +319,16 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     await openAutonomousAgentTools(autonomousAgent, sites, {
       onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
     })
+  // External MCP servers: anonymous, egress-guarded, never the personal assistant's (see ./mcp-servers/external.ts).
+  const external = autonomousAgent.id !== PERSONAL_AGENT_ID && autonomousAgent.externalMcpServers?.length
+    ? await openExternalMcpTools(autonomousAgent.externalMcpServers, { publicIps: [...envPublicIps(), ...config.externalMcp.publicIps] })
+    : undefined
+  if (external) {
+    Object.assign(rawTools, external.tools)
+    for (const [name, server] of external.serverByTool) serverByTool.set(name, server)
+    for (const [name, annotations] of external.annotationsByTool) annotationsByTool.set(name, annotations)
+    skippedServers.push(...external.skippedServers)
+  }
   if (skippedServers.length) {
     debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
   }
@@ -357,6 +369,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
+    await external?.close()
   }
 }
 

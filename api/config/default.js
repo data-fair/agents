@@ -18,6 +18,9 @@ export default {
   providers: [],
   models: [],
   mcpServers: [],
+  // Addresses an external MCP server may resolve to despite being private (an intranet portal).
+  // SSRF_PUBLIC_IPS is added to it.
+  externalMcp: { publicIps: [] },
   // Progressive exposure: while true, configuring an autonomous agent additionally
   // requires admin mode. This is a rollout control, not an ownership boundary —
   // nothing in the document is durably superadmin-owned, and flipping this to false

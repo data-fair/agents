@@ -9,7 +9,9 @@ import type { Request } from 'express'
 import { listMcpServerCatalog, unknownMcpServerIds, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { getAutonomousAgentSession, agentSiteCredentials, clearAutonomousAgentSession, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
-import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools } from '../mcp-servers/client.ts'
+import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
+import { listExternalToolDescriptors } from '../mcp-servers/external.ts'
+import { envPublicIps } from '../web/public-lookup.ts'
 import { agentStoreId } from '../memory/operations.ts'
 import { deleteMemoryStore } from '../memory/service.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
@@ -122,7 +124,7 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  * The tool list an autonomous agent would actually receive, fetched live as its own
  * identity. Descriptions and annotations only — never a credential.
  */
-export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools & EnrolledAutonomousAgent & { owner: AccountKeys }) => {
+export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools & EnrolledAutonomousAgent & { owner: AccountKeys, externalMcpServers?: { url: string }[] }) => {
   // With no home site `cookieFor` is never called, so the enrolment check getAutonomousAgentSession makes
   // would be lost: refuse here rather than list a session server's tools anonymously.
   const catalog = config.mcpServers ?? []
@@ -133,7 +135,10 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
   const sites: SiteCredentials = autonomousAgent.nhi
     ? await agentSiteCredentials(autonomousAgent)
     : { portals: [], anonymousHome: false, cookieFor: async () => undefined }
-  return await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
+  const results = await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
+  if (!autonomousAgent.externalMcpServers?.length) return { results, skipped: [] as SkippedServer[] }
+  const external = await listExternalToolDescriptors(autonomousAgent.externalMcpServers, { publicIps: [...envPublicIps(), ...config.externalMcp.publicIps] })
+  return { results: [...results, ...external.descriptors], skipped: external.skipped }
 }
 
 /**
