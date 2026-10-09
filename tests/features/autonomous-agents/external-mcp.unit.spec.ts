@@ -5,6 +5,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
+import http from 'node:http'
 import { normalizeExternalMcpServers, externalToolPrefix, externalToolName } from '../../../api/src/mcp-servers/operations.ts'
 import { openExternalMcpTools } from '../../../api/src/mcp-servers/external.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
@@ -67,5 +68,22 @@ test.describe('openExternalMcpTools', () => {
       await echo.execute!({ value: 'a' }, { toolCallId: 'c1', messages: [] } as any)
       await assert.rejects(echo.execute!({ value: 'b' }, { toolCallId: 'c2', messages: [] } as any) as Promise<unknown>, /all of its 1 external MCP calls/)
     } finally { await opened.close() }
+  })
+
+  test('a server that never answers is skipped once the timeout passes, naming it', async () => {
+    const hanging = http.createServer(() => { /* never answers */ })
+    await new Promise<void>(resolve => hanging.listen(0, '127.0.0.1', resolve))
+    const hangingUrl = `http://localhost:${(hanging.address() as any).port}/mcp`
+    try {
+      const started = Date.now()
+      const opened = await openExternalMcpTools([{ url: hangingUrl }], { publicIps: ['127.0.0.1', '::1'], timeoutMs: 300 })
+      assert.ok(Date.now() - started < 3000)
+      assert.deepEqual(Object.keys(opened.tools), [])
+      assert.match(opened.skippedServers[0].reason, /timed? out/i)
+      await opened.close()
+    } finally {
+      hanging.closeAllConnections()
+      await new Promise(resolve => hanging.close(resolve))
+    }
   })
 })

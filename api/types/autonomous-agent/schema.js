@@ -221,7 +221,7 @@ export default {
     },
     externalMcpServers: {
       type: 'array',
-      maxItems: 20,
+      maxItems: 50,
       default: [],
       title: 'External MCP servers',
       'x-i18n-title': { en: 'External MCP servers', fr: 'Serveurs MCP externes' },

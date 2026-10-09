@@ -319,52 +319,55 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     await openAutonomousAgentTools(autonomousAgent, sites, {
       onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
     })
-  // External MCP servers: anonymous, egress-guarded, never the personal assistant's (see ./mcp-servers/external.ts).
-  const external = autonomousAgent.id !== PERSONAL_AGENT_ID && autonomousAgent.externalMcpServers?.length
-    ? await openExternalMcpTools(autonomousAgent.externalMcpServers, { publicIps: [...envPublicIps(), ...config.externalMcp.publicIps] })
-    : undefined
-  if (external) {
-    Object.assign(rawTools, external.tools)
-    for (const [name, server] of external.serverByTool) serverByTool.set(name, server)
-    for (const [name, annotations] of external.annotationsByTool) annotationsByTool.set(name, annotations)
-    skippedServers.push(...external.skippedServers)
-  }
-  if (skippedServers.length) {
-    debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
-  }
-  // The catalog's tools, plus whatever the page in front of the person can do. Both already carry the
-  // provenance envelope, and from here on the loop cannot tell them apart — which is the claim.
-  // THE APPROVAL GATE, on the catalog tools of a configured autonomous agent only. The personal assistant
-  // has no policy, page tools act in the person's own browser, and service tools are the loop's own.
-  // An UNATTENDED turn (a planned task's run) is offered only what the policy allows outright: nobody is
-  // there to decide on a gated call. The personal assistant has no tasks; its branch stays first regardless.
-  const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID
-    ? rawTools
-    : target.surface === 'task'
-      ? withoutGatedTools(rawTools, annotationsByTool, autonomousAgent.approvals)
-      : applyApprovalPolicy(rawTools, annotationsByTool, autonomousAgent.approvals)
-  const tools = {
-    ...withProvenance(catalogTools, name => serverByTool.get(name) ?? 'unknown'),
-    ...(session ? browserToolSet(session) : {})
-  }
-
-  // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
-  // happens to share a name cannot stand in for one, and recorded like a catalog call's source.
-  const service = await buildServiceTools({
-    agent: autonomousAgent,
-    run,
-    surface: target.surface,
-    session,
-    ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
-    // Copies: the service tools are merged into these maps below, and the catalog is the servers' own.
-    catalog: { serverByTool: new Map(serverByTool), annotationsByTool: new Map(annotationsByTool), filteredOut, skippedServers }
-  })
-  Object.assign(tools, service.tools)
-  for (const [name, server] of service.serverByTool) serverByTool.set(name, server)
-  for (const [name, annotations] of service.annotationsByTool) annotationsByTool.set(name, annotations)
-  const memory = service.memory
-
+  // Everything from here on releases the connections however it ends: an open that succeeded and a later
+  // step that throws (the service tools, say) must not leave clients and sockets behind.
+  let external: Awaited<ReturnType<typeof openExternalMcpTools>> | undefined
   try {
+  // External MCP servers: anonymous, egress-guarded, never the personal assistant's (see ./mcp-servers/external.ts).
+    if (autonomousAgent.id !== PERSONAL_AGENT_ID && autonomousAgent.externalMcpServers?.length) {
+      external = await openExternalMcpTools(autonomousAgent.externalMcpServers, { publicIps: [...envPublicIps(), ...config.externalMcp.publicIps] })
+    }
+    if (external) {
+      Object.assign(rawTools, external.tools)
+      for (const [name, server] of external.serverByTool) serverByTool.set(name, server)
+      for (const [name, annotations] of external.annotationsByTool) annotationsByTool.set(name, annotations)
+      skippedServers.push(...external.skippedServers)
+    }
+    if (skippedServers.length) {
+      debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
+    }
+    // The catalog's tools, plus whatever the page in front of the person can do. Both already carry the
+    // provenance envelope, and from here on the loop cannot tell them apart — which is the claim.
+    // THE APPROVAL GATE, on the catalog tools of a configured autonomous agent only. The personal assistant
+    // has no policy, page tools act in the person's own browser, and service tools are the loop's own.
+    // An UNATTENDED turn (a planned task's run) is offered only what the policy allows outright: nobody is
+    // there to decide on a gated call. The personal assistant has no tasks; its branch stays first regardless.
+    const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID
+      ? rawTools
+      : target.surface === 'task'
+        ? withoutGatedTools(rawTools, annotationsByTool, autonomousAgent.approvals)
+        : applyApprovalPolicy(rawTools, annotationsByTool, autonomousAgent.approvals)
+    const tools = {
+      ...withProvenance(catalogTools, name => serverByTool.get(name) ?? 'unknown'),
+      ...(session ? browserToolSet(session) : {})
+    }
+
+    // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
+    // happens to share a name cannot stand in for one, and recorded like a catalog call's source.
+    const service = await buildServiceTools({
+      agent: autonomousAgent,
+      run,
+      surface: target.surface,
+      session,
+      ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
+      // Copies: the service tools are merged into these maps below, and the catalog is the servers' own.
+      catalog: { serverByTool: new Map(serverByTool), annotationsByTool: new Map(annotationsByTool), filteredOut, skippedServers }
+    })
+    Object.assign(tools, service.tools)
+    for (const [name, server] of service.serverByTool) serverByTool.set(name, server)
+    for (const [name, annotations] of service.annotationsByTool) annotationsByTool.set(name, annotations)
+    const memory = service.memory
+
     return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.

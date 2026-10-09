@@ -38,19 +38,17 @@ const publicFetch = (publicIps: string[]) => {
   return { fetchImpl, closeDispatcher: () => dispatcher.close().catch(() => {}) }
 }
 
-const serverId = (url: string) => new URL(url).host
+/** Bound on connecting and listing one external server: a slow one must not delay every turn of the agent. */
+const CONNECT_TIMEOUT_MS = 15_000
 
-const connect = async (url: string, fetchImpl: typeof fetch) => {
-  const client = new Client({ name: 'data-fair-agents', version: '1.0.0' })
-  await client.connect(new StreamableHTTPClientTransport(new URL(url), { fetch: fetchImpl }))
-  return client
-}
+const serverId = (url: string) => new URL(url).host
 
 const errorText = (err: any): string => err?.cause?.message ? `${err.message}: ${err.cause.message}` : String(err?.message ?? err)
 
-export const openExternalMcpTools = async (servers: { url: string }[], opts: { publicIps: string[], maxCalls?: number }) => {
+export const openExternalMcpTools = async (servers: { url: string }[], opts: { publicIps: string[], maxCalls?: number, timeoutMs?: number }) => {
   const { fetchImpl, closeDispatcher } = publicFetch(opts.publicIps)
   const maxCalls = opts.maxCalls ?? EXTERNAL_MAX_CALLS
+  const timeoutMs = opts.timeoutMs ?? CONNECT_TIMEOUT_MS
   const tools: Record<string, Tool> = {}
   const serverByTool = new Map<string, string>()
   const annotationsByTool = new Map<string, Record<string, unknown>>()
@@ -60,10 +58,22 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
 
   // Connected together, and held for the turn: a turn waits for its slowest external server.
   await Promise.all(servers.map(async ({ url }) => {
-    let client: Client | undefined
+    const client = new Client({ name: 'data-fair-agents', version: '1.0.0' })
+    const signal = AbortSignal.timeout(timeoutMs)
+    let timer: NodeJS.Timeout | undefined
     try {
-      client = await connect(url, fetchImpl)
-      const listed = (await client.listTools()).tools as ListedMcpTool[]
+      // One bound on connect + list; tool calls later are not under it. The race is the guarantee (a
+      // server that accepts the connection and never answers); the request options also abort the
+      // pending fetches so nothing stays hanging after the skip.
+      const connecting = (async () => {
+        await client.connect(new StreamableHTTPClientTransport(new URL(url), { fetch: fetchImpl }), { signal, timeout: timeoutMs })
+        return (await client.listTools({}, { signal, timeout: timeoutMs })).tools as ListedMcpTool[]
+      })()
+      connecting.catch(() => {})
+      const timedOut = new Promise<never>((_resolve, reject) => {
+        timer = setTimeout(() => reject(new Error(`timed out after ${timeoutMs} ms connecting to the server`)), timeoutMs)
+      })
+      const listed = await Promise.race([connecting, timedOut])
       clients.push(client)
       for (const t of listed) {
         const name = externalToolName(url, t.name)
@@ -89,9 +99,11 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
     } catch (err: any) {
       // Skipped and reported, never fatal: the organization chose the server, not the operator, and it
       // lives outside the platform — its being down must not take the agent down.
-      await client?.close().catch(() => {})
+      await Promise.race([client.close().catch(() => {}), new Promise(resolve => setTimeout(resolve, 1000).unref())])
       debug('skipping external server=%s %s', url, errorText(err))
-      skippedServers.push({ id: serverId(url), reason: errorText(err) })
+      skippedServers.push({ id: serverId(url), reason: signal.aborted ? `timed out after ${timeoutMs} ms connecting to the server` : errorText(err) })
+    } finally {
+      clearTimeout(timer)
     }
   }))
 
