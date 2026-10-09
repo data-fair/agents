@@ -78,13 +78,19 @@ const wroteMemory = (exported: ParsedExport) => recordedToolCalls(exported).some
 
 /**
  * Memory was written in an EARLIER conversation than the last one, and there was a later one to use it
- * in. Through the tool, in the conversation: reflection would also write, but only past 20 messages or
- * after 30 idle minutes, so in a run this short a write can only be the agent's own call. A write in the
- * last conversation alone means the person restated what was to be remembered — the case did not run.
+ * in. Through the tool, in the conversation: consolidation also writes, but at most daily and never
+ * during a chat case, so a write can only be the agent's own call. A write in the last conversation
+ * alone means the person restated what was to be remembered — the case did not run.
  */
 export const memoryCarriedOver: Premise = {
   description: 'the agent wrote its memory in a conversation before the last one',
   holds: exports => exports.length >= 2 && exports.slice(0, -1).some(wroteMemory)
+}
+
+/** The person had the second conversation the case is about. */
+export const twoConversations: Premise = {
+  description: 'the person had a second conversation',
+  holds: exports => exports.length >= 2
 }
 
 /** The task run reported its outcome: the call that ends a task run, succeeded (not a refused input). */
@@ -106,7 +112,7 @@ export const readTheWeb: Premise = {
  * The LAST run started with a non-empty memory, after an earlier run read the web. Read off the last
  * run's recorded system prompt, where the memory is rendered as it stood when the run started
  * (renderMemoryBlock, api/src/memory/operations.ts) — so it holds whichever way the earlier run wrote
- * it: its own `memory` calls, or the reflection that follows a task run.
+ * it: its own `memory` calls, or the consolidation the runner runs between runs.
  */
 export const memoryCarriedIntoLastRun: Premise = {
   description: 'an earlier run read the web, and the last run started with a non-empty memory',
@@ -323,6 +329,21 @@ export const cases: LocalCase[] = [
     },
     persona: 'You are an operations manager at a mid-sized French city. You are not technical and you never use words like tool, API or MCP. You have fixed habits about how you like information laid out, and you dislike repeating yourself.',
     goal: 'You will have two conversations with this assistant. In the first, you tell it a lasting preference: whenever it gives you road closures, it must lay them out as a table with the street in the first column and the reopening date in the second — and you ask it to remember that for next time. Once it has confirmed it will, you end that conversation. In the second, new conversation you ask for the current road closures in the city centre WITHOUT repeating your preference, because you want to see whether it applies it on its own. If it does not, you say so.',
+    maxTurns: 8
+  },
+  {
+    // ONE HISTORY: memory OFF, so what the second conversation needs can only come from reading the
+    // first one (list_my_runs, get_run, read_conversation). The question is the one the design names:
+    // "why did you do that?", asked in a new conversation about what was decided in another.
+    name: 'autonomous-agent-why-earlier',
+    premise: twoConversations,
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'autonomous-agent',
+    user: 'test1-user1',
+    conversations: 2,
+    agent: { mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }] },
+    persona: 'You are an operations manager at a mid-sized French city. You are not technical and you never use words like tool, API or MCP. You are busy and you expect the assistant to keep track of what you asked it before.',
+    goal: 'You will have two conversations with this assistant. In the first, you ask for the current road closures in the city centre, and you tell it to leave out every closure that reopens within the next week, because those are not worth mentioning to the department heads; once you have the shortened list, you end that conversation. In the second, new conversation you say that a colleague noticed some closures were missing from the list you circulated, and you ask the assistant why it left them out — WITHOUT repeating your instruction. You expect it to find what was decided in the earlier conversation and explain it accurately (your instruction, which closures it dropped), not to guess or to apologise for a mistake it did not make.',
     maxTurns: 8
   },
   // A PLANNED TASK'S RUN: the unattended path, where nobody is in the loop. No persona turns at all —

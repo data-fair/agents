@@ -6,7 +6,7 @@
  */
 import { test } from '../tests/fixtures/login.ts'
 import { cases } from './cases/index.ts'
-import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, fetchConversationExports, runPlannedTaskRepeatedly, fetchTaskRunExport, OWNER } from './runner/settings.ts'
+import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, fetchConversationExports, runPlannedTaskRepeatedly, fetchTaskRunExport, fetchAgentMemory, OWNER } from './runner/settings.ts'
 import {
   createChatDriver,
   nextUserMessage, isDone, resolveUserModel, NEW_CONVERSATION_ROLE,
@@ -206,6 +206,17 @@ for (const simCase of selected) {
     } catch (err) {
       evidenceErrors.push(`could not export the run's conversations: ${err instanceof Error ? err.message : String(err)}`)
     }
+    // What the agent remembers at the end, and who wrote each change: no export carries it.
+    let hostState: TranscriptInput['hostState']
+    const memoryAgentId = taskRuns?.agentId ?? (simCase.surface === 'autonomous-agent' ? parseAutonomousAgentRoute(simCase.route).agentId : undefined)
+    if (memoryAgentId) {
+      try {
+        const memory = await fetchAgentMemory(owner, memoryAgentId)
+        if (memory) hostState = { agentMemory: memory }
+      } catch (err) {
+        evidenceErrors.push(`could not read the agent's memory: ${err instanceof Error ? err.message : String(err)}`)
+      }
+    }
 
     // A run that never reached the situation its case is about tested nothing, however it went: invalid,
     // so it is reported and not judged. Only checked on an otherwise valid run with its evidence in hand.
@@ -229,7 +240,8 @@ for (const simCase of selected) {
       consoleErrors,
       observations: perception?.observations ?? [],
       exports,
-      ...(evidenceErrors.length ? { evidenceErrors } : {})
+      ...(evidenceErrors.length ? { evidenceErrors } : {}),
+      ...(hostState ? { hostState } : {})
     }
     writeEvidence(simCase.name, transcript, {
       case: simCase.name,

@@ -68,6 +68,11 @@ export type Transcript = {
   exports: Array<{ conversationId: string, agentId?: string, file: string }>
   /** Why some of that evidence is missing, so a judge reads an absence as a gap, not as a finding. */
   evidenceErrors?: string[]
+  /**
+   * State the host read back after the run that no conversation export carries — an agent's memory
+   * and its change history, say — keyed by what it is. Written verbatim into the transcript.
+   */
+  hostState?: Record<string, unknown>
 }
 
 /** What the runner hands `writeEvidence`: the transcript, with the exports' contents still in hand. */

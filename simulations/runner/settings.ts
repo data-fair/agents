@@ -279,20 +279,15 @@ export async function runPlannedTask (route: string, task: SimulatedTask, timeou
   return { ...rest, run: runs[0] }
 }
 
-/** How long to wait for a run's memory reflection before starting the next run anyway. */
-export const REFLECTION_TIMEOUT_MS = 5 * 60 * 1000
-
-type TaskRun = { id: string, status: string, error?: string, memoryReflection?: { at?: string } }
+type TaskRun = { id: string, status: string, error?: string }
 
 /**
  * Plan the task once and run it `times` times in a row, as successive scheduled slots would — so a
  * later run starts with whatever the earlier ones left in the agent's memory.
  *
- * Between runs, waits for the finished run's MEMORY REFLECTION (api/src/memory/reflection.ts, started
- * fire-and-forget when a `done` run closes on an agent with memory): starting the next run first would
- * race it, and the next run would test a memory still being written. A run that was not reflected
- * within the timeout — not `done`, no memory, a failed reflection — is not waited on further: the
- * case's premise is what decides whether memory carried over.
+ * Between runs, consolidates the agent's memory (api/src/memory/consolidation.ts) the way the daily
+ * sweep would between two weekly slots: a test-env seam rather than the sweep, whose clock would
+ * otherwise have to move a day. An agent without memory answers `memory-off` and nothing happens.
  */
 export async function runPlannedTaskRepeatedly (route: string, task: SimulatedTask, times: number, timeoutMs = TASK_RUN_TIMEOUT_MS) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
@@ -300,24 +295,37 @@ export async function runPlannedTaskRepeatedly (route: string, task: SimulatedTa
   const { owner, agentId } = parseAutonomousAgentRoute(route)
   const base = `/api/autonomous-agents/${owner.type}/${owner.id}/${agentId}`
   const created = (await admin.post(`${base}/tasks`, task)).data as { id: string }
-  const poll = async (runId: string, done: (run: TaskRun) => boolean, ms: number) => {
-    const deadline = Date.now() + ms
-    for (;;) {
-      const run = (await admin.get(`${base}/runs/${runId}`)).data as TaskRun
-      if (done(run)) return run
-      if (Date.now() > deadline) return undefined
-      await new Promise(resolve => setTimeout(resolve, 1000))
-    }
-  }
   const runs: TaskRun[] = []
   for (let i = 0; i < times; i++) {
     const runId = (await admin.post(`${base}/tasks/${created.id}/run`)).data.runId as string
-    const run = await poll(runId, r => r.status !== 'running', timeoutMs)
-    if (!run) throw new Error(`task run ${runId} was still running after ${Math.round(timeoutMs / 1000)}s`)
+    const deadline = Date.now() + timeoutMs
+    let run: TaskRun
+    for (;;) {
+      run = (await admin.get(`${base}/runs/${runId}`)).data as TaskRun
+      if (run.status !== 'running') break
+      if (Date.now() > deadline) throw new Error(`task run ${runId} was still running after ${Math.round(timeoutMs / 1000)}s`)
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
     runs.push(run)
-    if (i < times - 1 && run.status === 'done') await poll(runId, r => !!r.memoryReflection?.at, REFLECTION_TIMEOUT_MS)
+    if (i < times - 1) await admin.post('/api/test-env/consolidate-memory', { agentId })
   }
   return { owner, agentId, taskId: created.id, runs }
+}
+
+/**
+ * The agent's memory after the run, for the judge: every document and the change history (who wrote
+ * what: a run's tool call, a consolidation, a person). Undefined for an agent without memory.
+ */
+export async function fetchAgentMemory (owner: { type: string, id: string }, agentId: string) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const base = `/api/memory/${owner.type}/${owner.id}/${agentId}`
+  const listing = (await admin.get(base)).data as { enabled: boolean, documents: { path: string }[] }
+  if (!listing.enabled && !listing.documents?.length) return undefined
+  const documents = []
+  for (const { path } of listing.documents ?? []) documents.push((await admin.get(`${base}/document`, { params: { path } })).data)
+  const history = (await admin.get(`${base}/versions`, { params: { size: 100 } })).data.results
+  return { documents, history }
 }
 
 /**
