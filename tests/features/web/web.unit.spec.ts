@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   normalizeAllowedUrl, normalizeAllowedUrls, urlAllowed, hostAllowed, checkUrl, classifyContent, charsetOf, paginate,
-  robotsSitemaps, parseSitemap, filterEntries, normalizeSearchTemplate, parseOpenSearchDescription
+  robotsSitemaps, parseSitemap, filterEntries, normalizeSearchTemplate, parseOpenSearchDescription, parseAiCatalog, mcpServerFromCard
 } from '../../../api/src/web/operations.ts'
 import { ipList, isPublicAddress } from '../../../api/src/web/public-lookup.ts'
 import { extractHtml, renderFeed } from '../../../api/src/web/extract.ts'
@@ -231,5 +231,40 @@ test.describe('web sitemaps', () => {
     assert.deepEqual(filterEntries(entries, { since: '2026-10-01' }).map(e => e.loc), ['https://a.test/press/new-dataset', 'https://a.test/projects/x'])
     assert.deepEqual(filterEntries(entries, { contains: 'press', since: '2026-10-01' }).map(e => e.loc), ['https://a.test/press/new-dataset'])
     assert.throws(() => filterEntries(entries, { since: 'yesterday' }), /not a valid date/)
+  })
+})
+
+test.describe('MCP discovery parsing', () => {
+  const card = {
+    $schema: 'https://static.modelcontextprotocol.io/schemas/v1/server-card.schema.json',
+    name: 'fr.data-fair/catalog',
+    version: '1.0.0',
+    description: 'What this portal publishes',
+    remotes: [{ type: 'streamable-http', url: 'https://portal.example.org/mcp-server/mcp?profiles=catalog' }]
+  }
+  test('reads the MCP entries of an AI Catalog, embedded or linked', () => {
+    const catalog = JSON.stringify({
+      specVersion: '1.0',
+      entries: [
+        { identifier: 'a', type: 'application/mcp-server-card+json', data: card },
+        { identifier: 'b', type: 'application/mcp-server-card+json', url: 'https://portal.example.org/card' },
+        { identifier: 'c', type: 'application/a2a-agent-card+json', url: 'https://portal.example.org/agent' }
+      ]
+    })
+    assert.deepEqual(parseAiCatalog(catalog), [{ data: card }, { url: 'https://portal.example.org/card' }])
+  })
+  test('an unreadable catalog is no catalog', () => {
+    assert.deepEqual(parseAiCatalog('<html>'), [])
+    assert.deepEqual(parseAiCatalog('{"entries":"x"}'), [])
+  })
+  test('a card gives its streamable-http endpoint', () => {
+    assert.deepEqual(mcpServerFromCard(card), { url: 'https://portal.example.org/mcp-server/mcp?profiles=catalog', name: 'fr.data-fair/catalog', description: 'What this portal publishes' })
+  })
+  test('a card needing variables or headers, or without an http(s) endpoint, is not usable anonymously', () => {
+    assert.equal(mcpServerFromCard({ ...card, remotes: [{ type: 'streamable-http', url: '{base}/mcp' }] }), undefined)
+    assert.equal(mcpServerFromCard({ ...card, remotes: [{ type: 'streamable-http', url: 'https://a.example.org/mcp', headers: [{ name: 'Authorization', isRequired: true }] }] }), undefined)
+    assert.equal(mcpServerFromCard({ ...card, remotes: [{ type: 'sse', url: 'https://a.example.org/sse' }] }), undefined)
+    assert.equal(mcpServerFromCard({ ...card, remotes: [{ type: 'streamable-http', url: 'javascript:alert(1)' }] }), undefined)
+    assert.equal(mcpServerFromCard('nope'), undefined)
   })
 })

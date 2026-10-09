@@ -10,6 +10,7 @@ import { createExtractor, type Extractor } from './extractor.ts'
 import type { ExtractedFeed, ExtractedPage, PageForm } from './extract.ts'
 import {
   charsetOf, checkUrl, classifyContent, filterEntries, hasFilter, hostAllowed, paginate, parseOpenSearchDescription, parseSitemap, robotsSitemaps, urlAllowed,
+  AI_CATALOG_PATH, parseAiCatalog, mcpServerFromCard, type DiscoveredMcpServer,
   SITEMAP_PAGE_SIZE, type SitemapEntry, type SitemapFilter
 } from './operations.ts'
 
@@ -68,6 +69,8 @@ export interface FetchUrlResult {
   forms?: PageForm[]
   /** URLs to fill by replacing `{searchTerms}`: the site's search, from OpenSearch or schema.org. */
   searchTemplates?: string[]
+  /** On the first page only: MCP servers the site publishes, usable through request_mcp_access. */
+  mcpServers?: DiscoveredMcpServer[]
   note?: string
 }
 
@@ -87,6 +90,35 @@ const openSearchTemplates = async (descriptions: string[], ctx: WebContext): Pro
   }
   return templates
 }
+
+/**
+ * The MCP servers a site publishes in its AI Catalog, read as site metadata (like robots.txt): through
+ * the same client and allowlist, so a card linked from another site is read only when that site is
+ * allowed too. Errors are no servers: the page itself was read, that is what was asked.
+ */
+const discoverMcpServers = async (pageUrl: string, ctx: WebContext): Promise<DiscoveredMcpServer[]> => {
+  const servers: DiscoveredMcpServer[] = []
+  try {
+    const res = await clientOf(ctx).get(new URL(AI_CATALOG_PATH, pageUrl).href, ctx.allowedUrls, 'site')
+    if (res.status >= 400) return servers
+    for (const entry of parseAiCatalog(decode(res)).slice(0, 5)) {
+      let card = entry.data
+      if (entry.url) {
+        try {
+          const cardRes = await clientOf(ctx).get(new URL(entry.url, res.url).href, ctx.allowedUrls, 'site')
+          if (cardRes.status < 400) card = JSON.parse(decode(cardRes))
+        } catch {}
+      }
+      const server = mcpServerFromCard(card)
+      if (server && !servers.some(s => s.url === server.url)) servers.push(server)
+    }
+  } catch {}
+  return servers
+}
+
+const MCP_DISCOVERY_NOTE = 'This site publishes an MCP server (see mcpServers): its tools would let you query it directly rather than read its pages. An administrator of your organization can connect it to you: ask with request_mcp_access in a conversation with one.'
+
+const joinNotes = (...notes: Array<string | undefined>) => notes.filter(Boolean).join(' ')
 
 export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<FetchUrlResult> => {
   const res = await clientOf(ctx).get(input.url, ctx.allowedUrls)
@@ -120,6 +152,11 @@ export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<F
   // own navigation, and the whole list rode along in every later step of the run.
   const links = (first?.links ?? []).filter(link => urlAllowed(new URL(link), ctx.allowedUrls))
   const linksElsewhere = (first?.links.length ?? 0) - links.length
+  const mcpServers = offset === 0 ? await discoverMcpServers(res.url, ctx) : []
+  const thin = page && content.trim().length < THIN_CONTENT
+    ? 'This page has almost no readable content: it probably renders it with JavaScript, which is not run. Look for a JSON API, a feed or a sitemap instead.'
+    : undefined
+  const note = joinNotes(thin, mcpServers.length ? MCP_DISCOVERY_NOTE : undefined)
   return {
     url: res.url,
     contentType: res.contentType,
@@ -129,9 +166,8 @@ export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<F
     ...(linksElsewhere ? { linksElsewhere } : {}),
     ...(first?.forms.length ? { forms: first.forms } : {}),
     ...(searchTemplates.length ? { searchTemplates } : {}),
-    ...(page && content.trim().length < THIN_CONTENT
-      ? { note: 'This page has almost no readable content: it probably renders it with JavaScript, which is not run. Look for a JSON API, a feed or a sitemap instead.' }
-      : {})
+    ...(mcpServers.length ? { mcpServers } : {}),
+    ...(note ? { note } : {})
   }
 }
 
@@ -149,6 +185,8 @@ export interface ListSitePagesResult {
   offset: number
   nextOffset?: number
   total: number
+  /** On the first page only: MCP servers the site publishes, usable through request_mcp_access. */
+  mcpServers?: DiscoveredMcpServer[]
   note?: string
 }
 
@@ -215,6 +253,8 @@ export const listSitePages = async (input: ListSitePagesInput, ctx: WebContext):
   if (hasFilter(input) && !pages.length) notes.push('No listed page under the allowed URLs matches. URLs do not always contain the words of their topic: the site\'s own search (a GET form of fetch_url) may find more.')
 
   const offset = Math.max(0, input.offset ?? 0)
+  const mcpServers = offset === 0 ? await discoverMcpServers(`${origin}/`, ctx) : []
+  if (mcpServers.length) notes.push(MCP_DISCOVERY_NOTE)
   const end = offset + SITEMAP_PAGE_SIZE
   return {
     sitemaps,
@@ -222,6 +262,7 @@ export const listSitePages = async (input: ListSitePagesInput, ctx: WebContext):
     offset,
     ...(end < pages.length ? { nextOffset: end } : {}),
     total: pages.length,
+    ...(mcpServers.length ? { mcpServers } : {}),
     ...(notes.length ? { note: notes.join(' ') } : {})
   }
 }

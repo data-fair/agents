@@ -259,3 +259,47 @@ export const filterEntries = (entries: SitemapEntry[], filter: SitemapFilter): S
     return true
   })
 }
+
+/** Where a site lists its AI artifacts, MCP servers among them (MCP Server Cards, SEP-2127). */
+export const AI_CATALOG_PATH = '/.well-known/ai-catalog.json'
+export const MCP_SERVER_CARD_TYPE = 'application/mcp-server-card+json'
+
+export interface DiscoveredMcpServer {
+  /** The streamable-http endpoint. */
+  url: string
+  name: string
+  title?: string
+  description?: string
+}
+
+/** The MCP server entries of an AI Catalog: an embedded card (`data`) or its URL. Anything unreadable: none. */
+export function parseAiCatalog (text: string): Array<{ url?: string, data?: unknown }> {
+  let doc: any
+  try { doc = JSON.parse(text) } catch { return [] }
+  if (!Array.isArray(doc?.entries)) return []
+  return doc.entries
+    .filter((e: any) => e?.type === MCP_SERVER_CARD_TYPE && (typeof e.url === 'string' || (e.data && typeof e.data === 'object')))
+    .map((e: any) => typeof e.url === 'string' ? { url: e.url } : { data: e.data })
+}
+
+/**
+ * The endpoint of a server card that can be used ANONYMOUSLY: a streamable-http remote with a plain
+ * http(s) URL, no variables to fill and no required header. Anything else is not for us: an agent's
+ * external servers carry no credential.
+ */
+export function mcpServerFromCard (card: unknown): DiscoveredMcpServer | undefined {
+  const c = card as any
+  if (!c || typeof c !== 'object' || typeof c.name !== 'string' || !Array.isArray(c.remotes)) return undefined
+  const remote = c.remotes.find((r: any) =>
+    r?.type === 'streamable-http' &&
+    typeof r.url === 'string' && /^https?:\/\//.test(r.url) && !/[{}]/.test(r.url) &&
+    !(Array.isArray(r.headers) && r.headers.some((h: any) => h?.isRequired)) &&
+    !(r.variables && Object.keys(r.variables).length))
+  if (!remote) return undefined
+  return {
+    url: remote.url,
+    name: c.name,
+    ...(typeof c.title === 'string' ? { title: c.title } : {}),
+    ...(typeof c.description === 'string' ? { description: c.description } : {})
+  }
+}

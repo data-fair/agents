@@ -25,6 +25,8 @@ const article = `<!doctype html><html><head><title>BAN</title>
 let base: string
 const hits: Record<string, number> = {}
 let server: http.Server
+/** Whether the local site publishes an AI Catalog; reset before each test. */
+let publishCatalog = false
 
 const routes: Record<string, (req: http.IncomingMessage, res: http.ServerResponse) => void> = {
   '/page.html': (req, res) => {
@@ -35,6 +37,17 @@ const routes: Record<string, (req: http.IncomingMessage, res: http.ServerRespons
     res.writeHead(200, { 'content-type': 'application/opensearchdescription+xml' }).end(`<?xml version="1.0"?><OpenSearchDescription xmlns="http://a9.com/-/spec/opensearch/1.1/">
       <Url type="text/html" method="get" template="${base}/search?q={searchTerms}&amp;page={startPage?}"/>
       <Url type="application/x-suggestions+json" template="${base}/suggest?q={searchTerms}"/></OpenSearchDescription>`)
+  },
+  '/.well-known/ai-catalog.json': (req, res) => {
+    if (!publishCatalog) { res.writeHead(404).end(); return }
+    res.writeHead(200, { 'content-type': 'application/ai-catalog+json' }).end(JSON.stringify({
+      specVersion: '1.0',
+      entries: [{
+        identifier: 'main',
+        type: 'application/mcp-server-card+json',
+        data: { name: 'local/catalog', version: '1.0.0', description: 'Local', remotes: [{ type: 'streamable-http', url: `${base}/mcp` }] }
+      }]
+    }))
   },
   '/redirect': (req, res) => { res.writeHead(302, { location: '/page.html' }).end() },
   '/away': (req, res) => { res.writeHead(302, { location: 'https://example.com/' }).end() },
@@ -94,7 +107,28 @@ test.describe('web access', () => {
     await new Promise(resolve => server.close(resolve))
   })
 
-  test.beforeEach(() => { for (const key of Object.keys(hits)) delete hits[key] })
+  test.beforeEach(() => { publishCatalog = false; for (const key of Object.keys(hits)) delete hits[key] })
+
+  test('a site publishing an MCP server says so on the first page read', async () => {
+    publishCatalog = true
+    const result = await fetchUrl({ url: `${base}/page.html` }, context())
+    assert.deepEqual(result.mcpServers?.map(s => s.url), [`${base}/mcp`])
+    assert.match(result.note ?? '', /request_mcp_access/)
+    const next = await fetchUrl({ url: `${base}/page.html`, offset: 1 }, context())
+    assert.equal(next.mcpServers, undefined, 'only on the first page')
+  })
+
+  test('a site without a catalog reads as before', async () => {
+    const result = await fetchUrl({ url: `${base}/page.html` }, context())
+    assert.equal(result.mcpServers, undefined)
+  })
+
+  test('listing a site reports its MCP servers too', async () => {
+    publishCatalog = true
+    const result = await listSitePages({ site: base }, context())
+    assert.deepEqual(result.mcpServers?.map(s => s.url), [`${base}/mcp`])
+    assert.match(result.note ?? '', /request_mcp_access/)
+  })
 
   test('refuses a name resolving to a private address, by default', async () => {
     const ctx: WebContext = { allowedUrls, client: createWebClient({ publicIps: [] }), extractor }
