@@ -35,7 +35,9 @@ test.describe('task scheduling', () => {
 
   test('a schedule is described in words, per locale', () => {
     assert.equal(describeScheduling([daily(8, 5)], 'en'), 'every day at 08:05 (Europe/Paris)')
-    assert.equal(describeScheduling([weekly('1', 9), hourly(2)], 'en'), 'every Monday at 09:00 (UTC); every 2 hours at minute 00 (UTC)')
+    assert.equal(describeScheduling([weekly('1', 9), hourly(2)], 'en'), 'every Monday at 09:00 (UTC); every 2 hours at HH:00 (UTC)')
+    assert.equal(describeScheduling([hourly(1, 30)], 'en'), 'every hour at HH:30 (UTC)')
+    assert.equal(describeScheduling([hourly(1, 30)], 'fr'), 'toutes les heures à HH:30 (UTC)')
     assert.equal(describeScheduling([daily(8)], 'fr'), 'tous les jours à 08:00 (Europe/Paris)')
   })
 
