@@ -258,8 +258,12 @@ and arguments, Approve and Reject with an optional reason. It is locked while th
 (`approvalLocked`, set by the mapper) and while the decision is sending (released on a chat error). Once decided the
 card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. Who decided, and
 when, is not shown in the chat; it is stored on the part (`toolMetadata.decision`) for audit, and read by the admin
-history (plan 5). While waiting, the activity
+history page (`ui/src/components/agent-page/TaskRunView.vue`, read-only cards). While waiting, the activity
 label reads "Awaiting your approval", with a static icon rather than a spinner, since nothing is running.
+
+## The admin page
+
+An agent is edited in ONE place: its page, `ui/src/pages/[type]/[id]/agents/[agentId].vue`, with configuration, tasks and history tabs (see [planned tasks](planned-tasks.md#the-admin-page)). The organization list (`ui/src/components/AutonomousAgentsSection.vue`) creates an agent, then opens its page, and links to it; it has no edit dialog.
 
 ## Spend
 

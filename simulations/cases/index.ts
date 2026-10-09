@@ -71,6 +71,17 @@ export const planTaskDecided: Premise = {
     call.toolName === PLAN_TASK_TOOL && typeof (call.part.toolMetadata as any)?.decision?.approved === 'boolean'))
 }
 
+/**
+ * The person decided on a `plan_task` card AND the call then ended `output-error`: the refusal (a schedule
+ * under the deployment's minimum interval) is what the case judges the agent's reply to. A call that
+ * succeeded, or one never decided, leaves nothing to explain.
+ */
+export const planTaskRefused: Premise = {
+  description: `a ${PLAN_TASK_TOOL} call was decided on and ended in an error`,
+  holds: exports => exports.some(exported => recordedToolCalls(exported).some(call =>
+    call.toolName === PLAN_TASK_TOOL && call.failed && typeof (call.part.toolMetadata as any)?.decision?.approved === 'boolean'))
+}
+
 /** The memory commands that change the store; `view` reads it. */
 const MEMORY_WRITES = new Set(['create', 'str_replace', 'insert', 'rename'])
 const wroteMemory = (exported: ParsedExport) => recordedToolCalls(exported).some(call =>
@@ -282,6 +293,24 @@ export const cases: LocalCase[] = [
     },
     persona: 'You are the administrator of the city operations team\'s workspace. You are not technical and you never use words like tool, API, cron or MCP. You say when you want things done in plain words, and you only agree to something once you have read what it will do.',
     goal: 'You want the assistant to check the city-centre road closures every Monday morning, on its own, and report what it finds. Ask for that in plain words. If the screen asks you to approve something, read it and decide yourself by pressing the button: approve only once the schedule shown there is Mondays in the morning; if it shows another day or hour, say what is wrong and refuse, then ask for it to be corrected. Afterwards you want to be told plainly when the check will next run.',
+    maxTurns: 7
+  },
+  // A REFUSED PLAN: the schedule asked for is under the deployment's minimum interval (one hour), so the
+  // approved call ends in an error. The judge grades what the agent then says: plainly why, and the nearest
+  // schedule that is allowed, rather than a retry of the same input or silence.
+  {
+    name: 'autonomous-agent-plans-too-often',
+    premise: planTaskRefused,
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'autonomous-agent',
+    user: 'test1-admin1',
+    agent: {
+      title: 'Road works data steward',
+      persona: 'You look after the road-closures data workspace of the city operations team. You answer briefly and plainly.',
+      mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }]
+    },
+    persona: 'You are the administrator of the city operations team\'s workspace. You are not technical and you never use words like tool, API, cron or MCP. You say when you want things done in plain words.',
+    goal: 'You want the assistant to check the city-centre road closures every 30 minutes, on its own. Ask for that in plain words. If the screen asks you to approve something, read it and press Approve. Afterwards you want to be told plainly whether it is done; if it is not, you want to know why and what you can have instead, and you accept the closest option offered.',
     maxTurns: 7
   },
   // MEMORY ACROSS CONVERSATIONS: what the person said once should shape a later conversation they did
