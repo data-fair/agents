@@ -63,7 +63,7 @@ test.describe('Self-knowledge', () => {
   test('in a task run, the same destructive tool is out of reach because nobody is present', async () => {
     const agent = await createAgent()
     const run = await runTask(agent.id, 'call tool get_my_configuration {}')
-    const part = callPart(run.parts, 'get_my_configuration')
+    const part = callPart(run.messages[1].parts, 'get_my_configuration')
     assert.equal(part.state, 'output-available', JSON.stringify(part))
     assert.ok(part.output.includes('- wipe_everything (server dev-public-mcp): not usable here: needs approval and nobody is present'), part.output)
     assert.ok(part.output.includes('- report_outcome'), 'the task surface\'s other service tools are listed')
