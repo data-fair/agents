@@ -42,9 +42,10 @@
       </div>
       <!-- Paused by the server (the failure streak, or a schedule it could not compute) while still
            enabled: the admin is told why, and that the way out is to save it (updateTask resumes a
-           paused task on any save). -->
+           paused task on any save that leaves it enabled). A task switched off reads as disabled: its
+           pause is kept, but "saving resumes it" would not be true of it. -->
       <div
-        v-if="task.pausedReason"
+        v-if="task.pausedReason && task.enabled"
         class="d-flex flex-wrap align-center ga-2 mt-2"
       >
         <v-chip

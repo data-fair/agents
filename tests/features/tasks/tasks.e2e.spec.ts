@@ -116,6 +116,18 @@ test.describe('Agent page, Tasks tab', () => {
     await expect(item.getByTestId('agent-task-next-run')).toContainText(/\d/)
   })
 
+  test('a paused task switched off reads as disabled, not as paused', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    const task = await pausedTask(agentId)
+    // switched off as the switch does it: the task as it is, `enabled` false — which keeps the pause
+    await admin.put(`${tasksUrl(agentId)}/${task.id}`, { title: task.title, prompt: task.prompt, scheduling: task.scheduling, enabled: false })
+    await openTasks(page, goToWithAuth, agentId)
+    const item = taskItem(page, 'Failing digest')
+    await expect(item.getByRole('checkbox', { name: 'Enabled' })).not.toBeChecked()
+    await expect(item.getByTestId('agent-task-paused')).toBeHidden()
+    await expect(item).not.toContainText('Saving the task resumes it')
+  })
+
   test('run now starts a run of the task', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     const task = await createTask(agentId)
