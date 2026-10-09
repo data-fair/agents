@@ -7,17 +7,9 @@
  * anything destructive without asking" is not expressible per tool name.
  */
 import type { Tool } from 'ai'
+import { DEFAULT_APPROVALS, type ApprovalClass, type ApprovalPolicy, type Approvals } from '@agents/shared/approval-policy'
 
-export type ApprovalClass = 'readOnly' | 'write' | 'destructive'
-export type ApprovalPolicy = 'allow' | 'approve' | 'deny'
-export type Approvals = Partial<Record<ApprovalClass, ApprovalPolicy>>
-
-/**
- * Destructive tools are gated out of the box; the others are not. A write gated by default would gate
- * every tool of every server that declares no annotations — most of them — and teach people to click
- * Approve without reading.
- */
-export const DEFAULT_APPROVALS: Record<ApprovalClass, ApprovalPolicy> = { readOnly: 'allow', write: 'allow', destructive: 'approve' }
+export { DEFAULT_APPROVALS, type ApprovalClass, type ApprovalPolicy, type Approvals }
 
 /** `destructiveHint` wins over a contradictory `readOnlyHint`; no annotation at all is a write. */
 export const classifyTool = (annotations?: Record<string, unknown>): ApprovalClass => {

@@ -7,7 +7,7 @@
  */
 
 import writeReqSchema from '../../../api/doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-import { DEFAULT_APPROVALS } from '../../../api/src/conversations/approval-policy.ts'
+import { DEFAULT_APPROVALS } from '@agents/shared/approval-policy'
 
 /** Every property the write-req schema accepts. */
 export const AUTONOMOUS_AGENT_WRITABLE_KEYS = Object.keys(writeReqSchema.properties)

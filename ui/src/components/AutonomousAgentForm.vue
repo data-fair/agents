@@ -33,6 +33,7 @@ fr:
 // The agent form, shared by the create dialog and the agent page so both are the same form.
 import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { DEFAULT_APPROVALS } from '@agents/shared/approval-policy'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
 import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
 import { $apiPath, $sdUrl } from '~/context'
@@ -48,9 +49,10 @@ const { t, locale } = useI18n()
 const formRef = ref<any>(null)
 
 // Web access with writes still allowed without approval: what a page says could make the agent act. A
-// warning, never a block — the admin decides. Defaults as in api/src/conversations/approval-policy.ts.
+// warning, never a block — the admin decides. An unset level is the default a turn applies.
 const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled && (
-  (draft.value.approvals?.write ?? 'allow') === 'allow' || (draft.value.approvals?.destructive ?? 'approve') === 'allow'
+  (draft.value.approvals?.write ?? DEFAULT_APPROVALS.write) === 'allow' ||
+  (draft.value.approvals?.destructive ?? DEFAULT_APPROVALS.destructive) === 'allow'
 ))
 
 /**
