@@ -29,6 +29,11 @@ export interface AgentSessionOptions {
    */
   sessionCookie?: string
   /**
+   * The site this socket was opened through (its upgrade request's forwarded host), as an origin. Where
+   * a chat turn acts, and the only site the person's cookie is valid on: sessions are host-only.
+   */
+  siteUrl?: string
+  /**
    * Whether this account stores traces at all — advertised to the client on `attached`.
    *
    * It is what makes the chat show its consent sheet, so without it nobody can ever answer and the server-side consent gate
@@ -69,6 +74,8 @@ export interface AgentSession {
   send: (message: ServerMessage) => void
   /** The forwarded session of the person on the other end, for tools that want one. */
   sessionCookie: () => string | undefined
+  /** The site this socket was opened through, see AgentSessionOptions. */
+  siteUrl: () => string | undefined
   /**
    * Whether this person agreed to admin-visible trace storage, as the browser last said (`hello`,
    * `trace-consent`). It exists because the chat's privacy model has two layers: the conversation is
@@ -175,6 +182,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
     tools: () => [...tools],
     attached: () => attached,
     sessionCookie: () => options.sessionCookie,
+    siteUrl: () => options.siteUrl,
     traceConsent: () => traceConsent,
     // Not a rebind: what the page reported before its first message belongs to the thread that message
     // starts, so nothing pending is dropped.

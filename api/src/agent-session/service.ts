@@ -32,6 +32,7 @@ import { decideAndContinue } from '../conversations/approvals.ts'
 import { settlePendingWait, wakeIfAnswered } from '../conversations/waits.ts'
 import { INTERRUPTED_RESULTS } from '../conversations/interrupted-turn.ts'
 import { getSettings } from '../settings/service.ts'
+import { siteOriginFromHeaders } from '../sites/operations.ts'
 
 const debug = Debug('agents:agent-session')
 
@@ -78,6 +79,9 @@ export const startAgentSessions = (server: Server) => {
       // The cookie is taken from the UPGRADE request, which is the only moment it is available: a
       // websocket frame carries no headers.
       sessionCookie: req.headers.cookie,
+      // Read from the same upgrade request, for the same reason: where the person is, and so where the
+      // turn acts and the only site their cookie may be sent to.
+      siteUrl: siteOriginFromHeaders(req.headers),
       traceStorage: traceStorage === true,
       anonymous: !sessionState?.user,
       onAttach: conversationId => {

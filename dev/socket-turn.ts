@@ -28,6 +28,8 @@ type Ax = AxiosInstance & { cookieJar?: any }
 export type ConversationTarget = string | { agentId: string, title?: string }
 
 export interface SocketTurnOptions {
+  /** Open the socket through this host (default: localhost:NGINX_PORT). */
+  host?: string
   /** The account path the conversation lives under. Default `organization/test1`. */
   owner?: string
   /** Per-frame wait. Generous: a turn against the mock provider streams, and some tests stall one on purpose. */
@@ -61,9 +63,9 @@ export const runOf = async (ax: Ax, conversationId: string, runId: string, owner
  * The consent cookie is read out of the jar and said in the hello, as the chat does with its own
  * cookie: the server never reads it.
  */
-const attach = async (ax: Ax, target: ConversationTarget, owner: string, timeoutMs: number) => {
+const attach = async (ax: Ax, target: ConversationTarget, owner: string, timeoutMs: number, host?: string) => {
   const cookie = await ax.cookieJar.getCookieString(directoryUrl)
-  const socket = await openAgentSession(cookie)
+  const socket = await openAgentSession(cookie, host)
   const consent = readConsent(cookie)
   const traceConsent = consent ? { traceConsent: consent === 'yes' } : {}
   if (typeof target !== 'string') {
@@ -113,7 +115,7 @@ export const startTurnOverSocket = async (
   const owner = opts.owner ?? 'organization/test1'
   const timeoutMs = opts.timeoutMs ?? 60_000
   const known = new Set(typeof target === 'string' ? (await runsOf(ax, owner, target).catch(() => [])).map(r => r.id) : [])
-  const { socket, history } = await attach(ax, target, owner, timeoutMs)
+  const { socket, history } = await attach(ax, target, owner, timeoutMs, opts.host)
   // A fresh thread's title travels with the prompt that creates it.
   const title = typeof target !== 'string' && target.title ? { title: target.title } : {}
   socket.send({ type: 'prompt', content, ...(opts.hiddenContext ? { hiddenContext: opts.hiddenContext } : {}), ...title })
@@ -206,7 +208,7 @@ export const decideOverSocket = async (
   const owner = opts.owner ?? 'organization/test1'
   const timeoutMs = opts.timeoutMs ?? 60_000
   const known = new Set((await runsOf(ax, owner, conversationId)).map(r => r.id))
-  const { socket } = await attach(ax, conversationId, owner, timeoutMs)
+  const { socket } = await attach(ax, conversationId, owner, timeoutMs, opts.host)
   socket.send({ type: 'approval', approvalId, approved: decision.approved, ...(decision.reason ? { reason: decision.reason } : {}) })
   // The socket stays open until the continuation ends, so its frames are still delivered to whoever
   // reads the record; closed in the background so the caller is not held for the whole run.

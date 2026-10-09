@@ -6,8 +6,8 @@ import mongo from '#mongo'
 import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import type { Request } from 'express'
-import { listMcpServerCatalog, unknownMcpServerIds } from '../mcp-servers/operations.ts'
-import { getAutonomousAgentSession, clearAutonomousAgentSession, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
+import { listMcpServerCatalog, unknownMcpServerIds, type SiteCredentials } from '../mcp-servers/operations.ts'
+import { getAutonomousAgentSession, agentSiteCredentials, clearAutonomousAgentSession, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools } from '../mcp-servers/client.ts'
 import { agentStoreId } from '../memory/operations.ts'
@@ -122,19 +122,18 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  * The tool list an autonomous agent would actually receive, fetched live as its own
  * identity. Descriptions and annotations only — never a credential.
  */
-export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools) => {
+export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools & EnrolledAutonomousAgent & { owner: AccountKeys }) => {
   // With no home site `cookieFor` is never called, so the enrolment check getAutonomousAgentSession makes
   // would be lost: refuse here rather than list a session server's tools anonymously.
   const catalog = config.mcpServers ?? []
   if (!autonomousAgent.nhi?.clientId && (autonomousAgent.mcpServers ?? []).some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
     throw httpError(400, `autonomous agent ${autonomousAgent.id} has no enrolled non-human identity`)
   }
-  return await listAutonomousAgentToolDescriptors(autonomousAgent, {
-    homeSite: autonomousAgent.nhi?.siteUrl,
-    portals: [],
-    anonymousHome: false,
-    cookieFor: site => getAutonomousAgentSession(autonomousAgent, site)
-  })
+  // An agent with an nhi goes through requireEnrolment: a half-enrolled one is a 400, never anonymous.
+  const sites: SiteCredentials = autonomousAgent.nhi
+    ? await agentSiteCredentials(autonomousAgent)
+    : { portals: [], anonymousHome: false, cookieFor: async () => undefined }
+  return await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
 }
 
 /**

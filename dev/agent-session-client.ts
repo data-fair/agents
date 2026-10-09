@@ -36,9 +36,11 @@ export const newThreadHello = (owner = 'organization/test1', extra: Record<strin
  * would skip both the proxy's Upgrade headers and the prefix handling — the two things most likely to
  * be wrong in a real deployment.
  */
-export const openAgentSession = async (cookieString?: string): Promise<AgentSessionClient> => {
+export const openAgentSession = async (cookieString?: string, host?: string): Promise<AgentSessionClient> => {
+  // `host`: open the socket as if through another of the platform's domains. nginx forwards the Host
+  // header as x-forwarded-host, which is all that tells the service which site a socket is on.
   const ws = new WebSocket(`ws://localhost:${process.env.NGINX_PORT}/agents/api/agent-session`, {
-    headers: cookieString ? { cookie: cookieString } : {}
+    headers: { ...(cookieString ? { cookie: cookieString } : {}), ...(host ? { host } : {}) }
   })
   const inbox: any[] = []
   const waiters: { resolve: (msg: any) => void, reject: (err: Error) => void }[] = []

@@ -10,6 +10,9 @@ import axios from '@data-fair/lib-node/axios.js'
 import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, createSessionStore, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
 
+import Debug from 'debug'
+import type { SiteCredentials } from '../mcp-servers/operations.ts'
+
 /** The whole NHI feature is off when no signing key is configured. */
 export const nhiEnabled = () => !!config.nhiSigningKey
 
@@ -35,6 +38,8 @@ export const getNhiDiscovery = (req: Request): { issuer: string, jwks_uri: strin
 }
 
 export const getNhiJwks = (): { keys: NhiPublicJwk[] } => ({ keys: [toPublicJwk(requireNhi())] })
+
+const debug = Debug('agents:nhi')
 
 /** The shape the exchange needs off an autonomous agent document. */
 export interface EnrolledAutonomousAgent {
@@ -178,4 +183,38 @@ export const listAccountSites = (autonomousAgent: EnrolledAutonomousAgent & { ow
   origins.catch(() => { if (accountSites.get(autonomousAgent.id)?.origins === origins) accountSites.delete(autonomousAgent.id) })
   accountSites.set(autonomousAgent.id, { expiresAt: Date.now() + ACCOUNT_SITES_TTL_MS, origins })
   return origins
+}
+
+/**
+ * Where an autonomous agent's turn acts, and as whom. Home: the socket's site, else the site it was
+ * enrolled on (a planned task, a chat turn nobody watches). Its own session on its account sites — an
+ * exchange that fails there is an error — and no credential anywhere else.
+ *
+ * When the account cannot be listed, it degrades to the enrolment site alone: no portal is offered,
+ * and a chat on another of the organization's sites runs anonymously for that turn.
+ */
+export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys, mcpServers?: { serverId: string }[] }, socketSite?: string): Promise<SiteCredentials> => {
+  const { siteUrl } = requireEnrolment(autonomousAgent)
+  const enrolled = siteOrigin(siteUrl)
+  const home = socketSite ? siteOrigin(socketSite) : enrolled
+  // Listing the account costs a session exchange. An agent none of whose entries is site-bound
+  // (`nhi-session`) never asks for a cookie or a portal, so it must not pay for, nor depend on, an
+  // exchange it does not use: a turn on public tools stays as fast as before sites existed.
+  const catalog = config.mcpServers ?? []
+  if (autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
+    return { homeSite: home, portals: [], anonymousHome: false, cookieFor: async () => undefined }
+  }
+  let account: string[]
+  try {
+    account = await listAccountSites(autonomousAgent)
+  } catch (err: any) {
+    debug('could not list the account sites of %s: %s', autonomousAgent.id, err.message)
+    account = [enrolled]
+  }
+  return {
+    homeSite: home,
+    portals: account.filter(site => site !== home),
+    anonymousHome: !account.includes(home),
+    cookieFor: async site => account.includes(siteOrigin(site)) ? await getAutonomousAgentSession(autonomousAgent, site) : undefined
+  }
 }

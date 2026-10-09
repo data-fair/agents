@@ -47,7 +47,7 @@ import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
 import { personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
 import { securityKey } from '../cipher/service.ts'
-import { getAutonomousAgentSession } from '../nhi/service.ts'
+import { agentSiteCredentials } from '../nhi/service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
@@ -302,11 +302,14 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // Connections stay OPEN for the whole turn: a tool's execute closes over its client, and
   // the MCP SDK's close() clears the transport, so closing early makes every call reject
   // with 'Not connected'. Released in the finally below.
-  // WHO IT ACTS AS — the one port. A configured agent has a non-human identity and acts as itself; the
-  // personal assistant has none and acts as the person whose socket this is.
+  // WHO IT ACTS AS, AND WHERE — the one port. A configured agent acts as itself on its organization's
+  // sites and anonymously elsewhere; the personal assistant acts as the person, on the site of their
+  // socket only (see docs/architecture/overview.md, Hosts).
+  const socketSite = session?.siteUrl()
   const sites: SiteCredentials = autonomousAgent.nhi
-    ? { homeSite: autonomousAgent.nhi.siteUrl, portals: [], anonymousHome: false, cookieFor: site => getAutonomousAgentSession(autonomousAgent, site) }
-    : personSiteCredentials(undefined, session?.sessionCookie())
+    ? await agentSiteCredentials(autonomousAgent, socketSite)
+    : personSiteCredentials(socketSite, session?.sessionCookie())
+  const anonymousOn = sites.anonymousHome && sites.homeSite ? new URL(sites.homeSite).host : undefined
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
@@ -350,7 +353,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   const memory = service.memory
 
   try {
-    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory })
+    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -370,17 +373,19 @@ interface ModelLoopContext {
   /** The agent's memory as of run start, when it has one; rendered into the system prompt. */
   memory?: MemoryDocument[]
   autonomousAgent: AutonomousAgent
+  /** The host of the site the turn acts on anonymously, when it is not one of the agent's own. */
+  anonymousOn?: string
   /** Where the turn reads its context from and writes its record to (see ./turn-target.ts). */
   target: TurnTarget
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory } = ctx
+  const { run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target).
   const session = target.session
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
-  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface)
+  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn })
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })

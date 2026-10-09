@@ -79,6 +79,11 @@ test.describe('buildSystemPrompt', () => {
     assert.doesNotMatch(prompt, /attribut/i)
   })
 
+  test('says when the agent acts anonymously on the site it is used on', () => {
+    assert.match(buildSystemPrompt(agent, undefined, 'chat', { anonymousOn: 'portal.example.org' }), /acting anonymously on portal\.example\.org/)
+    assert.doesNotMatch(buildSystemPrompt(agent, undefined, 'chat'), /anonymously/)
+  })
+
   test('an agent WITH an nhi is told it acts under its own identity', () => {
     // Still what stops a configured agent assuming its user's permissions are available to it.
     assert.match(buildSystemPrompt(agent), /own service identity/i)
