@@ -220,6 +220,54 @@ Only the descriptors cross the socket. A page tool's implementation is the page'
 
 The diagnostic endpoint `GET /api/autonomous-agents/:type/:id/:agentId/tools` uses `forEachListedTool` instead, which lists **fresh** (bypassing the cache) and returns descriptors only — an admin checking a fix wants the server's answer now.
 
+### Sites
+
+Every call of a catalog entry with `auth: 'nhi-session'` (a stack service) acts on one **site**, because
+sessions are host-only (see [Hosts](./overview.md#hosts)). The `SiteCredentials` a turn is given
+(`mcp-servers/operations.ts`) says which: a home site, the other account sites (`portals`), and `cookieFor(site)`,
+which yields that site's session or nothing. `callHeaders` then sends the site's `x-forwarded-host` and,
+when there is one, its cookie; without a cookie the call is anonymous. The agent's credentials come from
+`agentSiteCredentials` (`nhi/service.ts`), the personal assistant's from `personSiteCredentials` (its
+socket's cookie, valid on its socket's site only, no portals).
+
+When the agent has portals, each site-bound tool's input schema gains an optional `portal` argument
+(an enum of the portal hosts) unless the tool declares its own; `splitPortalArgument` removes it before
+the call. Naming a host outside the list is a tool error. When the home site is outside the account, the
+agent's prompt says it acts anonymously there. Listings and connections are keyed per site (and listings
+per credential hash): a connection's headers are fixed when it opens, and what a server lists may depend
+on the site and on who asks. `none` and `apiKey` entries are not site-bound and keep one listing and one
+connection.
+
+### External MCP servers
+
+An agent may list `externalMcpServers: [{ url }]` (at most 50): public MCP endpoints, another data-fair
+portal or any other, which it uses **anonymously** (`api/src/mcp-servers/external.ts`). Only an
+organization admin edits the list. URLs are normalized on save (`normalizeExternalMcpServers`: https
+assumed, lowercase host, no IP address, no credentials, deduplicated; a 400 otherwise).
+
+- **Egress guard.** The connection goes through the web access module's `publicLookup`, so it reaches
+  public addresses only (`SSRF_PUBLIC_IPS` and `config.externalMcp.publicIps` declare exceptions) and
+  **redirects are refused**: an endpoint cannot be used to reach the service's own network. Nothing
+  credentialed is ever sent.
+- **Names.** Tools are named `<host slug>__<tool>` (host lowercased, non-alphanumerics folded to `_`, 30
+  characters, 64 in all), so they collide neither with catalog tools nor with each other; the recorded
+  server is the host.
+- **Bounds.** Connecting and listing a server share a 15 s timeout, so a slow one does not delay every
+  turn. A run makes at most 50 external calls across all of them.
+- **Failures are skipped and reported** (`skippedServers`), never fatal: the organization chose the
+  server, not the operator, and it lives outside the platform. Connections are opened per turn and closed
+  with it, along with the egress dispatcher. An `isError` result is rethrown as for a catalog tool.
+- **Trust.** Allowing a server means trusting its author to, in effect, instruct the agent (it writes the
+  tool descriptions the model reads) and that every argument sent leaves the platform: the same model as
+  web access's allowlist. Its **self-declared annotations** (`readOnlyHint`, `destructiveHint`) drive the
+  approval gate for its tools, as a catalog server's do, so a server that lies about them is trusted
+  to that extent.
+- **`request_mcp_access({ url, reason })`** is how an agent asks for one, typically after web access
+  reported a site's MCP server. It always stops on an approval card and only an administrator of the
+  organization may approve it (`ADMIN_DECISIONS`, as for `request_web_access`). Approved, it saves the
+  extended list (refusing beyond the cap); the server's tools exist from the agent's next turn. Never
+  offered to the personal assistant, which gets no external servers.
+
 ### Assembly and provenance
 
 The executor (`performTurn`) merges the catalog tools, the page tools (when a socket watches the conversation) and `wait_for_user_action` (only when someone is there to act), in that order — a page tool overrides a catalog tool of the same name. Both catalog and page results are wrapped by `withProvenance` (`api/src/conversations/operations.ts`) in a `<tool-result server="…" tool="…">` envelope marking them as untrusted data; a page's server name is the fixed `the-page`, never its URL. Thrown failures are wrapped too. Sub-agents are then partitioned out (see [Sub-Agent Orchestration](./sub-agents.md)).

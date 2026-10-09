@@ -75,6 +75,30 @@ mounted under `/api/test-env` only when `NODE_ENV` is `development`. Product cod
 exists: where a test must observe something (the task notifications pushed to the events service),
 the router wraps the product's own outlet.
 
+## Hosts
+
+The platform serves every organization's domains from the same services, and simple-directory's
+sessions are host-only, so every MCP call of an agent acts on exactly one **site** (an origin; the path
+prefix is ignored, `api/src/sites/operations.ts`):
+
+1. **Credentialed MCP is site-bound.** A catalog entry with `auth: nhi-session` is called with the
+   site's `x-forwarded-host`, and with a session exchanged for that site when it is one of the agent's
+   **account sites**: the site it was enrolled on, plus its organization's sites as simple-directory
+   lists them. Anywhere else it is called anonymously, and a cookie never travels without its site.
+2. **Home site.** A chat acts on the site of the person's socket; a planned task, or a turn nobody
+   watches, on `nhi.siteUrl`, captured when the agent is first configured. A chat outside the account
+   runs anonymously, and the agent is told so.
+3. **Account portals** are reached through the same tools, with an optional `portal` argument naming
+   another account site.
+4. **Everything else is external MCP**: public endpoints an organization admin lists on the agent,
+   called anonymously through the web egress guard. Web access reports the MCP servers a site publishes
+   (its `/.well-known/ai-catalog.json`), and `request_mcp_access` asks an admin to connect one.
+5. **The personal assistant** acts as the person: their cookie is sent with their socket's site only;
+   no portal, no external server.
+
+The design was written up in a spec (`docs/superpowers/specs/2026-10-09-multi-host-agents-design.md`)
+that is not tracked in this repository.
+
 ## The other documents
 
 | Concern | Read |

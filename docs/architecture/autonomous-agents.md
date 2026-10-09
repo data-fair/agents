@@ -104,18 +104,27 @@ also settles the approved calls it left without a result, "outcome is unknown" (
 ## Identity: the agent acts as itself
 
 An autonomous agent authenticates as a **non-human identity** in simple-directory, via an RFC 7523 JWT
-bearer exchange (`api/src/nhi/`). This service is the issuer, and the issuer url is *captured* from the
-real proxied request rather than configured, so it is always a url that demonstrably resolves here.
+bearer exchange (`api/src/nhi/`). This service is the issuer, and the issuer url (with the site
+it was reached on, `nhi.siteUrl`) is *captured* from the real proxied request rather than configured,
+so it is always a url that demonstrably resolves here. It is captured on first enrolment, or when the
+client id changes, and kept by later saves, so editing an agent from another of the organization's
+sites does not move it.
 
 - The subject is `autonomous-agent:<agent id>`, which is what binds one NHI to one agent.
-- Sessions are short-lived, non-refreshable and cached in-process; `assertSessionOutlivesRun` fails at
+- Sessions are short-lived, non-refreshable and cached in-process, **per site**: simple-directory's
+  sessions are host-only, so one is exchanged for each site the agent acts on, and only for its
+  *account sites* (the enrolment site plus the organization's sites, listed by simple-directory as the
+  agent and cached for a minute — `listAccountSites`, `agentSiteCredentials` in `api/src/nhi/service.ts`).
+  Elsewhere the agent is anonymous. An agent that references no `nhi-session` catalog entry never
+  lists its account nor exchanges anything; if the listing fails, the turn degrades to the enrolment
+  site alone. See [Hosts](./overview.md#hosts). `assertSessionOutlivesRun` fails at
   boot if the assertion TTL could not outlive a whole run.
 - Enrolment is verified by performing a **real exchange** at configuration time, so a misconfiguration
   fails where an admin can see it rather than inside the first run.
 - `GET .../:agentId/tools` and `.../session` are the diagnostics: they connect as the agent and report
   what it can actually reach. Never a credential in the response.
 
-MCP tools come from the operator's catalog, never from a URL the org side supplies. When the person is
+Credentialed MCP tools come only from the operator's catalog. An organization admin may add **anonymous** external MCP servers (see [MCP tools](./mcp-tools.md#external-mcp-servers)), under the same trust model as web access. When the person is
 watching the turn through the chat's socket, `performTurn` also adds the tools their page registered
 (`browserToolSet`) and `wait_for_user_action`; a turn nobody watches has none. Each result reaches
 the model inside a provenance envelope naming the server and the tool — including a **failure**, whose

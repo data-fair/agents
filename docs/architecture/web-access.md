@@ -24,11 +24,23 @@ A site's own metadata — `robots.txt`, its sitemaps, its OpenSearch description
 | `list_site_pages({ site, contains?, since?, offset? })` | chats, task runs | none | pages listed by the site's sitemaps, filtered by URL substring or modification date, 200 at a time |
 | `request_web_access({ add, reason })` | chats with an organization admin | always, by an organization admin | extends the allowlist |
 
+`request_mcp_access` (connecting an MCP server a site publishes) is the sibling of `request_web_access`, with the same approval rules; see [MCP tools](./mcp-tools.md#external-mcp-servers).
+
 `fetch_url` dispatches on the content type: HTML becomes markdown (defuddle, in a worker thread); RSS/Atom become a dated list; JSON is pretty-printed; other text passes through; anything else is refused by name. On the first page of an HTML document it also returns the page's links, its GET forms (a site's search: fields to put in the query string) and `searchTemplates` — URLs with a `{searchTerms}` placeholder, from the page's OpenSearch descriptions (read on the spot) and its schema.org `SearchAction`. A page with almost no text says it probably needs JavaScript, which is never run; a bot challenge says so too. Neither is an empty success.
 
 `list_site_pages` finds sitemaps in `robots.txt`, else at `/sitemap.xml`, follows an index one level (25 children at most, `.xml.gz` included), and without a filter returns a split site's sitemap files as a table of contents. A filter that matches nothing says that URLs do not always contain their topic's words, and points to the site's search.
 
 A run makes at most 50 web tool calls. Annotations are recorded on every call (`readOnlyHint` and `openWorldHint` for the readers), with provenance server `agent-web`, and the results go through the same provenance envelope as catalog results.
+
+## Discovering MCP servers
+
+A site may publish the MCP servers it offers in an AI Catalog at `/.well-known/ai-catalog.json`. Like
+`robots.txt` it is read as site metadata, on the **first page** (offset 0) of `fetch_url` and
+`list_site_pages`, through the same client and allowlist. Entries (the first 5) carry their card embedded
+or as a link; a linked card is fetched only when its URL is on an allowed site too. Only anonymous
+streamable-http endpoints are reported, as `mcpServers` in the result, with a note telling the agent
+that an administrator can connect it with `request_mcp_access`. Any failure yields no servers: the page
+itself was read, which is what was asked.
 
 ## Asking for more
 
