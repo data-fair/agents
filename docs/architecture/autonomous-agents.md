@@ -257,8 +257,9 @@ In the chat the call is an **approval card** (`ui/src/components/agent-chat/Appr
 and arguments, Approve and Reject with an optional reason. It is locked while the message asking is still pending
 (`approvalLocked`, set by the mapper) and while the decision is sending (released on a chat error). Once decided the
 card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. Who decided, and
-when, is not shown in the chat; it is stored on the part (`toolMetadata.decision`) for audit, and read by the admin
-history page (`ui/src/components/agent-page/TaskRunView.vue`, read-only cards). While waiting, the activity
+when, is not shown in any UI; it is stored on the call (`toolMetadata.decision`) for audit, and is in the
+conversation's export. The admin review page (`ui/src/components/ConversationReview.vue`) shows a card still
+awaiting a decision read-only. While waiting, the activity
 label reads "Awaiting your approval", with a static icon rather than a spinner, since nothing is running.
 
 ## The admin page
