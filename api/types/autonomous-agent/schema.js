@@ -221,6 +221,7 @@ export default {
     },
     externalMcpServers: {
       type: 'array',
+      // Keep equal to EXTERNAL_MCP_SERVERS_MAX (api/src/mcp-servers/operations.ts), which request_mcp_access enforces.
       maxItems: 50,
       default: [],
       title: 'External MCP servers',

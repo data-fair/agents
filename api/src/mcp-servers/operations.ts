@@ -226,3 +226,6 @@ export const REQUEST_MCP_ACCESS_TOOL_NAME = 'request_mcp_access'
 export const EXTERNAL_MCP_SERVER_ID = 'agent-external-mcp'
 /** Extending the list writes the agent's configuration. */
 export const REQUEST_MCP_ACCESS_ANNOTATIONS = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+
+/** The most external MCP servers an agent may list; the agent schema's `maxItems` is the same number. */
+export const EXTERNAL_MCP_SERVERS_MAX = 50

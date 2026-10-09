@@ -22,7 +22,7 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { ipList, publicLookup } from '../web/public-lookup.ts'
-import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MAX_CALLS } from './operations.ts'
+import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX, EXTERNAL_MAX_CALLS } from './operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
 
 const debug = Debug('agents:mcp-external')
@@ -157,6 +157,7 @@ export const createRequestMcpAccessTool = (opts: { servers: { url: string }[], s
   needsApproval: true,
   execute: async ({ url }: RequestMcpAccessInput) => {
     const updated = normalizeExternalMcpServers([...opts.servers, { url }])
+    if (updated.length > EXTERNAL_MCP_SERVERS_MAX) throw new Error(`this agent already has the maximum of ${EXTERNAL_MCP_SERVERS_MAX} external MCP servers`)
     await opts.save(updated)
     return { externalMcpServers: updated, note: 'Its tools are available from your next turn.' }
   }

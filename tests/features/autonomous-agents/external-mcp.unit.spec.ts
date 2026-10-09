@@ -7,7 +7,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import http from 'node:http'
 import { normalizeExternalMcpServers, externalToolPrefix, externalToolName } from '../../../api/src/mcp-servers/operations.ts'
-import { openExternalMcpTools } from '../../../api/src/mcp-servers/external.ts'
+import { openExternalMcpTools, createRequestMcpAccessTool } from '../../../api/src/mcp-servers/external.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 test.describe('normalizeExternalMcpServers', () => {
@@ -85,5 +85,25 @@ test.describe('openExternalMcpTools', () => {
       hanging.closeAllConnections()
       await new Promise(resolve => hanging.close(resolve))
     }
+  })
+})
+
+test.describe('createRequestMcpAccessTool', () => {
+  const run = (tool: any, url: string) => tool.execute({ url, reason: 'x' }, { toolCallId: 't', messages: [] })
+
+  test('refuses to exceed the maximum, without saving', async () => {
+    const servers = Array.from({ length: 50 }, (_, i) => ({ url: `https://s${i}.example.org/mcp` }))
+    let saved = 0
+    const tool = createRequestMcpAccessTool({ servers, save: async () => { saved++ } })
+    await assert.rejects(run(tool, 'https://extra.example.org/mcp'), /maximum of 50 external MCP servers/)
+    assert.equal(saved, 0)
+  })
+
+  test('a URL already listed does not grow the list', async () => {
+    const servers = Array.from({ length: 50 }, (_, i) => ({ url: `https://s${i}.example.org/mcp` }))
+    let saved: any
+    const tool = createRequestMcpAccessTool({ servers, save: async s => { saved = s } })
+    await run(tool, 'S3.example.org/mcp')
+    assert.equal(saved.length, 50)
   })
 })
