@@ -16,6 +16,7 @@
  * itself, and nobody watches it.
  */
 
+import { maybeTitleConversation } from './title.ts'
 import mongo from '#mongo'
 import { InvalidToolApprovalSignatureError, type ModelMessage } from 'ai'
 import type { Conversation, ConversationMessage } from '#types'
@@ -395,6 +396,9 @@ export const conversationTarget = (
         const pending = finalParts.find(p => p.type === 'dynamic-tool' && p.state === 'approval-requested')
         sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'approval', toolName: pending?.type === 'dynamic-tool' ? pending.toolName : '' } })
       }
+      // A title for a new conversation, from its first exchange (conversations/title.ts). Off the
+      // person's path; after a turn that published an answer, since a refused first turn has nothing to title.
+      if (result.published) maybeTitleConversation(run).catch(err => console.error('could not title a conversation', err))
       // The end-of-turn signal, so a watching page stops its spinner without polling for it.
       sessionFor(run.conversationId)?.send({
         type: 'turn-end',

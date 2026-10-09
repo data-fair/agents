@@ -101,9 +101,14 @@ const clip = (text: string, max: number) => text.length > max ? `${text.slice(0,
 
 const isTaskRun = (run: ConversationRun) => run.kind === 'task'
 
-/** One line per run. `taskTitle` is the run's task's, when it still exists. */
-export const renderRunRow = (run: ConversationRun, taskTitle: string | undefined): string => {
-  const subject = isTaskRun(run) ? `task ${taskTitle ?? run.taskId}` : `conversation ${run.conversationId}`
+/**
+ * One line per run. `title` is the run's task's, when it still exists, or its conversation's; `current`
+ * marks the conversation being had now, so the agent never mistakes another one's turns for its own.
+ */
+export const renderRunRow = (run: ConversationRun, title: string | undefined, current?: string): string => {
+  const subject = isTaskRun(run)
+    ? `task ${title ?? run.taskId}`
+    : `conversation ${run.conversationId}${title ? ` "${title}"` : ''}${run.conversationId === current ? ' (this conversation)' : ''}`
   const status = run.status === 'skipped' ? `skipped: ${run.error ?? 'no reason recorded'}` : run.status
   const outcome = run.outcome ? `outcome ${run.outcome.status}: ${clip(run.outcome.summary, RUN_ROW_SUMMARY_CHARS)}` : 'no outcome'
   return [run.id, isTaskRun(run) ? 'task' : 'conversation', subject, `trigger ${run.trigger}`, run.startedAt, status, outcome, `${run.credits ?? 0} credits`].join(' | ')

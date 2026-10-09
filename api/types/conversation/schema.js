@@ -37,6 +37,9 @@ export default {
       }
     },
     title: { type: 'string' },
+    // When the title was generated from the first exchange (api/src/conversations/title.ts). Set once,
+    // when the call is claimed: the title a client sends at creation is a placeholder.
+    titledAt: { type: 'string', format: 'date-time' },
     createdAt: { type: 'string', format: 'date-time' },
     // Declared because the service WRITES it — appendMessage and finishRun both $set it.
     // With additionalProperties: false and no declaration, every stored conversation violated its own

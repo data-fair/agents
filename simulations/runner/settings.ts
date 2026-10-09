@@ -281,13 +281,19 @@ export async function runPlannedTask (route: string, task: SimulatedTask, timeou
 
 type TaskRun = { id: string, status: string, error?: string }
 
+/** Successive runs of a case are a weekly task's successive slots. */
+const DAYS_BETWEEN_RUNS = 7
+
 /**
  * Plan the task once and run it `times` times in a row, as successive scheduled slots would — so a
  * later run starts with whatever the earlier ones left in the agent's memory.
  *
- * Between runs, consolidates the agent's memory (api/src/memory/consolidation.ts) the way the daily
- * sweep would between two weekly slots: a test-env seam rather than the sweep, whose clock would
- * otherwise have to move a day. An agent without memory answers `memory-off` and nothing happens.
+ * Between runs, a week passes: the agent's history is aged by DAYS_BETWEEN_RUNS (its runs, its memory,
+ * today's date written in them; the web does not move), then its memory is consolidated as the daily
+ * sweep would have done meanwhile. Without the ageing, the second run started two minutes after the
+ * first, and a sensible agent concluded nothing could have changed and re-reported the first run's
+ * findings — the case then measured reuse of a run, not memory-guided searching. An agent without
+ * memory answers the consolidation `memory-off` and nothing happens.
  */
 export async function runPlannedTaskRepeatedly (route: string, task: SimulatedTask, times: number, timeoutMs = TASK_RUN_TIMEOUT_MS) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
@@ -307,7 +313,10 @@ export async function runPlannedTaskRepeatedly (route: string, task: SimulatedTa
       await new Promise(resolve => setTimeout(resolve, 1000))
     }
     runs.push(run)
-    if (i < times - 1) await admin.post('/api/test-env/consolidate-memory', { agentId })
+    if (i < times - 1) {
+      await admin.post('/api/test-env/age-agent-history', { agentId, days: DAYS_BETWEEN_RUNS })
+      await admin.post('/api/test-env/consolidate-memory', { agentId })
+    }
   }
   return { owner, agentId, taskId: created.id, runs }
 }

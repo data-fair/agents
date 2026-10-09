@@ -164,3 +164,13 @@ Standard `debug` patterns apply: one provider (`DEBUG=agents:upstream:openai:<id
 type (`DEBUG=agents:upstream:openai:*`), everything (`DEBUG=agents:*`). When a namespace is disabled
 the wrapper returns the base fetch unchanged, so there is no runtime cost unless the flag is set.
 Bodies are logged **uncapped** — a developer diagnostic, not an audit trail.
+
+## Titles
+
+A conversation is titled from its first exchange (`api/src/conversations/title.ts`): after the first turn that published an answer, one call with the summarizer role reads the person's first message and the first answer (2,000 characters each, text only, `titleInput`) and writes a subject line of at most 8 words in the conversation's language (`TITLE_SYSTEM_PROMPT`, cleaned and bounded to 80 characters by `cleanTitle`). The title a client sends at creation is a placeholder — the agent's name or a date — so every conversation of an agent used to be called the same.
+
+- **Once.** The call is claimed by setting `titledAt` before it is made, so two turns closing together title once, and a failure leaves the placeholder rather than retrying.
+- **Who reads it.** The people's own conversation list, the admin review list, and the agent: `list_my_runs` shows it on each conversation row, so the agent can tell which past conversation is about what before reading it.
+- **Cost.** Fire-and-forget after the turn, never on the person's path; skipped for anonymous conversations and past the account's credit cap; billed like any model call, to whoever the turn was billed to (`usageIdentityFor`).
+- **Why.** It is what ChatGPT and Claude.ai do: a small model titles a new chat from its first exchange. A judged run showed the alternative: two conversations both titled "Assistant", and an agent that took the other one's turns for its own.
+

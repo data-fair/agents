@@ -1123,6 +1123,9 @@ test.describe('Autonomous agent run traces', () => {
     const byRole = await admin.get('/api/usage/organization/test1/history?scope=account-daily&days=7&dimension=modelRole')
     const breakdown = byRole.data.entries.find((e: any) => e.label === today)?.breakdown ?? {}
     assert.ok(breakdown.summarizer > 0, `compaction must reach the usage ledger, got ${JSON.stringify(breakdown)}`)
+    // The title call (conversations/title.ts) is summarizer spend too: that the summarizer call is the
+    // COMPACTION is shown on the run it happened during, which records it.
+    assert.ok((second.calls ?? []).some((call: any) => call.modelRole === 'summarizer'), 'the compaction call is recorded on its run')
 
     // 2. and the run it happened during carries the cost, so the per-run budget can see it.
     assert.ok(second.credits > 0)
@@ -1174,11 +1177,12 @@ test.describe('Autonomous agent run traces', () => {
       .data.results.find((c: any) => c.id === conv.id)
     assert.equal(conversation.compaction, undefined, 'clearing must have sufficed, so no recap should exist')
 
-    // And nothing reached the summarizer's ledger, which is the cost this avoids.
-    const today = new Date().toISOString().slice(0, 10)
-    const byRole = await admin.get('/api/usage/organization/test1/history?scope=account-daily&days=7&dimension=modelRole')
-    const breakdown = byRole.data.entries.find((e: any) => e.label === today)?.breakdown ?? {}
-    assert.ok(!breakdown.summarizer, `no summarizer spend expected, got ${JSON.stringify(breakdown)}`)
+    // And no turn called the summarizer, which is the cost this avoids. Read on the runs, where a
+    // compaction records its call, not in the account ledger: the conversation's title call (once, after
+    // the first exchange, conversations/title.ts) is summarizer spend too, and is not a compaction.
+    const runs = (await admin.get(`/api/conversations/organization/test1/${conv.id}/runs`)).data.results
+    const summarizerCalls = runs.flatMap((run: any) => run.calls ?? []).filter((call: any) => call.modelRole === 'summarizer')
+    assert.deepEqual(summarizerCalls, [], 'no compaction call expected')
 
     // The conversation itself is untouched: clearing only ever changes what the MODEL is sent, so every
     // payload is still in the store and the thread still replays in full.

@@ -67,7 +67,7 @@ export function runStopReasonMessage (stopReason: RunStopReason, detail?: string
 }
 
 /** The system prompt's note on the task surface (see buildSystemPrompt). */
-export const TASK_SURFACE_NOTE = 'This is a scheduled execution of one of your planned tasks. Nobody is present: there is no one to ask, and no action can be approved. Do what the task asks with the tools you have, then end by calling report_outcome with what you found or did. Your earlier runs and what they reported are listed by list_my_runs (kind task) and read with get_run.'
+export const TASK_SURFACE_NOTE = 'This is a scheduled execution of one of your planned tasks. Nobody is present: there is no one to ask, and no action can be approved. Do what the task asks with the tools you have, then end by calling report_outcome with what you found or did. Your earlier runs and what they reported are listed by list_my_runs (kind task) and read with get_run: use them to compare and to say what changed, but do the task again — report only what this run read, never an earlier run\'s findings as current.'
 
 /** The system prompt's pointer to the self-knowledge tools, for a configured agent (see buildSystemPrompt). */
 export const SELF_KNOWLEDGE_NOTE = 'Before telling someone you cannot do something, check get_my_configuration: it lists what you can use, and why anything else is out of reach.'
@@ -582,4 +582,33 @@ export const usageIdentityFor = (
     role: 'admin',
     isUntrusted: false
   }
+}
+
+// ---- conversation titles ----
+
+/** What the title call is given of the first exchange: enough to know what it is about. */
+export const TITLE_INPUT_CHARS = 2000
+export const TITLE_MAX_CHARS = 80
+export const TITLE_SYSTEM_PROMPT = 'Write a short title, at most 8 words, for the conversation below, in the language it is written in. It names the subject, like a mail subject: no quotes, no final period. Reply with the title only.'
+
+/** The first exchange as the title call reads it: the person's first message and the first answer, as text. */
+export const titleInput = (messages: { role: string, parts?: Array<{ type: string, text?: string }> }[]): string | undefined => {
+  const textOf = (role: string) => {
+    const message = messages.find(m => m.role === role)
+    const text = (message?.parts ?? []).filter(p => p.type === 'text').map(p => p.text ?? '').join('').trim()
+    return text.length > TITLE_INPUT_CHARS ? text.slice(0, TITLE_INPUT_CHARS) + '…' : text
+  }
+  const asked = textOf('user')
+  if (!asked) return undefined
+  const answered = textOf('assistant')
+  return `Person: ${asked}${answered ? `\n\nAssistant: ${answered}` : ''}`
+}
+
+/** A model's title, made safe to show: one line, no wrapping quotes or trailing period, bounded. */
+export const cleanTitle = (text: string): string | undefined => {
+  const line = text.split('\n').map(l => l.trim()).find(Boolean) ?? ''
+  // eslint-disable-next-line no-control-regex
+  const title = line.replace(/^(title|titre)\s*:\s*/i, '').replace(/^["'«“\s]+|["'»”\s.]+$/g, '').replace(/[\u0000-\u001F\u007F]/g, '')
+  if (!title) return undefined
+  return title.length > TITLE_MAX_CHARS ? title.slice(0, TITLE_MAX_CHARS - 1).trimEnd() + '…' : title
 }

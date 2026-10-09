@@ -113,6 +113,13 @@ test.describe('renderRunRow', () => {
     assert.match(row, /conversation/)
   })
 
+  test('a conversation row carries its title, and marks the conversation being had now', () => {
+    const other = renderRunRow(run({ kind: undefined, taskId: undefined, conversationId: 'c1', trigger: 'user' }), 'Road closures without short works', 'c2')
+    assert.match(other, /conversation c1 "Road closures without short works" \|/)
+    const current = renderRunRow(run({ kind: undefined, taskId: undefined, conversationId: 'c2', trigger: 'user' }), 'Why closures were missing', 'c2')
+    assert.match(current, /conversation c2 "Why closures were missing" \(this conversation\)/)
+  })
+
   test('the outcome summary is clipped at 300 characters', () => {
     const summary = 'a'.repeat(300) + 'b'.repeat(100)
     const row = renderRunRow(run({ outcome: { status: 'done', summary } }), 'Morning check')

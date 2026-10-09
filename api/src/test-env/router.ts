@@ -311,6 +311,38 @@ export const createTestEnvRouter = () => {
   router.post('/consolidate-memory', async (req, res) => {
     res.json(await maybeConsolidate(String(req.body.agentId), req.body.trigger ?? 'manual', req.body.now ? new Date(req.body.now) : undefined))
   })
+  // Dev-only, for simulations of runs a week apart: moves an agent's history back by `days` — its runs,
+  // its memory and the consolidation state — and today's date written in them (a run's outcome, memory
+  // text) along with it, so the next run starts as if that time had passed. Web pages and other outside
+  // content do not move.
+  router.post('/age-agent-history', async (req, res) => {
+    const agentId = String(req.body.agentId)
+    const ms = Number(req.body.days ?? 7) * 86400000
+    const shift = <T>(iso: T): T => (typeof iso === 'string' && !Number.isNaN(Date.parse(iso)) ? new Date(Date.parse(iso) - ms).toISOString() : iso) as T
+    const today = new Date().toISOString().slice(0, 10)
+    const then = new Date(Date.now() - ms).toISOString().slice(0, 10)
+    const redate = <T>(text: T): T => (typeof text === 'string' ? text.split(today).join(then) : text) as T
+    for (const run of await mongo.runs.find({ agentId }).toArray()) {
+      const set: Record<string, unknown> = {}
+      for (const key of ['startedAt', 'endedAt', 'scheduledFor'] as const) if ((run as any)[key]) set[key] = shift((run as any)[key])
+      if (run.outcome) set['outcome.summary'] = redate(run.outcome.summary)
+      if (run.parts) set.parts = JSON.parse(redate(JSON.stringify(run.parts)) as string)
+      await mongo.runs.updateOne({ _id: run._id }, { $set: set })
+    }
+    const storeId = agentStoreId(agentId)
+    for (const doc of await mongo.agentMemories.find({ storeId }).toArray()) {
+      await mongo.agentMemories.updateOne({ _id: doc._id }, { $set: { createdAt: shift(doc.createdAt), updatedAt: shift(doc.updatedAt), content: redate(doc.content), description: redate(doc.description) } })
+    }
+    for (const version of await mongo.agentMemoryVersions.find({ storeId }).toArray()) {
+      await mongo.agentMemoryVersions.updateOne({ _id: version._id }, { $set: { createdAt: shift(version.createdAt), ...(version.content !== undefined ? { content: redate(version.content) } : {}) } })
+    }
+    const agent = await mongo.autonomousAgents.findOne({ id: agentId })
+    if (agent?.memoryConsolidation) {
+      const state = agent.memoryConsolidation
+      await mongo.autonomousAgents.updateOne({ id: agentId }, { $set: { memoryConsolidation: { ...state, ...(state.at ? { at: shift(state.at) } : {}), ...(state.until ? { until: shift(state.until) } : {}) } } })
+    }
+    res.json({ ok: true })
+  })
   router.post('/sweep-consolidations', async (req, res) => {
     res.json({ consolidated: await sweepConsolidations(req.body?.now ? new Date(req.body.now) : undefined, testOwnerScope(req.body?.owner)) })
   })

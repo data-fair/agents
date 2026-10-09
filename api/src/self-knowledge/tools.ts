@@ -58,7 +58,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
       }
     }),
     list_my_runs: tool({
-      description: `List your past runs, newest first: planned task runs and conversation turns, with their status, outcome and cost. At most ${LIST_RUNS_MAX} rows.`,
+      description: `List your past runs, newest first: planned task runs and conversation turns (with the conversation's title), their status, outcome and cost. At most ${LIST_RUNS_MAX} rows. When someone refers to something said or done earlier, find it here and read it (read_conversation, get_run) before answering; never say something did not happen without having read it.`,
       inputSchema: jsonSchema<unknown>({
         type: 'object',
         additionalProperties: false,
@@ -80,8 +80,11 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
         const { results, count } = await listRuns(owner, agent.id, filters, { page: 1, size: limit }).catch(asToolError)
         if (!results.length) return 'No runs.'
         const titles = await taskTitles(owner, agent.id)
+        const conversationIds = [...new Set(results.map(r => r.conversationId).filter((id): id is string => !!id))]
+        const conversationTitles = new Map((await mongo.conversations.find({ id: { $in: conversationIds } }, { projection: { _id: 0, id: 1, title: 1 } }).toArray()).map(c => [c.id, c.title]))
         return [`${results.length} of ${count} runs (id | kind | subject | trigger | started | status | outcome | credits):`,
-          ...results.map(r => renderRunRow(r, r.taskId ? titles.get(r.taskId) : undefined))].join('\n')
+          ...results.map(r => renderRunRow(r, r.taskId ? titles.get(r.taskId) : conversationTitles.get(r.conversationId ?? ''), run.conversationId)),
+          'Read a conversation with read_conversation, a task run with get_run.'].join('\n')
       }
     }),
     get_run: tool({
@@ -89,7 +92,9 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
       inputSchema: jsonSchema<unknown>({ type: 'object', additionalProperties: false, required: ['runId'], properties: { runId: { type: 'string' } } }),
       execute: async (input: any) => {
         const found = await getRun(owner, agent.id, String(input?.runId ?? '')).catch(asToolError)
-        const title = found.taskId ? (await taskTitles(owner, agent.id)).get(found.taskId) : undefined
+        const title = found.taskId
+          ? (await taskTitles(owner, agent.id)).get(found.taskId)
+          : found.conversationId ? (await mongo.conversations.findOne({ id: found.conversationId }, { projection: { _id: 0, title: 1 } }))?.title : undefined
         return renderRun(found, title, await turnSeqs(found))
       }
     }),
@@ -98,7 +103,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
     // conversation export, the file maintainers download and the simulation judge reads, page by page.
     read_conversation: tool({
       description: [
-        'Read one of your past conversations (conversationId), whoever had it, or one of your task runs (runId), in full: what was said, every tool call with its whole result, and per turn the instructions and memory you had then.',
+        'Read one of your past conversations (conversationId), whoever had it, or one of your task runs (runId), in full: what was said, every tool call with its whole result, and per turn the instructions and memory you had then. Use it when someone refers to something said or done earlier, before answering: what you remember of other conversations is only what you read here.',
         'It is a JSON Lines file read by pages, each line prefixed with its number. Line 1 describes the file, line 2 is the outline: every record with its line, size and preview. Read from line 1 first; then read only the lines you need with `line` — a large tool result was lifted into its own `blob` line, which the message points at with `__ref`.',
         'A line longer than a page continues with `offset`. Find conversations with list_my_runs.'
       ].join(' '),
