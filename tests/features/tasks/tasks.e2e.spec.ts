@@ -139,6 +139,32 @@ test.describe('Agent page, Tasks tab', () => {
     await awaitRunEnd(agentId, runs[0].id)
   })
 
+  // Run now is how an admin probes a task the scheduler will not run: a paused one, or one switched
+  // off. Only a disabled AGENT refuses it (below) — a guard on the task's own state would take the
+  // probe away.
+  test('run now is allowed on a paused task and on a task switched off', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    const paused = await pausedTask(agentId)
+    const off = await createTask(agentId, { title: 'Switched off digest', enabled: false })
+    const runsOf = async (taskId: string) =>
+      (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}/runs`, { params: { taskId } })).data.results
+    for (const task of [paused, off]) {
+      // a fresh page per task, so the first click's message cannot stand in for the second's
+      await openTasks(page, goToWithAuth, agentId)
+      const before = new Set((await runsOf(task.id)).map((r: any) => r.id))
+      const item = taskItem(page, task.title)
+      // precondition: the state the scheduler would not run
+      if (task === paused) await expect(item.getByTestId('agent-task-paused')).toBeVisible()
+      else await expect(item.getByRole('checkbox', { name: 'Enabled' })).not.toBeChecked()
+      await item.getByRole('button', { name: 'Run now' }).click()
+      await expect(page.getByText('The run has started')).toBeVisible()
+      await expect(item.getByTestId('agent-task-run-error')).toBeHidden()
+      const added = (await runsOf(task.id)).filter((r: any) => !before.has(r.id))
+      expect(added.map((r: any) => r.trigger)).toEqual(['manual'])
+      await awaitRunEnd(agentId, added[0].id)
+    }
+  })
+
   test('run now on a disabled agent shows the refusal next to the task', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent({ enabled: false })
     await createTask(agentId)
