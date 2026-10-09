@@ -5,15 +5,16 @@ const author = {
   additionalProperties: false,
   required: ['kind'],
   properties: {
-    kind: { type: 'string', enum: ['agent', 'reflection', 'user'] },
+    kind: { type: 'string', enum: ['agent', 'consolidation', 'user'] },
     agentId: { type: 'string' },
     runId: { type: 'string' },
     conversationId: { type: 'string' },
     // A write made during a planned task's run, which has no conversation.
     taskId: { type: 'string' },
     toolCallId: { type: 'string' },
-    fromSeq: { type: 'number' },
-    toSeq: { type: 'number' },
+    // A consolidation: the conversations it read were those active between these two instants.
+    since: { type: 'string', format: 'date-time' },
+    until: { type: 'string', format: 'date-time' },
     userId: { type: 'string' },
     userName: { type: 'string' }
   }

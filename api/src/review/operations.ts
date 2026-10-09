@@ -101,7 +101,8 @@ const GUIDE = [
   'A part larger than its threshold was lifted into its own `blob` record; the message keeps a stub',
   'with `__ref`, `__bytes` and `__preview`, and the blob with that `ref` holds the full value.',
   '`run` records carry the per-call telemetry (model, tokens, credits, duration, how much history each',
-  'call actually sent) and a reference to the system prompt the model was given.'
+  'call actually sent) and a reference to the system prompt the model was given.',
+  'An agent reading this through its read_conversation tool passes the line (and offset) instead of using sed.'
 ].join(' ')
 
 /**

@@ -466,21 +466,22 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // the assistant ('stall', 'stream error'…) would otherwise hit the moderator too — a message ending in
   // 'stall' stalled the classifier itself for 30s, and no late verdict could ever be tested.
   if (modelId === 'mock-moderator') return processMockModeratorPrompt(lastMessage)
-  // Memory reflection seam (tests/features/memory/reflection.api.spec.ts). A reflection's user message
-  // carries the conversation transcript; a line `remember: <fact>` in it makes the model record that
-  // fact in MEMORY.md once, then finish. Deterministic stand-in for a model that judges what is durable.
-  // Before every other seam, so a directive quoted in a transcript (`stall`…) cannot trigger one.
-  if (lastMessage.includes('<conversation-transcript>')) {
+  // Memory consolidation seam (tests/features/memory/consolidation.api.spec.ts). A consolidation's user
+  // message carries the conversations since the last pass; a line `remember: <fact>` in them makes the
+  // model record that fact in MEMORY.md once, then finish. Deterministic stand-in for a model that judges
+  // what is durable. Before every other seam, so a directive quoted in a transcript (`stall`…) cannot
+  // trigger one.
+  if (lastMessage.includes('<conversations-since-last-pass>')) {
     const last = Array.isArray(options.prompt) ? options.prompt[options.prompt.length - 1] : undefined
     if (last?.role === 'tool') return { type: 'text', text: 'DONE' }
     const facts = [...lastMessage.matchAll(/remember: ([^\n]+)/g)].map(m => m[1].trim())
     if (!facts.length) return { type: 'text', text: 'DONE' }
     return {
-      // `reflect slowly` in the transcript holds the call back, so a test can act while it is in flight.
-      ...(lastMessage.includes('reflect slowly') ? { delayMs: 1500 } : {}),
+      // `consolidate slowly` in a message holds the call back, so a test can act while it is in flight.
+      ...(lastMessage.includes('consolidate slowly') ? { delayMs: 1500 } : {}),
       type: 'tool-call',
       toolName: 'memory',
-      toolArgs: JSON.stringify({ command: 'create', path: 'MEMORY.md', description: 'Core facts', file_text: facts.map(f => `- ${f}`).join('\n') })
+      toolArgs: JSON.stringify({ command: 'create', path: 'MEMORY.md', file_text: facts.map(f => `- ${f}`).join('\n') })
     }
   }
   const chained = processChainSeam(lastMessage, options.prompt, options.tools)
@@ -641,7 +642,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
             toolCallId: `mock-tool-call-id-${callIdSalt}-${idx}`,
             toolName: call.toolName,
             // A JSON STRING, as in doStream above: the SDK parses it itself. A parsed object made every
-            // generateText tool call fail as invalid — first exercised by memory reflection.
+            // generateText tool call fail as invalid — first exercised by memory reflection (now consolidation).
             input: call.toolArgs || '{}'
           })),
           finishReason: { unified: 'tool-calls' as const, raw: undefined },

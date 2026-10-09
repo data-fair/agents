@@ -1,8 +1,7 @@
 /**
  * The `memory` tool, as an AI SDK tool bound to one store and one author.
  *
- * Used by the turn (author: the run's tool call) and by reflection (author: the reflection, with
- * delete disabled). A refusal is THROWN, so the call is stored `output-error` and the model is handed
+ * Used by the turn (author: the run's tool call) and by consolidation (author: the consolidation). A refusal is THROWN, so the call is stored `output-error` and the model is handed
  * the reason as error text — a refused write must not look like a successful one.
  */
 import { tool, jsonSchema, type Tool } from 'ai'

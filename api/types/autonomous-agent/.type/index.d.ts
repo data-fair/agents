@@ -48,7 +48,7 @@ export type Allow2 = "allow";
 export type ApproveEachCall2 = "approve";
 export type NeverOffer2 = "deny";
 /**
- * The agent keeps notes it reuses in every later conversation, and reviews its past conversations to update them. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.
+ * The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.
  */
 export type KeepAMemoryAcrossConversations = boolean;
 /**
@@ -91,6 +91,13 @@ export type AutonomousAgent = {
   web?: WebAccess;
   externalMcpServers?: ExternalMCPServers;
   enabled: Enabled;
+  memoryConsolidation?: {
+    at?: string;
+    until?: string;
+    credits?: number;
+    failedAt?: string;
+    deferredAt?: string;
+  };
   createdAt?: string;
   updatedAt?: string;
   createdBy?: {

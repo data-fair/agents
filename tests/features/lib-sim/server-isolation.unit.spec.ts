@@ -127,7 +127,7 @@ test.describe('bridge call site', () => {
 })
 
 test.describe('bridge without streaming', () => {
-  // The AI SDK's generateText — memory reflection, for one — sends no `stream` and parses the body as
+  // The AI SDK's generateText — memory consolidation, for one — sends no `stream` and parses the body as
   // one JSON value: an event stream failed it with "Invalid JSON response".
   test('answers a request that did not ask to stream with one JSON completion', async () => {
     const fakeQuery: BridgeQuery = () => (async function * () {

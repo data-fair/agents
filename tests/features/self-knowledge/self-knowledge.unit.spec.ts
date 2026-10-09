@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { renderConfiguration, renderRunRow, renderRun, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, PLANNED_TASKS_HEADER, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
+import { renderConfiguration, renderRunRow, renderRun, exportPage, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, PLANNED_TASKS_HEADER, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
 import { SERVICE_TOOL_NAMES } from '../../../api/src/conversations/service-tool-names.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 
@@ -135,10 +135,36 @@ test.describe('renderRun', () => {
     assert.doesNotMatch(text, /Jane/)
   })
 
-  test('a conversation run is its metadata only', () => {
-    const text = renderRun(run({ kind: undefined, taskId: undefined, conversationId: 'c1', parts: [{ type: 'text', text: 'private words' }] }), undefined)
-    assert.match(text, /Conversation content is not available here\./)
-    assert.doesNotMatch(text, /private words/)
+  test('a conversation run points to its conversation\'s export and the seqs of the turn', () => {
+    const text = renderRun(run({ kind: undefined, taskId: undefined, conversationId: 'c1', trigger: 'user' }), undefined, { from: 3, to: 4 })
+    assert.match(text, /conversation c1/)
+    assert.match(text, /read_conversation, conversationId c1: this turn is messages seq 3 to 4/)
+    assert.doesNotMatch(text, /Jane|Secret|u1/)
+  })
+})
+
+test.describe('exportPage', () => {
+  const jsonl = ['{"type":"meta"}', '{"type":"outline"}', ...Array.from({ length: 10 }, (_, i) => JSON.stringify({ type: 'message', seq: i + 1, text: 'x'.repeat(100) })), JSON.stringify({ type: 'blob', value: 'b'.repeat(5000) })].join('\n') + '\n'
+
+  test('reads from a line, numbers each line, and says where the next page starts', () => {
+    const page = exportPage(jsonl, 1, 0, 600)
+    assert.match(page, /^1: \{"type":"meta"\}\n2: \{"type":"outline"\}\n3: /)
+    const next = /call again with line (\d+)\]$/.exec(page)
+    assert.ok(next && Number(next[1]) > 3 && Number(next[1]) < 13, page)
+    // a line bigger than a whole page fills what is left of this one, and goes on from its offset
+    assert.match(exportPage(jsonl, 12, 0, 600), /^12: .*\n13: \{"type":"blob","value":"b+\n\[more: call again with line 13, offset \d+\]$/)
+  })
+
+  test('a line longer than a page is cut, and goes on from its offset', () => {
+    const first = exportPage(jsonl, 13, 0, 2000)
+    assert.match(first, /^13: \{"type":"blob"/)
+    assert.match(first, /\[more: call again with line 13, offset 2000\]$/)
+    const last = exportPage(jsonl, 13, 4000, 2000)
+    assert.match(last, /^13: …b+"\}\n\[end of the export, 13 lines\]$/)
+  })
+
+  test('a line out of range says how long the export is', () => {
+    assert.equal(exportPage(jsonl, 99), 'There is no line 99: the export has 13 lines.')
   })
 })
 

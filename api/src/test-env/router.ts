@@ -19,7 +19,7 @@ import { clearToolListings } from '../mcp-servers/client.ts'
 import { invalidateSettings } from '../settings/service.ts'
 import { executeMemoryCommand } from '../memory/service.ts'
 import { agentStoreId, MemoryCommandError, MemoryConflictError, type MemoryAuthor } from '../memory/operations.ts'
-import { maybeReflect, sweepIdleReflections } from '../memory/reflection.ts'
+import { maybeConsolidate, sweepConsolidations } from '../memory/consolidation.ts'
 import { runSchedulerPass } from '../tasks/scheduler.ts'
 import { recoverOwnerlessRuns } from '../conversations/executor.ts'
 import { recoverOwnerlessTaskRuns } from '../tasks/execution.ts'
@@ -307,12 +307,12 @@ export const createTestEnvRouter = () => {
   // (or bills, with the dev bridge) the real dev accounts' data — the same rule as clean().
   const testOwnerScope = (owner: unknown): Record<string, unknown> =>
     owner && typeof owner === 'object' ? { 'owner.id': (owner as any).id } : { 'owner.id': /^test/ }
-  // Dev-only: reflect one conversation now, or run the idle sweep as of a chosen time.
-  router.post('/reflect-conversation', async (req, res) => {
-    res.json(await maybeReflect(String(req.body.conversationId), req.body.trigger ?? 'manual', req.body.now ? new Date(req.body.now) : undefined))
+  // Dev-only: consolidate one agent's memory now, or run the sweep as of a chosen time.
+  router.post('/consolidate-memory', async (req, res) => {
+    res.json(await maybeConsolidate(String(req.body.agentId), req.body.trigger ?? 'manual', req.body.now ? new Date(req.body.now) : undefined))
   })
-  router.post('/sweep-reflections', async (req, res) => {
-    res.json({ reflected: await sweepIdleReflections(req.body?.now ? new Date(req.body.now) : undefined, req.body?.batch, testOwnerScope(req.body?.owner)) })
+  router.post('/sweep-consolidations', async (req, res) => {
+    res.json({ consolidated: await sweepConsolidations(req.body?.now ? new Date(req.body.now) : undefined, testOwnerScope(req.body?.owner)) })
   })
   // Dev-only: one scheduler pass as of a chosen time, and a task's next slot set directly.
   router.post('/scheduler-pass', async (req, res) => {

@@ -35,7 +35,6 @@ import { loadHistory, compactHistory } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason } from './interrupted-turn.ts'
 import { updateMessage, settleStoredToolPart, finishRun, conversationCost } from './service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
-import { maybeReflect } from '../memory/reflection.ts'
 
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
 export interface TurnFrames {
@@ -402,12 +401,6 @@ export const conversationTarget = (
         stopReason: result.stopReason,
         ...(result.stopDetail ? { detail: result.stopDetail } : {})
       })
-      // MEMORY REFLECTION, off the person's path: a long thread is reflected once it has grown enough;
-      // a thread that simply ends is caught by the idle sweep (api/src/memory/reflection.ts). Not on a
-      // handover nor on an approval request — the exchange is mid-way, and the next turn comes back here.
-      if (!result.handover && !result.awaitingApproval) {
-        maybeReflect(run.conversationId, 'turn').catch(err => console.error('memory reflection could not start', err))
-      }
       if (result.handover) {
         // The person may have acted while the turn was still finishing: that answer is already buffered.
         await wakeIfAnswered(run.conversationId).catch(err => console.error('could not wake a conversation on its pending wait', err))

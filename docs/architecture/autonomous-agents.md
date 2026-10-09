@@ -193,7 +193,7 @@ A task run's target is the other implementation: its record is the run itself (`
 - `wait_for_user_action`: only in a chat with someone watching (a session). Unwrapped: its result is the loop's own handover.
 - `memory`: a configured agent with memory enabled (`memoryEnabledFor`), on every surface. Provenance server `agent-memory`.
 - web readers (`api/src/web`): a configured agent with `web.enabled`, on every surface. Provenance server `agent-web`.
-- self-knowledge (`get_my_configuration`, `list_my_runs`, `get_run`): a configured agent, on every surface, read-only. Provenance server `agent-self`.
+- self-knowledge (`get_my_configuration`, `list_my_runs`, `get_run`, `read_conversation`): a configured agent, on every surface, read-only; it reads all of the agent's past runs and conversations, whoever had them. Provenance server `agent-self`.
 - planning (`plan_task`, `update_task`, `delete_task`): a configured agent in a chat, each call approved by the person; see [planned tasks](./planned-tasks.md#self-knowledge-and-planning). Provenance server `agent-self`.
 - `report_outcome`: the task surface only, how a planned task's run reports its outcome. Provenance server `agent-service`.
 

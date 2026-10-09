@@ -8,7 +8,6 @@ import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import { taskEvent, failedInARow } from './operations.ts'
 import { pushTaskEvent } from './notifications.ts'
-import { maybeReflectTaskRun } from '../memory/reflection.ts'
 
 /**
  * What follows a task run's outcome: notifications, and the pause after too many failures in a row.
@@ -21,10 +20,6 @@ export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousA
   const taskId = task?.id ?? run.taskId
   const current = taskId ? await mongo.autonomousAgentTasks.findOne({ id: taskId }, { projection: { _id: 0 } }) : null
   if (!current) return
-
-  // Fire-and-forget: reflection is a model call, and neither the close nor the notifications wait for it.
-  // A run that did not complete has nothing worth remembering; maybeReflectTaskRun checks the agent has memory.
-  if (run.status === 'done') maybeReflectTaskRun(run.id, run).catch(err => console.error(`task run ${run.id} could not be reflected`, err))
 
   // A timeout is an `error`; an abort is an admin's act, not a failure.
   const failed = run.status === 'error' || run.status === 'interrupted'

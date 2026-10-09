@@ -196,7 +196,7 @@ en:
   close: Close
   loadMore: Load more
   byAgent: written by the agent during a conversation
-  byReflection: written while reviewing a conversation
+  byConsolidation: written while tidying memory
   byUser: 'edited by {name}'
   confirmRedact: "Redact this version? This blanks the text in the memory history (who changed what, and when, is kept). It does NOT remove copies elsewhere - the conversations' recorded tool calls and, for MEMORY.md, the recorded system prompts of runs that saw it. To remove those, delete the conversations."
 fr:
@@ -218,7 +218,7 @@ fr:
   close: Fermer
   loadMore: Charger plus
   byAgent: écrit par l'agent pendant une conversation
-  byReflection: écrit en relisant une conversation
+  byConsolidation: écrit en remettant la mémoire en ordre
   byUser: 'modifié par {name}'
   confirmRedact: "Caviarder cette version ? Cela efface le texte dans l'historique de la mémoire (qui a modifié quoi, et quand, est conservé). Cela ne supprime PAS les copies ailleurs : les appels d'outils enregistrés dans les conversations et, pour MEMORY.md, les prompts système enregistrés des exécutions qui l'ont vu. Pour les supprimer, supprimez les conversations."
 </i18n>
@@ -339,6 +339,6 @@ const redact = (id: string) => act(async () => {
 
 const authorLabel = (author: any) => author.kind === 'agent'
   ? t('byAgent')
-  : author.kind === 'reflection' ? t('byReflection') : t('byUser', { name: author.userName ?? author.userId })
+  : author.kind === 'consolidation' ? t('byConsolidation') : t('byUser', { name: author.userName ?? author.userId })
 const formatDate = (iso: string) => new Date(iso).toLocaleString(locale.value)
 </script>

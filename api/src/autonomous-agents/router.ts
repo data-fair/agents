@@ -209,6 +209,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
       owner: existing.owner,
       createdAt: existing.createdAt,
       ...(existing.createdBy ? { createdBy: existing.createdBy } : {}),
+      ...(existing.memoryConsolidation ? { memoryConsolidation: existing.memoryConsolidation } : {}),
       updatedAt: new Date().toISOString()
     }
     // Re-verify whenever any part of the enrolment changed, not just the clientId: siteUrl/issuer

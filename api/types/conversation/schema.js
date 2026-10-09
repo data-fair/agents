@@ -37,21 +37,6 @@ export default {
       }
     },
     title: { type: 'string' },
-    // Memory reflection bookkeeping (api/src/memory/reflection.ts). Server-written; absent until the
-    // first reflection of a thread whose agent has memory.
-    memoryReflection: {
-      type: 'object',
-      additionalProperties: false,
-      properties: {
-        upToSeq: { type: 'number' },
-        at: { type: 'string', format: 'date-time' },
-        credits: { type: 'number' },
-        failedAt: { type: 'string', format: 'date-time' },
-        // Last automatic pass that could not proceed (credit cap, a step still awaiting its approval):
-        // backed off like a failure, so such threads do not take every sweep slot.
-        deferredAt: { type: 'string', format: 'date-time' }
-      }
-    },
     createdAt: { type: 'string', format: 'date-time' },
     // Declared because the service WRITES it — appendMessage and finishRun both $set it.
     // With additionalProperties: false and no declaration, every stored conversation violated its own

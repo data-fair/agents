@@ -3,7 +3,7 @@
  *
  * Persisting memory changes. Every change is decided by operations.ts against the store as loaded,
  * then written under a VERSION PRECONDITION and recorded in the append-only version log — so two runs
- * of one agent, a reflection and an admin editing at once can never overwrite each other silently.
+ * of one agent, a consolidation and an admin editing at once can never overwrite each other silently.
  */
 
 import mongo from '#mongo'

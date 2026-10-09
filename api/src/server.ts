@@ -15,7 +15,7 @@ import { recoverOwnerlessTaskRuns } from './tasks/execution.ts'
 import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/service.ts'
 import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { startAgentSessions } from './agent-session/service.ts'
-import { sweepIdleReflections } from './memory/reflection.ts'
+import { sweepConsolidations } from './memory/consolidation.ts'
 import { runSchedulerPass } from './tasks/scheduler.ts'
 
 /**
@@ -64,7 +64,7 @@ let cleanupInterval: ReturnType<typeof setInterval> | undefined
 let archivePurgeInterval: ReturnType<typeof setInterval> | undefined
 let anonymousPurgeInterval: ReturnType<typeof setInterval> | undefined
 let autonomousAgentReaper: ReturnType<typeof setInterval> | undefined
-let memoryReflectionSweep: ReturnType<typeof setInterval> | undefined
+let memoryConsolidationSweep: ReturnType<typeof setInterval> | undefined
 let taskScheduler: ReturnType<typeof setInterval> | undefined
 let agentSessions: ReturnType<typeof startAgentSessions> | undefined
 
@@ -129,11 +129,12 @@ export const start = async () => {
     purgeAbandonedAnonymous().catch(err => console.error('anonymous purge failed', err))
   }, 60 * 60 * 1000)
 
-  // Memory reflection of threads that went quiet. Every 5 minutes against a 30-minute idle threshold;
-  // per-conversation locks make concurrent instances harmless (api/src/memory/reflection.ts).
-  memoryReflectionSweep = setInterval(() => {
-    sweepIdleReflections().catch(err => console.error('memory reflection sweep failed', err))
-  }, 5 * 60 * 1000)
+  // Memory consolidation, at most daily per agent and only after activity (api/src/memory/consolidation.ts).
+  // Checked every 15 minutes; per-agent locks make concurrent instances harmless. In development the
+  // sweep leaves `test*` owners alone: the api specs drive consolidation through the test-env seam.
+  memoryConsolidationSweep = setInterval(() => {
+    sweepConsolidations(new Date(), process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test/ } } : {}).catch(err => console.error('memory consolidation sweep failed', err))
+  }, 15 * 60 * 1000)
 
   // PLANNED TASKS: every pollSeconds, claim and fire the tasks that are due (api/src/tasks/scheduler.ts).
   // Every instance polls; the claim is an atomic advance of nextRunAt, so exactly one fires a slot.
@@ -171,7 +172,7 @@ export const stop = async () => {
   if (autonomousAgentReaper) clearInterval(autonomousAgentReaper)
   if (archivePurgeInterval) clearInterval(archivePurgeInterval)
   if (anonymousPurgeInterval) clearInterval(anonymousPurgeInterval)
-  if (memoryReflectionSweep) clearInterval(memoryReflectionSweep)
+  if (memoryConsolidationSweep) clearInterval(memoryConsolidationSweep)
   if (taskScheduler) clearInterval(taskScheduler)
   await eventsQueue.stop?.()
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than

@@ -5,11 +5,14 @@
  */
 import { tool, jsonSchema, type Tool } from 'ai'
 import config from '#config'
+import mongo from '#mongo'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ServiceToolContext } from '../conversations/service-tools.ts'
 import { listTasks, listRuns, getRun, type RunFilters } from '../tasks/service.ts'
 import { memoryEnabledFor } from '../memory/operations.ts'
-import { renderConfiguration, renderRun, renderRunRow, SELF_KNOWLEDGE_TOOL_NAMES } from './operations.ts'
+import { renderConfiguration, renderRun, renderRunRow, exportPage, SELF_KNOWLEDGE_TOOL_NAMES } from './operations.ts'
+import { buildConversationExport } from '../review/operations.ts'
+import { runAsMessages } from '../tasks/run-messages.ts'
 import type { ScheduleRule } from '@agents/shared/task-schedule'
 
 const LIST_RUNS_DEFAULT = 10
@@ -18,6 +21,14 @@ const LIST_RUNS_MAX = 20
 /** An HTTP error from the read layer keeps its status in the text the model reads (e.g. "404 unknown run"). */
 export const asToolError = (err: any): never => {
   throw new Error(err?.status ? `${err.status} ${err.message}` : err?.message ?? String(err))
+}
+
+/** The seq range of a conversation turn's own messages: the ones it wrote, and the person's message that started it. */
+const turnSeqs = async (run: { id: string, conversationId?: string }) => {
+  if (!run.conversationId) return undefined
+  const written = await mongo.messages.find({ conversationId: run.conversationId, runId: run.id }, { projection: { _id: 0, seq: 1 } }).sort({ seq: 1 }).toArray()
+  if (!written.length) return undefined
+  return { from: Math.max(1, written[0].seq - 1), to: written[written.length - 1].seq }
 }
 
 const taskTitles = async (owner: AccountKeys, agentId: string) =>
@@ -74,12 +85,57 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
       }
     }),
     get_run: tool({
-      description: 'Read one of your runs by id: a task run with its outcome and transcript, a conversation run as its metadata only.',
+      description: 'Read one of your runs by id: a task run with its outcome and transcript, a conversation turn with its transcript.',
       inputSchema: jsonSchema<unknown>({ type: 'object', additionalProperties: false, required: ['runId'], properties: { runId: { type: 'string' } } }),
       execute: async (input: any) => {
         const found = await getRun(owner, agent.id, String(input?.runId ?? '')).catch(asToolError)
         const title = found.taskId ? (await taskTitles(owner, agent.id)).get(found.taskId) : undefined
-        return renderRun(found, title)
+        return renderRun(found, title, await turnSeqs(found))
+      }
+    }),
+    // Every conversation of the agent, whoever had it: an agent has ONE history, which is why its
+    // conversations are audited and carry no consent (docs/architecture/agent-memory.md). Read in the
+    // conversation export, the file maintainers download and the simulation judge reads, page by page.
+    read_conversation: tool({
+      description: [
+        'Read one of your past conversations (conversationId), whoever had it, or one of your task runs (runId), in full: what was said, every tool call with its whole result, and per turn the instructions and memory you had then.',
+        'It is a JSON Lines file read by pages, each line prefixed with its number. Line 1 describes the file, line 2 is the outline: every record with its line, size and preview. Read from line 1 first; then read only the lines you need with `line` — a large tool result was lifted into its own `blob` line, which the message points at with `__ref`.',
+        'A line longer than a page continues with `offset`. Find conversations with list_my_runs.'
+      ].join(' '),
+      inputSchema: jsonSchema<unknown>({
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          conversationId: { type: 'string' },
+          runId: { type: 'string', description: 'A task run, instead of a conversation' },
+          line: { type: 'integer', minimum: 1, description: 'The line to read from (default 1)' },
+          offset: { type: 'integer', minimum: 0, description: 'Where to go on inside that line, from a previous page' }
+        }
+      }),
+      execute: async (input: any) => {
+        const line = Math.max(1, Math.floor(Number(input?.line) || 1))
+        const offset = Math.max(0, Math.floor(Number(input?.offset) || 0))
+        if (input?.runId) {
+          const run = await getRun(owner, agent.id, String(input.runId)).catch(asToolError)
+          if (run.kind !== 'task') throw new Error(`run ${run.id} is a conversation turn: read conversation ${run.conversationId}`)
+          const { prompt, parts, ...withoutContent } = run
+          const title = run.taskId ? (await taskTitles(owner, agent.id)).get(run.taskId) : undefined
+          return exportPage(buildConversationExport({
+            conversation: { kind: 'task', id: run.id, taskId: run.taskId, agentId: agent.id, ...(title ? { title } : {}) },
+            messages: runAsMessages(run),
+            runs: [withoutContent]
+          }), line, offset)
+        }
+        const conversation = await mongo.conversations.findOne(
+          { id: String(input?.conversationId ?? ''), agentId: agent.id, 'owner.type': owner.type, 'owner.id': owner.id },
+          { projection: { _id: 0 } }
+        )
+        if (!conversation) throw new Error('404 unknown conversation')
+        const [messages, runs] = await Promise.all([
+          mongo.messages.find({ conversationId: conversation.id }, { projection: { _id: 0 } }).sort({ seq: 1 }).toArray(),
+          mongo.runs.find({ conversationId: conversation.id }, { projection: { _id: 0 } }).sort({ startedAt: 1 }).toArray()
+        ])
+        return exportPage(buildConversationExport({ conversation, messages, runs }), line, offset)
       }
     })
   }

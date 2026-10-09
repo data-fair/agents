@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
-  CORE_PATH, MEMORY_LIMITS, agentStoreId, memoryEnabledFor, normalizeMemoryPath, applyMemoryCommand,
+  CORE_PATH, CORE_DESCRIPTION, MEMORY_LIMITS, agentStoreId, memoryEnabledFor, normalizeMemoryPath, applyMemoryCommand,
   userWriteChange, restoreChange, renderMemoryBlock, MemoryCommandError, MemoryConflictError, type MemoryDocument
 } from '../../../api/src/memory/operations.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
@@ -60,6 +60,14 @@ test.describe('memory commands', () => {
 
   test('create needs a description', () => {
     assert.throws(() => applyMemoryCommand([], { command: 'create', path: 'x.md', file_text: 'hi' }, { allowDelete: true }), /description/)
+  })
+
+  test('the core document needs no description: it is shown in full, never as an index line', () => {
+    const created = applyMemoryCommand([], { command: 'create', path: CORE_PATH, file_text: 'hi' }, { allowDelete: true })
+    assert.equal((created.change as any).description, CORE_DESCRIPTION)
+    const given = applyMemoryCommand([], { command: 'create', path: CORE_PATH, description: 'mine', file_text: 'hi' }, { allowDelete: true })
+    assert.equal((given.change as any).description, 'mine')
+    assert.equal((userWriteChange([], CORE_PATH, { content: 'c' }) as any).description, CORE_DESCRIPTION)
   })
 
   test('str_replace needs exactly one occurrence', () => {
