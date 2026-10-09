@@ -4,8 +4,9 @@
  */
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin } from '../../support/axios.ts'
+import { axiosAuth, clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
@@ -34,11 +35,13 @@ test.describe('Approval card', () => {
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
     await ask(page, 'call tool wipe_everything {}')
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
-    await expect(page.getByTestId('chat-activity')).toContainText('Awaiting your approval')
+    // One name for the call: the label says what the card's heading and the chip say.
+    await expect(page.getByTestId('approval-title')).toHaveText('Approve "Wipe everything"?')
+    await expect(page.getByTestId('chat-activity')).toHaveText('Awaiting your approval: Wipe everything')
 
     await page.reload()
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
-    await expect(page.getByTestId('chat-activity')).toContainText('Awaiting your approval')
+    await expect(page.getByTestId('chat-activity')).toHaveText('Awaiting your approval: Wipe everything')
 
     // Click, then look at the buttons in the same browser task: the server's answer (which removes the
     // card) cannot have arrived yet, so this is the locked state and not a race against it.
@@ -77,6 +80,18 @@ test.describe('Approval card', () => {
     await page.getByTestId('approval-confirm-reject').click()
     await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
     await expect(page.getByTestId('tool-chip').first()).toHaveText('Declined: Wipe everything')
+    expect(fixture.invokedTools()).toEqual([])
+  })
+
+  test('the admin review page shows a pending approval read-only', async ({ page, goToWithAuth }) => {
+    const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+    const { conversationId } = await startTurnOverSocket(orgAdmin, { agentId }, 'call tool wipe_everything {}')
+    await goToWithAuth(`/agents/organization/test1/traces/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('approval-title')).toHaveText('Approve "Wipe everything"?')
+    await expect(page.getByTestId('approval-readonly')).toHaveText("Awaiting the person's decision")
+    await expect(page.getByTestId('approval-approve')).toHaveCount(0)
+    await expect(page.getByTestId('approval-reject')).toHaveCount(0)
     expect(fixture.invokedTools()).toEqual([])
   })
 })

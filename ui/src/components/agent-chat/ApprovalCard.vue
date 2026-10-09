@@ -115,7 +115,14 @@
         data-testid="approval-reason"
       />
     </v-card-text>
-    <v-card-actions>
+    <v-card-text
+      v-if="readonly"
+      class="text-body-small text-medium-emphasis pt-0"
+      data-testid="approval-readonly"
+    >
+      {{ t('readonly') }}
+    </v-card-text>
+    <v-card-actions v-else>
       <template v-if="!rejecting">
         <v-btn
           color="success"
@@ -172,6 +179,7 @@ fr:
   disabled: désactivée
   paused: "en pause : {reason}"
   resumes: "activée : cette modification lève la pause et planifie la prochaine exécution"
+  readonly: En attente de la décision de la personne
   approve: Approuver
   reject: Refuser
   reason: Raison (facultative)
@@ -190,6 +198,7 @@ en:
   disabled: disabled
   paused: "paused: {reason}"
   resumes: "enabled: this change lifts the pause and plans the next run"
+  readonly: Awaiting the person's decision
   approve: Approve
   reject: Reject
   reason: Reason (optional)
@@ -217,6 +226,8 @@ const props = defineProps<{
   // `locked`: the turn that asked is still finishing, and the server refuses a decision until it has.
   locked?: boolean
   failure?: string | null
+  /** Read by someone who cannot answer it (the admin review): no buttons. */
+  readonly?: boolean
 }>()
 const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
 

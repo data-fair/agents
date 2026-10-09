@@ -96,6 +96,7 @@
                     :agent-path="agentPath"
                     :locked="!!invocation.approvalLocked"
                     :failure="chatError"
+                    :readonly="readonly"
                     @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
                   />
                   <v-chip
@@ -345,12 +346,16 @@ const props = withDefaults(defineProps<{
   showReasoning?: boolean
   // The configured agent's API path, where an approval card reads the task a planning call changes.
   agentPath?: string
+  // A transcript read by someone who cannot answer it (the admin review, a task run): approval cards
+  // show no buttons.
+  readonly?: boolean
 }>(), {
   activity: null,
   subAgentActivities: () => ({}),
   simpleSubAgents: true,
   showReasoning: false,
-  agentPath: undefined
+  agentPath: undefined,
+  readonly: false
 })
 
 const isActionPrompt = (message: ChatMessage) => {
@@ -362,6 +367,14 @@ const hasVisibleTools = (message: ChatMessage) =>
 
 const { t } = useI18n()
 
+const pendingApprovalTitle = (toolName: string) => {
+  for (const message of props.messages) {
+    const pending = message.toolInvocations?.find(ti => ti.toolName === toolName && ti.state === 'awaiting-approval')
+    if (pending) return pending.toolTitle ?? props.toolTitle(toolName)
+  }
+  return props.toolTitle(toolName)
+}
+
 // Bottom-line label: top-level phases only. Sub-agent phases (kind 'subagent')
 // render inside their panel via subAgentActivityLabel, not here.
 const activityLabel = computed(() => {
@@ -369,6 +382,8 @@ const activityLabel = computed(() => {
   if (!a || a.kind === 'subagent') return ''
   const label = activityLabelKey(a)
   if (!label) return ''
+  // A pending call is named by the title recorded on it, as its card and chip do — one name.
+  if (a.kind === 'approval') return t(label.key, { name: pendingApprovalTitle(a.toolName) })
   // label.name is a subagent_* tool name for 'analyzing' (prettify it into a title) but
   // the model's own free-text words for 'waiting' (show verbatim, don't title-case it).
   return t(label.key, label.name
