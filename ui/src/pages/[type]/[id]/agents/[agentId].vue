@@ -42,7 +42,7 @@
         :title="agent.title"
         :tabs="tabs"
       >
-        <!-- Tasks and History get their windows from the components that fill them. -->
+        <!-- History gets its window from the component that fills it. -->
         <template #windows>
           <v-tabs-window-item value="configuration">
             <agent-configuration-tab
@@ -50,6 +50,13 @@
               :account-type="accountType"
               :account-id="accountId"
               @changed="agentFetch.refresh()"
+            />
+          </v-tabs-window-item>
+          <v-tabs-window-item value="tasks">
+            <agent-tasks-tab
+              :agent="agent"
+              :account-type="accountType"
+              :account-id="accountId"
             />
           </v-tabs-window-item>
         </template>
@@ -90,6 +97,7 @@ import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import AgentConfigurationTab from '~/components/agent-page/AgentConfigurationTab.vue'
+import AgentTasksTab from '~/components/agent-page/AgentTasksTab.vue'
 import AutonomousAgentStateChips from '~/components/AutonomousAgentStateChips.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 import { $apiPath, $uiConfig } from '~/context'

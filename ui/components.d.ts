@@ -20,6 +20,7 @@ declare module 'vue' {
     AgentChatMessages: typeof import('./src/components/agent-chat/AgentChatMessages.vue')['default']
     AgentConfigurationTab: typeof import('./src/components/agent-page/AgentConfigurationTab.vue')['default']
     AgentMemoryDialog: typeof import('./src/components/AgentMemoryDialog.vue')['default']
+    AgentTasksTab: typeof import('./src/components/agent-page/AgentTasksTab.vue')['default']
     ApprovalCard: typeof import('./src/components/agent-chat/ApprovalCard.vue')['default']
     AutonomousAgentForm: typeof import('./src/components/AutonomousAgentForm.vue')['default']
     AutonomousAgentsSection: typeof import('./src/components/AutonomousAgentsSection.vue')['default']
