@@ -97,6 +97,8 @@ declare global {
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token').resetAnonymousToken
   const resolveComponent: typeof import('vue').resolveComponent
   const rewriteSimpleDirectoryUrl: typeof import('../src/utils/simple-directory-url').rewriteSimpleDirectoryUrl
+  const runStatusLabel: typeof import('../src/utils/run-statuses').runStatusLabel
+  const runStatuses: typeof import('../src/utils/run-statuses').runStatuses
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags').serializeFlagsCookie
   const setBreadcrumbs: typeof import('../src/utils/breadcrumbs').setBreadcrumbs
   const shallowReactive: typeof import('vue').shallowReactive
@@ -277,6 +279,8 @@ declare module 'vue' {
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
     readonly rewriteSimpleDirectoryUrl: UnwrapRef<typeof import('../src/utils/simple-directory-url')['rewriteSimpleDirectoryUrl']>
+    readonly runStatusLabel: UnwrapRef<typeof import('../src/utils/run-statuses')['runStatusLabel']>
+    readonly runStatuses: UnwrapRef<typeof import('../src/utils/run-statuses')['runStatuses']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
