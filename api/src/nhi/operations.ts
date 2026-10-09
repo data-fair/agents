@@ -6,6 +6,7 @@
  */
 
 import crypto from 'node:crypto'
+import { forwardedSiteHeaders } from '../sites/operations.ts'
 
 /** The ES256 private key this deployment signs NHI assertions with. */
 export interface NhiPrivateJwk {
@@ -137,12 +138,10 @@ export const DECLARED_CLIENT_IP = '127.0.0.1'
  * reqSiteUrl, IS the audience) and x-forwarded-proto (reqOrigin throws without it).
  */
 export function exchangeHeaders (siteUrl: string): Record<string, string> {
-  const url = new URL(siteUrl)
   return {
     'content-type': 'application/json',
     'x-forwarded-for': DECLARED_CLIENT_IP,
-    'x-forwarded-host': url.host,
-    'x-forwarded-proto': url.protocol.replace(':', '')
+    ...forwardedSiteHeaders(siteUrl)
   }
 }
 
