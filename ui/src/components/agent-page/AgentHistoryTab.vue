@@ -150,7 +150,8 @@ const runLink = (run: any) => run.kind === 'task'
 const openRunId = computed(() => typeof route.query.run === 'string' ? route.query.run : null)
 const closeRun = () => {
   const { run, ...query } = route.query
-  router.push({ query })
+  // replace, not push: Back after closing a run must not reopen it.
+  router.replace({ query })
   // What the open run became (finished, aborted) shows in the list it returns to.
   runsFetch.refresh()
 }

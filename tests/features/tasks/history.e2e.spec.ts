@@ -130,6 +130,10 @@ test.describe('Agent page, History tab', () => {
     await view.getByRole('button', { name: 'Back to history' }).click()
     await expect(runItem(page, 'Greeting')).toBeVisible()
     await expect(page).not.toHaveURL(/run=/)
+    // ...in place of the run, so Back does not reopen the run just closed
+    await page.goBack()
+    await expect(page).not.toHaveURL(/run=/)
+    await expect(view).toHaveCount(0)
   })
 
   test('a notification url opens directly on the run', async ({ page, goToWithAuth }) => {
