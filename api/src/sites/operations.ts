@@ -50,5 +50,10 @@ export function forwardedSiteHeaders (siteUrl: string): { 'x-forwarded-host': st
  */
 export function accountSiteOrigins (nhiSiteUrl: string, listedHosts: string[]): string[] {
   const protocol = new URL(nhiSiteUrl).protocol
-  return [...new Set([siteOrigin(nhiSiteUrl), ...listedHosts.map(host => siteOrigin(`${protocol}//${host}`))])]
+  const origins = new Set([siteOrigin(nhiSiteUrl)])
+  for (const host of listedHosts) {
+    // a malformed listed host is skipped: one bad entry must not take the whole listing down
+    try { origins.add(siteOrigin(`${protocol}//${host}`)) } catch { /* skipped */ }
+  }
+  return [...origins]
 }

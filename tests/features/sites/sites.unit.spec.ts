@@ -46,4 +46,11 @@ test.describe('accountSiteOrigins', () => {
       ['https://admin.example.org', 'https://portal.example.org', 'https://other.example.org:8443']
     )
   })
+
+  test('skips a malformed listed host instead of throwing', () => {
+    assert.deepEqual(
+      accountSiteOrigins('https://admin.example.org/', ['bad host', 'portal.example.org', '']),
+      ['https://admin.example.org', 'https://portal.example.org']
+    )
+  })
 })
