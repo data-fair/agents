@@ -95,4 +95,23 @@ test.describe('Sites of an autonomous agent', () => {
     assert.equal(part.state, 'output-error')
     assert.match(part.errorText, /is not a portal of your organization/)
   })
+
+  // Binding: an identity without its enrolment site is a misconfiguration to surface, never a reason to
+  // quietly run anonymous. Public tools only, so this exercises the path that skips the account listing.
+  test('an agent with an identity but no enrolment site is refused, not run anonymously', async () => {
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-autonomous-agent-nhi',
+      autonomousAgent: { title: 'Half enrolled', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true }
+    })
+    await assert.rejects(admin.get(`${AGENT}/tools`), (err: any) => {
+      assert.equal(err.status, 400)
+      assert.match(JSON.stringify(err.data ?? err.message), /non-human identity/)
+      return true
+    })
+    const { run } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'hello')
+    assert.equal(run.status, 'error')
+    assert.match(run.error, /no enrolled non-human identity/)
+  })
 })
