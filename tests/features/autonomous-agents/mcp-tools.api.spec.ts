@@ -25,7 +25,7 @@ test.describe('Autonomous agent tools', () => {
     const res = await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/tools`)
     assert.equal(res.status, 200)
     const names = res.data.results.map((t: any) => t.name).sort()
-    assert.deepEqual(names, ['bulk', 'echo', 'explode', 'get_schema', 'ignored', 'list_road_closures', 'slow_lookup', 'snapshot', 'wipe_everything'])
+    assert.deepEqual(names, ['bulk', 'echo', 'explode', 'get_schema', 'ignored', 'list_road_closures', 'slow_lookup', 'snapshot', 'whoami', 'wipe_everything'])
     assert.equal(res.data.results.find((t: any) => t.name === 'echo').server, 'dev-public-mcp')
     // The write surface, visible before the agent is ever run. Same annotations the runtime records per
     // call, so an admin and an auditor read the same thing.
@@ -82,6 +82,7 @@ test.describe('Autonomous agent tools', () => {
     const cookie = String(fixture.lastHeaders().cookie ?? '')
     // A real simple-directory session, minted by a real exchange, presented to a real MCP server.
     assert.match(cookie, /id_token=/, `expected a session cookie at the MCP server, got: ${cookie}`)
+    assert.equal(fixture.lastHeaders()['x-forwarded-host'], `localhost:${process.env.NGINX_PORT}`)
     // and nothing that could mint another one
     assert.equal(JSON.stringify(res.data).includes('id_token'), false)
     assert.equal(cookie.includes('assertion'), false)

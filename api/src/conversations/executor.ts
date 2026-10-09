@@ -43,7 +43,8 @@ import { appendMessage, finishRun, bufferRunWrites, resolveAgent, setRunSystemPr
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget, type ModelRole } from '../models/operations.ts'
-import { openAutonomousAgentTools, type SessionProvider } from '../mcp-servers/client.ts'
+import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
+import { personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
 import { securityKey } from '../cipher/service.ts'
 import { getAutonomousAgentSession } from '../nhi/service.ts'
@@ -303,14 +304,14 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // with 'Not connected'. Released in the finally below.
   // WHO IT ACTS AS — the one port. A configured agent has a non-human identity and acts as itself; the
   // personal assistant has none and acts as the person whose socket this is.
-  const sessionProvider: SessionProvider = autonomousAgent.nhi
-    ? () => getAutonomousAgentSession(autonomousAgent)
-    : async () => session?.sessionCookie()
+  const sites: SiteCredentials = autonomousAgent.nhi
+    ? { homeSite: autonomousAgent.nhi.siteUrl, portals: [], anonymousHome: false, cookieFor: site => getAutonomousAgentSession(autonomousAgent, site) }
+    : personSiteCredentials(undefined, session?.sessionCookie())
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
   const { tools: rawTools, serverByTool, annotationsByTool, skippedServers, filteredOut, close: closeTools } =
-    await openAutonomousAgentTools(autonomousAgent, sessionProvider, {
+    await openAutonomousAgentTools(autonomousAgent, sites, {
       onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
     })
   if (skippedServers.length) {

@@ -122,8 +122,20 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  * The tool list an autonomous agent would actually receive, fetched live as its own
  * identity. Descriptions and annotations only — never a credential.
  */
-export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools) =>
-  await listAutonomousAgentToolDescriptors(autonomousAgent, () => getAutonomousAgentSession(autonomousAgent))
+export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools) => {
+  // With no home site `cookieFor` is never called, so the enrolment check getAutonomousAgentSession makes
+  // would be lost: refuse here rather than list a session server's tools anonymously.
+  const catalog = config.mcpServers ?? []
+  if (!autonomousAgent.nhi?.clientId && (autonomousAgent.mcpServers ?? []).some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
+    throw httpError(400, `autonomous agent ${autonomousAgent.id} has no enrolled non-human identity`)
+  }
+  return await listAutonomousAgentToolDescriptors(autonomousAgent, {
+    homeSite: autonomousAgent.nhi?.siteUrl,
+    portals: [],
+    anonymousHome: false,
+    cookieFor: site => getAutonomousAgentSession(autonomousAgent, site)
+  })
+}
 
 /**
  * Saves an extended web allowlist, once an administrator approved the agent's `request_web_access`

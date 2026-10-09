@@ -29,7 +29,7 @@ export interface McpFixture {
 // constructed with `sessionIdGenerator: undefined` is shared across requests — unlike what
 // the brief's original one-transport-for-the-process-lifetime sketch assumed. See
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js.
-const buildMcpServer = (record: (toolName: string) => void): McpServer => {
+const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>): McpServer => {
   const mcp = new McpServer({ name: 'fixture', version: '1.0.0' })
   // The installed SDK also requires a Zod schema/raw-shape for inputSchema, not a plain
   // JSON Schema object — registerTool() calls getZodSchemaObject() on it and throws
@@ -181,6 +181,23 @@ const buildMcpServer = (record: (toolName: string) => void): McpServer => {
     }
   )
   mcp.registerTool(
+    'whoami',
+    // Which site this call acts on and as whom, as the server received it: the proof that a call landed
+    // on the right site with the right identity. Decodes the session's claims without verifying them —
+    // a fixture reporting what it was sent, not an authority.
+    { description: 'Says which site the call acts on, and as whom', inputSchema: {} },
+    async () => {
+      record('whoami')
+      const cookie = String(headers.cookie ?? '')
+      const token = /(?:^|;\s*)id_token=([^;]+)/.exec(cookie)?.[1]
+      let userId: string | null = null
+      if (token) {
+        try { userId = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')).id ?? null } catch {}
+      }
+      return { content: [{ type: 'text', text: JSON.stringify({ forwardedHost: headers['x-forwarded-host'] ?? null, userId }) }] }
+    }
+  )
+  mcp.registerTool(
     'ignored',
     { description: 'Exists so toolFilter has something to exclude', inputSchema: {} },
     async () => { record('ignored'); return { content: [{ type: 'text', text: 'ignored' }] } }
@@ -201,7 +218,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   const server: Server = createServer((req, res) => {
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer(name => invoked.push(name))
+    const mcp = buildMcpServer(name => invoked.push(name), req.headers)
     // The body is read here, to count methods, and handed to the transport already parsed.
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))

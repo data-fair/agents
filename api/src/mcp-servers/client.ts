@@ -9,31 +9,23 @@ import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { tool, jsonSchema, type Tool } from 'ai'
 import config from '#config'
 import { httpError } from '@data-fair/lib-express'
-import { createHash } from 'node:crypto'
 import Debug from 'debug'
-import { credentialHeaders, type GlobalMcpServer } from './operations.ts'
+import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 
 const debug = Debug('agents:mcp-client')
 
-export const connectMcpServer = async (server: GlobalMcpServer, cookieHeader?: string) => {
-  const headers = credentialHeaders(server, cookieHeader)
+export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, cookieHeader?: string) => {
+  const headers = callHeaders(server, siteUrl, cookieHeader)
   const transport = new StreamableHTTPClientTransport(new URL(server.url), { requestInit: { headers } })
   const client = new Client({ name: 'data-fair-agents', version: '1.0.0' })
   await client.connect(transport)
   return { client, close: async () => { await client.close() } }
 }
 
-/**
- * Produces the cookie header for a catalog entry whose `auth` is `nhi-session`, or undefined when the
- * agent has no session to present. A function rather than a value, because the NHI case EXCHANGES on
- * demand and caches: an agent whose entries are all `none`/`apiKey` must perform no exchange at all.
- */
-export type SessionProvider = () => Promise<string | undefined>
-
 export interface AutonomousAgentForTools {
   id: string
-  nhi?: { clientId: string }
+  nhi?: { clientId: string, siteUrl?: string, issuer?: string }
   mcpServers?: { serverId: string, toolFilter?: string[] }[]
 }
 
@@ -61,21 +53,22 @@ export interface ListedMcpTool {
  * A session is obtained lazily and only once: an agent whose entries are all `none`/`apiKey` performs
  * no exchange at all.
  *
- * WHO it acts as is injected (see performTurn in conversations/executor.ts) rather than derived from the agent. That
+ * WHO it acts as, and WHERE, is injected (`SiteCredentials`; see performTurn in conversations/executor.ts) rather than derived from the agent. That
  * is the one seam a personal assistant needs: it has no non-human identity, and acts as the person using
  * it through their forwarded session. Everything else about gathering tools is identical, which is the
  * point — one loop can serve both because only this line differs.
  */
 export const forEachListedTool = async (
   autonomousAgent: AutonomousAgentForTools,
-  sessionProvider: SessionProvider,
+  sites: SiteCredentials,
   visit: (t: ListedMcpTool, server: GlobalMcpServer) => void,
   opts?: { onServerError?: 'throw' | 'skip', skipped?: SkippedServer[] }
 ): Promise<void> => {
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
-  const needsSession = refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
-  const cookieHeader = needsSession ? await sessionProvider() : undefined
+  const home = sites.homeSite
+  const needsSession = !!home && refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
+  const cookieHeader = needsSession ? await sites.cookieFor(home!) : undefined
 
   for (const ref of refs) {
     const server = catalog.find(s => s.id === ref.serverId)
@@ -87,7 +80,7 @@ export const forEachListedTool = async (
     let close: (() => Promise<void>) | undefined
     try {
       let client: Client
-      ({ client, close } = await connectMcpServer(server, cookieHeader))
+      ({ client, close } = await connectMcpServer(server, home, cookieHeader))
       const listed = await client.listTools()
       for (const t of listed.tools) {
         if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
@@ -163,17 +156,12 @@ const listings = new Map<string, { expiresAt: number, tools: Promise<ListedMcpTo
 /** Forget every cached listing. The test environment's reset calls it, so specs stay independent. */
 export const clearToolListings = () => { listings.clear() }
 
-const listingKey = (server: GlobalMcpServer, cookieHeader: string | undefined) =>
-  server.auth === 'nhi-session'
-    ? `${server.id}\0${createHash('sha256').update(cookieHeader ?? '').digest('hex')}`
-    : server.id
-
-const listServerTools = (server: GlobalMcpServer, cookieHeader: string | undefined): Promise<ListedMcpTool[]> => {
-  const key = listingKey(server, cookieHeader)
+const listServerTools = (server: GlobalMcpServer, siteUrl: string | undefined, cookieHeader: string | undefined): Promise<ListedMcpTool[]> => {
+  const key = listingKey(server, siteUrl, cookieHeader)
   const cached = listings.get(key)
   if (cached && cached.expiresAt > Date.now()) return cached.tools
   const tools = (async () => {
-    const { client, close } = await connectMcpServer(server, cookieHeader)
+    const { client, close } = await connectMcpServer(server, siteUrl, cookieHeader)
     try {
       return (await client.listTools()).tools as ListedMcpTool[]
     } finally {
@@ -200,7 +188,7 @@ const listServerTools = (server: GlobalMcpServer, cookieHeader: string | undefin
  */
 export const openAutonomousAgentTools = async (
   autonomousAgent: AutonomousAgentForTools,
-  sessionProvider: SessionProvider,
+  sites: SiteCredentials,
   opts?: { onServerError?: 'throw' | 'skip' }
 ): Promise<OpenAutonomousAgentTools> => {
   const tools: Record<string, Tool> = {}
@@ -211,18 +199,30 @@ export const openAutonomousAgentTools = async (
 
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
-  const needsSession = refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
-  const cookieHeader = needsSession ? await sessionProvider() : undefined
+  const home = sites.homeSite
+  const needsSession = !!home && refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
+  const homeCookie = needsSession ? await sites.cookieFor(home!) : undefined
+  const portalByHost = new Map(sites.portals.map(origin => [new URL(origin).host, origin]))
+  const portalHosts = [...portalByHost.keys()]
 
-  // This turn's connections, opened by the first call to each server.
+  // This turn's connections, opened by the first call to each server — and each SITE, for a
+  // site-bound server: its headers (site and session) are fixed when it connects.
   const connections = new Map<string, ReturnType<typeof connectMcpServer>>()
-  const clientFor = async (server: GlobalMcpServer) => {
-    let connection = connections.get(server.id)
+  const clientFor = async (server: GlobalMcpServer, siteUrl: string | undefined) => {
+    const key = connectionKey(server, siteUrl)
+    let connection = connections.get(key)
     if (!connection) {
-      connection = connectMcpServer(server, cookieHeader)
-      connections.set(server.id, connection)
+      // The promise is stored before the cookie is awaited, so two concurrent first calls to the same
+      // site share one connection instead of each exchanging and connecting.
+      connection = (async () => {
+        const cookie = server.auth !== 'nhi-session' || !siteUrl
+          ? undefined
+          : siteUrl === home ? homeCookie : await sites.cookieFor(siteUrl)
+        return await connectMcpServer(server, siteUrl, cookie)
+      })()
+      connections.set(key, connection)
       // A failed connect is forgotten, so the next call retries rather than replaying the failure.
-      connection.catch(() => { if (connections.get(server.id) === connection) connections.delete(server.id) })
+      connection.catch(() => { if (connections.get(key) === connection) connections.delete(key) })
     }
     try {
       return (await connection).client
@@ -237,7 +237,7 @@ export const openAutonomousAgentTools = async (
     const server = catalog.find(s => s.id === ref.serverId)
     if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
     try {
-      return { ref, server, tools: await listServerTools(server, cookieHeader) }
+      return { ref, server, tools: await listServerTools(server, server.auth === 'nhi-session' ? home : undefined, server.auth === 'nhi-session' ? homeCookie : undefined) }
     } catch (err: any) {
       // THROW or SKIP — see forEachListedTool, whose rule this is.
       if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
@@ -262,12 +262,17 @@ export const openAutonomousAgentTools = async (
       serverByTool.set(t.name, server.id)
       if (t.annotations) annotationsByTool.set(t.name, t.annotations as Record<string, unknown>)
       else annotationsByTool.delete(t.name)
+      const siteBound = server.auth === 'nhi-session'
+      const { schema, injected } = siteBound ? withPortalArgument(t.inputSchema, portalHosts) : { schema: (t.inputSchema as any) ?? { type: 'object', properties: {} }, injected: false }
       tools[t.name] = tool({
         description: t.description ?? '',
-        inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
-        execute: async (args: any) => {
-          debug('call tool=%s server=%s', t.name, server.id)
-          const client = await clientFor(server)
+        inputSchema: jsonSchema(schema as any),
+        execute: async (rawArgs: any) => {
+          const { portal, args } = splitPortalArgument(rawArgs, injected)
+          const site = portal === undefined ? home : portalByHost.get(portal)
+          if (portal !== undefined && !site) throw new Error(`"${portal}" is not a portal of your organization (${portalHosts.join(', ') || 'none'})`)
+          debug('call tool=%s server=%s site=%s', t.name, server.id, siteBound ? site : '-')
+          const client = await clientFor(server, siteBound ? site : undefined)
           // request() rather than callTool(): the latter also validates the result's
           // structuredContent against the declared outputSchema, and formatMcpToolResult
           // discards structuredContent, so that check could only reject an otherwise
@@ -311,10 +316,10 @@ export interface McpToolDescriptor {
  */
 export const listAutonomousAgentToolDescriptors = async (
   autonomousAgent: AutonomousAgentForTools,
-  sessionProvider: SessionProvider
+  sites: SiteCredentials
 ): Promise<McpToolDescriptor[]> => {
   const descriptors: McpToolDescriptor[] = []
-  await forEachListedTool(autonomousAgent, sessionProvider, (t, server) => {
+  await forEachListedTool(autonomousAgent, sites, (t, server) => {
     descriptors.push({
       name: t.name,
       description: t.description ?? '',
