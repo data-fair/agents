@@ -42,7 +42,6 @@
         :title="agent.title"
         :tabs="tabs"
       >
-        <!-- History gets its window from the component that fills it. -->
         <template #windows>
           <v-tabs-window-item value="configuration">
             <agent-configuration-tab
@@ -54,6 +53,13 @@
           </v-tabs-window-item>
           <v-tabs-window-item value="tasks">
             <agent-tasks-tab
+              :agent="agent"
+              :account-type="accountType"
+              :account-id="accountId"
+            />
+          </v-tabs-window-item>
+          <v-tabs-window-item value="history">
+            <agent-history-tab
               :agent="agent"
               :account-type="accountType"
               :account-id="accountId"
@@ -98,6 +104,7 @@ import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import AgentConfigurationTab from '~/components/agent-page/AgentConfigurationTab.vue'
 import AgentTasksTab from '~/components/agent-page/AgentTasksTab.vue'
+import AgentHistoryTab from '~/components/agent-page/AgentHistoryTab.vue'
 import AutonomousAgentStateChips from '~/components/AutonomousAgentStateChips.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 import { $apiPath, $uiConfig } from '~/context'
@@ -153,7 +160,11 @@ const tab = computed({
     const queried = route.query.tab
     return tabs.value.some(tabInfo => tabInfo.key === queried) ? queried as string : 'configuration'
   },
-  set: (value) => { router.replace({ query: { ...route.query, tab: value } }) }
+  // An open run belongs to the history: leaving the tab closes it.
+  set: (value) => {
+    const { run, ...query } = route.query
+    router.replace({ query: { ...(value === 'history' ? route.query : query), tab: value } })
+  }
 })
 
 watch(agent, (value) => {
