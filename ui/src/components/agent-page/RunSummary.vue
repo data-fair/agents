@@ -13,7 +13,7 @@
         size="small"
         variant="tonal"
         :color="statusColor[run.status]"
-        :text="t(`statuses.${run.status}`)"
+        :text="runStatusLabel(run.status, locale)"
       />
       <v-chip
         v-if="run.outcome"
@@ -52,13 +52,6 @@
 en:
   credits: "{n} credits"
   noOutcome: No outcome reported
-  statuses:
-    running: Running
-    done: Done
-    error: Error
-    aborted: Aborted
-    interrupted: Interrupted
-    skipped: Skipped
   outcomes:
     done: Done
     nothing-to-do: Nothing to do
@@ -72,13 +65,6 @@ en:
 fr:
   credits: "{n} crédits"
   noOutcome: Aucun résultat signalé
-  statuses:
-    running: En cours
-    done: Terminée
-    error: Erreur
-    aborted: Arrêtée
-    interrupted: Interrompue
-    skipped: Ignorée
   outcomes:
     done: Fait
     nothing-to-do: Rien à faire
@@ -98,6 +84,7 @@ fr:
  */
 import { useI18n } from 'vue-i18n'
 import { formatCredits } from '~/utils/credits'
+import { runStatusLabel } from '~/utils/run-statuses'
 
 defineProps<{
   run: any

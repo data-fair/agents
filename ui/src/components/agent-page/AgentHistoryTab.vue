@@ -88,13 +88,6 @@ en:
   status: Status
   noRuns: No run yet.
   deletedTask: Deleted task
-  statuses:
-    running: Running
-    done: Done
-    error: Error
-    aborted: Aborted
-    interrupted: Interrupted
-    skipped: Skipped
 fr:
   tasks: Tâches
   conversations: Conversations
@@ -102,13 +95,6 @@ fr:
   status: Statut
   noRuns: Aucune exécution pour l'instant.
   deletedTask: Tâche supprimée
-  statuses:
-    running: En cours
-    done: Terminée
-    error: Erreur
-    aborted: Arrêtée
-    interrupted: Interrompue
-    skipped: Ignorée
 </i18n>
 
 <script lang="ts" setup>
@@ -118,6 +104,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import TaskRunView from '~/components/agent-page/TaskRunView.vue'
 import RunSummary from '~/components/agent-page/RunSummary.vue'
+import { runStatuses, runStatusLabel } from '~/utils/run-statuses'
 import { $apiPath } from '~/context'
 
 const props = defineProps<{
@@ -126,7 +113,7 @@ const props = defineProps<{
   accountId: string
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const route = useRoute()
 const router = useRouter()
 
@@ -152,9 +139,8 @@ const taskTitle = (taskId?: string) => {
   return tasksFetch.data.value.results.find(task => task.id === taskId)?.title ?? t('deletedTask')
 }
 
-// The filter's own words for the statuses RunSummary shows.
-const statuses = ['running', 'done', 'error', 'aborted', 'interrupted', 'skipped']
-const statusItems = computed(() => statuses.map(value => ({ value, title: t(`statuses.${value}`) })))
+// In the same words as each run's summary.
+const statusItems = computed(() => runStatuses.map(value => ({ value, title: runStatusLabel(value, locale.value) })))
 
 // A task run opens here; a conversation run is a turn of a conversation, read on its review page.
 const runLink = (run: any) => run.kind === 'task'

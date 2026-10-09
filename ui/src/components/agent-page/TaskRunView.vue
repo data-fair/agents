@@ -28,8 +28,9 @@
       />
     </div>
 
+    <!-- Only when there is no run to show: a failed re-read of a running run keeps the run on screen. -->
     <v-alert
-      v-if="runFetch.error.value"
+      v-if="runFetch.error.value && !run"
       type="warning"
       variant="tonal"
       :text="t('notFound')"
@@ -116,15 +117,14 @@ const messages = computed(() => (run.value?.messages ?? []).map((message: any) =
 const toolTitle = createToolTitleMemo(() => undefined)
 
 // A running run has no socket to push its end: read it again until it ends, so the page does not keep
-// showing a run that is long over as running.
-let poll: ReturnType<typeof setTimeout> | undefined
-// Watching the record, not its status: each read is a new record, and a status that stays `running`
-// must schedule the next read.
-watch(run, (value) => {
-  clearTimeout(poll)
-  if (value?.status === 'running') poll = setTimeout(() => runFetch.refresh(), 2000)
-})
-onScopeDispose(() => clearTimeout(poll))
+// showing a run that is long over as running. An interval, not a read chained on the last one: a
+// failed read changes nothing on the record, and must not stop the polling.
+let poll: ReturnType<typeof setInterval> | undefined
+watch(() => run.value?.status === 'running', (running) => {
+  clearInterval(poll)
+  poll = running ? setInterval(() => runFetch.refresh(), 2000) : undefined
+}, { immediate: true })
+onScopeDispose(() => clearInterval(poll))
 
 const aborting = ref(false)
 const abort = async () => {
