@@ -80,12 +80,28 @@ test.describe('Autonomous agent page', () => {
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
   })
 
-  test('a non-admin instructor is told the page is not theirs, and gets no form', async ({ page, goToWithAuth }) => {
+  test('a non-admin instructor is sent to the agent\'s chat, as the org page sends them', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     await goToWithAuth(pageUrl(agentId), 'test1-user1', { org: 'test1' })
-    await expect(page.getByTestId('autonomous-agents-gated')).toContainText('administrators', { timeout: 20000 })
-    await expect(page.getByRole('textbox', { name: 'Name' })).toBeHidden()
-    // the chat stays theirs
-    await expect(page.getByRole('link', { name: 'Open chat' })).toBeVisible()
+    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/chat\\?agentId=${agentId}`), { timeout: 20000 })
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveCount(0)
+  })
+
+  test('an unknown agent says so instead of leaving the page blank', async ({ page, goToWithAuth }) => {
+    await goToWithAuth(pageUrl('no-such-agent'), 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-unavailable')).toContainText('does not exist', { timeout: 20000 })
+  })
+
+  test('enrolling waits for unsaved edits to be saved or cancelled', async ({ page, goToWithAuth }) => {
+    // Enrolling re-reads the agent, which would silently drop the edits.
+    const agentId = await createAgent()
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    const enrol = page.getByRole('button', { name: 'Enrol an identity' })
+    await expect(enrol).toBeEnabled({ timeout: 20000 })
+    await page.getByRole('textbox', { name: 'Persona' }).fill('An edit.')
+    await expect(enrol).toBeDisabled()
+    await page.getByRole('textbox', { name: 'Persona' }).fill('You answer briefly.')
+    await expect(enrol).toBeEnabled()
   })
 })

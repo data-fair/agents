@@ -2,14 +2,21 @@
   <div class="d-flex flex-wrap align-center ga-2 mb-4">
     <!-- Actionable rather than merely informative: the identity is created in simple-directory from
          here, so the admin never leaves this UI. -->
-    <v-btn
+    <!-- Not while editing: enrolling re-reads the agent, which would drop the unsaved edits. The
+         hint is on a wrapper because a disabled button receives no hover. -->
+    <span
       v-if="!agent.nhi?.clientId"
-      color="warning"
-      variant="tonal"
-      :loading="enrolling"
-      :text="t('enrol')"
-      @click="startEnrol()"
-    />
+      :title="hasDiff ? t('saveFirst') : undefined"
+    >
+      <v-btn
+        color="warning"
+        variant="tonal"
+        :disabled="hasDiff"
+        :loading="enrolling"
+        :text="t('enrol')"
+        @click="startEnrol()"
+      />
+    </span>
     <!-- Memory is the agent's own and admin-only: it can hold what other instructors said. Offered
          even with memory turned off: the store keeps its notes, and the way to inspect or clean a
          suspect one is to switch memory off and then open it here. -->
@@ -34,7 +41,6 @@
     v-model:valid="valid"
     :account-type="accountType"
     :account-id="accountId"
-    @state="onFormState"
   />
 
   <v-dialog
@@ -101,6 +107,7 @@ en:
   memory: Memory
   cancel: Cancel
   enrol: Enrol an identity
+  saveFirst: Save or cancel your changes before enrolling an identity.
   enrolTitle: Enrol a non-human identity
   enrolExplain: An autonomous agent acts under its own identity, registered in the directory. Creating one here binds it to this agent; you can also reuse an identity that already exists.
   reuseExisting: Reuse an existing identity
@@ -112,6 +119,7 @@ fr:
   memory: Mémoire
   cancel: Annuler
   enrol: Enregistrer une identité
+  saveFirst: Enregistrez ou annulez vos modifications avant d'enregistrer une identité.
   enrolTitle: Enregistrer une identité non humaine
   enrolExplain: Un agent autonome agit sous sa propre identité, enregistrée dans l'annuaire. En créer une ici la lie à cet agent ; vous pouvez aussi réutiliser une identité existante.
   reuseExisting: Réutiliser une identité existante
@@ -150,29 +158,13 @@ const saved = ref<any>({})
 
 // The projection lives in a tested function, not inline: the write route treats its body as the whole
 // writable document, so a property added to the schema and forgotten here would be silently wiped —
-// and for nhi that un-enrols the agent.
-let normalizing = false
+// and for nhi that un-enrols the agent. It also fills the defaults the form materializes, so the
+// baseline is the agent as the form holds it and a page merely opened has nothing to save.
 const reset = () => {
   draft.value = autonomousAgentEditDraft(props.agent)
   saved.value = autonomousAgentEditDraft(props.agent)
-  normalizing = true
 }
 watch(() => props.agent, reset, { immediate: true })
-
-/**
- * The baseline is the stored agent AS THE FORM HOLDS IT. vjsf materializes schema defaults (approval
- * levels, memory and web switches, an empty instructors list) into an agent stored without them —
- * any agent created through the API — so comparing against the raw document reported an unsaved
- * change on a page merely opened, and the leave guard then fired on every navigation away.
- *
- * vjsf signals its state synchronously and hands the normalized data back through v-model a tick
- * later, so the baseline is read once that has landed.
- */
-const onFormState = () => {
-  if (!normalizing) return
-  normalizing = false
-  setTimeout(() => { saved.value = JSON.parse(JSON.stringify(draft.value)) })
-}
 
 const hasDiff = computed(() => JSON.stringify(canonical(draft.value)) !== JSON.stringify(canonical(saved.value)))
 useLeaveGuard(hasDiff, { locale })

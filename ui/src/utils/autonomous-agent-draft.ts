@@ -7,6 +7,7 @@
  */
 
 import writeReqSchema from '../../../api/doc/autonomous-agents/autonomous-agent-write-req/schema.js'
+import { DEFAULT_APPROVALS } from '../../../api/src/conversations/approval-policy.ts'
 
 /** Every property the write-req schema accepts. */
 export const AUTONOMOUS_AGENT_WRITABLE_KEYS = Object.keys(writeReqSchema.properties)
@@ -18,6 +19,14 @@ export function autonomousAgentEditDraft (autonomousAgent: Record<string, any>):
   }
   // Arrays the form edits in place must exist, or vjsf has nothing to add an item to.
   draft.mcpServers = autonomousAgent.mcpServers ?? []
+  // The defaults the form materializes on load, listed rather than walked from the schema: the agent
+  // page diffs the form against this draft, and an agent created through the API is stored without
+  // them, so a page merely opened reported an unsaved change. A schema walk would also add
+  // web.allowedUrls, which vjsf leaves out while web access is off.
+  draft.instructors = autonomousAgent.instructors ?? []
+  draft.approvals = { ...DEFAULT_APPROVALS, ...autonomousAgent.approvals }
+  draft.memory = autonomousAgent.memory ?? { enabled: false }
+  draft.web = autonomousAgent.web ?? { enabled: false }
   // Only the client id is writable; siteUrl/issuer are derived by the server from the request that
   // enrolled the agent, and sending them back would be sending back values it ignores.
   if (autonomousAgent.nhi?.clientId) draft.nhi = { clientId: autonomousAgent.nhi.clientId }

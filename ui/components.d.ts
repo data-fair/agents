@@ -23,6 +23,7 @@ declare module 'vue' {
     ApprovalCard: typeof import('./src/components/agent-chat/ApprovalCard.vue')['default']
     AutonomousAgentForm: typeof import('./src/components/AutonomousAgentForm.vue')['default']
     AutonomousAgentsSection: typeof import('./src/components/AutonomousAgentsSection.vue')['default']
+    AutonomousAgentStateChips: typeof import('./src/components/AutonomousAgentStateChips.vue')['default']
     ConversationReview: typeof import('./src/components/ConversationReview.vue')['default']
     ConversationReviewPage: typeof import('./src/components/ConversationReviewPage.vue')['default']
     FormActions: typeof import('./src/components/FormActions.vue')['default']

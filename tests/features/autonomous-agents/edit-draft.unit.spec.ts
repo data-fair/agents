@@ -51,6 +51,30 @@ test.describe('autonomousAgentEditDraft', () => {
     assert.equal(draft.instructions, 'In French.')
   })
 
+  test('fills the defaults the form materializes, so an unedited agent reads as unchanged', () => {
+    // An agent created through the API is stored without them, and vjsf adds exactly these on load:
+    // a draft without them made the page report an unsaved change on a page merely opened.
+    const { instructors, ...thin } = stored
+    const draft = autonomousAgentEditDraft(thin)
+    assert.deepEqual(draft.instructors, [])
+    assert.deepEqual(draft.approvals, { readOnly: 'allow', write: 'allow', destructive: 'approve' })
+    assert.deepEqual(draft.memory, { enabled: false })
+    // not allowedUrls: it is hidden while web access is off, and vjsf leaves it out
+    assert.deepEqual(draft.web, { enabled: false })
+  })
+
+  test('keeps a stored value over its default, per approval level', () => {
+    const draft = autonomousAgentEditDraft({
+      ...stored,
+      approvals: { write: 'approve' },
+      memory: { enabled: true },
+      web: { enabled: true, allowedUrls: ['https://github.com/data-fair'] }
+    })
+    assert.deepEqual(draft.approvals, { readOnly: 'allow', write: 'approve', destructive: 'approve' })
+    assert.deepEqual(draft.memory, { enabled: true })
+    assert.deepEqual(draft.web, { enabled: true, allowedUrls: ['https://github.com/data-fair'] })
+  })
+
   test('gives vjsf an array to add to when the agent has no MCP server', () => {
     const { mcpServers, ...none } = stored
     assert.deepEqual(autonomousAgentEditDraft(none).mcpServers, [])

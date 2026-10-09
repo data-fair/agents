@@ -44,28 +44,7 @@
                   <v-icon :icon="agent.enabled ? mdiRobotOutline : mdiRobotOffOutline" />
                 </template>
                 <template #append>
-                  <v-chip
-                    v-if="!agent.enabled"
-                    size="small"
-                    color="warning"
-                    variant="tonal"
-                    class="mr-2"
-                    :text="t('disabled')"
-                  />
-                  <v-chip
-                    v-if="!agent.nhi?.clientId"
-                    size="small"
-                    color="warning"
-                    variant="tonal"
-                    :text="t('notEnrolled')"
-                  />
-                  <v-chip
-                    v-else
-                    size="small"
-                    variant="tonal"
-                    :title="agent.nhi.clientId"
-                    :text="t('enrolled')"
-                  />
+                  <autonomous-agent-state-chips :agent="agent" />
                 </template>
               </v-list-item>
             </v-list>
@@ -132,9 +111,6 @@ en:
   cancel: Cancel
   none: No autonomous agent yet.
   saveFailed: Could not save this autonomous agent.
-  disabled: Disabled
-  notEnrolled: No identity
-  enrolled: Identity enrolled
   gated: Autonomous agents are still being rolled out. A superadmin in admin mode configures them for now.
   servers: "{count} MCP server(s)"
 fr:
@@ -145,9 +121,6 @@ fr:
   cancel: Annuler
   none: Aucun agent autonome pour le moment.
   saveFailed: Impossible d'enregistrer cet agent autonome.
-  disabled: Désactivé
-  notEnrolled: Pas d'identité
-  enrolled: Identité enregistrée
   gated: Les agents autonomes sont en cours de déploiement progressif. Pour l'instant, un superadministrateur en mode administration les configure.
   servers: "{count} serveur(s) MCP"
 </i18n>
@@ -162,6 +135,7 @@ import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import AutonomousAgentForm from '~/components/AutonomousAgentForm.vue'
+import AutonomousAgentStateChips from '~/components/AutonomousAgentStateChips.vue'
 import { $apiPath, $fetch, $uiConfig } from '~/context'
 
 const props = defineProps<{

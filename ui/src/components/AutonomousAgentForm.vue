@@ -7,7 +7,6 @@
       v-model="draft"
       :locale="locale"
       :options="vjsfOptions"
-      @update:state="emit('state')"
     />
   </v-form>
   <v-alert
@@ -44,8 +43,6 @@ const props = defineProps<{
 }>()
 const draft = defineModel<any>({ required: true })
 const valid = defineModel<boolean | null>('valid', { default: null })
-// vjsf re-read its data (on load, and on every change): the moment it has materialized schema defaults.
-const emit = defineEmits<{ state: [] }>()
 
 const { t, locale } = useI18n()
 const formRef = ref<any>(null)
