@@ -22,7 +22,7 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { ipList, publicLookup } from '../web/public-lookup.ts'
-import { externalToolName, EXTERNAL_MAX_CALLS } from './operations.ts'
+import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MAX_CALLS } from './operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
 
 const debug = Debug('agents:mcp-external')
@@ -134,3 +134,30 @@ export const listExternalToolDescriptors = async (servers: { url: string }[], op
     await opened.close()
   }
 }
+
+export interface RequestMcpAccessInput { url: string, reason: string }
+
+/**
+ * Asking to connect an external MCP server — typically one web access discovered on a site it reads.
+ * Always stops on an approval card, and only an administrator of the organization may approve it
+ * (conversations/approvals.ts). Approved, it saves the extended list; the server's tools are offered
+ * from the agent's next turn, when its tools are gathered.
+ */
+export const createRequestMcpAccessTool = (opts: { servers: { url: string }[], save: (servers: { url: string }[]) => Promise<void> }): Tool => tool({
+  description: 'Ask an administrator of the organization to connect an external MCP server to you, such as the MCP server of another data portal, which you then use anonymously. The conversation stops until they decide. Say why the task needs it.',
+  inputSchema: jsonSchema<RequestMcpAccessInput>({
+    type: 'object',
+    additionalProperties: false,
+    required: ['url', 'reason'],
+    properties: {
+      url: { type: 'string', description: 'The MCP endpoint URL' },
+      reason: { type: 'string', maxLength: 1000, description: 'Why the task needs it, for the administrator who decides' }
+    }
+  }),
+  needsApproval: true,
+  execute: async ({ url }: RequestMcpAccessInput) => {
+    const updated = normalizeExternalMcpServers([...opts.servers, { url }])
+    await opts.save(updated)
+    return { externalMcpServers: updated, note: 'Its tools are available from your next turn.' }
+  }
+})

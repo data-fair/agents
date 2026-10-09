@@ -21,7 +21,9 @@ import { REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
 import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_MAX, type TaskOutcome } from '../tasks/operations.ts'
 import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS, REQUEST_WEB_ACCESS_ANNOTATIONS } from '../web/tools.ts'
 import { WEB_SERVER_ID } from '../web/operations.ts'
-import { saveWebAllowedUrls } from '../autonomous-agents/service.ts'
+import { createRequestMcpAccessTool } from '../mcp-servers/external.ts'
+import { REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID, REQUEST_MCP_ACCESS_ANNOTATIONS } from '../mcp-servers/operations.ts'
+import { saveExternalMcpServers, saveWebAllowedUrls } from '../autonomous-agents/service.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { createSelfKnowledgeTools } from '../self-knowledge/tools.ts'
 import { createPlanningTools, PLANNING_TOOL_ANNOTATIONS } from '../self-knowledge/planning.ts'
@@ -125,6 +127,18 @@ const ENTRIES: ServiceToolEntry[] = [
         into.serverByTool.set(name, WEB_SERVER_ID)
         into.annotationsByTool.set(name, name === REQUEST_WEB_ACCESS_TOOL_NAME ? REQUEST_WEB_ACCESS_ANNOTATIONS : WEB_TOOL_ANNOTATIONS)
       }
+    }
+  },
+  {
+    // EXTERNAL MCP (api/src/mcp-servers/external.ts): asking to connect a public MCP server. Only in a chat
+    // an administrator started, like request_web_access and for the same reason: only an administrator may
+    // approve it. Never the personal assistant, which has no external servers.
+    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
+    build: async ({ agent }, into) => {
+      const tools = { [REQUEST_MCP_ACCESS_TOOL_NAME]: createRequestMcpAccessTool({ servers: [...(agent.externalMcpServers ?? [])], save: servers => saveExternalMcpServers(agent, servers) }) }
+      Object.assign(into.tools, withProvenance(tools, () => EXTERNAL_MCP_SERVER_ID))
+      into.serverByTool.set(REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID)
+      into.annotationsByTool.set(REQUEST_MCP_ACCESS_TOOL_NAME, REQUEST_MCP_ACCESS_ANNOTATIONS)
     }
   },
   {

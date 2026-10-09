@@ -155,6 +155,18 @@ export const saveWebAllowedUrls = async (agent: { id: string, owner: AccountKeys
 }
 
 /**
+ * Saves an extended list of external MCP servers, once an administrator approved the agent's
+ * `request_mcp_access` call. Only that field, for the reason saveWebAllowedUrls gives.
+ */
+export const saveExternalMcpServers = async (agent: { id: string, owner: AccountKeys }, servers: { url: string }[]) => {
+  const result = await mongo.autonomousAgents.updateOne(
+    { id: agent.id, 'owner.type': agent.owner.type, 'owner.id': agent.owner.id },
+    { $set: { externalMcpServers: servers, updatedAt: new Date().toISOString() } }
+  )
+  if (!result.matchedCount) throw new Error('the agent no longer exists')
+}
+
+/**
  * Erase everything one autonomous agent accumulated: its memory, its conversations, their messages, their runs.
  *
  * A CASCADE rather than a TTL, deliberately. The stored conversation is the conversation of record —

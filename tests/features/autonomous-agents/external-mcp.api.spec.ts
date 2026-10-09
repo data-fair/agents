@@ -7,20 +7,32 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
-import { turnOverSocket } from '../../../dev/socket-turn.ts'
+import { turnOverSocket, decideOverSocketToRun, runOf } from '../../../dev/socket-turn.ts'
 import { externalToolName } from '../../../api/src/mcp-servers/operations.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const instructor = await axiosAuth('test1-user1', { org: 'test1' })
 const AGENTS = '/api/autonomous-agents/organization/test1'
 const externalUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 32}/mcp`
 let external: McpFixture
 
 const createAgent = async (over: any = {}) => {
-  const agent = (await admin.post(AGENTS, { title: 'Interop', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }], ...over })).data
+  const agent = (await admin.post(AGENTS, { title: 'Interop', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }], instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }], ...over })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
   return agent
 }
+
+const awaitRun = async (conversationId: string, runId: string) => {
+  for (let i = 0; i < 120; i++) {
+    const run = await runOf(orgAdmin, conversationId, runId)
+    if (run.status !== 'running') return run
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  throw new Error('run never ended')
+}
+
+const offeredTools = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 
 test.describe('External MCP servers', () => {
   test.beforeAll(async () => { external = await startMcpFixture(Number(process.env.NGINX_PORT) + 32) })
@@ -63,5 +75,24 @@ test.describe('External MCP servers', () => {
     assert.equal(data.skipped[0].id, 'localhost:1')
     const { run } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
     assert.equal(run.status, 'done')
+  })
+
+  test('only a chat an admin started is offered request_mcp_access', async () => {
+    const agent = await createAgent({ externalMcpServers: [] })
+    const asAdmin = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
+    assert.ok(offeredTools(asAdmin.run).includes('request_mcp_access'))
+    const asInstructor = await turnOverSocket(instructor, { agentId: agent.id }, 'hello')
+    assert.ok(!offeredTools(asInstructor.run).includes('request_mcp_access'))
+  })
+
+  test('the agent asks for a server, an admin approves, the list is extended', async () => {
+    const agent = await createAgent({ externalMcpServers: [] })
+    const { assistant, conversationId, run } = await turnOverSocket(orgAdmin, { agentId: agent.id }, `call tool request_mcp_access {"url":"${externalUrl}","reason":"the portal's catalog"}`)
+    assert.equal(run.stopReason, 'awaiting-approval')
+    const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'request_mcp_access')
+    assert.deepEqual((await admin.get(`${AGENTS}/${agent.id}`)).data.externalMcpServers, [], 'nothing changes before the decision')
+    const { runId } = await decideOverSocketToRun(orgAdmin, conversationId, part.approval.id, { approved: true })
+    await awaitRun(conversationId, runId)
+    assert.deepEqual((await admin.get(`${AGENTS}/${agent.id}`)).data.externalMcpServers, [{ url: externalUrl }])
   })
 })

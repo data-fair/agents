@@ -13,16 +13,18 @@ import { settlePendingWait } from './waits.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 import { getEffectiveRole } from '../auth.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../web/operations.ts'
+import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../self-knowledge/operations.ts'
 
 /**
  * The calls whose approval is an administrator's of the organization, not any instructor's, and why.
- * Allowing more of the web widens who can, in effect, instruct the agent (every author of the pages it may
+ * Allowing more of the web, or an external MCP server, widens who can, in effect, instruct the agent (every author of the pages it may
  * then read). Planning writes the agent's standing tasks, which the task routes leave to administrators.
  * The service-tool registry offers these tools only in a turn an administrator started, for the same reason.
  */
 const ADMIN_DECISIONS: Record<string, string> = {
   [REQUEST_WEB_ACCESS_TOOL_NAME]: 'only an administrator of the organization can allow more web addresses',
+  [REQUEST_MCP_ACCESS_TOOL_NAME]: 'only an administrator of the organization can connect an external MCP server',
   ...Object.fromEntries(PLANNING_TOOL_NAMES.map(name => [name, 'only an administrator of the organization can change the agent\'s planned tasks']))
 }
 

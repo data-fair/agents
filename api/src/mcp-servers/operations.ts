@@ -220,3 +220,9 @@ export function externalToolPrefix (url: string): string {
 export function externalToolName (url: string, toolName: string): string {
   return `${externalToolPrefix(url)}__${toolName.replace(/[^a-zA-Z0-9_-]+/g, '_')}`.slice(0, 64)
 }
+
+export const REQUEST_MCP_ACCESS_TOOL_NAME = 'request_mcp_access'
+/** Provenance of the request tool, like web access's `agent-web`. */
+export const EXTERNAL_MCP_SERVER_ID = 'agent-external-mcp'
+/** Extending the list writes the agent's configuration. */
+export const REQUEST_MCP_ACCESS_ANNOTATIONS = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
