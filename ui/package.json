@@ -12,8 +12,6 @@
     "check-types": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/openai": "^3.0.41",
-    "@ai-sdk/openai-compatible": "^2.0.52",
     "@data-fair/agent-tools-data-fair": "^0.6.3",
     "@data-fair/frame": "^0.18.0",
     "@data-fair/lib-utils": "^1.13.1",
@@ -33,7 +31,6 @@
     "marked": "^18.0.11",
     "mermaid": "^11.13.0",
     "ofetch": "^1.5.1",
-    "reconnecting-websocket": "^4.4.0",
     "sanitize-html": "^2.17.1",
     "vue": "^3.5.13",
     "vue-chartjs": "^5.3.3",
