@@ -16,11 +16,32 @@ import type { MessagePart } from '@agents/shared/message-parts'
 import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
 
 /**
- * Why a run was aborted, as the abort reason the executor passes. A constant rather than a string
- * literal in two places, because `interruptReason` reads it back and a typo would silently turn
- * "the person spoke" into a generic stop.
+ * Why a turn was stopped. The same value is the turn's abort reason (TurnStopped) and, for a stop asked
+ * of a turn another process holds, the run's stored `abortReason` — so a turn is settled the same way
+ * wherever it was stopped, and nothing is recognised by its wording.
  */
-export const PERSON_SPOKE = 'the person spoke'
+export type StopCause = 'stop' | 'person-spoke' | 'agent-stopped' | 'run-deleted' | 'late-block' | 'timeout'
+
+const STOP_MESSAGES: Record<StopCause, string> = {
+  stop: 'the reply was stopped',
+  'person-spoke': 'the person spoke',
+  'agent-stopped': 'autonomous agent stopped',
+  'run-deleted': 'the run was deleted',
+  'late-block': 'moderation: a late verdict blocked this message',
+  timeout: 'run timeout'
+}
+
+/** The abort reason of a stopped turn. */
+export class TurnStopped extends Error {
+  readonly stopCause: StopCause
+  constructor (stopCause: StopCause) {
+    super(STOP_MESSAGES[stopCause])
+    this.stopCause = stopCause
+  }
+}
+
+/** The cause of an aborted turn, from its signal's reason. Every abort passes a TurnStopped; anything else is a stop. */
+export const stopCauseOf = (abortReason: unknown): StopCause => abortReason instanceof TurnStopped ? abortReason.stopCause : 'stop'
 
 /**
  * - `message`: the person wrote during the turn, which takes it back.
@@ -55,11 +76,10 @@ export function interruptedWaitReminder (expecting: unknown): string {
   return `You were waiting for the person (${waitedFor(expecting)}) when they wrote the message below instead. Answer it; then, if that action is still to come, declare wait_for_user_action again so you learn when they do it.`
 }
 
-/** Which interruption an abort was, from the reason the run's controller was aborted with. */
-export function interruptReason (abortReason: unknown): InterruptReason {
-  if (abortReason instanceof Error && abortReason.message === PERSON_SPOKE) return 'message'
-  // `abort()` with no argument — the Stop button's path — leaves the platform's own AbortError.
-  if (abortReason === undefined || (abortReason as { name?: unknown })?.name === 'AbortError') return 'stop'
+/** Which interruption a stop was, as the model is told about it. */
+export function interruptReason (cause: StopCause): InterruptReason {
+  if (cause === 'person-spoke') return 'message'
+  if (cause === 'stop') return 'stop'
   return 'ended'
 }
 

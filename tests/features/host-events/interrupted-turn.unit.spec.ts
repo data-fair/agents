@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
-  PERSON_SPOKE, INTERRUPTED_RESULTS, interruptReason, interruptedWaitResult, interruptedWaitReminder,
+  TurnStopped, stopCauseOf, INTERRUPTED_RESULTS, interruptReason, interruptedWaitResult, interruptedWaitReminder,
   settleInterruptedParts, pendingWaitReminder
 } from '../../../api/src/conversations/interrupted-turn.ts'
 
@@ -18,15 +18,22 @@ const waitCall = (state: string, input: any = { message: 'Ready: click Create.',
 
 test.describe('interruptReason', () => {
   test('the person speaking, Stop, and anything else are told apart', () => {
-    assert.equal(interruptReason(new Error(PERSON_SPOKE)), 'message')
-    // abort() with no argument leaves the platform's own AbortError: the Stop button's path.
-    const controller = new AbortController()
-    controller.abort()
-    assert.equal(interruptReason(controller.signal.reason), 'stop')
-    assert.equal(interruptReason(undefined), 'stop')
+    assert.equal(interruptReason('person-spoke'), 'message')
+    assert.equal(interruptReason('stop'), 'stop')
     // The clock, or an agent being disabled, is not the person stopping the reply.
-    assert.equal(interruptReason(new Error('run timeout')), 'ended')
-    assert.equal(interruptReason(new Error('autonomous agent stopped')), 'ended')
+    assert.equal(interruptReason('timeout'), 'ended')
+    assert.equal(interruptReason('agent-stopped'), 'ended')
+  })
+})
+
+test.describe('stopCauseOf', () => {
+  test('reads the cause an abort carries, and takes anything else for a stop', () => {
+    const controller = new AbortController()
+    controller.abort(new TurnStopped('agent-stopped'))
+    assert.equal(stopCauseOf(controller.signal.reason), 'agent-stopped')
+    const bare = new AbortController()
+    bare.abort()
+    assert.equal(stopCauseOf(bare.signal.reason), 'stop')
   })
 })
 

@@ -12,7 +12,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getAutonomousAgent } from '../autonomous-agents/service.ts'
 import { assertMayStartConversation, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation } from './service.ts'
 import { canInstruct } from '../autonomous-agents/operations.ts'
-import { abortRun } from './executor.ts'
+import { abortRunsOfConversation } from './executor.ts'
 import { assertCanUseModel } from '../auth.ts'
 import { withinRetention } from '../retention.ts'
 import { PERSONAL_AGENT_ID, PERSONAL_AGENT_TITLE } from '../agent-session/personal-agent.ts'
@@ -221,10 +221,7 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
     // A live turn is stopped first, or it would keep writing messages into a conversation that is being
     // deleted underneath it — and runTurn's "the conversation was deleted under us" path would then be
     // reached with tool calls already in flight.
-    const live = await mongo.runs
-      .find({ conversationId: conversation.id, status: 'running' }, { projection: { _id: 0, id: 1 } })
-      .toArray()
-    for (const run of live) await abortRun(run.id)
+    await abortRunsOfConversation(conversation.id, 'stop')
 
     // ARCHIVE OR PURGE, and which one is not the person's choice.
     //

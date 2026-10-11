@@ -57,7 +57,7 @@ import type { ChatActivity } from '@agents/shared/agent-activity'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { waitHandover, repairWaitInput, WAIT_TOOL_NAME, WAIT_ACCEPTED } from '@agents/shared/host-events'
 import { settlePendingWait } from './waits.ts'
-import { PERSON_SPOKE, interruptedWaitResult, interruptReason } from './interrupted-turn.ts'
+import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type StopCause } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
@@ -86,12 +86,6 @@ const liveRuns = new Map<string, { controller: AbortController, agentId: string,
 /** Whether this process is executing the run right now. */
 export const isRunLive = (runId: string) => liveRuns.has(runId)
 
-/** The abort reason of a turn whose agent was disabled or deleted: interruptReason reads it as `ended`. */
-const AGENT_STOPPED = 'autonomous agent stopped'
-
-/** The abort reason of a turn whose run document was deleted under it (its agent or conversation was). */
-const RUN_DELETED = 'the run was deleted'
-
 /** How often a live turn reads its own run for a stop requested through another process. */
 export const STOP_POLL_MS = 2000
 
@@ -99,15 +93,15 @@ export const STOP_POLL_MS = 2000
  * Stop one run, wherever it is held. True when this process aborted it OR a stop was recorded on it.
  *
  * Aborted here when this process holds the turn; recorded on the run while it is still `running`, so
- * the process that does hold it stops it at its next poll (watchStopRequests). With no reason, like a
- * person's Stop: the settled calls say the reply was stopped. False for a run that has already ended.
+ * the process that does hold it stops it at its next poll (watchStopRequests). A Stop, like a person's:
+ * the settled calls say the reply was stopped. False for a run that has already ended.
  */
 export const abortRun = async (runId: string): Promise<boolean> => {
   const live = liveRuns.get(runId)
-  live?.controller.abort()
+  live?.controller.abort(new TurnStopped('stop'))
   const requested = await mongo.runs.updateOne(
     { id: runId, status: 'running' },
-    { $set: { abortRequestedAt: new Date().toISOString() } }
+    { $set: { abortRequestedAt: new Date().toISOString(), abortReason: 'stop' } }
   )
   return !!live || requested.modifiedCount > 0
 }
@@ -130,17 +124,13 @@ export const abortRun = async (runId: string): Promise<boolean> => {
  * the new message, so the approved call is settled as not run rather than as of unknown outcome. A
  * live run of any trigger is still aborted here.
  */
-export const abortRunsOfConversation = async (conversationId: string, why: 'spoke' | 'stop' = 'spoke'): Promise<void> => {
+export const abortRunsOfConversation = async (conversationId: string, why: 'person-spoke' | 'stop' = 'person-spoke'): Promise<void> => {
   for (const live of liveRuns.values()) {
-    if (live.conversationId !== conversationId) continue
-    // The reason is read back when the turn is settled (interruptReason), so it must be the constant.
-    // A Stop carries none: the settled calls then say the reply was
-    // stopped, rather than that the person wrote.
-    live.controller.abort(why === 'spoke' ? new Error(PERSON_SPOKE) : undefined)
+    if (live.conversationId === conversationId) live.controller.abort(new TurnStopped(why))
   }
   await mongo.runs.updateMany(
-    { conversationId, status: 'running', ...(why === 'spoke' ? { trigger: 'user' } : {}) },
-    { $set: { abortRequestedAt: new Date().toISOString(), ...(why === 'spoke' ? { abortReason: 'person-spoke' as const } : {}) } }
+    { conversationId, status: 'running', ...(why === 'person-spoke' ? { trigger: 'user' } : {}) },
+    { $set: { abortRequestedAt: new Date().toISOString(), abortReason: why } }
   )
 }
 
@@ -159,7 +149,7 @@ export const abortRunsOfAgent = async (agentId: string): Promise<number> => {
   let stopped = 0
   for (const live of liveRuns.values()) {
     if (live.agentId !== agentId) continue
-    live.controller.abort(new Error(AGENT_STOPPED))
+    live.controller.abort(new TurnStopped('agent-stopped'))
     stopped++
   }
   await mongo.runs.updateMany(
@@ -182,13 +172,10 @@ const watchStopRequests = (runId: string, controller: AbortController): { initia
     try {
       const stored = await mongo.runs.findOne({ id: runId }, { projection: { _id: 0, abortRequestedAt: 1, abortReason: 1 } })
       if (controller.signal.aborted) return
-      // The reasons the local paths give, so the turn is settled the same wherever it was stopped.
-      if (!stored) controller.abort(new Error(RUN_DELETED))
-      else if (stored.abortRequestedAt) {
-        controller.abort(stored.abortReason === 'agent-stopped'
-          ? new Error(AGENT_STOPPED)
-          : stored.abortReason === 'person-spoke' ? new Error(PERSON_SPOKE) : undefined)
-      }
+      // The cause the local paths give, so the turn is settled the same wherever it was stopped. A stop
+      // recorded without one is a Stop.
+      if (!stored) controller.abort(new TurnStopped('run-deleted'))
+      else if (stored.abortRequestedAt) controller.abort(new TurnStopped(stored.abortReason ?? 'stop'))
     } catch (err) {
       debug('could not read the stop requests of run %s: %o', runId, err)
     } finally {
@@ -203,13 +190,6 @@ const watchStopRequests = (runId: string, controller: AbortController): { initia
   timer.unref()
   return { initial, stop: () => clearInterval(timer) }
 }
-
-/**
- * The abort reason of a turn stopped by a LATE moderation block — a verdict that lands after the gate
- * failed open (it does not wait longer than MODERATION_GATE_TIMEOUT_MS for the classifier). The
- * executor's catch path recognises it and stores the refusal.
- */
-const MODERATION_LATE_BLOCK = 'moderation: a late verdict blocked this message'
 
 /** One conversation is one serialised timeline, so the lock is keyed on it. */
 const conversationLockId = (conversationId: string) => `conversation:${conversationId}`
@@ -290,7 +270,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     // acted on the page, or decided on a call — and moderating it would re-judge the message that started
     // the turn: a moderator call for nothing, and possibly a second strike for the same message.
     () => target.surface === 'chat' && run.trigger !== 'wake' && run.trigger !== 'approval' && moderationApplies(settings, identity.role)
-      ? moderateTurn(run, settings, identity, () => liveRuns.get(run.id)?.controller.abort(new Error(MODERATION_LATE_BLOCK)))
+      ? moderateTurn(run, settings, identity, () => liveRuns.get(run.id)?.controller.abort(new TurnStopped('late-block')))
       : undefined
   ]) {
     const refusal = await gate()
@@ -607,13 +587,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       for (const name of Object.keys(liveTools)) offeredTools.add(name)
       return loopGuardPrepareStep(options)
     },
-    // totalMs is defence in depth. The outer Promise.race in runTurn still exists and is not redundant:
-    // it covers the whole turn — resolving the agent, opening MCP connections, compaction — whereas this
-    // bounds only the model stream. The IDLE bound is ours (idleWatchdog below), not the SDK's
-    // `chunkMs`, which counted a running tool as silence.
-    timeout: {
-      totalMs: config.turnTimeoutSeconds * 1000
-    },
+    // No SDK `timeout`: the run's deadline (driveTurn) bounds the whole turn, stream included, and its
+    // abort reaches the stream through abortSignal. The IDLE bound is ours (idleWatchdog below), not the
+    // SDK's `chunkMs`, which counted a running tool as silence.
     onStepFinish: async (step) => {
       const usage = step.usage
       const details = (usage as any)?.inputTokenDetails
@@ -1079,7 +1055,7 @@ export const driveTurn = async (
   let timeout: ReturnType<typeof setTimeout> | undefined
   const deadline = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
-      abortController.abort(new Error('run timeout'))
+      abortController.abort(new TurnStopped('timeout'))
       reject(new Error(`run exceeded its ${config.turnTimeoutSeconds}s ceiling`))
     }, config.turnTimeoutSeconds * 1000)
   })
@@ -1101,20 +1077,17 @@ export const driveTurn = async (
     const detail = err instanceof Error ? err.message : String(err)
     // An abort is not a failure of the turn: distinguish the clock from a caller pressing
     // stop, and from a genuine error, because a reader reacts differently to each.
-    const aborted = abortController.signal.aborted
-    const timedOut = aborted && /timeout/i.test(String((abortController.signal as any).reason?.message ?? ''))
-    // Refused, not failed: declining WAS the answer, as for an on-time block (see turn-gates).
-    const lateBlocked = aborted && (abortController.signal as any).reason?.message === MODERATION_LATE_BLOCK
-    const stopReason: RunStopReason = lateBlocked ? 'completed' : timedOut ? 'timeout' : aborted ? 'aborted' : 'error'
-    const status = lateBlocked ? 'done' : stopReason === 'timeout' ? 'error' : aborted ? 'aborted' : 'error'
+    const stopCause: StopCause | undefined = abortController.signal.aborted ? stopCauseOf(abortController.signal.reason) : undefined
+    // A late block is refused, not failed: declining WAS the answer, as for an on-time block (see turn-gates).
+    const stopReason: RunStopReason = stopCause === 'late-block' ? 'completed' : stopCause === 'timeout' ? 'timeout' : stopCause ? 'aborted' : 'error'
+    const status = stopCause === 'late-block' ? 'done' : stopCause && stopCause !== 'timeout' ? 'aborted' : 'error'
     const failure: TurnFailure = {
       stopReason,
       status,
-      ...(lateBlocked ? {} : { error: detail }),
+      ...(stopCause === 'late-block' ? {} : { error: detail }),
       detail,
-      aborted,
-      lateBlocked,
-      interrupt: aborted ? interruptReason((abortController.signal as AbortSignal & { reason?: unknown }).reason) : 'ended',
+      ...(stopCause ? { stopCause } : {}),
+      interrupt: stopCause ? interruptReason(stopCause) : 'ended',
       cause: err
     }
     // No target if opening itself failed; the run then carries the failure alone.

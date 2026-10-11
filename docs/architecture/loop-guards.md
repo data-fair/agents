@@ -50,7 +50,7 @@ The nudge is the mildest intervention that works: telling the model plainly what
 
 On the lead loop the same `prepareStep` hook first refreshes the live tool set when the page's tools changed mid-turn, then returns `loopGuardPrepareStep(options)`. Sub-agent workers are built with the two `stopWhen` guards only and no `prepareStep`, so today a looping worker is stopped at 5 without first being nudged at 3.
 
-The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s) and `createIdleWatchdog`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the turn's wall-clock timeout (`turnTimeoutSeconds`, also passed to `streamText` as `timeout.totalMs`). It is re-armed on every stream part and PAUSED while any tool call is outstanding: the AI SDK's own `timeout.chunkMs`, which it replaced, counted a running tool as silence, so a slow catalog query or a slow page tool was aborted as a stuck provider.
+The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s) and `createIdleWatchdog`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the turn's wall-clock timeout (`turnTimeoutSeconds`, enforced by `driveTurn`'s deadline). It is re-armed on every stream part and PAUSED while any tool call is outstanding: the AI SDK's own `timeout.chunkMs`, which it replaced, counted a running tool as silence, so a slow catalog query or a slow page tool was aborted as a stuck provider.
 
 ## 3. Never stop silently
 

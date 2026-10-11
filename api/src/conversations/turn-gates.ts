@@ -97,7 +97,7 @@ export const moderateTurn = async (
   settings: Awaited<ReturnType<typeof getSettings>>,
   identity: UsageIdentity,
   // Called when the verdict is a block that lands AFTER the gate failed open: the turn is running by
-  // then, so refusing it means stopping it (see MODERATION_LATE_BLOCK in the executor).
+  // then, so refusing it means stopping it (the executor aborts it with the 'late-block' StopCause).
   onLateBlock?: () => void
 ): Promise<RefusedTurn | undefined> => {
   // 'completed', not 'error', at both refusal points below. A turn that stopped for any reason other

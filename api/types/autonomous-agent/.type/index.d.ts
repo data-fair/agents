@@ -94,7 +94,6 @@ export type AutonomousAgent = {
   memoryConsolidation?: {
     at?: string;
     until?: string;
-    credits?: number;
     failedAt?: string;
     deferredAt?: string;
   };

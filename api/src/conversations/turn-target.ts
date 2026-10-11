@@ -33,7 +33,7 @@ import type { TurnSurface, TaskOutcome } from './service-tools.ts'
 import { withHostContext, LOCATION_KEY } from '@agents/shared/host-events'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
-import { pendingWaitReminder, settleInterruptedParts, type InterruptReason } from './interrupted-turn.ts'
+import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type StopCause } from './interrupted-turn.ts'
 import { updateMessage, settleStoredToolPart, finishRun, conversationCost } from './service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 
@@ -109,9 +109,8 @@ export interface TurnFailure {
   error?: string
   /** What the throw said, for the notice. */
   detail: string
-  aborted: boolean
-  /** Aborted by a moderation verdict that landed after the gate failed open. */
-  lateBlocked: boolean
+  /** Why the turn was stopped, when it was: absent for a turn that failed on its own. */
+  stopCause?: StopCause
   /** What the calls still open are settled as having been interrupted by. */
   interrupt: InterruptReason
   /** The throw itself, for a target that must tell one kind of failure from another. */
@@ -411,7 +410,7 @@ export const conversationTarget = (
       releaseLiveTurn(run.conversationId, messageSeq)
     },
 
-    fail: async ({ stopReason, status, error, detail, lateBlocked, interrupt, cause }) => {
+    fail: async ({ stopReason, status, error, detail, stopCause, interrupt, cause }) => {
       try {
         // The message is finalised FIRST, and the run closed after, because the terminal run state
         // is the end-of-turn signal a reader stops on: closing the run first
@@ -443,7 +442,7 @@ export const conversationTarget = (
         const settled = settleInterruptedParts((persisted?.parts ?? []) as MessagePart[], interrupt)
         // No stop notice when the person SPOKE: their message follows and answers it, and the notice
         // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
-        const finalParts = lateBlocked
+        const finalParts = stopCause === 'late-block'
           // A LATE moderation block: the reply to a message that should never have been answered is
           // dropped, and the person reads the same refusal as an on-time block. The tool calls already
           // made stay, settled, because they happened — and a call without its result is dropped on
