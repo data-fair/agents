@@ -6,7 +6,7 @@
  * tool declares through its annotations, so the rule keeps holding as the catalog grows — "never call
  * anything destructive without asking" is not expressible per tool name.
  */
-import type { Tool } from 'ai'
+import type { ToolSet } from './operations.ts'
 import { DEFAULT_APPROVALS, type ApprovalClass, type ApprovalPolicy, type Approvals } from '@agents/shared/approval-policy'
 
 export { DEFAULT_APPROVALS, type ApprovalClass, type ApprovalPolicy, type Approvals }
@@ -26,16 +26,12 @@ export const resolveApproval = (cls: ApprovalClass, approvals?: Approvals): Appr
  * discovering it cannot use it), `approve` sets the AI SDK's `needsApproval` (the SDK then stops the turn
  * on a call instead of executing it), `allow` leaves the tool exactly as it was.
  */
-export const applyApprovalPolicy = (
-  tools: Record<string, Tool>,
-  annotationsByTool: Map<string, Record<string, unknown>>,
-  approvals?: Approvals
-): Record<string, Tool> => {
-  const gated: Record<string, Tool> = {}
-  for (const [name, tool] of Object.entries(tools)) {
-    const policy = resolveApproval(classifyTool(annotationsByTool.get(name)), approvals)
+export const applyApprovalPolicy = (tools: ToolSet, approvals?: Approvals): ToolSet => {
+  const gated: ToolSet = {}
+  for (const [name, sourced] of Object.entries(tools)) {
+    const policy = resolveApproval(classifyTool(sourced.annotations), approvals)
     if (policy === 'deny') continue
-    gated[name] = policy === 'approve' ? { ...tool, needsApproval: true } : tool
+    gated[name] = policy === 'approve' ? { ...sourced, tool: { ...sourced.tool, needsApproval: true } } : sourced
   }
   return gated
 }
@@ -45,14 +41,10 @@ export const applyApprovalPolicy = (
  * freely. A tool needing approval is dropped rather than gated — nobody is there to decide, so a gated
  * call could only end the turn on a card no one will ever see — and a denied one is dropped as always.
  */
-export const withoutGatedTools = (
-  tools: Record<string, Tool>,
-  annotationsByTool: Map<string, Record<string, unknown>>,
-  approvals?: Approvals
-): Record<string, Tool> => {
-  const allowed: Record<string, Tool> = {}
-  for (const [name, tool] of Object.entries(tools)) {
-    if (resolveApproval(classifyTool(annotationsByTool.get(name)), approvals) === 'allow') allowed[name] = tool
+export const withoutGatedTools = (tools: ToolSet, approvals?: Approvals): ToolSet => {
+  const allowed: ToolSet = {}
+  for (const [name, sourced] of Object.entries(tools)) {
+    if (resolveApproval(classifyTool(sourced.annotations), approvals) === 'allow') allowed[name] = sourced
   }
   return allowed
 }

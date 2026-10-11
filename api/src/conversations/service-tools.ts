@@ -9,11 +9,11 @@
  * that must always be approved, `request_web_access` and the planning tools, set `needsApproval`
  * themselves and go through the same gate. No page tool or sub-agent config can displace them (./service-tool-names.ts).
  */
-import { tool, jsonSchema, type Tool } from 'ai'
+import { tool, jsonSchema } from 'ai'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import type { AgentSession } from '../agent-session/session.ts'
 import { createWaitTool, WAIT_TOOL_NAME } from '@agents/shared/host-events'
-import { withProvenance } from './operations.ts'
+import { sourcedTools, type ToolSet } from './operations.ts'
 import { agentStoreId, memoryEnabledFor, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, MEMORY_TOOL_ANNOTATIONS, type MemoryDocument } from '../memory/operations.ts'
 import { loadMemory } from '../memory/service.ts'
 import { createMemoryTool } from '../memory/tool.ts'
@@ -38,9 +38,8 @@ export type TurnSurface = 'chat' | 'task'
 
 /** What the agent's catalog servers offered this turn, before the approval policy: what it reads about itself. */
 export interface TurnCatalog {
-  /** The tools the agent's servers listed, after its toolFilter: name → server, and declared annotations. */
-  serverByTool: Map<string, string>
-  annotationsByTool: Map<string, Record<string, unknown>>
+  /** The tools the agent's servers listed, after its toolFilter, with their server and declared annotations. */
+  tools: ToolSet
   /** Listed by a server but excluded by the reference's toolFilter. */
   filteredOut: { name: string, server: string }[]
   skippedServers: { id: string, reason: string }[]
@@ -59,9 +58,7 @@ export interface ServiceToolContext {
 }
 
 export interface BuiltServiceTools {
-  tools: Record<string, Tool>
-  serverByTool: Map<string, string>
-  annotationsByTool: Map<string, Record<string, unknown>>
+  tools: ToolSet
   /** The agent's memory as of run start, when the memory entry applied: rendered into the system prompt. */
   memory?: MemoryDocument[]
 }
@@ -77,7 +74,7 @@ const ENTRIES: ServiceToolEntry[] = [
     // `handover` in runModelLoop and ./waits.ts). Unwrapped, as before: its result is the loop's own
     // handover marker, not data from a server.
     applies: ctx => ctx.surface === 'chat' && !!ctx.session,
-    build: async (_ctx, into) => { into.tools[WAIT_TOOL_NAME] = createWaitTool() }
+    build: async (_ctx, into) => { into.tools[WAIT_TOOL_NAME] = { tool: createWaitTool() } }
   },
   {
     // THE AGENT'S MEMORY (docs/architecture/agent-memory.md). Read ONCE, here: the block rendered from it
@@ -87,7 +84,7 @@ const ENTRIES: ServiceToolEntry[] = [
     build: async ({ agent, run }, into) => {
       const storeId = agentStoreId(agent.id)
       into.memory = await loadMemory(storeId)
-      Object.assign(into.tools, withProvenance({
+      Object.assign(into.tools, sourcedTools({
         [MEMORY_TOOL_NAME]: createMemoryTool({
           storeId,
           owner: run.owner,
@@ -101,9 +98,7 @@ const ENTRIES: ServiceToolEntry[] = [
             ...(toolCallId ? { toolCallId } : {})
           })
         })
-      }, () => MEMORY_SERVER_ID))
-      into.serverByTool.set(MEMORY_TOOL_NAME, MEMORY_SERVER_ID)
-      into.annotationsByTool.set(MEMORY_TOOL_NAME, MEMORY_TOOL_ANNOTATIONS)
+      }, MEMORY_SERVER_ID, () => MEMORY_TOOL_ANNOTATIONS))
     }
   },
   {
@@ -122,11 +117,7 @@ const ENTRIES: ServiceToolEntry[] = [
       if (surface === 'chat' && run.triggeredByRole === 'admin') {
         tools[REQUEST_WEB_ACCESS_TOOL_NAME] = createRequestWebAccessTool({ allowedUrls, save: urls => saveWebAllowedUrls(agent, urls) })
       }
-      Object.assign(into.tools, withProvenance(tools, () => WEB_SERVER_ID))
-      for (const name of Object.keys(tools)) {
-        into.serverByTool.set(name, WEB_SERVER_ID)
-        into.annotationsByTool.set(name, name === REQUEST_WEB_ACCESS_TOOL_NAME ? REQUEST_WEB_ACCESS_ANNOTATIONS : WEB_TOOL_ANNOTATIONS)
-      }
+      Object.assign(into.tools, sourcedTools(tools, WEB_SERVER_ID, name => name === REQUEST_WEB_ACCESS_TOOL_NAME ? REQUEST_WEB_ACCESS_ANNOTATIONS : WEB_TOOL_ANNOTATIONS))
     }
   },
   {
@@ -136,9 +127,7 @@ const ENTRIES: ServiceToolEntry[] = [
     applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
     build: async ({ agent }, into) => {
       const tools = { [REQUEST_MCP_ACCESS_TOOL_NAME]: createRequestMcpAccessTool({ servers: [...(agent.externalMcpServers ?? [])], save: servers => saveExternalMcpServers(agent, servers) }) }
-      Object.assign(into.tools, withProvenance(tools, () => EXTERNAL_MCP_SERVER_ID))
-      into.serverByTool.set(REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID)
-      into.annotationsByTool.set(REQUEST_MCP_ACCESS_TOOL_NAME, REQUEST_MCP_ACCESS_ANNOTATIONS)
+      Object.assign(into.tools, sourcedTools(tools, EXTERNAL_MCP_SERVER_ID, () => REQUEST_MCP_ACCESS_ANNOTATIONS))
     }
   },
   {
@@ -150,11 +139,7 @@ const ENTRIES: ServiceToolEntry[] = [
     applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID,
     build: async (ctx, into) => {
       const tools = createSelfKnowledgeTools(ctx, () => Object.keys(into.tools))
-      Object.assign(into.tools, withProvenance(tools, () => SELF_KNOWLEDGE_SERVER_ID))
-      for (const name of Object.keys(tools)) {
-        into.serverByTool.set(name, SELF_KNOWLEDGE_SERVER_ID)
-        into.annotationsByTool.set(name, { readOnlyHint: true })
-      }
+      Object.assign(into.tools, sourcedTools(tools, SELF_KNOWLEDGE_SERVER_ID, () => ({ readOnlyHint: true })))
     }
   },
   {
@@ -167,11 +152,7 @@ const ENTRIES: ServiceToolEntry[] = [
     applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
     build: async (ctx, into) => {
       const tools = createPlanningTools(ctx)
-      Object.assign(into.tools, withProvenance(tools, () => SELF_KNOWLEDGE_SERVER_ID))
-      for (const name of Object.keys(tools)) {
-        into.serverByTool.set(name, SELF_KNOWLEDGE_SERVER_ID)
-        into.annotationsByTool.set(name, PLANNING_TOOL_ANNOTATIONS[name])
-      }
+      Object.assign(into.tools, sourcedTools(tools, SELF_KNOWLEDGE_SERVER_ID, name => PLANNING_TOOL_ANNOTATIONS[name]))
     }
   },
   {
@@ -181,7 +162,7 @@ const ENTRIES: ServiceToolEntry[] = [
     // which is not the same as `done`.
     applies: ctx => ctx.surface === 'task' && !!ctx.reportOutcome,
     build: async ({ reportOutcome }, into) => {
-      Object.assign(into.tools, withProvenance({
+      Object.assign(into.tools, sourcedTools({
         [REPORT_OUTCOME_TOOL_NAME]: tool({
           description: 'Report the outcome of this planned task run, once you are done: "done" when you did what the task asks, "nothing-to-do" when there was nothing to do, "needs-attention" when a person should look at something. The summary is what an administrator reads.',
           inputSchema: jsonSchema<unknown>({
@@ -200,14 +181,13 @@ const ENTRIES: ServiceToolEntry[] = [
             return 'Outcome recorded.'
           }
         })
-      }, () => AGENT_SERVICE_ID))
-      into.serverByTool.set(REPORT_OUTCOME_TOOL_NAME, AGENT_SERVICE_ID)
+      }, AGENT_SERVICE_ID))
     }
   }
 ]
 
 export const buildServiceTools = async (ctx: ServiceToolContext): Promise<BuiltServiceTools> => {
-  const built: BuiltServiceTools = { tools: {}, serverByTool: new Map(), annotationsByTool: new Map() }
+  const built: BuiltServiceTools = { tools: {} }
   for (const entry of ENTRIES) if (entry.applies(ctx)) await entry.build(ctx, built)
   return built
 }

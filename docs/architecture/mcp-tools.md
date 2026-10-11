@@ -216,7 +216,7 @@ Only the descriptors cross the socket. A page tool's implementation is the page'
 - **Connections are lazy.** A server is connected on the first call to one of its tools in the turn and the connection is reused by the turn's later calls; the executor closes them all when the turn ends. A turn that calls no catalog tool opens none.
 - **Unreachable servers.** For the personal assistant an unreachable entry is an availability event: it is **skipped** (and logged) rather than failing the turn. For a configured agent the selection is deliberate, so a failure **throws** (502 naming the server).
 - **`isError` results are rethrown**, so the AI SDK records a `tool-error` part and the model receives `error-text` rather than a failure shaped like data.
-- **Annotations** (`readOnlyHint`, `destructiveHint`…) and the originating server are recorded on each stored tool call (`annotationsByTool`, `serverByTool`).
+- **Annotations** (`readOnlyHint`, `destructiveHint`…) and the originating server travel with each tool (`SourcedTool`, `api/src/conversations/operations.ts`) and are recorded on each stored tool call.
 
 The diagnostic endpoint `GET /api/autonomous-agents/:type/:id/:agentId/tools` uses `forEachListedTool` instead, which lists **fresh** (bypassing the cache) and returns descriptors only — an admin checking a fix wants the server's answer now.
 

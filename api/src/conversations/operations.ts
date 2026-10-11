@@ -518,6 +518,31 @@ export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: str
 }
 
 /**
+ * A tool with where it comes from: the server its results are attributed to (the provenance envelope, and
+ * the stored call's `serverId`) and the MCP annotations it declared (the approval policy's input, recorded
+ * per call). Carried on the tool rather than in side maps, so merging two sets is a spread and a name
+ * collision's winner brings its own provenance. No `server`: one of the loop's own control tools
+ * (`wait_for_user_action`), whose result is a marker, not content — offered without an envelope.
+ */
+export interface SourcedTool {
+  tool: Tool
+  server?: string
+  annotations?: Record<string, unknown>
+}
+export type ToolSet = Record<string, SourcedTool>
+
+/** Every tool of `tools` from one server, with its annotations when the server declared any. */
+export const sourcedTools = (tools: Record<string, Tool>, server: string, annotationsOf?: (name: string) => Record<string, unknown> | undefined): ToolSet =>
+  Object.fromEntries(Object.entries(tools).map(([name, tool]) => {
+    const annotations = annotationsOf?.(name)
+    return [name, { tool, server, ...(annotations ? { annotations } : {}) }]
+  }))
+
+/** The set as the model is offered it: each tool with a server inside the provenance envelope. */
+export const modelTools = (set: ToolSet): Record<string, Tool> =>
+  Object.fromEntries(Object.entries(set).map(([name, { tool, server }]) => [name, server ? withProvenance({ [name]: tool }, () => server)[name] : tool]))
+
+/**
  * How an autonomous run's spend is attributed.
  *
  * resolveUsageIdentity needs an Express request, which an executor has not got, so the

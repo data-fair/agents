@@ -24,6 +24,7 @@ import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { ipList, publicLookup } from '../web/public-lookup.ts'
 import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX, EXTERNAL_MAX_CALLS } from './operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
+import type { ToolSet } from '../conversations/operations.ts'
 
 const debug = Debug('agents:mcp-external')
 
@@ -49,9 +50,7 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
   const { fetchImpl, closeDispatcher } = publicFetch(opts.publicIps)
   const maxCalls = opts.maxCalls ?? EXTERNAL_MAX_CALLS
   const timeoutMs = opts.timeoutMs ?? CONNECT_TIMEOUT_MS
-  const tools: Record<string, Tool> = {}
-  const serverByTool = new Map<string, string>()
-  const annotationsByTool = new Map<string, Record<string, unknown>>()
+  const tools: ToolSet = {}
   const skippedServers: SkippedServer[] = []
   const clients: Client[] = []
   let used = 0
@@ -77,10 +76,8 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
       clients.push(client)
       for (const t of listed) {
         const name = externalToolName(url, t.name)
-        serverByTool.set(name, serverId(url))
-        if (t.annotations) annotationsByTool.set(name, t.annotations as Record<string, unknown>)
         const connected = client
-        tools[name] = tool({
+        const externalTool = tool({
           description: t.description ?? '',
           inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
           execute: async (args: any) => {
@@ -95,6 +92,7 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
             return formatted
           }
         })
+        tools[name] = { tool: externalTool, server: serverId(url), ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}) }
       }
     } catch (err: any) {
       // Skipped and reported, never fatal: the organization chose the server, not the operator, and it
@@ -109,8 +107,6 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
 
   return {
     tools,
-    serverByTool,
-    annotationsByTool,
     skippedServers,
     close: async () => {
       for (const client of clients) await client.close().catch(() => {})
@@ -123,11 +119,11 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
 export const listExternalToolDescriptors = async (servers: { url: string }[], opts: { publicIps: string[] }): Promise<{ descriptors: McpToolDescriptor[], skipped: SkippedServer[] }> => {
   const opened = await openExternalMcpTools(servers, opts)
   try {
-    const descriptors = Object.entries(opened.tools).map(([name, t]) => ({
+    const descriptors = Object.entries(opened.tools).map(([name, { tool, server, annotations }]) => ({
       name,
-      description: (t as { description?: string }).description ?? '',
-      server: opened.serverByTool.get(name)!,
-      ...(opened.annotationsByTool.has(name) ? { annotations: opened.annotationsByTool.get(name) } : {})
+      description: tool.description ?? '',
+      server: server!,
+      ...(annotations ? { annotations } : {})
     }))
     return { descriptors, skipped: opened.skippedServers }
   } finally {

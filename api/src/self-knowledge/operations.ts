@@ -62,7 +62,7 @@ const bullets = (items: string[]) => items.length ? items.map(item => `- ${item}
 export const renderConfiguration = (view: ConfigurationView): string => {
   const { agent, surface, catalog } = view
   const tools = [
-    ...[...catalog.serverByTool].map(([name, server]) => `${name} (server ${server}): ${toolStatus(catalog.annotationsByTool.get(name), agent.approvals, surface)}`),
+    ...Object.entries(catalog.tools).map(([name, { server, annotations }]) => `${name} (server ${server}): ${toolStatus(annotations, agent.approvals, surface)}`),
     ...catalog.filteredOut.map(({ name, server }) => `${name} (server ${server}): not selected for you by an administrator`),
     ...catalog.skippedServers.map(({ id, reason }) => `server ${id}: server unreachable: ${reason}`)
   ]

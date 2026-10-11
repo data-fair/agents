@@ -47,8 +47,8 @@ test.describe('openExternalMcpTools', () => {
     try {
       const name = externalToolName(url, 'echo')
       assert.ok(opened.tools[name], Object.keys(opened.tools).join())
-      assert.equal(opened.serverByTool.get(name), `localhost:${port}`)
-      const result = await opened.tools[name].execute!({ value: 'hi' }, { toolCallId: 'c1', messages: [] } as any)
+      assert.equal(opened.tools[name].server, `localhost:${port}`)
+      const result = await opened.tools[name].tool.execute!({ value: 'hi' }, { toolCallId: 'c1', messages: [] } as any)
       assert.match(JSON.stringify(result), /echo:hi/)
       assert.equal(fixture.lastHeaders().cookie, undefined)
     } finally { await opened.close() }
@@ -64,7 +64,7 @@ test.describe('openExternalMcpTools', () => {
   test('stops a run at its external call budget', async () => {
     const opened = await openExternalMcpTools([{ url }], { publicIps: ['127.0.0.1', '::1'], maxCalls: 1 })
     try {
-      const echo = opened.tools[externalToolName(url, 'echo')]
+      const echo = opened.tools[externalToolName(url, 'echo')].tool
       await echo.execute!({ value: 'a' }, { toolCallId: 'c1', messages: [] } as any)
       await assert.rejects(echo.execute!({ value: 'b' }, { toolCallId: 'c2', messages: [] } as any) as Promise<unknown>, /all of its 1 external MCP calls/)
     } finally { await opened.close() }

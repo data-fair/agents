@@ -3,16 +3,23 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
+import type { Tool } from 'ai'
 import { renderConfiguration, renderRunRow, renderRun, exportPage, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, PLANNED_TASKS_HEADER, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
 import { SERVICE_TOOL_NAMES } from '../../../api/src/conversations/service-tool-names.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
+
+// Rendering reads a tool's provenance, never the tool itself.
+const unusedTool = {} as Tool
 
 const view = (surface: 'chat' | 'task'): ConfigurationView => ({
   agent: { title: 'Roads', persona: 'You watch the roads.', instructions: 'Answer in French.', approvals: { write: 'deny' }, memoryEnabled: false },
   surface,
   catalog: {
-    serverByTool: new Map([['lookup', 'roads'], ['wipe', 'roads'], ['edit', 'roads']]),
-    annotationsByTool: new Map<string, Record<string, unknown>>([['lookup', { readOnlyHint: true }], ['wipe', { destructiveHint: true }]]),
+    tools: {
+      lookup: { tool: unusedTool, server: 'roads', annotations: { readOnlyHint: true } },
+      wipe: { tool: unusedTool, server: 'roads', annotations: { destructiveHint: true } },
+      edit: { tool: unusedTool, server: 'roads' }
+    },
     filteredOut: [{ name: 'ignored', server: 'roads' }],
     skippedServers: [{ id: 'weather', reason: 'fetch failed' }]
   },

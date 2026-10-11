@@ -13,32 +13,28 @@ import { validateTaskOutcome } from '../../../api/src/tasks/operations.ts'
 const t = () => tool({ description: 'x', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'ok' })
 
 test.describe('withoutGatedTools', () => {
-  const tools = { read: t(), write: t(), wipe: t() }
-  const annotations = new Map<string, Record<string, unknown>>([
-    ['read', { readOnlyHint: true }],
-    ['wipe', { destructiveHint: true }]
-  ])
+  const tools = { read: { tool: t(), annotations: { readOnlyHint: true } }, write: { tool: t() }, wipe: { tool: t(), annotations: { destructiveHint: true } } }
 
   test('under the default approvals, a destructive tool is dropped and the others kept as they are', () => {
-    const offered = withoutGatedTools(tools, annotations)
+    const offered = withoutGatedTools(tools)
     assert.deepEqual(Object.keys(offered).sort(), ['read', 'write'])
     assert.equal(offered.read, tools.read)
     // Nothing is offered with `needsApproval`: nobody is there to decide.
-    assert.ok(Object.values(offered).every(offeredTool => !(offeredTool as any).needsApproval))
+    assert.ok(Object.values(offered).every(offeredTool => !(offeredTool.tool as any).needsApproval))
   })
 
   test('a denied class is dropped too, and an allowed destructive class is kept', () => {
-    const offered = withoutGatedTools(tools, annotations, { write: 'deny', destructive: 'allow' })
+    const offered = withoutGatedTools(tools, { write: 'deny', destructive: 'allow' })
     assert.deepEqual(Object.keys(offered).sort(), ['read', 'wipe'])
   })
 
   test('a class gated for approval is dropped, whatever the class', () => {
-    assert.deepEqual(Object.keys(withoutGatedTools(tools, annotations, { readOnly: 'approve' })).sort(), ['write'])
+    assert.deepEqual(Object.keys(withoutGatedTools(tools, { readOnly: 'approve' })).sort(), ['write'])
   })
 
   test('an unannotated tool is a write: dropped when writes need approval', () => {
     // `write` carries no annotation at all, which is most hand-written servers' case.
-    assert.deepEqual(Object.keys(withoutGatedTools(tools, annotations, { write: 'approve' })).sort(), ['read'])
+    assert.deepEqual(Object.keys(withoutGatedTools(tools, { write: 'approve' })).sort(), ['read'])
   })
 })
 

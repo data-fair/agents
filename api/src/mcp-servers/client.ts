@@ -6,12 +6,13 @@
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
-import { tool, jsonSchema, type Tool } from 'ai'
+import { tool, jsonSchema } from 'ai'
 import config from '#config'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
+import type { ToolSet } from '../conversations/operations.ts'
 
 const debug = Debug('agents:mcp-client')
 
@@ -111,17 +112,12 @@ export const forEachListedTool = async (
  * tools.
  */
 export interface OpenAutonomousAgentTools {
-  tools: Record<string, Tool>
-  /** Which server each tool actually came from, for provenance and audit. */
-  serverByTool: Map<string, string>
   /**
-   * The MCP `annotations` each tool declared — `readOnlyHint`, `destructiveHint` and the rest.
-   *
-   * Recorded per call on the stored message, because they are what makes a write auditable after the
-   * fact and are the input P1's approval gate reads. They were listed by the diagnostic endpoint and
-   * dropped on the path that actually runs a tool, which is the path where they matter.
+   * Each tool with the server it actually came from and the MCP `annotations` it declared —
+   * `readOnlyHint`, `destructiveHint` and the rest: recorded per call on the stored message, because they
+   * are what makes a write auditable after the fact, and the input the approval gate reads.
    */
-  annotationsByTool: Map<string, Record<string, unknown>>
+  tools: ToolSet
   /** Catalog entries that could not be reached; always empty unless the caller asked to skip. */
   skippedServers: SkippedServer[]
   /** Tools a server listed that the reference's toolFilter excluded: what the agent reads about itself. */
@@ -191,9 +187,7 @@ export const openAutonomousAgentTools = async (
   sites: SiteCredentials,
   opts?: { onServerError?: 'throw' | 'skip' }
 ): Promise<OpenAutonomousAgentTools> => {
-  const tools: Record<string, Tool> = {}
-  const serverByTool = new Map<string, string>()
-  const annotationsByTool = new Map<string, Record<string, unknown>>()
+  const tools: ToolSet = {}
   const skippedServers: SkippedServer[] = []
   const filteredOut: { name: string, server: string }[] = []
 
@@ -257,14 +251,11 @@ export const openAutonomousAgentTools = async (
         continue
       }
       // Last-write-wins on a name collision across servers, matching the browser
-      // aggregator's Object.assign semantics — and the provenance map follows the same
-      // winner, so the recorded server is the one whose tool will actually run.
-      serverByTool.set(t.name, server.id)
-      if (t.annotations) annotationsByTool.set(t.name, t.annotations as Record<string, unknown>)
-      else annotationsByTool.delete(t.name)
+      // aggregator's Object.assign semantics — the provenance travels with the tool, so the recorded
+      // server is the one whose tool will actually run.
       const siteBound = server.auth === 'nhi-session'
       const { schema, injected } = siteBound ? withPortalArgument(t.inputSchema, portalHosts) : { schema: (t.inputSchema as any) ?? { type: 'object', properties: {} }, injected: false }
-      tools[t.name] = tool({
+      const mcpTool = tool({
         description: t.description ?? '',
         inputSchema: jsonSchema(schema as any),
         execute: async (rawArgs: any) => {
@@ -291,6 +282,7 @@ export const openAutonomousAgentTools = async (
           return formatted
         }
       })
+      tools[t.name] = { tool: mcpTool, server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}) }
     }
   }
 
@@ -299,7 +291,7 @@ export const openAutonomousAgentTools = async (
     connections.clear()
     for (const connection of open) await connection.then(c => c.close()).catch(() => {})
   }
-  return { tools, serverByTool, annotationsByTool, skippedServers, filteredOut, close }
+  return { tools, skippedServers, filteredOut, close }
 }
 
 export interface McpToolDescriptor {

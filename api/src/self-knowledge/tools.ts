@@ -49,7 +49,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
         return renderConfiguration({
           agent: { title: agent.title, persona: agent.persona, instructions: agent.instructions, approvals: agent.approvals, memoryEnabled: memoryEnabledFor(agent) },
           surface,
-          catalog: ctx.catalog ?? { serverByTool: new Map(), annotationsByTool: new Map(), filteredOut: [], skippedServers: [] },
+          catalog: ctx.catalog ?? { tools: {}, filteredOut: [], skippedServers: [] },
           serviceTools: serviceToolNames().filter(name => !own.has(name)),
           notConnected: (config.mcpServers ?? []).filter(server => !referenced.has(server.id))
             .map(({ id, name, description }) => ({ id, name, description })),

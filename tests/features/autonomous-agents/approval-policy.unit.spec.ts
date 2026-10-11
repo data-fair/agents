@@ -36,22 +36,21 @@ test.describe('resolveApproval', () => {
 })
 
 test.describe('applyApprovalPolicy', () => {
-  const annotations = new Map<string, Record<string, unknown>>([
-    ['wipe', { destructiveHint: true }],
-    ['read', { readOnlyHint: true }]
-  ])
+  const wipe = () => ({ tool: t(), annotations: { destructiveHint: true } })
+  const read = () => ({ tool: t(), annotations: { readOnlyHint: true } })
 
   test('deny removes the tool, approve marks it, allow leaves it untouched', () => {
-    const tools = { wipe: t(), read: t(), plain: t() }
-    const gated = applyApprovalPolicy(tools, annotations, { write: 'deny' })
+    const tools = { wipe: wipe(), read: read(), plain: { tool: t() } }
+    const gated = applyApprovalPolicy(tools, { write: 'deny' })
     assert.deepEqual(Object.keys(gated).sort(), ['read', 'wipe'])
-    assert.equal((gated.wipe as any).needsApproval, true)
+    assert.equal((gated.wipe.tool as any).needsApproval, true)
+    assert.equal(gated.wipe.annotations, tools.wipe.annotations, 'a gated tool keeps its provenance')
     assert.equal(gated.read, tools.read, 'an allowed tool is passed through as is')
   })
 
   test('the defaults leave a write tool alone and gate a destructive one', () => {
-    const gated = applyApprovalPolicy({ wipe: t(), plain: t() }, annotations, undefined)
-    assert.equal((gated.wipe as any).needsApproval, true)
-    assert.equal((gated.plain as any).needsApproval, undefined)
+    const gated = applyApprovalPolicy({ wipe: wipe(), plain: { tool: t() } }, undefined)
+    assert.equal((gated.wipe.tool as any).needsApproval, true)
+    assert.equal((gated.plain.tool as any).needsApproval, undefined)
   })
 })

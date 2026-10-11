@@ -26,7 +26,7 @@ import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-res
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import {
-  runStopReasonMessage, buildSystemPrompt, withProvenance,
+  runStopReasonMessage, buildSystemPrompt, modelTools, type ToolSet,
   usageIdentityFor,
   boundToolResult, partsText, withAppendedText,
   type RunStopReason, type MessagePart,
@@ -317,7 +317,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
-  const { tools: rawTools, serverByTool, annotationsByTool, skippedServers, filteredOut, close: closeTools } =
+  const { tools: listedTools, skippedServers, filteredOut, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sites, {
       onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
     })
@@ -329,30 +329,20 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     if (autonomousAgent.id !== PERSONAL_AGENT_ID && autonomousAgent.externalMcpServers?.length) {
       external = await openExternalMcpTools(autonomousAgent.externalMcpServers, { publicIps: [...envPublicIps(), ...config.externalMcp.publicIps] })
     }
-    if (external) {
-      Object.assign(rawTools, external.tools)
-      for (const [name, server] of external.serverByTool) serverByTool.set(name, server)
-      for (const [name, annotations] of external.annotationsByTool) annotationsByTool.set(name, annotations)
-      skippedServers.push(...external.skippedServers)
-    }
+    const catalog: ToolSet = { ...listedTools, ...external?.tools }
+    if (external) skippedServers.push(...external.skippedServers)
     if (skippedServers.length) {
       debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
     }
-    // The catalog's tools, plus whatever the page in front of the person can do. Both already carry the
-    // provenance envelope, and from here on the loop cannot tell them apart — which is the claim.
     // THE APPROVAL GATE, on the catalog tools of a configured autonomous agent only. The personal assistant
     // has no policy, page tools act in the person's own browser, and service tools are the loop's own.
     // An UNATTENDED turn (a planned task's run) is offered only what the policy allows outright: nobody is
     // there to decide on a gated call. The personal assistant has no tasks; its branch stays first regardless.
     const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID
-      ? rawTools
+      ? catalog
       : target.surface === 'task'
-        ? withoutGatedTools(rawTools, annotationsByTool, autonomousAgent.approvals)
-        : applyApprovalPolicy(rawTools, annotationsByTool, autonomousAgent.approvals)
-    const tools = {
-      ...withProvenance(catalogTools, name => serverByTool.get(name) ?? 'unknown'),
-      ...(session ? browserToolSet(session) : {})
-    }
+        ? withoutGatedTools(catalog, autonomousAgent.approvals)
+        : applyApprovalPolicy(catalog, autonomousAgent.approvals)
 
     // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
     // happens to share a name cannot stand in for one, and recorded like a catalog call's source.
@@ -362,15 +352,11 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       surface: target.surface,
       session,
       ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
-      // Copies: the service tools are merged into these maps below, and the catalog is the servers' own.
-      catalog: { serverByTool: new Map(serverByTool), annotationsByTool: new Map(annotationsByTool), filteredOut, skippedServers }
+      catalog: { tools: catalog, filteredOut, skippedServers }
     })
-    Object.assign(tools, service.tools)
-    for (const [name, server] of service.serverByTool) serverByTool.set(name, server)
-    for (const [name, annotations] of service.annotationsByTool) annotationsByTool.set(name, annotations)
-    const memory = service.memory
+    const tools: ToolSet = { ...catalogTools, ...service.tools }
 
-    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn, unconfirmedOn })
+    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
@@ -383,11 +369,10 @@ interface ModelLoopContext {
   abortSignal: AbortSignal
   model: ReturnType<typeof resolveRoleModel>['model']
   entry: ReturnType<typeof resolveRoleModel>['entry']
-  tools: Record<string, Tool>
+  /** The turn's fixed tools: the catalog's, then the service's. The page's are added live (see assembleTools). */
+  tools: ToolSet
   settings: Awaited<ReturnType<typeof getSettings>>
   budget: number
-  serverByTool: Map<string, string>
-  annotationsByTool: Map<string, Record<string, unknown>>
   /** The agent's memory as of run start, when it has one; rendered into the system prompt. */
   memory?: MemoryDocument[]
   autonomousAgent: AutonomousAgent
@@ -399,7 +384,7 @@ interface ModelLoopContext {
 }
 
 const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, abortSignal, model, entry, tools, settings, budget, serverByTool, annotationsByTool, autonomousAgent, target, memory, anonymousOn, unconfirmedOn } = ctx
+  const { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target).
   const session = target.session
@@ -570,12 +555,11 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * because each pass reads every sub-agent's config over the socket.
    */
   const pageToolNames = () => (session?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
-  const startingPageTools = new Set((session?.tools() ?? []).map(descriptor => descriptor.name))
-  // The service's own tools are never page tools, even when a page registers one by that name
-  // (./service-tool-names.ts): the page's would answer under the service's name.
-  const fixedTools = Object.fromEntries(Object.entries(tools).filter(([name]) => !startingPageTools.has(name) || !mayBePageTool(name)))
+  const fixedTools = modelTools(tools)
   const liveTools: Record<string, Tool> = {}
   const assembleTools = async () => {
+    // The service's own tools are never page tools, even when a page registers one by that name
+    // (./service-tool-names.ts): the page's would answer under the service's name.
     const { mainTools } = await partitionSubAgents(
       { ...fixedTools, ...(session ? Object.fromEntries(Object.entries(browserToolSet(session)).filter(([name]) => mayBePageTool(name))) : {}) },
       buildDelegation
@@ -853,8 +837,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           // types this slot as a JSONObject, which has no room for `undefined`, and a browser tool has
           // no catalog server to name.
           toolMetadata: {
-            ...(serverByTool.get(part.toolName) ? { serverId: serverByTool.get(part.toolName) } : {}),
-            ...(annotationsByTool.get(part.toolName) ? { annotations: annotationsByTool.get(part.toolName) } : {})
+            ...(tools[part.toolName]?.server ? { serverId: tools[part.toolName].server } : {}),
+            ...(tools[part.toolName]?.annotations ? { annotations: tools[part.toolName].annotations } : {})
           } as JSONObject
         })
         // Immediately, not on the persist clock: a tool chip appearing is what tells the person the
