@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
-import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, clearAutonomousAgentSession, deleteAutonomousAgentData } from './service.ts'
+import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { buildNhi, canInstruct, type StoredNhi } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/executor.ts'
@@ -232,7 +232,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     // acting as the agent with credentials obtained before it was disabled.
     if (updated.enabled === false && existing.enabled !== false) {
       const stopped = await abortRunsOfAgent(existing.id)
-      clearAutonomousAgentSession(existing.id)
+      forgetAccountSites(existing.id)
       if (stopped) {
         eventsLog.info('agents.autonomous-agent.disable-stopped-runs', `disabling autonomous agent ${existing.id} stopped ${stopped} live run(s)`, { req })
       }
@@ -256,7 +256,7 @@ router.delete('/:type/:id/:agentId', async (req, res, next) => {
     // Stop before deleting: a turn still in flight would otherwise keep calling tools as an agent that
     // no longer exists, and would write messages into a conversation on its way out.
     await abortRunsOfAgent(req.params.agentId)
-    clearAutonomousAgentSession(req.params.agentId)
+    forgetAccountSites(req.params.agentId)
     // CASCADE. Every read path resolves through the agent, so its conversations, messages and runs
     // left behind would be orphaned data an admin cannot see, cannot export and
     // cannot erase, which is not a defensible state for a store that now holds whole tool results.

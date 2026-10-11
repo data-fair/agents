@@ -7,7 +7,7 @@ import { httpError, reqSiteUrl, type AccountKeys } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { SignJWT, importJWK } from 'jose'
 import axios from '@data-fair/lib-node/axios.js'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, shouldRefreshSession, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, createSessionStore, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
 
 import type { SiteCredentials } from '../mcp-servers/operations.ts'
@@ -87,7 +87,7 @@ export const mintAssertion = async (autonomousAgent: EnrolledAutonomousAgent, si
  * id_token_sign COOKIES only and parses no Authorization header — the same reason
  * nhi-proxy relays Set-Cookie to its client.
  */
-export const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl: string): Promise<{ cookieHeader: string, expiresAtMs: number }> => {
+const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl: string): Promise<string> => {
   const { clientId } = requireEnrolment(autonomousAgent)
   const site = siteOrigin(siteUrl)
   const assertion = await mintAssertion(autonomousAgent, site)
@@ -111,20 +111,13 @@ export const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgen
   if (!pairs.some(pair => pair.startsWith('id_token='))) {
     throw new Error('nhi exchange returned no id_token cookie')
   }
-  const expiresIn = typeof res.data?.expires_in === 'number' ? res.data.expires_in : ASSERTION_TTL_SECONDS
-  return { cookieHeader: pairs.join('; '), expiresAtMs: Date.now() + expiresIn * 1000 }
+  return pairs.join('; ')
 }
 
-/**
- * Per-autonomous-agent, per-site session cache. In-process and deliberately simple: sessions are
- * short-lived and non-refreshable by construction, so a lost cache costs one exchange.
- */
-const sessions = createSessionStore<{ cookieHeader: string, expiresAtMs: number }>()
 const accountSites = new Map<string, { expiresAt: number, origins: Promise<string[]> }>()
 
-/** Drop every session of this agent, on every site, and what it knows of its account's sites. */
-export const clearAutonomousAgentSession = (agentId: string) => {
-  sessions.clear(agentId)
+/** Forget what is known of this agent's account sites, when its enrolment changes or it is deleted. */
+export const forgetAccountSites = (agentId: string) => {
   accountSites.delete(agentId)
 }
 
@@ -136,24 +129,12 @@ export const clearAutonomousAgentSession = (agentId: string) => {
 export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl?: string): Promise<string> => {
   const { siteUrl: enrolledSite } = requireEnrolment(autonomousAgent)
   const site = siteOrigin(siteUrl ?? enrolledSite)
-  const cached = sessions.get(autonomousAgent.id, site)
-  // The required headroom is the RUN TIMEOUT, not a fraction of the session's own lifetime. A turn
-  // acquires this cookie once, the MCP transport holds it for the whole chain, and nothing refreshes it
-  // mid-turn — so a session that expires during the turn produces 401s the model reports as tool
-  // failures. Requiring it to outlive the longest a turn may legitimately take removes that class.
-  //
-  // Consequence, accepted deliberately: with ASSERTION_TTL_SECONDS (300s) equal to the run timeout,
-  // this means a fresh exchange per turn in practice. The cross-turn cache is given up on purpose. The
-  // alternative — lengthening the assertion TTL so one session spans several turns — would extend the
-  // life of a credential that is handed to every `nhi-session` MCP server, and the short TTL is the
-  // main thing bounding that blast radius. If the per-client_id exchange rate limit ever becomes the
-  // binding constraint, raising the TTL is the lever, with that trade stated.
-  if (cached && !shouldRefreshSession(cached.expiresAtMs, Date.now(), config.turnTimeoutSeconds * 1000)) {
-    return cached.cookieHeader
-  }
-  const session = await exchangeForSession(autonomousAgent, site)
-  sessions.set(autonomousAgent.id, site, session)
-  return session.cookieHeader
+  // Never reused across turns: a session lives ASSERTION_TTL_SECONDS, no longer than a turn may run
+  // (assertSessionOutlivesRun), and the MCP transport holds the cookie for the whole turn — so a cached
+  // one could expire mid-turn. A turn exchanges once per site it acts on (see agentSiteCredentials).
+  // Lengthening the TTL would let sessions be reused, at the cost of a longer-lived credential handed
+  // to every `nhi-session` MCP server; if the exchange rate limit ever binds, that is the lever.
+  return await exchangeForSession(autonomousAgent, site)
 }
 
 /** How long the list of an agent's account sites is reused: a site is created far less often than a turn starts. */
@@ -212,11 +193,22 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     account = [enrolled]
     listingFailed = true
   }
+  // One exchange per site for the turn these credentials serve.
+  const cookies = new Map<string, Promise<string>>()
   return {
     homeSite: home,
     portals: listingFailed ? [] : account.filter(site => site !== home),
     anonymousHome: !account.includes(home),
     ...(listingFailed ? { listingFailed } : {}),
-    cookieFor: async site => account.includes(siteOrigin(site)) ? await getAutonomousAgentSession(autonomousAgent, site) : undefined
+    cookieFor: site => {
+      const origin = siteOrigin(site)
+      if (!account.includes(origin)) return Promise.resolve(undefined)
+      let cookie = cookies.get(origin)
+      if (!cookie) {
+        cookies.set(origin, cookie = getAutonomousAgentSession(autonomousAgent, origin))
+        cookie.catch(() => { if (cookies.get(origin) === cookie) cookies.delete(origin) })
+      }
+      return cookie
+    }
   }
 }

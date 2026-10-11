@@ -188,22 +188,6 @@ export function buildAssertionClaims (opts: {
 }
 
 /**
- * Does this cached session need replacing before it is used for `minRemainingMs` of work?
- *
- * The question is whether the session outlives the WORK, not whether it is past some fraction of its
- * own lifetime. It used to refresh at 80% of the assertion TTL, which reused a session with as little as
- * 60s left — while a turn may legitimately run for the whole run timeout (300s). That matters because
- * the MCP transport is constructed once per turn with the cookie fixed in its headers and held open for
- * the duration: nothing refreshes a credential mid-chain, so every tool call after expiry comes back
- * 401 and the model reports it as a tool failure.
- *
- * Refreshing on the boundary rather than after it keeps equality off the knife edge.
- */
-export function shouldRefreshSession (expiresAtMs: number, nowMs: number, minRemainingMs: number): boolean {
-  return expiresAtMs - nowMs <= minRemainingMs
-}
-
-/**
  * simple-directory splits the session JWT across two cookies: `id_token` carries
  * `header.payload` and `id_token_sign` the signature (hence the cookie list in
  * lib-express's unsetCookies). So the claims are the SECOND dot-separated segment of
@@ -219,21 +203,4 @@ export function decodeSessionClaims (cookieHeader: string): Record<string, any> 
   const segments = pair.slice('id_token='.length).split('.')
   if (segments.length < 2) throw new Error('id_token cookie is not a header.payload pair')
   return JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf8'))
-}
-
-/**
- * Sessions by agent and site. A simple-directory session is host-only, so an agent acting on several
- * of its organization's sites holds one per site; disabling or deleting the agent drops all of them.
- */
-export function createSessionStore<T> () {
-  const byAgent = new Map<string, Map<string, T>>()
-  return {
-    get: (agentId: string, site: string): T | undefined => byAgent.get(agentId)?.get(site),
-    set: (agentId: string, site: string, value: T) => {
-      let sites = byAgent.get(agentId)
-      if (!sites) byAgent.set(agentId, sites = new Map())
-      sites.set(site, value)
-    },
-    clear: (agentId: string) => { byAgent.delete(agentId) }
-  }
 }

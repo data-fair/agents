@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertNhiConfig, assertSessionOutlivesRun, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, shouldRefreshSession, decodeSessionClaims, sanitizeExchangeError, createSessionStore, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { assertNhiConfig, assertSessionOutlivesRun, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -166,38 +166,6 @@ test.describe('buildAssertionClaims', () => {
   })
 })
 
-test.describe('shouldRefreshSession', () => {
-  // The contract is "does this session outlive the work about to be done with it", NOT a fraction of
-  // its own lifetime. The old 80%-of-TTL rule reused a session with as little as 60s left while a turn
-  // may legitimately run for the whole 300s run timeout — and the MCP transport bakes the cookie in at
-  // connect time and holds it for the turn, so nothing refreshes it once a tool chain is under way.
-  // Every tool call after expiry then 401s and the model reports it as a tool problem.
-  const runTimeoutMs = 300_000
-
-  test('reuses a session that outlives the work', () => {
-    assert.equal(shouldRefreshSession(1_000_000 + runTimeoutMs + 1, 1_000_000, runTimeoutMs), false)
-  })
-
-  test('refreshes a session that would expire DURING the work', () => {
-    // 61s of life against a 300s turn: valid right now, useless 61s in.
-    assert.equal(shouldRefreshSession(1_000_000 + 61_000, 1_000_000, runTimeoutMs), true)
-  })
-
-  test('refreshes at the exact boundary, so equality is never a coin toss', () => {
-    assert.equal(shouldRefreshSession(1_000_000 + runTimeoutMs, 1_000_000, runTimeoutMs), true)
-  })
-
-  test('refreshes an already expired session', () => {
-    assert.equal(shouldRefreshSession(1_000_000 - 1, 1_000_000, runTimeoutMs), true)
-  })
-
-  test('a zero requirement still refuses an expired session', () => {
-    // Guards the degenerate config: no required headroom must not become "reuse anything".
-    assert.equal(shouldRefreshSession(1_000_000 - 1, 1_000_000, 0), true)
-    assert.equal(shouldRefreshSession(1_000_000 + 1, 1_000_000, 0), false)
-  })
-})
-
 test.describe('decodeSessionClaims', () => {
   const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: 1_700_000_300 }
   const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
@@ -312,26 +280,5 @@ test.describe('assertSessionOutlivesRun', () => {
     // silently, since the boot assertion is the only thing connecting the two.
     assert.equal(ASSERTION_TTL_SECONDS, 300)
     assert.doesNotThrow(() => assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, 300))
-  })
-})
-
-test.describe('createSessionStore', () => {
-  test('keeps one value per agent and site', () => {
-    const store = createSessionStore<string>()
-    store.set('a1', 'https://admin.example.org', 'c1')
-    store.set('a1', 'https://portal.example.org', 'c2')
-    assert.equal(store.get('a1', 'https://admin.example.org'), 'c1')
-    assert.equal(store.get('a1', 'https://portal.example.org'), 'c2')
-    assert.equal(store.get('a2', 'https://admin.example.org'), undefined)
-  })
-  test('clearing an agent drops every site of it, and only of it', () => {
-    const store = createSessionStore<string>()
-    store.set('a1', 'https://admin.example.org', 'c1')
-    store.set('a1', 'https://portal.example.org', 'c2')
-    store.set('a2', 'https://admin.example.org', 'c3')
-    store.clear('a1')
-    assert.equal(store.get('a1', 'https://admin.example.org'), undefined)
-    assert.equal(store.get('a1', 'https://portal.example.org'), undefined)
-    assert.equal(store.get('a2', 'https://admin.example.org'), 'c3')
   })
 })

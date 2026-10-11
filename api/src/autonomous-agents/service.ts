@@ -7,7 +7,7 @@ import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { listMcpServerCatalog, unknownMcpServerIds, type SiteCredentials } from '../mcp-servers/operations.ts'
-import { getAutonomousAgentSession, agentSiteCredentials, clearAutonomousAgentSession, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
+import { getAutonomousAgentSession, agentSiteCredentials, forgetAccountSites, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
 import { listExternalToolDescriptors } from '../mcp-servers/external.ts'
@@ -19,7 +19,7 @@ import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
 // it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
 // below does for a changed one.
-export { clearAutonomousAgentSession }
+export { forgetAccountSites }
 
 export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers ?? [])
 
@@ -121,7 +121,7 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
  * on every edit would spend that budget for nothing.
  */
 export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAgent) => {
-  clearAutonomousAgentSession(autonomousAgent.id)
+  forgetAccountSites(autonomousAgent.id)
   try {
     await getAutonomousAgentSession(autonomousAgent)
   } catch (err: any) {
