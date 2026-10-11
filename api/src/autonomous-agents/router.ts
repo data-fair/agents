@@ -10,12 +10,15 @@ import mongo from '#mongo'
 import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
+import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/schema.js'
 import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { buildNhi, canInstruct, type StoredNhi } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/executor.ts'
 import { normalizeAllowedUrls } from '../web/operations.ts'
 import { normalizeExternalMcpServers } from '../mcp-servers/operations.ts'
+
+const WRITABLE_KEYS = Object.keys(writeReqSchema.properties)
 
 /**
  * Splits a write body into the server-built `nhi` and the rest.
@@ -198,20 +201,12 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     // the organization's hosts does not move the agent's home.
     const { nhi, writable } = rebuildNhi(body, req, existing.nhi)
 
-    // Whole-document replace of the client-writable subset: one owner, one write
-    // route, so there is no disjoint half to preserve the way settings has. The
-    // server-owned fields are carried over explicitly, and any writable field absent
-    // from the body is genuinely dropped.
-    const updated = {
-      ...writable,
-      ...(nhi ? { nhi } : {}),
-      id: existing.id,
-      owner: existing.owner,
-      createdAt: existing.createdAt,
-      ...(existing.createdBy ? { createdBy: existing.createdBy } : {}),
-      ...(existing.memoryConsolidation ? { memoryConsolidation: existing.memoryConsolidation } : {}),
-      updatedAt: new Date().toISOString()
-    }
+    // The body replaces the WRITABLE subset only: a writable field it omits is removed, and everything
+    // the server owns (id, owner, createdBy, memoryConsolidation…) is never touched, so it needs no list.
+    const $set = { ...writable, ...(nhi ? { nhi } : {}), updatedAt: new Date().toISOString() }
+    const $unset: Record<string, ''> = Object.fromEntries(WRITABLE_KEYS.filter(key => !(key in $set)).map(key => [key, '']))
+    const updated: typeof existing = { ...existing, ...$set }
+    for (const key of Object.keys($unset)) delete (updated as Record<string, unknown>)[key]
     // Re-verify whenever any part of the enrolment changed, not just the clientId: siteUrl/issuer
     // feed the signed audience and the exchange path, so an unverified change breaks the agent at
     // its first tool call. buildNhi only changes them on a new clientId or a missing capture, but
@@ -224,7 +219,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
       updated.nhi.issuer !== existing.nhi?.issuer
     )
     if (enrolmentChanged) await assertEnrolmentWorks(updated)
-    await mongo.autonomousAgents.replaceOne({ id: existing.id, 'owner.type': owner.type, 'owner.id': owner.id }, { ...updated })
+    await mongo.autonomousAgents.updateOne({ id: existing.id, 'owner.type': owner.type, 'owner.id': owner.id }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) })
 
     // The kill switch has to act NOW, not at the next turn. It was only read at the start of a turn, so
     // disabling an agent left whatever it was already doing running to completion — tool calls included.

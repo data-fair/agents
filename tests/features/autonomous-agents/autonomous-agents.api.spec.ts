@@ -193,12 +193,19 @@ test.describe('Autonomous agents API', () => {
     assert.equal(updated.data.id, created.data.id)
     assert.equal(updated.data.createdAt, created.data.createdAt)
     assert.notEqual(updated.data.updatedAt, created.data.createdAt)
+    // What was stored, not only what was answered.
+    const stored = (await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)).data
+    assert.deepEqual(stored, updated.data)
+    assert.ok(stored.createdBy, 'set at creation')
+    assert.deepEqual(stored.createdBy, created.data.createdBy)
   })
 
   test('PUT drops a field that is absent from the new body', async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', { ...validAgent(), instructions: 'Initial.' })
     const updated = await admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, validAgent())
     assert.equal('instructions' in updated.data, false)
+    const stored = (await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)).data
+    assert.equal('instructions' in stored, false)
   })
 
   test('PUT refuses an unknown serverId', async () => {
