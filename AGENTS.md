@@ -2,7 +2,7 @@
 
 ## Typing
 
-Types are mostly managed from JSON schemas (for example @api/types/settings/schema.js), prepared using `npm run build-types` and imported from #types in which is an alias for @api/types/index.ts.
+Types are mostly managed from JSON schemas (for example `api/types/settings/schema.js`), prepared using `npm run build-types` and imported from #types in which is an alias for `api/types/index.ts`.
 
 ## Quality checks
 
@@ -105,7 +105,7 @@ If a test fails with a connection error, run `bash dev/status.sh` to diagnose, t
 
 **One stateful run at a time.** The api and e2e projects share the dev database, and every spec's `clean()` deletes all `test*` documents — so a second run started while one is going wipes the first's freshly seeded data. That looks exactly like product flakiness: a different pair of failures each time, each passing alone, typically a 403 because a spec's own quota settings vanished. `tests/support/stateful-lock.ts` now refuses a second run at setup with an explicit message; do not work around it. In practice this means: never launch a test run in the background while an earlier one you started is still going, and wait for it before re-running a single spec. A unit-only run takes no lock and can run any time.
 
-Test users are defined in @dev/resources/users.template.json and organizations in @dev/resources/organizations.json. Modify these as little as possible, but if you do you need to force reload of the simple-directory container `docker compose restart simple-directory`.
+Test users are defined in `dev/resources/users.template.json` and organizations in `dev/resources/organizations.json`. Modify these as little as possible, but if you do you need to force reload of the simple-directory container `docker compose restart simple-directory`.
 
 `dev/resources/users.json` is **generated** — `dev/init-env.sh` renders it from `users.template.json`, resolving `{NGINX_PORT}` and any other `{ENV_VAR}` placeholder, and it is gitignored. Edit the template, never the rendered file. It exists because docker-compose mounts the rendered file straight into simple-directory, which reads it verbatim and does no substitution of its own — so a fixture that names a URL (the autonomous-agent NHI fixtures name this service as their issuer) cannot write the randomised port literally. An unresolved placeholder fails the render loudly rather than reaching simple-directory and surfacing later as an unexplained 401 from the token exchange.
 
@@ -113,7 +113,7 @@ The two `*-autonomous-agent-nhi` users are non-human identities an autonomous ag
 
 Tests are separated in playwright projects: unit (pure functions), api (stateful API endpoints through HTTP) and e2e (UI with playwright browser intrumentation). When working on the e2e part you can use subagents `playwright-test-generator` and `playwright-test-generator`.
 
-In case of failures you might find error contexts in @test-results.
+In case of failures you might find error contexts in `test-results`.
 
 ### Workspace packages must be built before running tests
 
@@ -168,16 +168,16 @@ quota.
 
 ## Code patterns
 
-Topical architecture docs (for understanding the service) live in `docs/architecture/` — one file per concern (sub-agents, loop-guards, mcp-tools, host-events, providers, configuration, quotas-usage, context-management, autonomous-agents, integration-context, embedding, moderation, tool-exploration, conversation-review, agent-memory, planned-tasks, web-access) plus `overview.md`. Read on a need-to-know basis.
+Topical architecture docs (for understanding the service) live in `docs/architecture/`, one file per concern; `docs/architecture/overview.md` indexes them. Read on a need-to-know basis.
 
 When working on this project, read the following files on a need-to-know basis to understand conventions:
 
-- API route pattern: @api/src/settings/router.ts
-- API operations pattern: @api/src/settings/operations.ts
-- Browser tool registration (WebMCP): @lib-vue/use-agent-tools.ts
-- MCP client, as an autonomous agent's own identity: @api/src/mcp-servers/client.ts
-- Vue page pattern: @ui/src/pages/admin/[type]/[id]/index.vue
-- Unit test pattern: @tests/features/settings/settings.unit.spec.ts
-- API test pattern: @tests/features/settings/settings.api.spec.ts
-- E2E test pattern: @tests/features/settings/settings.e2e.spec.ts
-- Type generation from JSON schemas: @api/types/settings/schema.js
+- API route pattern: `api/src/settings/router.ts`
+- API operations pattern: `api/src/settings/operations.ts`
+- Browser tool registration (WebMCP): `lib-vue/use-agent-tools.ts`
+- MCP client, as an autonomous agent's own identity: `api/src/mcp-servers/client.ts`
+- Vue page pattern: `ui/src/pages/admin/[type]/[id]/index.vue`
+- Unit test pattern: `tests/features/settings/settings.unit.spec.ts`
+- API test pattern: `tests/features/settings/settings.api.spec.ts`
+- E2E test pattern: `tests/features/settings/settings.e2e.spec.ts`
+- Type generation from JSON schemas: `api/types/settings/schema.js`
