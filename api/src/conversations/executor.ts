@@ -81,7 +81,7 @@ const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this 
  * The agent id travels with the controller so a whole agent can be stopped at once — see
  * abortRunsOfAgent.
  */
-const liveRuns = new Map<string, { controller: AbortController, agentId: string, conversationId?: string, taskId?: string }>()
+const liveRuns = new Map<string, { controller: AbortController, agentId: string, conversationId?: string }>()
 
 /** Whether this process is executing the run right now. */
 export const isRunLive = (runId: string) => liveRuns.has(runId)
@@ -1080,7 +1080,7 @@ export const driveTurn = async (
   closeBare: (failure: TurnFailure) => Promise<unknown>
 ): Promise<void> => {
   const abortController = new AbortController()
-  liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId, taskId: run.taskId })
+  liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId })
   // A stop received by another API process reaches this turn through its run document.
   const { initial: initialStopRead, stop: stopWatching } = watchStopRequests(run.id, abortController)
   // The run's telemetry and spend are held from here until finishRun writes them (see bufferRunWrites).

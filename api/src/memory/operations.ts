@@ -417,7 +417,6 @@ export interface ConsolidationState {
   at?: string
   /** The messages read so far: everything created before this instant. */
   until?: string
-  credits?: number
   failedAt?: string
   deferredAt?: string
 }

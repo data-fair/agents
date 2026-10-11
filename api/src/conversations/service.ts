@@ -228,7 +228,7 @@ export const createConversation = async (
       : { userId: caller.usageUserId, userName: 'Anonymous', anonymous: true, title: 'Anonymous conversation' }),
     ...(siteUrl ? { siteUrl } : {}),
     createdAt: new Date().toISOString(),
-    // starts at 0: nextMessageSeq hands out 1 for the first message
+    // starts at 0: the first message takes 1
     messageSeq: 0,
     credits: 0
   }

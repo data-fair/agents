@@ -136,8 +136,6 @@ export interface TurnTarget {
   settleEarlierCall: (toolCallId: string, settled: Parameters<typeof settleStoredToolPart>[2]) => Promise<void>
   /** Expose the parts being produced to a reader attaching mid-turn (and to the turn's own catch path). */
   track: (parts: () => MessagePart[]) => void
-  /** The parts tracked so far, when the turn got as far as producing any: what a failure is settled from. */
-  partsSoFar: () => MessagePart[] | undefined
   /** Where `report_outcome` lands: only a task run has an outcome to report (see ./service-tools.ts). */
   reportOutcome?: (outcome: TaskOutcome) => void
   /** The normal end: write the record and close the run. */
@@ -309,7 +307,6 @@ export const conversationTarget = (
       if (message) watcher()?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
     },
     track: (parts) => { liveTurns.set(run.conversationId, { messageSeq, parts }) },
-    partsSoFar,
 
     close: async (result) => {
       // An approval run leaves no approved call without a result (see settleApprovedWithoutRunning).

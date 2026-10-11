@@ -70,7 +70,6 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
       throw new Error('a task run has no earlier call to settle')
     },
     track: (parts) => { tracked = parts },
-    partsSoFar: () => tracked && structuredClone(tracked()),
     reportOutcome: (reported) => { outcome = reported },
 
     close: async (result) => {

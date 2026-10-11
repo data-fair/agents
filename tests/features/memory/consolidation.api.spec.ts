@@ -131,12 +131,13 @@ test.describe('Memory consolidation', () => {
     })
     const agent = await createAgent()
     await say({ agentId: agent.id }, 'remember: billed anyway. consolidate slowly')
+    const spent = async () => (await admin.get('/api/usage/organization/test1')).data.daily.cost as number
+    const before = await spent()
     const consolidating = consolidate(agent.id)
     await new Promise(resolve => setTimeout(resolve, 300))
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { ...body, memory: { enabled: false } })
     assert.deepEqual(await consolidating, { consolidated: false, reason: 'memory-off' })
-    const state = (await agentDoc(agent.id)).memoryConsolidation
-    assert.ok(state?.credits > 0, 'the step the model completed is billed')
-    assert.equal(state?.until, undefined, 'and nothing is marked read')
+    assert.ok(await spent() > before, 'the step the model completed is billed')
+    assert.equal((await agentDoc(agent.id)).memoryConsolidation?.until, undefined, 'and nothing is marked read')
   })
 })

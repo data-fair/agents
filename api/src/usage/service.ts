@@ -196,26 +196,6 @@ export async function recordUsage (owner: AccountKeys, record: UsageRecord): Pro
   ])
 }
 
-export async function getOwnerUsage (owner: AccountKeys): Promise<UsageInfo> {
-  const dailyPeriod = getDailyPeriod()
-  const weeklyPeriod = getWeeklyPeriod()
-  const monthlyPeriod = getMonthlyPeriod()
-
-  const filter = { 'owner.type': owner.type, 'owner.id': owner.id, userId: { $exists: false } }
-
-  const [daily, weekly, monthly] = await Promise.all([
-    mongo.usage.findOne({ ...filter, period: dailyPeriod }),
-    mongo.usage.findOne({ ...filter, period: weeklyPeriod }),
-    mongo.usage.findOne({ ...filter, period: monthlyPeriod })
-  ])
-
-  return {
-    daily: { cost: daily?.cost ?? 0, resetsAt: getDailyResetsAt() },
-    weekly: { cost: weekly?.cost ?? 0, resetsAt: getWeeklyResetsAt() },
-    monthly: { cost: monthly?.cost ?? 0, resetsAt: getMonthlyResetsAt() }
-  }
-}
-
 export interface UsageEntry {
   label: string
   cost: number

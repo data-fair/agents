@@ -23,21 +23,7 @@ export { partsText, textPart, type MessagePart } from '@agents/shared/message-pa
 
 /** A run that is a turn of a conversation, as opposed to a task run, which has none. */
 export type ConversationTurnRun = ConversationRun & { conversationId: string }
-export type RunStatus = 'running' | 'done' | 'error' | 'aborted' | 'interrupted' | 'skipped'
 export type RunStopReason = 'completed' | 'waiting' | 'awaiting-approval' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
-
-/**
- * Monotonic per-conversation sequence. Starts at 1, never 0: C2's live delta stream
- * detects a dropped message by a gap in this sequence, and 0 would be
- * indistinguishable from "no messages yet".
- */
-export function nextMessageSeq (conversation: { messageSeq?: number }): number {
-  return (conversation.messageSeq ?? 0) + 1
-}
-
-export function isRunTerminal (status: RunStatus): boolean {
-  return status !== 'running'
-}
 
 /**
  * The user-facing sentence appended as a terminal assistant message when a run ends.

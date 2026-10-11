@@ -25,10 +25,6 @@ export type { SelfUsage } from './operations.ts'
 
 type Quotas = NonNullable<Settings['quotas']>
 
-// sentinel userId for the aggregate anonymous + external usage record
-// Declared in ./operations.ts (pure); re-exported here so existing importers are unaffected.
-export { UNTRUSTED_POOL_ID } from './operations.ts'
-
 export interface UsageIdentity {
   trackPerUser: boolean
   usageUserId?: string

@@ -1,7 +1,7 @@
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, httpError, isAuthenticated, isValidAccountType, reqAdminMode, reqSession, reqSessionAuthenticated } from '@data-fair/lib-express'
 import {
-  getOwnerUsage,
+  getUsage,
   getAccountDailyHistory,
   getAccountMonthlyHistory,
   getUsersDailyHistory,
@@ -91,7 +91,7 @@ router.get('/:type/:id', async (req, res, next) => {
     const period = req.query.period as string | undefined
 
     const [usage, settings, credits] = await Promise.all([
-      getOwnerUsage(owner),
+      getUsage(owner),
       getRawSettings(owner),
       getCreditInfo(owner)
     ])

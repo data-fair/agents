@@ -184,18 +184,16 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
     }
   )
   // A refused write is the model's to handle (it is told why), so it does not fail the pass.
-  const refused = generated.steps.flatMap(step => step.content).filter(part => part.type === 'tool-error').length
-  debug('consolidated agent %s over %s..%s in %d step(s), %d refused write(s)', agent.id, since, until, generated.steps.length, refused)
+  debug('consolidated agent %s over %s..%s in %d step(s)', agent.id, since, until, generated.steps.length)
   return { consolidated: true, reason: 'done' }
 }
 
 /**
  * At the tools model's prices, under the agent's own identity, charged like any model call
- * (chargeModelCall), minus the run: a consolidation has none, so its cost lives in usage and on the agent.
+ * (chargeModelCall), minus the run: a consolidation has none, so its cost lives in usage only.
  */
 const bill = async (agent: AutonomousAgent, entry: ReturnType<typeof resolveRoleModel>['entry'], spent: TokenCounts) => {
-  const credits = await chargeModelCall({ owner: agent.owner, identity: usageIdentityFor(agent, { owner: agent.owner }), modelRole: 'tools', entry, usage: spent })
-  if (credits.total > 0) await mongo.autonomousAgents.updateOne({ id: agent.id }, { $inc: { 'memoryConsolidation.credits': credits.total } })
+  await chargeModelCall({ owner: agent.owner, identity: usageIdentityFor(agent, { owner: agent.owner }), modelRole: 'tools', entry, usage: spent })
 }
 
 /**

@@ -256,7 +256,6 @@ export default {
       properties: {
         at: { type: 'string', format: 'date-time' },
         until: { type: 'string', format: 'date-time' },
-        credits: { type: 'number' },
         failedAt: { type: 'string', format: 'date-time' },
         deferredAt: { type: 'string', format: 'date-time' }
       }

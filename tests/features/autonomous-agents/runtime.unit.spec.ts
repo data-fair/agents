@@ -3,38 +3,10 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { nextMessageSeq, isRunTerminal, runStopReasonMessage, buildSystemPrompt, wrapToolResult } from '../../../api/src/conversations/operations.ts'
+import { runStopReasonMessage, buildSystemPrompt, wrapToolResult } from '../../../api/src/conversations/operations.ts'
 import { compactionSystemPrompt, recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/conversations/loop-guards.ts'
 import { readFileSync } from 'node:fs'
-
-test.describe('nextMessageSeq', () => {
-  test('starts at 1 for a fresh conversation', () => {
-    assert.equal(nextMessageSeq({}), 1)
-  })
-
-  test('increments monotonically', () => {
-    assert.equal(nextMessageSeq({ messageSeq: 7 }), 8)
-  })
-
-  test('treats a zero seq as a fresh conversation rather than reusing 0', () => {
-    // seq 0 would collide with the "no messages yet" state and break the
-    // gap-detection C2 builds on top of it
-    assert.equal(nextMessageSeq({ messageSeq: 0 }), 1)
-  })
-})
-
-test.describe('isRunTerminal', () => {
-  test('running is not terminal', () => {
-    assert.equal(isRunTerminal('running'), false)
-  })
-
-  for (const status of ['done', 'error', 'aborted', 'interrupted'] as const) {
-    test(`${status} is terminal`, () => {
-      assert.equal(isRunTerminal(status), true)
-    })
-  }
-})
 
 test.describe('runStopReasonMessage', () => {
   test('every stop reason yields a non-empty, user-facing sentence', () => {
