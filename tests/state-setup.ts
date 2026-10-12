@@ -1,9 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'child_process'
-import { axiosBuilder } from '@data-fair/lib-node/axios.js'
+import { privateAxiosInstance as anonymousAx } from '@data-fair/lib-node/axios.js'
 import { test as setup } from '@playwright/test'
-
-const anonymousAx = axiosBuilder()
 
 // Unit block: test pure functions from operations.ts
 setup('Stateful tests setup', async () => {
