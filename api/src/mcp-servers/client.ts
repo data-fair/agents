@@ -7,6 +7,7 @@ import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { tool, jsonSchema } from 'ai'
+import memoize from 'memoizee'
 import config from '#config'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
@@ -75,44 +76,37 @@ export interface OpenAutonomousAgentTools {
  * up within it, and one removed fails at call time with the server's own error.
  */
 export const TOOL_LISTING_TTL_MS = 60_000
-const TOOL_LISTING_MAX_ENTRIES = 1000
 
 /**
  * Listings by server and identity. The promise itself is cached, so turns starting together share
- * ONE listing rather than each racing its own — which is the case that mattered under load.
+ * ONE listing rather than each racing its own — which is the case that mattered under load. A FAILURE
+ * is not cached: the next turn tries again, so a server coming back is noticed at once, and a
+ * configured agent keeps failing loudly while its server is down.
  *
  * Keyed on who asks as well as the server, because what a session-authenticated server lists may
  * depend on it (SiteCredentials.listingIdentity): two identities never share a listing. On the
  * identity, not the session cookie, which is a fresh exchange every turn for a configured agent — keyed
- * on it, its listings never hit.
+ * on it, its listings never hit. `cookie` is asked for only on a miss, so a cached listing costs no
+ * session exchange.
  */
-const listings = new Map<string, { expiresAt: number, tools: Promise<ListedMcpTool[]> }>()
+const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials): Promise<ListedMcpTool[]> => {
+  const cookie = server.auth === 'nhi-session' && siteUrl ? await sites.cookieFor(siteUrl) : undefined
+  const { client, close } = await connectMcpServer(server, siteUrl, cookie)
+  try {
+    return (await client.listTools()).tools as ListedMcpTool[]
+  } finally {
+    await close().catch(() => {})
+  }
+}, { promise: true, maxAge: TOOL_LISTING_TTL_MS, max: 1000, length: 1 })
 
 /** Forget every cached listing. The test environment's reset calls it, so specs stay independent. */
-export const clearToolListings = () => { listings.clear() }
+export const clearToolListings = () => { listing.clear() }
 
-/** `cookie` is asked for only on a miss, so a cached listing costs no session exchange. `fresh` skips the read. */
+/** `fresh` lists again, and keeps that answer for the next turns. */
 const listServerTools = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ListedMcpTool[]> => {
   const key = listingKey(server, siteUrl, sites.listingIdentity)
-  const cached = listings.get(key)
-  if (!fresh && cached && cached.expiresAt > Date.now()) return cached.tools
-  const tools = (async () => {
-    const cookie = server.auth === 'nhi-session' && siteUrl ? await sites.cookieFor(siteUrl) : undefined
-    const { client, close } = await connectMcpServer(server, siteUrl, cookie)
-    try {
-      return (await client.listTools()).tools as ListedMcpTool[]
-    } finally {
-      await close().catch(() => {})
-    }
-  })()
-  // A FAILURE is not cached: the next turn tries again, so a server coming back is noticed at once,
-  // and a configured agent keeps failing loudly while its server is down.
-  tools.catch(() => { if (listings.get(key)?.tools === tools) listings.delete(key) })
-  listings.delete(key)
-  listings.set(key, { expiresAt: Date.now() + TOOL_LISTING_TTL_MS, tools })
-  // Oldest first, by insertion order: a re-listed key was deleted and re-set above, so it is young.
-  while (listings.size > TOOL_LISTING_MAX_ENTRIES) listings.delete(listings.keys().next().value!)
-  return tools
+  if (fresh) listing.delete(key, server, siteUrl, sites)
+  return listing(key, server, siteUrl, sites)
 }
 
 /**

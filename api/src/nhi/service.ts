@@ -2,6 +2,7 @@
  * service.ts contains stateful logic (config, mongo) built on top of operations.ts
  */
 
+import memoize from 'memoizee'
 import config from '#config'
 import { httpError, reqSiteUrl, type AccountKeys } from '@data-fair/lib-express'
 import type { Request } from 'express'
@@ -114,13 +115,6 @@ const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent, site
   return pairs.join('; ')
 }
 
-const accountSites = new Map<string, { expiresAt: number, origins: Promise<string[]> }>()
-
-/** Forget what is known of this agent's account sites, when its enrolment changes or it is deleted. */
-export const forgetAccountSites = (agentId: string) => {
-  accountSites.delete(agentId)
-}
-
 /**
  * A session of this agent ON ONE SITE (default: the site it was enrolled on). simple-directory refuses
  * the exchange on a site outside the agent's organization — with the same 401 as any bad assertion —
@@ -145,22 +139,20 @@ export const ACCOUNT_SITES_TTL_MS = 60_000
  * simple-directory lists for its organization — asked AS the agent, on its enrolment site, which is
  * always inside its account. A failure is not cached, and is the caller's to degrade.
  */
-export const listAccountSites = (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }): Promise<string[]> => {
-  const cached = accountSites.get(autonomousAgent.id)
-  if (cached && cached.expiresAt > Date.now()) return cached.origins
-  const origins = (async () => {
-    const { siteUrl } = requireEnrolment(autonomousAgent)
-    const cookie = await getAutonomousAgentSession(autonomousAgent)
-    const res = await axios.get(`${config.privateDirectoryUrl.replace(/\/+$/, '')}/simple-directory/api/sites`, {
-      params: { owner: `${autonomousAgent.owner.type}:${autonomousAgent.owner.id}`, tmp: false },
-      headers: { cookie, ...forwardedSiteHeaders(siteOrigin(siteUrl)) }
-    })
-    const hosts: string[] = (res.data?.results ?? []).map((s: { host: string }) => s.host).filter(Boolean)
-    return accountSiteOrigins(siteUrl, hosts)
-  })()
-  origins.catch(() => { if (accountSites.get(autonomousAgent.id)?.origins === origins) accountSites.delete(autonomousAgent.id) })
-  accountSites.set(autonomousAgent.id, { expiresAt: Date.now() + ACCOUNT_SITES_TTL_MS, origins })
-  return origins
+export const listAccountSites = memoize(async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }): Promise<string[]> => {
+  const { siteUrl } = requireEnrolment(autonomousAgent)
+  const cookie = await getAutonomousAgentSession(autonomousAgent)
+  const res = await axios.get(`${config.privateDirectoryUrl.replace(/\/+$/, '')}/simple-directory/api/sites`, {
+    params: { owner: `${autonomousAgent.owner.type}:${autonomousAgent.owner.id}`, tmp: false },
+    headers: { cookie, ...forwardedSiteHeaders(siteOrigin(siteUrl)) }
+  })
+  const hosts: string[] = (res.data?.results ?? []).map((s: { host: string }) => s.host).filter(Boolean)
+  return accountSiteOrigins(siteUrl, hosts)
+}, { promise: true, maxAge: ACCOUNT_SITES_TTL_MS, max: 1000, normalizer: ([autonomousAgent]) => autonomousAgent.id })
+
+/** Forget what is known of this agent's account sites, when its enrolment changes or it is deleted. */
+export const forgetAccountSites = (agentId: string) => {
+  listAccountSites.delete({ id: agentId } as Parameters<typeof listAccountSites>[0])
 }
 
 /**

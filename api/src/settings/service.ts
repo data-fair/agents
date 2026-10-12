@@ -5,6 +5,7 @@
  */
 
 import type { AccountKeys } from '@data-fair/lib-express'
+import memoize from 'memoizee'
 import mongo from '#mongo'
 import type { Settings } from '#types'
 import { securityKey } from '../cipher/service.ts'
@@ -27,37 +28,23 @@ export const emptySettings = (owner: AccountKeys): Settings => ({
  * to be seen here.
  */
 const SETTINGS_TTL_MS = 10_000
-const SETTINGS_MAX_ENTRIES = 1000
-const settingsCache = new Map<string, { expiresAt: number, settings: Promise<Settings | null> }>()
-const settingsKey = (owner: AccountKeys) => `${owner.type}:${owner.id}`
 
-/** Forget an account's cached settings — after writing them, so the writer reads its own write. */
-export const invalidateSettings = (owner?: AccountKeys) => {
-  if (owner) settingsCache.delete(settingsKey(owner))
-  else settingsCache.clear()
-}
-
-const readRawSettings = async (owner: AccountKeys): Promise<Settings | null> => {
+const readRawSettings = memoize(async (owner: AccountKeys): Promise<Settings | null> => {
   const settings = await mongo.settings.findOne({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
   if (!settings) return null
   return { ...settings, providers: decryptProviderApiKeys(settings.providers, securityKey) }
+}, { promise: true, maxAge: SETTINGS_TTL_MS, max: 1000, normalizer: ([owner]) => `${owner.type}:${owner.id}` })
+
+/** Forget an account's cached settings — after writing them, so the writer reads its own write. */
+export const invalidateSettings = (owner?: AccountKeys) => {
+  if (owner) readRawSettings.delete(owner)
+  else readRawSettings.clear()
 }
 
 export const getRawSettings = async (owner: AccountKeys): Promise<Settings | null> => {
-  const key = settingsKey(owner)
-  let cached = settingsCache.get(key)
-  if (!cached || cached.expiresAt <= Date.now()) {
-    const settings = readRawSettings(owner)
-    cached = { expiresAt: Date.now() + SETTINGS_TTL_MS, settings }
-    settingsCache.delete(key)
-    settingsCache.set(key, cached)
-    // A failed read is not kept: the next caller tries again.
-    settings.catch(() => { if (settingsCache.get(key)?.settings === settings) settingsCache.delete(key) })
-    while (settingsCache.size > SETTINGS_MAX_ENTRIES) settingsCache.delete(settingsCache.keys().next().value!)
-  }
   // A COPY: callers mutate what they get (the routes obfuscate the API keys in place before replying),
   // and a shared object would carry that into every later reader.
-  const settings = await cached.settings
+  const settings = await readRawSettings(owner)
   return settings && structuredClone(settings)
 }
 
