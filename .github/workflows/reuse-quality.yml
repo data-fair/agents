@@ -37,8 +37,21 @@ jobs:
     - name: Start dev dependencies
       run: docker compose up -d --wait
 
+    # npx resolves the project's own dotenv bin, node_modules/.bin is not on the runner's PATH
     - name: Start dev API
-      run: dotenv run -- npm run dev-api &
+      run: npx dotenv run -- npm run dev-api &
+
+    # fail here, with the api's own output, rather than later in the tests' state setup
+    - name: Wait for dev API
+      run: |
+        port=$(grep '^DEV_API_PORT=' .env | cut -d= -f2)
+        for i in $(seq 60); do
+          curl -sf "http://localhost:$port/api/ping" > /dev/null && exit 0
+          sleep 1
+        done
+        echo "dev API did not answer on port $port"
+        cat dev/logs/dev-api.log || true
+        exit 1
 
     - name: Install Playwright browser
       run: npx playwright install --with-deps chromium
