@@ -306,17 +306,18 @@ part** — that is the double-execution guard: the call has exactly one part, an
 run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call the SDK refuses to run on replay — its class was set to `deny`, or to `allow`, since the request — is settled `output-error` on its own part ("this tool is no longer available", or that the policy changed), never left open. Moderation is **skipped** on an
 approval run: there is no new user text, and the decision is not something to classify.
 
-A run that does not reach the model must not leave an approved call without a result. `settleApprovedWithoutRunning`
-runs at the end of every approval run, on messages before the run's own:
+A run that does not reach the model must not leave an approved call without a result. `finishRun` settles them at the
+end of every approval run still running, before the run's own message is closed (no decision on it is accepted while
+it is pending), as "did not run" or "outcome is unknown" (`ApprovedCallsEnd`, `api/src/conversations/service.ts`):
 
-- refused before the model (quota, credit cap, disabled agent...): "Approved, but the turn could not run: <reason>";
+- refused before the model (quota, credit cap, disabled agent...): "did not run: the turn was refused: <reason>";
 - returned normally: "Approved, but it did not run" — certain, because the SDK executes approved calls before the first
   step and reports each one, so a call still `approval-responded` was never reached (its replay ended on another
   message, one posted before the run started);
 - threw or timed out: "outcome is unknown" — an honest answer for a write that may or may not have happened — except
   for an `InvalidToolApprovalSignatureError`, thrown before anything executes (a secret rotated since the request),
   which is "did not run" again;
-- interrupted by a restart: `recoverOwnerlessRuns` applies the same rule, "outcome is unknown".
+- interrupted by a restart: `recoverOwnerlessRuns` closes the run through `finishRun`, "outcome is unknown".
 
 Behind all of these, the replay itself (`storedTurnsToModelMessages`, `settleStrandedApproval`) sends an approved call
 with no result **outside the last message** as an error ("outcome is unknown: no turn reported it") rather than bare:

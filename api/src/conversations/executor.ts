@@ -34,7 +34,7 @@ import {
 import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies } from '../moderation/operations.ts'
 import {
-  conversationTarget, closeConversationRunBare, settleApprovedWithoutRunning, unknownApprovedOutcome,
+  conversationTarget, closeConversationRunBare,
   type TurnTarget, type TurnResult, type TurnFailure
 } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
@@ -1135,29 +1135,17 @@ export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, res
     // lock read above: its message is then closed, its run closed, its lock released and it has left
     // `liveRuns`, so it passes both filters. That order (message closed BEFORE the run, run closed
     // before the lock is released) makes `pending` exact: a run that had a holder and is now neither
-    // locked nor live already has a closed message, which must not gain a restart notice. The write is
-    // guarded on `pending: true` too, so two instances recovering the same dead run append it once.
-    if (existing.pending) {
-      // An approval run cut by the restart leaves no approved call without a result either: the rule
-      // runTurn applies on both of its own paths. Nothing else would ever settle it — a new message only
-      // touches calls still awaiting a decision — and every later replay would carry a call with no
-      // result, which providers reject: the conversation would fail on every turn from then on. Outcome
-      // UNKNOWN, not "did not run": the process may have died after the tool did its work.
-      if (run.trigger === 'approval') {
-        // Caught: one conversation's failure must not stop the others being recovered. The replay's own
-        // safety net (storedTurnsToModelMessages) still keeps such a call from reaching a provider bare.
-        await settleApprovedWithoutRunning(run.conversationId, existing.seq, unknownApprovedOutcome('interrupted by a restart'))
-          .catch(err => console.error('approved calls of an interrupted run could not be settled', err))
-      }
-      // stopReason has no 'interrupted' member — the status carries that — so the reason is
-      // 'error' with the restart named as the detail.
-      const notice = runStopReasonMessage('error', 'interrupted by a restart')
-      await mongo.messages.updateOne(
-        { conversationId: run.conversationId, seq: existing.seq, pending: true },
-        { $set: { parts: withAppendedText(existing.parts, notice), pending: false, updatedAt: new Date().toISOString() } }
-      )
-    }
-    const { closed } = await finishRun(run, { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' })
+    // locked nor live already has a closed message, which must not gain a restart notice. finishRun
+    // writes it only while pending, so two instances recovering the same dead run append it once.
+    // stopReason has no 'interrupted' member — the status carries that — so the reason is 'error' with
+    // the restart named as the detail. An approval run's approved calls are settled by finishRun as of
+    // unknown outcome: the process may have died after a tool did its work.
+    const notice = runStopReasonMessage('error', 'interrupted by a restart')
+    const { closed } = await finishRun(
+      run,
+      { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' },
+      existing.pending ? { message: { seq: existing.seq, patch: { parts: withAppendedText(existing.parts, notice), pending: false } } } : {}
+    )
     if (closed) interrupted++
   }
 

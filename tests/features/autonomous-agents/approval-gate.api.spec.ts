@@ -178,7 +178,7 @@ test.describe('The approval gate', () => {
     // Settled as an error rather than left approved with no result, which every later replay would carry.
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
     assert.equal(part.state, 'output-error')
-    assert.match(part.errorText, /^Approved, but the turn could not run: This autonomous agent is currently disabled/)
+    assert.match(part.errorText, /^Approved, but it did not run: the turn was refused: This autonomous agent is currently disabled/)
 
     // Re-enabled, a further turn replays the call WITH that result, so it does not run late.
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true })

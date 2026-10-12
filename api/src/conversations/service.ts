@@ -342,6 +342,39 @@ export const settleStoredToolPart = async (
 }
 
 /**
+ * What an approval run's approved calls that never reported are settled as, when the run ends (finishRun):
+ * `no` when it is certain they never executed, `unknown` when one may have done its work.
+ */
+export interface ApprovedCallsEnd { ran: 'no' | 'unknown', detail: string }
+
+export const approvedCallError = ({ ran, detail }: ApprovedCallsEnd) => ran === 'no'
+  ? `Approved, but it did not run: ${detail.replace(/\.$/, '')}.`
+  : `Approved, but its outcome is unknown: the turn ended before it reported (${detail}).`
+
+/**
+ * Settle, as an error, every approved call an approval run leaves without a result.
+ *
+ * Only that run could execute those calls (the SDK does it from the last message on replay), so once
+ * it is over, a call still `approval-responded` never will be. Left as it is, every later replay would
+ * carry an approved call with no result after it, which providers reject.
+ *
+ * Called by finishRun BEFORE the run's own message is closed: while it is pending no decision on it is
+ * accepted (decideApproval, 'still-finishing'), so every call found here belongs to an earlier message.
+ */
+const settleApprovedWithoutResult = async (conversationId: string, errorText: string) => {
+  const messages = await mongo.messages
+    .find({ conversationId, 'parts.state': 'approval-responded' }, { projection: { _id: 0, parts: 1 } })
+    .toArray()
+  for (const message of messages) {
+    for (const part of message.parts as MessagePart[]) {
+      if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded') continue
+      const settled = await settleStoredToolPart(conversationId, part.toolCallId, { state: 'output-error', errorText })
+      if (settled) sessionFor(conversationId)?.send({ type: 'message', seq: settled.seq, role: 'assistant', parts: settled.parts as MessagePart[], pending: false })
+    }
+  }
+}
+
+/**
  * Record a decision on a pending approval, atomically: only a part still `approval-requested` flips, so
  * two decisions racing (two tabs, a double click) settle it once. Null when nothing was pending under
  * that id — already decided, or never asked.
@@ -565,16 +598,28 @@ export const conversationCost = async (conversationId: string, known?: { credits
  * A conversation's turn also closes on its conversation: the turn's spend is added to the conversation's
  * running total (returned), with whatever the turn leaves there (a handover's `pendingWait`), so a reader
  * never sees the turn closed without the wait it is waiting on; then its final message, if any, is
- * written — both BEFORE the run's close, which is what every reader and the boot sweep key on.
+ * written — both BEFORE the run's close, which is what every reader and the boot sweep key on. The
+ * message is written only while still pending, so two writers closing the same turn append once.
+ *
+ * An `approval` run first settles the approved calls it leaves without a result, as `approvedCalls`
+ * says, or as of unknown outcome when the caller cannot say (see settleApprovedWithoutResult).
  */
 export const finishRun = async (
-  run: { id: string, conversationId?: string },
+  run: { id: string, conversationId?: string, trigger?: ConversationRun['trigger'] },
   patch: Partial<ConversationRun>,
-  turn: { message?: { seq: number, patch: Partial<StoredMessage> }, conversation?: Partial<Conversation> } = {}
+  turn: { message?: { seq: number, patch: Partial<StoredMessage> }, conversation?: Partial<Conversation>, approvedCalls?: ApprovedCallsEnd } = {}
 ): Promise<{ closed: boolean, conversationCredits?: number }> => {
   const buffered = drainRunBuffer(run.id)
   const now = new Date().toISOString()
   let conversationCredits: number | undefined
+  // Only while the run is still running: a run closed already (a racer, a recovery finding it finished)
+  // must not settle calls decided since, which belong to the next continuation. Caught: the run must
+  // still close, and the replay's own safety net (settleStrandedApproval) keeps such a call from
+  // reaching a provider bare.
+  if (run.conversationId && run.trigger === 'approval' && await mongo.runs.countDocuments({ id: run.id, status: 'running' }, { limit: 1 })) {
+    await settleApprovedWithoutResult(run.conversationId, approvedCallError(turn.approvedCalls ?? { ran: 'unknown', detail: patch.error ?? 'the turn ended' }))
+      .catch(err => console.error('approved calls could not be settled', err))
+  }
   if (run.conversationId) {
     const updated = await mongo.conversations.findOneAndUpdate(
       { id: run.conversationId },
@@ -587,7 +632,7 @@ export const finishRun = async (
       // too, and a run left `running` is worse than a message left without its notice — the run is what
       // every reader and the boot sweep key on. So the close below still runs.
       await mongo.messages.updateOne(
-        { conversationId: run.conversationId, seq: turn.message.seq },
+        { conversationId: run.conversationId, seq: turn.message.seq, pending: true },
         { $set: { ...turn.message.patch, updatedAt: now } }
       ).catch(err => console.error('autonomous agent message could not be finalised', err))
     }

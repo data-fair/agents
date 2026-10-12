@@ -34,7 +34,7 @@ import { withHostContext, LOCATION_KEY } from '@agents/shared/host-events'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type StopCause } from './interrupted-turn.ts'
-import { updateMessage, settleStoredToolPart, finishRun, conversationCost } from './service.ts'
+import { updateMessage, settleStoredToolPart, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
 
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
@@ -181,53 +181,13 @@ const sendConversationCost = async (conversationId: string, known?: number) => {
 }
 
 /**
- * Settle, as an error, every approved call an approval run leaves without a result.
- *
- * ONE RULE AT THE END OF EVERY `approval` RUN, whatever the path. Only that run could execute those
- * calls (the SDK does it from the last message on replay), so once it is over, a call still
- * `approval-responded` never will be — refused before the model (disabled, no identity, a quota), a
- * run that threw before it (an unreachable MCP server), or a message posted before the run started, so
- * that the replay ended on it instead. Left as it is, every later replay would carry an approved call
- * with no result after it, which providers reject.
- *
- * Bounded to messages BEFORE the run's own (`beforeSeq`): a call this run made and stopped may already
- * have been approved by the person while the run was finishing, and belongs to the next continuation.
- * And settleStoredToolPart matches only `approval-responded`, so a call the run did settle is untouched.
- */
-export const settleApprovedWithoutRunning = async (conversationId: string, beforeSeq: number | undefined, errorText: string) => {
-  const messages = await mongo.messages
-    .find(
-      { conversationId, 'parts.state': 'approval-responded', ...(beforeSeq !== undefined ? { seq: { $lt: beforeSeq } } : {}) },
-      { projection: { _id: 0, parts: 1 } }
-    )
-    .toArray()
-  for (const message of messages) {
-    for (const part of message.parts as MessagePart[]) {
-      if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded') continue
-      const settled = await settleStoredToolPart(conversationId, part.toolCallId, { state: 'output-error', errorText })
-      if (settled) sessionFor(conversationId)?.send({ type: 'message', seq: settled.seq, role: 'assistant', parts: settled.parts as MessagePart[], pending: false })
-    }
-  }
-}
-
-/** The error an approved call is settled with when its run ended normally without executing it. */
-const APPROVED_NOT_RUN = 'Approved, but it did not run: the turn continuing from the decision ended without reaching it.'
-
-/** The error an approved call is settled with when its run ended — threw, timed out, died — without it reporting. */
-export const unknownApprovedOutcome = (detail: string) => `Approved, but its outcome is unknown: the turn ended before it reported (${detail}).`
-
-/**
  * Close a conversation's run that failed before its target was opened: no assistant message exists
  * (appendMessage itself failed), so the run carries the failure alone. Otherwise the same rules as
- * `fail`: an approval run settles its approved calls, and a watcher is told the turn ended.
+ * `fail`, and a watcher is told the turn ended.
  */
 export const closeConversationRunBare = async (run: ConversationTurnRun, failure: TurnFailure) => {
   const { status, stopReason, error } = failure
   const detail = error ?? ''
-  if (run.trigger === 'approval') {
-    await settleApprovedWithoutRunning(run.conversationId, undefined, unknownApprovedOutcome(detail))
-      .catch(settleErr => console.error('approved calls could not be settled', settleErr))
-  }
   const finished = await finishRun(run, { status, stopReason, ...(error !== undefined ? { error } : {}) })
     .catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
   await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
@@ -303,21 +263,16 @@ export const conversationTarget = (
     track: (parts) => { liveTurns.set(run.conversationId, { messageSeq, parts }) },
 
     close: async (result) => {
-      // An approval run leaves no approved call without a result (see settleApprovedWithoutRunning).
-      // Before the run closes, so a reader stopping on the closed run already finds them settled.
-      //
-      // Both wordings say "did not run", because on THIS path it is certain: the SDK executes approved
-      // calls before the first step and reports every one of them (a result, an error or a denial), so a
-      // call still `approval-responded` after a run that RETURNED was never executed — its replay ended
-      // on another message (one posted before the run started). Except after an idle abort, which ends
-      // the stream without throwing while a slow approved call may still be executing.
-      if (run.trigger === 'approval') {
-        await settleApprovedWithoutRunning(run.conversationId, messageSeq, result.refused
-          ? `Approved, but the turn could not run: ${partsText(result.parts).trim() || 'it was refused'}`
-          : result.idleAborted
-            ? unknownApprovedOutcome('the model stream went silent')
-            : APPROVED_NOT_RUN)
-      }
+      // An approval run's approved calls left without a result (finishRun settles them): "did not run"
+      // is certain on THIS path — the SDK executes approved calls before the first step and reports
+      // every one of them, so a call still `approval-responded` after a run that RETURNED was never
+      // executed (its replay ended on a message posted before the run started). Except after an idle
+      // abort, which ends the stream without throwing while a slow approved call may still be executing.
+      const approvedCalls: ApprovedCallsEnd = result.refused
+        ? { ran: 'no', detail: `the turn was refused: ${partsText(result.parts).trim() || 'no reason given'}` }
+        : result.idleAborted
+          ? { ran: 'unknown', detail: 'the model stream went silent' }
+          : { ran: 'no', detail: 'the turn continuing from the decision ended without reaching it' }
       // A turn that stopped for a reason other than finishing explains itself, appended to
       // whatever it did manage to produce.
       // A handover is not a stop to explain: its own message, already in the parts, says what is next.
@@ -337,6 +292,7 @@ export const conversationTarget = (
         { status: result.stopReason === 'error' ? 'error' : 'done', stopReason: result.stopReason },
         {
           message: { seq: messageSeq, patch: { parts: finalParts as any, pending: false } },
+          approvedCalls,
           ...(result.handover
             ? {
                 conversation: {
@@ -430,22 +386,18 @@ export const conversationTarget = (
           // replay, which would hide from the model that it had acted.
           ? [...settled.filter(part => part.type === 'dynamic-tool'), { type: 'data-refusal', data: { kind: 'moderation' } } as MessagePart, textPart(MODERATION_REFUSAL)]
           : interrupt === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
-        // The same rule as the success path, for a run that threw: whether a call ran before the throw is
-        // not known here, so it says so — except for a signature that failed verification, which the SDK
-        // checks before executing anything (a secret rotated between the request and the decision): those
-        // calls certainly did not run. Caught, like the message write below: the run must still close.
-        if (run.trigger === 'approval') {
-          await settleApprovedWithoutRunning(run.conversationId, messageSeq, InvalidToolApprovalSignatureError.isInstance(cause)
-            ? `Approved, but it did not run: the approval could not be verified (${detail}).`
-            : unknownApprovedOutcome(detail))
-            .catch(settleErr => console.error('approved calls could not be settled', settleErr))
-        }
+        // Approved calls left without a result (finishRun settles them): whether one ran before the throw
+        // is not known here — except for a signature that failed verification, which the SDK checks
+        // before executing anything (a secret rotated between the request and the decision).
+        const approvedCalls: ApprovedCallsEnd = InvalidToolApprovalSignatureError.isInstance(cause)
+          ? { ran: 'no', detail: `the approval could not be verified (${detail})` }
+          : { ran: 'unknown', detail }
         // The message, then the run (finishRun) — the message write CAUGHT inside it, so whatever failed
         // it still lets the run close.
         const finished = await finishRun(
           run,
           { status, stopReason, ...(error !== undefined ? { error } : {}) },
-          { message: { seq: messageSeq, patch: { parts: finalParts as any, pending: false } } }
+          { message: { seq: messageSeq, patch: { parts: finalParts as any, pending: false } }, approvedCalls }
         ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
         // Same reason as the success path: the notice explaining the failure has to reach the page that
         // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From
