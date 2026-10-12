@@ -41,6 +41,8 @@ normal dev session already has it. Logs go to `dev/logs/dev-bridge.log`. It is o
 Configure it in the settings UI as an **OpenAI Compatible** provider with base URL
 `http://localhost:3194/v1` and **Compatibility Mode `compatible`** (the default mode
 targets `/v1/responses`, which the bridge does not implement). Leave the API key empty.
+Model listing for org providers goes through lib-node's SSRF-guarded axios, which refuses
+loopback; `npm run dev-api` sets `SSRF_PUBLIC_IPS=127.0.0.1,::1` so the bridge is reachable.
 
 `GET /_bridge/status` reports how many conversations are holding a live `claude` session.
 It binds `127.0.0.1` only: it is unauthenticated and spends your subscription.
