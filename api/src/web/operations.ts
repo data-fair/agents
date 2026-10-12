@@ -31,11 +31,27 @@ const parseHttpUrl = (raw: string): URL => {
     throw new Error(`"${raw}" is not a valid absolute URL`)
   }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error(`only http and https URLs are accepted, not ${url.protocol}`)
-  if (url.username || url.password) throw new Error('URLs with credentials are not accepted')
-  if (net.isIP(url.hostname.replace(/^\[|\]$/g, ''))) throw new Error('URLs with an IP address are not accepted, only domain names')
+  if (url.username || url.password) throw new Error(`"${raw}": URLs with credentials are not accepted`)
+  if (net.isIP(url.hostname.replace(/^\[|\]$/g, ''))) throw new Error(`"${raw}": URLs with an IP address are not accepted, only domain names`)
   url.hash = ''
   return url
 }
+
+/**
+ * An address an agent is configured with, normalized: `https://` assumed when no scheme is given, http(s)
+ * only, a host name rather than an IP address, no credentials, no fragment. Shared by the web allowlist and
+ * the external MCP servers.
+ */
+export const normalizeHttpUrl = (input: string): string => {
+  const trimmed = input.trim()
+  return parseHttpUrl(trimmed.includes('://') ? trimmed : `https://${trimmed}`).href
+}
+
+/**
+ * Calls one run may make to an open-world surface — the web readers, the external MCP servers — each
+ * counted on its own: bounds a crawl or a loop that would not end on its own.
+ */
+export const MAX_CALLS_PER_RUN = 50
 
 /** A URL without its scheme: http and https are the same address for the allowlist. */
 const withoutScheme = (href: string) => href.replace(/^https?:\/\//, '')
@@ -49,7 +65,7 @@ export const normalizeAllowedUrl = (input: string): string => {
   const trimmed = input.trim()
   if (!trimmed) throw new Error('an allowed URL cannot be empty')
   if (trimmed.includes('*')) throw new Error(`"${input}": no wildcards, an allowed URL is a prefix`)
-  return parseHttpUrl(trimmed.includes('://') ? trimmed : `https://${trimmed}`).href
+  return normalizeHttpUrl(trimmed)
 }
 
 /** Normalizes and dedupes a whole allowlist; throws on the first invalid entry. */

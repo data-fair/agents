@@ -20,10 +20,10 @@ import { loadMemory } from '../memory/service.ts'
 import { createMemoryTool } from '../memory/tool.ts'
 import { REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
 import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_MAX, type TaskOutcome } from '../tasks/operations.ts'
-import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS, REQUEST_WEB_ACCESS_ANNOTATIONS } from '../web/tools.ts'
+import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS } from '../web/tools.ts'
 import { WEB_SERVER_ID } from '../web/operations.ts'
 import { createRequestMcpAccessTool } from '../mcp-servers/external.ts'
-import { REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID, REQUEST_MCP_ACCESS_ANNOTATIONS } from '../mcp-servers/operations.ts'
+import { REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID } from '../mcp-servers/operations.ts'
 import { saveExternalMcpServers, saveWebAllowedUrls } from '../autonomous-agents/service.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { createSelfKnowledgeTools } from '../self-knowledge/tools.ts'
@@ -34,6 +34,9 @@ export type { TaskOutcome }
 
 /** The source a stored `report_outcome` call names: the service itself, not a catalog server. */
 const AGENT_SERVICE_ID = 'agent-service'
+
+/** The access requests (`request_web_access`, `request_mcp_access`): approved, they write the agent's configuration. */
+const ACCESS_REQUEST_ANNOTATIONS = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 
 export type TurnSurface = 'chat' | 'task'
 
@@ -118,7 +121,7 @@ const ENTRIES: ServiceToolEntry[] = [
       if (surface === 'chat' && run.triggeredByRole === 'admin') {
         tools[REQUEST_WEB_ACCESS_TOOL_NAME] = createRequestWebAccessTool({ allowedUrls, save: urls => saveWebAllowedUrls(agent, urls) })
       }
-      Object.assign(into.tools, sourcedTools(tools, WEB_SERVER_ID, name => name === REQUEST_WEB_ACCESS_TOOL_NAME ? REQUEST_WEB_ACCESS_ANNOTATIONS : WEB_TOOL_ANNOTATIONS))
+      Object.assign(into.tools, sourcedTools(tools, WEB_SERVER_ID, name => name === REQUEST_WEB_ACCESS_TOOL_NAME ? ACCESS_REQUEST_ANNOTATIONS : WEB_TOOL_ANNOTATIONS))
     }
   },
   {
@@ -128,7 +131,7 @@ const ENTRIES: ServiceToolEntry[] = [
     applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
     build: async ({ agent }, into) => {
       const tools = { [REQUEST_MCP_ACCESS_TOOL_NAME]: createRequestMcpAccessTool({ servers: [...(agent.externalMcpServers ?? [])], save: servers => saveExternalMcpServers(agent, servers) }) }
-      Object.assign(into.tools, sourcedTools(tools, EXTERNAL_MCP_SERVER_ID, () => REQUEST_MCP_ACCESS_ANNOTATIONS))
+      Object.assign(into.tools, sourcedTools(tools, EXTERNAL_MCP_SERVER_ID, () => ACCESS_REQUEST_ANNOTATIONS))
     }
   },
   {

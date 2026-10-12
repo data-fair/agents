@@ -6,15 +6,12 @@
 
 import { tool, jsonSchema, type Tool } from 'ai'
 import { fetchUrl, listSitePages, type FetchUrlInput, type ListSitePagesInput, type WebContext } from './service.ts'
-import { FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME, REQUEST_WEB_ACCESS_TOOL_NAME, normalizeAllowedUrls } from './operations.ts'
+import { FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME, REQUEST_WEB_ACCESS_TOOL_NAME, MAX_CALLS_PER_RUN, normalizeAllowedUrls } from './operations.ts'
 
 export { FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME, REQUEST_WEB_ACCESS_TOOL_NAME }
 
 /** Both readers only read, and read the open web: recorded on every call for audit. */
 export const WEB_TOOL_ANNOTATIONS = { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: true }
-
-/** Extending the allowlist writes the agent's configuration. */
-export const REQUEST_WEB_ACCESS_ANNOTATIONS = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 
 export interface RequestWebAccessInput {
   add: string[]
@@ -47,15 +44,12 @@ export const createRequestWebAccessTool = (opts: { allowedUrls: string[], save: 
   }
 })
 
-/** Web tool calls one run may make; bounds a crawl that would not end on its own. */
-export const DEFAULT_MAX_CALLS = 50
-
 export interface WebToolsOptions extends WebContext {
   maxCalls?: number
 }
 
 export const createWebTools = (opts: WebToolsOptions): Record<string, Tool> => {
-  const { maxCalls = DEFAULT_MAX_CALLS, ...ctx } = opts
+  const { maxCalls = MAX_CALLS_PER_RUN, ...ctx } = opts
   let used = 0
   const spend = () => {
     if (++used > maxCalls) throw new Error(`this run has used all of its ${maxCalls} web tool calls`)

@@ -22,7 +22,8 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { ipList, publicLookup } from '../web/public-lookup.ts'
-import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX, EXTERNAL_MAX_CALLS } from './operations.ts'
+import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
+import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
 import type { ToolSet } from '../conversations/operations.ts'
 
@@ -48,7 +49,7 @@ const errorText = (err: any): string => err?.cause?.message ? `${err.message}: $
 
 export const openExternalMcpTools = async (servers: { url: string }[], opts: { publicIps: string[], maxCalls?: number, timeoutMs?: number }) => {
   const { fetchImpl, closeDispatcher } = publicFetch(opts.publicIps)
-  const maxCalls = opts.maxCalls ?? EXTERNAL_MAX_CALLS
+  const maxCalls = opts.maxCalls ?? MAX_CALLS_PER_RUN
   const timeoutMs = opts.timeoutMs ?? CONNECT_TIMEOUT_MS
   const tools: ToolSet = {}
   const skippedServers: SkippedServer[] = []

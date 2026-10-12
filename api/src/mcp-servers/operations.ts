@@ -4,7 +4,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import net from 'node:net'
+import { normalizeHttpUrl } from '../web/operations.ts'
 import { forwardedSiteHeaders } from '../sites/operations.ts'
 
 /**
@@ -190,30 +190,12 @@ export function splitPortalArgument (args: Record<string, unknown> | undefined, 
   return typeof portal === 'string' ? { portal, args: all } : { args: all }
 }
 
-/** External MCP calls one run may make, across all its external servers; like web access's budget. */
-export const EXTERNAL_MAX_CALLS = 50
-
-const normalizeExternalMcpUrl = (raw: string): string => {
-  const trimmed = raw.trim()
-  let url: URL
-  try {
-    url = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`)
-  } catch {
-    throw new Error(`"${raw}" is not a URL`)
-  }
-  if (url.protocol !== 'https:' && url.protocol !== 'http:') throw new Error(`"${raw}" is not an http(s) URL`)
-  if (url.username || url.password) throw new Error(`"${raw}" must not carry credentials`)
-  if (net.isIP(url.hostname.replace(/^\[|\]$/g, ''))) throw new Error(`"${raw}" must name a host, not an IP address`)
-  url.hash = ''
-  return url.href
-}
-
 /**
  * The external MCP servers of an agent, as the client connects to them: https assumed, host lowercased,
  * no IP address, no credentials, once each. Its admin's list; anonymous only (see ./external.ts).
  */
 export function normalizeExternalMcpServers (servers: { url: string }[]): { url: string }[] {
-  const urls = [...new Set(servers.map(s => normalizeExternalMcpUrl(s.url)))]
+  const urls = [...new Set(servers.map(s => normalizeHttpUrl(s.url)))]
   return urls.map(url => ({ url }))
 }
 
@@ -233,8 +215,6 @@ export function externalToolName (url: string, toolName: string): string {
 export const REQUEST_MCP_ACCESS_TOOL_NAME = 'request_mcp_access'
 /** Provenance of the request tool, like web access's `agent-web`. */
 export const EXTERNAL_MCP_SERVER_ID = 'agent-external-mcp'
-/** Extending the list writes the agent's configuration. */
-export const REQUEST_MCP_ACCESS_ANNOTATIONS = { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
 
 /** The most external MCP servers an agent may list; the agent schema's `maxItems` is the same number. */
 export const EXTERNAL_MCP_SERVERS_MAX = 50
