@@ -68,10 +68,7 @@ Each row records the op (`create`, `update`, `delete`, `rename`, `restore`), the
 
 `api/src/memory/consolidation.ts`, pure half in `operations.ts` (`consolidationDue`, `conversationsForConsolidation`, the prompts). A per-agent pass that edits memory through the same tool as the agent, so its changes are versioned, attributed (`author.kind: 'consolidation'`, with the `since`/`until` window it read) and restorable. Nothing appears in any conversation.
 
-| Trigger | When |
-| --- | --- |
-| sweep | every 15 minutes (`api/src/server.ts`): each agent with memory on is due once 24 hours have passed since its last pass and it ran since (`consolidationDue`) |
-| manual | tests and simulations (`POST /api/test-env/consolidate-memory`) |
+One trigger: a sweep every 15 minutes (`api/src/server.ts`), where each agent with memory on is due once 24 hours have passed since its last pass and it ran since (`consolidationDue`). Tests and simulations run one agent's pass through `POST /api/test-env/consolidate-memory`, due by the same rule as of an optional `now`; simulations of runs a week apart age the agent's history first (`age-agent-history`).
 
 - **Activity** is the end of the agent's latest run, conversation turn or task run. A task run's content is not read, but the agent may have written memory in it, which then needs tidying.
 - **What it reads**: `MEMORY.md`, the index (it `view`s the rest), and the conversations active since the previous pass, rendered as what people wrote and what the agent answered, text only: no tool call, no tool result, no reasoning. At most 100 conversations and 60,000 characters, most recent kept. Anonymous conversations are not read. The first pass of an agent reads back 7 days at most, so turning memory on does not bill a pass over the whole history.

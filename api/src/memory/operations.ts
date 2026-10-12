@@ -423,17 +423,15 @@ export interface ConsolidationState {
 
 /**
  * Whether an agent's memory needs tidying now. Pure, so the trigger is tested without a clock.
- * `sweep` = the periodic timer, at most once per CONSOLIDATE_EVERY_HOURS and only when there was
- * activity since; `manual` = a test asked. A recent failure or deferral backs off the sweep.
+ * At most once per CONSOLIDATE_EVERY_HOURS, and only when there was activity since. A recent failure or
+ * deferral backs off.
  */
 export function consolidationDue (
   state: ConsolidationState | undefined,
   lastActivityAt: string | undefined,
-  trigger: 'sweep' | 'manual',
   now: Date
 ): { due: boolean, reason: string } {
   if (!lastActivityAt || (state?.until && lastActivityAt <= state.until)) return { due: false, reason: 'nothing-new' }
-  if (trigger === 'manual') return { due: true, reason: 'manual' }
   for (const at of [state?.failedAt, state?.deferredAt]) {
     if (at && now.getTime() - Date.parse(at) < CONSOLIDATE_RETRY_MINUTES * MINUTE) return { due: false, reason: 'backoff' }
   }

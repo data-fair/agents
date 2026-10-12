@@ -307,9 +307,9 @@ export const createTestEnvRouter = () => {
   // (or bills, with the dev bridge) the real dev accounts' data — the same rule as clean().
   const testOwnerScope = (owner: unknown): Record<string, unknown> =>
     owner && typeof owner === 'object' ? { 'owner.id': (owner as any).id } : { 'owner.id': /^test/ }
-  // Dev-only: consolidate one agent's memory now, or run the sweep as of a chosen time.
+  // Dev-only: one agent's pass, or the sweep, as of a chosen time — due by the sweep's own rule either way.
   router.post('/consolidate-memory', async (req, res) => {
-    res.json(await maybeConsolidate(String(req.body.agentId), req.body.trigger ?? 'manual', req.body.now ? new Date(req.body.now) : undefined))
+    res.json(await maybeConsolidate(String(req.body.agentId), req.body.now ? new Date(req.body.now) : undefined))
   })
   // Dev-only, for simulations of runs a week apart: moves an agent's history back by `days` — its runs,
   // its memory and the consolidation state — and today's date written in them (a run's outcome, memory

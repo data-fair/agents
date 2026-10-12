@@ -61,11 +61,11 @@ const lastActivityAt = async (agentId: string): Promise<string | undefined> => {
   return run ? (run.endedAt ?? run.startedAt) : undefined
 }
 
-export const maybeConsolidate = async (agentId: string, trigger: 'sweep' | 'manual', now = new Date()): Promise<ConsolidationResult> => {
+export const maybeConsolidate = async (agentId: string, now = new Date()): Promise<ConsolidationResult> => {
   // Re-read the agent every time: memory disabled, the agent disabled or deleted — all mean no pass.
   const agent = await findMemoryAgent(agentId)
   if (!agent) return { consolidated: false, reason: 'memory-off' }
-  const due = consolidationDue(agent.memoryConsolidation, await lastActivityAt(agent.id), trigger, now)
+  const due = consolidationDue(agent.memoryConsolidation, await lastActivityAt(agent.id), now)
   if (!due.due) return { consolidated: false, reason: due.reason }
 
   const lockId = `memory-consolidation:${agent.id}`
@@ -191,7 +191,7 @@ export const sweepConsolidations = async (now = new Date(), scope: Record<string
     .toArray()
   let consolidated = 0
   for (const agent of agents) {
-    if ((await maybeConsolidate(agent.id, 'sweep', now)).consolidated) consolidated++
+    if ((await maybeConsolidate(agent.id, now)).consolidated) consolidated++
   }
   return consolidated
 }

@@ -64,7 +64,8 @@ test.describe('Memory consolidation', () => {
     assert.equal((await consolidate(agent.id)).consolidated, true)
     assert.deepEqual(await consolidate(agent.id), { consolidated: false, reason: 'nothing-new' })
     await say(conversationId, 'remember: second')
-    assert.equal((await consolidate(agent.id)).consolidated, true)
+    assert.deepEqual(await consolidate(agent.id), { consolidated: false, reason: 'recent' })
+    assert.equal((await consolidate(agent.id, { now: inHours(25) })).consolidated, true)
     // the seam rewrites MEMORY.md with the facts it was given: only the new one this time
     const content = (await core(agent.id)).content
     assert.match(content, /- second/)

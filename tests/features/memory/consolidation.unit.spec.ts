@@ -13,20 +13,19 @@ const hoursAgo = (h: number) => new Date(now.getTime() - h * 3600000).toISOStrin
 
 test.describe('consolidationDue', () => {
   test('nothing new since the last pass is never due', () => {
-    assert.deepEqual(consolidationDue({ at: hoursAgo(30), until: hoursAgo(30) }, hoursAgo(31), 'manual', now), { due: false, reason: 'nothing-new' })
-    assert.equal(consolidationDue(undefined, undefined, 'sweep', now).due, false)
+    assert.deepEqual(consolidationDue({ at: hoursAgo(30), until: hoursAgo(30) }, hoursAgo(31), now), { due: false, reason: 'nothing-new' })
+    assert.equal(consolidationDue(undefined, undefined, now).due, false)
   })
   test('the sweep: at most once a day, after activity', () => {
-    assert.equal(consolidationDue(undefined, hoursAgo(1), 'sweep', now).due, true)
-    assert.deepEqual(consolidationDue({ at: hoursAgo(5), until: hoursAgo(5) }, hoursAgo(1), 'sweep', now), { due: false, reason: 'recent' })
-    assert.equal(consolidationDue({ at: hoursAgo(25), until: hoursAgo(25) }, hoursAgo(1), 'sweep', now).due, true)
+    assert.equal(consolidationDue(undefined, hoursAgo(1), now).due, true)
+    assert.deepEqual(consolidationDue({ at: hoursAgo(5), until: hoursAgo(5) }, hoursAgo(1), now), { due: false, reason: 'recent' })
+    assert.equal(consolidationDue({ at: hoursAgo(25), until: hoursAgo(25) }, hoursAgo(1), now).due, true)
   })
-  test('a recent failure or deferral backs off the sweep, not a manual pass', () => {
+  test('a recent failure or deferral backs off', () => {
     for (const key of ['failedAt', 'deferredAt']) {
       const state = { at: hoursAgo(48), until: hoursAgo(48), [key]: hoursAgo(0.5) }
-      assert.deepEqual(consolidationDue(state, hoursAgo(1), 'sweep', now), { due: false, reason: 'backoff' })
-      assert.equal(consolidationDue(state, hoursAgo(1), 'manual', now).due, true)
-      assert.equal(consolidationDue({ ...state, [key]: hoursAgo(2) }, hoursAgo(1), 'sweep', now).due, true)
+      assert.deepEqual(consolidationDue(state, hoursAgo(1), now), { due: false, reason: 'backoff' })
+      assert.equal(consolidationDue({ ...state, [key]: hoursAgo(2) }, hoursAgo(1), now).due, true)
     }
   })
 })
