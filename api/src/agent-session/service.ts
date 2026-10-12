@@ -58,15 +58,10 @@ export const startAgentSessions = (server: Server) => {
       // writing to a closed socket throws rather than no-ops.
       if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message))
     }
-    // The conversation this connection is bound to, remembered so the close handler can detach the
-    // right one. A session may re-attach (a navigation within the same tab), so this is not final.
+    // The conversation this connection is bound to: set only once the ownership check has passed, so
+    // a socket that merely NAMES someone else's conversation is bound to nothing. Remembered so the close
+    // handler can detach it; a session may re-attach (a navigation within the same tab).
     let boundConversationId: string | undefined
-    // The attach in progress: a prompt sent right behind the hello waits for it, or its turn could
-    // start before this socket is registered as the watcher, without the page's tools.
-    let attaching: Promise<void> = Promise.resolve()
-    // The turn starts, Stops and approval decisions asked for so far, chained so they happen in the
-    // order they were sent.
-    let prompts: Promise<void> = Promise.resolve()
     // What the first prompt of a connection bound to nothing creates, as its hello named it.
     let newThread: { owner: AccountKeys, agentId: string } | undefined
     // Why the last hello could name no thread at all (an anonymous token refused): what its prompts
@@ -84,138 +79,96 @@ export const startAgentSessions = (server: Server) => {
       siteUrl: siteOriginFromHeaders(req.headers),
       reviewOffered: reviewOffered === true,
       anonymous: !sessionState?.user,
-      onAttach: conversationId => {
-        if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
-        boundConversationId = conversationId
-        if (!conversationId) {
-          attaching = Promise.resolve()
-          return
+      onAttach: async conversationId => {
+        if (boundConversationId) detachSession(boundConversationId, agentSession)
+        boundConversationId = undefined
+        if (!conversationId) return
+        try {
+          // Registered as the conversation's watcher only ONCE THE OWNERSHIP CHECK HAS PASSED, or a socket
+          // naming someone else's conversation would receive the stream of their next turn. Authorization
+          // is the ownership check the HTTP routes apply; an anonymous socket only ever binds to the
+          // thread it created (see hello).
+          const conversation = sessionState?.user ? await resolveOwnConversation(conversationId) : undefined
+          boundConversationId = conversationId
+          attachSession(conversationId, agentSession)
+          // The transcript so far, so a reload or a second tab shows the conversation rather than
+          // an empty pane.
+          if (conversation) await sendHistoryFor(conversation)
+        } catch (err: any) {
+          // Reported rather than leaving the client to guess why nothing arrived, and kept as what this
+          // socket's prompts are answered with: it is bound to nothing, and not because nothing was named.
+          debug('could not attach: %O', err)
+          helloRefusal = err
+          send(errorFrame(err, 'this conversation could not be opened'))
         }
-        // Registered as the conversation's watcher only ONCE THE OWNERSHIP CHECK HAS PASSED, or a socket
-        // naming someone else's conversation would receive the stream of their next turn.
-        // Authorization is the ownership check the HTTP routes apply; an anonymous socket only ever binds
-        // to the thread it created.
-        attaching = (sessionState?.user ? resolveOwnConversation(conversationId) : Promise.resolve(undefined))
-          .then(async conversation => {
-            if (boundConversationId !== conversationId) return // rebound in the meantime
-            attachSession(conversationId, agentSession)
-            // The transcript so far, so a reload or a second tab shows the conversation rather than
-            // an empty pane.
-            if (conversation) await sendHistoryFor(conversation)
-          })
-          .catch((err: any) => {
-            // Reported rather than leaving the client to guess why nothing arrived.
-            debug('could not attach: %O', err)
-            send(errorFrame(err, 'this conversation could not be opened'))
-          })
       },
-      // The chat's Stop. It was never wired: the frame was parsed and dropped, so Stop only changed
-      // the page while the turn ran on, spending, and completed in the store. Checked like a prompt,
-      // because a socket can NAME any conversation in its hello even when attaching to it is refused.
-      onAbort: (dismissWait) => {
+      // The chat's Stop, for the conversation this socket is bound to — which it is only once its
+      // ownership was checked.
+      onAbort: async (dismissWait) => {
         const conversationId = boundConversationId
         if (!conversationId) return
-        // Behind the prompts sent before it: a Stop right after a send must reach the run that send
-        // creates, not run before it exists.
-        prompts = prompts.then(async () => {
-          await attaching
-          const ok = sessionState?.user
-            ? await resolveOwnConversation(conversationId).then(() => true)
-            : anonymousThread?.id === conversationId
-          if (!ok) return
+        try {
           await abortRunsOfConversation(conversationId, 'stop')
           // Declining a handover: settled as stopped, and nothing runs — there is nothing to answer.
           if (dismissWait) await settlePendingWait(conversationId, () => INTERRUPTED_RESULTS.stop)
-        }).catch((err: any) => { send(errorFrame(err, 'the turn could not be stopped')) })
+        } catch (err: any) {
+          send(errorFrame(err, 'the turn could not be stopped'))
+        }
       },
       // A decision on a call the approval gate stopped, for the conversation this socket is bound to —
       // never one named in the frame, so a socket cannot decide on someone else's thread. An anonymous
       // visitor has none to decide: approvals exist only on configured autonomous agents.
-      onApproval: (approvalId, approved, reason) => {
+      onApproval: async (approvalId, approved, reason) => {
         const conversationId = boundConversationId
         if (!conversationId || !sessionState?.user) {
           send({ type: 'error', status: 403, message: 'only a signed-in person decides on an approval' })
           return
         }
-        const session = sessionState
-        // Behind the prompts sent before it, like a Stop: a decision followed by a message is recorded
-        // before that message rejects whatever is still pending, in the order the person sent them.
-        prompts = prompts.then(async () => {
-          await attaching
-          const conversation = await resolveOwnConversation(conversationId)
+        try {
           await decideAndContinue({
-            conversation,
-            session,
+            // Read again rather than kept from the attach: the decision acts on the thread as it is now.
+            conversation: await resolveOwnConversation(conversationId),
+            session: sessionState,
             approvalId,
             approved,
             ...(reason ? { reason } : {})
           })
-        }).catch((err: any) => {
+        } catch (err: any) {
           debug('approval refused: %O', err)
           send(errorFrame(err, 'the decision could not be recorded'))
-        })
+        }
       },
       // The person acted on the page: if the bound conversation is waiting on them, this answers it.
-      // Only once attached — `wakeIfAnswered` checks this socket is the conversation's watcher, which it
-      // becomes after the ownership check.
-      onHostEvents: () => {
+      onHostEvents: async () => {
         const conversationId = boundConversationId
         if (!conversationId) return
-        attaching.then(() => wakeIfAnswered(conversationId, agentSession))
+        await wakeIfAnswered(conversationId, agentSession)
           .catch(err => { console.error('could not wake a conversation on its pending wait', err) })
       },
-      onPrompt: (content, hiddenContext) => {
-        if (!boundConversationId) {
-          send({ type: 'error', status: 400, message: 'this connection is not bound to a conversation' })
-          return
-        }
-        // An anonymous visitor may prompt only into the thread this socket created for them: there is
-        // no session to check ownership against, so the socket's own record IS the ownership check.
-        const caller: TurnCaller | undefined = sessionState?.user
-          ? { kind: 'person', session: sessionState }
-          : anonymousThread && anonymousThread.id === boundConversationId
-            ? { kind: 'anonymous', usageUserId: anonymousThread.usageUserId }
-            : undefined
-        if (!caller) {
-          send({ type: 'error', status: 403, message: 'this conversation belongs to someone else' })
-          return
-        }
-        // Captured, because the narrowing above does not survive into the callback below — and a
-        // rebind mid-flight must not redirect this prompt to a different thread either.
+      onPrompt: async (content, hiddenContext) => {
+        // Always bound by now: a prompt on a socket bound to nothing creates its thread first, or is
+        // refused there (handleFrame).
         const conversationId = boundConversationId
-        // The OWNER IS THE CONVERSATION'S, read from the thread rather than assumed to be the
-        // caller's own account. An embedded chat belongs to the account whose data it is about, so an
-        // external visitor's session account differs from it — and deriving the owner from the session
-        // made every such turn fail with "unknown conversation" while members of the account were
-        // unaffected. `startSessionTurn` still re-reads it under that owner and still checks the
-        // thread belongs to this person.
-        // A person's thread is read once here, for the ownership check, and handed on: the turn starting
-        // below has no reason to read it again. An anonymous visitor's is checked inside the turn start.
-        //
-        // Started IN ORDER, one at a time: two prompts sent back to back would otherwise race to store
-        // their message. Each turn start stops the conversation's running turns first (see
-        // startSessionTurn), so the later message is the one answered.
-        prompts = prompts.then(async () => {
-          await attaching
-          const { owner, conversation } = caller.kind === 'anonymous'
-            ? { owner: anonymousThread!.owner, conversation: undefined }
-            : await resolveOwnConversation(conversationId).then(conversation => ({ owner: { type: conversation.owner.type, id: conversation.owner.id }, conversation }))
+        if (!conversationId) return
+        // The thread is read again, as it is now. Its ownership was checked when the socket bound to it
+        // (an anonymous socket binds only to the thread it created), and the turn runs under the
+        // CONVERSATION'S owner, not the caller's account: an embedded chat belongs to the account whose
+        // data it is about, so an external visitor's session account differs from it.
+        try {
           await startSessionTurn({
-            conversationId,
-            owner,
-            ...(conversation ? { conversation } : {}),
-            caller,
+            conversation: await requireConversationById(conversationId),
+            caller: callerOf(),
             content,
             hiddenContext,
             echoTo: agentSession
           })
-        }).catch((err: any) => {
+        } catch (err: any) {
           // Reported on the socket rather than swallowed: the person pressed send, so a refusal has to
           // reach them. The reasons a prompt is refused — not your conversation, empty
           // content — arrive here as a message.
           debug('prompt refused: %O', err)
           send(errorFrame(err, 'the turn could not be started'))
-        })
+        }
       }
     })
     sessions.set(ws, agentSession)
@@ -270,7 +223,7 @@ export const startAgentSessions = (server: Server) => {
         delete message.conversationId
       }
       if (!message.conversationId) await dropAnonymousThread()
-      agentSession.handle(message)
+      await agentSession.handle(message)
       if (message.conversationId || !message.account) return
       const target = { owner: message.account, agentId: message.agentId ?? PERSONAL_AGENT_ID }
       try {
@@ -296,7 +249,7 @@ export const startAgentSessions = (server: Server) => {
       newThread = undefined
       if (caller.kind === 'anonymous') anonymousThread = { id: conversation.id, owner: conversation.owner, usageUserId: caller.usageUserId }
       else eventsLog.info('agents.conversation.create', `conversation created for agent ${conversation.agentId}`, { account: caller.session.account, user: caller.session.user })
-      agentSession.bind(conversation.id)
+      await agentSession.bind(conversation.id)
     }
 
     /** Purge the anonymous thread this socket holds, live turn first. */
@@ -332,32 +285,43 @@ export const startAgentSessions = (server: Server) => {
           return
         }
       }
-      agentSession.handle(parsed)
+      await agentSession.handle(parsed)
     }
 
-    // IN ORDER, one at a time. A hello is asynchronous (it checks the agent), and so is the first prompt
-    // (it creates the thread); the client sends its first prompt straight after the hello without
-    // waiting for `attached`, and handled concurrently two prompts would start two threads.
+    // IN ORDER, one at a time, each once the previous one's work is done: a hello checks the agent and
+    // attaches, the first prompt creates the thread, and a prompt stores its message and starts its run
+    // (never awaiting the turn itself). The client sends its first prompt straight after the hello
+    // without waiting for `attached`; handled concurrently, two prompts would start two threads, a
+    // prompt could start before its socket is the conversation's watcher, and a Stop right after a send
+    // would run before the run that send creates.
     let frames: Promise<void> = Promise.resolve()
     ws.on('message', (raw) => {
       frames = frames.then(() => handleFrame(raw.toString())).catch(err => { debug('frame failed %O', err) })
     })
 
+    // Closed in turn, after the frames received before it: a prompt sent right before the tab closed is
+    // still stored and answered — its turn simply runs without the page. Frames are short (none awaits a
+    // turn), so a running turn's page tool calls are failed moments later rather than at once.
+    const closeSession = (reason: string) => {
+      frames = frames.then(async () => {
+        agentSession.close(reason)
+        if (boundConversationId) detachSession(boundConversationId, agentSession)
+        // The anonymous thread lives exactly as long as this socket.
+        await dropAnonymousThread()
+      }).catch(err => { debug('could not close a session %O', err) })
+    }
+
     ws.on('close', () => {
-      agentSession.close('the connection closed')
-      if (boundConversationId) detachSession(boundConversationId, agentSession)
       sessions.delete(ws)
       debug('session closed, %d live', sessions.size)
-      // The anonymous thread lives exactly as long as this socket. After any frame still in flight,
-      // so a hello creating one cannot land after the purge and leave it behind.
-      frames = frames.then(() => dropAnonymousThread()).catch(err => { debug('could not purge an anonymous thread %O', err) })
+      closeSession('the connection closed')
     })
 
     // An error is not a close: `ws` emits both for a broken connection, but only sometimes in that
-    // order, so the pending calls are failed here too and `close` is idempotent.
+    // order, so the session is closed here too, and closing is idempotent.
     ws.on('error', (err) => {
       debug('session error %O', err)
-      agentSession.close('the connection errored')
+      closeSession('the connection errored')
     })
   })
 

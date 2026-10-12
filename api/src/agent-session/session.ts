@@ -42,18 +42,20 @@ export interface AgentSessionOptions {
   reviewOffered?: boolean
   /** Whether the socket has no signed-in person behind it — echoed on `attached`. */
   anonymous?: boolean
+  // The callbacks may return a promise, which `handle` returns: the socket handles its frames one at a
+  // time, each once the previous one's work is done (see startAgentSessions).
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
-  onPrompt?: (content: string, hiddenContext?: string) => void
-  onAbort?: (dismissWait: boolean) => void
+  onPrompt?: (content: string, hiddenContext?: string) => void | Promise<void>
+  onAbort?: (dismissWait: boolean) => void | Promise<void>
   /** Called on an `approval`: the person's decision on a call the approval gate stopped. */
-  onApproval?: (approvalId: string, approved: boolean, reason?: string) => void
+  onApproval?: (approvalId: string, approved: boolean, reason?: string) => void | Promise<void>
   /** Called after the page reported something — what may answer a pending wait. */
-  onHostEvents?: () => void
+  onHostEvents?: () => void | Promise<void>
   /**
    * Called whenever the connection's thread changes: a `hello` naming one, a `hello` naming none
    * (undefined: the next prompt creates one), or `bind` once that prompt did. The registry is wired here.
    */
-  onAttach?: (conversationId: string | undefined) => void
+  onAttach?: (conversationId: string | undefined) => void | Promise<void>
   callTimeoutMs?: number
   /** Injectable for tests; the real one is setTimeout. */
   setTimer?: (fn: () => void, ms: number) => unknown
@@ -68,8 +70,8 @@ interface PendingCall {
 }
 
 export interface AgentSession {
-  /** Dispatch one parsed client message. */
-  handle: (message: ClientMessage) => void
+  /** Dispatch one parsed client message; resolves once the work it started is done. */
+  handle: (message: ClientMessage) => void | Promise<void>
   /** Send a server frame. Used by the loop to stream, and by the registry to report a displacement. */
   send: (message: ServerMessage) => void
   /** The forwarded session of the person on the other end, for tools that want one. */
@@ -84,7 +86,7 @@ export interface AgentSession {
    */
   reviewConsent: () => boolean
   /** Bind the connection to the thread its first prompt just created, and tell the browser which. */
-  bind: (conversationId: string) => void
+  bind: (conversationId: string) => void | Promise<void>
   /**
    * What the page has reported: retained state, and what the person has done.
    *
@@ -158,7 +160,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
     // Closed while the thread was being created: registering a dead session as its watcher would leak.
     if (closed) return
     boundTo = conversationId
-    options.onAttach?.(conversationId)
+    const attaching = options.onAttach?.(conversationId)
     // Names the thread, so a client that sent none learns the one it got.
     send({
       type: 'attached',
@@ -166,6 +168,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
       anonymous: options.anonymous === true,
       reviewOffered: options.reviewOffered === true
     })
+    return attaching
   }
 
   const settle = (callId: string): PendingCall | undefined => {
@@ -202,8 +205,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           // never see it is dropped, or the first turn of the new thread would open with events from the
           // old one.
           if (!message.conversationId || message.conversationId !== boundTo) hostEvents.clearPending()
-          bind(message.conversationId)
-          return
+          return bind(message.conversationId)
         case 'tools-changed':
           tools = message.tools
           return
@@ -212,8 +214,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
             send({ type: 'error', status: 400, message: 'say hello before prompting' })
             return
           }
-          options.onPrompt?.(message.content, message.hiddenContext)
-          return
+          return options.onPrompt?.(message.content, message.hiddenContext)
         case 'tool-result': {
           const call = settle(message.callId)
           // An unknown callId is reported, not ignored: it means a timeout already fired, the client is
@@ -227,11 +228,9 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           return
         }
         case 'abort':
-          options.onAbort?.(message.dismissWait === true)
-          return
+          return options.onAbort?.(message.dismissWait === true)
         case 'approval':
-          options.onApproval?.(message.approvalId, message.approved, message.reason)
-          return
+          return options.onApproval?.(message.approvalId, message.approved, message.reason)
         case 'review-consent':
           reviewConsent = message.consented
           return
@@ -243,11 +242,10 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
             if (detail === null || detail === undefined) hostEvents.withdraw(key)
             else hostEvents.push({ name: key, key, detail: String(detail), at: Date.now() })
           }
-          options.onHostEvents?.()
-          return
+          return options.onHostEvents?.()
         case 'host-events':
           for (const event of message.events) hostEvents.push(event)
-          options.onHostEvents?.()
+          return options.onHostEvents?.()
       }
     },
 

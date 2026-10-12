@@ -6,13 +6,11 @@
  */
 
 import { httpError } from '@data-fair/lib-express'
-import type { AccountKeys } from '@data-fair/lib-express'
 import Debug from 'debug'
 import {
   appendMessage,
   createRun,
-  requireConversation,
-  assertOwnsConversation,
+  requireConversationById,
   setReviewConsent,
   rejectPendingApprovals,
   type TurnCaller
@@ -29,11 +27,12 @@ import { getEffectiveRole } from '../auth.ts'
 const debug = Debug('agents:agent-session-turn')
 
 export interface SessionTurnRequest {
-  conversationId: string
-  owner: AccountKeys
+  /**
+   * The thread, read as it is now, and already checked to be the caller's: the socket binds to a
+   * conversation only once its ownership is checked, and an anonymous socket only to the thread it created.
+   */
+  conversation: Awaited<ReturnType<typeof requireConversationById>>
   caller: TurnCaller
-  /** The conversation, when the caller has just read it to check ownership — spares reading it again. */
-  conversation?: Awaited<ReturnType<typeof requireConversation>>
   content: string
   /**
    * Context an action button supplied, to be folded into this user turn.
@@ -57,14 +56,10 @@ export interface SessionTurnRequest {
 /**
  * Append the prompt and run the turn. Returns the run id.
  *
- * Throws an http error (403 not yours, 400 empty), so the caller can report the reason to the browser: a prompt for
- * someone else's conversation is a 403, not a silently dropped frame.
+ * Throws an http error (400 empty), so the caller can report the reason to the browser.
  */
 export const startSessionTurn = async (request: SessionTurnRequest): Promise<string> => {
-  const conversation = request.conversation ?? await requireConversation(request.owner, request.conversationId)
-  const { caller } = request
-  if (caller.kind === 'person') assertOwnsConversation(conversation, caller.session)
-  else if (!conversation.anonymous || conversation.userId !== caller.usageUserId) throw httpError(403, 'this conversation belongs to someone else')
+  const { conversation, caller } = request
   const person = caller.kind === 'person'
     ? { userId: caller.session.user.id, userName: caller.session.user.name }
     : { userId: caller.usageUserId, userName: 'Anonymous' }
@@ -124,7 +119,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
     // Recorded here because only this boundary has the session. It is what makes the personal assistant's
     // turn bill against the PERSON's quota rather than resolving to 'admin' (see the schema note) —
     // and an anonymous visitor's against the per-IP key, in the untrusted pool.
-    triggeredByRole: caller.kind === 'person' ? getEffectiveRole(caller.session, request.owner) : 'anonymous',
+    triggeredByRole: caller.kind === 'person' ? getEffectiveRole(caller.session, conversation.owner) : 'anonymous',
     status: 'running',
     startedAt: new Date().toISOString()
   })
