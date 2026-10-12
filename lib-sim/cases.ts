@@ -16,3 +16,8 @@ export function selectCases <T extends SimulationCase> (all: T[], names: string[
     return found
   })
 }
+
+/** Case names from SIM_CASES (comma-separated), empty for all. */
+export function simCaseNames (env: { SIM_CASES?: string } = process.env): string[] {
+  return (env.SIM_CASES ?? '').split(',').map(s => s.trim()).filter(Boolean)
+}

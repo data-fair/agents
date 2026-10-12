@@ -15,14 +15,19 @@ test.describe('package barrel', () => {
     const expected: string[] = [
       'createNeutralCwd', 'scrubEnv', 'isolationOptions',
       'captureGateway', 'summariseRequest',
+      'captureGatewayErrors', 'errorsInSseBody', 'errorsInResponse',
       'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE',
       'PERSONA_MAX_TURNS', 'PERCEPTION_INSTRUCTIONS', 'DEFAULT_USER_MODEL', 'resolveUserModel',
       'writeEvidence', 'evidenceDir',
       'computeMetrics',
-      'selectCases',
-      'reportCases',
+      'selectCases', 'simCaseNames',
+      'reportCases', 'reportCli',
       'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS', 'WAITING_SELECTOR',
-      'createPagePerception', 'truncate', 'SNAPSHOT_CAP', 'ACTION_TIMEOUT_MS', 'PAGE_MCP_SERVER_NAME'
+      'createPagePerception', 'truncate', 'SNAPSHOT_CAP', 'ACTION_TIMEOUT_MS', 'PAGE_MCP_SERVER_NAME',
+      'passActions', 'withSilentPasses',
+      'BRIDGE_URL', 'MODEL_ROLES', 'BACKGROUND_ROLES', 'bridgeSettings', 'seedAgentsSettings', 'assertBridgeUp',
+      'runSimulation', 'ensureChatOpen', 'CHAT_FRAME', 'TURN_CEILING_MS',
+      'defineSimConfig'
     ]
     assert.deepEqual(Object.keys(pkg).sort(), expected.sort())
   })

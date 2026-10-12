@@ -40,6 +40,9 @@ jobs:
     - name: Start dev API
       run: dotenv -- npm run dev-api &
 
+    - name: Install Playwright browser
+      run: npx playwright install --with-deps chromium
+
     - name: Run unit tests
       run: npm run test-unit
 
