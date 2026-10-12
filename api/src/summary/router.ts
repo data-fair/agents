@@ -65,20 +65,12 @@ router.post('/:type/:id', async (req, res, next) => {
       system: SUMMARY_SYSTEM_PROMPT,
       messages: [{ role: 'user' as const, content: body.content }]
     })
-
-    const details = usage?.inputTokenDetails
     await chargeModelCall({
       owner,
       identity,
       modelRole: 'summarizer',
       entry,
-      usage: {
-        inputTokens: usage?.inputTokens,
-        outputTokens: usage?.outputTokens,
-        noCacheTokens: details?.noCacheTokens,
-        cacheReadTokens: details?.cacheReadTokens,
-        cacheWriteTokens: details?.cacheWriteTokens
-      }
+      usage
     })
 
     res.json({ summary: text })

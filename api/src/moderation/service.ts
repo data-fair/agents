@@ -174,19 +174,12 @@ export function startModeration (params: {
       abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
     }
     const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...baseArgs, ...extra }))
-    const details = usage?.inputTokenDetails
     await chargeModelCall({
       owner,
       identity,
       modelRole: 'moderator',
       entry,
-      usage: {
-        inputTokens: usage?.inputTokens,
-        outputTokens: usage?.outputTokens,
-        noCacheTokens: details?.noCacheTokens,
-        cacheReadTokens: details?.cacheReadTokens,
-        cacheWriteTokens: details?.cacheWriteTokens
-      },
+      usage,
       ...(params.run && !timedOut ? { run: { run: params.run, durationMs: Date.now() - startedAt } } : {})
     })
     return object
@@ -258,20 +251,13 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
         abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
       }
       const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...probeArgs, ...extra }))
-      const details = usage?.inputTokenDetails
       // The account's own call: no caller identity, so no per-user record and no profile.
       await chargeModelCall({
         owner,
         identity: null,
         modelRole: 'moderator',
         entry,
-        usage: {
-          inputTokens: usage?.inputTokens,
-          outputTokens: usage?.outputTokens,
-          noCacheTokens: details?.noCacheTokens,
-          cacheReadTokens: details?.cacheReadTokens,
-          cacheWriteTokens: details?.cacheWriteTokens
-        }
+        usage
       })
       results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })
     } catch (err: any) {

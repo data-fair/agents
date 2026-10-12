@@ -3,6 +3,8 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
+import type { LanguageModelUsage } from 'ai'
+
 export interface UsageLimits {
   unlimited?: boolean
   monthlyLimit?: number
@@ -124,6 +126,18 @@ export interface TokenCounts {
   noCacheTokens?: number
   cacheReadTokens?: number
   cacheWriteTokens?: number
+}
+
+/** The AI SDK's usage report as token counts: the one place its shape is read. */
+export function tokenCountsOf (usage: LanguageModelUsage | undefined): TokenCounts {
+  const details = usage?.inputTokenDetails
+  return {
+    inputTokens: usage?.inputTokens ?? 0,
+    outputTokens: usage?.outputTokens ?? 0,
+    ...(details?.noCacheTokens !== undefined ? { noCacheTokens: details.noCacheTokens } : {}),
+    ...(details?.cacheReadTokens !== undefined ? { cacheReadTokens: details.cacheReadTokens } : {}),
+    ...(details?.cacheWriteTokens !== undefined ? { cacheWriteTokens: details.cacheWriteTokens } : {})
+  }
 }
 
 /** Cost in euros per token class, so the stacked histograms can attribute credits. */

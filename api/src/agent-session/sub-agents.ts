@@ -14,11 +14,13 @@
  */
 
 import { SERVICE_TOOL_NAMES } from '../conversations/service-tool-names.ts'
-import { ToolLoopAgent, generateText, stepCountIs, tool, jsonSchema, type Tool } from 'ai'
+import { ToolLoopAgent, generateText, stepCountIs, tool, jsonSchema, type Tool, type LanguageModelUsage } from 'ai'
 import Debug from 'debug'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '../conversations/loop-guards.ts'
 import { subAgentModelOutput, SUBAGENT_DONE_FALLBACK } from '../conversations/subagent-output.ts'
 import { unwrapToolResult } from '../conversations/operations.ts'
+import { createPartsRecorder, resultSettlement, errorSettlement } from '../conversations/parts-recorder.ts'
+import type { MessagePart } from '@agents/shared/message-parts'
 
 const debug = Debug('agents:sub-agents')
 
@@ -164,22 +166,12 @@ export async function partitionSubAgents (
  * difference from the browser is that here they are ENFORCING rather than advisory, which was one of the
  * few arguments for moving that survived scrutiny.
  */
-/** One worker step's token usage, in the shape the credit formula takes. */
-export interface WorkerUsage {
-  inputTokens: number
-  outputTokens: number
-  noCacheTokens?: number
-  cacheReadTokens?: number
-  cacheWriteTokens?: number
-  finishReason?: string
-}
-
 export interface SubAgentTrace {
   /** The delegating tool call, which is what keys a panel. */
   parentToolCallId: string
   name: string
   /** The worker's turn as stored parts, same shape as the lead's. */
-  parts: unknown[]
+  parts: MessagePart[]
   pending: boolean
 }
 
@@ -212,7 +204,7 @@ export function subAgentDelegation (opts: {
    *
    * Awaited: billing a step is a write, and the next step must not start on a stale ledger.
    */
-  onUsage?: (usage: WorkerUsage) => Promise<void> | void
+  onUsage?: (usage: LanguageModelUsage | undefined, finishReason?: string) => Promise<void> | void
 }): Tool {
   return tool({
     description: opts.description ?? `Delegate a task to the ${opts.name.replace(SUBAGENT_PREFIX, '')} sub-agent.`,
@@ -242,13 +234,9 @@ export function subAgentDelegation (opts: {
 
       // Streamed rather than generated, so the panel fills in as the worker works. The trace is for
       // the UI only; what the lead receives is still just the summary below.
-      const parts: unknown[] = []
+      const recorder = createPartsRecorder()
+      const { parts } = recorder
       const emit = (pending: boolean) => { opts.onTrace?.({ parentToolCallId, name: opts.name, parts: [...parts], pending }) }
-      const appendText = (text: string) => {
-        const last = parts[parts.length - 1] as { type?: string, text?: string } | undefined
-        if (last?.type === 'text') { last.text = String(last.text ?? '') + text; return }
-        parts.push({ type: 'text', text })
-      }
 
       try {
         const result = await agent.stream({
@@ -260,33 +248,19 @@ export function subAgentDelegation (opts: {
           // Billed per step rather than once at the end, for the same reason the lead's steps are: a
           // worker stopped by its step limit, by an abort or by a provider error still consumed what
           // it consumed, and `result.steps` after a throw would never be read.
-          if (part.type === 'finish-step') {
-            const usage = (part as any).usage
-            const details = usage?.inputTokenDetails
-            await opts.onUsage?.({
-              inputTokens: usage?.inputTokens ?? 0,
-              outputTokens: usage?.outputTokens ?? 0,
-              ...(details?.noCacheTokens !== undefined ? { noCacheTokens: details.noCacheTokens } : {}),
-              ...(details?.cacheReadTokens !== undefined ? { cacheReadTokens: details.cacheReadTokens } : {}),
-              ...(details?.cacheWriteTokens !== undefined ? { cacheWriteTokens: details.cacheWriteTokens } : {}),
-              ...(typeof (part as any).finishReason === 'string' ? { finishReason: (part as any).finishReason } : {})
-            })
-          }
+          if (part.type === 'finish-step') await opts.onUsage?.(part.usage, part.finishReason)
           if (part.type === 'text-delta') {
-            appendText(part.text)
+            recorder.appendText('text', part.text)
             opts.onPhase?.(parentToolCallId, null)
             emit(true)
           }
           if (part.type === 'tool-call') {
-            parts.push({ type: 'dynamic-tool', toolCallId: part.toolCallId, toolName: part.toolName, state: 'input-available', input: (part as any).input })
+            recorder.openCall({ toolCallId: part.toolCallId, toolName: part.toolName, input: part.input })
             opts.onPhase?.(parentToolCallId, 'tool')
             emit(true)
           }
           if (part.type === 'tool-result' || part.type === 'tool-error') {
-            const settled = parts.find(p => (p as any).type === 'dynamic-tool' && (p as any).toolCallId === part.toolCallId) as any
-            if (settled) {
-              if (part.type === 'tool-result') { settled.state = 'output-available'; settled.output = (part as any).output } else { settled.state = 'output-error'; settled.errorText = String((part as any).error) }
-            }
+            recorder.settleCall(part.toolCallId, part.type === 'tool-result' ? resultSettlement(part.output) : errorSettlement(part.error))
             opts.onPhase?.(parentToolCallId, 'analyzing')
             emit(true)
           }
@@ -318,21 +292,13 @@ export function subAgentDelegation (opts: {
               abortSignal: opts.abortSignal
             })
             // Billed like any other call: it is a real model call on the worker's seat.
-            const closeoutDetails = (closeout.usage as any)?.inputTokenDetails
-            await opts.onUsage?.({
-              inputTokens: closeout.usage?.inputTokens ?? 0,
-              outputTokens: closeout.usage?.outputTokens ?? 0,
-              ...(closeoutDetails?.noCacheTokens !== undefined ? { noCacheTokens: closeoutDetails.noCacheTokens } : {}),
-              ...(closeoutDetails?.cacheReadTokens !== undefined ? { cacheReadTokens: closeoutDetails.cacheReadTokens } : {}),
-              ...(closeoutDetails?.cacheWriteTokens !== undefined ? { cacheWriteTokens: closeoutDetails.cacheWriteTokens } : {}),
-              ...(closeout.finishReason ? { finishReason: closeout.finishReason } : {})
-            })
+            await opts.onUsage?.(closeout.usage, closeout.finishReason)
             const recovered = closeout.text.trim()
             if (recovered) {
               text = recovered
               // Into the panel too, so a reviewer sees the answer the lead was given rather than a
               // transcript that stops at the last tool call.
-              appendText((parts.length ? '\n\n' : '') + recovered)
+              recorder.appendText('text', (parts.length ? '\n\n' : '') + recovered)
               emit(false)
             }
           } catch (err: any) {

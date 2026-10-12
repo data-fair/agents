@@ -1,15 +1,13 @@
 import type { AccountKeys } from '@data-fair/lib-express'
 import config from '#config'
 import type { ConversationRun } from '#types'
-import { computeCreditBreakdown, type CreditBreakdown, type TokenCounts } from './operations.ts'
+import type { LanguageModelUsage } from 'ai'
+import { computeCreditBreakdown, tokenCountsOf, type CreditBreakdown } from './operations.ts'
 import type { UsageIdentity } from './enforce.ts'
 import type { CatalogModel, ModelRole } from '../models/operations.ts'
 import { recordUsage } from './service.ts'
 import { incrementRunSpend } from '../conversations/service.ts'
 import { recordCall } from '../conversations/turn-telemetry.ts'
-
-/** One model call's token counts, as the AI SDK reports them (`usage` + `usage.inputTokenDetails`). */
-export type ModelCallUsage = Partial<TokenCounts> & { finishReason?: string }
 
 /**
  * Price one model call and record it everywhere it counts: the usage ledger (with the untrusted pool),
@@ -30,17 +28,14 @@ export async function chargeModelCall (input: {
   identity: UsageIdentity | null
   modelRole: ModelRole
   entry: CatalogModel
-  usage: ModelCallUsage
+  /** As the AI SDK reports it; undefined when the provider reported none. */
+  usage: LanguageModelUsage | undefined
+  finishReason?: string
   run?: { run: ConversationRun, steps?: number, durationMs?: number }
 }): Promise<CreditBreakdown> {
-  const { owner, identity, modelRole, entry, usage, run } = input
-  const inputTokens = usage.inputTokens ?? 0
-  const outputTokens = usage.outputTokens ?? 0
-  const credits = computeCreditBreakdown(
-    { inputTokens, outputTokens, noCacheTokens: usage.noCacheTokens, cacheReadTokens: usage.cacheReadTokens, cacheWriteTokens: usage.cacheWriteTokens },
-    entry,
-    config.eurosPerCredit
-  )
+  const { owner, identity, modelRole, entry, finishReason, run } = input
+  const counts = tokenCountsOf(input.usage)
+  const credits = computeCreditBreakdown(counts, entry, config.eurosPerCredit)
   const tokenCosts = { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
   // On the RUN as well as in usage, per call, so a turn stopped by its budget or its clock still shows
   // what it actually consumed, and the two never disagree.
@@ -49,16 +44,11 @@ export async function chargeModelCall (input: {
     recordCall(run.run, {
       modelRole,
       entry,
-      usage: {
-        inputTokens,
-        outputTokens,
-        ...(usage.cacheReadTokens !== undefined ? { cacheReadTokens: usage.cacheReadTokens } : {}),
-        ...(usage.cacheWriteTokens !== undefined ? { cacheWriteTokens: usage.cacheWriteTokens } : {})
-      },
+      usage: counts,
       credits: credits.total,
       creditBreakdown: tokenCosts,
       durationMs: run.durationMs,
-      ...(usage.finishReason ? { finishReason: usage.finishReason } : {})
+      ...(finishReason ? { finishReason } : {})
     })
   }
   if (credits.total > 0) {

@@ -161,20 +161,13 @@ export const compactHistory = async (
     // directly, so nothing else records the summarizer tokens in the run, the account credit cap or
     // the usage histogram. 0 steps: a compaction is not a step of the turn. Its telemetry entry makes
     // its cost attributable rather than unexplained spend on the turn beside it.
-    const details = generated.usage?.inputTokenDetails
     const compactionCredits = await chargeModelCall({
       owner: run.owner,
       identity,
       modelRole: 'summarizer',
       entry,
-      usage: {
-        inputTokens: generated.usage?.inputTokens,
-        outputTokens: generated.usage?.outputTokens,
-        noCacheTokens: details?.noCacheTokens,
-        cacheReadTokens: details?.cacheReadTokens,
-        cacheWriteTokens: details?.cacheWriteTokens,
-        finishReason: generated.finishReason
-      },
+      usage: generated.usage,
+      finishReason: generated.finishReason,
       run: { run, durationMs: Date.now() - startedAt }
     })
     // PERSISTED, so the next turn does not re-summarise the same prefix. Without this, a conversation

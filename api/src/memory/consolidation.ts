@@ -27,7 +27,6 @@ import { withProvenance, usageIdentityFor } from '../conversations/operations.ts
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
-import type { TokenCounts } from '../usage/operations.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 
 const debug = Debug('df-agents:memory-consolidation')
@@ -127,8 +126,6 @@ const conversationsSince = async (agentId: string, since: string, now: Date): Pr
   return { until, conversations }
 }
 
-const addOptional = (a: number | undefined, b: number | undefined) => a === undefined && b === undefined ? undefined : (a ?? 0) + (b ?? 0)
-
 const consolidate = async (agent: AutonomousAgent, now: Date): Promise<ConsolidationResult> => {
   // A pass is a real model call billed to the organization, so it never runs past the cap.
   if (await checkAccountCreditCap(agent.owner)) {
@@ -146,9 +143,10 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
   const author: MemoryAuthor = { kind: 'consolidation', agentId: agent.id, since, until }
   const tools = withProvenance({ [MEMORY_TOOL_NAME]: consolidationMemoryTool(agent, author, withdrawn) }, () => MEMORY_SERVER_ID)
 
-  // Accumulated per COMPLETED step and billed in `finally`: a pass that fails or is withdrawn after a
-  // step has still spent that step's tokens, and model spend must always reach the ledger.
-  const spent: TokenCounts = { inputTokens: 0, outputTokens: 0 }
+  // Billed per COMPLETED step, like a turn's: a pass that fails or is withdrawn after a step has still
+  // spent that step's tokens. At the tools model's prices, under the agent's own identity, and with no
+  // run: a consolidation has none, so its cost lives in usage only.
+  const identity = usageIdentityFor(agent, { owner: agent.owner })
   let generated
   try {
     generated = await generateText({
@@ -158,20 +156,14 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
       tools,
       stopWhen: stepCountIs(CONSOLIDATION_STEP_LIMIT),
       abortSignal: AbortSignal.any([withdrawn.signal, AbortSignal.timeout(CONSOLIDATION_TIMEOUT_MS)]),
-      onStepFinish: ({ usage }) => {
-        const details = usage?.inputTokenDetails
-        spent.inputTokens += usage?.inputTokens ?? 0
-        spent.outputTokens += usage?.outputTokens ?? 0
-        spent.noCacheTokens = addOptional(spent.noCacheTokens, details?.noCacheTokens)
-        spent.cacheReadTokens = addOptional(spent.cacheReadTokens, details?.cacheReadTokens)
-        spent.cacheWriteTokens = addOptional(spent.cacheWriteTokens, details?.cacheWriteTokens)
+      onStepFinish: async ({ usage }) => {
+        await chargeModelCall({ owner: agent.owner, identity, modelRole: 'tools', entry, usage })
+          .catch(err => console.error(`memory consolidation usage not recorded for agent ${agent.id}`, err))
       }
     })
   } catch (err) {
     if (withdrawn.signal.aborted) throw withdrawn.signal.reason
     throw err
-  } finally {
-    await bill(agent, entry, spent).catch(err => console.error(`memory consolidation usage not recorded for agent ${agent.id}`, err))
   }
   // Settled after a refusal that the model loop happened to swallow: still nothing more to record.
   if (withdrawn.signal.aborted) throw withdrawn.signal.reason
@@ -186,14 +178,6 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
   // A refused write is the model's to handle (it is told why), so it does not fail the pass.
   debug('consolidated agent %s over %s..%s in %d step(s)', agent.id, since, until, generated.steps.length)
   return { consolidated: true, reason: 'done' }
-}
-
-/**
- * At the tools model's prices, under the agent's own identity, charged like any model call
- * (chargeModelCall), minus the run: a consolidation has none, so its cost lives in usage only.
- */
-const bill = async (agent: AutonomousAgent, entry: ReturnType<typeof resolveRoleModel>['entry'], spent: TokenCounts) => {
-  await chargeModelCall({ owner: agent.owner, identity: usageIdentityFor(agent, { owner: agent.owner }), modelRole: 'tools', entry, usage: spent })
 }
 
 /**

@@ -37,7 +37,7 @@ export const maybeTitleConversation = async (run: Pick<ConversationRun, 'id' | '
   if (!agent) return
   const { model, entry } = resolveRoleModel(await getSettings(conversation.owner), 'summarizer')
   const generated = await generateText({ model, system: TITLE_SYSTEM_PROMPT, prompt: input, abortSignal: AbortSignal.timeout(TITLE_TIMEOUT_MS) })
-  await chargeModelCall({ owner: conversation.owner, identity: usageIdentityFor(agent, run), modelRole: 'summarizer', entry, usage: generated.usage ?? {} })
+  await chargeModelCall({ owner: conversation.owner, identity: usageIdentityFor(agent, run), modelRole: 'summarizer', entry, usage: generated.usage })
   const title = cleanTitle(generated.text)
   if (!title) return
   await mongo.conversations.updateOne({ id: conversation.id }, { $set: { title } })

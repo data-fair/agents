@@ -22,13 +22,12 @@ import Debug from 'debug'
 import { streamText, stepCountIs, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
-import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import {
   runStopReasonMessage, buildSystemPrompt, modelTools, type ToolSet,
   usageIdentityFor,
-  boundToolResult, partsText, withAppendedText,
+  partsText, withAppendedText,
   type RunStopReason, type MessagePart,
   type ConversationTurnRun
 } from './operations.ts'
@@ -60,6 +59,8 @@ import { settlePendingWait } from './waits.ts'
 import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type StopCause } from './interrupted-turn.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
+import { createPartsRecorder, resultSettlement, errorSettlement } from './parts-recorder.ts'
+import { tokenCountsOf } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { buildServiceTools } from './service-tools.ts'
 import { mayBePageTool } from './service-tool-names.ts'
@@ -389,18 +390,22 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // organization being out of credit, and only the second is actionable by an admin.
   let stopDetail: string | undefined
   let budgetExceeded = false
-  // Turn totals for the trace, taken from the same place spend comes from so the trace, the
-  // usage records and the run cannot disagree.
-  let inputTokens = 0
-  let outputTokens = 0
-  // The cache detail, which the run's telemetry reports so a reviewer can see that cache reads were
-  // billed at the cached rate. `noCacheTokens` is not accumulated: it was only ever needed to reprice
-  // a trace document from scratch, and the credits are now computed once, where they are charged.
-  let cacheReadTokens = 0
-  let cacheWriteTokens = 0
   // Accumulated per token class so the turn's telemetry can show WHERE the cost went, which is the
   // only way to see that cache reads were priced at the cached rate.
   const creditBreakdown = { input: 0, cachedInput: 0, output: 0 }
+  /**
+   * After a step was billed: the ACCOUNT cap (when `readAccount`), then the per-run budget. The account
+   * cap first, so that when one step crosses both, the reader is told the one an admin can act on.
+   */
+  const checkCeilings = async (readAccount: boolean) => {
+    const accountCap = readAccount ? await checkAccountCreditCap(run.owner) : undefined
+    if (accountCap) {
+      budgetExceeded = true
+      stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
+    } else if (credits >= config.turnCredits) {
+      budgetExceeded = true
+    }
+  }
   const startedAt = Date.now()
 
   /**
@@ -445,18 +450,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // with the turn; once it is aborted every later delegation in this turn fails immediately, which is
   // correct when the turn is already stopping.
   const workerAbort = new AbortController()
-  /** A worker's final transcript, onto the lead's message — bounded like the lead's own tool results. */
-  const storeSubAgentTrace = (trace: { parentToolCallId: string, name: string, parts: unknown[] }) => {
-    const bounded = (trace.parts as any[]).map(part => {
-      if (part?.type !== 'dynamic-tool') return part
-      const settled = { ...part }
-      if (settled.output !== undefined && !isMediaToolResult(settled.output)) {
-        settled.output = boundToolResult(typeof settled.output === 'string' ? settled.output : JSON.stringify(settled.output)).result
-      }
-      if (typeof settled.errorText === 'string') settled.errorText = boundToolResult(settled.errorText).result
-      return settled
-    })
-    const stored = { type: 'data-subagent', data: { parentToolCallId: trace.parentToolCallId, name: trace.name, parts: bounded } } as MessagePart
+  /** A worker's final transcript, onto the lead's message: its results are already bounded as it records them. */
+  const storeSubAgentTrace = (trace: { parentToolCallId: string, name: string, parts: MessagePart[] }) => {
+    const stored = { type: 'data-subagent', data: { parentToolCallId: trace.parentToolCallId, name: trace.name, parts: trace.parts } } as MessagePart
     const at = parts.findIndex(part => part.type === 'data-subagent' && (part as any).data?.parentToolCallId === trace.parentToolCallId)
     if (at === -1) parts.push(stored)
     else parts[at] = stored
@@ -478,7 +474,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         // empty after a reload. As a `data-subagent` part, which the replay leaves out of what the
         // model is sent — the lead keeps seeing only the summary, the point of delegating.
         if (!trace.pending) storeSubAgentTrace(trace)
-        target.frames.subAgent({ parentToolCallId: trace.parentToolCallId, name: trace.name, parts: trace.parts as MessagePart[], pending: trace.pending })
+        target.frames.subAgent({ parentToolCallId: trace.parentToolCallId, name: trace.name, parts: trace.parts, pending: trace.pending })
       },
       onPhase: (parentToolCallId, phase) => {
         target.frames.activity(phase ? { kind: 'subagent', name, phase } : null, parentToolCallId)
@@ -487,7 +483,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // account's credit cap, and into the usage histogram under the seat that served it (`tools`
       // unless the sub-agent pins another), so the spend is attributable to it. A delegated turn is often most of the work; leaving it
       // unmetered would have let any page with a sub-agent spend without limit.
-      onUsage: async usage => {
+      onUsage: async (usage, finishReason) => {
         // 0 steps: the spend is real, but a worker step is not a step of the LEAD's loop. With its own
         // telemetry entry, so review and the export show the delegated work rather than a turn whose
         // cost exceeds the calls that explain it.
@@ -497,18 +493,13 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           modelRole: seat,
           entry: worker.entry,
           usage,
+          finishReason,
           run: { run, durationMs: Date.now() - startedAt }
         })
         credits += stepCredits.total
         // The two ceilings, checked where the money was just spent. The lead's own `onStepFinish` does
         // this between ITS steps, which is too late to stop a worker that is still looping.
-        const accountCap = await checkAccountCreditCap(run.owner)
-        if (accountCap) {
-          budgetExceeded = true
-          stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
-        } else if (credits >= config.turnCredits) {
-          budgetExceeded = true
-        }
+        await checkCeilings(true)
         if (budgetExceeded) workerAbort.abort()
       }
     })
@@ -591,8 +582,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     // abort reaches the stream through abortSignal. The IDLE bound is ours (idleWatchdog below), not the
     // SDK's `chunkMs`, which counted a running tool as silence.
     onStepFinish: async (step) => {
-      const usage = step.usage
-      const details = (usage as any)?.inputTokenDetails
       // Billed per step, not once per turn: a turn stopped by the budget or the clock must still bill
       // what it actually consumed. Its telemetry entry is the turn's, recorded once after the loop.
       const stepCredits = await chargeModelCall({
@@ -600,19 +589,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         identity,
         modelRole: 'assistant',
         entry,
-        usage: {
-          inputTokens: usage?.inputTokens,
-          outputTokens: usage?.outputTokens,
-          noCacheTokens: details?.noCacheTokens,
-          cacheReadTokens: details?.cacheReadTokens,
-          cacheWriteTokens: details?.cacheWriteTokens
-        },
+        usage: step.usage,
         run: { run, steps: 1 }
       })
-      inputTokens += usage?.inputTokens ?? 0
-      outputTokens += usage?.outputTokens ?? 0
-      cacheReadTokens += details?.cacheReadTokens ?? 0
-      cacheWriteTokens += details?.cacheWriteTokens ?? 0
       credits += stepCredits.total
       creditBreakdown.input += stepCredits.input
       creditBreakdown.cachedInput += stepCredits.cachedInput
@@ -631,28 +610,16 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // Only when another step is coming: after a step that answered rather than called a tool, the
       // turn ends anyway, and reading the cap to stop it is a query for nothing — which, for a plain
       // question, was every turn's second read of the same document the gate had just read.
-      const accountCap = step.finishReason === 'tool-calls' ? await checkAccountCreditCap(run.owner) : undefined
-      if (accountCap) {
-        budgetExceeded = true
-        stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
-      } else if (credits >= config.turnCredits) {
-        budgetExceeded = true
-      }
+      await checkCeilings(step.finishReason === 'tool-calls')
     },
     abortSignal: AbortSignal.any([abortSignal, idleAbort.signal])
   })
 
   // The turn's parts, in the order the model produced them. This IS the record: everything the model
   // saw has to end up here, or a revived conversation is a different conversation.
-  const parts: MessagePart[] = []
+  const recorder = createPartsRecorder()
+  const { parts, appendText } = recorder
   target.track(() => parts)
-  const appendText = (kind: 'text' | 'reasoning', delta: string) => {
-    const last = parts[parts.length - 1]
-    // Merged into the trailing part of the same kind rather than pushed per delta, or a turn would
-    // store thousands of one-token parts.
-    if (last && last.type === kind) { last.text = String(last.text ?? '') + delta; return }
-    parts.push({ type: kind, text: delta })
-  }
 
   /**
    * Stream to the browser, if one is watching.
@@ -684,37 +651,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // settled at once as redundant rather than left as a second open call nothing will answer.
   let handover: { toolCallId: string, expecting?: string } | undefined
   let awaitingApproval = false
-
-  /**
-   * Complete a tool call in place, by its id.
-   *
-   * By ID rather than "the last part": a step may issue several calls in parallel, and their results
-   * arrive interleaved. A call with no matching part cannot happen — the stream always announces the
-   * call first — but if it ever did, appending a resultless part would produce a history the provider
-   * rejects, so the update is simply dropped.
-   */
-  const settleToolPart = (
-    toolCallId: string,
-    // Typed rather than `Record<string, unknown>`: the two callers settle a call with exactly these
-    // shapes, and a loose record is how `truncated` arrived as `unknown` and had to be cast back.
-    settled:
-      | { state: 'output-available', output: string | MediaToolResult, truncated?: { totalChars: number } }
-      | { state: 'output-error', errorText: string }
-  ) => {
-    // Narrowed to the dynamic-tool variant rather than indexed blindly: `toolMetadata` exists only
-    // there, and under the old open `UIPart` this read compiled against any part at all.
-    const call = parts.find(part => part.type === 'dynamic-tool' && part.toolCallId === toolCallId)
-    if (!call || call.type !== 'dynamic-tool') return
-    const { truncated, ...rest } = settled as { truncated?: { totalChars: number } } & Record<string, unknown>
-    Object.assign(call, rest)
-    // `as JSONObject` and not `as any`: the values here ARE json (a server id, a char count, MCP
-    // annotations), but they arrive typed as `Record<string, unknown>` from the MCP client and TS
-    // cannot see through that to the library's JSONValue. The cast is about the declaration, not
-    // about the data.
-    // Written field by field rather than spread: the library types this slot as a JSONObject, and a
-    // spread of the destructured value widens to {} which no longer overlaps it.
-    if (truncated) call.toolMetadata = { ...call.toolMetadata, truncated: { totalChars: truncated.totalChars } }
-  }
 
   let sawText = false
 
@@ -749,8 +685,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // only time it has anything to explain, and a slow provider would otherwise leave a still, silent chat.
   activity({ kind: 'thinking' })
 
-  const isThisTurns = (toolCallId: string) => parts.some(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
-
   try {
     for await (const part of result.fullStream) {
       idleWatchdog.activity()
@@ -774,10 +708,6 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // produced AFTER a tool result is replayed inside the assistant message that made the call —
       // before the tool message answering it. A leading one is harmless; it emits no empty message.
       if (part.type === 'start-step') parts.push({ type: 'step-start' })
-      // ONE part per tool call, moved through the library's states — not a call part followed by a
-      // result part. That pairing is what `convertToModelMessages` reconstructs the
-      // assistant/tool message pair from, and it is why a failed call is no longer shaped like a
-      // successful one: the failure is the part's STATE, which nothing downstream can drop.
       if (part.type === 'tool-call') {
       // A WAIT HANDS THE TURN TO THE PERSON, and its `message` is what tells them what to do: it is
       // added to the step's own text, just before the call, unless the step already says it. Stored,
@@ -800,14 +730,9 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           // now — clearing the label here, as the first text-delta does, erased exactly that.
           }
         }
-        parts.push({
-          type: 'dynamic-tool',
+        recorder.openCall({
           toolCallId: part.toolCallId,
           toolName: part.toolName,
-          state: 'input-available',
-          // The real arguments, not a summary of them: the stored conversation is the reference copy,
-          // so a revived turn has to replay the call the model actually made. The summary is for the
-          // trace, which is a description rather than a record.
           input: part.input,
           // Built by spreading presence rather than assigning possibly-undefined values: the library
           // types this slot as a JSONObject, which has no room for `undefined`, and a browser tool has
@@ -857,7 +782,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCallId)
           handover = { toolCallId: part.toolCallId, expecting: repairWaitInput(call?.type === 'dynamic-tool' ? call.input : undefined).expecting }
         } else {
-          settleToolPart(part.toolCallId, { state: 'output-available', output: 'Already waiting for the user.' })
+          recorder.settleCall(part.toolCallId, { state: 'output-available', output: 'Already waiting for the user.' })
           sendMessageFrame(true)
           await persistStructure()
         }
@@ -870,32 +795,12 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // Stored as the model received it, envelope included (withProvenance wraps before this point),
       // because the guarantee is that a revived conversation reproduces what the model saw.
       if (part.type === 'tool-result') {
-        const output = (part as any).output
-        // An image-bearing result is stored AS its envelope, only its text bounded: stringified, the base64
-        // was cut at the result limit and replayed as text — the image lost from the record and garbage to
-        // the model on the next turn (see mediaModelOutput).
-        const media = isMediaToolResult(output)
-        const text = media
-          ? String(output.text ?? '')
-          : typeof output === 'string'
-            ? output
-            : (output && typeof output === 'object' && 'value' in output)
-                ? String((output as any).value)
-                : JSON.stringify(output ?? '')
-        const bounded = boundToolResult(text)
-        if (!isThisTurns(part.toolCallId)) {
-          await target.settleEarlierCall(part.toolCallId, {
-            state: 'output-available',
-            output: media ? { ...output, text: bounded.result } : bounded.result,
-            ...(bounded.truncated ? { truncated: bounded.truncated } : {})
-          })
+        const settled = resultSettlement(part.output)
+        if (!recorder.hasCall(part.toolCallId)) {
+          await target.settleEarlierCall(part.toolCallId, settled)
           continue
         }
-        settleToolPart(part.toolCallId, {
-          state: 'output-available',
-          output: media ? { ...output, text: bounded.result } : bounded.result,
-          truncated: bounded.truncated
-        })
+        recorder.settleCall(part.toolCallId, settled)
         sendMessageFrame(true)
         await persistStructure()
         // The model now has a result to read. `subAgent` is set when the tool WAS a delegation, so the
@@ -913,15 +818,15 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // the previous shape carried it as an extra `failed` flag on a result part, which
       // `convertToModelMessages` has no reason to look at.
       if (part.type === 'tool-error') {
-        const detail = (part as any).error instanceof Error ? (part as any).error.message : String((part as any).error)
-        if (!isThisTurns(part.toolCallId)) {
-          await target.settleEarlierCall(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
+        const settled = errorSettlement(part.error)
+        if (!recorder.hasCall(part.toolCallId)) {
+          await target.settleEarlierCall(part.toolCallId, settled)
           continue
         }
-        settleToolPart(part.toolCallId, { state: 'output-error', errorText: boundToolResult(detail).result })
+        recorder.settleCall(part.toolCallId, settled)
         sendMessageFrame(true)
         await persistStructure()
-        debug('tool failed tool=%s error=%s', part.toolName, detail)
+        debug('tool failed tool=%s error=%o', part.toolName, part.error)
       }
       // AN APPROVED CALL THE SDK REFUSED TO RUN on replay. It re-checks every approved call against the
       // tools of THIS turn and denies, rather than executes, one whose tool is gone (its class was set to
@@ -929,7 +834,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
       // throw and not a `tool-error`. Stored as an error on the call's own part: left `approval-responded`,
       // every later replay would carry an approved call with no result after it. A call denied by the
       // person never comes through here, its stored `output-denied` already replays with its result.
-      if (part.type === 'tool-output-denied' && !isThisTurns(part.toolCallId)) {
+      if (part.type === 'tool-output-denied' && !recorder.hasCall(part.toolCallId)) {
         await target.settleEarlierCall(part.toolCallId, {
           state: 'output-error',
           errorText: part.toolName in liveTools
@@ -951,7 +856,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   recordCall(run, {
     modelRole: 'assistant',
     entry,
-    usage: { inputTokens, outputTokens, cacheReadTokens, cacheWriteTokens },
+    // The SDK's own sum of the steps' usage: the same reports each step was billed from.
+    usage: tokenCountsOf(await result.totalUsage),
     credits,
     creditBreakdown,
     durationMs: Date.now() - startedAt,
