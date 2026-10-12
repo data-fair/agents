@@ -73,7 +73,9 @@ test.describe('Review consent sheet', () => {
     // Reload the page — cookie should be set, sheet should NOT reappear
     await page.reload()
 
-    // Send another message to trigger the storage-available header again
+    // Send another message. Once the restored conversation is on screen: it replaces the empty state's
+    // composer with the transcript's, and a fill landing on the one being replaced is lost.
+    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
     const input2 = page.getByPlaceholder('Type your message...')
     await expect(input2).toBeEnabled({ timeout: 10000 })
     await input2.fill('hello')
