@@ -60,16 +60,25 @@ const runUpgradeScripts = async () => {
 
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
-let cleanupInterval: ReturnType<typeof setInterval> | undefined
-let archivePurgeInterval: ReturnType<typeof setInterval> | undefined
-let anonymousPurgeInterval: ReturnType<typeof setInterval> | undefined
-let autonomousAgentReaper: ReturnType<typeof setInterval> | undefined
-let memoryConsolidationSweep: ReturnType<typeof setInterval> | undefined
-let taskScheduler: ReturnType<typeof setInterval> | undefined
+const intervals: ReturnType<typeof setInterval>[] = []
 let agentSessions: ReturnType<typeof startAgentSessions> | undefined
 
 server.keepAliveTimeout = (60 * 1000) + 1000
 server.headersTimeout = (60 * 1000) + 2000
+
+/** A background job: every `ms`, and once at start when `now`. A failed pass is logged, never thrown. */
+const every = (ms: number, name: string, job: () => Promise<unknown>, opts: { now?: boolean } = {}) => {
+  const run = () => { job().catch(err => console.error(`${name} failed`, err)) }
+  if (opts.now) run()
+  intervals.push(setInterval(run, ms))
+}
+
+/**
+ * In development, the real-clock jobs leave `test*` owners alone: the api specs drive those owners'
+ * scheduler and consolidation passes through the test-env seams, with an injected clock, and a real
+ * pass would claim their slots first.
+ */
+const realClockScope = process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test/ } } : {}
 
 export const start = async () => {
   if (config.observer?.active) await startObserver(config.observer.port)
@@ -78,9 +87,6 @@ export const start = async () => {
   await locks.start(mongo.db)
   await runUpgradeScripts()
 
-  // A restart cannot resume a run (the executor is in-process and non-resumable), so any
-  // run still marked running belongs to a dead process. Mark it interrupted so a reader
-  // sees an honest terminal state instead of a turn that appears to be thinking forever.
   // Asserted at API boot, NOT in config.ts: that module is pulled into the UI dev server through a
   // request-time dynamic import of ui-config.ts, so a cross-module invariant there takes the UI down
   // with it. config.ts validates config SHAPE; this is a relationship between an api constant and a
@@ -97,6 +103,9 @@ export const start = async () => {
     }
   }
 
+  // A restart cannot resume a run (the executor is in-process and non-resumable), so any
+  // run still marked running belongs to a dead process. Mark it interrupted so a reader
+  // sees an honest terminal state instead of a turn that appears to be thinking forever.
   await recoverOwnerlessRuns()
   await recoverOwnerlessTaskRuns()
 
@@ -104,46 +113,27 @@ export const start = async () => {
   // again, which may be never. This reaper makes "running with nobody running it" recoverable
   // without a restart. The interval is well inside the 60s lock TTL, so it does not fight a
   // live holder.
-  autonomousAgentReaper = setInterval(() => {
-    Promise.all([recoverOwnerlessRuns(), recoverOwnerlessTaskRuns()]).catch(err => console.error('autonomous agent recovery failed', err))
-  }, 30 * 1000)
+  every(30 * 1000, 'autonomous agent recovery', () => Promise.all([recoverOwnerlessRuns(), recoverOwnerlessTaskRuns()]))
 
-  cleanupOldUsage().catch(err => console.error('initial usage cleanup failed', err))
-  cleanupInterval = setInterval(() => {
-    cleanupOldUsage().catch(err => console.error('usage cleanup failed', err))
-  }, 24 * 60 * 60 * 1000)
+  every(24 * 60 * 60 * 1000, 'usage cleanup', cleanupOldUsage, { now: true })
 
   // Archived conversations past the review window. A sweep rather than a mongo TTL index because a
   // TTL deletes only the document it indexes: this thread's messages and runs live in their own
   // collections and would be left orphaned, still readable by id, which for data that was supposed
   // to have expired is the whole failure. Daily is ample for a 30-day window.
-  purgeExpiredArchives().catch(err => console.error('initial archive purge failed', err))
-  archivePurgeInterval = setInterval(() => {
-    purgeExpiredArchives().catch(err => console.error('archive purge failed', err))
-  }, 24 * 60 * 60 * 1000)
+  every(24 * 60 * 60 * 1000, 'archive purge', () => purgeExpiredArchives(), { now: true })
 
   // Anonymous threads whose socket never ran its close handler. Hourly, so one outlives its
   // abandonment cutoff by an hour at most.
-  purgeAbandonedAnonymous().catch(err => console.error('initial anonymous purge failed', err))
-  anonymousPurgeInterval = setInterval(() => {
-    purgeAbandonedAnonymous().catch(err => console.error('anonymous purge failed', err))
-  }, 60 * 60 * 1000)
+  every(60 * 60 * 1000, 'anonymous purge', purgeAbandonedAnonymous, { now: true })
 
   // Memory consolidation, at most daily per agent and only after activity (api/src/memory/consolidation.ts).
-  // Checked every 15 minutes; per-agent locks make concurrent instances harmless. In development the
-  // sweep leaves `test*` owners alone: the api specs drive consolidation through the test-env seam.
-  memoryConsolidationSweep = setInterval(() => {
-    sweepConsolidations(new Date(), process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test/ } } : {}).catch(err => console.error('memory consolidation sweep failed', err))
-  }, 15 * 60 * 1000)
+  // Checked every 15 minutes; per-agent locks make concurrent instances harmless.
+  every(15 * 60 * 1000, 'memory consolidation sweep', () => sweepConsolidations(new Date(), realClockScope))
 
   // PLANNED TASKS: every pollSeconds, claim and fire the tasks that are due (api/src/tasks/scheduler.ts).
   // Every instance polls; the claim is an atomic advance of nextRunAt, so exactly one fires a slot.
-  // In development the poll leaves `test*` owners alone: the api specs drive their tasks through the
-  // scheduler-pass seam with an injected clock, and a real-clock poll would claim their due slots first.
-  const schedulerScope = process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test/ } } : {}
-  taskScheduler = setInterval(() => {
-    runSchedulerPass(new Date(), schedulerScope).catch(err => console.error('task scheduler pass failed', err))
-  }, config.tasks.pollSeconds * 1000)
+  every(config.tasks.pollSeconds * 1000, 'task scheduler pass', () => runSchedulerPass(new Date(), realClockScope))
 
   // Before server.listen, so the socket endpoint exists when the http server starts accepting connections.
   agentSessions = startAgentSessions(server)
@@ -168,12 +158,7 @@ export const start = async () => {
 }
 
 export const stop = async () => {
-  if (cleanupInterval) clearInterval(cleanupInterval)
-  if (autonomousAgentReaper) clearInterval(autonomousAgentReaper)
-  if (archivePurgeInterval) clearInterval(archivePurgeInterval)
-  if (anonymousPurgeInterval) clearInterval(anonymousPurgeInterval)
-  if (memoryConsolidationSweep) clearInterval(memoryConsolidationSweep)
-  if (taskScheduler) clearInterval(taskScheduler)
+  for (const interval of intervals.splice(0)) clearInterval(interval)
   await eventsQueue.stop?.()
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
   // left with a socket that stops answering, and every pending browser tool call has to fail so the
