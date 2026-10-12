@@ -136,10 +136,10 @@ export const listRuns = async (owner: AccountKeys, agentId: string, filters: Run
   const filter: Record<string, unknown> = { 'owner.type': owner.type, 'owner.id': owner.id, agentId }
   if (filters.taskId !== undefined) filter.taskId = filters.taskId
   if (filters.status !== undefined) filter.status = filters.status
-  // A conversation run carries no `kind` (absent means conversation), so that value is "not a task".
-  if (filters.kind === 'task') filter.kind = 'task'
-  else if (filters.kind === 'conversation') filter.kind = { $ne: 'task' }
-  else if (filters.kind !== undefined) throw httpError(400, '"kind" must be "task" or "conversation"')
+  if (filters.kind !== undefined) {
+    if (filters.kind !== 'task' && filters.kind !== 'conversation') throw httpError(400, '"kind" must be "task" or "conversation"')
+    filter.kind = filters.kind
+  }
   if (filters.outcome !== undefined) filter['outcome.status'] = filters.outcome
   if (filters.since !== undefined) {
     if (Number.isNaN(Date.parse(filters.since))) throw httpError(400, '"since" must be a date')

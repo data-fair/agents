@@ -111,6 +111,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   })
 
   const run = await createRun({
+    kind: 'conversation',
     agentId: conversation.agentId,
     conversationId: conversation.id,
     owner: conversation.owner,

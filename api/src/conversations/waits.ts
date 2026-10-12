@@ -101,6 +101,7 @@ export const wakeIfAnswered = async (conversationId: string, session: AgentSessi
   const conversation = await mongo.conversations.findOne({ id: conversationId }, { projection: { _id: 0, agentId: 1, owner: 1 } })
   if (!conversation) return
   const run = await createRun({
+    kind: 'conversation',
     agentId: conversation.agentId,
     conversationId,
     owner: conversation.owner,

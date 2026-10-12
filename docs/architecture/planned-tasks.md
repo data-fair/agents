@@ -35,7 +35,7 @@ A disabled task has no `nextRunAt` (the scheduler's poll is on it). A PUT with `
 
 ## Task runs are a kind of run
 
-A task run is a document of the `runs` collection with `kind: 'task'` (absent means `conversation`; `api/types/conversation-run/schema.js`). It has no conversation, so its content lives on the run itself: `prompt`, `parts` (the AI SDK parts, as a conversation's assistant message) and `outcome`, plus `taskId`, `trigger` (`schedule` or `manual`), `scheduledFor` (the slot) and `triggeredBy`. Its telemetry (`calls`, system prompt, credits, steps) is the same as a conversation run's. Statuses are the usual `running`, `done`, `error`, `aborted`, `interrupted`, plus `skipped` for a slot that did not run (below).
+A task run is a document of the `runs` collection with `kind: 'task'` (a conversation's turn is `kind: 'conversation'`; `api/types/conversation-run/schema.js`). It has no conversation, so its content lives on the run itself: `prompt`, `parts` (the AI SDK parts, as a conversation's assistant message) and `outcome`, plus `taskId`, `trigger` (`schedule` or `manual`), `scheduledFor` (the slot) and `triggeredBy`. Its telemetry (`calls`, system prompt, credits, steps) is the same as a conversation run's. Statuses are the usual `running`, `done`, `error`, `aborted`, `interrupted`, plus `skipped` for a slot that did not run (below).
 
 A task run is created and closed by the same `createRun` and `finishRun` as a conversation's (`api/src/conversations/service.ts`), minus the conversation. The conversation invariant holds: a run always reaches a terminal status. `finishRun` is conditional on the run still being `running`.
 

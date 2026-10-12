@@ -384,7 +384,7 @@ export const startRun = async (run: ConversationTurnRun): Promise<void> => {
  */
 export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, resumed: number, skipped: number }> => {
   const candidates = await mongo.runs
-    .find({ status: 'running', kind: { $ne: 'task' } }, { projection: { _id: 0 } })
+    .find({ status: 'running', kind: 'conversation' }, { projection: { _id: 0 } })
     .toArray() as ConversationTurnRun[]
 
   const heldLocks = new Set(

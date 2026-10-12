@@ -596,7 +596,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // sees the generic fallback, so the operator's log is where it belongs. Ids only — no content, since
     // this line is for diagnosis, not for a second copy of the conversation.
     const of = run.kind === 'task' ? `task ${run.taskId}` : `conversation ${run.conversationId}`
-    console.warn(`[empty completion] treated as a bug: ${run.kind ?? 'conversation'} run ${run.id} of ${of} produced no text (model ${entry.id}, ${steps} step(s))`)
+    console.warn(`[empty completion] treated as a bug: ${run.kind} run ${run.id} of ${of} produced no text (model ${entry.id}, ${steps} step(s))`)
   }
   // No settled frame from here: the target's close sends the one a turn gets, once the message is
   // closed in the store (see TurnFrames).

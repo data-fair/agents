@@ -109,7 +109,7 @@ test.describe('Run history', () => {
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs`, { params: { since: 'not-a-date' } }), { status: 400 })
   })
 
-  test('the kind filter lists task runs or conversation runs, which carry no kind', async () => {
+  test('the kind filter lists task runs or conversation runs', async () => {
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
       title: 'Both', persona: 'x', mcpServers: [], enabled: true
     })).data

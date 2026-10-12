@@ -86,6 +86,7 @@ export const decideAndContinue = async (input: {
     await settlePendingWait(conversation.id, () => WAIT_SUPERSEDED_BY_DECISION)
   }
   const run = await createRun({
+    kind: 'conversation',
     agentId: conversation.agentId,
     conversationId: conversation.id,
     owner: conversation.owner,

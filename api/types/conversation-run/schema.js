@@ -4,13 +4,13 @@ export default {
   title: 'Conversation run',
   type: 'object',
   additionalProperties: false,
-  required: ['id', 'agentId', 'owner', 'trigger', 'status', 'startedAt'],
+  required: ['id', 'agentId', 'kind', 'owner', 'trigger', 'status', 'startedAt'],
   properties: {
     id: { type: 'string' },
     agentId: { type: 'string' },
     // A run is of one of two kinds. A 'conversation' run is one turn of a conversation and carries its
     // `conversationId`. A 'task' run is one execution of a planned task: no conversation, its content
-    // (`prompt`, `parts`, `outcome`) lives on the run itself. Absent means 'conversation'.
+    // (`prompt`, `parts`, `outcome`) lives on the run itself.
     kind: { type: 'string', enum: ['conversation', 'task'] },
     conversationId: { type: 'string' },
     taskId: { type: 'string' },
