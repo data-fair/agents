@@ -68,8 +68,7 @@ The SDK asks for zod ^4, and a second zod major in the tree makes `api`'s infere
 instantiation depth limit (TS2589 in `api/src/moderation/service.ts`). The override is scoped
 to the SDK so a legitimate bump of `api`'s own zod is not silently clamped.
 
-Design, measurements and the isolation guarantee:
-`docs/superpowers/specs/2026-09-12-claude-code-bridge-and-simulation-harness-design.md`.
+No role it serves (assistant, persona, judge) learns more about the product than the product tells it: each query runs in a neutral temp cwd with no tools and a private `CLAUDE_CONFIG_DIR` carrying none of the operator's identity, and fails closed otherwise (`lib-sim/isolation.ts`, asserted by a test). Nothing caches below about 4k tokens of system prompt, so short dev chats showing no cache activity is expected.
 
 ### dev-api watches `shared/` too
 

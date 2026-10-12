@@ -1,8 +1,8 @@
 /**
  * Measure what the agent session design ADDS: the server's wait for a contextual tool call.
  *
- * §7 of `docs/superpowers/specs/2026-10-01-one-server-loop-prototype-design.md` fixes this as one of
- * the criteria the prototype is judged on, so it is a script rather than a test — a reading, repeatable
+ * This latency is the accepted cost of running the loop on the server (docs/architecture/overview.md,
+ * "Why the loop runs on the server"), so it is a script rather than a test — a reading, repeatable
  * before and after, not an assertion.
  *
  * WHAT IT MEASURES, precisely: the time from the server deciding to call a page tool to the answer

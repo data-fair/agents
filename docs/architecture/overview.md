@@ -75,6 +75,35 @@ mounted under `/api/test-env` only when `NODE_ENV` is `development`. Product cod
 exists: where a test must observe something (the task notifications pushed to the events service),
 the router wraps the product's own outlet.
 
+## Why the loop runs on the server
+
+A loop in the browser lets a patched client (a modified bundle, a devtools session) compose the history
+the model sees, skip moderation, ignore the step and repetition guards, decide compaction, pick the
+model role and write tool results, provenance envelope included — and it needs a model proxy accepting
+arbitrary message arrays from browsers. With the loop here, all of that is held and enforced by the
+service, and a client can lie only about **its page's tool results and host state**: irreducible, since
+the page runs those tools, and already treated as untrusted input by the provenance envelope. Prompt
+injection through that channel remains; nothing here claims otherwise. The same move gives the
+conversation a durable home (revival, review, memory) and one place where quotas and moderation apply.
+
+Accepted costs: every live conversation is a server-side loop holding a model stream, and a page tool
+call costs one client-to-server round trip. `dev/measure-session-latency.ts` (both ends on localhost)
+puts the fixed overhead at ~0.25 ms, p99 under 1 ms, so the real cost is the person's own RTT, once per
+step — the calls of one step go out concurrently — against model latency of hundreds of milliseconds.
+
+- **No privileged tool surface.** The loop's capabilities are what the page declares, which any in-page
+  agent sees, and what the catalog's MCP servers publish over HTTP, reached as the person or as the
+  agent's own identity exactly as any authenticated MCP client reaches them. A third-party agent with
+  the same identity can do what ours can; a catalog entry pointing at a deployment no outside client can
+  reach would break that, and is a deployment choice to avoid.
+- **The socket is its own endpoint**, not the stack's pub/sub websocket (`@data-fair/lib-express/ws-server`),
+  which accepts only `subscribe`/`unsubscribe` from a client: the session needs request/response toward
+  the browser (page tool calls), which a notification bus is not, and bending it would mean changing a
+  shared library.
+- **A dropped socket does not stop a turn.** It completes and is stored, and a page attaching later is
+  served it; only what was waiting on that page — a page tool call in flight — fails, with an error the
+  model reads.
+
 ## Hosts
 
 The platform serves every organization's domains from the same services, and simple-directory's

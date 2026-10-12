@@ -1,6 +1,6 @@
 /**
  * The scheduler: one polling pass claims the planned tasks that came due and starts a run of each
- * (docs/superpowers/specs/2026-10-07-autonomous-agent-planned-execution-design.md).
+ * (docs/architecture/planned-tasks.md).
  *
  * THE CLAIM is an atomic advance of `nextRunAt` from the value this pass read: `updateOne({ id, nextRunAt: <read> })`.
  * No lock, and every instance may poll — of two passes reading the same slot only one modifies the

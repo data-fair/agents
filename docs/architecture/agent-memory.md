@@ -18,6 +18,10 @@ Three ways of carrying knowledge across runs, each for its own kind of knowledge
 - **The past is read on demand, not pre-digested.** An agent has **one history**: it reads any of its past conversations, whoever had it, so it can answer "why did you do that yesterday?" from another person's conversation. That is why conversations with configured agents are audited and carry no consent (below).
 - **No per-conversation extraction.** An earlier version reflected every conversation into memory (every 20 messages, at every task run's end, and on an idle sweep). In simulations memory then filled with one week's findings, including claims nobody observed; each pass cost a model call, wrote lines nobody decided on, and read tool results — including web pages, the path persistent memory-injection attacks take. It was replaced by consolidation.
 - **Consolidation tidies; it reads no tool output.** Once a day after activity, a pass merges duplicates, resolves contradictions, dates or removes one-run findings, and records corrections or explicit "remember this" requests the agent missed — reading only what people wrote and what the agent answered. Content from outside the organization therefore reaches memory only through a write the agent made in a run, attributed to that tool call.
+- **Plain text documents addressed by path, in MongoDB; no vectors, no graph.** In Letta's benchmark plain file tools beat Mem0's graph memory on LoCoMo (74.0% vs 68.5%, [Letta](https://www.letta.com/blog/benchmarking-ai-agent-memory)); Claude Code, Letta MemFS and Claude Managed Agents all keep memory as files. Text is what an administrator can audit, and vector retrieval is not justified at 150,000 characters per store.
+- **Two tiers: a pinned core and an index.** `MEMORY.md` is always shown; other documents appear as generated index lines and are read on demand — the pattern of Claude Code, Letta's `system/` blocks and Managed Agents. The index is built from the documents, so unlike a hand-kept index it cannot drift from what exists.
+- **Opt-in, off by default**, as in Codex (off by default) and Claude Code (a toggle): memory changes how an agent behaves over time, so an administrator chooses it.
+- **The store is keyed on `storeId`, not the agent id**, and every author carries the `agentId`, so a store shared between agents later needs no change to the document or version shape.
 
 ### State of the art
 
@@ -32,23 +36,23 @@ What the main harnesses do, as of October 2026, and what was taken from each:
 
 ## The tool and its limits
 
-One provider-neutral tool, `memory`, with the commands of Anthropic's memory tool so trained models behave: `view` (no path lists the documents; a path reads one with line numbers and an optional `view_range`), `create` (creates or overwrites a whole document), `str_replace` (the old text must occur exactly once), `insert`, `delete` and `rename`. Paths are markdown (`MEMORY.md`, `topics/datasets.md`; a leading `/memories/` is accepted). `MEMORY.md` is the core document: always rendered in the system prompt, cannot be deleted or renamed, and needs no description (it never appears as an index line). Every other document appears in the prompt as an index line (path, description, update day) and is read with `view`.
+One provider-neutral tool, `memory`, with the commands of Anthropic's memory tool so trained models behave: `view` (no path lists the documents; a path reads one with line numbers and an optional `view_range`), `create` (creates or overwrites a whole document), `str_replace` (the old text must occur exactly once), `insert`, `delete` and `rename`. Paths are markdown (`MEMORY.md`, `topics/datasets.md`; a leading `/memories/` is accepted, since Anthropic-trained models use it): segments of `[A-Za-z0-9._-]`, no `.` or `..`, ending in `.md`. `MEMORY.md` is the core document: always rendered in the system prompt, cannot be deleted (only emptied) or renamed, and needs no description (it never appears as an index line). Every other document appears in the prompt as an index line (path, description, update day) and is read with `view`. Edits keep a document's description; `rename` never overwrites an existing path.
 
-| Limit | Value |
-| --- | --- |
-| `MEMORY.md` | 4,000 characters |
-| any other document | 12,000 characters |
-| documents | 40 |
-| total | 150,000 characters |
-| description | 200 characters, one line |
-| path | 120 characters |
-| one `view` | 16,000 characters (truncated, with a hint to use `view_range`) |
+| Limit | Value | Why |
+| --- | --- | --- |
+| `MEMORY.md` | 4,000 characters | rendered in every run (Hermes pins 2.2k + 1.4k) |
+| any other document | 12,000 characters | fits one `view` |
+| documents | 40 | keeps the index readable |
+| total | 150,000 characters | bounds the store and a poisoning's blast radius |
+| description | 200 characters, one line | one index line |
+| path | 120 characters | |
+| one `view` | 16,000 characters (truncated, with a hint to use `view_range`) | |
 
-Store-wide caps (document count, total characters) are checked against a snapshot, so concurrent creates of different paths can overshoot them slightly; the next write is then refused until the agent consolidates. A write over a cap is **refused**, never truncated, with the cap and what to do (consolidate, then retry). From 80% of the document or total cap the prompt block asks the agent to consolidate. Text with invisible or control characters (zero-width, bidi, tag characters) is refused. Everything a command can decide is decided in the pure `applyMemoryCommand`, against the store as it would be after the change.
+The limits are global constants (`MEMORY_LIMITS`): nothing has asked for per-agent tuning. Store-wide caps (document count, total characters) are checked against a snapshot, so concurrent creates of different paths can overshoot them slightly; the next write is then refused until the agent consolidates. A write over a cap is **refused**, never truncated, with the cap and what to do (consolidate, then retry): silent truncation, losing facts without signal, is the failure users of capped memories report most; Claude Code and Hermes refuse too. From 80% of the document or total cap the prompt block asks the agent to consolidate. Text with invisible or control characters (zero-width, bidi, tag characters) is refused. Everything a command can decide is decided in the pure `applyMemoryCommand`, against the store as it would be after the change.
 
 Wiring (the `memory` entry of the service-tool registry, `api/src/conversations/service-tools.ts`, run by `executor.ts`):
 
-- **Frozen at run start.** The store is read once; the block rendered by `renderMemoryBlock` is part of the system prompt, which is the run's stable prefix. Writes made during the turn land in the store at once and show in the prompt from the next run. Tags of the block's vocabulary inside a document are defused so it cannot forge the envelope.
+- **Frozen at run start**, as in Hermes. The store is read once; the block rendered by `renderMemoryBlock` is part of the system prompt, which is the run's stable prefix for caching across its steps, and is recorded on the run (`setRunSystemPrompt`), which answers "what memory did this run see?". Writes made during the turn land in the store at once and show in the prompt from the next run. The block carries days, not times, so the prefix stays stable for a whole day. Tags of the block's vocabulary inside a document are defused so it cannot forge the envelope.
 - **Outside the approval gate.** The tool is added after `applyApprovalPolicy`: it writes only the agent's own audited store. Its annotations are explicit (`MEMORY_TOOL_ANNOTATIONS`) and recorded on the stored call, with provenance server `agent-memory`.
 - **Cannot be displaced.** A catalog tool or a page tool named `memory` does not stand in for it (it is added last), a page tool of that name is not treated as a page tool, and a sub-agent configuration cannot reserve it (`api/src/agent-session/sub-agents.ts`), so it can be neither handed to a worker nor hidden from the lead.
 - **Refusals are errors.** A refusal is thrown, so the call is stored `output-error` and the model is handed the reason.
@@ -59,10 +63,10 @@ Wiring (the `memory` entry of the service-tool registry, `api/src/conversations/
 
 The **version row is written first**, carrying the version the document will get, and deleted again if the precondition is lost or the write throws. Without transactions, a phantom row is reconcilable against the document, a missing one is not. A rename is the one remaining non-transactional window: it inserts the new path then removes the old under its version; a crash between the two leaves both paths, with the log row present.
 
-Each row records the op (`create`, `update`, `delete`, `rename`, `restore`), the content and description, and the author: the agent (run, conversation, tool call), a consolidation (the window it read), or a user.
+Each row records the op (`create`, `update`, `delete`, `rename`, `restore`), the content and description, and the author: the agent (run, conversation, tool call), a consolidation (the window it read), or a user. Versions have no TTL: they live as long as the agent, like its conversations. No taint flag is stored: whether untrusted tool output was in context when the agent wrote can be computed afterwards from the run and tool call the row points to.
 
 - **Restore** writes a logged version's content again as a NEW version (history is never rewound), through `restoreChange`, under the same limits as any write: an old version may exceed caps tightened since. A redacted version cannot be restored.
-- **Redaction** is by **content**, not version number (`redactMemoryVersion`). It is refused while any live document of the store holds that exact text, and once only (an already-redacted row is refused). When allowed it blanks the content and the description of every row of the store carrying that identical text (renames and restores are copies), stamping who and when. **What it does NOT remove:** the same text also lives in the conversations' recorded tool calls (the agent's `file_text` / `new_str` / `insert_text` inputs and later `view` outputs) and, for `MEMORY.md`, in the recorded system prompts of every run that saw it. An admin removes those by deleting the conversations; a real scrub is left to the security session (architecture plan §8.4). The dialog's confirm text says the same. Version numbers restart after a delete, so a number alone says nothing about which copies exist.
+- **Redaction** is by **content**, not version number (`redactMemoryVersion`). It is refused while any live document of the store holds that exact text, and once only (an already-redacted row is refused). When allowed it blanks the content and the description of every row of the store carrying that identical text (renames and restores are copies), stamping who and when. **What it does NOT remove:** the same text also lives in the conversations' recorded tool calls (the agent's `file_text` / `new_str` / `insert_text` inputs and later `view` outputs) and, for `MEMORY.md`, in the recorded system prompts of every run that saw it. An admin removes those by deleting the conversations; a real scrub is open (see [open security notes](#open-security-notes)). The dialog's confirm text says the same. Version numbers restart after a delete, so a number alone says nothing about which copies exist.
 
 ## Consolidation
 
@@ -102,4 +106,12 @@ Memory is learnt from conversations nobody has to consent to, so the review cont
 
 The filter is `reviewableFilter` (`api/src/review/reviewable.ts`).
 
-Earlier rationale and security notes: `docs/superpowers/plans/2026-10-07-agent-memory-architecture.md`; the move from reflection to consolidation: `docs/superpowers/plans/2026-10-09-past-conversations-and-memory-consolidation.md`.
+## Open security notes
+
+Recorded, not resolved; roughly in order of weight. What is in place is above: memory rendered as data below the instructions, invisible characters refused, caps, versions with restore and redact, provenance on every write, consolidation reading no tool output.
+
+1. **Poisoning through tool output.** An autonomous agent reads untrusted MCP and web output with no human in the loop, and a memory write promotes it into standing context for every later run (Unit 42's [Bedrock memory poisoning](https://unit42.paloaltonetworks.com/indirect-prompt-injection-poisons-ai-longterm-memory/), [MINJA](https://arxiv.org/abs/2503.03704), OWASP agentic ASI06). Candidates: stage writes made after untrusted output for approval (Hermes `write_approval`, Devin's suggestions), a read-only memory mode.
+2. **Exfiltration channels.** Only invisible and control characters are refused; URLs and markdown images in memory could be followed or rendered later. Candidates: strip images, flag URLs, scan for credential-shaped strings before accepting a write.
+3. **Cross-instructor disclosure.** Agent-wide memory carries what one instructor said into another's runs; only admins can read it. Open: whether instructors should see it, and whether the chat should say memory is shared.
+4. **Erasure.** A GDPR erasure (`DELETE /api/review/:type/:id?userId=`) deletes the person's conversations but not memory written from them, nor its versions. Together with redaction's copies (above), this calls for one utility finding a text across versions, messages and recorded run prompts.
+5. **Admin edits** can write anything into memory, by design: an admin writes the instructions too. Their edits are versioned under their identity.

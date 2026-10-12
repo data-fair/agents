@@ -1,7 +1,7 @@
 /**
  * operations.ts contains pure stateless functions of the web access module (fetch and sitemaps for
  * autonomous agents): the URL allowlist, content classification, pagination, sitemap parsing.
- * Design: docs/superpowers/specs/2026-10-08-web-fetch-search-research.md (§7f).
+ * Design: docs/architecture/web-access.md.
  */
 
 import net from 'node:net'

