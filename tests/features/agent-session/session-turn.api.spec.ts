@@ -75,11 +75,13 @@ test.describe('A turn over the agent session', () => {
     const created = await session.next()
     assert.equal(created.type, 'attached')
     assert.ok(created.conversationId, 'the attached frame names the new thread')
+    // Read before the turn ends: once it has, the conversation is titled from its first exchange
+    // (conversations/title.ts), which replaces this placeholder.
+    const conversation = await storedConversation(created.conversationId)
     const frames = await collectUntil(session, 'turn-end')
     assert.equal(frames[frames.length - 1].stopReason, 'completed')
 
     // The personal assistant exists without being stored, and a thread with it belongs to its user.
-    const conversation = await storedConversation(created.conversationId)
     assert.equal(conversation.agentId, 'personal')
     assert.equal(conversation.userId, 'test1-admin1')
     assert.equal(conversation.title, 'personal')
