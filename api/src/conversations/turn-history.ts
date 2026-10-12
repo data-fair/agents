@@ -18,7 +18,7 @@ import { storedTurnsToModelMessages, alignCutToStoredMessage, redactModelMedia, 
 import { saveCompaction } from './service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
-import { sessionFor } from '../agent-session/registry.ts'
+import { notifyActivity } from '../agent-session/registry.ts'
 import type { getSettings } from '../settings/service.ts'
 
 const debug = Debug('df-agents:turn-history')
@@ -141,8 +141,7 @@ export const compactHistory = async (
   // Labelled only when a compaction is ACTUALLY going to happen — this point is past every reason not
   // to. An unconditional label before the decision would tell the person the assistant was compacting
   // on every turn, which is both wrong and the kind of thing nobody would notice was wrong.
-  const watching = sessionFor(run.conversationId)
-  watching?.send({ type: 'activity', activity: { kind: 'compacting' } })
+  notifyActivity(run.conversationId, { kind: 'compacting' })
   try {
     const { model, entry } = resolveRoleModel(settings, 'summarizer')
     const startedAt = Date.now()
@@ -183,7 +182,7 @@ export const compactHistory = async (
       coversUpToSeq
     })
     debug('compacted %d messages into a recap (generation %d, covers up to seq %d)', prefixToSummarize.length, decision.generation, coversUpToSeq)
-    watching?.send({ type: 'activity', activity: null })
+    notifyActivity(run.conversationId, null)
     return { messages: [recapMessage(summary), ...retained], credits: compactionCredits.total }
   } catch (err) {
     if (abortSignal.aborted) throw err
@@ -196,7 +195,7 @@ export const compactHistory = async (
     // in their place: the model then reasons as though it had never asked. Clearing keeps every call and
     // every placeholder, so it can see what it did and that the payload is re-fetchable. The store keeps
     // everything either way; this is only about what the model can still see.
-    watching?.send({ type: 'activity', activity: null })
+    notifyActivity(run.conversationId, null)
     const fallback = clearOldToolResults(history, budget, { keep: 0, clearAtLeast: 0 })
     const cleared = fallback.clear ? fallback.history : history
     debug(

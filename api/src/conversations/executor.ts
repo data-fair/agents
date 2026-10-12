@@ -49,7 +49,7 @@ import { personSiteCredentials, type SiteCredentials } from '../mcp-servers/oper
 import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
 import { securityKey } from '../cipher/service.ts'
 import { agentSiteCredentials } from '../nhi/service.ts'
-import { sessionFor } from '../agent-session/registry.ts'
+import { notifyMessage } from '../agent-session/registry.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
@@ -1037,7 +1037,7 @@ export const runTurn = async (run: ConversationTurnRun): Promise<void> => {
     // client adds a delta to the last assistant bubble it has; a turn that follows another assistant
     // message with no message of the person's between — a wake, after a handover — had its reply
     // glued onto the handover's bubble, then shown again once its own frame arrived.
-    sessionFor(run.conversationId)?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: [], pending: true })
+    notifyMessage(run.conversationId, { seq: message.seq }, true)
 
     // The assistant message's own seq bounds the history: it was created before the turn
     // (empty, pending), so it must not be fed back to the model as an empty turn.

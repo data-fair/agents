@@ -10,7 +10,7 @@ import mongo from '#mongo'
 import { createRun, decideApproval, WAIT_SUPERSEDED_BY_DECISION, requireAutonomousAgent, assertCanInstruct } from './service.ts'
 import { startRun } from './executor.ts'
 import { settlePendingWait } from './waits.ts'
-import { sessionFor } from '../agent-session/registry.ts'
+import { notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { getEffectiveRole } from '../auth.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../mcp-servers/operations.ts'
@@ -70,15 +70,14 @@ export const decideAndContinue = async (input: {
   if (message === 'still-finishing') throw httpError(409, 'the turn is still finishing: decide once it has ended')
   if (!message) throw httpError(409, 'no pending approval with this id: it was already decided, or never asked')
   // The page shows the decision at once.
-  const watcher = sessionFor(conversation.id)
-  watcher?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
+  notifyMessage(conversation.id, message)
   // ONE CONTINUATION PER STEP, once every call it stopped is decided. The SDK executes the approvals
   // it finds in the LAST message only: a run started after the first of two decisions would put its own
   // message after them, and the second call, approved later, would never run. So an earlier decision
   // only records, and the "awaiting approval" label stays for the calls still undecided.
   const pending = (message.parts as MessagePart[]).filter(p => p.type === 'dynamic-tool' && p.state === 'approval-requested').length
   if (pending) return { pending }
-  watcher?.send({ type: 'activity', activity: null })
+  notifyActivity(conversation.id, null)
   // A WAIT HANDED OVER IN THE SAME STEP is settled by the decision, as acting on the page settles the
   // approval (waits.ts wakeIfAnswered): the person moved, and the continuation must replay a step
   // whose every call has a result. Only the wait of THIS message — a wait elsewhere is not this step's.

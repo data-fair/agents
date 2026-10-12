@@ -13,6 +13,8 @@
 
 import Debug from 'debug'
 import type { AgentSession } from './session.ts'
+import type { MessagePart } from '@agents/shared/message-parts'
+import type { ChatActivity } from '@agents/shared/agent-activity'
 
 const debug = Debug('agents:agent-session-registry')
 
@@ -54,3 +56,13 @@ export const detachSession = (conversationId: string, session: AgentSession) => 
  * turn simply has no page tools and streams to no one; the stored message is still the record.
  */
 export const sessionFor = (conversationId: string): AgentSession | undefined => byConversation.get(conversationId)
+
+/** Tell whoever watches this conversation what one of its assistant messages now is. */
+export const notifyMessage = (conversationId: string, message: { seq: number, parts?: unknown[] }, pending = false) => {
+  sessionFor(conversationId)?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: (message.parts ?? []) as MessagePart[], pending })
+}
+
+/** Tell whoever watches this conversation what the assistant is doing; null when nothing. */
+export const notifyActivity = (conversationId: string, activity: ChatActivity | null, parentToolCallId?: string) => {
+  sessionFor(conversationId)?.send({ type: 'activity', activity, ...(parentToolCallId ? { parentToolCallId } : {}) })
+}

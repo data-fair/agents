@@ -34,7 +34,7 @@ import { MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type StopCause } from './interrupted-turn.ts'
 import { updateMessage, settleStoredToolPart, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
-import { sessionFor } from '../agent-session/registry.ts'
+import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { livePartsOf } from './live-runs.ts'
 
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
@@ -218,15 +218,13 @@ export const conversationTarget = (
     persist: async (parts) => { await updateMessage(run.conversationId, messageSeq, { parts, pending: true }) },
     frames: {
       delta: (kind, text) => { watcher()?.send({ type: 'delta', kind, text }) },
-      activity: (value, parentToolCallId) => {
-        watcher()?.send({ type: 'activity', activity: value, ...(parentToolCallId ? { parentToolCallId } : {}) })
-      },
-      message: (parts) => { watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending: true }) },
+      activity: (value, parentToolCallId) => { notifyActivity(run.conversationId, value, parentToolCallId) },
+      message: (parts) => { notifyMessage(run.conversationId, { seq: messageSeq, parts }, true) },
       subAgent: (frame) => { watcher()?.send({ type: 'subagent', ...frame }) }
     },
     settleEarlierCall: async (toolCallId, settled) => {
       const message = await settleStoredToolPart(run.conversationId, toolCallId, settled)
-      if (message) watcher()?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
+      if (message) notifyMessage(run.conversationId, message)
     },
 
     close: async (result) => {
@@ -280,7 +278,7 @@ export const conversationTarget = (
       )
       // The turn's one settled frame (see TurnFrames), as stored: notice included, and an approval card
       // decidable only now that its message is closed.
-      sessionFor(run.conversationId)?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts as any, pending: false })
+      notifyMessage(run.conversationId, { seq: messageSeq, parts: finalParts })
 
       // The conversation's total, now including this turn — returned by the close itself — then the
       // end-of-turn signal, so a page that refreshes on turn-end already holds the new figure.
@@ -290,11 +288,11 @@ export const conversationTarget = (
       // theirs, and keeps Stop on screen to decline it — and sent first there is no instant between the
       // turn ending and the wait showing, in which the chat would read as simply done.
       if (result.handover) {
-        sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'waiting', expecting: result.handover.expecting ?? '' } })
+        notifyActivity(run.conversationId, { kind: 'waiting', expecting: result.handover.expecting ?? '' })
       }
       if (result.awaitingApproval) {
         const pending = finalParts.find(p => p.type === 'dynamic-tool' && p.state === 'approval-requested')
-        sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'approval', toolName: pending?.type === 'dynamic-tool' ? pending.toolName : '' } })
+        notifyActivity(run.conversationId, { kind: 'approval', toolName: pending?.type === 'dynamic-tool' ? pending.toolName : '' })
       }
       // A title for a new conversation, from its first exchange (conversations/title.ts). Off the
       // person's path; a refused first turn has nothing to title.
@@ -365,7 +363,7 @@ export const conversationTarget = (
       // Same reason as the success path: the notice explaining the failure has to reach the page that
       // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From
       // the parts just written, rather than read back.
-      sessionFor(run.conversationId)?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts as any, pending: false })
+      notifyMessage(run.conversationId, { seq: messageSeq, parts: finalParts })
       // A failed turn ends the same way for a watcher as a successful one: the page must stop waiting
       // whatever happened. "Failure is a message, not a silence" applies to the socket too.
       //

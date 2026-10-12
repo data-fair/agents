@@ -5,7 +5,7 @@
 import mongo from '#mongo'
 import config from '#config'
 import { personalAgent, PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
-import { sessionFor } from '../agent-session/registry.ts'
+import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { assertRoleQuota, assertCanUseModel } from '../auth.ts'
 import { nanoid } from 'nanoid'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
@@ -369,7 +369,7 @@ const settleApprovedWithoutResult = async (conversationId: string, errorText: st
     for (const part of message.parts as MessagePart[]) {
       if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded') continue
       const settled = await settleStoredToolPart(conversationId, part.toolCallId, { state: 'output-error', errorText })
-      if (settled) sessionFor(conversationId)?.send({ type: 'message', seq: settled.seq, role: 'assistant', parts: settled.parts as MessagePart[], pending: false })
+      if (settled) notifyMessage(conversationId, settled)
     }
   }
 }
@@ -486,11 +486,10 @@ export const rejectPendingApprovals = async (
     { arrayFilters: opts?.undecidedOnly ? [{ 'p.state': 'approval-requested' }] : [{ 'p.state': 'approval-requested' }, { 'q.state': 'approval-responded' }] }
   )
   // The watching page is shown the refusal and loses the "awaiting approval" label, as for a decision.
-  const watcher = sessionFor(conversationId)
-  if (watcher && result.modifiedCount) {
+  if (sessionFor(conversationId) && result.modifiedCount) {
     const rejected = await mongo.messages.find({ conversationId, seq: { $in: seqs } }, { projection: { _id: 0, seq: 1, parts: 1 } }).sort({ seq: 1 }).toArray()
-    for (const message of rejected) watcher.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
-    watcher.send({ type: 'activity', activity: null })
+    for (const message of rejected) notifyMessage(conversationId, message)
+    notifyActivity(conversationId, null)
   }
   return result.modifiedCount
 }

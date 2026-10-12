@@ -21,7 +21,7 @@ import Debug from 'debug'
 import { formatHostEvents, LOCATION_KEY } from '@agents/shared/host-events'
 import { updateMessage, createRun, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
 import { startRun } from './executor.ts'
-import { sessionFor } from '../agent-session/registry.ts'
+import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
@@ -55,9 +55,8 @@ export const settlePendingWait = async (conversationId: string, answer: (wait: P
       : part)
   await updateMessage(conversationId, wait.messageSeq, { parts: parts as any })
 
-  const watcher = sessionFor(conversationId)
-  watcher?.send({ type: 'message', seq: wait.messageSeq, role: 'assistant', parts, pending: false })
-  watcher?.send({ type: 'activity', activity: null })
+  notifyMessage(conversationId, { seq: wait.messageSeq, parts })
+  notifyActivity(conversationId, null)
   return wait
 }
 
