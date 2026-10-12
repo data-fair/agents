@@ -9,7 +9,6 @@
  *  - persisting the structure mid-turn;
  *  - streaming frames to whoever watches;
  *  - settling a call an earlier turn made;
- *  - exposing the answer so far to a page attaching mid-turn;
  *  - writing the final record and closing the run, on both ends of a turn: `close` when it returned,
  *    `fail` when it threw.
  * A planned task's run is the other implementation (../tasks/task-target.ts): its record is the run
@@ -36,6 +35,7 @@ import { loadHistory, compactHistory } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type StopCause } from './interrupted-turn.ts'
 import { updateMessage, settleStoredToolPart, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
 import { sessionFor } from '../agent-session/registry.ts'
+import { livePartsOf } from './live-runs.ts'
 
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
 export interface TurnFrames {
@@ -119,8 +119,11 @@ export interface TurnTarget {
   session?: AgentSession
   /** The site the conversation was started on, when it recorded one: a configured agent's home. */
   conversationSiteUrl?: string
-  /** The history bound recorded on the turn's telemetry; a conversation's is the turn's own message. */
-  historyUpToSeq?: number
+  /**
+   * The conversation message this turn writes: what a page attaching mid-turn is shown the answer so far
+   * as (see ./live-runs.ts), and the history bound recorded on the turn's telemetry.
+   */
+  messageSeq?: number
   /** The model's context for this turn, within budget, as it is sent. */
   history: (request: TurnHistoryRequest) => Promise<{ messages: ModelMessage[], credits: number, hostBlockChars: number }>
   /** Persist the turn's structure as it stands: called when a call opens or settles. */
@@ -128,46 +131,12 @@ export interface TurnTarget {
   frames: TurnFrames
   /** A result for a call an EARLIER turn made: an approved call the SDK executed on replay. */
   settleEarlierCall: (toolCallId: string, settled: Parameters<typeof settleStoredToolPart>[2]) => Promise<void>
-  /** Expose the parts being produced to a reader attaching mid-turn (and to the turn's own catch path). */
-  track: (parts: () => MessagePart[]) => void
   /** Where `report_outcome` lands: only a task run has an outcome to report (see ./service-tools.ts). */
   reportOutcome?: (outcome: TaskOutcome) => void
   /** The normal end: write the record and close the run. */
   close: (result: TurnResult) => Promise<void>
   /** The end of a turn that threw: settle the record from what it produced, and close the run. */
   fail: (failure: TurnFailure) => Promise<void>
-}
-
-/**
- * The answer each live turn is producing, by conversation — what a page attaching mid-turn is shown.
- *
- * The growing answer is NOT written back as it streams: a watching browser receives every token, and
- * the store gets the answer at the end. This registry is what replaces the write for the watcher's side: a
- * page reloaded, or a second tab opened, mid-turn gets the answer so far on attach and the rest live —
- * the turn sends to whoever watches the conversation NOW (`watcher` in conversationTarget), not to the
- * session it started with — and a turn stopped or failing is settled from it. What is given up: a
- * restart mid-answer loses the text of the step in progress. Tool calls and their results are still
- * written as they happen (`persist`), and those are the work worth keeping.
- *
- * In-process, like the sessions themselves: the turn runs in the process holding the socket.
- */
-const liveTurns = new Map<string, { messageSeq: number, parts: () => MessagePart[] }>()
-
-/** The answer a live turn of this conversation has produced so far, if one is running here. */
-export const liveTurnOf = (conversationId: string) => {
-  const live = liveTurns.get(conversationId)
-  return live && { messageSeq: live.messageSeq, parts: structuredClone(live.parts()) }
-}
-
-/** The parts a live turn of this conversation produced so far, when it is THIS message's turn. */
-const liveParts = (conversationId: string, messageSeq: number): MessagePart[] | undefined => {
-  const live = liveTurns.get(conversationId)
-  return live && live.messageSeq === messageSeq ? structuredClone(live.parts()) : undefined
-}
-
-/** Forget a turn once it is settled. Keyed by its message, so a later turn already registered is left alone. */
-const releaseLiveTurn = (conversationId: string, messageSeq: number) => {
-  if (liveTurns.get(conversationId)?.messageSeq === messageSeq) liveTurns.delete(conversationId)
 }
 
 /**
@@ -213,12 +182,11 @@ export const conversationTarget = (
   // actually open — not even its `turn-end` arrived.
   const watcher = () => sessionFor(run.conversationId)
   const session = sessionFor(run.conversationId)
-  const partsSoFar = () => liveParts(run.conversationId, messageSeq)
   return {
     surface: 'chat',
     session,
     ...(conversation.siteUrl ? { conversationSiteUrl: conversation.siteUrl } : {}),
-    historyUpToSeq: messageSeq,
+    messageSeq,
     history: async ({ identity, budget, settings, abortSignal, agentId }) => {
       const compacted = await compactHistory(
         run,
@@ -260,7 +228,6 @@ export const conversationTarget = (
       const message = await settleStoredToolPart(run.conversationId, toolCallId, settled)
       if (message) watcher()?.send({ type: 'message', seq: message.seq, role: 'assistant', parts: message.parts as MessagePart[], pending: false })
     },
-    track: (parts) => { liveTurns.set(run.conversationId, { messageSeq, parts }) },
 
     close: async (result) => {
       // An approval run's approved calls left without a result (finishRun settles them): "did not run"
@@ -342,81 +309,72 @@ export const conversationTarget = (
         // The person may have acted while the turn was still finishing: that answer is already buffered.
         await wakeIfAnswered(run.conversationId).catch(err => console.error('could not wake a conversation on its pending wait', err))
       }
-      // Only once the close went through: a close that threw is followed by `fail`, which settles the
-      // turn FROM the live parts and releases them itself.
-      releaseLiveTurn(run.conversationId, messageSeq)
     },
 
     fail: async ({ stopReason, status, error, detail, stopCause, interrupt, cause }) => {
-      try {
-        // The message is finalised FIRST, and the run closed after, because the terminal run state
-        // is the end-of-turn signal a reader stops on: closing the run first
-        // would leave every failed, aborted and timed-out turn showing a message stuck `pending`.
-        //
-        // This does NOT give up the guarantee that sent these two the other way round originally —
-        // that whatever brought us here (a mongo blip, a shutdown) is likely to fail the message
-        // write too, and a run left `running` is worse than a message left without its notice,
-        // since the run is what every reader and the boot sweep key on. That is preserved by
-        // CATCHING the message write rather than by ordering it last: finishRun still runs.
-        //
-        // APPENDED to what was persisted, not replacing it. `message` is the empty document created
-        // before the turn, so the partial text and the tool traffic the executor has since written live
-        // only in the store — replacing the parts here would delete the record of everything the turn
-        // actually did, which is exactly what must survive a failure.
-        // From MEMORY when the turn ran here, which is the common case: the answer's text is written
-        // only at the end, so the store holds the tool traffic but not what was said around it — a
-        // reply stopped mid-sentence would lose its words from the record. The store is the fallback for
-        // a turn that never got as far as producing parts.
-        const live = partsSoFar()
-        const persisted = live
-          ? { parts: live }
-          : await mongo.messages
-            .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
-            .catch(() => null)
-        // Every call still open gets a result saying why it never completed (port of main's #73): a call
-        // with no result is dropped on replay, so the model would never learn what it had been doing —
-        // judged runs then denied work they had done and redid it.
-        const settled = settleInterruptedParts((persisted?.parts ?? []) as MessagePart[], interrupt)
-        // No stop notice when the person SPOKE: their message follows and answers it, and the notice
-        // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
-        const finalParts = stopCause === 'late-block'
-          // A LATE moderation block: the reply to a message that should never have been answered is
-          // dropped, and the person reads the same refusal as an on-time block. The tool calls already
-          // made stay, settled, because they happened — and a call without its result is dropped on
-          // replay, which would hide from the model that it had acted.
-          ? [...settled.filter(part => part.type === 'dynamic-tool'), { type: 'data-refusal', data: { kind: 'moderation' } } as MessagePart, textPart(MODERATION_REFUSAL)]
-          : interrupt === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
-        // Approved calls left without a result (finishRun settles them): whether one ran before the throw
-        // is not known here — except for a signature that failed verification, which the SDK checks
-        // before executing anything (a secret rotated between the request and the decision).
-        const approvedCalls: ApprovedCallsEnd = InvalidToolApprovalSignatureError.isInstance(cause)
-          ? { ran: 'no', detail: `the approval could not be verified (${detail})` }
-          : { ran: 'unknown', detail }
-        // The message, then the run (finishRun) — the message write CAUGHT inside it, so whatever failed
-        // it still lets the run close.
-        const finished = await finishRun(
-          run,
-          { status, stopReason, ...(error !== undefined ? { error } : {}) },
-          { message: { seq: messageSeq, patch: { parts: finalParts as any, pending: false } }, approvedCalls }
-        ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
-        // Same reason as the success path: the notice explaining the failure has to reach the page that
-        // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From
-        // the parts just written, rather than read back.
-        sessionFor(run.conversationId)?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts as any, pending: false })
-        // A failed turn ends the same way for a watcher as a successful one: the page must stop waiting
-        // whatever happened. "Failure is a message, not a silence" applies to the socket too.
-        //
-        // LAST, as on the success path, and that order is the contract: `turn-end` means "the record is
-        // final". It used to go out first, before the message was settled — so anything reacting to it,
-        // a client refetching or a test reading the record, could see an interrupted turn's calls still
-        // open. Found by the interrupted-turn api spec, which passed alone and failed in sequence.
-        await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
-        sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
-      } finally {
-        // Only now: the settling above reads the live parts. Keyed by the message, so a later turn of the
-        // same conversation that already registered is left alone.
-        releaseLiveTurn(run.conversationId, messageSeq)
-      }
+      // The message is finalised FIRST, and the run closed after, because the terminal run state
+      // is the end-of-turn signal a reader stops on: closing the run first
+      // would leave every failed, aborted and timed-out turn showing a message stuck `pending`.
+      //
+      // This does NOT give up the guarantee that sent these two the other way round originally —
+      // that whatever brought us here (a mongo blip, a shutdown) is likely to fail the message
+      // write too, and a run left `running` is worse than a message left without its notice,
+      // since the run is what every reader and the boot sweep key on. That is preserved by
+      // CATCHING the message write rather than by ordering it last: finishRun still runs.
+      //
+      // APPENDED to what was persisted, not replacing it. `message` is the empty document created
+      // before the turn, so the partial text and the tool traffic the executor has since written live
+      // only in the store — replacing the parts here would delete the record of everything the turn
+      // actually did, which is exactly what must survive a failure.
+      // From MEMORY when the turn ran here, which is the common case: the answer's text is written
+      // only at the end, so the store holds the tool traffic but not what was said around it — a
+      // reply stopped mid-sentence would lose its words from the record. The store is the fallback for
+      // a turn that never got as far as producing parts.
+      const live = livePartsOf(run.id)
+      const persisted = live
+        ? { parts: live }
+        : await mongo.messages
+          .findOne({ id: message.id }, { projection: { _id: 0, parts: 1 } })
+          .catch(() => null)
+      // Every call still open gets a result saying why it never completed (port of main's #73): a call
+      // with no result is dropped on replay, so the model would never learn what it had been doing —
+      // judged runs then denied work they had done and redid it.
+      const settled = settleInterruptedParts((persisted?.parts ?? []) as MessagePart[], interrupt)
+      // No stop notice when the person SPOKE: their message follows and answers it, and the notice
+      // would be replayed to the model as its own words. Stop, the clock and errors keep theirs.
+      const finalParts = stopCause === 'late-block'
+        // A LATE moderation block: the reply to a message that should never have been answered is
+        // dropped, and the person reads the same refusal as an on-time block. The tool calls already
+        // made stay, settled, because they happened — and a call without its result is dropped on
+        // replay, which would hide from the model that it had acted.
+        ? [...settled.filter(part => part.type === 'dynamic-tool'), { type: 'data-refusal', data: { kind: 'moderation' } } as MessagePart, textPart(MODERATION_REFUSAL)]
+        : interrupt === 'message' ? settled : withAppendedText(settled, runStopReasonMessage(stopReason, detail))
+      // Approved calls left without a result (finishRun settles them): whether one ran before the throw
+      // is not known here — except for a signature that failed verification, which the SDK checks
+      // before executing anything (a secret rotated between the request and the decision).
+      const approvedCalls: ApprovedCallsEnd = InvalidToolApprovalSignatureError.isInstance(cause)
+        ? { ran: 'no', detail: `the approval could not be verified (${detail})` }
+        : { ran: 'unknown', detail }
+      // The message, then the run (finishRun) — the message write CAUGHT inside it, so whatever failed
+      // it still lets the run close.
+      const finished = await finishRun(
+        run,
+        { status, stopReason, ...(error !== undefined ? { error } : {}) },
+        { message: { seq: messageSeq, patch: { parts: finalParts as any, pending: false } }, approvedCalls }
+      ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
+      // Same reason as the success path: the notice explaining the failure has to reach the page that
+      // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From
+      // the parts just written, rather than read back.
+      sessionFor(run.conversationId)?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts as any, pending: false })
+      // A failed turn ends the same way for a watcher as a successful one: the page must stop waiting
+      // whatever happened. "Failure is a message, not a silence" applies to the socket too.
+      //
+      // LAST, as on the success path, and that order is the contract: `turn-end` means "the record is
+      // final". It used to go out first, before the message was settled — so anything reacting to it,
+      // a client refetching or a test reading the record, could see an interrupted turn's calls still
+      // open. Found by the interrupted-turn api spec, which passed alone and failed in sequence.
+      await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
+      sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
     }
   }
 }

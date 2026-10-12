@@ -13,6 +13,7 @@ import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import { runStopReasonMessage, withAppendedText, partsText, type MessagePart } from '../conversations/operations.ts'
 import { settleInterruptedParts } from '../conversations/interrupted-turn.ts'
 import { finishRun } from '../conversations/service.ts'
+import { livePartsOf } from '../conversations/live-runs.ts'
 import type { TurnTarget } from '../conversations/turn-target.ts'
 import type { TaskOutcome } from '../conversations/service-tools.ts'
 import { afterTaskRun } from './follow-up.ts'
@@ -27,7 +28,6 @@ const quotaRefusalText = (parts: MessagePart[]): string | undefined => {
 }
 
 export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): TurnTarget => {
-  let tracked: (() => MessagePart[]) | undefined
   // What report_outcome said last: a second call replaces the first.
   let outcome: TaskOutcome | undefined
 
@@ -69,7 +69,6 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
       // run asks for approval.
       throw new Error('a task run has no earlier call to settle')
     },
-    track: (parts) => { tracked = parts },
     reportOutcome: (reported) => { outcome = reported },
 
     close: async (result) => {
@@ -102,7 +101,7 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
     fail: async ({ stopReason, status, error, detail, interrupt }) => {
       // Every call still open gets a result saying why it never completed, and the stop is explained —
       // the same record a conversation's failed turn leaves.
-      const settled = settleInterruptedParts(tracked ? structuredClone(tracked()) : [], interrupt)
+      const settled = settleInterruptedParts(livePartsOf(run.id) ?? [], interrupt)
       await closeWith({
         status,
         stopReason,

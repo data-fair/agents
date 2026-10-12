@@ -62,7 +62,7 @@ Consequences worth stating, because they are what the design buys and costs:
   `GET …/:conversationId/runs` is a plain full read; a transcript is read over the socket (the history
   sent on attach) or through review, and the tests read it through `/api/test-env`.
 - The answer is **not written as it streams**. A watching browser gets every token, and a page that
-  attaches mid-turn is served the answer so far from the executor's in-process `liveTurns`. The store
+  attaches mid-turn is served the answer so far from the in-process live-run registry (`live-runs.ts`). The store
   gets tool calls as they open and settle, and the text at the end of the turn: a restart mid-answer
   loses the text of the step in progress, not the work.
 - One document per message, not per conversation: a conversation's length is unbounded and a document
@@ -233,12 +233,12 @@ swept by their own purges.)
 
 `runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, message, conversation)` is a chat's, and `taskTarget(run, task)` (`api/src/tasks/task-target.ts`) a planned task's. Both are driven by `driveTurn` (`executor.ts`), which owns the abort controller, telemetry, deadline and failure classification, whatever the turn is of. The conversation target:
 
-- `session` and `historyUpToSeq`: the page in front of the person as the turn started (its tools and host events; undefined is normal), and the history bound recorded on the turn's telemetry.
+- `session` and `messageSeq`: the page in front of the person as the turn started (its tools and host events; undefined is normal), and the message the turn writes (also the history bound recorded on its telemetry).
 - `history`: the stored messages up to the turn's own, compacted within the budget, with the page's context (host events, the pending-wait reminder) folded into the last user message at call time and never persisted.
 - `persist`: writes the turn's structure to its assistant message each time a call opens or settles. Streamed text is not written as it goes.
 - `frames`: deltas, activity, the message so far and sub-agent frames, sent to whoever watches the conversation **now** (read at each send), not to the session the turn started with, so a reload or a second tab does not silence it.
 - `settleEarlierCall`: the result of a call an earlier turn made, an approved call the SDK executed on replay, settled on its original part.
-- `track`: exposes the answer so far in a registry (`liveTurnOf`, `liveParts`, `releaseLiveTurn`), so a page attaching mid-turn gets it on attach and the rest live, and a stopped or failing turn is settled from it.
+- `close` and `fail`: write the record and close the run. The answer so far is not the target's: `driveTurn` registers each live run (`api/src/conversations/live-runs.ts`) with its controller, its message seq and the parts the loop produces, so a page attaching mid-turn gets the answer on attach and the rest live (`liveTurnOf`), and a stopped or failing turn is settled from it (`livePartsOf`).
 
 A task run's target is the other implementation: its record is the run itself (`prompt`, `parts`, `outcome`) and nobody watches it; see [planned tasks](./planned-tasks.md#the-turn).
 

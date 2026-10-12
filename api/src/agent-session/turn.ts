@@ -18,7 +18,7 @@ import {
   type TurnCaller
 } from '../conversations/service.ts'
 import { startRun, abortRunsOfConversation } from '../conversations/executor.ts'
-import { liveTurnOf } from '../conversations/turn-target.ts'
+import { liveTurnOf } from '../conversations/live-runs.ts'
 import { settlePendingWait } from '../conversations/waits.ts'
 import { interruptedWaitResult } from '../conversations/interrupted-turn.ts'
 import mongo from '#mongo'

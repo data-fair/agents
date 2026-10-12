@@ -64,6 +64,7 @@ import { tokenCountsOf } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { buildServiceTools } from './service-tools.ts'
 import { mayBePageTool } from './service-tool-names.ts'
+import { liveRuns, type LiveRun } from './live-runs.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -71,18 +72,6 @@ const LOCK_ORIGIN = 'autonomous-agent-executor'
 
 /** Shown when the provider returns no text at all, so the turn never renders blank. */
 const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this turn. Please try rephrasing the request.'
-
-/**
- * Live turns, by run id, so the abort route can stop one.
- *
- * In-process, like the executor: a run is not resumable and does not migrate, so only the process that
- * holds the turn can abort its controller. A stop received by ANOTHER process reaches it through the run
- * document instead — `abortRequestedAt`, which every live turn polls for (see watchStopRequests).
- *
- * The agent id travels with the controller so a whole agent can be stopped at once — see
- * abortRunsOfAgent.
- */
-const liveRuns = new Map<string, { controller: AbortController, agentId: string, conversationId?: string }>()
 
 /** Whether this process is executing the run right now. */
 export const isRunLive = (runId: string) => liveRuns.has(runId)
@@ -621,13 +610,14 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   // saw has to end up here, or a revived conversation is a different conversation.
   const recorder = createPartsRecorder()
   const { parts, appendText } = recorder
-  target.track(() => parts)
+  const live = liveRuns.get(run.id)
+  if (live) live.parts = () => parts
 
   /**
    * Stream to the browser, if one is watching.
    *
    * The text is not persisted as it streams — the store gets it at the end, and a page attaching
-   * mid-turn is served from the target's `track` — so this is the only way it reaches anyone before then. The
+   * mid-turn is served from ./live-runs.ts — so this is the only way it reaches anyone before then. The
    * session merges deltas only within `DELTA_FLUSH_MS`, below a display frame, so the person still
    * sees the answer arrive as it is produced. That is the thing the delta protocol this branch deleted
    * was trying to do over HTTP.
@@ -866,7 +856,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     finishReason,
     steps,
     messageCount: history.length,
-    ...(target.historyUpToSeq !== undefined ? { historyUpToSeq: target.historyUpToSeq } : {}),
+    ...(target.messageSeq !== undefined ? { historyUpToSeq: target.messageSeq } : {}),
     toolNames: [...offeredTools].sort(),
     hostBlockChars
   })
@@ -941,7 +931,8 @@ export const driveTurn = async (
   closeBare: (failure: TurnFailure) => Promise<unknown>
 ): Promise<void> => {
   const abortController = new AbortController()
-  liveRuns.set(run.id, { controller: abortController, agentId: run.agentId, conversationId: run.conversationId })
+  const live: LiveRun = { controller: abortController, agentId: run.agentId, conversationId: run.conversationId }
+  liveRuns.set(run.id, live)
   // A stop received by another API process reaches this turn through its run document.
   const { initial: initialStopRead, stop: stopWatching } = watchStopRequests(run.id, abortController)
   // The run's telemetry and spend are held from here until finishRun writes them (see bufferRunWrites).
@@ -972,6 +963,7 @@ export const driveTurn = async (
     // It still opens its record, so it leaves its one settled message, but runs no gate and no model.
     await initialStopRead
     target = await open()
+    live.messageSeq = target.messageSeq
     const result = await Promise.race([performTurn(run, abortController.signal, target), deadline])
     await target.close(result)
   } catch (err) {
