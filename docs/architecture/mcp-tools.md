@@ -248,7 +248,7 @@ explicitly, which dev and intranet setups need; it still goes through the public
 and `https` is expected in production.
 
 - **Egress guard.** The connection goes through the web access module's `publicLookup`, so it reaches
-  public addresses only (`SSRF_PUBLIC_IPS` and `config.externalMcp.publicIps` declare exceptions) and
+  public addresses only (`SSRF_PUBLIC_IPS` declares exceptions, as for the web readers; `npm run dev-api` sets it to localhost) and
   **redirects are refused**: an endpoint cannot be used to reach the service's own network. Nothing
   credentialed is ever sent.
 - **Names.** Tools are named `<host slug>__<tool>` (host lowercased, non-alphanumerics folded to `_`, 30

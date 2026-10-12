@@ -22,8 +22,6 @@ export default {
   providers: [{ type: 'mock', id: 'global-mock', name: 'Global Mock', enabled: true }],
   models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
   defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } },
-  // the api tests play the external server on localhost
-  externalMcp: { publicIps: ['127.0.0.1', '::1'] },
   // The api-test MCP fixture (tests/support/mcp-fixture.ts) listens on this port. It is
   // DERIVED, not hardcoded: dev/init-env.sh assigns a RANDOM base port and allocates
   // base..base+22, so any literal port is free on one checkout and taken on another (and in

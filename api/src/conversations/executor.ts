@@ -164,7 +164,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   try {
   // External MCP servers: anonymous, egress-guarded, never the personal assistant's (see ./mcp-servers/external.ts).
     if (autonomousAgent.id !== PERSONAL_AGENT_ID && autonomousAgent.externalMcpServers?.length) {
-      external = await openExternalMcpTools(autonomousAgent.externalMcpServers, { publicIps: [...envPublicIps(), ...config.externalMcp.publicIps] })
+      external = await openExternalMcpTools(autonomousAgent.externalMcpServers, { publicIps: envPublicIps() })
     }
     const catalog: ToolSet = { ...listedTools, ...external?.tools }
     if (external) skippedServers.push(...external.skippedServers)

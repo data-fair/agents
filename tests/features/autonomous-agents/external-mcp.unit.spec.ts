@@ -1,7 +1,7 @@
 /**
  * unit tests of external MCP servers: what an admin may list, how their tools are named, and that the
  * client reaches public addresses only. The local MCP fixture plays the external server; localhost is
- * declared public to the client where a test needs to reach it, as config.externalMcp.publicIps does in dev.
+ * declared public to the client where a test needs to reach it, as SSRF_PUBLIC_IPS does for dev-api.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'

@@ -69,9 +69,6 @@ export type ApiConfig = {
     apiKeyHeader?: string;
     apiKey?: string;
   }[];
-  externalMcp: {
-    publicIps: string[];
-  };
   autonomousAgentsRequireAdminMode?: boolean;
   tasks: {
     /**

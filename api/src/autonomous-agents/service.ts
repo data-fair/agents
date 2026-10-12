@@ -177,7 +177,7 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
     : personSiteCredentials(undefined, undefined)
   const results = await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
   if (!autonomousAgent.externalMcpServers?.length) return { results, skipped: [] as SkippedServer[] }
-  const external = await listExternalToolDescriptors(autonomousAgent.externalMcpServers, { publicIps: [...envPublicIps(), ...config.externalMcp.publicIps] })
+  const external = await listExternalToolDescriptors(autonomousAgent.externalMcpServers, { publicIps: envPublicIps() })
   return { results: [...results, ...external.descriptors], skipped: external.skipped }
 }
 

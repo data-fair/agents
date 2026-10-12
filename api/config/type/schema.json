@@ -24,8 +24,7 @@
     "compactionPercent",
     "turnCredits",
     "turnTimeoutSeconds",
-    "tasks",
-    "externalMcp"
+    "tasks"
   ],
   "$defs": {
     "modelRef": {
@@ -121,15 +120,6 @@
           "apiKeyHeader": { "type": "string" },
           "apiKey": { "type": "string" }
         }
-      }
-    },
-    "externalMcp": {
-      "type": "object",
-      "default": { "publicIps": [] },
-      "additionalProperties": false,
-      "required": ["publicIps"],
-      "properties": {
-        "publicIps": { "type": "array", "default": [], "items": { "type": "string" } }
       }
     },
     "autonomousAgentsRequireAdminMode": { "type": "boolean", "default": true },
