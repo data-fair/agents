@@ -2,9 +2,10 @@
 
 Primitives for judged browser simulations of an [agents](https://github.com/data-fair/agents)
 chat: drive a real conversation with a simulated user in a real browser, capture
-what happened, and hand the transcript to a judge. It does not own cases, login,
-settings seeding, or the turn loop — those stay in the host repo, which knows
-its own routes, fixtures and account setup. It also ships a small Claude Code
+what happened, and hand the transcript to a judge. It owns the turn loop
+(`runSimulation`) and the agents side of the setup; cases, login and the host's
+own seeding stay in the host repo, which knows its own routes, fixtures and
+account setup. It also ships a small Claude Code
 bridge (a dev tool, not a simulation primitive) that exposes the Claude Agent
 SDK as an OpenAI-compatible provider, so a dev workspace can drive the assistant
 under test on a Claude subscription instead of a metered API key.
@@ -60,7 +61,64 @@ The command prints the package version it copied from so drift is at least
 detectable; without `--force` it skips a file that already exists rather than
 overwriting local edits.
 
+## Running cases in a data-fair host
+
+What data-fair, portals and catalogs share: the turn loop and its validity
+guards (`runSimulation`), the bridge settings of the simulation owner
+(`seedAgentsSettings`), the chat drawer helpers (`CHAT_FRAME`, `ensureChatOpen`),
+the Playwright config (`defineSimConfig`) and the report script (`reportCli`).
+
+```ts
+// playwright.sim.config.ts
+import 'dotenv/config'
+import { defineSimConfig } from '@data-fair/lib-agents-sim'
+
+export default defineSimConfig({ baseURL: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}` })
+```
+
+```ts
+// simulations/simulate.sim.spec.ts
+import { test } from '@playwright/test'
+import { runSimulation, seedAgentsSettings, selectCases, simCaseNames } from '@data-fair/lib-agents-sim'
+import { cases } from './cases/index.ts'
+
+for (const simCase of selectCases(cases, simCaseNames())) {
+  test(`simulation: ${simCase.name}`, async ({ page }) => {
+    await runSimulation(page, simCase, {
+      agentsUrl: `${ROOT}/agents`,
+      locale: 'fr',
+      // inside the run: a failure here is recorded as an invalid run
+      setup: async ({ assistantModel, toolsModel }) => {
+        await seedYourData()
+        await seedAgentsSettings(superadminAxios, `${ROOT}/agents`, OWNER, assistantModel, toolsModel)
+        await turnOnYourChat()
+        await loginAndGoTo(page, simCase.route)
+      },
+      perceptionRoots: [{ label: 'page', root: page, frames: true, cap: 16000 }]
+    })
+  })
+}
+```
+
+```ts
+// simulations/report.ts
+import { reportCli } from '@data-fair/lib-agents-sim'
+import { cases } from './cases/index.ts'
+
+reportCli(cases)
+```
+
+`runSimulation` reads `SIM_ASSISTANT_MODEL` (default `sonnet`), `SIM_TOOLS_MODEL`
+(default `haiku`, the background roles), `SIM_USER_MODEL` and `SIM_SUB_AGENTS=0`,
+and checks the bridge (`BRIDGE_URL`, or `BRIDGE_PORT`) before `setup`. It writes a
+pessimistic sidecar first, hands a `wait_for_user_action` over to the person,
+puts the actions of a silent pass back in the conversation, accepts dialogs (and
+says so in `consoleErrors`), and records a provider error, a cold Vite dev server,
+an empty transcript or no gateway exchange as an invalid run, then throws.
+
 ## Minimal runner example
+
+To write your own loop instead:
 
 A host repo owns the Playwright test that drives one case end to end. For a
 chat embedded in an iframe (the common case for a host application), pass
