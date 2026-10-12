@@ -7,13 +7,14 @@
 import { Router, type Request } from 'express'
 import { nanoid } from 'nanoid'
 import mongo from '#mongo'
-import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated, reqSiteUrl } from '@data-fair/lib-express'
+import { httpError, reqSiteUrl } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
+import { getAccountRole } from '@data-fair/lib-common-types/session/index.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
+import { reqAgent, reqAgentOwner, getMcpServerCatalog, assertKnownMcpServers, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
-import { buildNhi, canInstruct, type StoredNhi } from './operations.ts'
+import { buildNhi, type StoredNhi } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/live-runs.ts'
 import { normalizeAllowedUrls } from '../web/operations.ts'
 import { normalizeExternalMcpServers } from '../mcp-servers/operations.ts'
@@ -72,10 +73,7 @@ export default router
 // param route below, or Express matches it as an autonomous agent id.
 router.get('/:type/:id/mcp-servers', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
+    reqAgentOwner(req, 'admin')
     const results = getMcpServerCatalog()
     res.json({ results, count: results.length })
   } catch (err) { next(err) }
@@ -83,10 +81,7 @@ router.get('/:type/:id/mcp-servers', async (req, res, next) => {
 
 router.get('/:type/:id', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
+    const { owner } = reqAgentOwner(req, 'admin')
     const results = await mongo.autonomousAgents
       .find({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
       .sort({ updatedAt: -1 })
@@ -97,11 +92,7 @@ router.get('/:type/:id', async (req, res, next) => {
 
 router.post('/:type/:id', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
+    const { session, owner } = reqAgentOwner(req, 'write')
     const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
     assertKnownMcpServers(body.mcpServers)
 
@@ -141,18 +132,10 @@ router.post('/:type/:id', async (req, res, next) => {
  */
 router.get('/:type/:id/:agentId', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    // Fetched before authorization because canInstruct is a property of the agent (its instructors
-    // list), not of the account alone.
-    const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
-    if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
-    if (!canInstruct(autonomousAgent, session)) throw httpError(403, 'you are not allowed to instruct this autonomous agent')
-
-    const isOwnerAdmin = !!session.user.adminMode ||
-      (session.account.type === owner.type && session.account.id === owner.id && session.accountRole === 'admin')
-    if (isOwnerAdmin) { res.json(autonomousAgent); return }
+    const { session, owner, agent: autonomousAgent } = await reqAgent(req, 'instruct')
+    // The account's own rule, department included: an admin of one department of the organization is
+    // not an admin of an agent owned by the organization itself (the same reason as in canInstruct).
+    if (getAccountRole(session, owner) === 'admin') { res.json(autonomousAgent); return }
     const { nhi, instructors, ...instructable } = autonomousAgent
     res.json(instructable)
   } catch (err) { next(err) }
@@ -160,24 +143,14 @@ router.get('/:type/:id/:agentId', async (req, res, next) => {
 
 router.get('/:type/:id/:agentId/session', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
-    if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
+    const { agent: autonomousAgent } = await reqAgent(req, 'admin')
     res.json(await describeAutonomousAgentSession(autonomousAgent))
   } catch (err) { next(err) }
 })
 
 router.get('/:type/:id/:agentId/tools', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    const autonomousAgent = await getAutonomousAgent(owner, req.params.agentId)
-    if (!autonomousAgent) throw httpError(404, 'unknown autonomous agent')
+    const { agent: autonomousAgent } = await reqAgent(req, 'admin')
 
     const { results, skipped } = await describeAutonomousAgentTools(autonomousAgent)
     res.json({ results, count: results.length, skipped })
@@ -186,16 +159,9 @@ router.get('/:type/:id/:agentId/tools', async (req, res, next) => {
 
 router.put('/:type/:id/:agentId', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
+    const { owner, agent: existing } = await reqAgent(req, 'write')
     const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
     assertKnownMcpServers(body.mcpServers)
-
-    const existing = await getAutonomousAgent(owner, req.params.agentId)
-    if (!existing) throw httpError(404, 'unknown autonomous agent')
 
     // Keeps the captured site of an unchanged identity (see buildNhi): an admin saving from another of
     // the organization's hosts does not move the agent's home.
@@ -240,11 +206,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
 
 router.delete('/:type/:id/:agentId', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    reqWriteSession(req) // progressive-rollout gate, last: see reqWriteSession's doc comment
+    const { owner } = reqAgentOwner(req, 'write')
 
     const result = await mongo.autonomousAgents.deleteOne({ id: req.params.agentId, 'owner.type': owner.type, 'owner.id': owner.id })
     if (!result.deletedCount) throw httpError(404, 'unknown autonomous agent')

@@ -9,11 +9,10 @@
  */
 
 import { Router, type Request } from 'express'
-import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/task-write-req/index.ts'
-import { getAutonomousAgent, reqWriteSession, assertOrganizationOwner } from '../autonomous-agents/service.ts'
-import { canInstruct } from '../autonomous-agents/operations.ts'
+import { reqAgent } from '../autonomous-agents/service.ts'
 import mongo from '#mongo'
 import { listTasks, getTask, listRuns, getRun, type RunFilters, createTask, updateTask, deleteTask } from './service.ts'
 import { buildConversationExport } from '../review/operations.ts'
@@ -29,20 +28,10 @@ const actorOf = (req: Request) => {
   return { userId: session.user.id, userName: session.user.name }
 }
 
-const loadAgent = async (owner: AccountKeys, agentId: string) => {
-  const agent = await getAutonomousAgent(owner, agentId)
-  if (!agent) throw httpError(404, 'unknown autonomous agent')
-  return agent
-}
-
 // Reads: whoever may instruct the agent may see what it is planned to do on its own.
 router.get('/:type/:id/:agentId/tasks', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    const agent = await loadAgent(owner, req.params.agentId)
-    if (!canInstruct(agent, session)) throw httpError(403, 'you are not allowed to instruct this autonomous agent')
+    const { owner, agent } = await reqAgent(req, 'instruct')
     const results = await listTasks(owner, agent.id)
     res.json({ results, count: results.length })
   } catch (err) { next(err) }
@@ -50,11 +39,7 @@ router.get('/:type/:id/:agentId/tasks', async (req, res, next) => {
 
 router.get('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    const agent = await loadAgent(owner, req.params.agentId)
-    if (!canInstruct(agent, session)) throw httpError(403, 'you are not allowed to instruct this autonomous agent')
+    const { owner, agent } = await reqAgent(req, 'instruct')
     res.json(await getTask(owner, agent.id, req.params.taskId))
   } catch (err) { next(err) }
 })
@@ -62,11 +47,7 @@ router.get('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
 // Runs of an agent, newest first, without their content (prompt, parts, calls): a list to scan, not to read.
 router.get('/:type/:id/:agentId/runs', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    const agent = await loadAgent(owner, req.params.agentId)
+    const { owner, agent } = await reqAgent(req, 'admin')
     const q = req.query
     const str = (key: string) => typeof q[key] === 'string' ? q[key] as string : undefined
     const results = await listRuns(owner, agent.id, {
@@ -88,11 +69,7 @@ router.get('/:type/:id/:agentId/runs', async (req, res, next) => {
 // metadata, which points at its `conversationId` for the content.
 router.get('/:type/:id/:agentId/runs/:runId', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    const agent = await loadAgent(owner, req.params.agentId)
+    const { owner, agent } = await reqAgent(req, 'admin')
     const run = await getRun(owner, agent.id, req.params.runId)
     // A conversation run is metadata only here (its content is the conversation's, read elsewhere): without
     // the telemetry and system prompt, as in the list.
@@ -109,11 +86,7 @@ router.get('/:type/:id/:agentId/runs/:runId', async (req, res, next) => {
 // A task run's JSONL, the same file as a conversation's export: its content presented as two messages.
 router.get('/:type/:id/:agentId/runs/:runId/export', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    const agent = await loadAgent(owner, req.params.agentId)
+    const { owner, agent } = await reqAgent(req, 'admin')
     const run = await getRun(owner, agent.id, req.params.runId)
     if (run.kind !== 'task') throw httpError(404, 'only a task run is exported here; a conversation is exported from its review page')
     const task = run.taskId ? await mongo.autonomousAgentTasks.findOne({ id: run.taskId }, { projection: { _id: 0, title: 1 } }) : null
@@ -134,11 +107,7 @@ router.get('/:type/:id/:agentId/runs/:runId/export', async (req, res, next) => {
 // process that does hold it stops it within a few seconds. A conversation turn is stopped from its chat.
 router.post('/:type/:id/:agentId/runs/:runId/abort', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    const agent = await loadAgent(owner, req.params.agentId)
+    const { owner, agent } = await reqAgent(req, 'admin')
     const run = await getRun(owner, agent.id, req.params.runId)
     if (run.kind !== 'task') throw httpError(404, 'a conversation turn is stopped from its chat')
     // `aborted: true` when this process stopped the run or a stop was recorded on a still-running run
@@ -152,13 +121,8 @@ router.post('/:type/:id/:agentId/runs/:runId/abort', async (req, res, next) => {
 // Writes: admin of the owning account, behind the progressive-rollout gate (last, see reqWriteSession).
 router.post('/:type/:id/:agentId/tasks', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    reqWriteSession(req)
+    const { owner, agent } = await reqAgent(req, 'write')
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
-    const agent = await loadAgent(owner, req.params.agentId)
     const task = await createTask(owner, agent, body, actorOf(req), { req })
     res.status(201).json(task)
   } catch (err) { next(err) }
@@ -166,13 +130,8 @@ router.post('/:type/:id/:agentId/tasks', async (req, res, next) => {
 
 router.put('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    reqWriteSession(req)
+    const { owner, agent } = await reqAgent(req, 'write')
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
-    const agent = await loadAgent(owner, req.params.agentId)
     const task = await updateTask(owner, agent, req.params.taskId, body, actorOf(req), { req })
     res.json(task)
   } catch (err) { next(err) }
@@ -182,12 +141,7 @@ router.put('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
 // is going — an admin pressing the button wants to know it did not run.
 router.post('/:type/:id/:agentId/tasks/:taskId/run', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    reqWriteSession(req)
-    const agent = await loadAgent(owner, req.params.agentId)
+    const { owner, agent } = await reqAgent(req, 'write')
     const task = await getTask(owner, agent.id, req.params.taskId)
     if (await isTaskRunning(task.id)) throw httpError(409, PREVIOUS_RUN_STILL_RUNNING)
     const started = await startTaskRun(task, 'manual', { by: actorOf(req) })
@@ -202,12 +156,7 @@ router.post('/:type/:id/:agentId/tasks/:taskId/run', async (req, res, next) => {
 
 router.delete('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
   try {
-    const session = reqSessionAuthenticated(req)
-    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    assertOrganizationOwner(owner)
-    assertAccountRole(session, owner, 'admin')
-    reqWriteSession(req)
-    const agent = await loadAgent(owner, req.params.agentId)
+    const { owner, agent } = await reqAgent(req, 'write')
     await deleteTask(owner, agent.id, req.params.taskId, { req })
     res.status(204).send()
   } catch (err) { next(err) }

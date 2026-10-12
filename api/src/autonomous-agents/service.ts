@@ -4,7 +4,7 @@
 
 import mongo from '#mongo'
 import config from '#config'
-import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated, assertAccountRole } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { listMcpServerCatalog, unknownMcpServerIds, personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { getAutonomousAgentSession, agentSiteCredentials, forgetAccountSites, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
@@ -15,6 +15,7 @@ import { envPublicIps } from '../web/public-lookup.ts'
 import { agentStoreId } from '../memory/operations.ts'
 import { deleteMemoryStore } from '../memory/service.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { canInstruct } from './operations.ts'
 
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
 // it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
@@ -70,6 +71,36 @@ export const getAutonomousAgent = async (owner: AccountKeys, id: string) => {
  */
 export const reqWriteSession = (req: Request) => {
   return config.autonomousAgentsRequireAdminMode ? reqAdminMode(req) : reqSessionAuthenticated(req)
+}
+
+/**
+ * The opening of every route under an organization's agents: the owner from the path, which must be an
+ * organization (assertOrganizationOwner), then the caller — `admin` of that account, or `write`: admin
+ * and, last, the progressive-rollout gate (reqWriteSession).
+ */
+export const reqAgentOwner = (req: Request, access: 'admin' | 'write') => {
+  const session = reqSessionAuthenticated(req)
+  const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+  assertOrganizationOwner(owner)
+  assertAccountRole(session, owner, 'admin')
+  if (access === 'write') reqWriteSession(req)
+  return { session, owner }
+}
+
+/**
+ * The same for a route naming one agent (`:agentId`), which it loads: 404 when unknown. `instruct` lets in
+ * whoever may instruct the agent (canInstruct, a property of the agent, so checked once it is loaded) —
+ * an instructor of another account included.
+ */
+export const reqAgent = async (req: Request, access: 'instruct' | 'admin' | 'write') => {
+  const { session, owner } = access === 'instruct'
+    ? { session: reqSessionAuthenticated(req), owner: { type: req.params.type, id: req.params.id } as AccountKeys }
+    : reqAgentOwner(req, access)
+  assertOrganizationOwner(owner)
+  const agent = await getAutonomousAgent(owner, String(req.params.agentId))
+  if (!agent) throw httpError(404, 'unknown autonomous agent')
+  if (access === 'instruct' && !canInstruct(agent, session)) throw httpError(403, 'you are not allowed to instruct this autonomous agent')
+  return { session, owner, agent }
 }
 
 /** 400 naming every unknown server id, rather than storing a reference that can never resolve. */

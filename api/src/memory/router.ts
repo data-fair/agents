@@ -7,9 +7,9 @@
  */
 import mongo from '#mongo'
 import { Router } from 'express'
-import { type AccountKeys, assertAccountRole, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { httpError } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
-import { assertOrganizationOwner, getAutonomousAgent, reqWriteSession } from '../autonomous-agents/service.ts'
+import { reqAgent } from '../autonomous-agents/service.ts'
 import { agentStoreId, MEMORY_LIMITS, normalizeMemoryPath, MemoryCommandError, MemoryConflictError } from './operations.ts'
 import { loadMemory, writeMemoryAsUser, deleteMemoryAsUser, listMemoryVersions, restoreMemoryVersion, redactMemoryVersion } from './service.ts'
 
@@ -21,13 +21,7 @@ export default router
  * deletion by another admin can leave an orphan store: accepted (a re-created agent has a new id).
  */
 const requireAgentAdmin = async (req: any, write: boolean) => {
-  const session = reqSessionAuthenticated(req)
-  const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-  assertOrganizationOwner(owner)
-  assertAccountRole(session, owner, 'admin')
-  if (write) reqWriteSession(req)
-  const agent = await getAutonomousAgent(owner, req.params.agentId)
-  if (!agent) throw httpError(404, 'unknown autonomous agent')
+  const { session, owner, agent } = await reqAgent(req, write ? 'write' : 'admin')
   return { owner, agent, storeId: agentStoreId(agent.id), user: { id: session.user.id, name: session.user.name } }
 }
 
