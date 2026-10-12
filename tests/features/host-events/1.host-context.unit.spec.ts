@@ -9,7 +9,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { HostEventStore, withHostContext, HOST_STATE_OPEN, HOST_EVENTS_OPEN } from '@agents/shared/host-events'
+import { HostEventStore, withHostContext, HOST_STATE_OPEN, HOST_EVENTS_OPEN } from '../../../api/src/agent-session/host-events.ts'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
 
 /**

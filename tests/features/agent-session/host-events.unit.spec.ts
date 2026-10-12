@@ -8,7 +8,8 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { createAgentSession } from '../../../api/src/agent-session/session.ts'
-import { formatHostState, WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
+import { formatHostState } from '../../../api/src/agent-session/host-events.ts'
 import { parseClientMessage } from '@agents/shared/agent-session-protocol'
 
 const sessionWith = () => createAgentSession({ send: () => {} })

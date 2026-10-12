@@ -81,7 +81,7 @@ the person's language, organization, whether the surface is narrow, whether diag
 render). These used to be concatenated into a client-built system prompt; the prompt is
 the server's now, and as state the next turn simply sees a changed value.
 
-## Consuming (`shared/host-events.ts`, `api/src/agent-session/session.ts`)
+## Consuming (`api/src/agent-session/host-events.ts`, `api/src/agent-session/session.ts`)
 
 Each agent session (one socket) owns one `HostEventStore`. `host-events` frames are
 `push()`ed as they come; a `host-state` frame pushes each key as a keyed event, and a
@@ -147,7 +147,7 @@ publishes without a browser.
 
 ## `wait_for_user_action`
 
-A loop-provided tool (`WAIT_TOOL_NAME`, built by `createWaitTool` in `shared/host-events.ts`),
+A loop-provided tool (`WAIT_TOOL_NAME`, built by `createWaitTool` in `api/src/agent-session/host-events.ts`),
 added to a turn's tool set whenever an agent session is attached — someone is there to act. It
 is a fixed tool of the lead's set; sub-agent workers only receive the tools they reserve.
 `{ message, expecting }`. `message` is the model's reply to the person — what is ready and what

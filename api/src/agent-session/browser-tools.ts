@@ -16,7 +16,7 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import { withProvenance } from '../conversations/operations.ts'
 import type { BrowserToolDescriptor } from '@agents/shared/agent-session-protocol'
 import type { AgentSession } from './session.ts'
-import { appendHostEvents } from '@agents/shared/host-events'
+import { appendHostEvents } from './host-events.ts'
 
 /**
  * The server name a page tool's provenance envelope carries.

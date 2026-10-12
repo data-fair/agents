@@ -309,7 +309,7 @@ import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, m
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import ApprovalCard from './ApprovalCard.vue'
-import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/utils/chat-message'
 import { activityLabelKey, type ChatActivity } from '@agents/shared/agent-activity'

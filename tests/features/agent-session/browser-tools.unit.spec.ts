@@ -11,7 +11,7 @@ import { browserToolSet, describeBrowserTools, BROWSER_TOOL_SERVER } from '../..
 import { toDescriptors } from '../../../ui/src/composables/use-agent-session.ts'
 import { createAgentSession } from '../../../api/src/agent-session/session.ts'
 import { tool, jsonSchema } from 'ai'
-import { HostEventStore } from '@agents/shared/host-events'
+import { HostEventStore } from '../../../api/src/agent-session/host-events.ts'
 import type { AgentSession } from '../../../api/src/agent-session/session.ts'
 
 /** A session that answers every browser call with a fixed value, or throws. */

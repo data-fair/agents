@@ -7,7 +7,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { repairWaitInput, waitHandover } from '../../../shared/host-events.ts'
+import { repairWaitInput, waitHandover } from '../../../api/src/agent-session/host-events.ts'
 
 test.describe('waitHandover', () => {
   test('a wait shows its message when the step wrote none', () => {

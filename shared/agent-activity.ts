@@ -6,6 +6,9 @@
  * component (which renders it).
  */
 
+/** The loop-provided tool a turn hands control to the person with (api/src/agent-session/host-events.ts). */
+export const WAIT_TOOL_NAME = 'wait_for_user_action'
+
 export type ChatActivity =
   // Compacting the history before the turn starts.
   | { kind: 'compacting' }

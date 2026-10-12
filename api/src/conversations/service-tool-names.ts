@@ -5,7 +5,7 @@
  * Reserved: a page registering a tool by one of these names, or a sub-agent config naming one, must not
  * displace the service's tool — the person would be answered by the page's, under the service's name.
  */
-import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import { MEMORY_TOOL_NAME } from '../memory/operations.ts'
 import { WEB_TOOL_NAMES } from '../web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../mcp-servers/operations.ts'

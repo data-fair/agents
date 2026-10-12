@@ -1,11 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import {
-  HostEventStore, RECENT_MAX, PENDING_MAX, STATE_MAX_KEYS,
-  formatHostEvents, formatHostState, hasHostState, appendHostEvents,
-  HOST_EVENTS_OPEN, HOST_EVENTS_CLOSE, HOST_STATE_OPEN, HOST_STATE_CLOSE, createWaitTool, WAIT_ACCEPTED,
-  LOCATION_KEY, resolvesWait
-} from '@agents/shared/host-events'
+import { HostEventStore, RECENT_MAX, PENDING_MAX, STATE_MAX_KEYS, formatHostEvents, formatHostState, hasHostState, appendHostEvents, HOST_EVENTS_OPEN, HOST_EVENTS_CLOSE, HOST_STATE_OPEN, HOST_STATE_CLOSE, createWaitTool, WAIT_ACCEPTED, LOCATION_KEY, resolvesWait } from '../../../api/src/agent-session/host-events.ts'
 import { AGENT_LOCATION_KEY } from '../../../lib-vue/agent-location.ts'
 import { wrapHiddenContext, splitHiddenContext } from '../../../shared/hidden-context.ts'
 

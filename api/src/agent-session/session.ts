@@ -13,7 +13,7 @@
 
 import { nanoid } from 'nanoid'
 import type { BrowserToolDescriptor, ClientMessage, ServerMessage } from '@agents/shared/agent-session-protocol'
-import { HostEventStore } from '@agents/shared/host-events'
+import { HostEventStore } from './host-events.ts'
 
 /** How long the server waits for the browser to answer a contextual tool call. */
 export const BROWSER_CALL_TIMEOUT_MS = 30_000

@@ -13,7 +13,7 @@
  */
 import type { ModelMessage } from 'ai'
 import type { MessagePart } from '@agents/shared/message-parts'
-import { WAIT_TOOL_NAME } from '@agents/shared/host-events'
+import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 
 /**
  * Why a turn was stopped. The same value is the turn's abort reason (TurnStopped) and, for a stop asked

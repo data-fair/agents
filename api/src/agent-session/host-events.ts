@@ -27,7 +27,6 @@ export const HOST_EVENTS_OPEN = '<host-events>'
 export const HOST_EVENTS_CLOSE = '</host-events>'
 export const HOST_STATE_OPEN = '<host-state>'
 export const HOST_STATE_CLOSE = '</host-state>'
-export const WAIT_TOOL_NAME = 'wait_for_user_action'
 
 export interface WaitInput { message: string, expecting?: string }
 
