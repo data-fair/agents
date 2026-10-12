@@ -71,26 +71,9 @@ function isLoopGuardNudge (content: unknown): boolean {
   return /with the same arguments \d+ times in a row/i.test(messageText(content))
 }
 
-/**
- * Unwrap the autonomous runtime's attribution envelope.
- *
- * Every instructor turn is replayed as `<message from="..." user-id="...">…</message>` so the model
- * cannot be fooled about who wrote it. A real provider sees that envelope; the mock's TEST SEAMS want
- * the text a test actually typed.
- *
- * Stripped once here rather than in each matcher: `endsWithCommand` looks at the end of the message and
- * `commandLine` at its last line, and with the envelope in place both saw `</message>` — so directives
- * silently stopped matching and every seam fell through to "what do you mean ?". One strip at extraction
- * keeps whole-message equality, endsWithCommand and commandLine all working unchanged.
- */
-const stripAttributionEnvelope = (text: string): string => {
-  const match = /^<message\b[^>]*>\n([\s\S]*)\n<\/message>$/.exec(text.trim())
-  return match ? match[1] : text
-}
-
 function getLastUserMessage (options: { prompt: string | Array<any> }): string {
   if (typeof options.prompt === 'string') {
-    return stripAttributionEnvelope(options.prompt)
+    return options.prompt
   }
   if (Array.isArray(options.prompt)) {
     // The client's loop guard injects a per-step "you have called X with the same
@@ -103,11 +86,11 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
     if (lastUserMsg) {
       const content = lastUserMsg.content
       if (typeof content === 'string') {
-        return stripAttributionEnvelope(content)
+        return content
       }
       if (Array.isArray(content)) {
         const textPart = content.find((c: any) => c.type === 'text') as any
-        return stripAttributionEnvelope(textPart?.text || '')
+        return textPart?.text || ''
       }
     }
   }

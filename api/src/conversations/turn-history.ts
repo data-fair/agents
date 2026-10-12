@@ -12,7 +12,7 @@ import { generateText, type ModelMessage } from 'ai'
 import Debug from 'debug'
 import type { Conversation } from '#types'
 import type { UsageIdentity } from '../usage/enforce.ts'
-import { decideContextManagement, clearOldToolResults } from './compaction-policy.ts'
+import { decideContextManagement, clearOldToolResults, estimateTokens } from './compaction-policy.ts'
 import { compactionSystemPrompt, recapMessage } from './compaction-prompt.ts'
 import { storedTurnsToModelMessages, alignCutToStoredMessage, redactModelMedia, type ConversationTurnRun } from './operations.ts'
 import { saveCompaction } from './service.ts'
@@ -86,11 +86,9 @@ export const loadHistory = async (
  * is unit tested. This is where it is APPLIED: it rebuilds from stored parts and persists a recap. See
  * docs/architecture/context-management.md.
  *
- * There is no provider-reported measurement of a previous turn to
- * work from — there is no prior response object in hand — so the whole history counts as
- * unmeasured and the decision runs on the character estimate alone. That is conservative in
- * the safe direction: it can compact slightly early, never slightly late. Expressed as a
- * PARAMETER to the shared decision (`lastInputTokens: 0`), not as a second implementation.
+ * There is no provider-reported measurement of a previous turn to work from — there is no prior
+ * response object in hand — so the decision runs on the character estimate of the whole history. That
+ * is conservative in the safe direction: it can compact slightly early, never slightly late.
  *
  * A failure here is non-fatal. Continuing with the full history risks a context-overflow
  * error from the provider, which the caller turns into a message; losing the turn entirely
@@ -110,9 +108,8 @@ export const compactHistory = async (
   if (!budget) return { messages: loaded.messages, credits: 0 }
   const { history, clearing, compaction: decision } = decideContextManagement({
     history: loaded.messages,
-    lastInputTokens: 0,
     // Measured with images as placeholders: base64 counted as text would overstate the fill wildly.
-    appendedChars: JSON.stringify(redactModelMedia(loaded.messages)).length,
+    fillTokens: estimateTokens(JSON.stringify(redactModelMedia(loaded.messages)).length),
     budget,
     // The REAL generation, read from the persisted recap. It was hardcoded to 0, which told the
     // summarizer every time that it was seeing raw exchanges — so a chained compaction was asked to

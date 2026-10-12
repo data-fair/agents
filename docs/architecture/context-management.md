@@ -97,9 +97,9 @@ re-evaluated between the steps of a turn.
 - **History is rebuilt from stored parts** every turn (`storedTurnsToModelMessages`), starting after the
   persisted recap when there is one, together with a parallel `seqs` array mapping each model message
   back to its stored message.
-- **Measurement**: there is no prior response object in hand, so the decision is called with
-  `lastInputTokens: 0` and the whole rebuilt history counted as unmeasured characters. It is
-  conservative in the safe direction: the loop can compact slightly early, never slightly late.
+- **Measurement**: there is no prior response object in hand, so the decision runs on a character
+  estimate of the whole rebuilt history. It is conservative in the safe direction: the loop can compact
+  slightly early, never slightly late.
 - **The recap is persisted** on the conversation (`compaction.summary`, `generation`, `coversUpToSeq`,
   via `saveCompaction`), and the cut is aligned to a stored-message boundary (`alignCutToStoredMessage`)
   so the recap can be keyed on a `seq`.
@@ -177,19 +177,17 @@ budget = floor(contextWindow × compactionPercent / 100)
 The decision estimates fill rather than counting tokens exactly:
 
 ```
-fill = lastInputTokens + estimateTokens(appendedChars)
+fillTokens = estimateTokens(length of the serialized rebuilt history, images as placeholders)
 ```
 
-`estimateTokens` converts characters at a fixed 4 per token (`CHARS_PER_TOKEN`). The formula can take a
-provider-reported measurement of a previous turn (`lastInputTokens`, which would include the system prompt
-and tool schemas), but the server loop never has one: it passes `lastInputTokens: 0` and the length of the
-whole serialized rebuilt history as `appendedChars`. So in practice fill is an estimate over the history
-alone, which leaves out the system prompt and tool schemas — another reason the budget sits well below the
-window. After a tier-1 clear the policy re-measures the cleared history the same way.
+`estimateTokens` converts characters at a fixed 4 per token (`CHARS_PER_TOKEN`). There is no
+provider-reported measurement to start from when a turn is assembled, so fill is an estimate over the
+history alone, which leaves out the system prompt and tool schemas — another reason the budget sits well
+below the window. After a tier-1 clear the policy re-measures the cleared history the same way.
 
 The decision module is free of I/O so every branch is unit tested
-(`tests/features/chat-hang/compaction-policy.unit.spec.ts`). It takes `history`, `lastInputTokens`,
-`appendedChars`, `budget` and `generation` and returns the history to send (with any cleared payloads
+(`tests/features/chat-hang/compaction-policy.unit.spec.ts`). It takes `history`, `fillTokens`,
+`budget` and `generation` and returns the history to send (with any cleared payloads
 applied) plus either "don't compact" (with a reason) or a prefix to summarise and a window to retain.
 
 ## Reference: the summarizer call
@@ -224,7 +222,7 @@ sequenceDiagram
   Hist->>Store: recap + messages after coversUpToSeq
   Hist-->>Loop: { messages, seqs, generation }
   Loop->>Hist: compactHistory(loaded, budget)
-  Hist->>Policy: decideContextManagement({ history, lastInputTokens: 0, appendedChars, budget, generation })
+  Hist->>Policy: decideContextManagement({ history, fillTokens, budget, generation })
   alt fill <= budget
     Policy-->>Hist: nothing to do
   else over budget

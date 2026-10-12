@@ -7,7 +7,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { browserToolSet, describeBrowserTools, BROWSER_TOOL_SERVER } from '../../../api/src/agent-session/browser-tools.ts'
+import { browserToolSet, BROWSER_TOOL_SERVER } from '../../../api/src/agent-session/browser-tools.ts'
 import { toDescriptors } from '../../../ui/src/composables/use-agent-session.ts'
 import { createAgentSession } from '../../../api/src/agent-session/session.ts'
 import { tool, jsonSchema } from 'ai'
@@ -147,14 +147,5 @@ test.describe('the bridge against a real session object', () => {
     const tools = browserToolSet(session, [{ name: 'select_row' }])
     session.handle({ type: 'tools-changed', tools: [] })
     await assert.rejects(run(tools, 'select_row'), /does not offer a tool named select_row/)
-  })
-})
-
-test.describe('describeBrowserTools', () => {
-  test('names and descriptions only, never the schemas', () => {
-    assert.deepEqual(
-      describeBrowserTools([{ name: 'a', description: 'the a', inputSchema: { type: 'object' } }, { name: 'b' }]),
-      [{ name: 'a', description: 'the a' }, { name: 'b', description: '' }]
-    )
   })
 })

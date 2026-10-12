@@ -72,10 +72,9 @@ test.describe('reading a config through the tool path', () => {
       query_data: fake('rows')
     }
     const { built, build } = recordingBuilder()
-    const { configs } = await partitionSubAgents(tools, build)
+    await partitionSubAgents(tools, build)
     assert.deepEqual(seen, [{ task: '' }], 'called with a value its schema accepts')
-    assert.deepEqual(Object.keys(configs), [`${SUBAGENT_PREFIX}analyst`])
-    assert.equal(built.length, 1, 'and the delegation was built')
+    assert.deepEqual(built.map(b => b.name), [`${SUBAGENT_PREFIX}analyst`], 'and the delegation was built')
   })
 
   test('a config wrapped in the provenance envelope still parses', () => {
@@ -101,9 +100,8 @@ test.describe('partitionSubAgents', () => {
 
   test('removes a worker\'s reserved tools from the main set', async () => {
     const { build } = recordingBuilder()
-    const { mainTools, reserved } = await partitionSubAgents(toolSet(), build)
+    const mainTools = await partitionSubAgents(toolSet(), build)
     assert.deepEqual(Object.keys(mainTools).sort(), ['set_display', 'subagent_analyst'])
-    assert.deepEqual(reserved.sort(), ['get_schema', 'query_data'])
   })
 
   test('hands the worker exactly its declared tools', async () => {
@@ -134,9 +132,8 @@ test.describe('partitionSubAgents', () => {
       wipe: { ...fake('wiped'), needsApproval: true } as Tool,
       [`${SUBAGENT_PREFIX}analyst`]: subAgentTool({ prompt: 'p', tools: ['query_data', 'wipe'] })
     }
-    const { mainTools, reserved } = await partitionSubAgents(tools, build)
+    const mainTools = await partitionSubAgents(tools, build)
     assert.deepEqual(built[0].tools, ['query_data'])
-    assert.deepEqual(reserved, ['query_data'])
     assert.ok('wipe' in mainTools, 'the lead keeps it, where the gate asks the person')
   })
 
@@ -147,9 +144,8 @@ test.describe('partitionSubAgents', () => {
       memory: fake('mem'),
       [`${SUBAGENT_PREFIX}analyst`]: subAgentTool({ prompt: 'p', tools: ['query_data', 'memory'] })
     }
-    const { mainTools, reserved } = await partitionSubAgents(tools, build)
+    const mainTools = await partitionSubAgents(tools, build)
     assert.deepEqual(built[0].tools, ['query_data'])
-    assert.deepEqual(reserved, ['query_data'])
     assert.ok('memory' in mainTools, 'the lead keeps it')
   })
 
@@ -160,17 +156,15 @@ test.describe('partitionSubAgents', () => {
       wait_for_user_action: fake('wait'),
       [`${SUBAGENT_PREFIX}analyst`]: subAgentTool({ prompt: 'p', tools: ['query_data', 'wait_for_user_action'] })
     }
-    const { mainTools, reserved } = await partitionSubAgents(tools, build)
+    const mainTools = await partitionSubAgents(tools, build)
     assert.deepEqual(built[0].tools, ['query_data'])
-    assert.deepEqual(reserved, ['query_data'])
     assert.ok('wait_for_user_action' in mainTools, 'the lead keeps it')
   })
 
   test('a subagent tool returning nonsense is left as an ordinary tool', async () => {
     const { built, build } = recordingBuilder()
     const tools = { [`${SUBAGENT_PREFIX}broken`]: fake('not a config'), keep_me: fake('x') }
-    const { mainTools, configs } = await partitionSubAgents(tools, build)
-    assert.deepEqual(configs, {})
+    const mainTools = await partitionSubAgents(tools, build)
     assert.equal(built.length, 0)
     // Still absent from the main set: a `subagent_*` tool whose config could not be read would
     // otherwise hand the model a config blob as if it were a result.
@@ -189,7 +183,7 @@ test.describe('partitionSubAgents', () => {
       }),
       keep_me: fake('x')
     }
-    const { mainTools } = await partitionSubAgents(tools, build)
+    const mainTools = await partitionSubAgents(tools, build)
     assert.deepEqual(Object.keys(mainTools), ['keep_me'])
   })
 
@@ -202,10 +196,9 @@ test.describe('partitionSubAgents', () => {
       [`${SUBAGENT_PREFIX}analyst`]: subAgentTool({ prompt: 'a', tools: ['query_data'] }),
       [`${SUBAGENT_PREFIX}writer`]: subAgentTool({ prompt: 'w', tools: ['format_text'] })
     }
-    const { mainTools, reserved } = await partitionSubAgents(tools, build)
+    const mainTools = await partitionSubAgents(tools, build)
     assert.deepEqual(Object.keys(mainTools).sort(), ['set_display', 'subagent_analyst', 'subagent_writer'])
-    assert.deepEqual(reserved.sort(), ['format_text', 'query_data'])
-    assert.equal(built.length, 2)
+    assert.deepEqual(built.map(b => b.tools), [['query_data'], ['format_text']])
   })
 
   test('a tool reserved by two workers is given to both and removed once', async () => {
@@ -215,18 +208,17 @@ test.describe('partitionSubAgents', () => {
       [`${SUBAGENT_PREFIX}a`]: subAgentTool({ prompt: 'a', tools: ['query_data'] }),
       [`${SUBAGENT_PREFIX}b`]: subAgentTool({ prompt: 'b', tools: ['query_data'] })
     }
-    const { mainTools } = await partitionSubAgents(tools, build)
+    const mainTools = await partitionSubAgents(tools, build)
     assert.deepEqual(Object.keys(mainTools).sort(), ['subagent_a', 'subagent_b'])
     assert.deepEqual(built.map(b => b.tools), [['query_data'], ['query_data']])
   })
 
   test('a tool set with no sub-agents is passed through unchanged', async () => {
-    const { build } = recordingBuilder()
+    const { built, build } = recordingBuilder()
     const tools = { a: fake('1'), b: fake('2') }
-    const { mainTools, reserved, configs } = await partitionSubAgents(tools, build)
+    const mainTools = await partitionSubAgents(tools, build)
     assert.deepEqual(Object.keys(mainTools).sort(), ['a', 'b'])
-    assert.deepEqual(reserved, [])
-    assert.deepEqual(configs, {})
+    assert.equal(built.length, 0)
   })
 })
 

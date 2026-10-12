@@ -43,17 +43,10 @@ function conversation (turns: number, chars = 400): ModelMessage[] {
 test.describe('decideCompaction — trigger', () => {
   test('under budget → no compaction', () => {
     const d = decideCompaction({
-      history: conversation(3), lastInputTokens: 1000, appendedChars: 0, budget: 140000, generation: 0
+      history: conversation(3), fillTokens: 1000, budget: 140000, generation: 0
     })
     assert.equal(d.compact, false)
     assert.equal(d.reason, 'under-budget')
-  })
-
-  test('the appended-chars estimate can push fill over budget on its own', () => {
-    const d = decideCompaction({
-      history: conversation(40), lastInputTokens: 900, appendedChars: 1200, budget: 1000, generation: 0
-    })
-    assert.equal(d.compact, true)
   })
 
   test('fill uses the provider total, not the serialized history length', () => {
@@ -61,7 +54,7 @@ test.describe('decideCompaction — trigger', () => {
     // A character-only measure would also have to know about the system prompt and
     // tool schemas to reach the same conclusion; this one gets them for free.
     const d = decideCompaction({
-      history: conversation(150), lastInputTokens: 35000, appendedChars: 0, budget: 30000, generation: 0
+      history: conversation(150), fillTokens: 35000, budget: 30000, generation: 0
     })
     assert.equal(d.compact, true)
   })
@@ -70,7 +63,7 @@ test.describe('decideCompaction — trigger', () => {
     // The prompt is dominated by the system prompt and tool schemas, not by history.
     // Compaction has nothing to reclaim and must not burn a summarizer call saying so.
     const d = decideCompaction({
-      history: conversation(20), lastInputTokens: 150000, appendedChars: 0, budget: 140000, generation: 0
+      history: conversation(20), fillTokens: 150000, budget: 140000, generation: 0
     })
     assert.equal(d.compact, false)
     assert.equal(d.reason, 'nothing-to-compact')
@@ -80,7 +73,7 @@ test.describe('decideCompaction — trigger', () => {
 test.describe('decideCompaction — guards', () => {
   test('empty history → nothing to compact', () => {
     const d = decideCompaction({
-      history: [], lastInputTokens: 999999, appendedChars: 0, budget: 1000, generation: 0
+      history: [], fillTokens: 999999, budget: 1000, generation: 0
     })
     assert.equal(d.compact, false)
     assert.equal(d.reason, 'nothing-to-compact')
@@ -88,7 +81,7 @@ test.describe('decideCompaction — guards', () => {
 
   test('a single user message → nothing to compact', () => {
     const d = decideCompaction({
-      history: [userMsg('hello')], lastInputTokens: 999999, appendedChars: 0, budget: 1000, generation: 0
+      history: [userMsg('hello')], fillTokens: 999999, budget: 1000, generation: 0
     })
     assert.equal(d.compact, false)
     assert.equal(d.reason, 'nothing-to-compact')
@@ -99,7 +92,7 @@ test.describe('decideCompaction — guards', () => {
     // all but the first two messages, so the prefix is ~216 tokens — under the
     // 300-token floor. Summarizing that costs more than the context it reclaims.
     const d = decideCompaction({
-      history: conversation(3), lastInputTokens: 2000, appendedChars: 0, budget: 1500, generation: 0
+      history: conversation(3), fillTokens: 2000, budget: 1500, generation: 0
     })
     assert.equal(d.compact, false)
     assert.equal(d.reason, 'below-floor')
@@ -107,7 +100,7 @@ test.describe('decideCompaction — guards', () => {
 
   test('everything fitting in the retention window → nothing to compact', () => {
     const d = decideCompaction({
-      history: conversation(2), lastInputTokens: 200000, appendedChars: 0, budget: 140000, generation: 0
+      history: conversation(2), fillTokens: 200000, budget: 140000, generation: 0
     })
     assert.equal(d.compact, false)
     assert.equal(d.reason, 'nothing-to-compact')
@@ -118,7 +111,7 @@ test.describe('decideCompaction — what survives', () => {
   test('keeps the last user message and recent turns verbatim', () => {
     const history = [...conversation(60), userMsg('the latest question')]
     const d = decideCompaction({
-      history, lastInputTokens: 200000, appendedChars: 0, budget: 20000, generation: 0
+      history, fillTokens: 200000, budget: 20000, generation: 0
     })
     assert.equal(d.compact, true)
     if (!d.compact) return
@@ -130,7 +123,7 @@ test.describe('decideCompaction — what survives', () => {
   test('prefix and retained partition the history exactly, in order', () => {
     const history = [...conversation(60), userMsg('latest')]
     const d = decideCompaction({
-      history, lastInputTokens: 200000, appendedChars: 0, budget: 20000, generation: 0
+      history, fillTokens: 200000, budget: 20000, generation: 0
     })
     assert.equal(d.compact, true)
     if (!d.compact) return
@@ -141,7 +134,7 @@ test.describe('decideCompaction — what survives', () => {
     const history = [...conversation(200), userMsg('latest')]
     const budget = 20000
     const d = decideCompaction({
-      history, lastInputTokens: 200000, appendedChars: 0, budget, generation: 0
+      history, fillTokens: 200000, budget, generation: 0
     })
     assert.equal(d.compact, true)
     if (!d.compact) return
@@ -152,7 +145,7 @@ test.describe('decideCompaction — what survives', () => {
   test('generation increments', () => {
     const history = [...conversation(60), userMsg('latest')]
     const d = decideCompaction({
-      history, lastInputTokens: 200000, appendedChars: 0, budget: 20000, generation: 2
+      history, fillTokens: 200000, budget: 20000, generation: 2
     })
     assert.equal(d.compact, true)
     if (!d.compact) return
@@ -183,7 +176,7 @@ test.describe('turn boundaries — a tool call is never split from its result', 
     history.push(userMsg('latest'))
 
     const d = decideCompaction({
-      history, lastInputTokens: 500000, appendedChars: 0, budget: 20000, generation: 0
+      history, fillTokens: 500000, budget: 20000, generation: 0
     })
     assert.equal(d.compact, true)
     if (!d.compact) return
@@ -213,7 +206,7 @@ test.describe('turn boundaries — a tool call is never split from its result', 
     }
     history.push(userMsg('latest'))
     const d = decideCompaction({
-      history, lastInputTokens: 500000, appendedChars: 0, budget: 20000, generation: 0
+      history, fillTokens: 500000, budget: 20000, generation: 0
     })
     assert.equal(d.compact, true)
     if (!d.compact) return
@@ -337,8 +330,7 @@ test.describe('clearOldToolResults', () => {
 test.describe('decideContextManagement — one threshold, two remedies, cheapest first', () => {
   const overBudget = (history: ModelMessage[], budget: number) => ({
     history,
-    lastInputTokens: 0,
-    appendedChars: JSON.stringify(history).length,
+    fillTokens: estimateTokens(JSON.stringify(history).length),
     budget,
     generation: 0
   })

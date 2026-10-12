@@ -20,10 +20,11 @@ export const CHARS_PER_TOKEN = 4
 
 export interface CompactionInput {
   history: ModelMessage[]
-  /** Provider-reported TOTAL input tokens for the previous turn; 0 if none yet. */
-  lastInputTokens: number
-  /** Characters appended to history since that measurement. */
-  appendedChars: number
+  /**
+   * How full the history is, in tokens: an estimate from its characters (estimateTokens). There is no
+   * provider-reported measurement in hand when a turn is assembled, so this is the only one.
+   */
+  fillTokens: number
   budget: number
   generation: number
 }
@@ -75,10 +76,9 @@ export function isTurnBoundary (history: ModelMessage[], index: number): boolean
 }
 
 export function decideCompaction (input: CompactionInput): CompactionDecision {
-  const { history, lastInputTokens, appendedChars, budget, generation } = input
+  const { history, fillTokens, budget, generation } = input
 
-  const fill = lastInputTokens + estimateTokens(appendedChars)
-  if (fill <= budget) return { compact: false, reason: 'under-budget' }
+  if (fillTokens <= budget) return { compact: false, reason: 'under-budget' }
   if (history.length < 2) return { compact: false, reason: 'nothing-to-compact' }
 
   // Walk backwards accumulating the tail we want to keep verbatim, then move the
@@ -291,20 +291,16 @@ export type ContextDecision = {
  * the recap cache follows.
  */
 export function decideContextManagement (input: ContextDecisionInput): ContextDecision {
-  const fill = input.lastInputTokens + estimateTokens(input.appendedChars)
-  if (fill <= input.budget) {
+  if (input.fillTokens <= input.budget) {
     return { history: input.history, clearing: { clear: false, reason: 'nothing-to-clear' }, compaction: { compact: false, reason: 'under-budget' } }
   }
 
   const clearing = clearOldToolResults(input.history, input.budget, input.clearing)
   const history = clearing.clear ? clearing.history : input.history
 
-  // RE-MEASURED from characters, not adjusted by the freed estimate: a clear invalidates the basis of
-  // `lastInputTokens`, since the prefix it measured no longer exists. Counting the rebuilt history is
-  // the only honest measurement available, and it is what the executor already works from (it passes
-  // `lastInputTokens: 0`, see compactHistory in ./turn-history.ts).
+  // RE-MEASURED after a clear, the same way the caller measured it: the cleared history is what is sent.
   const compaction = decideCompaction(clearing.clear
-    ? { ...input, history, lastInputTokens: 0, appendedChars: JSON.stringify(history).length }
+    ? { ...input, history, fillTokens: estimateTokens(JSON.stringify(history).length) }
     : input)
 
   return { history, clearing, compaction }

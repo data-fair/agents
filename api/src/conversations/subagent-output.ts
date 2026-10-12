@@ -26,22 +26,18 @@ export const SUBAGENT_DONE_FALLBACK = 'Task completed.'
 // without treating it as authoritative or assuming the task fully succeeded.
 export const SUBAGENT_PARTIAL_PREFIX = '[Partial result — the sub-agent reached its step budget. The findings below are what it gathered; treat them as possibly incomplete and verify before relying on them.]'
 
-interface SubAgentOutputMessage {
-  content?: string
-  stepLimitReached?: boolean
-}
-
-/** The text a delegated sub-agent reports back to the main agent. */
-export function subAgentModelOutput (output: unknown): string {
-  const messages = Array.isArray(output) ? output as SubAgentOutputMessage[] : []
-  const lastMsg = messages.length ? messages[messages.length - 1] : null
-  if (lastMsg?.stepLimitReached) {
+/**
+ * The text a delegated sub-agent reports back to the main agent: its final text, or, when it was
+ * stopped by a guard or the step limit, what it managed flagged as partial.
+ */
+export function subAgentModelOutput (output: { text?: string, stepLimitReached?: boolean }): string {
+  if (output.stepLimitReached) {
     // The forced close-out turn (subAgentDelegation) carries its synthesized answer as the
     // message content. Hand that to the lead, prefixed as possibly incomplete. Only when
     // the close-out produced nothing (content empty/missing) do we fall back to the
     // standalone notice — i.e. report the truncation rather than fabricate a result.
-    const body = lastMsg.content?.trim()
+    const body = output.text?.trim()
     return body ? `${SUBAGENT_PARTIAL_PREFIX}\n\n${body}` : SUBAGENT_STEP_LIMIT_NOTICE
   }
-  return lastMsg?.content || SUBAGENT_DONE_FALLBACK
+  return output.text || SUBAGENT_DONE_FALLBACK
 }

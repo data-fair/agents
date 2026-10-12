@@ -17,7 +17,7 @@ import { SERVICE_TOOL_NAMES } from '../conversations/service-tool-names.ts'
 import { ToolLoopAgent, generateText, stepCountIs, tool, jsonSchema, type Tool, type LanguageModelUsage } from 'ai'
 import Debug from 'debug'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '../conversations/loop-guards.ts'
-import { subAgentModelOutput, SUBAGENT_DONE_FALLBACK } from '../conversations/subagent-output.ts'
+import { subAgentModelOutput } from '../conversations/subagent-output.ts'
 import { unwrapToolResult } from '../conversations/operations.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement } from '../conversations/parts-recorder.ts'
 import type { MessagePart } from '@agents/shared/message-parts'
@@ -71,31 +71,22 @@ export function parseSubAgentConfig (payload: unknown): SubAgentConfig | undefin
   }
 }
 
-export interface PartitionedTools {
-  /** What the MAIN model is given: every tool minus the workers' reserved ones, plus the delegations. */
-  mainTools: Record<string, Tool>
-  /** Names removed from the main set because a worker owns them. */
-  reserved: string[]
-  /** Configs discovered, by sub-agent tool name. */
-  configs: Record<string, SubAgentConfig>
-}
-
 /**
- * Discover the sub-agents in a tool set and replace them with delegations.
+ * Discover the sub-agents in a tool set and replace them with delegations: what the MAIN model is given,
+ * every tool minus the workers' reserved ones, plus the delegations.
  *
  * RESERVED TOOLS ARE REMOVED FROM THE MAIN SET, which is the whole point of the partition: a lead that
  * could call `query_data` itself would do so instead of delegating, and the context reduction the
  * pattern exists for — the lead sees a summary, not the worker's trace — would never happen.
  *
- * Discovery calls each `subagent_*` tool once. For a page-declared sub-agent that is one socket round
- * trip per turn, which is why the configs are returned for a caller that wants to cache them.
+ * Discovery calls each `subagent_*` tool once: for a page-declared sub-agent, one socket round trip per turn.
  *
  * A tool whose config cannot be read is DROPPED rather than left in place: see the loop below.
  */
 export async function partitionSubAgents (
   allTools: Record<string, Tool>,
   buildWorker: (name: string, config: SubAgentConfig, workerTools: Record<string, Tool>) => Tool
-): Promise<PartitionedTools> {
+): Promise<Record<string, Tool>> {
   const configs: Record<string, SubAgentConfig> = {}
   const reserved = new Set<string>()
 
@@ -152,7 +143,7 @@ export async function partitionSubAgents (
     mainTools[name] = buildWorker(name, config, workerTools)
   }
 
-  return { mainTools, reserved: [...reserved], configs }
+  return mainTools
 }
 
 /**
@@ -270,10 +261,8 @@ export function subAgentDelegation (opts: {
         // The LEAD sees a summary, never the worker's trace. That is the context reduction the whole
         // pattern exists for, and the reason a worker can make many calls without flooding the lead.
         //
-        // `subAgentModelOutput` takes the worker's MESSAGE ARRAY, not its text — passing a string
-        // silently yields the "task completed" fallback, which would relabel a truncated worker as a
-        // success. The shape is what carries `stepLimitReached`, and that flag is the difference
-        // between "here is the answer" and "here is what I managed before running out".
+        // `stepLimitReached` is the difference between "here is the answer" and "here is what I managed
+        // before running out": a truncated worker must not be relabelled a success.
         const steps = (await result.steps).length
         let text = await result.text
         // A worker STOPPED MID-CHAIN — by the repeated-call guard or by the step limit — finishes on
@@ -309,13 +298,7 @@ export function subAgentDelegation (opts: {
             debug('close-out of %s failed: %O', opts.name, err)
           }
         }
-        return subAgentModelOutput([{
-          content: text,
-          // A worker stopped by a guard or by the step limit produced a PARTIAL result. Reported as
-          // such, because a lead told nothing would treat a truncation as a finished answer — the
-          // exact conflation the notice in ../conversations/subagent-output.ts exists to prevent.
-          ...(stoppedMidChain || steps >= STEP_LIMIT ? { stepLimitReached: true } : {})
-        }]) || SUBAGENT_DONE_FALLBACK
+        return subAgentModelOutput({ text, stepLimitReached: stoppedMidChain || steps >= STEP_LIMIT })
       } finally {
         opts.onPhase?.(parentToolCallId, null)
       }

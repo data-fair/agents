@@ -59,13 +59,3 @@ export function browserToolSet (session: AgentSession, descriptors?: BrowserTool
   // somewhere that is not this service.
   return withProvenance(tools, () => BROWSER_TOOL_SERVER)
 }
-
-/**
- * The descriptors a tool set advertises, for the record and the trace.
- *
- * Names and descriptions only — never the schemas, which are large and whose only reader is the
- * provider.
- */
-export function describeBrowserTools (descriptors: BrowserToolDescriptor[]): Array<{ name: string, description: string }> {
-  return descriptors.map(descriptor => ({ name: descriptor.name, description: descriptor.description ?? '' }))
-}

@@ -222,7 +222,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const assembleTools = async () => {
     // The service's own tools are never page tools, even when a page registers one by that name
     // (./service-tool-names.ts): the page's would answer under the service's name.
-    const { mainTools } = await partitionSubAgents(
+    const mainTools = await partitionSubAgents(
       { ...fixedTools, ...(session ? Object.fromEntries(Object.entries(browserToolSet(session)).filter(([name]) => mayBePageTool(name))) : {}) },
       buildDelegation
     )
