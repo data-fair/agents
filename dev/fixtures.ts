@@ -19,6 +19,7 @@
  */
 import { axiosBuilder } from '@data-fair/lib-node/axios.js'
 import { axiosAuth } from '@data-fair/lib-node/axios-auth.js'
+import { privateHttpAgent, privateHttpsAgent } from '@data-fair/lib-node/http-agents.js'
 import { pathToFileURL } from 'node:url'
 import { encodeBreakdownKey } from '../api/src/usage/operations.ts'
 
@@ -261,7 +262,8 @@ interface UsageFixture {
 }
 
 export async function seedConsumption (): Promise<void> {
-  const ax = axiosBuilder({ baseURL })
+  // the dev api is on loopback: private agents, lib-node's default ones refuse it
+  const ax = axiosBuilder({ baseURL, httpAgent: privateHttpAgent, httpsAgent: privateHttpsAgent })
 
   const postUsage = (fixture: UsageFixture) => ax.post('/api/test-env/usage', {
     ...fixture,
