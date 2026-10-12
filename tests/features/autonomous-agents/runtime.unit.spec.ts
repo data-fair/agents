@@ -184,8 +184,8 @@ test.describe('the stream idle watchdog', () => {
   // This used to assert that BOTH loops read one shared constant. There is one loop now, so the
   // drift it guarded cannot happen — and the half that still matters is kept rather than deleted
   // with it: the executor must take the bound from shared/ and must actually hand it to the SDK.
-  test('the executor takes the watchdog from shared/ and hands it to the SDK', () => {
-    const executor = readFileSync(new URL('../../../api/src/conversations/executor.ts', import.meta.url), 'utf8')
+  test('the model loop takes the watchdog from loop-guards and hands it to the SDK', () => {
+    const executor = readFileSync(new URL('../../../api/src/conversations/model-loop.ts', import.meta.url), 'utf8')
 
     assert.match(
       executor,

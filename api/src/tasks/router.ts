@@ -19,7 +19,7 @@ import { listTasks, getTask, listRuns, getRun, type RunFilters, createTask, upda
 import { buildConversationExport } from '../review/operations.ts'
 import { runAsMessages } from './run-messages.ts'
 import { startTaskRun, isTaskRunning, PREVIOUS_RUN_STILL_RUNNING } from './execution.ts'
-import { abortRun } from '../conversations/executor.ts'
+import { abortRun } from '../conversations/live-runs.ts'
 
 const router = Router()
 export default router

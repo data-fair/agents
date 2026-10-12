@@ -1,6 +1,6 @@
 # MCP tool integration
 
-The model runs in **one loop, on the server** (`runModelLoop` in `api/src/conversations/executor.ts`), and every tool it can call reaches that loop as an AI SDK `Tool`. They come from three places:
+The model runs in **one loop, on the server** (`runModelLoop` in `api/src/conversations/model-loop.ts`), and every tool it can call reaches that loop as an AI SDK `Tool`. They come from three places:
 
 | Source | Where it executes | Who it acts as |
 |--------|-------------------|----------------|

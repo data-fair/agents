@@ -1,7 +1,7 @@
 # Context management
 
 What happens to a conversation as it grows past the model's window. **One policy, one loop**: the
-server-side loop (`runModelLoop` in `api/src/conversations/executor.ts`) serves both the in-page chat's
+server-side loop (`runModelLoop` in `api/src/conversations/model-loop.ts`) serves both the in-page chat's
 personal assistant and configured autonomous agents, and the browser does no history management or
 compaction at all.
 
@@ -263,7 +263,7 @@ browser's former `sessionStorage` `agent-chat-compaction-threshold` knob went wi
 - `api/src/conversations/compaction-prompt.ts` — the summarizer's system prompt and the recap message.
 - `api/src/conversations/turn-history.ts` — `loadHistory` (rebuild from stored parts after the recap) and
   `compactHistory`: applies the decision, bills the summarizer call, persists the recap.
-- `api/src/conversations/executor.ts` — `performTurn` computes the budget; `runModelLoop` calls the two
+- `api/src/conversations/executor.ts` and `model-loop.ts` — `performTurn` computes the budget; `runModelLoop` calls the two
   above before the first step.
 - `api/src/conversations/operations.ts` — `boundToolResult`, tier 0, applied as each tool result is stored.
 - `tests/features/chat-hang/compaction-policy.unit.spec.ts` — the policy, including that the loop routes

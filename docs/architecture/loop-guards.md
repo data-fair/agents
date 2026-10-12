@@ -1,6 +1,6 @@
 # Loop guards
 
-Both model loops — the turn itself (`streamText` in `runModelLoop`, `api/src/conversations/executor.ts`, which serves the in-page chat's personal assistant and configured autonomous agents alike) and each delegated sub-agent (`ToolLoopAgent`, see [sub-agents](./sub-agents.md)) — run server-side and autonomously: the model calls tools, gets results, and decides whether to call more. Two failure shapes have to be bounded without crippling the loop:
+Both model loops — the turn itself (`streamText` in `runModelLoop`, `api/src/conversations/model-loop.ts`, which serves the in-page chat's personal assistant and configured autonomous agents alike) and each delegated sub-agent (`ToolLoopAgent`, see [sub-agents](./sub-agents.md)) — run server-side and autonomously: the model calls tools, gets results, and decides whether to call more. Two failure shapes have to be bounded without crippling the loop:
 
 - **Runaway** — the model re-issues the same call over and over (the single most common agent failure mode: "step repetition" is 15.7% of failures in the MAST taxonomy, and AgentBench attributes most step-limit exits to repeated content).
 - **Unbounded but productive work** — a page whose tools are deliberately fine-grained needs many steps. A json-layout form is filled one `setFieldValue` per field, plus `getFieldSuggestions` round-trips and `editArray` + N fields per array item, so even a modest form takes several dozen steps.

@@ -6,7 +6,7 @@ against MCP tools it reaches as its own identity, on conversations that each bel
 It was once the one part of this service that held server-side conversation state. The loop moved to
 the server for every agent, so a configured autonomous agent and the in-page chat's personal assistant
 (the one built-in agent, `personalAgent()` in `api/src/agent-session/personal-agent.ts`) now run the same executor
-(`api/src/conversations/executor.ts`: `runTurn` → `performTurn` → `runModelLoop`) over the same
+(`api/src/conversations/executor.ts`: `runTurn` → `performTurn` → `runModelLoop` in `model-loop.ts`) over the same
 collections. What still distinguishes an autonomous agent is WHO it acts as (its own non-human identity
 rather than the person's forwarded session), WHO it bills as (itself rather than the person), and that
 it is configured rather than built in.
@@ -231,7 +231,7 @@ swept by their own purges.)
 
 ## The turn and its target
 
-`runModelLoop` (`api/src/conversations/executor.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, message, conversation)` is a chat's, and `taskTarget(run, task)` (`api/src/tasks/task-target.ts`) a planned task's. Both are driven by `driveTurn` (`executor.ts`), which owns the abort controller, telemetry, deadline and failure classification, whatever the turn is of. The conversation target:
+`runModelLoop` (`api/src/conversations/model-loop.ts`) produces a turn's parts and knows nothing of conversations. Everything that makes those parts a conversation's goes through a `TurnTarget` (`api/src/conversations/turn-target.ts`); `conversationTarget(run, message, conversation)` is a chat's, and `taskTarget(run, task)` (`api/src/tasks/task-target.ts`) a planned task's. Both are driven by `driveTurn` (`executor.ts`), which owns the abort controller, telemetry, deadline and failure classification, whatever the turn is of. The conversation target:
 
 - `session` and `messageSeq`: the page in front of the person as the turn started (its tools and host events; undefined is normal), and the message the turn writes (also the history bound recorded on its telemetry).
 - `history`: the stored messages up to the turn's own, compacted within the budget, with the page's context (host events, the pending-wait reminder) folded into the last user message at call time and never persisted.

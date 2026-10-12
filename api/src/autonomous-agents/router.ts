@@ -14,7 +14,7 @@ import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/sc
 import { getAutonomousAgent, getMcpServerCatalog, reqWriteSession, assertKnownMcpServers, assertOrganizationOwner, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { buildNhi, canInstruct, type StoredNhi } from './operations.ts'
-import { abortRunsOfAgent } from '../conversations/executor.ts'
+import { abortRunsOfAgent } from '../conversations/live-runs.ts'
 import { normalizeAllowedUrls } from '../web/operations.ts'
 import { normalizeExternalMcpServers } from '../mcp-servers/operations.ts'
 
