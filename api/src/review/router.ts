@@ -12,7 +12,7 @@
  *
  * Conversations with a CONFIGURED autonomous agent are always reviewable (shared/agent-audit.ts). For
  * the personal assistant, TWO GATES, both required, and they are different questions:
- *  - `settings.storeTraces` — does this ORGANIZATION want review capability at all. Off by default.
+ *  - `settings.reviewPersonalAssistant` — does this ORGANIZATION want review capability at all. Off by default.
  *  - `conversation.consentedToReview` — did THIS PERSON agree to this thread being read. Absent
  *    means no.
  *
@@ -49,7 +49,7 @@ const assertMayReview = async (req: any, owner: AccountKeys) => {
   const session = reqSessionAuthenticated(req)
   assertAccountRole(session, owner, 'admin')
   const settings = await getSettings(owner)
-  return { storeTraces: settings.storeTraces === true, cutoff: retentionCutoff().toISOString() }
+  return { reviewPersonalAssistant: settings.reviewPersonalAssistant === true, cutoff: retentionCutoff().toISOString() }
 }
 
 /**
@@ -134,7 +134,7 @@ router.get('/:type/:id', async (req, res, next) => {
  * Shared by the two routes below so the rendered page and the downloaded file are the SAME read,
  * under the same gate: a reviewer comparing them must not be shown two different things.
  */
-const loadForReview = async (owner: AccountKeys, scope: { storeTraces: boolean, cutoff: string }, conversationId: string) => {
+const loadForReview = async (owner: AccountKeys, scope: { reviewPersonalAssistant: boolean, cutoff: string }, conversationId: string) => {
   const conversation = await mongo.conversations.findOne(
     { ...reviewableFilter(owner, scope), id: conversationId },
     { projection: { _id: 0 } }

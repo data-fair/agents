@@ -8,7 +8,7 @@ import OrgPutReq from './org-put-req/schema.js'
  * The page composes the slices back into the full body before saving.
  *
  * @param {string} name
- * @param {('modelMapping' | 'moderation' | 'storeTraces')[]} keys
+ * @param {('modelMapping' | 'moderation' | 'reviewPersonalAssistant')[]} keys
  */
 export const orgFormPart = (name, keys) => {
   /** @type {Record<string, any>} */

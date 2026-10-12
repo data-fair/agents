@@ -127,7 +127,7 @@
                     v-if="version.author.conversationId"
                     variant="text"
                     size="small"
-                    :to="`/${accountType}/${accountId}/traces/${version.author.conversationId}`"
+                    :to="`/${accountType}/${accountId}/review/${version.author.conversationId}`"
                     :text="t('source')"
                   />
                   <v-btn

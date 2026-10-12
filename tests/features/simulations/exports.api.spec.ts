@@ -14,7 +14,7 @@ import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { fetchConversationExports, seedAutonomousAgent, runPlannedTask, fetchTaskRunExport, OWNER } from '../../../simulations/runner/settings.ts'
 import { outcomeReported } from '../../../simulations/cases/index.ts'
 import { parseConversationExport, recordedToolCalls } from '../../../lib-sim/conversation-export.ts'
-import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/traces/trace-consent.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
 
 const admin = await superAdmin
 const user = await axiosAuth(OWNER.id)
@@ -33,7 +33,7 @@ test.describe('Simulation evidence', () => {
   test.beforeEach(async () => {
     await clean()
     // What bridgeSettings sets for a real run, on the mock model.
-    await putMockSettings(admin, `${OWNER.type}/${OWNER.id}`, { storeTraces: true })
+    await putMockSettings(admin, `${OWNER.type}/${OWNER.id}`, { reviewPersonalAssistant: true })
   })
 
   test('the runner downloads the export of each conversation the person consented to', async () => {

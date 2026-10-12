@@ -11,7 +11,7 @@ const admin = await superAdmin
 test.describe('Audited chat notice', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1', { storeTraces: true })
+    await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: true })
   })
 
   test('a configured agent chat shows the notice and no consent sheet', async ({ page, goToWithAuth }) => {
@@ -21,8 +21,8 @@ test.describe('Audited chat notice', () => {
     await expect(page.getByText('This assistant can store your conversation on the server')).toHaveCount(0)
   })
 
-  test('the debug dialog of an audited chat offers the review link and no consent toggle, whatever storeTraces says', async ({ page, goToWithAuth }) => {
-    await putMockSettings(admin, 'organization/test1', { storeTraces: false })
+  test('the debug dialog of an audited chat offers the review link and no consent toggle, whatever reviewPersonalAssistant says', async ({ page, goToWithAuth }) => {
+    await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: false })
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Audited', persona: 'x', mcpServers: [], enabled: true })).data
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
     await expect(page.getByTestId('agent-chat-input')).toBeVisible({ timeout: 20000 })

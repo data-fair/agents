@@ -49,7 +49,7 @@ router.put('/:type/:id', async (req, res, next) => {
 
   // A partial update, not a whole-document replace: this route owns only
   // providers/models, so it must only ever touch those two fields (plus
-  // updatedAt). Anything else — modelMapping/quotas/moderation/storeTraces —
+  // updatedAt). Anything else — modelMapping/quotas/moderation/reviewPersonalAssistant —
   // is owned by the org PUT and must survive untouched here, including one
   // that lands concurrently between this handler's read and write above.
   await mongo.settings.updateOne(
@@ -63,7 +63,7 @@ router.put('/:type/:id', async (req, res, next) => {
       // load (it strips the hidden, empty value). Readers treat an absent
       // `models` as an empty catalog contribution.
       ...(body.models ? {} : { $unset: { models: '' } }),
-      $setOnInsert: { owner, createdAt: now, quotas: defaultQuotas, moderation: defaultModeration, storeTraces: false }
+      $setOnInsert: { owner, createdAt: now, quotas: defaultQuotas, moderation: defaultModeration, reviewPersonalAssistant: false }
     },
     { upsert: true }
   )
@@ -101,7 +101,7 @@ router.put('/:type/:id/org', async (req, res, next) => {
           modelMapping: body.modelMapping ?? {},
           quotas: body.quotas ?? defaultQuotas,
           moderation: body.moderation ?? defaultModeration,
-          storeTraces: body.storeTraces ?? false,
+          reviewPersonalAssistant: body.reviewPersonalAssistant ?? false,
           updatedAt: now
         },
         $setOnInsert: { owner, createdAt: now, providers: [], models: [] }

@@ -111,7 +111,7 @@
       @update:show-reasoning="handleShowReasoning"
     />
 
-    <trace-consent-sheet :audited="audited" />
+    <review-consent-sheet :audited="audited" />
   </v-card>
 </template>
 
@@ -159,7 +159,7 @@ import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
 import AgentChatInput from './agent-chat/AgentChatInput.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
-import TraceConsentSheet from './agent-chat/TraceConsentSheet.vue'
+import ReviewConsentSheet from './agent-chat/ReviewConsentSheet.vue'
 import { readFlags, writeFlags } from '~/utils/agent-flags'
 import { canSendNow } from '~/composables/chat-send'
 import type { AgentOption, ConversationSummary } from '~/utils/chat-agents'

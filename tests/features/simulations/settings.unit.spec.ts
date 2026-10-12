@@ -55,11 +55,11 @@ test.describe('bridge settings', () => {
   })
 
   test('splits the body across the two write-scoped endpoints', () => {
-    // The regression that killed every case: quotas and storeTraces posted to the
+    // The regression that killed every case: quotas and reviewPersonalAssistant posted to the
     // superadmin route, which owns only providers/models, 400 on additionalProperties.
     const { superadminBody, orgBody } = splitSettingsBody(bridgeSettings('sonnet', 'haiku'))
     assert.deepEqual(Object.keys(superadminBody).sort(), ['models', 'providers'])
-    assert.deepEqual(Object.keys(orgBody).sort(), ['modelMapping', 'quotas', 'storeTraces'])
+    assert.deepEqual(Object.keys(orgBody).sort(), ['modelMapping', 'quotas', 'reviewPersonalAssistant'])
   })
 
   test('uses openai-compatible in compatible mode', () => {

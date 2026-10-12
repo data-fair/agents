@@ -7,16 +7,16 @@
       {{ loadError }}
     </p>
     <p
-      v-else-if="!traces.length"
+      v-else-if="!rows.length"
       class="text-caption text-medium-emphasis"
     >
-      {{ t('noTraces') }}
+      {{ t('noConversations') }}
     </p>
     <v-list density="compact">
       <v-list-item
-        v-for="row in traces"
+        v-for="row in rows"
         :key="row.conversationId"
-        :to="`${base}/traces/${row.conversationId}`"
+        :to="`${base}/review/${row.conversationId}`"
       >
         <v-list-item-title class="text-body-2">
           {{ row.preview || row.conversationId }}
@@ -29,7 +29,7 @@
             :icon="mdiDelete"
             size="small"
             variant="text"
-            @click.prevent="deleteTrace(row.conversationId)"
+            @click.prevent="deleteConversation(row.conversationId)"
           />
         </template>
       </v-list-item>
@@ -39,18 +39,18 @@
       v-model="page"
       :length="pageCount"
       density="compact"
-      @update:model-value="fetchTraces"
+      @update:model-value="fetchRows"
     />
   </div>
 </template>
 
 <i18n lang="yaml">
 fr:
-  noTraces: Aucune conversation enregistrée.
-  loadError: Erreur de chargement des traces.
+  noConversations: Aucune conversation enregistrée.
+  loadError: Erreur de chargement des conversations.
 en:
-  noTraces: No stored conversation.
-  loadError: Failed to load traces.
+  noConversations: No stored conversation.
+  loadError: Failed to load conversations.
 </i18n>
 
 <script lang="ts" setup>
@@ -63,7 +63,7 @@ const props = defineProps<{ accountType: string, accountId: string, base: string
 const { t } = useI18n()
 const SIZE = 20
 
-const traces = ref<any[]>([])
+const rows = ref<any[]>([])
 const page = ref(1)
 const pageCount = ref(1)
 const loadError = ref('')
@@ -72,25 +72,25 @@ const formatDate = (iso: string) => new Date(iso).toLocaleString()
 
 const apiBase = computed(() => `${$apiPath}/review/${props.accountType}/${props.accountId}`)
 
-const fetchTraces = async () => {
+const fetchRows = async () => {
   try {
     const res = await fetch(`${apiBase.value}?page=${page.value}&size=${SIZE}`, { credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }
     const body = await res.json()
-    traces.value = body.results
+    rows.value = body.results
     pageCount.value = Math.max(1, Math.ceil((body.count ?? 0) / SIZE))
   } catch { loadError.value = t('loadError') }
 }
 
-const deleteTrace = async (conversationId: string) => {
+const deleteConversation = async (conversationId: string) => {
   try {
     const res = await fetch(`${apiBase.value}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }
   } catch { loadError.value = t('loadError'); return }
-  await fetchTraces()
+  await fetchRows()
 }
 
 // Refetch on mount and whenever the account changes (the section is reused
 // across org switches in the admin settings view), resetting pagination.
-watch(apiBase, () => { page.value = 1; fetchTraces() }, { immediate: true })
+watch(apiBase, () => { page.value = 1; fetchRows() }, { immediate: true })
 </script>

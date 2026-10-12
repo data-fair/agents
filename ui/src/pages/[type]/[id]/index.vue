@@ -50,7 +50,7 @@
           />
         </v-tabs-window-item>
         <v-tabs-window-item value="traces">
-          <traces-section
+          <review-list
             :account-type="accountType"
             :account-id="accountId"
             :base="`/${accountType}/${accountId}`"
@@ -99,7 +99,7 @@ import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
 import ModerationSection from '~/components/ModerationSection.vue'
-import TracesSection from '~/components/TracesSection.vue'
+import ReviewList from '~/components/ReviewList.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()

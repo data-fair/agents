@@ -206,15 +206,15 @@ test.describe('Settings UI', () => {
     await expect(page.getByText('Mock - ')).not.toBeVisible()
   })
 
-  // The "toggling store-traces on an empty config does not raise a required
-  // error" regression lives in org-settings.e2e.spec.ts now: `storeTraces` moved
+  // The "toggling personal-assistant review on an empty config does not raise a required
+  // error" regression lives in org-settings.e2e.spec.ts now: `reviewPersonalAssistant` moved
   // to the org-admin form (PUT /api/settings/:type/:id/org), and this form has no
   // always-visible field left to toggle on an empty config — the only widget it
   // renders then is the providers array's "Add item".
 
   // Regression: GET /api/settings returns the whole document while this form is
   // generated from the narrowed superadmin PUT schema, so vjsf pruned the
-  // org-owned fields (modelMapping/quotas/moderation/storeTraces) from its model
+  // org-owned fields (modelMapping/quotas/moderation/reviewPersonalAssistant) from its model
   // on mount and the page reported a spurious unsaved change on every load —
   // which also tripped `useLeaveGuard` on every navigation away. The page now
   // projects the fetched document down to the fields the form owns before
@@ -245,7 +245,7 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
     // Make a real change (add a second provider), save it, and reload: the form
-    // must be clean again. `storeTraces` — the previous trigger here — moved to
+    // must be clean again. `reviewPersonalAssistant` — the previous trigger here — moved to
     // the org-admin endpoint and is no longer part of this (superadmin) form.
     await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
@@ -264,7 +264,7 @@ test.describe('Settings UI', () => {
   // Regression: the Save button used to reappear on every reload of a config
   // saved from an empty state, because the server re-injected an empty `models`
   // value that vjsf then pruned (the models section is hidden until a provider
-  // exists). Its original trigger — toggling `storeTraces` — moved to the
+  // exists). Its original trigger — toggling `reviewPersonalAssistant` — moved to the
   // org-admin form, so the change that takes the config out of its empty state
   // is now adding a provider (which is also what makes the models section
   // appear, i.e. exactly the transition this regression lived on).

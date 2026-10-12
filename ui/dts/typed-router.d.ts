@@ -185,9 +185,9 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false>, type: ParamValue<false> },
       | never
     >,
-    '/[type]/[id]/traces/[convId]': RouteRecordInfo<
-      '/[type]/[id]/traces/[convId]',
-      '/:type/:id/traces/:convId',
+    '/[type]/[id]/review/[convId]': RouteRecordInfo<
+      '/[type]/[id]/review/[convId]',
+      '/:type/:id/review/:convId',
       { convId: ParamValue<true>, id: ParamValue<true>, type: ParamValue<true> },
       { convId: ParamValue<false>, id: ParamValue<false>, type: ParamValue<false> },
       | never
@@ -206,9 +206,9 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false>, type: ParamValue<false> },
       | never
     >,
-    '/admin/[type]/[id]/traces/[convId]': RouteRecordInfo<
-      '/admin/[type]/[id]/traces/[convId]',
-      '/admin/:type/:id/traces/:convId',
+    '/admin/[type]/[id]/review/[convId]': RouteRecordInfo<
+      '/admin/[type]/[id]/review/[convId]',
+      '/admin/:type/:id/review/:convId',
       { convId: ParamValue<true>, id: ParamValue<true>, type: ParamValue<true> },
       { convId: ParamValue<false>, id: ParamValue<false>, type: ParamValue<false> },
       | never
@@ -402,9 +402,9 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
-    'src/pages/[type]/[id]/traces/[convId].vue': {
+    'src/pages/[type]/[id]/review/[convId].vue': {
       routes:
-        | '/[type]/[id]/traces/[convId]'
+        | '/[type]/[id]/review/[convId]'
       views:
         | never
       pathParamNames:
@@ -426,9 +426,9 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
-    'src/pages/admin/[type]/[id]/traces/[convId].vue': {
+    'src/pages/admin/[type]/[id]/review/[convId].vue': {
       routes:
-        | '/admin/[type]/[id]/traces/[convId]'
+        | '/admin/[type]/[id]/review/[convId]'
       views:
         | never
       pathParamNames:

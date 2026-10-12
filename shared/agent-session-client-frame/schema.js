@@ -90,7 +90,7 @@ export default {
         anonymousToken: { type: 'string', errorMessage: 'anonymousToken must be a string when present' },
         // The person's answer to the consent sheet, as the browser holds it. Strictly boolean: a
         // truthy string would make "no" read as consent.
-        traceConsent: { type: 'boolean', errorMessage: 'traceConsent must be a boolean when present' },
+        reviewConsent: { type: 'boolean', errorMessage: 'reviewConsent must be a boolean when present' },
         tools
       }
     },
@@ -162,7 +162,7 @@ export default {
       required: ['type', 'consented'],
       errorMessage: { required: { consented: 'consented must be a boolean' } },
       properties: {
-        type: { const: 'trace-consent' },
+        type: { const: 'review-consent' },
         consented: { type: 'boolean', errorMessage: 'consented must be a boolean' }
       }
     },

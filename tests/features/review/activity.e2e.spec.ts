@@ -1,24 +1,24 @@
 /**
  * E2E test: activity page (/:type/:id) lists stored conversations
- * and navigates to /:type/:id/traces/:id when a row is clicked.
+ * and navigates to /:type/:id/review/:id when a row is clicked.
  *
  * Scenario:
- *   1. PUT settings with storeTraces: true and a mock provider/assistant model.
- *   2. Drive a gateway request with consent headers so a trace gets stored.
+ *   1. PUT settings with reviewPersonalAssistant: true and a mock provider/assistant model.
+ *   2. Run a consented turn so the conversation is reviewable.
  *   3. Poll GET /api/review/organization/test1 until the conversation appears.
  *   4. Navigate to /agents/organization/test1 as superadmin in adminMode.
  *   5. Assert the "Stored conversations" heading is visible — the page's
  *      read-only config summary was replaced by the editable org config form,
  *      so that heading is the stable landmark that the page rendered.
- *   6. Assert the trace row with preview "activity hello" is listed.
- *   7. Click the row; assert the URL changes to /organization/test1/traces/conv-act.
+ *   6. Assert the row with preview "activity hello" is listed.
+ *   7. Click the row; assert the URL changes to /organization/test1/review/conv-act.
  */
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
-import { runTurn, setTraceConsent } from '../../support/turn.ts'
+import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const admin = await superAdmin
 
@@ -45,10 +45,10 @@ const settingsData = {
     external: { unlimited: true, monthlyLimit: 0 },
     anonymous: { unlimited: false, monthlyLimit: 0 }
   },
-  storeTraces: true
+  reviewPersonalAssistant: true
 }
 
-async function waitForTrace (conversationId: string) {
+async function waitForReviewable (conversationId: string) {
   for (let i = 0; i < 60; i++) {
     const res = await admin.get('/api/review/organization/test1?page=1&size=20').catch(() => null)
     if (res && res.data.results?.some((r: any) => r.conversationId === conversationId)) return
@@ -62,11 +62,11 @@ test.describe('Activity page', () => {
     await clean()
     await putSettings(admin, 'organization/test1', settingsData)
 
-    // A real turn is what produces a stored trace now; consent travels in the cookie.
-    await setTraceConsent(admin, true)
+    // A real turn is what makes a conversation reviewable; consent travels in the cookie.
+    await setReviewConsent(admin, true)
     convId = (await runTurn(admin, 'organization/test1', 'activity hello')).conversationId
 
-    await waitForTrace(convId)
+    await waitForReviewable(convId)
   })
 
   test('lists stored conversations and navigates to review', async ({ page, goToWithAuth }) => {
@@ -83,6 +83,6 @@ test.describe('Activity page', () => {
 
     // Clicking the row navigates to the review page
     await convRow.click()
-    await expect(page).toHaveURL(new RegExp(`/organization/test1/traces/${convId}`), { timeout: 10000 })
+    await expect(page).toHaveURL(new RegExp(`/organization/test1/review/${convId}`), { timeout: 10000 })
   })
 })

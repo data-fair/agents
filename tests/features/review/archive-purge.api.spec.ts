@@ -16,7 +16,7 @@ import assert from 'node:assert/strict'
 import { MongoClient } from 'mongodb'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
-import { runTurn, setTraceConsent } from '../../support/turn.ts'
+import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
@@ -34,7 +34,7 @@ const settingsData = {
   ],
   modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } },
   quotas: { admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
-  storeTraces: true
+  reviewPersonalAssistant: true
 }
 
 let client: MongoClient
@@ -58,7 +58,7 @@ test.describe('Purging a conversation', () => {
   test.beforeEach(async () => {
     await clean()
     await putSettings(admin, OWNER, settingsData)
-    await setTraceConsent(user, true)
+    await setReviewConsent(user, true)
   })
 
   test('removes the thread, its messages and its runs', async () => {

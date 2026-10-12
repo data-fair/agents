@@ -15,7 +15,7 @@
 
 import type { AxiosInstance } from 'axios'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from './agent-session-client.ts'
-import { readConsent } from '../ui/src/traces/trace-consent.ts'
+import { readConsent } from '../ui/src/review/review-consent.ts'
 
 const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 
@@ -67,15 +67,15 @@ const attach = async (ax: Ax, target: ConversationTarget, owner: string, timeout
   const cookie = await ax.cookieJar.getCookieString(directoryUrl)
   const socket = await openAgentSession(cookie, host)
   const consent = readConsent(cookie)
-  const traceConsent = consent ? { traceConsent: consent === 'yes' } : {}
+  const reviewConsent = consent ? { reviewConsent: consent === 'yes' } : {}
   if (typeof target !== 'string') {
     // A refusal of the agent follows `attached` as an error frame, and is read as the prompt's.
-    socket.send(newThreadHello(owner, { agentId: target.agentId, ...traceConsent }))
+    socket.send(newThreadHello(owner, { agentId: target.agentId, ...reviewConsent }))
     const frame = await socket.next(timeoutMs)
     if (frame.type !== 'attached') { socket.close(); throw refusal(frame.type === 'error' ? frame : { message: `unexpected ${frame.type} frame` }) }
     return { socket, history: [frame] }
   }
-  socket.send({ type: 'hello', tools: [], conversationId: target, ...traceConsent })
+  socket.send({ type: 'hello', tools: [], conversationId: target, ...reviewConsent })
   const history: any[] = []
   // `attached` is sent synchronously by the hello; a refusal to bind (not your conversation) follows it.
   // Otherwise the stored transcript follows, closed by a `cost` frame: read past it, so that history is

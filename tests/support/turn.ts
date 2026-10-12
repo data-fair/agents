@@ -1,6 +1,6 @@
 /**
  * Drive a real model turn over the chat's socket, for tests that need one as a SIDE EFFECT rather than as the
- * thing under test — usage records, credit consumption, a stored trace, a conversation to review.
+ * thing under test — usage records, credit consumption, a conversation to review.
  *
  * It replaces pointing the AI SDK at `/api/gateway/.../v1` as an OpenAI endpoint, which is how these
  * tests used to make a billable call. The gateway is gone, and the loop runs on the server now, so
@@ -12,17 +12,17 @@
 
 import type { AxiosInstance } from 'axios'
 import { turnOverSocket } from '../../dev/socket-turn.ts'
-import { CONSENT_COOKIE, CONSENT_YES } from '../../ui/src/traces/trace-consent.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../../ui/src/review/review-consent.ts'
 
 const apiOrigin = `http://localhost:${process.env.NGINX_PORT}/agents`
 
 /**
- * Give (or withhold) this caller's consent to admin-visible trace storage.
+ * Give (or withhold) this caller's consent to admin review of their conversations.
  *
  * Set in the COOKIE JAR, as the browser keeps it: the same cookie the consent sheet writes. Like the
  * chat, the socket helper reads it back and says it in its hello — the server never reads the cookie.
  */
-export async function setTraceConsent (ax: AxiosInstance & { cookieJar?: any }, consented: boolean): Promise<void> {
+export async function setReviewConsent (ax: AxiosInstance & { cookieJar?: any }, consented: boolean): Promise<void> {
   await ax.cookieJar?.setCookie(`${CONSENT_COOKIE}=${consented ? CONSENT_YES : 'no'}; Path=/`, apiOrigin)
 }
 

@@ -173,7 +173,7 @@ test.describe('Agent page, History tab', () => {
     await expect(page.getByTestId('agent-run')).toHaveCount(1)
     await expect(runItem(page, 'Task digest')).toHaveCount(0)
     await page.getByTestId('agent-run').click()
-    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/traces/${conversationId}`))
+    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/review/${conversationId}`))
     await expect(page.locator('.agent-chat__user-bubble')).toHaveText('hello')
   })
 })

@@ -1,8 +1,8 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { readConsent, serializeConsentCookie, CONSENT_COOKIE } from '../../../ui/src/traces/trace-consent.ts'
+import { readConsent, serializeConsentCookie, CONSENT_COOKIE } from '../../../ui/src/review/review-consent.ts'
 
-test.describe('trace consent (unit)', () => {
+test.describe('review consent (unit)', () => {
   test('reads consent value from a cookie string', () => {
     assert.equal(readConsent(`${CONSENT_COOKIE}=yes; other=1`), 'yes')
     assert.equal(readConsent('other=1'), undefined)

@@ -26,11 +26,11 @@ const instructorThread = async (agentId: string) =>
 test.describe('Audited conversations', () => {
   test.beforeEach(async () => {
     await clean()
-    // storeTraces deliberately OFF: an audited thread must not depend on it
-    await putMockSettings(admin, 'organization/test1', { storeTraces: false })
+    // reviewPersonalAssistant deliberately OFF: an audited thread must not depend on it
+    await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: false })
   })
 
-  test('an org admin reviews an instructor thread with no storeTraces and no consent', async () => {
+  test('an org admin reviews an instructor thread with no reviewPersonalAssistant and no consent', async () => {
     const agent = await createAgent()
     const conversationId = await instructorThread(agent.id)
     const list = await orgAdmin.get('/api/review/organization/test1')

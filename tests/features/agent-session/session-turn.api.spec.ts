@@ -12,7 +12,7 @@ import { putMockSettings, mockModels, mockModelMapping } from '../../support/set
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
-import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/traces/trace-consent.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
 import { MongoClient } from 'mongodb'
 
 const admin = await superAdmin
@@ -116,7 +116,7 @@ test.describe('A turn over the agent session', () => {
       await collectUntil(session, 'turn-end')
       return await storedConversation(session.conversationId()!)
     }
-    assert.equal((await startThread({ traceConsent: true })).consentedToReview, true)
+    assert.equal((await startThread({ reviewConsent: true })).consentedToReview, true)
     assert.notEqual((await startThread({})).consentedToReview, true, 'a consent cookie on the upgrade is not read')
   })
 

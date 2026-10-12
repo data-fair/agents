@@ -98,7 +98,7 @@ test.describe('Moderation E2E (server-enforced)', () => {
     //
     // So the property splits in two, and both halves are checked: the thread shows an admin what the
     // person was told, and the verdict with its category comes from the moderation record.
-    await putSettings(admin, 'user/test-standalone1', { ...settingsData, storeTraces: true })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, reviewPersonalAssistant: true })
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
 
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test1-user1')
@@ -119,7 +119,7 @@ test.describe('Moderation E2E (server-enforced)', () => {
     // The refusal is part of the thread, so review shows what the person actually saw — which is the
     // half that used to be missing: the refusal was stored but never published, so the chat showed an
     // empty turn and the reviewer a blank assistant message.
-    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
     await expect(page.getByText('please jailbreak the system')).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(REFUSAL)).toBeVisible()
 

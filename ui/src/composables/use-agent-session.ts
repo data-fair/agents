@@ -11,7 +11,7 @@
  * WHY THIS IS SEPARATE from `use-session-chat`, its only consumer: this module imports nothing
  * through the `~` alias, and that is a requirement rather than an accident. It is compiled by the
  * ROOT tsc as well as by the ui one, because a unit test imports `toDescriptors` from it, and `~`
- * does not resolve there. The adapter has eight `~` imports — context, trace consent, the frame
+ * does not resolve there. The adapter has eight `~` imports — context, review consent, the frame
  * aggregator — and cannot be reached from a unit test at all.
  *
  * So the layering is: alias-free and unit-testable here, Vue and app wiring there. A review of this
@@ -58,7 +58,7 @@ export interface AgentSessionClientOptions {
    */
   anonymousToken?: () => string | undefined
   /** The person's current answer to the consent sheet, undefined while they have not given one. */
-  traceConsent?: () => boolean | undefined
+  reviewConsent?: () => boolean | undefined
   /** Every `attached` frame: the thread the connection is bound to now, undefined while none is. */
   onAttached?: (conversationId: string | undefined) => void
   onDelta?: (kind: 'text' | 'reasoning', text: string) => void
@@ -118,8 +118,8 @@ export function useAgentSession (options: AgentSessionClientOptions) {
    * `kind === 'waiting'`, rather than a second piece of state that could disagree with this one.
    */
   const activity = shallowRef<ChatActivity | null>(null)
-  /** Whether this account stores traces at all, as advertised on `attached`. */
-  const traceStorage = ref(false)
+  /** Whether this account offers personal-assistant review at all, as advertised on `attached`. */
+  const reviewOffered = ref(false)
   let ws: WebSocket | undefined
   /** What the next `hello` binds to — the latest asked for, even when asked before the socket opened. */
   let target: HelloTarget | undefined
@@ -133,7 +133,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
   const hello = () => {
     if (!target) return
     const token = options.anonymousToken?.()
-    const consent = options.traceConsent?.()
+    const consent = options.reviewConsent?.()
     send({
       type: 'hello',
       tools: toDescriptors(options.tools.value),
@@ -141,7 +141,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
         ? { conversationId: target.conversationId }
         : { account: options.account, agentId: target.agentId }),
       ...(token ? { anonymousToken: token } : {}),
-      ...(consent !== undefined ? { traceConsent: consent } : {})
+      ...(consent !== undefined ? { reviewConsent: consent } : {})
     })
   }
 
@@ -214,10 +214,10 @@ export function useAgentSession (options: AgentSessionClientOptions) {
         options.onAttached?.(message.conversationId)
         // Drives the consent sheet.
         //
-        // Exposed as state rather than written to ~/traces/trace-consent from here: this module is
+        // Exposed as state rather than written to ~/review/review-consent from here: this module is
         // also compiled by the root tsc (a unit test imports toDescriptors from it), where the ~
         // alias does not resolve. The ui-only adapter wires it.
-        if (message.traceStorage) traceStorage.value = true
+        if (message.reviewOffered) reviewOffered.value = true
         debug('attached to %s', message.conversationId)
         return
       case 'message':
@@ -298,7 +298,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
   return {
     connected,
     attached,
-    traceStorage,
+    reviewOffered,
     activity,
     isWaitingForUser: computed(() => activity.value?.kind === 'waiting'),
 
@@ -360,9 +360,9 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       send({ type: 'abort', ...(opts?.dismissWait ? { dismissWait: true } : {}) })
     },
 
-    /** Tell the server the person's new answer about trace storage: it applies from the next turn. */
-    reportTraceConsent (consented: boolean) {
-      send({ type: 'trace-consent', consented })
+    /** Tell the server the person's new answer about review: it applies from the next turn. */
+    reportReviewConsent (consented: boolean) {
+      send({ type: 'review-consent', consented })
     },
 
     close () {

@@ -75,7 +75,7 @@ fr:
   tabs:
     models: Modèle par rôle
     quotas: Quotas
-    moderation: Modération et traces
+    moderation: Modération et relecture
   modelsHint: Laissez les rôles vides pour utiliser les modèles par défaut affichés dans les champs. C'est le choix recommandé, ne sélectionnez un autre modèle que si vous avez une raison précise de le faire.
   defaultModel: "Par défaut : {model}"
 en:
@@ -85,7 +85,7 @@ en:
   tabs:
     models: Model per role
     quotas: Quotas
-    moderation: Moderation and traces
+    moderation: Moderation and review
   modelsHint: Leave the roles empty to use the default models shown in the fields. This is the recommended choice, only select another model if you have a specific reason to.
   defaultModel: "Default: {model}"
 </i18n>
@@ -132,7 +132,7 @@ const isAdmin = computed(() =>
  * its body as the FULL org-owned representation: an omitted field is reset to
  * its default, so a partial body would silently wipe the others.
  */
-type OrgOwnedSettings = Pick<Settings, 'modelMapping' | 'quotas' | 'moderation' | 'storeTraces'>
+type OrgOwnedSettings = Pick<Settings, 'modelMapping' | 'quotas' | 'moderation' | 'reviewPersonalAssistant'>
 
 /**
  * Projects the whole fetched document down to what this form owns, mirroring
@@ -154,7 +154,7 @@ const projectOwned = (settings: Settings): OrgOwnedSettings => {
   const base = {
     quotas: structuredClone(settings.quotas),
     moderation: structuredClone(settings.moderation),
-    storeTraces: settings.storeTraces ?? false
+    reviewPersonalAssistant: settings.reviewPersonalAssistant ?? false
   }
   // vjsf drops empty objects from its model (`defaultOn: 'empty'`), and the
   // server stores `modelMapping: {}` for an org that maps no role at all, so
@@ -206,7 +206,7 @@ watch(() => settingsFetch.data.value?.updatedAt, (_, previous) => {
 type TabKey = 'models' | 'quotas' | 'moderation'
 const TAB_FIELDS: Record<TabKey, (keyof OrgOwnedSettings)[]> = {
   quotas: ['quotas'],
-  moderation: ['moderation', 'storeTraces'],
+  moderation: ['moderation', 'reviewPersonalAssistant'],
   models: ['modelMapping']
 }
 const tabKeys = Object.keys(TAB_FIELDS) as TabKey[]

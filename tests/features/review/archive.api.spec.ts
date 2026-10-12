@@ -14,14 +14,14 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
-import { runTurn, setTraceConsent } from '../../support/turn.ts'
+import { runTurn, setReviewConsent } from '../../support/turn.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
 const OWNER = 'user/test-standalone1'
 
-const settingsData = (storeTraces: boolean) => ({
+const settingsData = (reviewPersonalAssistant: boolean) => ({
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
   models: [
     {
@@ -33,12 +33,12 @@ const settingsData = (storeTraces: boolean) => ({
   ],
   modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } },
   quotas: { admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
-  storeTraces
+  reviewPersonalAssistant
 })
 
-const chat = async (storeTraces: boolean, consented: boolean) => {
-  await putSettings(admin, OWNER, settingsData(storeTraces))
-  await setTraceConsent(user, consented)
+const chat = async (reviewPersonalAssistant: boolean, consented: boolean) => {
+  await putSettings(admin, OWNER, settingsData(reviewPersonalAssistant))
+  await setReviewConsent(user, consented)
   const { conversationId } = await runTurn(user, OWNER)
   return conversationId
 }
@@ -87,7 +87,7 @@ test.describe('Deleting a reviewable conversation', () => {
   test('a thread is purged when the ORGANIZATION never enabled review either', async () => {
     const conversationId = await chat(false, true)
     await user.delete(`/api/conversations/${OWNER}/${conversationId}`)
-    // storeTraces off leaves no personal-assistant thread reviewable, so assert on the person's side.
+    // reviewPersonalAssistant off leaves no personal-assistant thread reviewable, so assert on the person's side.
     const read = await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`).catch((err: any) => err.response ?? err)
     assert.equal(read.status, 404)
   })
@@ -107,7 +107,7 @@ test.describe('Deleting a reviewable conversation', () => {
     // The two gates compose. A person who withdraws consent has made the thread unreviewable, so the
     // delete that follows has nothing to preserve.
     const conversationId = await chat(true, true)
-    await setTraceConsent(user, false)
+    await setReviewConsent(user, false)
     await runTurn(user, OWNER, 'again', { conversationId })
     assert.equal((await admin.get(`/api/review/${OWNER}`)).data.count, 0, 'no longer reviewable')
 

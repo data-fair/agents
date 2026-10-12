@@ -100,8 +100,8 @@ Writes also require the progressive-rollout session (`reqWriteSession`: admin mo
 
 Memory is learnt from conversations nobody has to consent to, so the review contract changed with it (details in [conversation review](./conversation-review.md)):
 
-- A conversation with a **configured agent** is audited (`shared/agent-audit.ts`): always reviewable by the account's admins while it exists, whatever `storeTraces` says and with no consent. The person's delete **archives** it, with no expiry; it is removed only by the agent's deletion or a GDPR erasure.
-- The **personal assistant** keeps the consent model: `storeTraces`, the person's consent, a 30-day window.
+- A conversation with a **configured agent** is audited (`shared/agent-audit.ts`): always reviewable by the account's admins while it exists, whatever `reviewPersonalAssistant` says and with no consent. The person's delete **archives** it, with no expiry; it is removed only by the agent's deletion or a GDPR erasure.
+- The **personal assistant** keeps the consent model: `reviewPersonalAssistant`, the person's consent, a 30-day window.
 
 The filter is `reviewableFilter` (`api/src/review/reviewable.ts`).
 

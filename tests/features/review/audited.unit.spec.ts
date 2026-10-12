@@ -15,17 +15,17 @@ test.describe('audit rule', () => {
     assert.equal(isAuditedAgentId(''), false)
   })
 
-  test('review filter: audited threads always, personal-assistant ones only with storeTraces + consent + window', () => {
+  test('review filter: audited threads always, personal-assistant ones only with reviewPersonalAssistant + consent + window', () => {
     const owner = { type: 'organization', id: 'o1' } as const
-    const withTraces = reviewableFilter(owner, { storeTraces: true, cutoff: '2026-01-01T00:00:00.000Z' }) as any
-    assert.equal(withTraces.$or.length, 2)
-    assert.deepEqual(withTraces.$or[0], { agentId: { $ne: PERSONAL_AGENT_ID } })
-    assert.deepEqual(withTraces.$or[1], {
+    const withConsented = reviewableFilter(owner, { reviewPersonalAssistant: true, cutoff: '2026-01-01T00:00:00.000Z' }) as any
+    assert.equal(withConsented.$or.length, 2)
+    assert.deepEqual(withConsented.$or[0], { agentId: { $ne: PERSONAL_AGENT_ID } })
+    assert.deepEqual(withConsented.$or[1], {
       agentId: PERSONAL_AGENT_ID,
       consentedToReview: true,
       lastMessageAt: { $gte: '2026-01-01T00:00:00.000Z' }
     })
-    const without = reviewableFilter(owner, { storeTraces: false, cutoff: 'x' }) as any
+    const without = reviewableFilter(owner, { reviewPersonalAssistant: false, cutoff: 'x' }) as any
     assert.deepEqual(without.$or, [{ agentId: { $ne: PERSONAL_AGENT_ID } }])
   })
 

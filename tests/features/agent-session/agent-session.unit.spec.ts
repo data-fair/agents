@@ -62,12 +62,12 @@ test.describe('parseClientMessage', () => {
   })
 
   test('a hello starting a thread carries the consent answer the browser holds; its first prompt carries the title', () => {
-    assert.deepEqual(parse({ type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', traceConsent: true }), {
-      type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', traceConsent: true
+    assert.deepEqual(parse({ type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', reviewConsent: true }), {
+      type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', reviewConsent: true
     })
-    assert.deepEqual(parse({ type: 'hello', tools: [], traceConsent: false }), { type: 'hello', tools: [], traceConsent: false })
+    assert.deepEqual(parse({ type: 'hello', tools: [], reviewConsent: false }), { type: 'hello', tools: [], reviewConsent: false })
     // Strictly boolean: a truthy string must not read as consent.
-    assert.equal(parse({ type: 'hello', tools: [], traceConsent: 'yes' }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [], reviewConsent: 'yes' }).type, 'invalid')
     // The title is stamped when the first message is sent, so it travels with that prompt.
     assert.deepEqual(parse({ type: 'prompt', content: 'go', title: 'Mine' }), { type: 'prompt', content: 'go', title: 'Mine' })
     assert.equal(parse({ type: 'prompt', content: 'go', title: 42 }).type, 'invalid')
@@ -162,9 +162,9 @@ test.describe('parseServerMessageForClient — lenient, on purpose', () => {
   const parseServer = (value: unknown) => parseServerMessageForClient(JSON.stringify(value))
 
   test('accepts every frame the server actually sends', () => {
-    assert.deepEqual(parseServer({ type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false }), { type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false })
+    assert.deepEqual(parseServer({ type: 'attached', conversationId: 'c1', anonymous: false, reviewOffered: false }), { type: 'attached', conversationId: 'c1', anonymous: false, reviewOffered: false })
     // Bound to nothing yet: the next prompt creates the thread.
-    assert.deepEqual(parseServer({ type: 'attached', anonymous: false, traceStorage: false }), { type: 'attached', anonymous: false, traceStorage: false })
+    assert.deepEqual(parseServer({ type: 'attached', anonymous: false, reviewOffered: false }), { type: 'attached', anonymous: false, reviewOffered: false })
     assert.deepEqual(parseServer({ type: 'delta', kind: 'text', text: 'hi' }), { type: 'delta', kind: 'text', text: 'hi' })
     assert.deepEqual(parseServer({ type: 'tool-call', callId: 'c', name: 'n', input: { a: 1 } }), { type: 'tool-call', callId: 'c', name: 'n', input: { a: 1 } })
     assert.deepEqual(parseServer({ type: 'turn-end', stopReason: 'completed' }), { type: 'turn-end', stopReason: 'completed' })
@@ -207,36 +207,36 @@ test.describe('the session', () => {
     const h = harness()
     h.session.handle({ ...hello(), conversationId: 'c1' })
     assert.equal(h.session.attached(), true)
-    // traceStorage: whether this account stores traces, which is what makes the chat ask the person
+    // reviewOffered: whether this account stores traces, which is what makes the chat ask the person
     // for consent. Always present so a client never has to distinguish absent from false.
-    assert.deepEqual(h.last(), { type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false })
+    assert.deepEqual(h.last(), { type: 'attached', conversationId: 'c1', anonymous: false, reviewOffered: false })
     assert.deepEqual(h.session.tools().map(t => t.name), ['select_row'])
   })
 
   test('a hello without a conversation binds to nothing, and the thread its first prompt created is bound and named', () => {
     const h = harness()
     h.session.handle(hello())
-    assert.deepEqual(h.last(), { type: 'attached', anonymous: false, traceStorage: false })
+    assert.deepEqual(h.last(), { type: 'attached', anonymous: false, reviewOffered: false })
     assert.deepEqual(h.attaches, [undefined])
     // The prompt is not refused for want of a thread: creating it is what the first prompt does.
     h.session.handle({ type: 'prompt', content: 'go' })
     assert.deepEqual(h.prompts, ['go'])
     h.session.bind('c9')
-    assert.deepEqual(h.last(), { type: 'attached', conversationId: 'c9', anonymous: false, traceStorage: false })
+    assert.deepEqual(h.last(), { type: 'attached', conversationId: 'c9', anonymous: false, reviewOffered: false })
     assert.deepEqual(h.attaches, [undefined, 'c9'])
   })
 
-  test('the consent is what the browser says: in the hello, then in a trace-consent frame', () => {
+  test('the consent is what the browser says: in the hello, then in a review-consent frame', () => {
     const h = harness()
-    assert.equal(h.session.traceConsent(), false, 'no answer is no consent')
-    h.session.handle({ ...hello(), traceConsent: true })
-    assert.equal(h.session.traceConsent(), true)
-    h.session.handle({ type: 'trace-consent', consented: false })
-    assert.equal(h.session.traceConsent(), false)
-    h.session.handle({ type: 'trace-consent', consented: true })
+    assert.equal(h.session.reviewConsent(), false, 'no answer is no consent')
+    h.session.handle({ ...hello(), reviewConsent: true })
+    assert.equal(h.session.reviewConsent(), true)
+    h.session.handle({ type: 'review-consent', consented: false })
+    assert.equal(h.session.reviewConsent(), false)
+    h.session.handle({ type: 'review-consent', consented: true })
     // A hello that says nothing leaves the answer as it was.
     h.session.handle(hello())
-    assert.equal(h.session.traceConsent(), true)
+    assert.equal(h.session.reviewConsent(), true)
   })
 
   test('a prompt before hello is refused, not queued', () => {

@@ -5,7 +5,7 @@ export const schemaExports: string[]
 /**
  * When enabled, conversations of consenting users with the personal assistant are stored on the server for 30 days for admin review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent.
  */
-export type StoreConversationTraces = boolean;
+export type ReviewPersonalAssistantConversations = boolean;
 export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Scaleway | OpenAICompatible | Mock;
 export type ProviderType = "openai";
 export type ProviderID = string;
@@ -132,7 +132,7 @@ export type MonthlyLimit = number;
 export type Settings = {
   createdAt?: string;
   updatedAt?: string;
-  storeTraces?: StoreConversationTraces;
+  reviewPersonalAssistant?: ReviewPersonalAssistantConversations;
   owner: {
     type: "user" | "organization";
     id: string;

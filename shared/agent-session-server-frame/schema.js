@@ -14,7 +14,7 @@ export default {
   oneOf: [
     {
       title: 'Attached frame',
-      description: 'The answer to a `hello`, and the news that a first prompt created a thread: `conversationId` is the thread this connection is bound to, absent while the next prompt is still to create one. `traceStorage` is what makes the chat show its consent sheet.',
+      description: 'The answer to a `hello`, and the news that a first prompt created a thread: `conversationId` is the thread this connection is bound to, absent while the next prompt is still to create one. `reviewOffered` is what makes the chat show its consent sheet.',
       type: 'object',
       additionalProperties: false,
       required: ['type', 'anonymous'],
@@ -22,7 +22,7 @@ export default {
         type: { const: 'attached' },
         conversationId: { type: 'string' },
         anonymous: { type: 'boolean' },
-        traceStorage: { type: 'boolean' }
+        reviewOffered: { type: 'boolean' }
       }
     },
     {

@@ -48,7 +48,7 @@ const settingsData = {
     summarizer: { provider: 'mock-provider', id: 'mock-summarizer', name: 'Mock Summarizer' }
   },
   quotas: defaultQuotas
-  // storeTraces is OFF by default so the consent bottom-sheet doesn't overlay the chat
+  // reviewPersonalAssistant is OFF by default so the consent bottom-sheet doesn't overlay the chat
   // in the functionality tests. The review-page tests enable it + grant consent locally.
 }
 
@@ -156,7 +156,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
   test('Subagent trace appears on the review page', async ({ page, context, goToWithAuth }) => {
     // Enable trace storage for this review-page test + pre-set consent so the
     // conversation is stored server-side and the consent sheet stays hidden.
-    await putSettings(admin, 'user/test-standalone1', { ...settingsData, storeTraces: true })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, reviewPersonalAssistant: true })
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
     await seedChipCookie(page)
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
@@ -180,7 +180,7 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     const conversationId = await pollConversationId()
     expect(conversationId).toBeTruthy()
 
-    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
 
     const subAgentPanel = page.getByTestId('subagent-panel').filter({ hasText: 'Data Analyst' }).first()
     await expect(subAgentPanel).toBeVisible({ timeout: 15000 })

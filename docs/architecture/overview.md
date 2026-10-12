@@ -63,7 +63,7 @@ and it is purged when that socket closes (`purgeAbandonedAnonymous` sweeps one w
 Their turns are charged per IP, in the untrusted pool — see [Quotas & usage](./quotas-usage.md).
 
 The person's consent to [review](./conversation-review.md) travels in the protocol as well: the browser
-keeps its answer in its own cookie and says it in the `hello`, and in a `trace-consent` frame when it
+keeps its answer in its own cookie and says it in the `hello`, and in a `review-consent` frame when it
 changes. The server never reads that cookie.
 
 AI provider/model configuration and credit-based quotas are layered across deploy-time env vars, per-org superadmin definitions, and org-admin distribution — see [Configuration](./configuration.md). Every model call, whoever makes it, is charged through one function, `chargeModelCall` (`api/src/usage/charge.ts`) — see [Quotas & usage](./quotas-usage.md).

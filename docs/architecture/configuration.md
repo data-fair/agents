@@ -15,7 +15,7 @@ graph TD
   end
   subgraph L3["Layer 3 — org-admin distribution (PUT /api/settings/:type/:id/org)"]
     MM[settings.modelMapping]
-    QT[settings.quotas / moderation / storeTraces]
+    QT[settings.quotas / moderation / reviewPersonalAssistant]
   end
 
   PROV --> CAT[Catalog\nGET /api/catalog/:type/:id]
@@ -215,12 +215,12 @@ This route only ever touches `providers`/`models` (`+ updatedAt`) — it is a pa
 
 ## Layer 3 — org-admin distribution
 
-`PUT /api/settings/:type/:id/org` (`api/src/settings/router.ts`), gated by `assertAccountRole(..., 'admin')` — any admin of that specific account, org or superadmin alike. The body is the **full** org-owned representation (whole-document semantics for this subset of fields): `modelMapping`, `quotas`, `moderation`, `storeTraces`.
+`PUT /api/settings/:type/:id/org` (`api/src/settings/router.ts`), gated by `assertAccountRole(..., 'admin')` — any admin of that specific account, org or superadmin alike. The body is the **full** org-owned representation (whole-document semantics for this subset of fields): `modelMapping`, `quotas`, `moderation`, `reviewPersonalAssistant`.
 
 - `modelMapping`: `Partial<Record<Role, { provider, id, name? }>>`. Each ref is validated against `GET /api/catalog/:type/:id` at write time — the route 400s if the ref isn't in the catalog, or is in the catalog but not flagged for that role's usage.
 - `quotas`: per-role monthly caps plus the `untrusted` pool (see [Quotas & usage](./quotas-usage.md)); `quotas.global` no longer exists — the account-wide cap moved to the credits/limits system below.
 - `moderation`: `{ enabled, categories }`, the opt-in input-moderation gate and which caller categories it checks (see [Moderation](./moderation.md)).
-- `storeTraces`: whether the account offers [conversation review](./conversation-review.md) at all; each person must still consent per thread.
+- `reviewPersonalAssistant`: whether the account offers [conversation review](./conversation-review.md) at all; each person must still consent per thread.
 
 Both routes upsert (`$setOnInsert` seeds the other layer's defaults on a first write). An account with no settings document reads as `emptySettings` (`api/src/settings/service.ts`).
 

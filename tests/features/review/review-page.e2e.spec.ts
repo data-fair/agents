@@ -1,11 +1,11 @@
 /**
- * E2E test: navigate to /organization/test1/traces/:id and assert the stored trace renders.
+ * E2E test: navigate to /organization/test1/review/:id and assert the conversation renders.
  *
  * Scenario:
- *   1. PUT settings with storeTraces: true and a mock provider/assistant model.
- *   2. Drive a gateway request with consent headers so a trace gets stored.
- *   3. Poll GET /api/review/conversation/:id until the trace appears.
- *   4. Navigate to /agents/organization/test1/traces/:id as superadmin.
+ *   1. PUT settings with reviewPersonalAssistant: true and a mock provider/assistant model.
+ *   2. Run a consented turn so the conversation is reviewable.
+ *   3. Poll GET /api/review/conversation/:id until the conversation appears.
+ *   4. Navigate to /agents/organization/test1/review/:id as superadmin.
  *   5. Assert the TraceView rendered (a user-message chip is visible).
  */
 
@@ -14,7 +14,7 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
-import { runTurn, setTraceConsent } from '../../support/turn.ts'
+import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const admin = await superAdmin
 
@@ -43,7 +43,7 @@ const settingsData = {
     external: { unlimited: true, monthlyLimit: 0 },
     anonymous: { unlimited: false, monthlyLimit: 0 }
   },
-  storeTraces: true
+  reviewPersonalAssistant: true
 }
 
 async function waitForConversation (conversationId: string) {
@@ -58,22 +58,22 @@ async function waitForConversation (conversationId: string) {
   throw new Error(`Timed out waiting for conversation ${conversationId}`)
 }
 
-test.describe('Trace review page (/organization/test1/traces/:id)', () => {
+test.describe('Review page (/organization/test1/review/:id)', () => {
   test.beforeEach(async () => {
     await clean()
     await putSettings(admin, 'organization/test1', settingsData)
 
-    // Run a real turn, which is what produces a stored trace now. Consent travels in the cookie
+    // Run a real turn, which is what makes a conversation reviewable. Consent travels in the cookie
     // both boundaries read; the conversation id is the server's, not ours to choose.
-    await setTraceConsent(admin, true)
+    await setReviewConsent(admin, true)
     convId = (await runTurn(admin, 'organization/test1', 'hello review page')).conversationId
 
-    // Wait until the trace is persisted (async write)
+    // Wait until the conversation is reviewable
     await waitForConversation(convId)
   })
 
   test('renders the conversation for an admin', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/traces/${convId}`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/review/${convId}`, 'superadmin', { adminMode: true })
 
     await expect(page.getByText('Conversation not found or access denied.', { exact: false })).toHaveCount(0)
 
@@ -89,7 +89,7 @@ test.describe('Trace review page (/organization/test1/traces/:id)', () => {
   })
 
   test('shows the telemetry the conversation cannot carry', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/traces/${convId}`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/review/${convId}`, 'superadmin', { adminMode: true })
 
     // Per-call detail now lives on the run: which model answered, and what the turn cost.
     await expect(page.getByText('1 turns', { exact: false })).toBeVisible({ timeout: 15000 })
@@ -105,8 +105,8 @@ test.describe('Trace review page (/organization/test1/traces/:id)', () => {
     // The whole replacement for the trace evaluator: one button, one file. Asserted through a real
     // browser download rather than by fetching the endpoint, because what can break here is the
     // link (a wrong URL, or a button rendered where the endpoint will 403) rather than the format,
-    // which is pinned in tests/features/trace-review/conversation-export.unit.spec.ts.
-    await goToWithAuth(`/agents/organization/test1/traces/${convId}`, 'superadmin', { adminMode: true })
+    // which is pinned in tests/features/review/conversation-export.unit.spec.ts.
+    await goToWithAuth(`/agents/organization/test1/review/${convId}`, 'superadmin', { adminMode: true })
     await expect(page.getByText('1 turns', { exact: false })).toBeVisible({ timeout: 15000 })
 
     const downloadPromise = page.waitForEvent('download')

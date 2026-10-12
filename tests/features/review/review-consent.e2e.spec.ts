@@ -1,11 +1,11 @@
 /**
- * E2E tests for the trace-storage consent bottom-sheet and Settings toggle.
+ * E2E tests for the review consent bottom-sheet and Settings toggle.
  *
  * Validates that:
- *   - When storeTraces is enabled, the consent sheet appears after the first
- *     assistant response (which carries x-trace-storage: available).
+ *   - When reviewPersonalAssistant is enabled, the consent sheet appears after the first
+ *     assistant response.
  *   - Clicking Accept persists the cookie; after reload the sheet does not reappear.
- *   - When storeTraces is disabled, the sheet never appears.
+ *   - When reviewPersonalAssistant is disabled, the sheet never appears.
  *   - The Settings tab in the debug dialog shows the consent toggle when storage is available.
  */
 
@@ -32,15 +32,15 @@ const settingsWithStorage = {
     assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: defaultQuotas,
-  storeTraces: true
+  reviewPersonalAssistant: true
 }
 
 const settingsWithoutStorage = {
   ...settingsWithStorage,
-  storeTraces: false
+  reviewPersonalAssistant: false
 }
 
-test.describe('Trace consent sheet', () => {
+test.describe('Review consent sheet', () => {
   test.beforeEach(async () => {
     await clean()
     await putSettings(admin, 'user/test-standalone1', settingsWithStorage)
@@ -50,7 +50,7 @@ test.describe('Trace consent sheet', () => {
     // Navigate to the chat page (no consent cookie set yet)
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
 
-    // Send a message to trigger a gateway response with x-trace-storage: available
+    // Send a message: the sheet waits for a first assistant response
     const input = page.getByPlaceholder('Type your message...')
     await expect(input).toBeEnabled({ timeout: 10000 })
     await input.fill('hello')
@@ -95,7 +95,7 @@ test.describe('Trace consent sheet', () => {
 
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
 
-    // Send a message so the gateway sets traceStorageAvailable
+    // Send a message so the gateway sets reviewOffered
     const input = page.getByPlaceholder('Type your message...')
     await expect(input).toBeEnabled({ timeout: 10000 })
     await input.fill('hello')
@@ -112,7 +112,7 @@ test.describe('Trace consent sheet', () => {
     await expect(page.getByText('Store my conversations for review')).toBeVisible({ timeout: 5000 })
   })
 
-  test('consent sheet does not appear when storeTraces is disabled', async ({ page, goToWithAuth }) => {
+  test('consent sheet does not appear when reviewPersonalAssistant is disabled', async ({ page, goToWithAuth }) => {
     await putSettings(admin, 'user/test-standalone1', settingsWithoutStorage)
 
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')

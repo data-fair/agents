@@ -1,7 +1,7 @@
 /**
  * Shared wiring for the two write-scoped settings forms:
  *  - the superadmin form (providers / models), PUT /api/settings/:type/:id
- *  - the org-admin form (modelMapping / quotas / moderation / storeTraces),
+ *  - the org-admin form (modelMapping / quotas / moderation / reviewPersonalAssistant),
  *    PUT /api/settings/:type/:id/org
  *
  * Both read the same whole document from GET /api/settings/:type/:id but are

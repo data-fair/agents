@@ -39,6 +39,8 @@ declare module 'vue' {
     MonitoringUserHistogram: typeof import('./src/components/MonitoringUserHistogram.vue')['default']
     OrgConfigSection: typeof import('./src/components/OrgConfigSection.vue')['default']
     QuotasTable: typeof import('./src/components/QuotasTable.vue')['default']
+    ReviewConsentSheet: typeof import('./src/components/agent-chat/ReviewConsentSheet.vue')['default']
+    ReviewList: typeof import('./src/components/ReviewList.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
     RunSummary: typeof import('./src/components/agent-page/RunSummary.vue')['default']

@@ -45,7 +45,7 @@ test.describe('Agent session socket', () => {
   test('an authenticated browser connects through nginx and attaches', async () => {
     const session = await open(await cookieOf(orgAdmin))
     session.send({ ...helloWith(['select_row']), conversationId: 'c1' })
-    assert.deepEqual(await session.next(), { type: 'attached', conversationId: 'c1', anonymous: false, traceStorage: false })
+    assert.deepEqual(await session.next(), { type: 'attached', conversationId: 'c1', anonymous: false, reviewOffered: false })
   })
 
   test('an anonymous browser is allowed, deliberately', async () => {

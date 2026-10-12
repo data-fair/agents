@@ -18,8 +18,8 @@ organization answers for what it does. The consent model below belongs to the pe
 
 | Thread with | Reviewable by an org admin | Person's delete | Expires |
 | --- | --- | --- | --- |
-| a configured agent | always, whatever `storeTraces` says, no consent needed | archives (never purges) | never; removed by agent deletion or GDPR erasure |
-| the personal assistant (`personal`) | only with `storeTraces` + consent + inside the window | archives if consented and inside the window, else purges | 30 days after the last message once archived |
+| a configured agent | always, whatever `reviewPersonalAssistant` says, no consent needed | archives (never purges) | never; removed by agent deletion or GDPR erasure |
+| the personal assistant (`personal`) | only with `reviewPersonalAssistant` + consent + inside the window | archives if consented and inside the window, else purges | 30 days after the last message once archived |
 
 The review filter is `reviewableFilter` (`api/src/review/reviewable.ts`); the chat shows a
 non-dismissible notice on an audited thread and never offers the consent sheet there.
@@ -30,15 +30,15 @@ They are different questions, and each fails closed.
 
 | Gate | Question | Default |
 | --- | --- | --- |
-| `settings.storeTraces` | does this **organization** want review capability at all | `false` |
+| `settings.reviewPersonalAssistant` | does this **organization** want review capability at all | `false` |
 | `conversation.consentedToReview` | did **this person** agree to this thread being read | absent = no |
 
-`storeTraces` is an org-admin setting (`PUT /api/settings/:type/:id/org`) whose description states
+`reviewPersonalAssistant` is an org-admin setting (`PUT /api/settings/:type/:id/org`) whose description states
 the contract: *"conversations of consenting users with the personal assistant are stored on the server for 30 days for admin
 review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent."* When it is on, the session advertises availability and
 the chat asks the person once; their answer is a 1-year `agent-chat-trace-consent` cookie
-(`ui/src/traces/trace-consent.ts`) — the browser's own memory of it. The server never reads the
-cookie: the chat says the answer over the agent session (in its `hello`, and in a `trace-consent` frame
+(`ui/src/review/review-consent.ts`) — the browser's own memory of it. The server never reads the
+cookie: the chat says the answer over the agent session (in its `hello`, and in a `review-consent` frame
 when it changes), and each turn records it as one flag on the thread. One flag, so the person can change their mind: withdrawing
 consent hides a thread that was previously visible.
 
@@ -75,13 +75,13 @@ erasure request.
 
 ## The API
 
-All routes are account-admin gated. `storeTraces` no longer gates them: it only decides whether the
+All routes are account-admin gated. `reviewPersonalAssistant` no longer gates them: it only decides whether the
 personal assistant's consented threads are included. Threads of configured agents are audited and
 always reviewable (`assertMayReview` no longer refuses).
 
 | Route | What it does |
 | --- | --- |
-| `GET /api/review/:type/:id` | paginated, newest-first list of audited threads plus, with `storeTraces`, consented personal-assistant threads inside the window, each with a real preview of the first user message |
+| `GET /api/review/:type/:id` | paginated, newest-first list of audited threads plus, with `reviewPersonalAssistant`, consented personal-assistant threads inside the window, each with a real preview of the first user message |
 | `GET /api/review/:type/:id/:conversationId` | one thread: `{ conversation, messages, runs }` |
 | `GET /api/review/:type/:id/:conversationId/export` | the same, as a JSONL file — **superadmin (admin mode) only** |
 | `GET /api/review/conversation/:conversationId` | resolve which account a thread lives in, for a link that does not carry it |
@@ -97,7 +97,7 @@ segments, so the param route would otherwise match it with `type: 'conversation'
 ## Viewing
 
 - **Activity page** (`/:type/:id`) — the paginated list, with per-row delete and per-user erase.
-- **Review page** (`/:type/:id/traces/:convId`, and a superadmin variant under `admin/`) —
+- **Review page** (`/:type/:id/review/:convId`, and a superadmin variant under `admin/`) —
   `ui/src/components/ConversationReview.vue`. It renders the thread through
   `AgentChatMessages`, the **same** renderer the chat uses, so a reviewer sees what the person saw
   rather than a second rendering that can drift. Read-only: no streaming, no activity, no composer.

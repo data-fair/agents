@@ -25,7 +25,7 @@ const settingsData = {
     assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: { admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
-  storeTraces: true
+  reviewPersonalAssistant: true
 }
 
 test.describe('Chat debug dialog', () => {

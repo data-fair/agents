@@ -5,7 +5,7 @@
  * no copy any more: review is a READ of the conversation, authorized rather than duplicated, so what
  * these tests assert is the AUTHORIZATION — two gates, both required, and each failing closed.
  *
- *  - the organization enabled review at all (`settings.storeTraces`)
+ *  - the organization enabled review at all (`settings.reviewPersonalAssistant`)
  *  - this person agreed to this thread being read (`conversation.consentedToReview`)
  *
  * The per-call telemetry that the trace collection held beyond content now lives on the run, and is
@@ -15,14 +15,14 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
-import { runTurn, setTraceConsent } from '../../support/turn.ts'
+import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
 // a member of organization/test1, so their threads on the org account are attributable to them
 const orgMemberUser = await axiosAuth('test1-user1')
 
-const settingsData = (storeTraces: boolean) => ({
+const settingsData = (reviewPersonalAssistant: boolean) => ({
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
   models: [
     {
@@ -36,13 +36,13 @@ const settingsData = (storeTraces: boolean) => ({
     assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: { admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
-  storeTraces
+  reviewPersonalAssistant
 })
 
 /** Configure the account, answer the consent question, and run one turn. */
-async function chat (storeTraces: boolean, consented: boolean, owner = 'user/test-standalone1', ax = user) {
-  await putSettings(admin, owner, settingsData(storeTraces))
-  await setTraceConsent(ax, consented)
+async function chat (reviewPersonalAssistant: boolean, consented: boolean, owner = 'user/test-standalone1', ax = user) {
+  await putSettings(admin, owner, settingsData(reviewPersonalAssistant))
+  await setReviewConsent(ax, consented)
   const { conversationId } = await runTurn(ax, owner)
   return conversationId
 }
@@ -69,7 +69,7 @@ test.describe('Conversation review API', () => {
     assert.equal(res.data.count, 0)
   })
 
-  test('without storeTraces, a consented personal-assistant thread is not reviewable', async () => {
+  test('without reviewPersonalAssistant, a consented personal-assistant thread is not reviewable', async () => {
     // The route itself is no longer refused — configured-agent threads are always reviewable
     // (shared/agent-audit.ts) — but the personal assistant's still need the org setting.
     await chat(false, true)
@@ -154,7 +154,7 @@ test.describe('Conversation review API', () => {
     const conversationId = await chat(true, true)
     assert.equal((await admin.get('/api/review/user/test-standalone1')).data.count, 1)
 
-    await setTraceConsent(user, false)
+    await setReviewConsent(user, false)
     await runTurn(user, 'user/test-standalone1', 'again', { conversationId })
 
     assert.equal((await admin.get('/api/review/user/test-standalone1')).data.count, 0)
@@ -163,7 +163,7 @@ test.describe('Conversation review API', () => {
     // The download the admin page offers, and what replaced the in-browser trace evaluator. What is
     // asserted here is the HTTP contract (gate, headers, filename) and that the file the route
     // produced is the one the format promises — the format itself is pinned in
-    // tests/features/trace-review/conversation-export.unit.spec.ts.
+    // tests/features/review/conversation-export.unit.spec.ts.
     const conversationId = await chat(true, true)
     const res = await admin.get(`/api/review/user/test-standalone1/${conversationId}/export`, { responseType: 'text' })
     assert.equal(res.status, 200)

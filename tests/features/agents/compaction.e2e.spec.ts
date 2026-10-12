@@ -72,7 +72,7 @@ test.describe('History Compaction', () => {
   })
 
   test('a compacted turn is recorded as a summarizer call and shows up in review', async ({ page, context, goToWithAuth }) => {
-    await putSettings(admin, 'user/test-standalone1', { ...settingsData, storeTraces: true })
+    await putSettings(admin, 'user/test-standalone1', { ...settingsData, reviewPersonalAssistant: true })
     // Consent pre-set so the thread is reviewable and the consent sheet never overlays the composer.
     await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
 
@@ -107,7 +107,7 @@ test.describe('History Compaction', () => {
     expect(summarizerCalls[0].model).toBe('mock-summarizer')
 
     // And an admin can see it on the review page, in the per-call detail.
-    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
     await expect(page.getByRole('button', { name: 'Show detail' })).toBeVisible({ timeout: 15000 })
     await page.getByRole('button', { name: 'Show detail' }).click()
     await expect(page.getByRole('cell', { name: 'summarizer' }).first()).toBeVisible()
@@ -115,7 +115,7 @@ test.describe('History Compaction', () => {
   })
 
   test('compaction is invisible to the person: every turn they sent is still there, and it keeps answering', async ({ page, goToWithAuth }) => {
-    // storeTraces off, so no consent sheet can overlay the composer during three sends.
+    // reviewPersonalAssistant off, so no consent sheet can overlay the composer during three sends.
     await putSettings(admin, 'user/test-standalone1', settingsData)
 
     await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')

@@ -82,7 +82,7 @@ test.describe('Chat silent-drop protection', () => {
     // browser test cannot see. What a test can see is the decision itself: the run ends `error`, so
     // the anomaly is in the data rather than only in a log line nobody greps.
     await expect.poll(async () => {
-      // The person's own thread list, not the review list: review needs `storeTraces` plus consent,
+      // The person's own thread list, not the review list: review needs `reviewPersonalAssistant` plus consent,
       // neither of which this scenario sets, and the run is readable without them.
       const list = await user.get('/api/conversations/user/test-standalone1?agentId=personal').catch(() => null)
       const conversationId = list?.data.results[0]?.id

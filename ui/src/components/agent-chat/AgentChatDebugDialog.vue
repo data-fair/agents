@@ -139,14 +139,14 @@
               <div class="pa-3">
                 <template v-if="showConsentToggle">
                   <df-tutorial-alert
-                    id="agent-settings-store-traces"
-                    :text="t('storeTracesHint')"
+                    id="agent-settings-review-consent"
+                    :text="t('reviewConsentHint')"
                     :initial="false"
                     persistent
                   />
                   <v-switch
                     :model-value="consentRef === 'yes'"
-                    :label="t('storeTraces')"
+                    :label="t('reviewConsent')"
                     @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
                   />
                 </template>
@@ -224,8 +224,8 @@ fr:
   openReview: Ouvrir l'analyse
   settings: Paramètres
   consumption: Consommation
-  storeTraces: Enregistrer mes conversations pour relecture
-  storeTracesHint: "Vos conversations seront enregistrées sur le serveur pendant 30 jours afin qu'un administrateur puisse les relire. Vous pouvez retirer votre consentement à tout moment."
+  reviewConsent: Enregistrer mes conversations pour relecture
+  reviewConsentHint: "Vos conversations seront enregistrées sur le serveur pendant 30 jours afin qu'un administrateur puisse les relire. Vous pouvez retirer votre consentement à tout moment."
   experimental: Expérimental
   simpleSubAgents: Affichage simplifié des sous-agents
   simpleSubAgentsHint: "Affiche les sous-agents délégués sous forme d'une simple puce de statut, au lieu d'un panneau de trace dépliable. Ce réglage ne réinitialise pas la conversation."
@@ -245,8 +245,8 @@ en:
   openReview: Open review
   settings: Settings
   consumption: Consumption
-  storeTraces: Store my conversations for review
-  storeTracesHint: "Your conversations will be stored on the server for 30 days so an administrator can review them. You can withdraw your consent at any time."
+  reviewConsent: Store my conversations for review
+  reviewConsentHint: "Your conversations will be stored on the server for 30 days so an administrator can review them. You can withdraw your consent at any time."
   experimental: Experimental
   simpleSubAgents: Simplify sub-agent display
   simpleSubAgentsHint: "Shows delegated sub-agents as a simple status chip instead of an expandable trace panel. This setting does not reset the conversation."
@@ -266,7 +266,7 @@ import type { SelfUsage } from '../../../../api/src/usage/operations'
 import AgentChatConsumption from './AgentChatConsumption.vue'
 import type { Tool } from 'ai'
 import { $apiPath, $fetch } from '~/context'
-import { traceStorageAvailable, consentRef, writeConsent } from '~/traces/trace-consent'
+import { reviewOffered, consentRef, writeConsent } from '~/review/review-consent'
 
 const props = defineProps<{
   modelValue: boolean
@@ -348,17 +348,17 @@ watch(() => props.modelValue, async open => {
 // Show the consent toggle as soon as storage is advertised, OR if a prior
 // decision is already stored in the cookie — so a user who consented in a
 // previous session can flip it back without sending a first message.
-const showConsentToggle = computed(() => !props.audited && (traceStorageAvailable.value || consentRef.value !== undefined))
+const showConsentToggle = computed(() => !props.audited && (reviewOffered.value || consentRef.value !== undefined))
 
 // `conversationId` gates it too: the review route needs one, and offering a button that resolves to
 // a path with `undefined` in it is worse than not offering it for the moment before attach.
-const showReview = computed(() => !!props.isAdmin && !!props.conversationId && (props.audited || (traceStorageAvailable.value && consentRef.value === 'yes')))
+const showReview = computed(() => !!props.isAdmin && !!props.conversationId && (props.audited || (reviewOffered.value && consentRef.value === 'yes')))
 
-// Open the review in a new tab at the account-scoped trace route. `router.resolve(...).href`
+// Open the review in a new tab at the account-scoped review route. `router.resolve(...).href`
 // includes the app's base ('/agents'), so this works whether the chat is standalone or
 // embedded in data-fair.
 const openReview = () => {
-  const href = router.resolve({ path: `/${props.accountType}/${props.accountId}/traces/${props.conversationId}` }).href
+  const href = router.resolve({ path: `/${props.accountType}/${props.accountId}/review/${props.conversationId}` }).href
   window.open(href, '_blank')
 }
 </script>

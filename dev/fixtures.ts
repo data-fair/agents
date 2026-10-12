@@ -21,7 +21,7 @@ import { axiosBuilder } from '@data-fair/lib-node/axios.js'
 import { axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 import { pathToFileURL } from 'node:url'
 import { encodeBreakdownKey } from '../api/src/usage/operations.ts'
-import { CONSENT_COOKIE, CONSENT_YES } from '../ui/src/traces/trace-consent.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../ui/src/review/review-consent.ts'
 import { turnOverSocket, type ConversationTarget } from './socket-turn.ts'
 
 const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
@@ -74,7 +74,7 @@ const orgSettingsData = {
   // an external or anonymous visitor is refused, and the verdict lands in the moderation record.
   moderation: { enabled: true, categories: ['anonymous', 'external'] },
   // so the consented conversations below show up on the review pages
-  storeTraces: true
+  reviewPersonalAssistant: true
 }
 const SETTINGS_OWNERS = ['organization/dev1', 'user/albanm']
 

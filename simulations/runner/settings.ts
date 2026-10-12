@@ -88,12 +88,12 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
     // ON, so the run can be read back through the conversation export (fetchConversationExports): the
     // review gate is what that route sits behind, and a simulation is judged on the same file a real
     // session is debugged with.
-    storeTraces: true
+    reviewPersonalAssistant: true
   }
 }
 
 /** Fields the org-admin PUT owns; everything else belongs to the superadmin PUT. */
-const ORG_OWNED_KEYS = ['modelMapping', 'quotas', 'moderation', 'storeTraces']
+const ORG_OWNED_KEYS = ['modelMapping', 'quotas', 'moderation', 'reviewPersonalAssistant']
 
 /**
  * Settings authorship is split across two write-scoped endpoints: `providers`/`models`
@@ -226,7 +226,7 @@ export async function assertBridgeUp () {
  * The conversation exports of everything `userId` said on `owner` during the run.
  *
  * The SAME file a maintainer downloads to debug a real session, through the same route and the same
- * gates: the account must store traces (`bridgeSettings` turns it on) and the person must have
+ * gates: the account must offer review (`bridgeSettings` turns it on) and the person must have
  * consented (the runner sets the consent cookie before the page loads). Every chat surface runs its
  * loop on the server, so this is the only record of what the model was sent and what it called — a
  * capture of the browser's requests sees nothing.

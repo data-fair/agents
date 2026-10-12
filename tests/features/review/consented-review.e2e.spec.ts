@@ -1,18 +1,18 @@
 /**
- * E2E test for the stored-trace review flow.
+ * E2E test for the consented review flow.
  *
  * Scenario:
- *   1. Seed settings for user/test-standalone1 with storeTraces: true, a mock
+ *   1. Seed settings for user/test-standalone1 with reviewPersonalAssistant: true, a mock
  *      provider and an assistant model.
  *   2. Pre-set the agent-chat-trace-consent cookie to "yes" via the Playwright
- *      browser context so the chat sends the x-trace-consent header and the
+ *      browser context so the chat says the consent over the agent session and the
  *      consent bottom-sheet never appears.
  *   3. Open /agents/user/test-standalone1/chat as test-standalone1 and send
  *      "hello". Wait for the assistant to reply with "world" (mock provider).
  *      With consent active, this conversation is stored server-side.
  *   4. Poll GET /api/review/user/test-standalone1 until the conversation appears
  *      and grab its conversationId.
- *   5. Navigate to /agents/user/test-standalone1/traces/:id as test-standalone1.
+ *   5. Navigate to /agents/user/test-standalone1/review/:id as test-standalone1.
  *   6. Assert the conversation rendered — both sides of the exchange, not a type label.
  */
 
@@ -39,17 +39,17 @@ const settingsData = {
     assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
   },
   quotas: defaultQuotas,
-  storeTraces: true
+  reviewPersonalAssistant: true
 }
 
-test.describe('Trace review flow', () => {
+test.describe('Consented review flow', () => {
   test.beforeEach(async () => {
     await clean()
     await putSettings(admin, 'user/test-standalone1', settingsData)
   })
 
-  test('real chat with consent stores a trace that renders on the review page', async ({ page, context, goToWithAuth }) => {
-    // Step 1: Pre-set the consent cookie so the chat sends x-trace-consent: yes
+  test('real chat with consent is reviewable on the review page', async ({ page, context, goToWithAuth }) => {
+    // Step 1: Pre-set the consent cookie so the chat says yes over the agent session
     // and the consent bottom-sheet never blocks interaction.
     await context.addCookies([{
       name: 'agent-chat-trace-consent',
@@ -77,8 +77,8 @@ test.describe('Trace review flow', () => {
     }
     expect(conversationId).toBeTruthy()
 
-    // Step 5: Navigate to the new per-trace review page
-    await goToWithAuth(`/agents/user/test-standalone1/traces/${conversationId}`, 'test-standalone1')
+    // Step 5: Navigate to the review page
+    await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
 
     // Step 6: the exchange itself. The old assertion looked for a `user-message` TYPE CHIP, which
     // the reconstruction layer emitted whether or not the entry had content — it kept passing after

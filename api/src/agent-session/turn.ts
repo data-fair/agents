@@ -74,7 +74,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   // and the socket reports the current answer.
   // Never for an anonymous visitor: their thread is not reviewable (the account's consent sheet is not
   // offered to them), and a consent left in the browser from a signed-in visit must not make it so.
-  const consented = caller.kind === 'person' ? request.echoTo?.traceConsent() : undefined
+  const consented = caller.kind === 'person' ? request.echoTo?.reviewConsent() : undefined
   if (consented !== undefined && consented !== (conversation.consentedToReview === true)) {
     await setReviewConsent(conversation.id, consented)
   }

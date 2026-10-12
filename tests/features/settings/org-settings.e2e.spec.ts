@@ -1,7 +1,7 @@
 /**
  * E2E for the org-admin self-service config form (OrgConfigSection), which
  * writes PUT /api/settings/:type/:id/org: role mapping picked from the merged
- * catalog, per-profile credit quotas, input moderation and store-traces.
+ * catalog, per-profile credit quotas, input moderation and personal-assistant review.
  *
  * The org admin is logged straight into the organization account: the page
  * checks the role of the session's current account.
@@ -12,7 +12,7 @@ import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 
-// the form is split in tabs (quotas / moderation and traces / models)
+// the form is split in tabs (quotas / moderation and review / models)
 const openTab = (page: Page, name: string) => page.locator('#configuration').getByRole('tab', { name }).click()
 
 const seedProviderAndModel = async () => {
@@ -34,7 +34,7 @@ test.describe('Org admin config UI', () => {
     await clean()
   })
 
-  test('maps a role from the catalog, sets a profile quota, toggles store-traces and persists', async ({ page, goToWithAuth }) => {
+  test('maps a role from the catalog, sets a profile quota, toggles personal-assistant review and persists', async ({ page, goToWithAuth }) => {
     await seedProviderAndModel()
 
     await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
@@ -65,9 +65,9 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('option', { name: 'Global Mock Model (Global Mock)' })).toBeVisible()
     await page.getByRole('option', { name: 'Mock Model (Mock Provider)' }).click()
 
-    // And the store-traces switch
-    await openTab(page, 'Moderation and traces')
-    await page.getByText('Store conversation traces').click()
+    // And the personal-assistant review switch
+    await openTab(page, 'Moderation and review')
+    await page.getByText('Review personal assistant conversations').click()
 
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
@@ -80,24 +80,24 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('spinbutton', { name: 'Contributors - Monthly limit (AI credits)' })).toHaveValue('42')
     await openTab(page, 'Model per role')
     await expect(page.getByText('Mock Model (Mock Provider)')).toBeVisible()
-    await openTab(page, 'Moderation and traces')
-    await expect(page.getByRole('checkbox', { name: 'Store conversation traces' })).toBeChecked()
+    await openTab(page, 'Moderation and review')
+    await expect(page.getByRole('checkbox', { name: 'Review personal assistant conversations' })).toBeChecked()
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 
-  // Regression (moved here from settings.e2e.spec.ts when `storeTraces` moved
+  // Regression (moved here from settings.e2e.spec.ts when `reviewPersonalAssistant` moved
   // from the superadmin form to this one): sections that are `required` but
   // conditionally hidden get pruned by vjsf on the first edit, which used to
   // raise a global "required information" error the moment an unrelated,
   // always-visible switch was toggled on an otherwise empty config.
-  test('Toggling store-traces on an empty config does not raise a required error', async ({ page, goToWithAuth }) => {
+  test('Toggling personal-assistant review on an empty config does not raise a required error', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
     await page.waitForTimeout(500)
 
-    await openTab(page, 'Moderation and traces')
-    await page.getByText('Store conversation traces').click()
+    await openTab(page, 'Moderation and review')
+    await page.getByText('Review personal assistant conversations').click()
     await page.waitForTimeout(500)
 
     await expect(page.getByText('required information')).not.toBeVisible()
@@ -109,14 +109,14 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
     await page.waitForTimeout(500)
 
-    await openTab(page, 'Moderation and traces')
-    await page.getByText('Store conversation traces').click()
-    await expect(page.getByRole('checkbox', { name: 'Store conversation traces' })).toBeChecked()
+    await openTab(page, 'Moderation and review')
+    await page.getByText('Review personal assistant conversations').click()
+    await expect(page.getByRole('checkbox', { name: 'Review personal assistant conversations' })).toBeChecked()
 
     await page.getByRole('button', { name: 'Cancel' }).click()
     await page.getByRole('button', { name: 'Discard changes', exact: true }).click()
 
-    await expect(page.getByRole('checkbox', { name: 'Store conversation traces' })).not.toBeChecked()
+    await expect(page.getByRole('checkbox', { name: 'Review personal assistant conversations' })).not.toBeChecked()
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 
@@ -130,15 +130,15 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('cell', { name: 'Admins', exact: true })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'Contributors', exact: true })).not.toBeVisible()
 
-    await openTab(page, 'Moderation and traces')
-    await page.getByText('Store conversation traces').click()
+    await openTab(page, 'Moderation and review')
+    await page.getByText('Review personal assistant conversations').click()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
 
     await page.reload()
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
-    await openTab(page, 'Moderation and traces')
-    await expect(page.getByRole('checkbox', { name: 'Store conversation traces' })).toBeChecked()
+    await openTab(page, 'Moderation and review')
+    await expect(page.getByRole('checkbox', { name: 'Review personal assistant conversations' })).toBeChecked()
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })

@@ -1062,11 +1062,11 @@ test.describe('Autonomous agent run traces', () => {
   })
 
   test('telemetry is recorded whether or not the org enabled review', async () => {
-    // The gate moved to what it actually governs. `storeTraces` used to decide whether the exchange
+    // The gate moved to what it actually governs. `reviewPersonalAssistant` used to decide whether the exchange
     // was COPIED into a second collection; there is no copy any more, and a model id with a token
     // count is the account's own operational record of its own spend, not content about a person.
     // What the setting gates now is whether an admin may READ THE CONVERSATION.
-    await putMockSettings(admin, 'organization/test1', { storeTraces: false })
+    await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: false })
     const { conv, runId } = await runTurnFor()
     assert.ok((await callsOf(conv.id, runId)).length >= 1, 'spend must be attributable even with review off')
   })
@@ -1082,7 +1082,7 @@ test.describe('Autonomous agent run traces', () => {
 
   test('a compaction is BILLED — to the account ledger and to the run', async () => {
     // compactHistory calls generateText against the summarizer and recorded only a trace, which is
-    // itself gated on storeTraces (off by default). So summarizer tokens reached no ledger at all: not
+    // itself gated on reviewPersonalAssistant (off by default). So summarizer tokens reached no ledger at all: not
     // the run budget, not the account credit cap, not the usage histogram. That contradicts the rule
     // stated for the assistant path a hundred lines above it — "a turn stopped by the budget or the
     // clock must still bill what it actually consumed".
@@ -1090,7 +1090,7 @@ test.describe('Autonomous agent run traces', () => {
     // Non-zero prices, or computeCreditBreakdown returns 0 and `if (total > 0)` skips the recording,
     // which would make this pass for the wrong reason. A tiny context window forces the compaction.
     await putMockSettings(admin, 'organization/test1', {
-      storeTraces: false,
+      reviewPersonalAssistant: false,
       models: [{
         model: mockModelRef,
         usage: ['assistant', 'tools', 'summarizer', 'moderator'],
@@ -1145,7 +1145,7 @@ test.describe('Autonomous agent run traces', () => {
     await putMockSettings(admin, 'organization/test1', {
       // On, so the model's OWN reported input size can be compared against the stored conversation —
       // the only way to show the context really shrank rather than never having grown.
-      storeTraces: true,
+      reviewPersonalAssistant: true,
       models: [{
         model: mockModelRef,
         usage: ['assistant', 'tools', 'summarizer', 'moderator'],
@@ -1218,7 +1218,7 @@ test.describe('Autonomous agent run traces', () => {
     //
     // A tiny context window forces the threshold with a couple of short turns.
     await putMockSettings(admin, 'organization/test1', {
-      storeTraces: true,
+      reviewPersonalAssistant: true,
       // A COMPLETE entry: overrides deep-merge, and an array element is replaced wholesale rather than
       // merged, so a partial one loses the required model/usage/price fields and the PUT 400s.
       models: [{

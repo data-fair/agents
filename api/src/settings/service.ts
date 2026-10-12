@@ -16,7 +16,7 @@ import { decryptProviderApiKeys, defaultQuotas, defaultModeration } from './oper
 export { defaultQuotas, defaultModeration }
 
 export const emptySettings = (owner: AccountKeys): Settings => ({
-  owner, providers: [], models: [], quotas: defaultQuotas, storeTraces: false, moderation: defaultModeration
+  owner, providers: [], models: [], quotas: defaultQuotas, reviewPersonalAssistant: false, moderation: defaultModeration
 })
 
 /**

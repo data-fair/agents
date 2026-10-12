@@ -52,7 +52,7 @@ export const liveAgentSessions = (): AgentSession[] => [...sessions.values()]
 export const startAgentSessions = (server: Server) => {
   const wss = new WebSocketServer({ noServer: true })
 
-  wss.on('connection', (ws: WebSocket, req: IncomingMessage, sessionState: any, traceStorage?: boolean) => {
+  wss.on('connection', (ws: WebSocket, req: IncomingMessage, sessionState: any, reviewOffered?: boolean) => {
     const send = (message: ServerMessage) => {
       // readyState is checked because a turn can finish producing after the person closed the tab, and
       // writing to a closed socket throws rather than no-ops.
@@ -82,7 +82,7 @@ export const startAgentSessions = (server: Server) => {
       // Read from the same upgrade request, for the same reason: where the person is, and so where the
       // turn acts and the only site their cookie may be sent to.
       siteUrl: siteOriginFromHeaders(req.headers),
-      traceStorage: traceStorage === true,
+      reviewOffered: reviewOffered === true,
       anonymous: !sessionState?.user,
       onAttach: conversationId => {
         if (boundConversationId && boundConversationId !== conversationId) detachSession(boundConversationId, agentSession)
@@ -374,16 +374,16 @@ export const startAgentSessions = (server: Server) => {
     // consequence of not looking.
     expressSession.req(req as any)
       .then(async (sessionState) => {
-        // Whether this account stores traces at all, resolved HERE because the upgrade is the one
+        // Whether this account offers personal-assistant review at all, resolved HERE because the upgrade is the one
         // async moment before the first frame — `handle` is synchronous, and `attached` has to carry
         // it so the chat knows whether to ask the person for consent.
         const account = sessionState?.account
-        const traceStorage = account
-          ? (await getSettings({ type: account.type, id: account.id }).catch(() => undefined))?.storeTraces === true
+        const reviewOffered = account
+          ? (await getSettings({ type: account.type, id: account.id }).catch(() => undefined))?.reviewPersonalAssistant === true
           : false
         // The resolved session travels with the connection: a websocket frame carries no cookie, so who
         // this is can only be established once, here.
-        wss.handleUpgrade(req, socket as any, head, (ws) => { wss.emit('connection', ws, req, sessionState, traceStorage) })
+        wss.handleUpgrade(req, socket as any, head, (ws) => { wss.emit('connection', ws, req, sessionState, reviewOffered) })
       })
       .catch((err) => {
         debug('rejected an upgrade: %O', err)

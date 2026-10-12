@@ -141,12 +141,12 @@ export default {
       format: 'date-time',
       readOnly: true,
     },
-    storeTraces: {
+    reviewPersonalAssistant: {
       type: 'boolean',
-      title: 'Store conversation traces',
+      title: 'Review personal assistant conversations',
       'x-i18n-title': {
-        en: 'Store conversation traces',
-        fr: 'Enregistrer les traces de conversation'
+        en: 'Review personal assistant conversations',
+        fr: "Relire les conversations avec l'assistant personnel"
       },
       description: 'When enabled, conversations of consenting users with the personal assistant are stored on the server for 30 days for admin review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent.',
       'x-i18n-description': {

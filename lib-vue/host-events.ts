@@ -51,7 +51,7 @@ export type HostEventPost = (msg: DistributiveOmit<HostEventMessage, 'channel'>)
 export type AgentEventDetail = string | object | undefined | null
 
 // Sentinels the chat's hidden-context/host-events/host-state wrappers use to find their
-// own boundaries (ui/src/traces/hidden-context.ts, ui/src/composables/host-events.ts). A
+// own boundaries (shared/hidden-context.ts, shared/host-events.ts). A
 // raw string detail is placed verbatim into a line-oriented block inside one of these
 // wrappers; without neutralising them here, a host mirroring free user text (a wizard
 // title, a description field — exactly what a real integration carries) could smuggle a

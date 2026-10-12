@@ -1,10 +1,10 @@
 import { ref } from 'vue'
 
 /**
- * The trace-consent cookie: this browser's own memory of the person's answer to the consent sheet.
+ * The review-consent cookie: this browser's own memory of the person's answer to the consent sheet.
  *
  * The server never reads it — the chat says what it holds over the agent session (`hello`,
- * `trace-consent`; see use-session-chat.ts). The harnesses that stand in for a person (simulations, dev
+ * `review-consent`; see use-session-chat.ts). The harnesses that stand in for a person (simulations, dev
  * fixtures, api tests) set the same cookie, so they import its name from here.
  */
 export const CONSENT_COOKIE = 'agent-chat-trace-consent'
@@ -17,9 +17,9 @@ export const CONSENT_YES = 'yes'
 
 export type Consent = 'yes' | 'no'
 
-// Reactive: set true when the agent session's `attached` frame says `traceStorage` (see
+// Reactive: set true when the agent session's `attached` frame says `reviewOffered` (see
 // shared/agent-session-protocol.ts).
-export const traceStorageAvailable = ref(false)
+export const reviewOffered = ref(false)
 
 export function readConsent (cookieString = document.cookie): Consent | undefined {
   for (const part of cookieString.split(';')) {

@@ -86,7 +86,7 @@ test.describe('Approval card', () => {
   test('the admin review page shows a pending approval read-only', async ({ page, goToWithAuth }) => {
     const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
     const { conversationId } = await startTurnOverSocket(orgAdmin, { agentId }, 'call tool wipe_everything {}')
-    await goToWithAuth(`/agents/organization/test1/traces/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test1/review/${conversationId}`, 'test1-admin1', { org: 'test1' })
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
     await expect(page.getByTestId('approval-title')).toHaveText('Approve "Wipe everything"?')
     await expect(page.getByTestId('approval-readonly')).toHaveText("Awaiting the person's decision")

@@ -223,7 +223,7 @@ model, tokens, the tools offered, the page context folded in.
 Fetching it is the host's job, because it needs the host's accounts. The route
 sits behind the review gates, so the runner has to open them:
 
-- the account's settings must have `storeTraces: true`;
+- the account's settings must have `reviewPersonalAssistant: true`;
 - the person must have consented — set the `agent-chat-trace-consent=yes` cookie
   on the page's origin before it loads (it also keeps the consent sheet out of
   the persona's way);

@@ -418,19 +418,19 @@ test.describe('Settings API', () => {
     assert.equal(res.data.providers[0].id, 'p1')
   })
 
-  test('persists the storeTraces flag', async () => {
+  test('persists the reviewPersonalAssistant flag', async () => {
     const base = {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock', enabled: true }],
       models: orgModels,
       modelMapping: mockModelMapping,
       quotas: defaultQuotas,
-      storeTraces: true
+      reviewPersonalAssistant: true
     }
     await putSettings(admin, 'user/test-standalone1', base)
     const res = await admin.get('/api/settings/user/test-standalone1')
-    assert.equal(res.data.storeTraces, true)
+    assert.equal(res.data.reviewPersonalAssistant, true)
 
-    // verify the default: omitting storeTraces should persist false
+    // verify the default: omitting reviewPersonalAssistant should persist false
     const withoutFlag = {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock', enabled: true }],
       models: orgModels,
@@ -439,7 +439,7 @@ test.describe('Settings API', () => {
     }
     await putSettings(admin, 'user/test-standalone1', withoutFlag)
     const res2 = await admin.get('/api/settings/user/test-standalone1')
-    assert.equal(res2.data.storeTraces, false)
+    assert.equal(res2.data.reviewPersonalAssistant, false)
   })
 
   test('should reject a model entry with no prices', async () => {
@@ -503,7 +503,7 @@ test.describe('Settings API', () => {
   })
 })
 
-// The org admin owns modelMapping/quotas/moderation/storeTraces via PUT /api/settings/:type/:id/org.
+// The org admin owns modelMapping/quotas/moderation/reviewPersonalAssistant via PUT /api/settings/:type/:id/org.
 // The mapping in these tests targets the deployment's global default model
 // (global-mock/mock-model, from api/config/development.js) so the scenario needs
 // no org-level providers/models at all — it also exercises the $setOnInsert
@@ -513,22 +513,22 @@ test.describe('Org-admin settings endpoint', () => {
     await clean()
   })
 
-  test('org admin can set modelMapping/quotas/storeTraces, GET reflects them', async () => {
+  test('org admin can set modelMapping/quotas/reviewPersonalAssistant, GET reflects them', async () => {
     const body = {
       modelMapping: { assistant: { provider: 'global-mock', id: 'mock-model', name: 'Global Mock Model' } },
       quotas: { ...defaultQuotas, contrib: { unlimited: false, monthlyLimit: 42 } },
-      storeTraces: true
+      reviewPersonalAssistant: true
     }
     const res = await orgAdmin.put('/api/settings/organization/test1/org', body)
     assert.equal(res.status, 200)
     assert.equal(res.data.modelMapping.assistant.id, 'mock-model')
     assert.equal(res.data.quotas.contrib.monthlyLimit, 42)
-    assert.equal(res.data.storeTraces, true)
+    assert.equal(res.data.reviewPersonalAssistant, true)
 
     const getRes = await orgAdmin.get('/api/settings/organization/test1')
     assert.equal(getRes.data.modelMapping.assistant.id, 'mock-model')
     assert.equal(getRes.data.quotas.contrib.monthlyLimit, 42)
-    assert.equal(getRes.data.storeTraces, true)
+    assert.equal(getRes.data.reviewPersonalAssistant, true)
   })
 
   test('plain org member (non-admin) is forbidden', async () => {
@@ -565,7 +565,7 @@ test.describe('Org-admin settings endpoint', () => {
       modelMapping: { assistant: { provider: 'global-mock', id: 'mock-model', name: 'Global Mock Model' } },
       quotas: { ...defaultQuotas, contrib: { unlimited: false, monthlyLimit: 42 } },
       moderation: { enabled: true, categories: ['anonymous', 'external'] },
-      storeTraces: true
+      reviewPersonalAssistant: true
     })
 
     const putRes = await admin.put('/api/settings/organization/test1', {
@@ -577,13 +577,13 @@ test.describe('Org-admin settings endpoint', () => {
     assert.equal(putRes.data.modelMapping.assistant.id, 'mock-model')
     assert.equal(putRes.data.quotas.contrib.monthlyLimit, 42)
     assert.equal(putRes.data.moderation.enabled, true)
-    assert.equal(putRes.data.storeTraces, true)
+    assert.equal(putRes.data.reviewPersonalAssistant, true)
 
     const getRes = await admin.get('/api/settings/organization/test1')
     assert.equal(getRes.data.modelMapping.assistant.id, 'mock-model')
     assert.equal(getRes.data.quotas.contrib.monthlyLimit, 42)
     assert.equal(getRes.data.moderation.enabled, true)
-    assert.equal(getRes.data.storeTraces, true)
+    assert.equal(getRes.data.reviewPersonalAssistant, true)
     // and the superadmin write itself did take effect
     assert.equal(getRes.data.providers[0].id, 'mock')
   })

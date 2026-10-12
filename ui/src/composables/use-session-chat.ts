@@ -34,7 +34,7 @@ import { subscribeHostEvents } from '~/composables/use-host-events'
 import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-message'
 import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
-import { traceStorageAvailable, consentRef } from '~/traces/trace-consent'
+import { reviewOffered, consentRef } from '~/review/review-consent'
 import { getAnonymousToken, resetAnonymousToken } from '~/composables/use-anonymous-token'
 import { apiErrorMessage } from '~/utils/api-error'
 
@@ -148,7 +148,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     account: { type: options.accountType as 'user' | 'organization', id: options.accountId },
     ...(options.anonymous ? { anonymousToken: () => anonymousToken } : {}),
     // The cookie is the browser's memory of the answer; the server is told it, never reads it.
-    traceConsent: () => consentRef.value === undefined ? undefined : consentRef.value === 'yes',
+    reviewConsent: () => consentRef.value === undefined ? undefined : consentRef.value === 'yes',
     // Stamped when the first message is sent, so the history labels a thread by when it started.
     newThreadTitle: () => options.title ?? new Date().toLocaleString(),
 
@@ -273,17 +273,17 @@ export function useSessionChat (options: UseSessionChatOptions) {
 
   // The consent sheet's trigger, and the answer's path back.
   //
-  // Two halves of one loop: the server advertises on `attached` that this account stores traces, which
+  // Two halves of one loop: the server advertises on `attached` that this account offers review, which
   // is what makes the sheet appear; and the answer is sent back over the socket — in each `hello`, and
   // in a frame of its own when it changes, so it applies from the next turn rather than the next visit.
   // Held back until the person has actually had an answer: advertising on attach instead would put the
   // sheet over the composer before they had said anything — asking for consent to store a
   // conversation that does not exist yet.
-  watch([agent.traceStorage, () => turns.value.some(turn => turn.message.role === 'assistant')],
-    ([available, hasAnswer]) => { if (available && hasAnswer) traceStorageAvailable.value = true },
+  watch([agent.reviewOffered, () => turns.value.some(turn => turn.message.role === 'assistant')],
+    ([available, hasAnswer]) => { if (available && hasAnswer) reviewOffered.value = true },
     { immediate: true })
   watch(consentRef, consent => {
-    if (consent) agent.reportTraceConsent(consent === 'yes')
+    if (consent) agent.reportReviewConsent(consent === 'yes')
   })
 
   // An anonymous visitor's action token, fetched before each hello that starts a thread.

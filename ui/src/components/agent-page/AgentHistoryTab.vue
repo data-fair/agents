@@ -145,7 +145,7 @@ const statusItems = computed(() => runStatuses.map(value => ({ value, title: run
 // A task run opens here; a conversation run is a turn of a conversation, read on its review page.
 const runLink = (run: any) => run.kind === 'task'
   ? { query: { ...route.query, run: run.id } }
-  : run.conversationId ? `/${props.accountType}/${props.accountId}/traces/${run.conversationId}` : undefined
+  : run.conversationId ? `/${props.accountType}/${props.accountId}/review/${run.conversationId}` : undefined
 
 const openRunId = computed(() => typeof route.query.run === 'string' ? route.query.run : null)
 const closeRun = () => {

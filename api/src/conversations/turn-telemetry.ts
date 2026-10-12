@@ -19,7 +19,7 @@ import type { resolveRoleModel } from '../models/service.ts'
  * model calls while the conversation keeps one message for the whole turn. So that is all this keeps,
  * and it keeps it on the run, which is already the per-turn record.
  *
- * Unconditional — no `storeTraces` setting, no consent check. This is operational telemetry about
+ * Unconditional — no `reviewPersonalAssistant` setting, no consent check. This is operational telemetry about
  * the account's own spend, not content: a model id, a token count, a duration. What consent governs
  * is whether an ADMIN MAY READ THE CONVERSATION, which is one flag on the conversation now
  * (`consentedToReview`) rather than the same question asked in two places.

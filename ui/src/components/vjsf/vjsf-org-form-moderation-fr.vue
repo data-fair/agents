@@ -209,7 +209,7 @@ validate22.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
 const export1 = validate24;
 const schema29 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/settings/org-form-moderation#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/settings/org-form-moderation","x-exports":["vjsf"],"x-vjsf":{"xI18n":true},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Illimité","default":false},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Limite mensuelle","description":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4","default":0,"minimum":0}}}},"properties":{"moderation":{"type":"object","title":"Modération des entrées","layout":{"title":null},"default":{"enabled":false,"categories":["anonymous","external"]},"required":["enabled","categories"],"additionalProperties":false,"properties":{"enabled":{"type":"boolean","title":"Activer la modération des entrées","description":"Si activé, le dernier message utilisateur de chaque requête provenant d'une catégorie modérée est classé avant la réponse du modèle.","default":false,"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation/properties/enabled","errorMessage":{}},"categories":{"type":"array","uniqueItems":true,"default":["anonymous","external"],"title":"Catégories d'utilisateurs modérées","description":"Catégories d'utilisateurs dont les requêtes sont vérifiées par le filtre lorsque la modération est activée.","items":{"type":"string","oneOf":[{"const":"anonymous","title":"Anonyme"},{"const":"external","title":"Externe"},{"const":"user","title":"Utilisateur"},{"const":"contrib","title":"Contributeur"},{"const":"admin","title":"Administrateur"}],"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation/properties/categories/items","errorMessage":{"oneOf":"choisissez une valeur"}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation/properties/categories","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation","errorMessage":{"required":{"enabled":"information obligatoire","categories":"information obligatoire"}}},"storeTraces":{"type":"boolean","title":"Enregistrer les traces de conversation","description":"Si activé, les conversations des utilisateurs consentants avec l'assistant personnel sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter. Les conversations avec les agents autonomes sont toujours consultables et ne demandent pas de consentement.","default":false,"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/storeTraces","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#","errorMessage":{}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/settings/org-form-moderation","x-exports":["vjsf"],"x-vjsf":{"xI18n":true},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Illimité","default":false},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Limite mensuelle","description":"Limite hebdomadaire = mensuelle / 2, limite journalière = mensuelle / 4","default":0,"minimum":0}}}},"properties":{"moderation":{"type":"object","title":"Modération des entrées","layout":{"title":null},"default":{"enabled":false,"categories":["anonymous","external"]},"required":["enabled","categories"],"additionalProperties":false,"properties":{"enabled":{"type":"boolean","title":"Activer la modération des entrées","description":"Si activé, le dernier message utilisateur de chaque requête provenant d'une catégorie modérée est classé avant la réponse du modèle.","default":false,"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation/properties/enabled","errorMessage":{}},"categories":{"type":"array","uniqueItems":true,"default":["anonymous","external"],"title":"Catégories d'utilisateurs modérées","description":"Catégories d'utilisateurs dont les requêtes sont vérifiées par le filtre lorsque la modération est activée.","items":{"type":"string","oneOf":[{"const":"anonymous","title":"Anonyme"},{"const":"external","title":"Externe"},{"const":"user","title":"Utilisateur"},{"const":"contrib","title":"Contributeur"},{"const":"admin","title":"Administrateur"}],"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation/properties/categories/items","errorMessage":{"oneOf":"choisissez une valeur"}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation/properties/categories","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation","errorMessage":{"required":{"enabled":"information obligatoire","categories":"information obligatoire"}}},"reviewPersonalAssistant":{"type":"boolean","title":"Relire les conversations avec l'assistant personnel","description":"Si activé, les conversations des utilisateurs consentants avec l'assistant personnel sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter. Les conversations avec les agents autonomes sont toujours consultables et ne demandent pas de consentement.","default":false,"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/reviewPersonalAssistant","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-moderation#","errorMessage":{}};
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
 function validate24(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -225,7 +225,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 for(const key0 in data){
-if(!((key0 === "moderation") || (key0 === "storeTraces"))){
+if(!((key0 === "moderation") || (key0 === "reviewPersonalAssistant"))){
 const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/org-form-moderation#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err0];
@@ -567,10 +567,10 @@ vErrors = emErrs3;
 errors = emErrs3.length;
 }
 }
-if(data.storeTraces !== undefined){
-let data4 = data.storeTraces;
+if(data.reviewPersonalAssistant !== undefined){
+let data4 = data.reviewPersonalAssistant;
 if(typeof data4 !== "boolean"){
-const err23 = {instancePath:instancePath+"/storeTraces",schemaPath:"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/storeTraces/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.storeTraces.type,parentSchema:schema27.properties.storeTraces,data:data4};
+const err23 = {instancePath:instancePath+"/reviewPersonalAssistant",schemaPath:"https://github.com/data-fair/agents/settings/org-form-moderation#/properties/reviewPersonalAssistant/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.reviewPersonalAssistant.type,parentSchema:schema27.properties.reviewPersonalAssistant,data:data4};
 if(vErrors === null){
 vErrors = [err23];
 }
@@ -648,14 +648,19 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/settings/org-form-moderation#",
       refPointer: "https://github.com/data-fair/agents/settings/org-form-moderation#",
       pure: true,
-      propertyKeys: ["moderation", "storeTraces"],
+
+      propertyKeys: [
+        "moderation",
+        "reviewPersonalAssistant"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: true,
 
       children: [
         "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation",
-        "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/storeTraces"
+        "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/reviewPersonalAssistant"
       ]
     },
 
@@ -716,11 +721,11 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/storeTraces": {
-      title: "Enregistrer les traces de conversation",
-      key: "storeTraces",
-      pointer: "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/storeTraces",
-      refPointer: "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/storeTraces",
+    "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/reviewPersonalAssistant": {
+      title: "Relire les conversations avec l'assistant personnel",
+      key: "reviewPersonalAssistant",
+      pointer: "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/reviewPersonalAssistant",
+      refPointer: "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/reviewPersonalAssistant",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -737,7 +742,7 @@ const compiledLayout = {
       children: [{
         key: "moderation"
       }, {
-        key: "storeTraces"
+        key: "reviewPersonalAssistant"
       }],
 
       defaultData: {},
@@ -832,9 +837,9 @@ const compiledLayout = {
       nullable: true
     },
 
-    "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/storeTraces": {
+    "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/reviewPersonalAssistant": {
       comp: "checkbox",
-      label: "Enregistrer les traces de conversation",
+      label: "Relire les conversations avec l'assistant personnel",
       help: "<p>Si activé, les conversations des utilisateurs consentants avec l&#39;assistant personnel sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter. Les conversations avec les agents autonomes sont toujours consultables et ne demandent pas de consentement.</p>",
       defaultData: false,
 

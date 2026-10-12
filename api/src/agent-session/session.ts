@@ -34,12 +34,12 @@ export interface AgentSessionOptions {
    */
   siteUrl?: string
   /**
-   * Whether this account stores traces at all — advertised to the client on `attached`.
+   * Whether this account offers personal-assistant review at all — advertised to the client on `attached`.
    *
    * It is what makes the chat show its consent sheet, so without it nobody can ever answer and the server-side consent gate
    * fails closed permanently.
    */
-  traceStorage?: boolean
+  reviewOffered?: boolean
   /** Whether the socket has no signed-in person behind it — echoed on `attached`. */
   anonymous?: boolean
   /** Called on a `prompt`. The loop lands here; until then a session is a transport. */
@@ -77,12 +77,12 @@ export interface AgentSession {
   /** The site this socket was opened through, see AgentSessionOptions. */
   siteUrl: () => string | undefined
   /**
-   * Whether this person agreed to admin-visible trace storage, as the browser last said (`hello`,
-   * `trace-consent`). It exists because the chat's privacy model has two layers: the conversation is
-   * stored so the person can come back to it and is NOT visible to org admins, while a trace is
+   * Whether this person agreed to admin review of their conversations, as the browser last said (`hello`,
+   * `review-consent`). It exists because the chat's privacy model has two layers: the conversation is
+   * stored so the person can come back to it and is NOT visible to org admins, while a reviewable one is
    * admin-visible and therefore needs the person's explicit yes.
    */
-  traceConsent: () => boolean
+  reviewConsent: () => boolean
   /** Bind the connection to the thread its first prompt just created, and tell the browser which. */
   bind: (conversationId: string) => void
   /**
@@ -121,9 +121,9 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   const clearTimer = options.clearTimer ?? ((handle) => { clearTimeout(handle as ReturnType<typeof setTimeout>) })
 
   const hostEvents = new HostEventStore()
-  // Said by `hello` and updated by a `trace-consent` frame, so answering the sheet takes effect on the
+  // Said by `hello` and updated by a `review-consent` frame, so answering the sheet takes effect on the
   // NEXT TURN rather than on the next page load. No answer is no consent.
-  let traceConsent = false
+  let reviewConsent = false
   let boundTo: string | undefined
   let tools: BrowserToolDescriptor[] = []
   let attached = false
@@ -164,7 +164,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
       type: 'attached',
       ...(conversationId ? { conversationId } : {}),
       anonymous: options.anonymous === true,
-      traceStorage: options.traceStorage === true
+      reviewOffered: options.reviewOffered === true
     })
   }
 
@@ -183,7 +183,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
     attached: () => attached,
     sessionCookie: () => options.sessionCookie,
     siteUrl: () => options.siteUrl,
-    traceConsent: () => traceConsent,
+    reviewConsent: () => reviewConsent,
     // Not a rebind: what the page reported before its first message belongs to the thread that message
     // starts, so nothing pending is dropped.
     bind,
@@ -196,7 +196,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           // declares is the authority for the page it is on now.
           tools = message.tools
           attached = true
-          if (message.traceConsent !== undefined) traceConsent = message.traceConsent
+          if (message.reviewConsent !== undefined) reviewConsent = message.reviewConsent
           // A re-hello naming a DIFFERENT conversation, or none (a fresh thread), is a reset. The retained
           // page state stays — it is still true of the page — but anything buffered for a model that will
           // never see it is dropped, or the first turn of the new thread would open with events from the
@@ -232,8 +232,8 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
         case 'approval':
           options.onApproval?.(message.approvalId, message.approved, message.reason)
           return
-        case 'trace-consent':
-          traceConsent = message.consented
+        case 'review-consent':
+          reviewConsent = message.consented
           return
         case 'host-state':
           // Keyed facts, pushed as state-like events so the store's own retention rules apply. A key
