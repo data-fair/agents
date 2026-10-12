@@ -41,8 +41,14 @@ import { sessionFor } from '../agent-session/registry.ts'
 export interface TurnFrames {
   delta: (kind: 'text' | 'reasoning', text: string) => void
   activity: (value: ChatActivity | null, parentToolCallId?: string) => void
-  /** This turn's message as it stands; `pending` until the turn is over. */
-  message: (parts: MessagePart[], pending: boolean) => void
+  /**
+   * This turn's message as it stands, mid-turn (`pending`). The SETTLED frame is not the loop's: `close`
+   * and `fail` send exactly one, once the message is closed in the store. One end-of-turn frame is a
+   * contract — a client reads `pending: false` as "this turn is done", so a duplicate reads as the next
+   * turn's answer — and an approval card must not be decidable before its message is closed (see
+   * decideApproval).
+   */
+  message: (parts: MessagePart[]) => void
   subAgent: (frame: { parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }) => void
 }
 
@@ -82,19 +88,8 @@ export interface TurnResult {
    * and a generic "this turn failed", which reads as two different failures.
    */
   selfExplained?: boolean
-  /**
-   * Set when the model loop already published the settled message frame.
-   *
-   * EXACTLY ONE settled frame per turn, which is a contract and not an optimisation: a client reads
-   * `pending: false` as "this turn is done", so a second identical frame is an extra end-of-turn
-   * signal. A test helper that returns on the first one then reads the duplicate as the NEXT turn's
-   * answer — which is how a passing suite turned into a drained-events failure that had nothing to do
-   * with draining.
-   *
-   * The paths that return before any model call (moderation, quotas, a missing identity) leave this
-   * unset, and the target's `close` publishes for them.
-   */
-  published?: boolean
+  /** Refused before any model call (disabled, no identity, a quota, moderation): its parts are the refusal. */
+  refused?: true
 }
 
 /**
@@ -298,7 +293,7 @@ export const conversationTarget = (
       activity: (value, parentToolCallId) => {
         watcher()?.send({ type: 'activity', activity: value, ...(parentToolCallId ? { parentToolCallId } : {}) })
       },
-      message: (parts, pending) => { watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending }) },
+      message: (parts) => { watcher()?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts, pending: true }) },
       subAgent: (frame) => { watcher()?.send({ type: 'subagent', ...frame }) }
     },
     settleEarlierCall: async (toolCallId, settled) => {
@@ -317,8 +312,7 @@ export const conversationTarget = (
       // on another message (one posted before the run started). Except after an idle abort, which ends
       // the stream without throwing while a slow approved call may still be executing.
       if (run.trigger === 'approval') {
-        await settleApprovedWithoutRunning(run.conversationId, messageSeq, !result.published
-          // REFUSED before the model was reached.
+        await settleApprovedWithoutRunning(run.conversationId, messageSeq, result.refused
           ? `Approved, but the turn could not run: ${partsText(result.parts).trim() || 'it was refused'}`
           : result.idleAborted
             ? unknownApprovedOutcome('the model stream went silent')
@@ -361,22 +355,9 @@ export const conversationTarget = (
             : {})
         }
       )
-      // PUBLISHED FOR THE PATHS THE LOOP NEVER REACHED: a moderation block, a quota refusal and a
-      // missing non-human identity all return their refusal before any model call, so the loop's own
-      // settled frame never ran — the text was stored and the watching page was told nothing. A blocked
-      // message showed the person an empty turn and a stopped spinner, with the refusal they were
-      // supposed to read sitting in the database until a reload.
-      // An approval request's card becomes decidable here, once the message is closed in the store — not
-      // at the loop's last frame, which went out before finishRun (see decideApproval).
-      if (!result.published || result.awaitingApproval) {
-        sessionFor(run.conversationId)?.send({
-          type: 'message',
-          seq: messageSeq,
-          role: 'assistant',
-          parts: finalParts as any,
-          pending: false
-        })
-      }
+      // The turn's one settled frame (see TurnFrames), as stored: notice included, and an approval card
+      // decidable only now that its message is closed.
+      sessionFor(run.conversationId)?.send({ type: 'message', seq: messageSeq, role: 'assistant', parts: finalParts as any, pending: false })
 
       // The conversation's total, now including this turn — returned by the close itself — then the
       // end-of-turn signal, so a page that refreshes on turn-end already holds the new figure.
@@ -393,8 +374,8 @@ export const conversationTarget = (
         sessionFor(run.conversationId)?.send({ type: 'activity', activity: { kind: 'approval', toolName: pending?.type === 'dynamic-tool' ? pending.toolName : '' } })
       }
       // A title for a new conversation, from its first exchange (conversations/title.ts). Off the
-      // person's path; after a turn that published an answer, since a refused first turn has nothing to title.
-      if (result.published) maybeTitleConversation(run).catch(err => console.error('could not title a conversation', err))
+      // person's path; a refused first turn has nothing to title.
+      if (!result.refused) maybeTitleConversation(run).catch(err => console.error('could not title a conversation', err))
       // The end-of-turn signal, so a watching page stops its spinner without polling for it.
       sessionFor(run.conversationId)?.send({
         type: 'turn-end',

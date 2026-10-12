@@ -238,7 +238,8 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       parts: [{ type: 'text', text: 'This autonomous agent is currently disabled, so it cannot act. An administrator can re-enable it.' }],
       steps: 0,
       credits: 0,
-      stopReason: 'error'
+      stopReason: 'error',
+      refused: true
     }
   }
   // A CONFIGURED agent with no enrolment cannot run: its whole tool surface is reached as that
@@ -252,7 +253,8 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       parts: [{ type: 'text', text: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.' }],
       steps: 0,
       credits: 0,
-      stopReason: 'error'
+      stopReason: 'error',
+      refused: true
     }
   }
 
@@ -275,7 +277,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       : undefined
   ]) {
     const refusal = await gate()
-    if (refusal) return refusal
+    if (refusal) return { ...refusal, refused: true }
   }
 
   const { model, entry } = resolveRoleModel(settings, 'assistant')
@@ -663,8 +665,8 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
    * and their states, step boundaries and reasoning — which change per tool call, not per token, so it
    * rides the persist clock rather than the delta one.
    */
-  const sendMessageFrame = (pending: boolean) => {
-    target.frames.message(parts, pending)
+  const sendMessageFrame = () => {
+    target.frames.message(parts)
   }
 
   /**
@@ -745,7 +747,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
         // Immediately, not on the persist clock: a tool chip appearing is what tells the person the
         // assistant is doing something, and a call can take seconds. Waiting for the next token would
         // show the chip after the work it describes.
-        sendMessageFrame(true)
+        sendMessageFrame()
         await persistStructure()
         if (part.toolName.startsWith('subagent_')) activity({ kind: 'subagent', name: part.toolName, phase: 'starting' })
       }
@@ -767,7 +769,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
             approval: { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) },
             ...(description ? { toolMetadata: { ...call.toolMetadata, description } } : {})
           })
-          sendMessageFrame(true)
+          sendMessageFrame()
           await persistStructure()
         } else {
           // Unreachable while the stream announces a call before asking about it — LOUD if that ever
@@ -783,7 +785,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           handover = { toolCallId: part.toolCallId, expecting: repairWaitInput(call?.type === 'dynamic-tool' ? call.input : undefined).expecting }
         } else {
           recorder.settleCall(part.toolCallId, { state: 'output-available', output: 'Already waiting for the user.' })
-          sendMessageFrame(true)
+          sendMessageFrame()
           await persistStructure()
         }
         continue
@@ -801,7 +803,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           continue
         }
         recorder.settleCall(part.toolCallId, settled)
-        sendMessageFrame(true)
+        sendMessageFrame()
         await persistStructure()
         // The model now has a result to read. `subAgent` is set when the tool WAS a delegation, so the
         // label can name it — the one case where the bottom line says more than "analyzing".
@@ -824,7 +826,7 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
           continue
         }
         recorder.settleCall(part.toolCallId, settled)
-        sendMessageFrame(true)
+        sendMessageFrame()
         await persistStructure()
         debug('tool failed tool=%s error=%o', part.toolName, part.error)
       }
@@ -906,20 +908,13 @@ const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
     const of = run.kind === 'task' ? `task ${run.taskId}` : `conversation ${run.conversationId}`
     console.warn(`[empty completion] treated as a bug: ${run.kind ?? 'conversation'} run ${run.id} of ${of} produced no text (model ${entry.id}, ${steps} step(s))`)
   }
-  // The last word on this turn's structure, with pending cleared — so a page stops rendering it as in
-  // progress without having to infer that from `turn-end`.
-  //
-  // Except when it asks for an approval: the message is closed only by finishRun, and a decision is
-  // refused until then (see decideApproval), so the card must not offer one before. runTurn sends the
-  // closed frame once the message really is.
-  target.frames.message(finalParts, awaitingApproval)
+  // No settled frame from here: the target's close sends the one a turn gets, once the message is
+  // closed in the store (see TurnFrames).
   return {
     parts: finalParts,
     steps,
     credits,
     stopDetail,
-    // The frame above was the settled one; runTurn must not send a second.
-    published: true,
     ...(handover ? { handover } : {}),
     ...(awaitingApproval ? { awaitingApproval: true as const } : {}),
     ...(idleAbort.signal.aborted ? { idleAborted: true as const } : {}),
