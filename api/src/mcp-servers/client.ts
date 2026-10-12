@@ -45,68 +45,6 @@ export interface ListedMcpTool {
 }
 
 /**
- * Connects, as the autonomous agent's own identity, to every MCP server it references,
- * lists each one's tools FRESH (narrowed by that reference's optional toolFilter), and calls
- * `visit` for each surviving tool. What the diagnostic endpoint shows an admin, so it bypasses the
- * listing cache that `openAutonomousAgentTools` reads from: an admin checking a fix wants the server's
- * answer now, not up to a minute old.
- *
- * A session is obtained lazily and only once: an agent whose entries are all `none`/`apiKey` performs
- * no exchange at all.
- *
- * WHO it acts as, and WHERE, is injected (`SiteCredentials`; see performTurn in conversations/executor.ts) rather than derived from the agent. That
- * is the one seam a personal assistant needs: it has no non-human identity, and acts as the person using
- * it through their forwarded session. Everything else about gathering tools is identical, which is the
- * point — one loop can serve both because only this line differs.
- */
-export const forEachListedTool = async (
-  autonomousAgent: AutonomousAgentForTools,
-  sites: SiteCredentials,
-  visit: (t: ListedMcpTool, server: GlobalMcpServer) => void,
-  opts?: { onServerError?: 'throw' | 'skip', skipped?: SkippedServer[] }
-): Promise<void> => {
-  const catalog = config.mcpServers ?? []
-  const refs = autonomousAgent.mcpServers ?? []
-  const home = sites.homeSite
-  const needsSession = !!home && refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
-  const cookieHeader = needsSession ? await sites.cookieFor(home!) : undefined
-
-  for (const ref of refs) {
-    const server = catalog.find(s => s.id === ref.serverId)
-    if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
-
-    // A raw connect/list failure names nothing, which is useless when an autonomous
-    // agent references several servers. Wrap and rethrow naming server.id; never
-    // include the credential (cookieHeader) in the message, only the error text.
-    let close: (() => Promise<void>) | undefined
-    try {
-      let client: Client
-      ({ client, close } = await connectMcpServer(server, home, cookieHeader))
-      const listed = await client.listTools()
-      for (const t of listed.tools) {
-        if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) continue
-        visit(t, server)
-      }
-    } catch (err: any) {
-      // THROW or SKIP, and the two are different semantics rather than a tolerance knob.
-      //
-      // A configured agent's server selection is deliberate, so a failure is a misconfiguration and
-      // must surface loudly — a toolless turn would otherwise read as a capability problem.
-      //
-      // The personal assistant's selection is "everything in the catalog", so the same failure is an
-      // availability event: taking down the whole assistant for a server the person never chose, and
-      // may not need, is the wrong trade. data-fair/mcp's own composer draws this line the same way —
-      // a failing service is excluded and reported, only a bad index throws.
-      if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
-      debug('skipping server=%s %s', server.id, err.message)
-      opts.skipped?.push({ id: server.id, reason: err.message })
-    } finally {
-      await close?.()
-    }
-  }
-}
-
-/**
  * The tool set for one autonomous agent: every tool of every catalog entry it
  * references, narrowed by that reference's optional toolFilter, as executable AI SDK
  * tools.
@@ -140,24 +78,27 @@ export const TOOL_LISTING_TTL_MS = 60_000
 const TOOL_LISTING_MAX_ENTRIES = 1000
 
 /**
- * Listings by server and credential. The promise itself is cached, so turns starting together share
+ * Listings by server and identity. The promise itself is cached, so turns starting together share
  * ONE listing rather than each racing its own — which is the case that mattered under load.
  *
- * Keyed on the credential as well as the server, because what a server lists may depend on who asks:
- * for a session-authenticated entry, a hash of the session cookie (never the cookie itself), so two
- * identities can never share a listing. A rotated cookie is merely a miss.
+ * Keyed on who asks as well as the server, because what a session-authenticated server lists may
+ * depend on it (SiteCredentials.listingIdentity): two identities never share a listing. On the
+ * identity, not the session cookie, which is a fresh exchange every turn for a configured agent — keyed
+ * on it, its listings never hit.
  */
 const listings = new Map<string, { expiresAt: number, tools: Promise<ListedMcpTool[]> }>()
 
 /** Forget every cached listing. The test environment's reset calls it, so specs stay independent. */
 export const clearToolListings = () => { listings.clear() }
 
-const listServerTools = (server: GlobalMcpServer, siteUrl: string | undefined, cookieHeader: string | undefined): Promise<ListedMcpTool[]> => {
-  const key = listingKey(server, siteUrl, cookieHeader)
+/** `cookie` is asked for only on a miss, so a cached listing costs no session exchange. `fresh` skips the read. */
+const listServerTools = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ListedMcpTool[]> => {
+  const key = listingKey(server, siteUrl, sites.listingIdentity)
   const cached = listings.get(key)
-  if (cached && cached.expiresAt > Date.now()) return cached.tools
+  if (!fresh && cached && cached.expiresAt > Date.now()) return cached.tools
   const tools = (async () => {
-    const { client, close } = await connectMcpServer(server, siteUrl, cookieHeader)
+    const cookie = server.auth === 'nhi-session' && siteUrl ? await sites.cookieFor(siteUrl) : undefined
+    const { client, close } = await connectMcpServer(server, siteUrl, cookie)
     try {
       return (await client.listTools()).tools as ListedMcpTool[]
     } finally {
@@ -175,7 +116,13 @@ const listServerTools = (server: GlobalMcpServer, siteUrl: string | undefined, c
 }
 
 /**
- * The executable tool set for one autonomous agent.
+ * The executable tool set for one autonomous agent: every tool of every catalog entry it references,
+ * narrowed by that reference's optional toolFilter.
+ *
+ * WHO it acts as, and WHERE, is injected (`SiteCredentials`; see performTurn in conversations/executor.ts)
+ * rather than derived from the agent. That is the one seam a personal assistant needs: it has no
+ * non-human identity, and acts as the person using it through their forwarded session. Everything else
+ * about gathering tools is identical, which is the point — one loop serves both.
  *
  * Listings come from the cache above; CONNECTIONS are opened lazily, on a tool's first call in the
  * turn, and shared by the turn's later calls to the same server — so a turn that calls no catalog tool
@@ -185,7 +132,7 @@ const listServerTools = (server: GlobalMcpServer, siteUrl: string | undefined, c
 export const openAutonomousAgentTools = async (
   autonomousAgent: AutonomousAgentForTools,
   sites: SiteCredentials,
-  opts?: { onServerError?: 'throw' | 'skip' }
+  opts?: { onServerError?: 'throw' | 'skip', fresh?: boolean }
 ): Promise<OpenAutonomousAgentTools> => {
   const tools: ToolSet = {}
   const skippedServers: SkippedServer[] = []
@@ -194,8 +141,6 @@ export const openAutonomousAgentTools = async (
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
   const home = sites.homeSite
-  const needsSession = !!home && refs.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')
-  const homeCookie = needsSession ? await sites.cookieFor(home!) : undefined
   const portalByHost = new Map(sites.portals.map(origin => [new URL(origin).host, origin]))
   const portalHosts = [...portalByHost.keys()]
 
@@ -209,9 +154,7 @@ export const openAutonomousAgentTools = async (
       // The promise is stored before the cookie is awaited, so two concurrent first calls to the same
       // site share one connection instead of each exchanging and connecting.
       connection = (async () => {
-        const cookie = server.auth !== 'nhi-session' || !siteUrl
-          ? undefined
-          : siteUrl === home ? homeCookie : await sites.cookieFor(siteUrl)
+        const cookie = server.auth === 'nhi-session' && siteUrl ? await sites.cookieFor(siteUrl) : undefined
         return await connectMcpServer(server, siteUrl, cookie)
       })()
       connections.set(key, connection)
@@ -231,7 +174,7 @@ export const openAutonomousAgentTools = async (
     const server = catalog.find(s => s.id === ref.serverId)
     if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
     try {
-      return { ref, server, tools: await listServerTools(server, server.auth === 'nhi-session' ? home : undefined, server.auth === 'nhi-session' ? homeCookie : undefined) }
+      return { ref, server, tools: await listServerTools(server, server.auth === 'nhi-session' ? home : undefined, sites, opts?.fresh) }
     } catch (err: any) {
       // THROW or SKIP — see forEachListedTool, whose rule this is.
       if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
@@ -302,25 +245,21 @@ export interface McpToolDescriptor {
 }
 
 /**
- * The tool list an autonomous agent would actually receive, as descriptors only — no
- * executable closures over a client connection that this diagnostic endpoint will never
- * call and never keeps open.
+ * The tool list an autonomous agent would actually receive, as descriptors, listed FRESH: an admin
+ * checking a fix wants the servers' answer now, not up to a minute old. A failing server is an error,
+ * as it is for the agent's turns. The annotations let an admin see the write surface — what the
+ * approval gate reads — before the agent ever runs.
  */
 export const listAutonomousAgentToolDescriptors = async (
   autonomousAgent: AutonomousAgentForTools,
   sites: SiteCredentials
 ): Promise<McpToolDescriptor[]> => {
-  const descriptors: McpToolDescriptor[] = []
-  await forEachListedTool(autonomousAgent, sites, (t, server) => {
-    descriptors.push({
-      name: t.name,
-      description: t.description ?? '',
-      server: server.id,
-      // readOnlyHint / destructiveHint drive the approval gate in P1 and are recorded
-      // per call in the run; surfacing them here lets an admin see the write surface
-      // before an autonomous agent is ever run.
-      ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {})
-    })
-  })
-  return descriptors
+  const { tools, close } = await openAutonomousAgentTools(autonomousAgent, sites, { fresh: true })
+  await close()
+  return Object.entries(tools).map(([name, { tool, server, annotations }]) => ({
+    name,
+    description: tool.description ?? '',
+    server: server!,
+    ...(annotations ? { annotations } : {})
+  }))
 }

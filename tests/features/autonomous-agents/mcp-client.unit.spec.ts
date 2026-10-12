@@ -41,19 +41,24 @@ test.describe('personSiteCredentials', () => {
     assert.equal(await sites.cookieFor(portal), cookie)
     assert.equal(await sites.cookieFor('https://admin.example.org'), undefined)
   })
+  test('their listings are cached per person, under a hash of the session, never the session itself', () => {
+    const sites = personSiteCredentials(portal, cookie)
+    assert.equal(sites.listingIdentity.includes(cookie), false)
+    assert.notEqual(sites.listingIdentity, personSiteCredentials(portal, 'id_token=other').listingIdentity)
+    assert.equal(personSiteCredentials(portal, undefined).listingIdentity, 'anonymous')
+  })
 })
 
 test.describe('listingKey and connectionKey', () => {
   test('a site-bound entry is listed and connected per site', () => {
     const s = server({ auth: 'nhi-session' })
-    assert.notEqual(listingKey(s, portal, cookie), listingKey(s, 'https://admin.example.org', cookie))
-    assert.notEqual(listingKey(s, portal, cookie), listingKey(s, portal, undefined))
+    assert.notEqual(listingKey(s, portal, 'agent:a1'), listingKey(s, 'https://admin.example.org', 'agent:a1'))
+    assert.notEqual(listingKey(s, portal, 'agent:a1'), listingKey(s, portal, 'agent:a2'))
     assert.notEqual(connectionKey(s, portal), connectionKey(s, 'https://admin.example.org'))
-    assert.equal(listingKey(s, portal, cookie).includes(cookie), false, 'never the credential itself')
   })
   test('other entries are one listing and one connection', () => {
     const s = server({ auth: 'none' })
-    assert.equal(listingKey(s, portal, cookie), listingKey(s, undefined, undefined))
+    assert.equal(listingKey(s, portal, 'agent:a1'), listingKey(s, undefined, 'anonymous'))
     assert.equal(connectionKey(s, portal), connectionKey(s, undefined))
   })
 })

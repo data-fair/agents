@@ -78,6 +78,26 @@ test.describe('Tool listings across turns', () => {
     assert.equal(fixture.methodCounts()['tools/list'], 3)
   })
 
+  // Keyed on the agent, not on its session cookie: a configured agent exchanges a fresh session every
+  // turn, so a listing keyed on the cookie never hit for its session-bound servers.
+  test('a configured agent\'s session-bound server is listed once across its turns', async () => {
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-autonomous-agent-nhi',
+      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
+      issuer: `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`,
+      autonomousAgent: { title: 'Lister', persona: 'p', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true }
+    })
+    const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
+    sockets.push(socket)
+    socket.send(newThreadHello('organization/test1', { agentId: 'test-fixture' }))
+    await socket.next()
+    await turn(socket, 'hello')
+    await turn(socket, 'hello')
+    assert.equal(fixture.methodCounts()['tools/list'], 1)
+  })
+
   test('a fresh listing is still what the diagnostic endpoint shows', async () => {
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
       title: 'Diag', persona: 'p', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true

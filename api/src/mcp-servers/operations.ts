@@ -102,6 +102,11 @@ export interface SiteCredentials {
   listingFailed?: boolean
   /** The cookie to send to a site, or undefined to call it anonymously. Rejects when an account site's exchange fails. */
   cookieFor: (siteUrl: string) => Promise<string | undefined>
+  /**
+   * Who asks, for the tool-listing cache: what a site-bound server lists may depend on it. Stable for as
+   * long as the identity is (an agent's id; a hash of the person's session), never the credential itself.
+   */
+  listingIdentity: string
 }
 
 /**
@@ -109,7 +114,13 @@ export interface SiteCredentials {
  * the site they opened it on, and nowhere else: sessions are host-only.
  */
 export function personSiteCredentials (socketSite: string | undefined, cookie: string | undefined): SiteCredentials {
-  return { homeSite: socketSite, portals: [], anonymousHome: false, cookieFor: async site => site === socketSite ? cookie : undefined }
+  return {
+    homeSite: socketSite,
+    portals: [],
+    anonymousHome: false,
+    cookieFor: async site => site === socketSite ? cookie : undefined,
+    listingIdentity: cookie ? `person:${createHash('sha256').update(cookie).digest('hex')}` : 'anonymous'
+  }
 }
 
 /**
@@ -132,14 +143,10 @@ export function callHeaders (server: GlobalMcpServer, siteUrl: string | undefine
   return {}
 }
 
-/**
- * A cached tool listing's key. What a site-bound server lists may depend on the site and on who asks,
- * so both are in it — the credential as a hash, never itself.
- */
-export function listingKey (server: GlobalMcpServer, siteUrl: string | undefined, cookieHeader: string | undefined): string {
+/** A cached tool listing's key. What a site-bound server lists may depend on the site and on who asks, so both are in it. */
+export function listingKey (server: GlobalMcpServer, siteUrl: string | undefined, listingIdentity: string): string {
   if (server.auth !== 'nhi-session') return server.id
-  const who = cookieHeader ? createHash('sha256').update(cookieHeader).digest('hex') : 'anonymous'
-  return `${server.id}\0${siteUrl ?? ''}\0${who}`
+  return `${server.id}\0${siteUrl ?? ''}\0${listingIdentity}`
 }
 
 /** One open connection of a turn per server, and per site for a site-bound one: its headers are fixed at connect. */

@@ -180,7 +180,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   // exchange it does not use: a turn on public tools stays as fast as before sites existed.
   const catalog = config.mcpServers ?? []
   if (autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
-    return { homeSite: home, portals: [], anonymousHome: false, cookieFor: async () => undefined }
+    return { homeSite: home, portals: [], anonymousHome: false, cookieFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
   }
   let account: string[]
   let listingFailed = false
@@ -209,6 +209,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
         cookie.catch(() => { if (cookies.get(origin) === cookie) cookies.delete(origin) })
       }
       return cookie
-    }
+    },
+    listingIdentity: `agent:${autonomousAgent.id}`
   }
 }

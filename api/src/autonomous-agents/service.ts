@@ -6,7 +6,7 @@ import mongo from '#mongo'
 import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
 import type { Request } from 'express'
-import { listMcpServerCatalog, unknownMcpServerIds, type SiteCredentials } from '../mcp-servers/operations.ts'
+import { listMcpServerCatalog, unknownMcpServerIds, personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { getAutonomousAgentSession, agentSiteCredentials, forgetAccountSites, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
@@ -143,7 +143,7 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
   // An agent with an nhi goes through requireEnrolment: a half-enrolled one is a 400, never anonymous.
   const sites: SiteCredentials = autonomousAgent.nhi
     ? await agentSiteCredentials(autonomousAgent)
-    : { portals: [], anonymousHome: false, cookieFor: async () => undefined }
+    : personSiteCredentials(undefined, undefined)
   const results = await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
   if (!autonomousAgent.externalMcpServers?.length) return { results, skipped: [] as SkippedServer[] }
   const external = await listExternalToolDescriptors(autonomousAgent.externalMcpServers, { publicIps: [...envPublicIps(), ...config.externalMcp.publicIps] })
