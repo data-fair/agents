@@ -661,14 +661,20 @@ test.describe('Autonomous agent model loop', () => {
     assert.equal(call.state, 'output-available', 'the tool must have returned a usable result')
   })
 
-  test('a disabled autonomous agent refuses to act', async () => {
-    const agent = await createAgent({ enabled: false })
+  test('a disabled autonomous agent refuses to act, and no new thread starts with it', async () => {
+    const agent = await createAgent()
     await enrol(agent.id)
-    const { run, assistant } = await runOnce(agent.id, 'hello')
+    const { conversationId } = await runOnce(agent.id, 'hello')
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
+      title: agent.title, persona: agent.persona, mcpServers: [], enabled: false
+    })
     // enabled is the kill switch; if it does not stop a turn it stops nothing at all.
+    const { run, assistant } = await runTurn(conversationId, 'hello')
     assert.equal(run.status, 'error')
     assert.notEqual(partsText(assistant.parts), 'world')
     assert.match(partsText(assistant.parts), /disabled/i)
+    // The rule the picker and the history apply: a thread is not started with an agent they would hide.
+    await assert.rejects(turnOverSocket(orgAdmin, { agentId: agent.id }, 'hello'), { status: 403 })
   })
 
   test('an empty completion does not render as a blank, successful turn', async () => {

@@ -154,8 +154,11 @@ export type TurnCaller =
   | { kind: 'anonymous', usageUserId: string }
 
 /**
- * Whether this person may talk to this agent — and the two kinds of agent ask genuinely different
- * questions.
+ * Why this person may NOT talk to this agent on this account, or undefined when they may. The ONE rule
+ * behind the agent picker, the history and a new thread: the picker offers what can be started, the
+ * history lists what can be resumed, and a thread starts only where both would agree.
+ *
+ * The two kinds of agent ask genuinely different questions.
  *
  * A CONFIGURED agent lends its own identity: instructing it means borrowing an NHI's permissions, so
  * the gate is `canInstruct` — an account admin, or someone explicitly listed as an instructor.
@@ -166,18 +169,28 @@ export type TurnCaller =
  * narrowest kind: a plain member of an organization could not use the assistant embedded in their own
  * application, because they are not an admin of the org and nobody had listed them as an instructor
  * of an agent that does not exist as a document.
+ *
+ * A configured agent must also exist and be enabled: a disabled one keeps its configuration but must not
+ * run (the executor's kill switch still refuses a turn of a thread started before it was disabled).
  */
-const assertMayTalkTo = async (
-  autonomousAgent: InstructableAgent & { id: string },
+export const talkRefusal = (
+  agentId: string,
+  agent: (InstructableAgent & { enabled?: boolean }) | null | undefined,
   owner: AccountKeys,
-  session: SessionStateAuthenticated
-) => {
-  if (autonomousAgent.id !== PERSONAL_AGENT_ID) {
-    assertCanInstruct(autonomousAgent, session)
-    return
+  session: SessionStateAuthenticated,
+  settings: { quotas?: Parameters<typeof assertCanUseModel>[2] }
+): string | undefined => {
+  if (agentId === PERSONAL_AGENT_ID) {
+    try {
+      assertCanUseModel(session, owner, settings.quotas ?? {})
+    } catch (err) {
+      return err instanceof Error ? err.message : String(err)
+    }
+    return undefined
   }
-  const settings = await getSettings(owner)
-  assertCanUseModel(session, owner, settings.quotas ?? {})
+  if (!agent) return 'unknown autonomous agent'
+  if (agent.enabled === false) return 'this autonomous agent is disabled'
+  if (!canInstruct(agent, session)) return 'you are not allowed to instruct this autonomous agent'
 }
 
 /**
@@ -196,7 +209,8 @@ export const assertMayStartConversation = async (owner: AccountKeys, agentId: st
   }
   assertCanOwnAgent(owner, agentId)
   const autonomousAgent = await requireAutonomousAgent(owner, agentId)
-  await assertMayTalkTo(autonomousAgent, owner, caller.session)
+  const refusal = talkRefusal(agentId, autonomousAgent, owner, caller.session, await getSettings(owner))
+  if (refusal) throw httpError(403, refusal)
   return autonomousAgent.owner
 }
 

@@ -10,10 +10,8 @@ import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getAutonomousAgent } from '../autonomous-agents/service.ts'
-import { assertMayStartConversation, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation } from './service.ts'
-import { canInstruct } from '../autonomous-agents/operations.ts'
+import { assertMayStartConversation, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation, talkRefusal } from './service.ts'
 import { abortRunsOfConversation } from './live-runs.ts'
-import { assertCanUseModel } from '../auth.ts'
 import { withinRetention } from '../retention.ts'
 import { PERSONAL_AGENT_ID, PERSONAL_AGENT_TITLE } from '../agent-session/personal-agent.ts'
 import { getSettings } from '../settings/service.ts'
@@ -65,14 +63,8 @@ const reqOwner = (req: any): AccountKeys => {
  * This is the back-office chat's picker, and it exists because neither half of the list was
  * reachable: the personal assistant is synthetic and therefore not enumerable from any collection, and the
  * autonomous-agents list route is admin-gated while the people who may run an agent are exactly the
- * non-admin instructors. `canInstruct` is the same predicate every runtime route applies, so the list
- * cannot offer an agent the caller would then be refused.
- *
- * The personal assistant is listed only when the caller may use this account's models at all
- * (`assertCanUseModel`), which is the same gate conversation creation applies — otherwise the picker
- * would offer a personal assistant whose every conversation 403s. A configured agent is listed only
- * when it is enabled, since a disabled one keeps its configuration but must not run: the executor's
- * kill switch would turn any conversation started here into an error.
+ * non-admin instructors. An agent is listed when `talkRefusal` (./service.ts) has nothing against it —
+ * the rule a new thread passes — so the list cannot offer an agent the caller would then be refused.
  */
 router.get('/:type/:id/agents', async (req, res, next) => {
   try {
@@ -81,23 +73,20 @@ router.get('/:type/:id/agents', async (req, res, next) => {
     const settings = await getSettings(owner)
 
     const results: Array<{ id: string, title: string }> = []
-    try {
-      assertCanUseModel(session, owner, settings.quotas ?? {})
-      results.push({ id: PERSONAL_AGENT_ID, title: PERSONAL_AGENT_TITLE })
-    } catch { /* not usable with these quotas: not offered */ }
+    if (!talkRefusal(PERSONAL_AGENT_ID, undefined, owner, session, settings)) results.push({ id: PERSONAL_AGENT_ID, title: PERSONAL_AGENT_TITLE })
 
     // Configured agents are organizations only (their identity rests on an NHI), so on a personal
     // account the list is just the personal assistant.
     if (owner.type === 'organization') {
       const configured = await mongo.autonomousAgents
         .find(
-          { 'owner.type': owner.type, 'owner.id': owner.id, enabled: { $ne: false } },
+          { 'owner.type': owner.type, 'owner.id': owner.id },
           { projection: { _id: 0, id: 1, title: 1, owner: 1, instructors: 1, enabled: 1 } }
         )
         .sort({ title: 1 })
         .toArray()
       for (const agent of configured) {
-        if (canInstruct(agent, session)) results.push({ id: agent.id, title: agent.title })
+        if (!talkRefusal(agent.id, agent, owner, session, settings)) results.push({ id: agent.id, title: agent.title })
       }
     }
 
@@ -176,15 +165,10 @@ router.get('/:type/:id', async (req, res, next) => {
       for (const conversation of results) {
         let ok = usable.get(conversation.agentId)
         if (ok === undefined) {
-          if (conversation.agentId === PERSONAL_AGENT_ID) {
-            try {
-              assertCanUseModel(session, owner, settings.quotas ?? {})
-              ok = true
-            } catch { ok = false }
-          } else if (owner.type === 'organization') {
-            const agent = await getAutonomousAgent(owner, conversation.agentId)
-            ok = !!agent && agent.enabled !== false && canInstruct(agent, session)
-          } else ok = false
+          const agent = conversation.agentId === PERSONAL_AGENT_ID || owner.type !== 'organization'
+            ? undefined
+            : await getAutonomousAgent(owner, conversation.agentId)
+          ok = !talkRefusal(conversation.agentId, agent, owner, session, settings)
           usable.set(conversation.agentId, ok)
         }
         if (ok) filtered.push(conversation)
