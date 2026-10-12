@@ -38,7 +38,7 @@ jobs:
       run: docker compose up -d --wait
 
     - name: Start dev API
-      run: dotenv -- npm run dev-api &
+      run: dotenv run -- npm run dev-api &
 
     - name: Install Playwright browser
       run: npx playwright install --with-deps chromium
