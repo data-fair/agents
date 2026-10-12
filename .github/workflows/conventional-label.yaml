@@ -1,5 +1,6 @@
 # automatic labelling of pull request based on conventional commit names in the PR titles
-# see https://github.com/marketplace/actions/conventional-release-labels
+# labels are consumed by the generated release notes, see .github/release.yaml
+# (replaces the unmaintained bcoe/conventional-release-labels, same labels and behaviour)
 
 on:
   pull_request_target:
@@ -9,4 +10,27 @@ jobs:
   label:
     runs-on: ubuntu-latest
     steps:
-      - uses: bcoe/conventional-release-labels@v1
+      - name: Label the pull request from its title
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE: repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}
+          TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          # <type>["(" <scope> ")"]["!"]":"
+          [[ "$TITLE" =~ ^([a-zA-Z]+)(\([^\)]*\))?(!)?: ]] || exit 0
+          type="${BASH_REMATCH[1],,}"
+          labels=()
+          [ -n "${BASH_REMATCH[3]}" ] && labels+=(breaking)
+          case "$type" in
+            feat) labels+=(feature) ;;
+            fix) labels+=(fix) ;;
+            chore) labels=(ignore-for-release) ;;
+          esac
+          [ ${#labels[@]} -eq 0 ] && exit 0
+          for label in feature fix breaking ignore-for-release; do
+            gh api -X DELETE "$ISSUE/labels/$label" --silent 2>/dev/null || true
+          done
+          # the REST endpoint creates missing labels (e.g. "breaking")
+          args=()
+          for label in "${labels[@]}"; do args+=(-f "labels[]=$label"); done
+          gh api -X POST "$ISSUE/labels" "${args[@]}" --silent
