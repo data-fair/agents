@@ -9,6 +9,7 @@ import { Router } from 'express'
 import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
+import { deleteConversationFiles } from '../files/service.ts'
 import { getAutonomousAgent } from '../autonomous-agents/service.ts'
 import { assertMayStartConversation, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation, talkRefusal } from './service.ts'
 import { abortRunsOfConversation } from './live-runs.ts'
@@ -231,6 +232,8 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
       const purged = await purgeConversation(conversation.id)
       eventsLog.info('agents.conversation.delete', `conversation ${conversation.id} deleted with ${purged.messages} message(s) and ${purged.runs} run(s)`, { req })
     }
+    // Its files go at once, archived or purged: they are not review material (docs/architecture/agent-files.md).
+    await deleteConversationFiles(conversation.owner, conversation.id)
     // 204 either way. The person asked for it to be gone and for them it is; telling them their
     // organization retained a copy is a disclosure decision for the consent sheet, which is where
     // they agreed to review in the first place, not for the response to a delete.

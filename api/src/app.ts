@@ -8,6 +8,7 @@ import adminRouter from './admin/router.ts'
 import modelsRouter from './models/router.ts'
 import catalogRouter from './catalog/router.ts'
 import memoryRouter from './memory/router.ts'
+import filesRouter from './files/router.ts'
 import tasksRouter from './tasks/router.ts'
 import autonomousAgentsRouter from './autonomous-agents/router.ts'
 import autonomousAgentRuntimeRouter from './conversations/router.ts'
@@ -54,6 +55,7 @@ app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
 app.use('/api/review', reviewRouter)
 app.use('/api/memory', memoryRouter)
+app.use('/api/files', filesRouter)
 app.use('/api/moderation', moderationRouter)
 app.use('/api/v1/limits', limitsRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))

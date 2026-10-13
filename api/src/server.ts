@@ -18,6 +18,7 @@ import { sessionFor } from './agent-session/registry.ts'
 import { liveRuns } from './conversations/live-runs.ts'
 import { stopAcceptingTurns, drainLiveRuns } from './conversations/shutdown.ts'
 import { sweepConsolidations } from './memory/consolidation.ts'
+import { fileStore, sweepFilesOnce } from './files/service.ts'
 import { runSchedulerPass } from './tasks/scheduler.ts'
 
 /**
@@ -126,6 +127,14 @@ export const start = async () => {
   // Memory consolidation, at most daily per agent and only after activity (api/src/memory/consolidation.ts).
   // Checked every 15 minutes; per-agent locks make concurrent instances harmless.
   every(15 * 60 * 1000, 'memory consolidation sweep', () => sweepConsolidations(new Date(), realClockScope))
+
+  // AGENT FILES (api/src/files): a store that cannot be reached fails the boot, as data-fair's does; then
+  // the one cleanup, hourly — a file outlives its 7 days by an hour at most.
+  const files = fileStore()
+  if (files) {
+    await files.checkAccess()
+    every(60 * 60 * 1000, 'file sweep', sweepFilesOnce, { now: true })
+  }
 
   // PLANNED TASKS: every pollSeconds, claim and fire the tasks that are due (api/src/tasks/scheduler.ts).
   // Every instance polls; the claim is an atomic advance of nextRunAt, so exactly one fires a slot.

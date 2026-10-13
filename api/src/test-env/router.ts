@@ -25,6 +25,8 @@ import { recoverOwnerlessRuns } from '../conversations/executor.ts'
 import { recoverOwnerlessTaskRuns } from '../tasks/execution.ts'
 import { purgeExpiredArchives, requireConversation, assertOwnsConversation } from '../conversations/service.ts'
 import { forgetAccountSites } from '../nhi/service.ts'
+import { listScopeFiles, signScopeFileUrl, sweepFiles, removeTestOwnersFiles } from '../files/service.ts'
+import { isValidScope } from '../files/operations.ts'
 import { liveAgentSessions } from '../agent-session/service.ts'
 
 /**
@@ -89,7 +91,24 @@ export const createTestEnvRouter = () => {
     await mongo.db.collection('runs').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('agent-memories').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('agent-memory-versions').deleteMany({ 'owner.id': /^test/ })
+    await removeTestOwnersFiles()
     res.send()
+  })
+  // Dev-only: a scope's files as the product lists them, so a spec can see deletion and the sweep act.
+  router.get('/files/:ownerType/:ownerId/:scopeId', async (req, res) => {
+    const scope = { ownerType: req.params.ownerType, ownerId: req.params.ownerId, scopeId: req.params.scopeId }
+    if (!isValidScope(scope)) throw httpError(400, 'invalid scope')
+    res.json({ results: await listScopeFiles(scope) })
+  })
+  // Dev-only: sign a file URL as if it were `now` (a clock passed in as data), so a spec can hold an expired one.
+  router.post('/sign-file-url', async (req, res) => {
+    const { scope, name, now } = req.body ?? {}
+    if (!scope || !isValidScope(scope) || typeof name !== 'string') throw httpError(400, 'scope and name are required')
+    res.json({ url: signScopeFileUrl(scope, name, new Date(now ?? Date.now())) })
+  })
+  // Dev-only: run the file sweep as if it were `now`, under a prefix.
+  router.post('/sweep-files', async (req, res) => {
+    res.json({ removed: await sweepFiles(new Date(req.body?.now ?? Date.now()), req.body?.prefix) })
   })
   // Dev-only: run one `memory` tool command as an agent, without a model turn to issue it.
   router.post('/memory-command/:agentId', async (req, res, next) => {
