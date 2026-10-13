@@ -584,7 +584,11 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       }
 
       const usage = buildUsage(promptText, result.text ?? '')
+      let timer: ReturnType<typeof setTimeout> | undefined
       const stream = new ReadableStream<LanguageModelV3StreamPart>({
+        // A cancelled stream (an aborted turn) must stop its own timer: enqueuing into a closed
+        // controller throws from a timeout callback, which is an uncaught exception.
+        cancel () { clearTimeout(timer) },
         start (controller) {
           if (result.reasoning) {
             controller.enqueue({ type: 'reasoning-start', id: 'mock-reason' })
@@ -596,7 +600,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
             if (i < result.text!.length) {
               controller.enqueue({ type: 'text-delta', id: 'mock-id', delta: result.text![i] })
               i++
-              setTimeout(pushChar, 10)
+              timer = setTimeout(pushChar, 10)
             } else {
               controller.enqueue({ type: 'text-end', id: 'mock-id' })
               controller.enqueue({ type: 'finish', usage, finishReason: { unified: 'stop' as const, raw: undefined } })
