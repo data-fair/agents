@@ -109,6 +109,19 @@ export const readTheWeb: Premise = {
 }
 
 /**
+ * The run imported a file it wrote: an import_table call succeeded after a write_file call. Read off the
+ * recorded calls, so it holds however the run got there (link or fetch_url saveAs).
+ */
+export const importedACleanedFile: Premise = {
+  description: 'a write_file call then an import_table call succeeded',
+  holds: exports => exports.some(exported => {
+    const calls = recordedToolCalls(exported)
+    const written = calls.findIndex(call => call.toolName === 'write_file' && !call.failed)
+    return written !== -1 && calls.slice(written).some(call => call.toolName === 'import_table' && !call.failed)
+  })
+}
+
+/**
  * The LAST run started with a non-empty memory, after an earlier run read the web. Read off the last
  * run's recorded system prompt, where the memory is rendered as it stood when the run started
  * (renderMemoryBlock, api/src/memory/operations.ts) — so it holds whichever way the earlier run wrote
@@ -407,6 +420,30 @@ export const cases: LocalCase[] = [
     runs: 2,
     persona: NEWSLETTER_READER,
     goal: 'The editor relies on this weekly task run after run. They want the first run to leave the agent knowing where to look — which addresses hold the releases and the recent changes, and what did not work — and the next run to use that knowledge: going straight to the useful pages instead of exploring again, reaching an outcome at least as good with less searching. What was remembered must be durable knowledge about where information lives, not this week\'s findings presented as current next week. Each run\'s outcome must still be grounded in what that run read.',
+    maxTurns: 0
+  },
+  // FILES, unattended: download a CSV a catalog tool links to, transform it, upload the result. The
+  // transform goes through the file tools alone (read_file, then write_file of the cleaned CSV): code mode,
+  // which would do it in one script, is plan 4 of docs/superpowers/specs/2026-10-12-agent-files-and-scripting-design.md.
+  // The export link is on the dev MCP server's own origin, so it is fetched anonymously, under the agent's
+  // web allowlist (docs/architecture/agent-files.md, the credential rule).
+  {
+    name: 'files-clean-and-import-task-run',
+    premise: importedACleanedFile,
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'unattended',
+    user: 'test1-user1',
+    agent: {
+      mcpServers: [{ serverId: 'dev-review-mcp', toolFilter: ['export_closures', 'import_table'] }],
+      web: { enabled: true, allowedUrls: [`http://localhost:${Number(process.env.NGINX_PORT) + 31}/exports`] }
+    },
+    task: {
+      title: 'Long city-centre closures table',
+      prompt: 'Export the current road closures of the city centre. Keep only the closures that reopen more than 7 days from today, with the same columns, as a CSV file, and import it as a new table titled "Long closures". Report the outcome, with the streets you kept.',
+      scheduling: [{ type: 'weekly', month: '*', dayOfMonth: '*', dayOfWeek: '1', hour: 8, minute: 0, timeZone: 'Europe/Paris' }]
+    },
+    persona: 'Nobody is present while this runs. The reader is the organization admin who planned the task: they read its reported outcome afterwards and open the imported table.',
+    goal: 'The admin wants the imported table to hold exactly the city-centre closures that reopen more than 7 days after the run, with the export\'s columns and values unchanged, and the outcome to name those streets. A row kept or dropped wrongly, a changed value, or an outcome claiming an import that did not succeed is the worst result for them. The judge can check the kept rows against the export the run read and the hash import_table reports against the file the run wrote.',
     maxTurns: 0
   }
 ]
