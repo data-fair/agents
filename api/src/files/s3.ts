@@ -50,7 +50,8 @@ export class S3Backend implements FileBackend {
     const results: FileStats[] = []
     for await (const page of paginateListObjectsV2({ client: this.client }, { Bucket: this.bucket, Prefix: listed })) {
       for (const object of page.Contents ?? []) {
-        if (!object.Key) continue
+        // directory placeholders (keys ending in `/`, made by some tools) are not files
+        if (!object.Key || object.Key.endsWith('/')) continue
         results.push({ path: object.Key.slice(listed.length), size: object.Size ?? 0, lastModified: object.LastModified ?? new Date(0) })
       }
     }
@@ -81,7 +82,13 @@ export class S3Backend implements FileBackend {
   async writeStream (body: Readable, key: string) {
     // Upload stores a small stream with one PutObject and a large one as a multipart upload, which it
     // aborts when the stream fails: either way, nothing is stored under the key.
-    await new Upload({ client: this.client, params: { Bucket: this.bucket, Key: key, Body: body } }).done()
+    try {
+      await new Upload({ client: this.client, params: { Bucket: this.bucket, Key: key, Body: body } }).done()
+    } catch (err) {
+      // the caller's source is never left open
+      body.destroy()
+      throw err
+    }
   }
 
   async removeFile (key: string) {

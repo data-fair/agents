@@ -7,13 +7,14 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { nanoid } from 'nanoid'
 import { FsBackend } from '../../../api/src/files/fs.ts'
 import { S3Backend } from '../../../api/src/files/s3.ts'
+import { failingSource } from '../../support/failing-source.ts'
 import type { FileBackend } from '../../../api/src/files/types.ts'
 
 const readAll = async (body: Readable) => {
@@ -21,14 +22,6 @@ const readAll = async (body: Readable) => {
   for await (const chunk of body) chunks.push(Buffer.from(chunk))
   return Buffer.concat(chunks)
 }
-
-/** A source that fails after its first chunk: what a broken download looks like to the store. */
-const failingSource = () => new Readable({
-  read () {
-    this.push(Buffer.from('partial-'))
-    setImmediate(() => this.destroy(new Error('the source broke')))
-  }
-})
 
 const contract = (name: string, open: () => Promise<{ backend: FileBackend, root: string, close: () => Promise<void> }>) => {
   test.describe(`${name} backend contract`, () => {
@@ -92,9 +85,10 @@ const contract = (name: string, open: () => Promise<{ backend: FileBackend, root
   })
 }
 
+let fsDir = ''
 contract('fs', async () => {
-  const dir = await mkdtemp(join(tmpdir(), 'agent-files-'))
-  return { backend: new FsBackend(dir), root: 'agent-files', close: () => rm(dir, { recursive: true, force: true }) }
+  fsDir = await mkdtemp(join(tmpdir(), 'agent-files-'))
+  return { backend: new FsBackend(fsDir), root: 'agent-files', close: () => rm(fsDir, { recursive: true, force: true }) }
 })
 
 if (process.env.S3_TEST_ENDPOINT) {
@@ -110,6 +104,27 @@ if (process.env.S3_TEST_ENDPOINT) {
   })
 }
 
+test.describe('fs backend specifics', () => {
+  test('a writer\'s hidden temp file is not listed', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'agent-files-'))
+    try {
+      const backend = new FsBackend(dir)
+      await backend.writeStream(Readable.from([Buffer.from('x')]), 'agent-files/h/real.csv')
+      await writeFile(join(dir, 'agent-files/h/.x.csv.abc123.part'), 'partial')
+      assert.deepEqual((await backend.lsrWithStats('agent-files/h/')).map(f => f.path), ['real.csv'])
+    } finally { await rm(dir, { recursive: true, force: true }) }
+  })
+
+  test('a failed write that never started its pipeline still closes the source', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'agent-files-'))
+    try {
+      const source = Readable.from([Buffer.from('x')])
+      await assert.rejects(new FsBackend(dir).writeStream(source, '../escape.txt'), /outside the data directory/)
+      assert.ok(source.destroyed)
+    } finally { await rm(dir, { recursive: true, force: true }) }
+  })
+})
+
 test.describe('fs backend keys', () => {
   test('a key cannot leave the data directory', async () => {
     const dir = await mkdtemp(join(tmpdir(), 'agent-files-'))
@@ -117,6 +132,12 @@ test.describe('fs backend keys', () => {
       const backend = new FsBackend(dir)
       await assert.rejects(backend.writeStream(Readable.from([Buffer.from('x')]), '../escape.txt'), /outside the data directory/)
       await assert.rejects(backend.fileStats('agent-files/../../escape.txt'), /outside the data directory/)
+      await assert.rejects(backend.writeStream(Readable.from([Buffer.from('x')]), '/etc/escape.txt'), /outside the data directory/)
+      // the data directory itself is not a key: it can be neither written nor swept
+      for (const key of ['', '.', 'agent-files/..']) {
+        await assert.rejects(backend.removeDir(key), /outside the data directory/)
+        await assert.rejects(backend.writeStream(Readable.from([Buffer.from('x')]), key), /outside the data directory/)
+      }
     } finally { await rm(dir, { recursive: true, force: true }) }
   })
 })

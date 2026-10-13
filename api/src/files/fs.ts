@@ -22,10 +22,14 @@ export class FsBackend implements FileBackend {
     this.root = path.resolve(dataDir)
   }
 
-  /** Keys come from validated components; this is the defence in depth. */
+  /**
+   * Keys come from validated components; this is the defence in depth: a key must name something strictly
+   * inside the data directory (never the directory itself). Symlinks are not resolved: only the service
+   * writes the data directory, and listings skip symlinks.
+   */
   private full (key: string): string {
     const full = path.resolve(this.root, key)
-    if (full !== this.root && !full.startsWith(this.root + path.sep)) throw new Error(`key outside the data directory: ${key}`)
+    if (!full.startsWith(this.root + path.sep)) throw new Error(`key outside the data directory: ${key}`)
     return full
   }
 
@@ -47,7 +51,8 @@ export class FsBackend implements FileBackend {
     }
     const results: FileStats[] = []
     for (const entry of entries) {
-      if (!entry.isFile()) continue
+      // a name starting with a dot is a writer's temp file (in flight or orphaned by a crash), never a stored file
+      if (!entry.isFile() || entry.name.startsWith('.')) continue
       const file = path.join(entry.parentPath, entry.name)
       const stat = await fs.stat(file).catch(() => undefined)
       if (!stat) continue
@@ -74,17 +79,20 @@ export class FsBackend implements FileBackend {
   }
 
   async writeStream (body: Readable, key: string) {
-    const file = this.full(key)
-    await fs.mkdir(path.dirname(file), { recursive: true })
-    const tmp = path.join(path.dirname(file), `.${path.basename(file)}.${nanoid(8)}.part`)
+    let tmp: string | undefined
     try {
+      const file = this.full(key)
+      await fs.mkdir(path.dirname(file), { recursive: true })
+      tmp = path.join(path.dirname(file), `.${path.basename(file)}.${nanoid(8)}.part`)
       await pipeline(body, createWriteStream(tmp))
       // durably flushed before it takes the real name: the volume may be NFS (data-fair's fsyncFile)
       const handle = await fs.open(tmp, 'r')
       try { await handle.sync() } finally { await handle.close() }
       await fs.rename(tmp, file)
     } catch (err) {
-      await fs.rm(tmp, { force: true })
+      // the caller's source is never left open, whether the failure came before or during the pipeline
+      body.destroy()
+      if (tmp) await fs.rm(tmp, { force: true })
       throw err
     }
   }

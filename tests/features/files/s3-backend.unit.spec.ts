@@ -12,6 +12,7 @@ import {
   S3Client, ListObjectsV2Command, HeadObjectCommand, GetObjectCommand, PutObjectCommand, DeleteObjectCommand,
   CreateMultipartUploadCommand, UploadPartCommand, CompleteMultipartUploadCommand, AbortMultipartUploadCommand
 } from '@aws-sdk/client-s3'
+import { failingSource } from '../../support/failing-source.ts'
 import { S3Backend } from '../../../api/src/files/s3.ts'
 
 const s3 = mockClient(S3Client)
@@ -38,6 +39,12 @@ test.describe('S3Backend', () => {
     assert.equal(calls[0].Bucket, 'agents')
     assert.equal(calls[0].Prefix, 'agent-files/organization/test1/c1/', 'a trailing slash: `c1` must not match `c10`')
     assert.equal(calls[1].ContinuationToken, 'page-2')
+  })
+
+  test('a listing holds files only: directory placeholder keys are skipped', async () => {
+    const at = new Date('2026-10-13T10:00:00Z')
+    s3.on(ListObjectsV2Command).resolves({ Contents: [{ Key: 'agent-files/o/c/', Size: 0, LastModified: at }, { Key: 'agent-files/o/c/sub/', Size: 0, LastModified: at }, { Key: 'agent-files/o/c/sub/a.csv', Size: 1, LastModified: at }] })
+    assert.deepEqual(await backend().lsrWithStats('agent-files/o/c'), [{ path: 'sub/a.csv', size: 1, lastModified: at }])
   })
 
   test('stats and reads use the key as is; a 404 is a not-found, any other error is not', async () => {
@@ -87,10 +94,7 @@ test.describe('S3Backend', () => {
     s3.on(UploadPartCommand).resolves({ ETag: '"e"' })
     s3.on(CompleteMultipartUploadCommand).resolves({})
     s3.on(AbortMultipartUploadCommand).resolves({})
-    // one chunk, then the failure: a source that keeps pushing until a macrotask runs would spin forever against a mock
-    // whose every answer is a microtask
-    let pushed = false
-    const failing = new Readable({ read () { if (pushed) return; pushed = true; this.push(Buffer.from('partial-')); setImmediate(() => this.destroy(new Error('the source broke'))) } })
+    const failing = failingSource()
     await assert.rejects(backend().writeStream(failing, 'agent-files/o/c/broken.csv'), /the source broke/)
     assert.equal(s3.commandCalls(PutObjectCommand).length, 0, 'nothing was put')
     assert.equal(s3.commandCalls(CompleteMultipartUploadCommand).length, 0, 'never completed')
