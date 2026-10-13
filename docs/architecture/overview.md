@@ -139,6 +139,7 @@ prefix is ignored, `api/src/sites/operations.ts`):
 | Prompts an agent runs on a schedule, unattended | [Planned tasks](./planned-tasks.md) |
 | Reading web pages, feeds and sitemaps under an allowlist | [Web access](./web-access.md) |
 | Files an agent downloads, writes and hands to tools, without the bytes passing through the model | [Agent files](./agent-files.md) |
+| Scripts the model writes to transform data and chain tool calls, intermediate results kept out of its context | [Code mode](./code-mode.md) |
 | Providers, models, roles | [Multi-provider AI abstraction](./providers.md), [Configuration](./configuration.md) |
 | Who may spend what, and what it cost | [Quotas & usage](./quotas-usage.md) |
 | Refusing abusive input | [Input moderation guard](./moderation.md) |

@@ -6,7 +6,8 @@ personal assistant and configured autonomous agents, and the browser does no his
 compaction at all.
 
 The decision is `decideContextManagement` in `api/src/conversations/compaction-policy.ts` — pure,
-stateless, and the only thing the loop calls. That is deliberate: before it, two loops (the browser's and
+stateless, and the only thing the loop calls on a turn's history; between the steps of a turn, the step
+context reuses its tier 1 (see [Where it is applied](#where-it-is-applied)). That is deliberate: before it, two loops (the browser's and
 the server's) *happened* to agree because the same constant had been copied into each, and every context
 bug on this branch came from one of the copies having drifted. There is one loop now, which settles that
 by construction.
@@ -90,9 +91,10 @@ immediately re-trigger.
 
 ## Where it is applied
 
-Each turn, `runModelLoop` calls `loadHistory` then `compactHistory`
-(`api/src/conversations/turn-history.ts`) once, before the first model step; context is not
-re-evaluated between the steps of a turn.
+Twice: once per turn on the stored history, and before every step on the turn so far.
+
+**Once per turn, before the first step**, `runModelLoop` calls `loadHistory` then `compactHistory`
+(`api/src/conversations/turn-history.ts`): all three tiers, on the history rebuilt from the store.
 
 - **History is rebuilt from stored parts** every turn (`storedTurnsToModelMessages`), starting after the
   persisted recap when there is one, together with a parallel `seqs` array mapping each model message
@@ -109,8 +111,40 @@ budget paid a full summarizer call on every turn for ever. Tier 1 needs no such 
 pure function of the history and the parameters — recomputed every turn for free. That asymmetry is
 exactly why ordering the cheap tier first costs nothing.
 
-Sub-agent workers are stateless single-shot runs (see [sub-agents](./sub-agents.md)) and are never
-compacted.
+**Before each step**, the lead loop's `prepareStep` passes the step's messages through the step context
+(`createStepContext(budget)`, `api/src/conversations/step-context.ts`), composed after the loop guards'
+rebuild ([loop guards](./loop-guards.md#2-repeated-call-guard--nudge-at-3-stop-at-5)). A turn of many steps
+— code mode, files, a planned task's run of tens of minutes — can outgrow the window on its own, and every
+surveyed harness evaluates its context per model request, not per turn (the AI SDK documents exactly this
+`prepareStep` pattern). Tiers 0 and 1 only:
+
+- **tier 0**: every text tool result is bounded to `TOOL_RESULT_LIMIT`, as the record already is, so the
+  live model and a later replay see the same thing. A `json`, media or error result is left as the tool
+  produced it (there is no honest string cut of it), but can still be cleared;
+- **tier 1**: when the step's estimated fill exceeds the budget, `clearOldToolResults` clears more old
+  results, with the same parameters as above. A result that is already a placeholder (written by the
+  turn's history, or an earlier clear) is never cleared again: that would rewrite its size and drop its
+  server.
+
+**Sticky, for the cache.** The loop guards rebuild each step from the full responses, so a result cleared at
+step N arrives whole at step N+1. The step context keeps the ids it cleared and re-applies the same
+deterministic placeholder (computed from the tier-0 bounded text both times), so the prefix is
+byte-identical from step to step and the provider's cache of it survives. The decision to clear more is
+taken on the uncleared messages, and nothing here touches the record.
+
+**No summarisation mid-turn.** Tier 2 is a blocking, billed model call; the recap is keyed on stored
+messages, which a turn in progress has not written yet; and masking old observations matches summarisation
+at about half the cost (Lindenbauer et al., "The Complexity Trap", arXiv 2508.21433: on SWE-bench Verified,
+observation masking solved as many or more instances as LLM summarisation for roughly half the raw agent's
+cost, while summaries lengthened trajectories). Anthropic's context editing (`clear_tool_uses`) and
+LangChain's `ClearToolUsesEdit` are this same per-request clearing, with summarisation as the separate,
+later resort (Anthropic's compaction, LangChain's `SummarizationMiddleware`) — the order Claude Code also
+follows: "clears older tool outputs first, then summarizes the conversation if needed".
+
+A planned task's run starts from one prompt, so it never compacts at start; the per-step tier is what
+keeps a long run within its window. Sub-agent workers are stateless single-shot runs (see
+[sub-agents](./sub-agents.md)) with their own short context: they are neither compacted nor given the step
+context.
 
 ## Prompt caching
 
@@ -263,6 +297,16 @@ browser's former `sessionStorage` `agent-chat-compaction-threshold` knob went wi
   `compactHistory`: applies the decision, bills the summarizer call, persists the recap.
 - `api/src/conversations/executor.ts` and `model-loop.ts` — `performTurn` computes the budget; `runModelLoop` calls the two
   above before the first step.
+- `api/src/conversations/step-context.ts` — `createStepContext`, tiers 0 and 1 before each step, sticky;
+  `tests/features/autonomous-agents/step-context.unit.spec.ts`.
 - `api/src/conversations/operations.ts` — `boundToolResult`, tier 0, applied as each tool result is stored.
 - `tests/features/chat-hang/compaction-policy.unit.spec.ts` — the policy, including that the loop routes
   through it and that the numbers in this document match the constants.
+
+## Sources
+
+- Anthropic, context editing (`clear_tool_uses_20250919`: trigger, `keep` 3, `clear_at_least`): https://platform.claude.com/docs/en/build-with-claude/context-editing ; compaction: https://platform.claude.com/docs/en/build-with-claude/compaction
+- LangChain built-in middleware (`ContextEditingMiddleware` with `ClearToolUsesEdit`, `SummarizationMiddleware`): https://docs.langchain.com/oss/python/langchain/middleware/built-in
+- AI SDK loop control, context management in `prepareStep`: https://ai-sdk.dev/docs/agents/loop-control
+- Claude Code, how it manages its context: https://code.claude.com/docs/en/how-claude-code-works
+- Lindenbauer et al., "The Complexity Trap: Simple Observation Masking Is as Efficient as LLM Summarization for Agent Context Management": https://arxiv.org/abs/2508.21433

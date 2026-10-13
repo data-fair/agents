@@ -48,11 +48,11 @@ Two thresholds, following the OpenHands SDK ladder:
 
 The nudge is the mildest intervention that works: telling the model plainly what it just did. Comparable production thresholds are 3 consecutive identical calls (Roo Code, Reflexion, AWS Strands) to 5 (Gemini CLI, which also detects cycles of length up to 5). Comparing results as well as calls is the refinement most of them converged on after false positives (Gemini CLI had to add an opt-out).
 
-On the lead loop the same `prepareStep` hook first refreshes the live tool set when the page's tools changed mid-turn, then returns `loopGuardPrepareStep(options)`. Sub-agent workers use `loopGuardPrepareStep` directly, so a looping worker is reminded at 3 before it is stopped at 5.
+On the lead loop the same `prepareStep` hook first refreshes the live tool set when the page's tools changed mid-turn, then returns `loopGuardPrepareStep(options)` with its messages passed through the step context: `{ ...guarded, messages: stepContext(guarded.messages) }` (`api/src/conversations/step-context.ts`, which bounds and clears tool results between steps, see [context management](./context-management.md#where-it-is-applied)). The guard owns `messages`, so anything else that changes them composes over its result like this; a second `messages` override would drop the rebuild, and the nudge with it. Sub-agent workers use `loopGuardPrepareStep` directly, so a looping worker is reminded at 3 before it is stopped at 5.
 
 The hook **rebuilds** each step's messages, `initialMessages` + `responseMessages` with the reminder last, rather than appending to `messages`. AI SDK 7 carries a `messages` override forward: the next step starts from what the previous one was sent. Appending would therefore keep every reminder in every later request and stack one more per repeat. Rebuilt, a step without a reminder is exactly what the SDK would have sent, and a step with one carries exactly one.
 
-The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s) and `createIdleWatchdog`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the turn's wall-clock timeout (`turnTimeoutSeconds`, enforced by `driveTurn`'s deadline). It is re-armed on every stream part and PAUSED while any tool call is outstanding: the AI SDK's own `timeout.chunkMs`, which it replaced, counted a running tool as silence, so a slow catalog query or a slow page tool was aborted as a stuck provider.
+The same module holds `STREAM_IDLE_TIMEOUT_MS` (90 s) and `createIdleWatchdog`: an idle watchdog rather than a total ceiling, so a provider that accepts a request and then goes silent does not hold the conversation until the run's wall-clock deadline (`turnTimeoutSeconds` for a chat, `taskTimeoutSeconds` for a planned task's run, enforced by `driveTurn`). It is re-armed on every stream part and PAUSED while any tool call is outstanding: the AI SDK's own `timeout.chunkMs`, which it replaced, counted a running tool as silence, so a slow catalog query or a slow page tool was aborted as a stuck provider.
 
 ## 3. Never stop silently
 
@@ -64,12 +64,13 @@ On the lead loop the turn simply ends, and the run records why: `finishReason: '
 
 The mock model (`api/src/models/mock-model.ts`) answers a task of exactly `loop forever` with the same `get_schema` call on every step and **ignores any injected nudge**, so the e2e test `Sub-agent that loops to its step cap recovers a close-out answer` exercises the whole ladder: 5 identical calls, the guard stops the loop, the close-out recovers an answer. The guard logic itself is covered by `tests/features/chat-subagent/loop-guards.unit.spec.ts`, including one test that drives a real `streamText` loop to pin that a step never carries more than one reminder.
 
-## Forward: code mode
+## Code mode
 
-The planned code mode (`@ai-sdk/code-mode`) relies on the SDK's `experimental_toolCallers`. Two interactions with `loopGuardPrepareStep` to design for (checked against `ai` 7.0.137, `stream-text.ts` and `tool-caller-configuration.ts`):
+A [`code_mode`](./code-mode.md) script calls tools from inside one tool call. Its nested calls are **not steps**: the AI SDK never sees them (the package emits no event for them, upstream vercel/ai#18144), so the step limit and the repeated-call guard see the `code_mode` call, not what it does. Five identical scripts returning identical results are a repeat like any other call.
 
-- **Tool-caller messages move.** The hook rebuilds every step's `messages` from the initial messages and the responses, and the SDK then runs `appendToolCallerMessages` on whatever `prepareStep` returned. Tool-caller messages are therefore re-appended at the END of each request (after the latest responses, and after a nudge) instead of being carried forward once at their first position. They are not dropped, only moved; a prompt that depends on their position must be written for that.
-- **The caller configuration is fixed at the start.** `resolveToolCallerConfiguration` runs once, when `streamText` is constructed, against the initial `tools`, and throws on an unknown tool name. It cannot follow `liveTools` ([MCP tools §7](./mcp-tools.md#7-the-tool-set-is-live-within-a-turn)) mutated in place mid-turn: a tool registered later cannot be named in it.
+What bounds a script instead is its own policy (`CODE_MODE_POLICY`): at most 100 tool calls — `STEP_LIMIT`, so a script cannot make more calls than a turn could steps — 8 at once, 120 s of wall clock with tool waits included, and 10 s of CPU. The per-tool caps inside `execute` (the web tools' and external MCP servers' 50 calls per run) count nested calls as they are, and the run's credit budget and deadline still bound the turn around it. The idle watchdog is paused while the script runs, as for any tool call.
+
+The tool is built with `experimental_createCodeModeTool` over a map of ours, not `experimental_toolCallers`, so the two interactions that form would have had with `loopGuardPrepareStep` do not arise: no tool-caller messages are re-appended at the end of each rebuilt request, and no caller configuration is fixed at `streamText` start against a tool set that changes mid-turn (see [code mode](./code-mode.md#why-not-experimental_toolcallers)).
 
 ## References
 

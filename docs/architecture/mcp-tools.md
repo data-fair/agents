@@ -354,11 +354,13 @@ The executor (`performTurn`) merges the catalog tools, the page tools (when a so
 
 ### Result formatting
 
-`formatMcpToolResult` keeps the text `content` parts (and prefixes `isError` results with `Tool execution failed:`); `structuredContent` is dropped. Text-only results stay a plain string. A result carrying MCP `image` parts becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data, mediaType}]}`); `withProvenance` wraps only its text and keeps the object shape.
+`formatMcpToolResult` keeps the text `content` parts (and prefixes `isError` results with `Tool execution failed:`); `structuredContent` is dropped from what the model reads. Text-only results stay a plain string. A result carrying MCP `image` parts becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data, mediaType}]}`); `withProvenance` wraps only its text and keeps the object shape.
 
 A result carrying `resource_link`s (and text) becomes a `LinkedToolResult` (`withResourceLinks`, `api/src/files/operations.ts`) carrying the links, whether a catalog server returned them, and the site the call was bound to; the call path stores them as the agent's files and rewrites the text, or, files off, passes the text through as before. An `isError` result keeps its text with link URIs reduced to origin and path. See [Agent files](./agent-files.md#in-downloads).
 
-Nothing on the server currently rebuilds that envelope into image parts: the gateway's `convertOpenAIMessages` that did so is gone with the gateway, and the executor gives the tools no `toModelOutput`, so the AI SDK hands the envelope to the provider as JSON — base64 included. The redaction helpers in `shared/tool-result.ts` (`redactHistoryMediaToolResults`) are likewise no longer called from `api/src`.
+The media envelope becomes real image (or file) parts in two places, one per path. On a live step, `withProvenance` gives every tool a `toModelOutput` (`toolModelOutput`, `api/src/conversations/operations.ts`) that turns the envelope into `content` parts. A replay converts stored turns **without tools** (`storedTurnsToModelMessages`), so no `toModelOutput` runs there, and `withMediaOutputs` does the same conversion on the rebuilt history. This is also why the provenance envelope is applied inside `execute` rather than in `toModelOutput`: what is stored is `execute`'s return, and only that reaches a replay. The redaction helpers in `shared/tool-result.ts` (`redactHistoryMediaToolResults`) are no longer called from `api/src`; the measure of the window and the summarizer's prompt use `redactModelMedia`.
+
+**A script gets the data.** A [`code_mode`](./code-mode.md) script calls the same MCP tools through a second function, `codeExecute` (`client.ts`, `external.ts`): it returns the result's `structuredContent` when the server sent one (data-fair's MCP does), else the text; a result with links becomes `{ text, files }` once the call path stored them; a media result reaches a script as its text only. The model always gets the text form above. `structuredContent` is not validated against an `outputSchema` either way (the `request()` choice above).
 
 ---
 

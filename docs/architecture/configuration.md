@@ -132,16 +132,18 @@ Plain string, unset by default. Shared secret the external `customers` billing s
 SECRET_LIMITS=a-long-random-shared-secret
 ```
 
-### Turn bounds: `TURN_CREDITS`, `TURN_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`
+### Turn bounds: `TURN_CREDITS`, `TURN_TIMEOUT_SECONDS`, `TASK_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`, `CODE_MODE_MAX_WORKERS`
 
 JSON-parsed numbers, global rather than per account. They bound **every** turn of the server loop (`api/src/conversations/executor.ts`, the loop in `model-loop.ts`), the in-page chat's personal assistant as much as an autonomous agent.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `TURN_CREDITS` | `500` | per-run credit ceiling; the turn stops with stop reason `budget` once crossed. A runaway ceiling, not a per-turn allowance — the account credit cap still applies on top. |
-| `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one turn, so a hung model or MCP server cannot hold the conversation's lock. Independent of the NHI session lifetime: a longer turn renews its sessions. |
+| `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one chat turn, so a hung model or MCP server cannot hold the conversation's lock. Independent of the NHI session lifetime: a longer turn renews its sessions. |
+| `TASK_TIMEOUT_SECONDS` | `1800` | the same ceiling for a planned task's run, which nobody waits on (see [planned tasks](./planned-tasks.md#the-turn)). A deploy still stops a run after `SHUTDOWN_GRACE_SECONDS`. |
 | `SHUTDOWN_GRACE_SECONDS` | `90` | on SIGTERM, how long running turns get to finish before being stopped as "the server restarted" (see [autonomous agents](./autonomous-agents.md#recovery)). The pod's `terminationGracePeriodSeconds` must exceed it by about 15 s. |
 | `COMPACTION_PERCENT` | `70` | share of the assistant model's context window above which history is compacted (see [Context management](./context-management.md)). |
+| `CODE_MODE_MAX_WORKERS` | `4` | `code_mode` scripts running at once in one process, one QuickJS worker (64 MiB heap) each; a script arriving when all are busy is refused, not queued (see [Code mode](./code-mode.md#engine-and-limits)). |
 
 ### `MCP_SERVERS`
 

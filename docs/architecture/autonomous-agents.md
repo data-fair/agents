@@ -101,7 +101,8 @@ quota or credit cap, a moderation block — is still a message saying so. The qu
 beyond the moderation classifier (see [Moderation](./moderation.md)).
 
 Bounds on a turn, all enforced server-side: `STEP_LIMIT`, the repeated-call guard, a per-run credit
-budget, the account credit cap, the whole-turn deadline, and the idle watchdog (`STREAM_IDLE_TIMEOUT_MS`,
+budget, the account credit cap, the run's wall-clock deadline (`turnTimeoutSeconds`, 300 s, for a chat;
+`taskTimeoutSeconds`, 1800 s, for a planned task's run — see [planned tasks](./planned-tasks.md#the-turn)), and the idle watchdog (`STREAM_IDLE_TIMEOUT_MS`,
 paused while a tool runs — see [Loop guards](./loop-guards.md)).
 
 ### Recovery
@@ -132,9 +133,11 @@ the logic in `api/src/conversations/shutdown.ts`):
    runs.
 
 Only then are the events queue, the sockets, the HTTP server and Mongo closed. The grace is shorter
-than the turn deadline on purpose: a deploy should not wait five minutes for one long task run. The
-pod's `terminationGracePeriodSeconds` must exceed `shutdownGraceSeconds` plus about 15 s (settling and
-closing), or the kubelet kills the process mid-drain and recovery applies as below.
+than either deadline on purpose: a deploy should not wait five minutes for one chat turn, let alone thirty
+for one task run. So a task run longer than the grace is stopped by a deploy, recorded `shutdown` as above,
+and its task runs again at its next slot. The pod's `terminationGracePeriodSeconds` must be at least
+`shutdownGraceSeconds` plus 15 s (settling and closing), or the kubelet kills the process mid-drain and
+recovery applies as below.
 
 `recoverOwnerlessRuns` runs at boot and on a 30s interval. A started turn is **never** resumed: MCP
 tools are not required to be idempotent and the operator catalog may contain writes, so re-running a
@@ -402,9 +405,6 @@ it, with their effective role, so per-profile and untrusted-pool quotas apply to
 
 Planned and not built:
 
-- **Files and code mode**: moving files between the web and catalog tools without their bytes passing
-  through the model, and letting the model write a script that calls the agent's own tools, so
-  intermediate results stay out of its context.
 - **Skills**: procedures an agent defines for itself, beside its [memory](./agent-memory.md).
 - **Data lifecycle**: retention configurable per organization (an archived thread of a configured agent
   is kept until the agent is deleted), and acting on simple-directory's user-deletion events (per-user

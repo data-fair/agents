@@ -13,8 +13,8 @@ a file argument are not offered (the MCP server only fetches our signed URLs, so
 them); `get_my_configuration` says files are off and lists those tools as needing a file store. That is the
 same code path as the personal assistant's (`files` undefined in `performTurn`), which the tests use.
 
-Code mode (scripts that read and write files and call tools) builds on this and is not implemented; its
-interaction with the loop guards is noted in [Loop guards](./loop-guards.md#forward-code-mode). The design:
+[Code mode](./code-mode.md) builds on this: a script reads and writes the same files and passes them to the
+same tools, through the same call path ([Files from a script](#files-from-a-script)). The design:
 `docs/superpowers/specs/2026-10-12-agent-files-and-scripting-design.md`.
 
 ## The store
@@ -173,8 +173,28 @@ through: `modelTools` (`api/src/conversations/operations.ts`) wraps each tool in
 envelope. It receives the model's input after the stream loop recorded it (and after the SDK's approval
 request carried it), signs the call's file arguments for that call only, and turns a `LinkedToolResult`
 (what the MCP clients return when a result carries links, with `catalog` and the call's `site`) into
-stored files and text. A call made by the model and, with code mode, a call made from a script are then the
-same call: same file handling, same recording, same guards.
+stored files and text. A call made by the model and a call made from a [code mode](./code-mode.md) script
+(`withCallPath(sourced, ctx, 'code')`) are then the same call: same signing, same scrubbing, same link
+storage and credential rule. They differ only in what they return, below.
+
+### Files from a script
+
+A script gets data where the model gets text (`SourcedTool.codeExecute`; `createFileCodeExecutes`,
+`api/src/files/tools.ts`):
+
+- `ls` returns records `{ file_path, mimeType, size, expiresAt }`;
+- `read_file` returns the whole text file, up to 10 MB, and fails beyond that with the size and the advice to
+  pass the path to a tool that takes a file; a binary file is an error carrying what the model would read of it
+  (its metadata, and that it can be passed to a tool);
+- `write_file` takes up to **10 MB** from a script, where the model is held to 1 MB (it would have to write
+  the content out in full as output tokens; a script writes what it computed, and 10 MB is what it can read
+  back), and returns the record of the file written;
+- a tool result carrying links becomes `{ text, files: [{ file_path, mimeType, size }] }` once the links are
+  stored, plus `errors` for a link that could not be saved (the call still succeeds, as for the model), so a
+  script can pass `files[0].file_path` straight to the next tool's file argument.
+
+File arguments, the 100 MB and 500 MB caps and the expiry are unchanged: a script's file is the
+conversation's (or the task run's) like any other.
 
 ## Errors the model reads
 
