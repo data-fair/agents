@@ -127,10 +127,10 @@ const ENTRIES: ServiceToolEntry[] = [
     // offering it to anyone else would end their turn on a card they cannot decide. A run continuing
     // from a decision was started by the decider, so the approved call finds its tool there.
     applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && !!ctx.agent.web?.enabled,
-    build: async ({ agent, run, surface }, into) => {
+    build: async ({ agent, run, surface, files }, into) => {
       // One array for the run: an approved request extends it in place, so the readers see the new URLs.
       const allowedUrls = [...(agent.web?.allowedUrls ?? [])]
-      const tools = createWebTools({ allowedUrls })
+      const tools = createWebTools({ allowedUrls, ...(files ? { files } : {}) })
       if (surface === 'chat' && run.triggeredByRole === 'admin') {
         tools[REQUEST_WEB_ACCESS_TOOL_NAME] = createRequestWebAccessTool({ allowedUrls, save: urls => saveWebAllowedUrls(agent, urls) })
       }

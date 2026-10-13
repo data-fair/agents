@@ -14,7 +14,7 @@
  * Free of #config, so the unit tests can drive it; the caller passes the public-address exceptions.
  */
 
-import { Agent, fetch as undiciFetch } from 'undici'
+import { fetch as undiciFetch } from 'undici'
 import { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
@@ -22,7 +22,7 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
-import { ipList, publicLookup } from '../web/public-lookup.ts'
+import { publicDispatcher } from '../web/public-lookup.ts'
 import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
 import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
@@ -36,7 +36,7 @@ const debug = Debug('agents:mcp-external')
  * sockets (and a server's shutdown) for as long as the keep-alive lasts.
  */
 const publicFetch = (publicIps: string[]) => {
-  const dispatcher = new Agent({ connect: { lookup: publicLookup(ipList(publicIps)) as any } })
+  const dispatcher = publicDispatcher(publicIps)
   const fetchImpl = ((url: string | URL, init?: RequestInit) => undiciFetch(url, { ...(init as any), dispatcher, redirect: 'error' })) as unknown as typeof fetch
   return { fetchImpl, closeDispatcher: () => dispatcher.close().catch(() => {}) }
 }

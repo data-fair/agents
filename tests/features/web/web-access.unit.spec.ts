@@ -60,6 +60,8 @@ const routes: Record<string, (req: http.IncomingMessage, res: http.ServerRespons
   '/big': (req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }).end('x'.repeat(5000)) },
   '/bot': (req, res) => { res.writeHead(403, { 'content-type': 'text/html', 'cf-mitigated': 'challenge' }).end('Just a moment...') },
   '/file.pdf': (req, res) => { res.writeHead(200, { 'content-type': 'application/pdf' }).end('%PDF-1.4') },
+  // Headers, then nothing: a client reading the body before deciding would wait out its timeout.
+  '/stalled.zip': (req, res) => { res.writeHead(200, { 'content-type': 'application/zip' }); res.write(Buffer.alloc(10)) },
   '/robots.txt': (req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }).end(`User-agent: *\nSitemap: ${base}/sitemap_index.xml\nSitemap: https://elsewhere.test/sitemap.xml\n`) },
   '/sitemap_index.xml': (req, res) => {
     res.writeHead(200, { 'content-type': 'application/xml' }).end(`<?xml version="1.0"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -186,10 +188,28 @@ test.describe('web access', () => {
   })
 
   test('reports what cannot be read', async () => {
-    await assert.rejects(fetchUrl({ url: `${base}/big` }, context({ maxBodyBytes: 1000 })), /maxContentLength/)
+    await assert.rejects(fetchUrl({ url: `${base}/big` }, context({ maxBodyBytes: 1000 })), /larger than 1000 bytes/)
     await assert.rejects(fetchUrl({ url: `${base}/bot` }, context()), /bot protection, HTTP 403/)
     await assert.rejects(fetchUrl({ url: `${base}/file.pdf` }, context()), /application\/pdf, which cannot be read as text/)
     await assert.rejects(fetchUrl({ url: `${base}/missing` }, context()), /answered HTTP 404/)
+  })
+
+  test('a binary type is refused from the headers, before the body is read', async () => {
+    const started = Date.now()
+    await assert.rejects(fetchUrl({ url: `${base}/stalled.zip` }, context()), /application\/zip, which cannot be read as text\.$/)
+    assert.ok(Date.now() - started < 2000, 'refused without waiting for the body')
+  })
+
+  test('with files on, the refusal says to save it as a file', async () => {
+    await assert.rejects(fetchUrl({ url: `${base}/file.pdf` }, { ...context(), filesOn: true }), /Save it as one of your files instead: call fetch_url again with saveAs/)
+  })
+
+  test('fetch_url offers saveAs only with files', async () => {
+    const without = createWebTools({ allowedUrls: [base] })[FETCH_URL_TOOL_NAME] as any
+    assert.equal(without.inputSchema.jsonSchema.properties.saveAs, undefined)
+    const files = { scope: {}, save: async () => { throw new Error('unused') } } as any
+    const withFiles = createWebTools({ allowedUrls: [base], files })[FETCH_URL_TOOL_NAME] as any
+    assert.ok(withFiles.inputSchema.jsonSchema.properties.saveAs)
   })
 
   test('lists a sitemap index as a table of contents without a filter', async () => {

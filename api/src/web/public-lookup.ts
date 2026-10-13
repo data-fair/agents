@@ -11,6 +11,7 @@
 
 import dns from 'node:dns'
 import net from 'node:net'
+import { Agent } from 'undici'
 
 const NON_PUBLIC: [string, number, 'ipv4' | 'ipv6'][] = [
   ['0.0.0.0', 8, 'ipv4'],
@@ -80,3 +81,10 @@ export const publicLookup = (publicIps: net.BlockList) =>
       else callback(null, addresses[0].address, addresses[0].family)
     })
   }
+
+/**
+ * An undici dispatcher that only connects to public addresses: the external MCP servers' connections and
+ * the file downloads (api/src/files/download.ts). Its keep-alive sockets are its owner's to close.
+ */
+export const publicDispatcher = (publicIps: string[], opts: { headersTimeout?: number, bodyTimeout?: number } = {}): Agent =>
+  new Agent({ ...opts, connect: { lookup: publicLookup(ipList(publicIps)) as any } })

@@ -1,0 +1,99 @@
+/**
+ * The one download function against local servers: allowlist at every hop, a bound-site download that never
+ * leaves its origin, the cookie sent to that origin only, bounds enforced while streaming.
+ * localhost is declared public, as SSRF_PUBLIC_IPS does for dev-api.
+ */
+import { test } from 'playwright/test'
+import assert from 'node:assert/strict'
+import http from 'node:http'
+import type { AddressInfo } from 'node:net'
+import { mkdtemp, rm } from 'node:fs/promises'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { openDownload, saveUrl } from '../../../api/src/files/download.ts'
+import { FsBackend } from '../../../api/src/files/fs.ts'
+import { createTurnFiles } from '../../../api/src/files/turn-files.ts'
+
+const publicIps = ['127.0.0.1', '::1']
+const seen: { server: 'a' | 'b', url: string, cookie?: string }[] = []
+let a: http.Server, b: http.Server, A: string, B: string
+
+const start = (name: 'a' | 'b', routes: Record<string, (req: http.IncomingMessage, res: http.ServerResponse) => void>) => {
+  const server = http.createServer((req, res) => {
+    seen.push({ server: name, url: req.url ?? '', cookie: req.headers.cookie })
+    const route = routes[(req.url ?? '').split('?')[0]]
+    if (route) route(req, res); else res.writeHead(404).end()
+  })
+  return new Promise<http.Server>(resolve => server.listen(0, '127.0.0.1', () => resolve(server)))
+}
+const origin = (server: http.Server) => `http://localhost:${(server.address() as AddressInfo).port}`
+
+// File-level: both describes below use the two servers.
+test.beforeAll(async () => {
+  b = await start('b', { '/elsewhere.csv': (req, res) => res.writeHead(200, { 'content-type': 'text/csv' }).end('b') })
+  B = origin(b)
+  a = await start('a', {
+    // An explicit length: after writeHead, Node would send the body chunked.
+    '/data.csv': (req, res) => res.writeHead(200, { 'content-type': 'text/csv', 'content-length': '8', 'content-disposition': 'attachment; filename="data.csv"' }).end('a,b\n1,2\n'),
+    '/hop': (req, res) => res.writeHead(302, { location: '/data.csv' }).end(),
+    '/away': (req, res) => res.writeHead(302, { location: `${B}/elsewhere.csv` }).end(),
+    '/missing': (req, res) => res.writeHead(404).end(),
+    '/chunked': (req, res) => { res.writeHead(200, { 'content-type': 'application/octet-stream' }); res.write(Buffer.alloc(600)); res.end(Buffer.alloc(600)) }
+  })
+  A = origin(a)
+})
+test.afterAll(async () => { a.close(); b.close() })
+test.beforeEach(() => { seen.length = 0 })
+
+test.describe('openDownload', () => {
+  test('an anonymous download follows an allowed redirect and gives the headers and the body', async () => {
+    const opened = await openDownload({ url: `${A}/hop`, allowedUrls: [A], publicIps })
+    assert.equal(opened.url, `${A}/data.csv`)
+    assert.equal(opened.contentType, 'text/csv')
+    assert.equal(opened.contentDisposition, 'attachment; filename="data.csv"')
+    assert.equal(opened.contentLength, 8)
+    opened.body.destroy()
+    assert.ok(seen.every(s => s.cookie === undefined))
+  })
+
+  test('an anonymous download is allowlisted at every hop, with the web readers\' messages', async () => {
+    await assert.rejects(openDownload({ url: `${B}/elsewhere.csv`, allowedUrls: [A], publicIps }), /is not under this agent's allowed URLs/)
+    await assert.rejects(openDownload({ url: `${A}/away`, allowedUrls: [A], publicIps }), /redirects to .*, which cannot be fetched: .*is not under this agent's allowed URLs/)
+    await assert.rejects(openDownload({ url: `${A}/missing`, allowedUrls: [A], publicIps }), /answered HTTP 404/)
+  })
+
+  test('a bound-site download never leaves its origin, and the cookie goes to that origin only', async () => {
+    const opened = await openDownload({ url: `${A}/hop`, allowedUrls: [], site: { origin: A, cookie: 'id_token=abc' }, publicIps })
+    opened.body.destroy()
+    assert.deepEqual(seen.map(s => [s.server, s.cookie]), [['a', 'id_token=abc'], ['a', 'id_token=abc']])
+    seen.length = 0
+    await assert.rejects(openDownload({ url: `${A}/away`, allowedUrls: [], site: { origin: A, cookie: 'id_token=abc' }, publicIps }), /is not on http:\/\/localhost:\d+, the site this file was linked from/)
+    assert.ok(!seen.some(s => s.server === 'b'), 'the other origin is never contacted')
+  })
+
+  test('a non-public address is refused without an exception for it', async () => {
+    await assert.rejects(openDownload({ url: `${A}/data.csv`, allowedUrls: [A], publicIps: [] }), /not a public address/)
+  })
+})
+
+test.describe('saveUrl', () => {
+  let dir: string
+  test.beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), 'save-url-')) })
+  test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
+  const files = (limits?: { file: number, scope: number }) => createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents', limits })
+
+  test('stores the body under the given path and answers path, type and size', async () => {
+    assert.deepEqual(await saveUrl({ url: `${A}/data.csv`, path: '/copy.csv', allowedUrls: [A], files: files(), publicIps }), { file_path: '/copy.csv', mimeType: 'text/csv', size: 8 })
+  })
+
+  test('an invalid path is refused before any request', async () => {
+    await assert.rejects(saveUrl({ url: `${A}/data.csv`, path: '/a b.csv', allowedUrls: [A], files: files(), publicIps }), /not a valid file path/)
+    assert.equal(seen.length, 0)
+  })
+
+  test('a body without a length that grows past the bound is aborted, and nothing is stored', async () => {
+    const small = files({ file: 1000, scope: 10_000 })
+    await assert.rejects(saveUrl({ url: `${A}/chunked`, path: '/big.bin', allowedUrls: [A], files: small, publicIps }), /1 kB limit per file/)
+    assert.deepEqual(await small.list(), [])
+  })
+})

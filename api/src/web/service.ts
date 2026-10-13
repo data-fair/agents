@@ -11,7 +11,7 @@ import type { ExtractedFeed, ExtractedPage, PageForm } from './extract.ts'
 import {
   charsetOf, checkUrl, classifyContent, filterEntries, hasFilter, hostAllowed, paginate, parseOpenSearchDescription, parseSitemap, robotsSitemaps, urlAllowed,
   AI_CATALOG_PATH, parseAiCatalog, mcpServerFromCard, type DiscoveredMcpServer,
-  SITEMAP_PAGE_SIZE, type SitemapEntry, type SitemapFilter
+  refuseBinary, unreadableTypeMessage, SITEMAP_PAGE_SIZE, type SitemapEntry, type SitemapFilter
 } from './operations.ts'
 
 /** Below this many characters, an HTML page probably renders its content with JavaScript. */
@@ -28,6 +28,8 @@ export interface WebContext {
   allowedUrls: string[]
   client?: WebClient
   extractor?: Extractor
+  /** Files are on for this turn: a refusal says how to save the content instead. */
+  filesOn?: boolean
 }
 
 let defaultClient: WebClient | undefined
@@ -52,6 +54,8 @@ export interface FetchUrlInput {
   url: string
   /** Where to continue reading a long content, from a previous call's `nextOffset`. */
   offset?: number
+  /** Save the response as one of the turn's files instead of reading it (only offered with files). */
+  saveAs?: string
 }
 
 export interface FetchUrlResult {
@@ -121,11 +125,11 @@ const MCP_DISCOVERY_NOTE = 'This site publishes an MCP server (see mcpServers): 
 const joinNotes = (...notes: Array<string | undefined>) => notes.filter(Boolean).join(' ')
 
 export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<FetchUrlResult> => {
-  const res = await clientOf(ctx).get(input.url, ctx.allowedUrls)
+  const res = await clientOf(ctx).get(input.url, ctx.allowedUrls, 'page', refuseBinary(ctx.filesOn))
   if (res.status >= 400) throw httpError(res)
   const text = decode(res)
   const kind = classifyContent(res.contentType, text.slice(0, 500))
-  if (kind === 'unsupported') throw new Error(`${res.url} is ${res.contentType || 'of an unknown type'}, which cannot be read as text`)
+  if (kind === 'unsupported') throw new Error(unreadableTypeMessage(res.url, res.contentType, !!ctx.filesOn))
 
   let title: string | undefined
   let content = text

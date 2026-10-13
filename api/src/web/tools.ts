@@ -5,6 +5,8 @@
  */
 
 import { tool, jsonSchema, type Tool } from 'ai'
+import type { TurnFiles } from '../files/turn-files.ts'
+import { saveUrl } from '../files/download.ts'
 import { fetchUrl, listSitePages, type FetchUrlInput, type ListSitePagesInput, type WebContext } from './service.ts'
 import { FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME, REQUEST_WEB_ACCESS_TOOL_NAME, MAX_CALLS_PER_RUN, normalizeAllowedUrls } from './operations.ts'
 
@@ -46,10 +48,12 @@ export const createRequestWebAccessTool = (opts: { allowedUrls: string[], save: 
 
 export interface WebToolsOptions extends WebContext {
   maxCalls?: number
+  /** The turn's files: fetch_url then offers saveAs. */
+  files?: TurnFiles
 }
 
 export const createWebTools = (opts: WebToolsOptions): Record<string, Tool> => {
-  const { maxCalls = MAX_CALLS_PER_RUN, ...ctx } = opts
+  const { maxCalls = MAX_CALLS_PER_RUN, files, ...ctx } = opts
   let used = 0
   const spend = () => {
     if (++used > maxCalls) throw new Error(`this run has used all of its ${maxCalls} web tool calls`)
@@ -65,12 +69,16 @@ export const createWebTools = (opts: WebToolsOptions): Record<string, Tool> => {
         required: ['url'],
         properties: {
           url: { type: 'string', description: 'Absolute http(s) URL' },
-          offset: { type: 'integer', minimum: 0, description: 'Where to continue reading, from a previous `nextOffset`' }
+          offset: { type: 'integer', minimum: 0, description: 'Where to continue reading, from a previous `nextOffset`' },
+          ...(files ? { saveAs: { type: 'string', description: 'Save the response as one of your files under this path, e.g. "/data.csv", instead of reading it' } } : {})
         }
       }),
-      execute: async (input: FetchUrlInput) => {
+      execute: async (input: FetchUrlInput, options?: { abortSignal?: AbortSignal }) => {
         spend()
-        return await fetchUrl(input, ctx)
+        if (input.saveAs !== undefined && files) {
+          return await saveUrl({ url: input.url, path: input.saveAs, allowedUrls: ctx.allowedUrls, files, signal: options?.abortSignal })
+        }
+        return await fetchUrl(input, { ...ctx, filesOn: !!files })
       }
     }),
     [LIST_SITE_PAGES_TOOL_NAME]: tool({

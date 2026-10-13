@@ -8,6 +8,21 @@ import { z } from 'zod'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
+const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
+/** Dates are relative to TODAY (see list_road_closures): a fixed month goes stale. */
+const closuresOf = (district: string): Array<{ street: string, from: string, reopens: string, reason: string }> => ({
+  'city-center': [
+    { street: 'Rue de la Paix', from: day(-3), reopens: day(11), reason: 'water main replacement' },
+    { street: 'Avenue Foch', from: day(1), reopens: day(3), reason: 'resurfacing' },
+    { street: 'Place du Marche', from: day(5), reopens: day(6), reason: 'weekly market' }
+  ],
+  riverside: [
+    { street: 'Quai des Chartrons', from: day(-1), reopens: day(20), reason: 'bridge inspection' }
+  ]
+} as Record<string, Array<{ street: string, from: string, reopens: string, reason: string }>>)[district] ?? []
+export const closuresCsv = (district: string) =>
+  ['street,from,reopens,reason', ...closuresOf(district).map(c => [c.street, c.from, c.reopens, c.reason].join(','))].join('\n') + '\n'
+
 export interface McpFixture {
   port: number
   lastHeaders: () => Record<string, string | string[] | undefined>
@@ -20,6 +35,9 @@ export interface McpFixture {
    */
   methodCounts: () => Record<string, number>
   resetMethodCounts: () => void
+  /** Plain HTTP requests the /exports/ routes received: what a download link or fetch_url points at. */
+  exportRequests: () => Array<{ url: string, headers: Record<string, string | string[] | undefined> }>
+  resetExportRequests: () => void
   close: () => Promise<void>
 }
 
@@ -69,20 +87,9 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
       // for "current" closures was correctly told by the agent that every row had expired, so the run
       // spent its turns on the staleness instead of on the reporting the case is about. The agent was
       // right and the fixture was wrong.
-      const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
       // `reopens`, not `until`: with `until` the one-day market closure rendered as
       // "Closed From 2026-10-04 / Reopening 2026-10-04", which is self-contradictory. The ambiguity
       // (last closed day, or the day it reopens?) was the fixture's, and the agent had to guess.
-      const CLOSURES: Record<string, Array<{ street: string, from: string, reopens: string, reason: string }>> = {
-        'city-center': [
-          { street: 'Rue de la Paix', from: day(-3), reopens: day(11), reason: 'water main replacement' },
-          { street: 'Avenue Foch', from: day(1), reopens: day(3), reason: 'resurfacing' },
-          { street: 'Place du Marche', from: day(5), reopens: day(6), reason: 'weekly market' }
-        ],
-        riverside: [
-          { street: 'Quai des Chartrons', from: day(-1), reopens: day(20), reason: 'bridge inspection' }
-        ]
-      }
       // The argument SELECTS the rows, and an unknown district returns none.
       //
       // Previously `district` was echoed into the payload and otherwise ignored, so every value
@@ -91,13 +98,13 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
       // one. Worse, the agent volunteers "let me know if you need another district" — so the next run
       // would confidently report Rue de la Paix as closed somewhere it is not.
       const key = String(district ?? '').trim().toLowerCase()
-      const closures = CLOSURES[key] ?? []
+      const closures = closuresOf(key)
       return {
         content: [{
           type: 'text',
           text: JSON.stringify({
             district,
-            known: key in CLOSURES,
+            known: closures.length > 0,
             closures
           })
         }]
@@ -214,8 +221,26 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   // so headers alone cannot distinguish a listing from an invocation.
   let invoked: string[] = []
   let methods: Record<string, number> = {}
+  let exports: Array<{ url: string, headers: Record<string, string | string[] | undefined> }> = []
 
   const server: Server = createServer((req, res) => {
+    // Plain HTTP files beside the MCP endpoint: what a download link or fetch_url points at.
+    if (req.url?.startsWith('/exports/')) {
+      exports.push({ url: req.url, headers: req.headers })
+      const url = new URL(req.url, 'http://fixture')
+      if (url.pathname === '/exports/closures') {
+        const district = url.searchParams.get('district') ?? 'city-center'
+        // As data-fair's /raw: no extension in the URL, the name in Content-Disposition.
+        res.writeHead(200, { 'content-type': 'text/csv; charset=utf-8', 'content-disposition': `attachment; filename="closures-${district}.csv"` }).end(closuresCsv(district))
+        return
+      }
+      if (url.pathname === '/exports/blob') {
+        res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-length': '70000' }).end(Buffer.alloc(70_000, 7))
+        return
+      }
+      res.writeHead(404).end()
+      return
+    }
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
     const mcp = buildMcpServer(name => invoked.push(name), req.headers)
@@ -243,6 +268,8 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     resetInvokedTools: () => { invoked = [] },
     methodCounts: () => ({ ...methods }),
     resetMethodCounts: () => { methods = {} },
+    exportRequests: () => [...exports],
+    resetExportRequests: () => { exports = [] },
     close: async () => { await new Promise<void>(resolve => server.close(() => resolve())) }
   }
 }
