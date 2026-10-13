@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { scalewayBaseURL, streamedToolCallsBroken, nonStreamingWithTools, errorMessage, describeFetchError, contextBudget, type CatalogModel } from '../../../api/src/models/operations.ts'
 import { MockLanguageModelV3, simulateReadableStream } from 'ai/test'
 import { streamText, wrapLanguageModel, tool, jsonSchema } from 'ai'
-import { commandLine } from '../../../api/src/models/mock-model.ts'
+import { commandLine, createMockLanguageModel } from '../../../api/src/models/mock-model.ts'
 
 test.describe('Scaleway base URL', () => {
   test('uses the bare /v1 endpoint when no project is set', () => {
@@ -212,5 +212,33 @@ test.describe('nonStreamingWithTools', () => {
     const model = wrapLanguageModel({ model: brokenUpstream(), middleware: nonStreamingWithTools })
     const result = streamText({ model, prompt: 'hello' })
     assert.equal(await result.text, 'streamed')
+  })
+})
+
+// The mock's `what did you see` seam reports what the model was SENT. It runs as a v3 model, and AI SDK
+// 7 hands a v3 model a tool result's image as `file-data` with an image media type, where 6 passed
+// `image-data` through — so a seam counting only `image-data` reported 0 images for a result that did
+// reach the model as one (tests/features/agent-session/tool-images.api.spec.ts).
+test.describe('mock model: what did you see', () => {
+  test('counts an image tool result as an image', async () => {
+    const result = streamText({
+      model: createMockLanguageModel('mock-model'),
+      messages: [
+        { role: 'user', content: 'show me' },
+        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'c1', toolName: 'chart', input: {} }] },
+        {
+          role: 'tool',
+          content: [{
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'chart',
+            output: { type: 'content', value: [{ type: 'text', text: 'a chart' }, { type: 'image-data', data: 'iVBORw0KGgo=', mediaType: 'image/png' }] }
+          }]
+        },
+        { role: 'user', content: 'what did you see' }
+      ]
+    })
+    const report = JSON.parse(await result.text)
+    assert.equal(report.images, 1)
   })
 })
