@@ -52,7 +52,7 @@ export const stopCauseOf = (abortReason: unknown): StopCause => abortReason inst
 export type InterruptReason = 'message' | 'stop' | 'ended'
 
 export const INTERRUPTED_RESULTS: Record<InterruptReason, string> = {
-  message: 'Interrupted: the person sent a new message before this finished. Read it and continue from there.',
+  message: 'Interrupted: the person sent a new message before this finished. Its outcome is unknown: the call may have completed. Read the message and continue from there, checking before repeating it.',
   stop: 'Interrupted: the person stopped the reply before this finished.',
   ended: 'Interrupted: this turn ended before this finished.'
 }

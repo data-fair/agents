@@ -64,6 +64,13 @@ On the lead loop the turn simply ends, and the run records why: `finishReason: '
 
 The mock model (`api/src/models/mock-model.ts`) answers a task of exactly `loop forever` with the same `get_schema` call on every step and **ignores any injected nudge**, so the e2e test `Sub-agent that loops to its step cap recovers a close-out answer` exercises the whole ladder: 5 identical calls, the guard stops the loop, the close-out recovers an answer. The guard logic itself is covered by `tests/features/chat-subagent/loop-guards.unit.spec.ts`, including one test that drives a real `streamText` loop to pin that a step never carries more than one reminder.
 
+## Forward: code mode
+
+The planned code mode (`@ai-sdk/code-mode`) relies on the SDK's `experimental_toolCallers`. Two interactions with `loopGuardPrepareStep` to design for (checked against `ai` 7.0.137, `stream-text.ts` and `tool-caller-configuration.ts`):
+
+- **Tool-caller messages move.** The hook rebuilds every step's `messages` from the initial messages and the responses, and the SDK then runs `appendToolCallerMessages` on whatever `prepareStep` returned. Tool-caller messages are therefore re-appended at the END of each request (after the latest responses, and after a nudge) instead of being carried forward once at their first position. They are not dropped, only moved; a prompt that depends on their position must be written for that.
+- **The caller configuration is fixed at the start.** `resolveToolCallerConfiguration` runs once, when `streamText` is constructed, against the initial `tools`, and throws on an unknown tool name. It cannot follow `liveTools` ([MCP tools §7](./mcp-tools.md#7-the-tool-set-is-live-within-a-turn)) mutated in place mid-turn: a tool registered later cannot be named in it.
+
 ## References
 
 - OpenHands SDK stuck detector (nudge at 3 identical action+error, stop at 4 identical action+observation): https://docs.openhands.dev/sdk/guides/agent-stuck-detector

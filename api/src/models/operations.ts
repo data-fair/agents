@@ -28,11 +28,10 @@ export function scalewayBaseURL (projectId?: string): string {
   return trimmed ? `https://api.scaleway.ai/${trimmed}/v1` : 'https://api.scaleway.ai/v1'
 }
 
-// Shared @ai-sdk/openai-compatible provider name for the scaleway + openai-compatible
-// routes. It is the key under which callers pass providerOptions (e.g. reasoningEffort),
-// so keep it a single constant rather than per-provider names.
-// camelCase: @ai-sdk/openai-compatible 3 reads provider options under the camelCase form of this name and
-// flags any other spelling as deprecated on every call.
+// Shared @ai-sdk/openai-compatible provider name for the scaleway + openai-compatible routes: the key under
+// which callers pass providerOptions (e.g. reasoningEffort), so a single constant rather than per-provider
+// names. camelCase, because @ai-sdk/openai-compatible 3 reads provider options under the camelCase form of
+// this name and flags any other spelling as deprecated on every call.
 export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openaiCompatible'
 
 /**

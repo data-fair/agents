@@ -319,7 +319,7 @@ it is pending), as "did not run" or "outcome is unknown" (`ApprovedCallsEnd`, `a
   which is "did not run" again;
 - interrupted by a restart: `recoverOwnerlessRuns` closes the run through `finishRun`, "outcome is unknown".
 
-A stop aborts in-flight tools immediately (AI SDK 7): the remote side of an MCP call may still complete, which is why the stored `errorText` says the outcome is unknown rather than that the call failed (pinned by the `slow_lookup` case in `tests/features/autonomous-agents/approval-gate.api.spec.ts`).
+A stop, or a new message, aborts in-flight tools immediately (AI SDK 7): the remote side of an MCP call may still complete (`mcp-servers/client.ts` ignores the abort signal). That is why the stored `errorText` says the outcome is unknown rather than that the call failed, for an approved call ("Approved, but its outcome is unknown: …") and for an ordinary interrupted one (`INTERRUPTED_RESULTS.message`, "Its outcome is unknown: the call may have completed") alike (the approved case pinned by the `slow_lookup` case in `tests/features/autonomous-agents/approval-gate.api.spec.ts`).
 
 Behind all of these, the replay itself (`storedTurnsToModelMessages`, `settleStrandedApproval`) sends an approved call
 with no result **outside the last message** as an error ("outcome is unknown: no turn reported it") rather than bare:

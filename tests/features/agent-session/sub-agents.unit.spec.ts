@@ -346,6 +346,7 @@ test.describe('subAgentDelegation — the worker trace', () => {
     assert.match(String(summary), /partial: rows/)
     assert.ok(closeoutPrompt, 'the close-out turn must have run')
     const toolResults = closeoutPrompt.filter(m => m.role === 'tool').length
+    assert.ok(streamed > 1, 'the worker must have taken several steps for the equality to mean anything')
     assert.equal(toolResults, streamed, 'the close-out must see every step the worker took, not only the last')
   })
 

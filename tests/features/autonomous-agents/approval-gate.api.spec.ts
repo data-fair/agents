@@ -104,6 +104,8 @@ test.describe('The approval gate', () => {
     const { runId: answering } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
     await awaitRun(conversationId, continuation)
     await awaitRun(conversationId, answering)
+    // Both runs have ended and the 2s lookup has not completed: the run does not wait for an abandoned call.
+    assert.deepEqual(fixture.invokedTools(), [])
     const part = callPart(await messageAt(conversationId, assistant.seq), 'slow_lookup')
     assert.equal(part.state, 'output-error', JSON.stringify(part))
     assert.equal(part.errorText, 'Approved, but its outcome is unknown: the turn ended before it reported (the person spoke).')
@@ -203,9 +205,6 @@ test.describe('The approval gate', () => {
     assert.equal(callPart(await messageAt(conv.id, seq), 'wipe_everything').state, 'output-available')
   })
 
-  // If the SDK throws on replaying an approved call whose tool is gone (rather than emitting a
-  // `tool-error`), catch that in runModelLoop's stream handling and settle the part with
-  // settleStoredToolPart(…, { state: 'output-error', errorText: 'this tool is no longer available' }).
   test('a tool no longer offered when approved ends as an error on its own part', async () => {
     const { agent, conv, approvalId, seq } = await pendingApproval()
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: { destructive: 'deny' } })

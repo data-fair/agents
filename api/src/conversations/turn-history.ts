@@ -147,7 +147,7 @@ export const compactHistory = async (
     const body = { messages: [{ role: 'user', content: JSON.stringify(redactModelMedia(prefixToSummarize)) }] }
     const generated = await generateText({
       model,
-      system,
+      instructions: system,
       messages: body.messages as any,
       abortSignal
     })
