@@ -25,6 +25,14 @@ const closuresOf = (district: string): Array<{ street: string, from: string, reo
 export const closuresCsv = (district: string) =>
   ['street,from,reopens,reason', ...closuresOf(district).map(c => [c.street, c.from, c.reopens, c.reason].join(','))].join('\n') + '\n'
 
+// What a server says about itself (docs/architecture/mcp-tools.md, "Server instructions and skills"): its
+// instructions, and two skills over the skills extension (SEP-2640) — one listed, one only reachable by URI.
+export const FIXTURE_INSTRUCTIONS = 'Road closures: always give the district a closure belongs to.'
+export const FIXTURE_SKILLS = {
+  listed: { uri: 'skill://fixture/closures/SKILL.md', name: 'closures', description: 'How to answer questions about road closures. Read it before listing closures.', tools: 'list_road_closures', body: 'Call list_road_closures with the district, then quote the reopening date.' },
+  unlisted: { uri: 'skill://fixture/hidden/SKILL.md', name: 'hidden', description: 'Reachable by URI only.', tools: undefined as string | undefined, body: 'Hidden procedure.' }
+}
+
 export interface McpFixture {
   port: number
   lastHeaders: () => Record<string, string | string[] | undefined>
@@ -42,6 +50,10 @@ export interface McpFixture {
   /** Plain HTTP requests the /exports/ routes received: what a download link or fetch_url points at. */
   exportRequests: () => Array<{ url: string, headers: Record<string, string | string[] | undefined> }>
   resetExportRequests: () => void
+  /** Make `skills/list` fail, to check a broken skills listing never costs the server's tools. */
+  failSkillsList: (fail: boolean) => void
+  /** The capabilities the last `initialize` declared: what the agents client says it supports. */
+  lastInitializeCapabilities: () => any
   close: () => Promise<void>
 }
 
@@ -51,8 +63,27 @@ export interface McpFixture {
 // constructed with `sessionIdGenerator: undefined` is shared across requests — unlike what
 // the brief's original one-transport-for-the-process-lifetime sketch assumed. See
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js.
-const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void): McpServer => {
-  const mcp = new McpServer({ name: 'fixture', version: '1.0.0' })
+const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false): McpServer => {
+  const mcp = new McpServer({ name: 'fixture', version: '1.0.0' }, {
+    instructions: FIXTURE_INSTRUCTIONS,
+    capabilities: { resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } } as any
+  })
+  for (const s of Object.values(FIXTURE_SKILLS)) {
+    mcp.registerResource(s.name, s.uri, { mimeType: 'text/markdown' }, async () => ({
+      contents: [{ uri: s.uri, mimeType: 'text/markdown', text: `---\nname: ${s.name}\ndescription: ${JSON.stringify(s.description)}\n---\n\n${s.body}\n` }]
+    }))
+  }
+  const skillEntry = (s: { uri: string, name: string, description: string, tools?: string }) =>
+    ({ uri: s.uri, frontmatter: { name: s.name, description: s.description, ...(s.tools ? { metadata: { tools: s.tools } } : {}) }, resources: [{ uri: s.uri }] })
+  mcp.server.setRequestHandler(z.object({ method: z.literal('skills/list'), params: z.any().optional() }), async () => {
+    if (failSkillsList()) throw new Error('skills/list is broken on purpose')
+    return { skills: [skillEntry(FIXTURE_SKILLS.listed)] } as any
+  })
+  mcp.server.setRequestHandler(z.object({ method: z.literal('skills/get'), params: z.object({ uri: z.string() }) }), async (req) => {
+    const s = Object.values(FIXTURE_SKILLS).find(x => x.uri === req.params.uri)
+    if (!s) throw new Error(`No skill is served at ${req.params.uri}`)
+    return { skill: skillEntry(s) } as any
+  })
   // The installed SDK also requires a Zod schema/raw-shape for inputSchema, not a plain
   // JSON Schema object — registerTool() calls getZodSchemaObject() on it and throws
   // "inputSchema must be a Zod schema or raw shape" otherwise. See
@@ -290,6 +321,8 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   let methods: Record<string, number> = {}
   let fileUrls: string[] = []
   let exports: Array<{ url: string, headers: Record<string, string | string[] | undefined> }> = []
+  let failSkills = false
+  let initializeCapabilities: any
 
   const server: Server = createServer((req, res) => {
     // Plain HTTP files beside the MCP endpoint: what a download link or fetch_url points at.
@@ -311,7 +344,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     }
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url))
+    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills)
     // The body is read here, to count methods, and handed to the transport already parsed.
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))
@@ -320,6 +353,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
       try { body = chunks.length ? JSON.parse(Buffer.concat(chunks).toString()) : undefined } catch { body = undefined }
       for (const message of Array.isArray(body) ? body : body ? [body] : []) {
         if (typeof message?.method === 'string') methods[message.method] = (methods[message.method] ?? 0) + 1
+        if (message?.method === 'initialize') initializeCapabilities = message.params?.capabilities
       }
       mcp.connect(transport)
         .then(() => transport.handleRequest(req, res, body))
@@ -339,6 +373,8 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     resetMethodCounts: () => { methods = {} },
     exportRequests: () => [...exports],
     resetExportRequests: () => { exports = [] },
+    failSkillsList: (fail: boolean) => { failSkills = fail },
+    lastInitializeCapabilities: () => initializeCapabilities,
     close: async () => { await new Promise<void>(resolve => server.close(() => resolve())) }
   }
 }

@@ -28,6 +28,8 @@ import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX
 import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
 import type { ToolSet } from '../conversations/operations.ts'
+import { boundGuide, type ServerGuide, type GuideSkill } from './guides.ts'
+import { MCP_CLIENT_CAPABILITIES, listServerSkills, readServerSkill } from './skills-client.ts'
 
 const debug = Debug('agents:mcp-external')
 
@@ -56,11 +58,13 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
   const tools: ToolSet = {}
   const skippedServers: SkippedServer[] = []
   const clients: Client[] = []
+  // What each connected server says about its tools, by host (the label its tools are recorded under).
+  const described = new Map<string, { client: Client, instructions?: string, skills: GuideSkill[] }>()
   let used = 0
 
   // Connected together, and held for the turn: a turn waits for its slowest external server.
   await Promise.all(servers.map(async ({ url }) => {
-    const client = new Client({ name: 'data-fair-agents', version: '1.0.0' })
+    const client = new Client({ name: 'data-fair-agents', version: '1.0.0' }, { capabilities: MCP_CLIENT_CAPABILITIES as any })
     const signal = AbortSignal.timeout(timeoutMs)
     let timer: NodeJS.Timeout | undefined
     try {
@@ -69,7 +73,10 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
       // pending fetches so nothing stays hanging after the skip.
       const connecting = (async () => {
         await client.connect(new StreamableHTTPClientTransport(new URL(url), { fetch: fetchImpl }), { signal, timeout: timeoutMs })
-        return (await client.listTools({}, { signal, timeout: timeoutMs })).tools as ListedMcpTool[]
+        const tools = (await client.listTools({}, { signal, timeout: timeoutMs })).tools as ListedMcpTool[]
+        const instructions = client.getInstructions()?.trim() || undefined
+        described.set(serverId(url), { client, ...(instructions ? { instructions } : {}), skills: await listServerSkills(client, serverId(url)) })
+        return tools
       })()
       connecting.catch(() => {})
       const timedOut = new Promise<never>((_resolve, reject) => {
@@ -114,6 +121,18 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
   return {
     tools,
     skippedServers,
+    // In the agent's order, not connection order, so the prompt block is stable from turn to turn.
+    guides: servers.flatMap(({ url }): ServerGuide[] => {
+      const held = described.get(serverId(url))
+      if (!held || !clients.includes(held.client)) return []
+      const guide = boundGuide({ server: serverId(url), ...(held.instructions ? { instructions: held.instructions } : {}), skills: held.skills })
+      return guide.instructions || guide.skills.length ? [guide] : []
+    }),
+    readSkill: async (server: string, uri: string): Promise<string> => {
+      const held = described.get(server)
+      if (!held || !clients.includes(held.client)) throw new Error(`"${server}" is not one of your tool servers this turn`)
+      return await readServerSkill(held.client, held.skills, uri)
+    },
     close: async () => {
       for (const client of clients) await client.close().catch(() => {})
       await closeDispatcher()

@@ -16,6 +16,8 @@ import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortal
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
 import type { ToolSet } from '../conversations/operations.ts'
+import { boundGuide, visibleSkills, type ServerGuide, type GuideSkill } from './guides.ts'
+import { MCP_CLIENT_CAPABILITIES, listServerSkills, readServerSkill } from './skills-client.ts'
 
 const debug = Debug('agents:mcp-client')
 
@@ -32,7 +34,7 @@ export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string
       return await fetch(url, { ...init, headers })
     }
   })
-  const client = new Client({ name: 'data-fair-agents', version: '1.0.0' })
+  const client = new Client({ name: 'data-fair-agents', version: '1.0.0' }, { capabilities: MCP_CLIENT_CAPABILITIES as any })
   await client.connect(transport)
   return { client, close: async () => { await client.close() } }
 }
@@ -75,9 +77,16 @@ export interface OpenAutonomousAgentTools {
   filteredOut: { name: string, server: string }[]
   /** Tools that take a file, left out because files are off this turn. */
   needsFiles: { name: string, server: string }[]
+  /** What each listed server says about its tools — instructions and skills — in reference order (./guides.ts). */
+  guides: ServerGuide[]
+  /** A skill's SKILL.md, read over this turn's connection to that server (as its tools are called). */
+  readSkill: (server: string, uri: string) => Promise<string>
   /** MUST be called when the turn is over: until then the connections stay open. */
   close: () => Promise<void>
 }
+
+/** A server as one listing reads it: its tools, its instructions and its skills. Cached together (below). */
+export interface ServerListing { tools: ListedMcpTool[], instructions?: string, skills: GuideSkill[] }
 
 /**
  * How long a server's tool LISTING is reused before it is fetched again.
@@ -103,10 +112,14 @@ export const TOOL_LISTING_TTL_MS = 60_000
  * on it, its listings never hit. `cookie` is asked for only on a miss, so a cached listing costs no
  * session exchange.
  */
-const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials): Promise<ListedMcpTool[]> => {
+const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials): Promise<ServerListing> => {
   const { client, close } = await connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites))
   try {
-    return (await client.listTools()).tools as ListedMcpTool[]
+    const tools = (await client.listTools()).tools as ListedMcpTool[]
+    // What the server says about its own tools comes with the same connection, so a cached listing
+    // costs no extra request (docs/architecture/mcp-tools.md, "Server instructions and skills").
+    const instructions = client.getInstructions()?.trim() || undefined
+    return { tools, ...(instructions ? { instructions } : {}), skills: await listServerSkills(client, server.id) }
   } finally {
     await close().catch(() => {})
   }
@@ -120,7 +133,7 @@ const cookieOf = (server: GlobalMcpServer, siteUrl: string | undefined, sites: S
 export const clearToolListings = () => { listing.clear() }
 
 /** `fresh` lists again, and keeps that answer for the next turns. */
-const listServerTools = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ListedMcpTool[]> => {
+const listServer = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ServerListing> => {
   const key = listingKey(server, siteUrl, sites.listingIdentity)
   if (fresh) listing.delete(key, server, siteUrl, sites)
   return listing(key, server, siteUrl, sites)
@@ -184,7 +197,7 @@ export const openAutonomousAgentTools = async (
     const server = catalog.find(s => s.id === ref.serverId)
     if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
     try {
-      return { ref, server, tools: await listServerTools(server, server.auth === 'nhi-session' ? home : undefined, sites, opts?.fresh) }
+      return { ref, server, listing: await listServer(server, server.auth === 'nhi-session' ? home : undefined, sites, opts?.fresh) }
     } catch (err: any) {
       // THROW or SKIP — see forEachListedTool, whose rule this is.
       if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
@@ -198,7 +211,7 @@ export const openAutonomousAgentTools = async (
   for (const entry of listed) {
     if (!entry) continue
     const { ref, server } = entry
-    for (const t of entry.tools) {
+    for (const t of entry.listing.tools) {
       if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) {
         filteredOut.push({ name: t.name, server: server.id })
         continue
@@ -253,7 +266,23 @@ export const openAutonomousAgentTools = async (
     connections.clear()
     for (const connection of open) await connection.then(c => c.close()).catch(() => {})
   }
-  return { tools, skippedServers, filteredOut, needsFiles, close }
+  // What each server says about its tools, in reference order; a skill whose every tool the reference's
+  // toolFilter removed is hidden, as the agent could not follow it (./guides.ts, visibleSkills).
+  const guides: ServerGuide[] = listed.flatMap(entry => {
+    if (!entry) return []
+    const kept = (name: string) => !entry.ref.toolFilter?.length || entry.ref.toolFilter.includes(name)
+    const guide = boundGuide({ server: entry.server.id, ...(entry.listing.instructions ? { instructions: entry.listing.instructions } : {}), skills: visibleSkills(entry.listing.skills, kept) })
+    return guide.instructions || guide.skills.length ? [guide] : []
+  })
+
+  const readSkill = async (serverId: string, uri: string): Promise<string> => {
+    const entry = listed.find(e => e?.server.id === serverId)
+    if (!entry) throw new Error(`"${serverId}" is not one of your tool servers this turn`)
+    const client = await clientFor(entry.server, entry.server.auth === 'nhi-session' ? home : undefined)
+    return await readServerSkill(client, entry.listing.skills, uri)
+  }
+
+  return { tools, skippedServers, filteredOut, needsFiles, guides, readSkill, close }
 }
 
 export interface McpToolDescriptor {
