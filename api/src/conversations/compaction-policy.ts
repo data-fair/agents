@@ -161,6 +161,11 @@ export function clearedToolResultText (toolName: string, totalChars: number, ori
   return `[earlier result of ${toolName}${from} removed to free context — ${totalChars} chars. Call the tool again if you still need it.]`
 }
 
+/** True for text clearedToolResultText produced: such a result is never cleared again (its size and provenance would be lost). */
+export function isClearedToolResultText (text: string): boolean {
+  return text.startsWith('[earlier result of ') && text.includes(' removed to free context — ')
+}
+
 /** The same vocabulary for a result bounded where it was PRODUCED, so one wording covers both tiers. */
 export function truncatedToolResultText (headText: string, totalChars: number): string {
   return `${headText}… [rest of this result dropped to free context — ${totalChars} chars in total. Call the tool again with a narrower request if you need the rest.]`
@@ -238,6 +243,8 @@ export function clearOldToolResults (
   const eligible = refs
     .slice(0, Math.max(refs.length - keep, 0))
     .filter(ref => !excluded.has(ref.toolName))
+    // Already a placeholder (turn-history.ts wrote it, or an earlier clear): clearing it again would rewrite its size and drop its server.
+    .filter(ref => !isClearedToolResultText(ref.text))
     // A result already smaller than its own placeholder would GROW the context, which is the case for a
     // short tool error. Skipping it needs no knob and keeps that error's text readable.
     .filter(ref => ref.text.length > clearedToolResultText(ref.toolName, ref.text.length, ref.text).length)

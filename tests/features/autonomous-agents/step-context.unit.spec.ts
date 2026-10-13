@@ -50,6 +50,14 @@ test.describe('createStepContext', () => {
     assert.equal(outputOf(second, 'c0'), outputOf(first, 'c0'))
   })
 
+  test('a placeholder the turn history already wrote survives a mid-turn clear byte-identical', () => {
+    const placeholder = '[earlier result of bulk from srv removed to free context — 20026 chars. Call the tool again if you still need it.]'
+    const pre: ModelMessage = { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'p0', toolName: 'bulk', output: { type: 'text', value: placeholder } }] }
+    const out = createStepContext(20_000)([{ role: 'user', content: 'go' }, call('p0'), pre, ...exchange(6, 20_000)])
+    assert.equal(outputOf(out, 'p0'), placeholder)
+    assert.match(outputOf(out, 'c0'), /^\[earlier result of bulk removed/)
+  })
+
   test('no budget (a model without a known window): nothing is cleared, results are still bounded', () => {
     const out = createStepContext(0)([{ role: 'user', content: 'go' }, ...exchange(6, 20_000)])
     assert.equal(outputOf(out, 'c0').length, 20_000)
