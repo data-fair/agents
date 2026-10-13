@@ -19,6 +19,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { toolDescription } from '../../../shared/tool-description.ts'
 
 const root = new URL('../../../', import.meta.url).pathname
 
@@ -81,5 +82,17 @@ test.describe('the shared/ contract', () => {
       assert.doesNotMatch(source, /from '~\//, `shared/${name}.ts must not import a ui-only alias`)
       assert.doesNotMatch(source, /from '(\.\.\/)+(api|ui)\//, `shared/${name}.ts must not reach into a workspace`)
     }
+  })
+})
+
+// AI SDK 7 types a tool's description as a string or a function of its context. Every descriptor this
+// service builds (the admin's tool lists, the page's descriptors, the approval card's toolMetadata) needs
+// text, and a function there would be serialised away or leak into a stored part.
+test.describe('toolDescription', () => {
+  test('is the description when it is text, and empty otherwise', () => {
+    assert.equal(toolDescription({ description: 'reads rows' }), 'reads rows')
+    assert.equal(toolDescription({ description: undefined }), '')
+    assert.equal(toolDescription(undefined), '')
+    assert.equal(toolDescription({ description: (() => 'computed') as any }), '')
   })
 })

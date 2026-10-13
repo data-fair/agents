@@ -23,6 +23,7 @@
 import { ref, shallowRef, computed, type Ref } from 'vue'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import type { MessagePart } from '@agents/shared/message-parts'
+import { toolDescription } from '@agents/shared/tool-description'
 import type { Tool } from 'ai'
 import Debug from 'debug'
 import {
@@ -104,7 +105,7 @@ export function toDescriptors (tools: Record<string, Tool>): BrowserToolDescript
     const schema = (tool.inputSchema as { jsonSchema?: unknown } | undefined)?.jsonSchema
     return {
       name,
-      description: tool.description ?? '',
+      description: toolDescription(tool),
       ...(schema !== undefined ? { inputSchema: schema } : {})
     }
   })
@@ -199,7 +200,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       // The second argument is the AI SDK's tool-execution options. The loop is server-side now, so
       // there is no abort signal to pass down: a cancelled turn is handled by the server giving up on
       // the call, and the page finishing a local action anyway is harmless.
-      const result = await tool.execute(input as never, { toolCallId: callId, messages: [] })
+      const result = await tool.execute(input as never, { toolCallId: callId, messages: [], context: undefined })
       send({ type: 'tool-result', callId, result })
     } catch (err) {
       send({ type: 'tool-result', callId, error: err instanceof Error ? err.message : String(err) })

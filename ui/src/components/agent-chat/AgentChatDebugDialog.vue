@@ -265,6 +265,7 @@ import DfTutorialAlert from '@data-fair/lib-vuetify/tutorial-alert.vue'
 import type { SelfUsage } from '../../../../api/src/usage/operations'
 import AgentChatConsumption from './AgentChatConsumption.vue'
 import type { Tool } from 'ai'
+import { toolDescription } from '@agents/shared/tool-description'
 import { $apiPath, $fetch } from '~/context'
 import { reviewOffered, consentRef, writeConsent } from '~/review/review-consent'
 
@@ -320,7 +321,7 @@ const activeDebugTab = ref('info')
 const pageToolList = computed(() => Object.entries(props.pageTools).map(([name, tool]) => ({
   name,
   title: (tool as any).title as string | undefined,
-  description: tool.description ?? '',
+  description: toolDescription(tool),
   inputSchema: (tool as any).inputSchema?.jsonSchema ?? {}
 })))
 

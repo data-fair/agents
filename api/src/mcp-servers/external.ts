@@ -21,6 +21,7 @@ import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
+import { toolDescription } from '@agents/shared/tool-description'
 import { ipList, publicLookup } from '../web/public-lookup.ts'
 import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
 import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
@@ -122,7 +123,7 @@ export const listExternalToolDescriptors = async (servers: { url: string }[], op
   try {
     const descriptors = Object.entries(opened.tools).map(([name, { tool, server, annotations }]) => ({
       name,
-      description: tool.description ?? '',
+      description: toolDescription(tool),
       server: server!,
       ...(annotations ? { annotations } : {})
     }))

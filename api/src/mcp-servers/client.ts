@@ -13,6 +13,7 @@ import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
+import { toolDescription } from '@agents/shared/tool-description'
 import type { ToolSet } from '../conversations/operations.ts'
 
 const debug = Debug('agents:mcp-client')
@@ -252,7 +253,7 @@ export const listAutonomousAgentToolDescriptors = async (
   await close()
   return Object.entries(tools).map(([name, { tool, server, annotations }]) => ({
     name,
-    description: tool.description ?? '',
+    description: toolDescription(tool),
     server: server!,
     ...(annotations ? { annotations } : {})
   }))

@@ -21,6 +21,7 @@ import type { ModelRole } from '../models/operations.ts'
 import { securityKey } from '../cipher/service.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import { WAIT_TOOL_NAME, type ChatActivity } from '@agents/shared/agent-activity'
+import { toolDescription } from '@agents/shared/tool-description'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
@@ -453,7 +454,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           // The tool's own description, so the card can say what the call will do: the person deciding
           // reads it, and a reload or a reviewer reads the same words from the record. Gated calls only —
           // every other call would carry a copy of its tool's description for nobody.
-          const description = liveTools[part.toolCall.toolName]?.description
+          const description = toolDescription(liveTools[part.toolCall.toolName])
           Object.assign(call, {
             state: 'approval-requested',
             approval: { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) },

@@ -99,7 +99,7 @@ export async function partitionSubAgents (
       // and the browser validates a call against the declared schema, so an empty object is rejected
       // before the tool runs — which read as a misconfigured sub-agent and silently left it an
       // ordinary tool.
-      payload = await candidate.execute({ task: '' } as never, { toolCallId: `config:${name}`, messages: [] })
+      payload = await candidate.execute({ task: '' } as never, { toolCallId: `config:${name}`, messages: [], context: undefined })
     } catch (err) {
       debug('could not read the config of %s: %O', name, err)
       continue

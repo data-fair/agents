@@ -276,7 +276,7 @@ test.describe('subAgentDelegation — the worker trace', () => {
       onPhase: (_id, phase) => phases.push(phase)
     })
 
-    const summary = await delegation.execute!({ task: 'count the rows' } as never, { toolCallId: 'parent-1', messages: [] })
+    const summary = await delegation.execute!({ task: 'count the rows' } as never, { toolCallId: 'parent-1', messages: [], context: undefined })
 
     // What the LEAD gets: the summary only. The whole point of the pattern, and the reason a worker
     // can make many calls without flooding the conversation it was delegated from.
@@ -316,7 +316,7 @@ test.describe('subAgentDelegation — the worker trace', () => {
       },
       onPhase: (_id, phase) => phases.push(phase)
     })
-    await assert.rejects(delegation.execute!({ task: 't' } as never, { toolCallId: 'parent-2', messages: [] }))
+    await assert.rejects(delegation.execute!({ task: 't' } as never, { toolCallId: 'parent-2', messages: [], context: undefined }))
     assert.equal(phases[phases.length - 1], null)
   })
 })
