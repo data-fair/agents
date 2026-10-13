@@ -14,7 +14,7 @@
  */
 
 import { SERVICE_TOOL_NAMES } from '../conversations/service-tool-names.ts'
-import { ToolLoopAgent, generateText, stepCountIs, tool, jsonSchema, type Tool, type LanguageModelUsage } from 'ai'
+import { ToolLoopAgent, generateText, isStepCount, tool, jsonSchema, type Tool, type LanguageModelUsage } from 'ai'
 import Debug from 'debug'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '../conversations/loop-guards.ts'
 import { subAgentModelOutput } from '../conversations/subagent-output.ts'
@@ -211,7 +211,7 @@ export function subAgentDelegation (opts: {
         // `allowSystemInMessages` is what governs system messages arriving in the prompt instead.
         instructions: opts.config.prompt,
         tools: opts.workerTools,
-        stopWhen: [stepCountIs(STEP_LIMIT), repeatedCallGuard()],
+        stopWhen: [isStepCount(STEP_LIMIT), repeatedCallGuard()],
         // The lead's nudge too: a worker repeating itself is told so before the guard stops it, rather
         // than only stopped — which is what the guard's design assumes for every loop it bounds.
         prepareStep: loopGuardPrepareStep
@@ -234,7 +234,7 @@ export function subAgentDelegation (opts: {
           prompt: String(input?.task ?? ''),
           abortSignal: opts.abortSignal
         })
-        for await (const part of result.fullStream) {
+        for await (const part of result.stream) {
           if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
           // Billed per step rather than once at the end, for the same reason the lead's steps are: a
           // worker stopped by its step limit, by an abort or by a provider error still consumed what
@@ -277,7 +277,7 @@ export function subAgentDelegation (opts: {
             const transcript = await result.responseMessages
             const closeout = await generateText({
               model: opts.model as any,
-              system: opts.config.prompt,
+              instructions: opts.config.prompt,
               // No `tools` — that is the whole mechanism, not an omission.
               messages: [...transcript, { role: 'user' as const, content: SUBAGENT_CLOSEOUT_PROMPT }],
               abortSignal: opts.abortSignal

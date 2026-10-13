@@ -8,7 +8,7 @@ import { simulateStreamingMiddleware, wrapLanguageModel, type LanguageModel, typ
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createGoogle } from '@ai-sdk/google'
 import { createMistral } from '@ai-sdk/mistral'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
@@ -31,7 +31,9 @@ export function scalewayBaseURL (projectId?: string): string {
 // Shared @ai-sdk/openai-compatible provider name for the scaleway + openai-compatible
 // routes. It is the key under which callers pass providerOptions (e.g. reasoningEffort),
 // so keep it a single constant rather than per-provider names.
-export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openai-compatible'
+// camelCase: @ai-sdk/openai-compatible 3 reads provider options under the camelCase form of this name and
+// flags any other spelling as deprecated on every call.
+export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openaiCompatible'
 
 /**
  * The model for a provider entry, with the one serving workaround applied where it is needed.
@@ -52,7 +54,7 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
 export const nonStreamingWithTools: LanguageModelMiddleware = (() => {
   const simulated = simulateStreamingMiddleware()
   return {
-    specificationVersion: 'v3',
+    specificationVersion: 'v4',
     wrapStream: options => options.params.tools?.length
       ? simulated.wrapStream!(options)
       : options.doStream()
@@ -71,7 +73,7 @@ function buildProviderModel (provider: Provider, modelId: string): LanguageModel
     case 'anthropic':
       return createAnthropic({ apiKey: provider.apiKey, ...f })(modelId)
     case 'google':
-      return createGoogleGenerativeAI({ apiKey: provider.apiKey, ...f })(modelId)
+      return createGoogle({ apiKey: provider.apiKey, ...f })(modelId)
     case 'mistral':
       return createMistral({ apiKey: provider.apiKey, ...f })(modelId)
     case 'openrouter':

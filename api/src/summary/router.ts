@@ -62,7 +62,7 @@ router.post('/:type/:id', async (req, res, next) => {
 
     const { text, usage } = await generateText({
       model,
-      system: SUMMARY_SYSTEM_PROMPT,
+      instructions: SUMMARY_SYSTEM_PROMPT,
       messages: [{ role: 'user' as const, content: body.content }]
     })
     await chargeModelCall({

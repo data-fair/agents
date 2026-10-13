@@ -4,9 +4,10 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { scalewayBaseURL, streamedToolCallsBroken, nonStreamingWithTools, errorMessage, describeFetchError, contextBudget, type CatalogModel } from '../../../api/src/models/operations.ts'
+import { scalewayBaseURL, streamedToolCallsBroken, nonStreamingWithTools, errorMessage, describeFetchError, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME, type CatalogModel } from '../../../api/src/models/operations.ts'
 import { MockLanguageModelV3, simulateReadableStream } from 'ai/test'
-import { streamText, wrapLanguageModel, tool, jsonSchema } from 'ai'
+import { streamText, generateText, wrapLanguageModel, tool, jsonSchema } from 'ai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { commandLine, createMockLanguageModel } from '../../../api/src/models/mock-model.ts'
 
 test.describe('Scaleway base URL', () => {
@@ -240,5 +241,33 @@ test.describe('mock model: what did you see', () => {
     })
     const report = JSON.parse(await result.text)
     assert.equal(report.images, 1)
+  })
+})
+
+// The moderator turns thinking off with providerOptions keyed by this name. @ai-sdk/openai-compatible 3
+// reads camelCase keys and only warns, every call, on any other spelling ('openai-compatible' did), so
+// the key is pinned through the real provider and the real request body.
+test.describe('openai-compatible provider options key', () => {
+  test('reasoning_effort reaches the request, and no deprecation warning is raised', async () => {
+    let body: any
+    const fetch = async (_url: any, init: any) => {
+      body = JSON.parse(String(init.body))
+      return new Response(JSON.stringify({
+        id: 'r',
+        object: 'chat.completion',
+        created: 0,
+        model: 'm',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+      }), { headers: { 'content-type': 'application/json' } })
+    }
+    const model = createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, baseURL: 'http://compat.test/v1', fetch: fetch as any }).chatModel('m')
+    const result = await generateText({
+      model,
+      prompt: 'hi',
+      providerOptions: { [OPENAI_COMPATIBLE_PROVIDER_NAME]: { reasoningEffort: 'none' } }
+    })
+    assert.equal(body.reasoning_effort, 'none')
+    assert.deepEqual((result.warnings ?? []).filter(w => w.type === 'deprecated'), [])
   })
 })

@@ -6,7 +6,7 @@
 
 import config from '#config'
 import Debug from 'debug'
-import { streamText, stepCountIs, type Tool } from 'ai'
+import { streamText, isStepCount, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
@@ -189,7 +189,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           run: { run, durationMs: Date.now() - startedAt }
         })
         credits += stepCredits.total
-        // The two ceilings, checked where the money was just spent. The lead's own `onStepFinish` does
+        // The two ceilings, checked where the money was just spent. The lead's own `onStepEnd` does
         // this between ITS steps, which is too late to stop a worker that is still looping.
         await checkCeilings(true)
         if (budgetExceeded) workerAbort.abort()
@@ -206,10 +206,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    * turn. Built once, it could not: a real model would meet "tool set_display is not available" right
    * after opening a panel.
    *
-   * It works because the AI SDK re-reads the `tools` object it was given on every step — the per-step
-   * advertisement is `Object.entries(tools)` and execution looks up `tools[name]` at call time — so a
-   * map refreshed IN PLACE between steps is the live set, with no second loop and no fork of the SDK.
-   * Replacing the object would do nothing; mutating it is the mechanism.
+   * It works because the AI SDK re-reads the `tools` object it was given on every step — AI SDK 7 builds
+   * each step's advertised and executable tools from it AFTER `prepareStep` — so a map refreshed IN PLACE
+   * between steps is the live set, with no second loop and no fork of the SDK. Replacing the object would
+   * do nothing; mutating it is the mechanism (pinned by tests/features/autonomous-agents/live-tool-set.unit.spec.ts).
    *
    * Only the PAGE's part moves. The catalog's MCP tools and the loop-provided wait tool are fixed for
    * the turn, so they are set aside once and the page's current tools are laid over them. The
@@ -241,7 +241,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   })
   const result = streamText({
     model,
-    system: systemPrompt,
+    instructions: systemPrompt,
     messages: history,
     // Always the live map, even empty: `undefined` would freeze "no tools" for the whole turn, while an
     // empty object is "no tools for this step" and fills in when the page registers one.
@@ -250,7 +250,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // `approved: true` that did not come through the decision route fails instead of executing.
     experimental_toolApprovalSecret: securityKey,
     stopWhen: [
-      stepCountIs(STEP_LIMIT),
+      isStepCount(STEP_LIMIT),
       repeatedCallGuard(),
       // A HANDOVER ENDS THE TURN: the wait was accepted, so the next step is the person's. Read from the
       // step's own results rather than from state the stream loop below sets, which may not have
@@ -273,7 +273,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // No SDK `timeout`: the run's deadline (driveTurn) bounds the whole turn, stream included, and its
     // abort reaches the stream through abortSignal. The IDLE bound is ours (idleWatchdog below), not the
     // SDK's `chunkMs`, which counted a running tool as silence.
-    onStepFinish: async (step) => {
+    onStepEnd: async (step) => {
       // Billed per step, not once per turn: a turn stopped by the budget or the clock must still bill
       // what it actually consumed. Its telemetry entry is the turn's, recorded once after the loop.
       const stepCredits = await chargeModelCall({
@@ -379,7 +379,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   activity({ kind: 'thinking' })
 
   try {
-    for await (const part of result.fullStream) {
+    for await (const part of result.stream) {
       idleWatchdog.activity()
       if (part.type === 'tool-call') idleWatchdog.toolStarted(part.toolCallId)
       if (part.type === 'tool-result' || part.type === 'tool-error') idleWatchdog.toolEnded(part.toolCallId)
@@ -418,9 +418,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
             if (last?.type === 'text') last.text = String(last.text ?? '').trimEnd()
             appendText('text', handover)
             stream('text', handover)
-          // The activity is deliberately left alone. The SDK starts executing a tool before this loop
-          // reads its call from the stream, so the wait has usually already set "Waiting for …" by
-          // now — clearing the label here, as the first text-delta does, erased exactly that.
+          // The activity is deliberately left alone. The wait may already have set "Waiting for …" by the
+          // time this loop reads its call (AI SDK 7 runs a step's tools once the model call has finished,
+          // not in step with this loop) — clearing the label here, as the first text-delta does, would
+          // erase exactly that.
           }
         }
         recorder.openCall({
@@ -550,7 +551,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     modelRole: 'assistant',
     entry,
     // The SDK's own sum of the steps' usage: the same reports each step was billed from.
-    usage: tokenCountsOf(await result.totalUsage),
+    usage: tokenCountsOf(await result.usage),
     credits,
     creditBreakdown,
     durationMs: Date.now() - startedAt,

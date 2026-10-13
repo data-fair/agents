@@ -169,7 +169,7 @@ export function startModeration (params: {
       schema: verdictSchema,
       temperature: 0,
       maxOutputTokens: 100,
-      system: buildModerationSystemPrompt(),
+      instructions: buildModerationSystemPrompt(),
       messages: [{ role: 'user' as const, content: moderationInput }],
       abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
     }
@@ -246,7 +246,7 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
         schema: verdictSchema,
         temperature: 0,
         maxOutputTokens: 100,
-        system: buildModerationSystemPrompt(),
+        instructions: buildModerationSystemPrompt(),
         messages: [{ role: 'user' as const, content: probe.message }],
         abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
       }

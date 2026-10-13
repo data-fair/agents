@@ -153,7 +153,7 @@ export function isRepeatingCalls (steps: unknown, limit: number = REPEATED_CALL_
 
 /**
  * A `stopWhen` condition that ends the loop on a runaway repeat. Pair it with
- * `stepCountIs(STEP_LIMIT)`: this catches spinning, the step limit catches the rest.
+ * `isStepCount(STEP_LIMIT)`: this catches spinning, the step limit catches the rest.
  */
 export function repeatedCallGuard (limit: number = REPEATED_CALL_LIMIT) {
   return ({ steps }: { steps: unknown }) => isRepeatingCalls(steps, limit)

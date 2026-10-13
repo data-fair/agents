@@ -14,7 +14,7 @@
 import mongo from '#mongo'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
-import { generateText, stepCountIs, type Tool } from 'ai'
+import { generateText, isStepCount, type Tool } from 'ai'
 import type { AutonomousAgent } from '#types'
 import {
   agentStoreId, memoryEnabledFor, type MemoryAuthor, type ConsolidationConversation, consolidationDue, conversationsForConsolidation,
@@ -151,12 +151,12 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
   try {
     generated = await generateText({
       model,
-      system: consolidationSystemPrompt(agent.title),
+      instructions: consolidationSystemPrompt(agent.title),
       messages: [{ role: 'user', content: consolidationUserMessage(documents, transcript) }],
       tools,
-      stopWhen: stepCountIs(CONSOLIDATION_STEP_LIMIT),
+      stopWhen: isStepCount(CONSOLIDATION_STEP_LIMIT),
       abortSignal: AbortSignal.any([withdrawn.signal, AbortSignal.timeout(CONSOLIDATION_TIMEOUT_MS)]),
-      onStepFinish: async ({ usage }) => {
+      onStepEnd: async ({ usage }) => {
         await chargeModelCall({ owner: agent.owner, identity, modelRole: 'tools', entry, usage })
           .catch(err => console.error(`memory consolidation usage not recorded for agent ${agent.id}`, err))
       }

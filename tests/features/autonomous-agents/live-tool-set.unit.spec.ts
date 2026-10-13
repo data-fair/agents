@@ -1,5 +1,5 @@
 /**
- * The AI SDK contract the live tool set rests on (api/src/conversations/executor.ts, `liveTools`).
+ * The AI SDK contract the live tool set rests on (api/src/conversations/model-loop.ts, `liveTools`).
  *
  * `runModelLoop` hands `streamText` ONE map and mutates it in place from `prepareStep` when the page's
  * tools change mid-turn. That works only while the SDK re-reads the map when it builds each step — to
