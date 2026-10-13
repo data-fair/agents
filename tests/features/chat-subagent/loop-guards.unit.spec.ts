@@ -11,6 +11,8 @@ import {
   loopGuardPrepareStep,
   createIdleWatchdog
 } from '../../../api/src/conversations/loop-guards.ts'
+import { streamText, tool, jsonSchema, isStepCount } from 'ai'
+import { MockLanguageModelV3, simulateReadableStream } from 'ai/test'
 
 /** One step that made one tool call and got one result back. */
 const step = (toolName = 'get_schema', input: unknown = { dataset: 'test' }, output: unknown = { fields: [] }) =>
@@ -117,17 +119,59 @@ test.describe('repeatedCallNudge / loopGuardPrepareStep (reminder before the sto
     assert.equal(repeatedCallNudge(repeated(REPEATED_CALL_LIMIT)), null)
   })
 
-  test('loopGuardPrepareStep appends the nudge as a user message, else overrides nothing', () => {
-    const messages = [{ role: 'user' as const, content: 'fill the form' }]
-    assert.deepEqual(loopGuardPrepareStep({ steps: repeated(1), messages }), {})
+  test('loopGuardPrepareStep rebuilds the step from the call and the responses, nudge last', () => {
+    const initialMessages = [{ role: 'user' as const, content: 'fill the form' }]
+    const responseMessages = [{ role: 'assistant' as const, content: 'calling' }]
 
-    const result = loopGuardPrepareStep({ steps: repeated(REPEATED_CALL_NUDGE_AT), messages })
-    assert.equal(result.messages?.length, 2)
-    assert.equal(result.messages?.[0], messages[0])
-    assert.equal(result.messages?.[1]?.role, 'user')
-    assert.match(String(result.messages?.[1]?.content), /same arguments/)
-    // The caller's array is not mutated: the nudge lives only in that step's request.
-    assert.equal(messages.length, 1)
+    // Not repeating: exactly what the SDK would have sent anyway.
+    assert.deepEqual(loopGuardPrepareStep({ steps: repeated(1), initialMessages, responseMessages }), {
+      messages: [...initialMessages, ...responseMessages]
+    })
+
+    const result = loopGuardPrepareStep({ steps: repeated(REPEATED_CALL_NUDGE_AT), initialMessages, responseMessages })
+    assert.equal(result.messages.length, 3)
+    assert.equal(result.messages[0], initialMessages[0])
+    assert.equal(result.messages[1], responseMessages[0])
+    assert.equal(result.messages[2]?.role, 'user')
+    assert.match(String(result.messages[2]?.content), /same arguments/)
+    // The caller's arrays are not mutated: the nudge lives only in that step's request.
+    assert.equal(initialMessages.length, 1)
+    assert.equal(responseMessages.length, 1)
+  })
+
+  // AI SDK 7 carries a `prepareStep` messages override forward: the next step starts from the messages
+  // the previous step was SENT. Returning `[...messages, nudge]` therefore stacked one nudge per step, and
+  // kept them after the run broke. Pinned against the real loop, since the SDK is what changed.
+  test('in a real streamText loop, a step carries at most one nudge', async () => {
+    const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } }
+    const prompts: any[][] = []
+    const model = new MockLanguageModelV3({
+      doStream: async (options: any) => {
+        prompts.push(options.prompt)
+        const id = `c${prompts.length}`
+        return {
+          stream: simulateReadableStream({
+            chunks: [
+              { type: 'tool-call', toolCallId: id, toolName: 'get_schema', input: '{"dataset":"test"}' },
+              { type: 'finish', finishReason: { unified: 'tool-calls', raw: undefined }, usage }
+            ]
+          })
+        } as any
+      }
+    })
+    const result = streamText({
+      model,
+      prompt: 'go',
+      tools: { get_schema: tool({ inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'same' }) },
+      stopWhen: [isStepCount(STEP_LIMIT), repeatedCallGuard()],
+      prepareStep: loopGuardPrepareStep
+    })
+    await result.consumeStream()
+
+    assert.equal((await result.steps).length, REPEATED_CALL_LIMIT)
+    const nudgesPerStep = prompts.map(prompt => prompt.filter(m => m.role === 'user' && JSON.stringify(m.content).includes('same arguments')).length)
+    // Steps 1..NUDGE_AT get none; every later step exactly one — never an accumulation.
+    assert.deepEqual(nudgesPerStep, prompts.map((_, i) => i >= REPEATED_CALL_NUDGE_AT ? 1 : 0))
   })
 })
 
