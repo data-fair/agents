@@ -527,6 +527,8 @@ export interface SourcedTool {
   tool: Tool
   server?: string
   annotations?: Record<string, unknown>
+  /** Top-level arguments that take one of the turn's files (`x-mcp-file`): the call path signs them (api/src/files/call-path.ts). */
+  fileArgs?: string[]
 }
 export type ToolSet = Record<string, SourcedTool>
 
@@ -537,9 +539,17 @@ export const sourcedTools = (tools: Record<string, Tool>, server: string, annota
     return [name, { tool, server, ...(annotations ? { annotations } : {}) }]
   }))
 
-/** The set as the model is offered it: each tool with a server inside the provenance envelope. */
-export const modelTools = (set: ToolSet): Record<string, Tool> =>
-  Object.fromEntries(Object.entries(set).map(([name, { tool, server }]) => [name, server ? withProvenance({ [name]: tool }, () => server)[name] : tool]))
+/**
+ * The set as the model is offered it: each tool through the call path (`callPath`, api/src/files/call-path.ts —
+ * file arguments and links), then, when it has a server, inside the provenance envelope. The call path is
+ * INSIDE the envelope, so what it returns is labelled like any result, and outside nothing: it is the one
+ * layer every call goes through (spec §4.4).
+ */
+export const modelTools = (set: ToolSet, callPath: (sourced: SourcedTool) => Tool = sourced => sourced.tool): Record<string, Tool> =>
+  Object.fromEntries(Object.entries(set).map(([name, sourced]) => {
+    const tool = callPath(sourced)
+    return [name, sourced.server ? withProvenance({ [name]: tool }, () => sourced.server!)[name] : tool]
+  }))
 
 /**
  * How an autonomous run's spend is attributed.

@@ -232,3 +232,43 @@ export const renderTextPage = (file: { path: string, mimeType: string, size: num
   }
   return [`${described}: lines ${start + 1}-${end}`, ...out, end < lines.length ? `Read on with offset ${end}.` : 'End of file.'].join('\n')
 }
+
+// ---- file arguments (spec §4.3) ----
+
+const filePathProperty = (property: Record<string, any>): Record<string, any> => {
+  const marker = property['x-mcp-file'] as Record<string, unknown>
+  const accept = typeof marker.accept === 'string' ? [marker.accept] : Array.isArray(marker.accept) ? marker.accept.filter((a): a is string => typeof a === 'string') : []
+  const parts = ['The path of one of your files, as ls lists it (for example "/data.csv").']
+  if (accept.length) parts.push(`Accepted types: ${accept.join(', ')}.`)
+  if (typeof marker.maxSize === 'number') parts.push(`At most ${formatBytes(marker.maxSize)}.`)
+  if (typeof property.description === 'string' && property.description) parts.push(property.description)
+  return { type: 'string', description: parts.join(' ') }
+}
+
+/**
+ * A tool's input schema as the model is offered it: each TOP-LEVEL property carrying `x-mcp-file` (the
+ * keyword of the MCP file-input proposals, SEP-2356 / SEP-2631; openapi-mcp produces nothing deeper) becomes
+ * "the path of one of your files". `accept` and `maxSize` stay in the description: the target enforces them.
+ * `format: 'uri'` goes — the model gives a path, the call path gives the URL.
+ */
+export const fileArgumentsOf = (inputSchema: unknown): { schema: Record<string, any>, fileArgs: string[] } => {
+  const schema = (inputSchema && typeof inputSchema === 'object' ? inputSchema : { type: 'object', properties: {} }) as Record<string, any>
+  const properties = schema.properties && typeof schema.properties === 'object' ? schema.properties as Record<string, any> : {}
+  const fileArgs = Object.keys(properties).filter(name => {
+    const marker = properties[name]?.['x-mcp-file']
+    return !!marker && typeof marker === 'object'
+  })
+  if (!fileArgs.length) return { schema, fileArgs }
+  const rewritten = { ...properties }
+  for (const name of fileArgs) rewritten[name] = filePathProperty(properties[name])
+  return { schema: { ...schema, properties: rewritten }, fileArgs }
+}
+
+/** Every signed URL of a call, whole then without its query, replaced by its path: nothing the model reads carries one. */
+export const scrubUrls = (text: string, replacements: Map<string, string>): string => {
+  let scrubbed = text
+  for (const [url, path] of replacements) {
+    scrubbed = scrubbed.split(url).join(path).split(url.split('?')[0]).join(path)
+  }
+  return scrubbed
+}

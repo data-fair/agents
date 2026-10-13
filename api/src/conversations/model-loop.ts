@@ -11,6 +11,7 @@ import { streamText, isStepCount, type Tool } from 'ai'
 import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
+import { withCallPath, describeFileArguments, type CallPathContext } from '../files/call-path.ts'
 import { buildSystemPrompt, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
 import type { TurnTarget, TurnResult } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
@@ -55,10 +56,12 @@ export interface ModelLoopContext {
   unconfirmedOn?: string
   /** Where the turn reads its context from and writes its record to (see ./turn-target.ts). */
   target: TurnTarget
+  /** The turn's call path: its files, and how it opens links (api/src/files/call-path.ts). */
+  callPath: CallPathContext
 }
 
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn } = ctx
+  const { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target).
   const session = target.session
@@ -219,7 +222,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    * because each pass reads every sub-agent's config over the socket.
    */
   const pageToolNames = () => (session?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
-  const fixedTools = modelTools(tools)
+  const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath))
   const liveTools: Record<string, Tool> = {}
   const assembleTools = async () => {
     // The service's own tools are never page tools, even when a page registers one by that name
@@ -461,10 +464,12 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           // reads it, and a reload or a reviewer reads the same words from the record. Gated calls only —
           // every other call would carry a copy of its tool's description for nobody.
           const description = toolDescription(liveTools[part.toolCall.toolName])
+          // The files a gated call would send, as the person deciding reads them: path, type, size (spec §4.3).
+          const files = await describeFileArguments(tools[part.toolCall.toolName]?.fileArgs, part.toolCall.input, callPath.files)
           Object.assign(call, {
             state: 'approval-requested',
             approval: { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) },
-            ...(description ? { toolMetadata: { ...call.toolMetadata, description } } : {})
+            ...(description || files ? { toolMetadata: { ...call.toolMetadata, ...(description ? { description } : {}), ...(files ? { files } : {}) } } : {})
           })
           sendMessageFrame()
           await persistStructure()

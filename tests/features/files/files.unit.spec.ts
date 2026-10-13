@@ -6,7 +6,7 @@ import assert from 'node:assert/strict'
 import {
   isStoredName, parseFilePath, fileNameFrom, extensionOf, isValidScope, scopeOfRun, scopePrefix, fileKey,
   mimeTypeOf, isTextType, extensionForType, fileSignature, signedFileUrl, checkFileSignature, formatBytes,
-  noSuchFileMessage, assertFilesConfig, FileError, SIGNED_URL_TTL_SECONDS
+  noSuchFileMessage, assertFilesConfig, FileError, SIGNED_URL_TTL_SECONDS, fileArgumentsOf, scrubUrls
 } from '../../../api/src/files/operations.ts'
 
 const scope = { ownerType: 'organization' as const, ownerId: 'test1', scopeId: 'conv1' }
@@ -133,5 +133,36 @@ test.describe('messages and config', () => {
     assert.throws(() => assertFilesConfig({ storage: 'fs', secret, publicUrl: 'http://agents:8080' }), /files\.dataDir/)
     assert.throws(() => assertFilesConfig({ storage: 's3', secret, publicUrl: 'http://agents:8080' }), /files\.s3\.bucket/)
     assert.throws(() => assertFilesConfig({ storage: 'fs', dataDir: '/d', secret, publicUrl: 'agents:8080' }), /files\.publicUrl/)
+  })
+})
+
+test.describe('file arguments', () => {
+  const schema = {
+    type: 'object',
+    required: ['file', 'title'],
+    properties: {
+      file: { type: 'string', format: 'uri', description: 'The CSV to import', 'x-mcp-file': { accept: ['text/csv'], maxSize: 10_000_000 } },
+      title: { type: 'string' }
+    }
+  }
+
+  test('a top-level x-mcp-file property becomes "the path of one of your files", keeping accept and maxSize in words', () => {
+    const { schema: rewritten, fileArgs } = fileArgumentsOf(schema)
+    assert.deepEqual(fileArgs, ['file'])
+    assert.deepEqual(rewritten.properties.file, { type: 'string', description: 'The path of one of your files, as ls lists it (for example "/data.csv"). Accepted types: text/csv. At most 10 MB. The CSV to import' })
+    assert.deepEqual(rewritten.properties.title, { type: 'string' })
+    assert.deepEqual(rewritten.required, ['file', 'title'])
+  })
+
+  test('a tool without the marker is untouched, and a string accept is read as one type', () => {
+    assert.deepEqual(fileArgumentsOf({ type: 'object', properties: { q: { type: 'string' } } }), { schema: { type: 'object', properties: { q: { type: 'string' } } }, fileArgs: [] })
+    assert.match(fileArgumentsOf({ type: 'object', properties: { f: { type: 'string', 'x-mcp-file': { accept: 'application/json' } } } }).schema.properties.f.description, /Accepted types: application\/json\./)
+    assert.deepEqual(fileArgumentsOf(undefined).fileArgs, [])
+  })
+
+  test('signed URLs are replaced by their path, whole or without their query', () => {
+    const replacements = new Map([['http://agents/api/files/organization/t/c/a.csv?exp=1&sig=x', '/a.csv']])
+    assert.equal(scrubUrls('could not fetch http://agents/api/files/organization/t/c/a.csv?exp=1&sig=x: 403', replacements), 'could not fetch /a.csv: 403')
+    assert.equal(scrubUrls('GET http://agents/api/files/organization/t/c/a.csv failed', replacements), 'GET /a.csv failed')
   })
 })

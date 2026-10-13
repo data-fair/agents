@@ -22,6 +22,7 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
+import { fileArgumentsOf } from '../files/operations.ts'
 import { publicDispatcher } from '../web/public-lookup.ts'
 import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
 import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
@@ -77,6 +78,9 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
       const listed = await Promise.race([connecting, timedOut])
       clients.push(client)
       for (const t of listed) {
+        // A tool taking a file is never offered from an external server: files.publicUrl is where the
+        // platform's own servers reach this API (in a cluster, an internal address), so it could not succeed.
+        if (fileArgumentsOf(t.inputSchema).fileArgs.length) { debug('skip tool=%s server=%s: it takes a file', t.name, url); continue }
         const name = externalToolName(url, t.name)
         const connected = client
         const externalTool = tool({

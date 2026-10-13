@@ -9,6 +9,7 @@ import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { tool, jsonSchema } from 'ai'
 import memoize from 'memoizee'
 import config from '#config'
+import { fileArgumentsOf } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
@@ -72,6 +73,8 @@ export interface OpenAutonomousAgentTools {
   skippedServers: SkippedServer[]
   /** Tools a server listed that the reference's toolFilter excluded: what the agent reads about itself. */
   filteredOut: { name: string, server: string }[]
+  /** Tools that take a file, left out because files are off this turn. */
+  needsFiles: { name: string, server: string }[]
   /** MUST be called when the turn is over: until then the connections stay open. */
   close: () => Promise<void>
 }
@@ -140,8 +143,10 @@ const listServerTools = (server: GlobalMcpServer, siteUrl: string | undefined, s
 export const openAutonomousAgentTools = async (
   autonomousAgent: AutonomousAgentForTools,
   sites: SiteCredentials,
-  opts?: { onServerError?: 'throw' | 'skip', fresh?: boolean }
+  opts?: { onServerError?: 'throw' | 'skip', fresh?: boolean, files?: boolean }
 ): Promise<OpenAutonomousAgentTools> => {
+  const filesOn = opts?.files ?? !!config.files
+  const needsFiles: { name: string, server: string }[] = []
   const tools: ToolSet = {}
   const skippedServers: SkippedServer[] = []
   const filteredOut: { name: string, server: string }[] = []
@@ -202,7 +207,14 @@ export const openAutonomousAgentTools = async (
       // aggregator's Object.assign semantics — the provenance travels with the tool, so the recorded
       // server is the one whose tool will actually run.
       const siteBound = server.auth === 'nhi-session'
-      const { schema, injected } = siteBound ? withPortalArgument(t.inputSchema, portalHosts) : { schema: (t.inputSchema as any) ?? { type: 'object', properties: {} }, injected: false }
+      const { schema: portalSchema, injected } = siteBound ? withPortalArgument(t.inputSchema, portalHosts) : { schema: (t.inputSchema as any) ?? { type: 'object', properties: {} }, injected: false }
+      // A file argument is a path of the turn's files (api/src/files/call-path.ts). Without files the model
+      // could not fill it — the MCP server fetches only our signed URLs — so the tool is not offered (spec §2).
+      const { schema, fileArgs } = fileArgumentsOf(portalSchema)
+      if (fileArgs.length && !filesOn) {
+        needsFiles.push({ name: t.name, server: server.id })
+        continue
+      }
       const mcpTool = tool({
         description: t.description ?? '',
         inputSchema: jsonSchema(schema as any),
@@ -230,7 +242,7 @@ export const openAutonomousAgentTools = async (
           return formatted
         }
       })
-      tools[t.name] = { tool: mcpTool, server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}) }
+      tools[t.name] = { tool: mcpTool, server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
     }
   }
 
@@ -239,7 +251,7 @@ export const openAutonomousAgentTools = async (
     connections.clear()
     for (const connection of open) await connection.then(c => c.close()).catch(() => {})
   }
-  return { tools, skippedServers, filteredOut, close }
+  return { tools, skippedServers, filteredOut, needsFiles, close }
 }
 
 export interface McpToolDescriptor {

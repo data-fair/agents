@@ -49,6 +49,8 @@ export interface TurnCatalog {
   tools: ToolSet
   /** Listed by a server but excluded by the reference's toolFilter. */
   filteredOut: { name: string, server: string }[]
+  /** Tools that take a file, not offered because files are off. */
+  needsFiles?: { name: string, server: string }[]
   skippedServers: { id: string, reason: string }[]
 }
 

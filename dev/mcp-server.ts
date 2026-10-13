@@ -30,7 +30,7 @@ if (!Number.isInteger(port)) {
 }
 const fixture = await startMcpFixture(port)
 console.log(`dev MCP server listening on http://localhost:${port}/mcp`)
-console.log('tools: echo, get_schema, ignored')
+console.log('tools: echo, get_schema, ignored, list_road_closures, import_table (takes a file), export_closures and export_my_profile (return a file link); files at /exports/')
 
 const stop = async (signal: string) => {
   console.log(`\n${signal} — closing the dev MCP server`)

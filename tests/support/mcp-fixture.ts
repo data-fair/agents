@@ -4,7 +4,9 @@
  * client actually presented.
  */
 import { createServer, type Server } from 'node:http'
+import { createHash } from 'node:crypto'
 import { z } from 'zod'
+import { z as z4 } from 'zod/v4'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
@@ -29,6 +31,8 @@ export interface McpFixture {
   /** Tool names this server actually EXECUTED, in order. Listing does not appear here. */
   invokedTools: () => string[]
   resetInvokedTools: () => void
+  /** The file URLs `import_table` was handed, in order: the model never sees one, so only this can. */
+  fileUrls: () => string[]
   /**
    * How many times each JSON-RPC method reached this server — `initialize` is a connection,
    * `tools/list` a listing. What a test of the listing cache, or of lazy connections, counts.
@@ -47,7 +51,7 @@ export interface McpFixture {
 // constructed with `sessionIdGenerator: undefined` is shared across requests — unlike what
 // the brief's original one-transport-for-the-process-lifetime sketch assumed. See
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js.
-const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>): McpServer => {
+const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void): McpServer => {
   const mcp = new McpServer({ name: 'fixture', version: '1.0.0' })
   // The installed SDK also requires a Zod schema/raw-shape for inputSchema, not a plain
   // JSON Schema object — registerTool() calls getZodSchemaObject() on it and throws
@@ -209,6 +213,42 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     { description: 'Exists so toolFilter has something to exclude', inputSchema: {} },
     async () => { record('ignored'); return { content: [{ type: 'text', text: 'ignored' }] } }
   )
+  mcp.registerTool(
+    'import_table',
+    // A tool that takes a FILE (x-mcp-file), as openapi-mcp describes a multipart file part: what an upload
+    // to data-fair looks like to the agents service. It fetches the URL as openapi-mcp does — only the file
+    // store's URLs, no redirect — and answers what it received, never the URL itself (the model must not
+    // see one). The URL is recorded here, in-process, for the specs.
+    {
+      description: 'Imports a CSV file as a new table',
+      inputSchema: {
+        file: z4.string().meta({ format: 'uri', 'x-mcp-file': { accept: ['text/csv'], maxSize: 10_000_000 } }).describe('The CSV file to import'),
+        title: z4.string().describe('The title of the new table')
+      }
+    },
+    async ({ file, title }) => {
+      record('import_table')
+      const prefix = `http://localhost:${process.env.DEV_API_PORT}/api/files/`
+      if (!String(file).startsWith(prefix)) return { isError: true, content: [{ type: 'text' as const, text: 'refused: this server only fetches files from the agents file store' }] }
+      recordFileUrl(String(file))
+      const res = await fetch(String(file), { redirect: 'error' })
+      if (!res.ok) return { isError: true, content: [{ type: 'text' as const, text: `the file URL answered ${res.status}` }] }
+      const bytes = Buffer.from(await res.arrayBuffer())
+      return {
+        content: [{
+          type: 'text' as const,
+          text: JSON.stringify({
+            title,
+            name: decodeURIComponent(new URL(String(file)).pathname.split('/').pop() ?? ''),
+            size: bytes.length,
+            contentLength: res.headers.get('content-length'),
+            contentType: res.headers.get('content-type'),
+            sha256: createHash('sha256').update(bytes).digest('hex')
+          })
+        }]
+      }
+    }
+  )
   return mcp
 }
 
@@ -221,6 +261,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   // so headers alone cannot distinguish a listing from an invocation.
   let invoked: string[] = []
   let methods: Record<string, number> = {}
+  let fileUrls: string[] = []
   let exports: Array<{ url: string, headers: Record<string, string | string[] | undefined> }> = []
 
   const server: Server = createServer((req, res) => {
@@ -243,7 +284,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     }
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer(name => invoked.push(name), req.headers)
+    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url))
     // The body is read here, to count methods, and handed to the transport already parsed.
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))
@@ -265,7 +306,8 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     port,
     lastHeaders: () => lastHeaders,
     invokedTools: () => [...invoked],
-    resetInvokedTools: () => { invoked = [] },
+    resetInvokedTools: () => { invoked = []; fileUrls = [] },
+    fileUrls: () => [...fileUrls],
     methodCounts: () => ({ ...methods }),
     resetMethodCounts: () => { methods = {} },
     exportRequests: () => [...exports],

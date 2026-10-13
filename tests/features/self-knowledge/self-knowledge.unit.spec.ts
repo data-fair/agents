@@ -22,6 +22,7 @@ const view = (surface: 'chat' | 'task'): ConfigurationView => ({
       edit: { tool: unusedTool, server: 'roads' }
     },
     filteredOut: [{ name: 'ignored', server: 'roads' }],
+    needsFiles: [{ name: 'import', server: 'roads' }],
     skippedServers: [{ id: 'weather', reason: 'fetch failed' }]
   },
   serviceTools: ['memory', 'report_outcome'],
@@ -45,6 +46,7 @@ test.describe('renderConfiguration', () => {
     assert.ok(all.includes('- wipe (server roads): needs the person\'s approval'), text)
     assert.ok(all.includes('- edit (server roads): not usable: denied by policy'), text)
     assert.ok(all.includes('- ignored (server roads): not selected for you by an administrator'), text)
+    assert.ok(all.includes('- import (server roads): not usable: it takes a file, and this deployment has no file store'), text)
     assert.ok(all.includes('- server weather: server unreachable: fetch failed'), text)
     assert.ok(all.includes('- registry: Registry — Searches datasets'), text)
   })

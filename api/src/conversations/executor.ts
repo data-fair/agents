@@ -160,9 +160,10 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
-  const { tools: listedTools, skippedServers, filteredOut, close: closeTools } =
+  const { tools: listedTools, skippedServers, filteredOut, needsFiles, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sites, {
-      onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw'
+      onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw',
+      files: !!files
     })
   // Everything from here on releases the connections however it ends: an open that succeeded and a later
   // step that throws (the service tools, say) must not leave clients and sockets behind.
@@ -190,13 +191,13 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       session,
       ...(files ? { files } : {}),
       ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
-      catalog: { tools: catalog, filteredOut, skippedServers }
+      catalog: { tools: catalog, filteredOut, skippedServers, needsFiles }
     })
     // An UNATTENDED turn (a planned task's run) is offered no tool needing approval, from any source.
     const assembled: ToolSet = { ...catalogTools, ...service.tools }
     const tools = target.surface === 'task' ? unattended(assembled) : assembled
 
-    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn })
+    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath: { ...(files ? { files } : {}) } })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
