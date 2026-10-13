@@ -10,6 +10,7 @@ import type { AddressInfo } from 'node:net'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { displayUrl } from '../../../api/src/web/operations.ts'
 import { openDownload, saveUrl } from '../../../api/src/files/download.ts'
 import { FsBackend } from '../../../api/src/files/fs.ts'
 import { createTurnFiles } from '../../../api/src/files/turn-files.ts'
@@ -38,6 +39,9 @@ test.beforeAll(async () => {
     '/hop': (req, res) => res.writeHead(302, { location: '/data.csv' }).end(),
     '/away': (req, res) => res.writeHead(302, { location: `${B}/elsewhere.csv` }).end(),
     '/missing': (req, res) => res.writeHead(404).end(),
+    '/nowhere': (req, res) => res.writeHead(302).end(),
+    '/signed': (req, res) => res.writeHead(302, { location: `${B}/elsewhere.csv?X-Signature=secret#frag` }).end(),
+    '/slow': (req, res) => { res.writeHead(200, { 'content-type': 'text/csv' }); res.write('x') },
     '/chunked': (req, res) => { res.writeHead(200, { 'content-type': 'application/octet-stream' }); res.write(Buffer.alloc(600)); res.end(Buffer.alloc(600)) }
   })
   A = origin(a)
@@ -69,6 +73,33 @@ test.describe('openDownload', () => {
     seen.length = 0
     await assert.rejects(openDownload({ url: `${A}/away`, allowedUrls: [], site: { origin: A, cookie: 'id_token=abc' }, publicIps }), /is not on http:\/\/localhost:\d+, the site this file was linked from/)
     assert.ok(!seen.some(s => s.server === 'b'), 'the other origin is never contacted')
+  })
+
+  test('messages show origin and path only, never a query', async () => {
+    const err = await openDownload({ url: `${A}/signed?token=mine`, allowedUrls: [A], publicIps }).catch(e => e)
+    assert.match(err.message, /redirects to http:\/\/localhost:\d+\/elsewhere\.csv, which/)
+    assert.doesNotMatch(err.message, /secret|token|frag|\?/)
+    const site = await openDownload({ url: `${A}/signed`, allowedUrls: [], site: { origin: A }, publicIps }).catch(e => e)
+    assert.doesNotMatch(site.message, /secret|\?/)
+    const missing = await openDownload({ url: `${A}/missing?sig=abc`, allowedUrls: [A], publicIps }).catch(e => e)
+    assert.doesNotMatch(missing.message, /sig=abc/)
+    assert.equal(displayUrl('https://u:p@h.test/a/b?x=1#y'), 'https://h.test/a/b')
+    assert.equal(displayUrl('not a url?x=1'), 'not a url')
+  })
+
+  test('a non-public IP literal is refused in both modes (anonymous already refuses every literal)', async () => {
+    await assert.rejects(openDownload({ url: 'http://127.0.0.1:1/x', allowedUrls: ['http://127.0.0.1'], publicIps: [] }), /URLs with an IP address are not accepted/)
+    await assert.rejects(openDownload({ url: 'http://127.0.0.1:1/x', allowedUrls: [], site: { origin: 'http://127.0.0.1:1' }, publicIps: [] }), /not a public address/)
+    await assert.rejects(openDownload({ url: 'http://[::1]:1/x', allowedUrls: [], site: { origin: 'http://[::1]:1' }, publicIps: [] }), /not a public address/)
+  })
+
+  test('a redirect without a location is an error, not a file', async () => {
+    await assert.rejects(openDownload({ url: `${A}/nowhere`, allowedUrls: [A], publicIps }), /answered HTTP 302/)
+  })
+
+  test('the overall deadline aborts a download that never ends', async () => {
+    const opened = await openDownload({ url: `${A}/slow`, allowedUrls: [A], publicIps, deadlineMs: 300 })
+    await assert.rejects(new Promise((resolve, reject) => { opened.body.on('error', reject); opened.body.on('end', resolve); opened.body.resume() }))
   })
 
   test('a non-public address is refused without an exception for it', async () => {

@@ -105,11 +105,24 @@ export type UrlScope = 'page' | 'site'
  * Parses a URL and checks it against the allowlist. The message names the allowlist, so the model can
  * explain the refusal or ask for an address to be added.
  */
+/**
+ * A URL as it may appear in a message the model reads: origin and path only. A redirect target or a catalog
+ * link can be presigned, its query carrying a credential; the user info and the fragment go too.
+ */
+export const displayUrl = (raw: string): string => {
+  try {
+    const url = new URL(raw)
+    return url.origin === 'null' ? `${url.protocol}${url.pathname}` : `${url.origin}${url.pathname}`
+  } catch {
+    return raw.split(/[?#]/)[0]
+  }
+}
+
 export const checkUrl = (raw: string, allowedUrls: string[], scope: UrlScope = 'page'): URL => {
   const url = parseHttpUrl(raw)
   const allowed = scope === 'site' ? hostAllowed(url.hostname, allowedUrls) : urlAllowed(url, allowedUrls)
   if (!allowed) {
-    throw new Error(`"${url.href}" is not under this agent's allowed URLs (${allowedUrls.join(', ') || 'none'})`)
+    throw new Error(`"${displayUrl(url.href)}" is not under this agent's allowed URLs (${allowedUrls.join(', ') || 'none'})`)
   }
   return url
 }

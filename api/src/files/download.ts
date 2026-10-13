@@ -5,13 +5,15 @@
  *  - bound site: a link a catalog tool returned on the site its call was bound to — no allowlist (the URL
  *    is the output of a tool an admin selected), the call's own session when it had one, and it never
  *    leaves that origin, so the cookie cannot follow a redirect elsewhere.
- * Both: GET only, public addresses only (SSRF_PUBLIC_IPS exceptions), 15 s to the headers, 30 s idle body.
+ * Both: GET only, public addresses only (SSRF_PUBLIC_IPS exceptions), 15 s to the headers, 30 s idle body,
+ * 5 minutes overall. Messages show origin and path only: a redirect target or a link can be presigned.
  */
+import net from 'node:net'
 import type { Readable } from 'node:stream'
 import { request, type Agent } from 'undici'
-import { checkUrl } from '../web/operations.ts'
+import { checkUrl, displayUrl } from '../web/operations.ts'
 import { USER_AGENT } from '../web/client.ts'
-import { envPublicIps, publicDispatcher } from '../web/public-lookup.ts'
+import { envPublicIps, ipList, isPublicAddress, publicDispatcher } from '../web/public-lookup.ts'
 import { parseFilePath } from './operations.ts'
 import type { TurnFiles } from './turn-files.ts'
 
@@ -33,7 +35,11 @@ export interface DownloadOptions {
   publicIps?: string[]
   signal?: AbortSignal
   maxRedirects?: number
+  /** Bound on the whole download, body included (default 5 minutes). */
+  deadlineMs?: number
 }
+
+const DEADLINE_MS = 5 * 60_000
 
 const dispatchers = new Map<string, Agent>()
 const dispatcherFor = (publicIps: string[]) => {
@@ -49,12 +55,19 @@ const discard = (body: Readable) => { body.on('error', () => {}); body.destroy()
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value
 
 export const openDownload = async (opts: DownloadOptions): Promise<OpenedDownload> => {
-  const dispatcher = dispatcherFor(opts.publicIps ?? envPublicIps())
+  const publicIps = opts.publicIps ?? envPublicIps()
+  const exceptions = ipList(publicIps)
+  const dispatcher = dispatcherFor(publicIps)
+  const signal = AbortSignal.any([AbortSignal.timeout(opts.deadlineMs ?? DEADLINE_MS), ...(opts.signal ? [opts.signal] : [])])
   const check = (raw: string): string => {
-    if (!opts.site) return checkUrl(raw, opts.allowedUrls).href
-    const url = new URL(raw)
-    if ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.origin !== opts.site.origin) {
-      throw new Error(`"${url.href}" is not on ${opts.site.origin}, the site this file was linked from`)
+    const url = opts.site ? new URL(raw) : checkUrl(raw, opts.allowedUrls)
+    if (opts.site && ((url.protocol !== 'http:' && url.protocol !== 'https:') || url.origin !== opts.site.origin)) {
+      throw new Error(`"${displayUrl(url.href)}" is not on ${opts.site.origin}, the site this file was linked from`)
+    }
+    // an IP literal is never resolved, so the dispatcher's lookup would not see it
+    const host = url.hostname.replace(/^\[|\]$/g, '')
+    if (net.isIP(host) && !isPublicAddress(host, exceptions)) {
+      throw new Error(`"${displayUrl(url.href)}" refused, it is not a public address`)
     }
     return url.href
   }
@@ -65,27 +78,28 @@ export const openDownload = async (opts: DownloadOptions): Promise<OpenedDownloa
       res = await request(url, {
         method: 'GET',
         dispatcher,
-        signal: opts.signal,
+        signal,
         headers: { 'user-agent': USER_AGENT, ...(opts.site?.cookie ? { cookie: opts.site.cookie } : {}) }
       })
     } catch (err: any) {
-      throw new Error(`could not fetch ${url}: ${err?.cause?.message ?? err.message}`)
+      throw new Error(`could not fetch ${displayUrl(url)}: ${err?.cause?.message ?? err.message}`)
     }
     const location = first(res.headers.location)
     if (res.statusCode >= 300 && res.statusCode < 400 && location) {
       discard(res.body as unknown as Readable)
-      if (hop >= (opts.maxRedirects ?? 5)) throw new Error(`too many redirects from ${opts.url}`)
+      if (hop >= (opts.maxRedirects ?? 5)) throw new Error(`too many redirects from ${displayUrl(opts.url)}`)
       const target = new URL(location, url).href
       try {
         url = check(target)
       } catch (err: any) {
-        throw new Error(`${url} redirects to ${target}, which cannot be fetched: ${err.message}`)
+        throw new Error(`${displayUrl(url)} redirects to ${displayUrl(target)}, which cannot be fetched: ${err.message}`)
       }
       continue
     }
-    if (res.statusCode >= 400) {
+    // anything else that is not a success is not a file: 4xx, 5xx, and a redirect that goes nowhere
+    if (res.statusCode >= 300) {
       discard(res.body as unknown as Readable)
-      throw new Error(`${url} answered HTTP ${res.statusCode}`)
+      throw new Error(`${displayUrl(url)} answered HTTP ${res.statusCode}`)
     }
     const length = first(res.headers['content-length'])
     // a caller that gives up on the body destroys it: that must not be an uncaught error

@@ -23,10 +23,15 @@ test.describe('Downloads with fetch_url', () => {
 
   test('saveAs stores the response, which read_file then reads', async () => {
     const agent = await createFilesAgent()
+    fixture.resetExportRequests()
     const saved = await turnOverSocket(orgAdmin, { agentId: agent.id }, `call tool fetch_url {"url":"${FIXTURE_ORIGIN}/exports/closures?district=city-center","saveAs":"/closures.csv"}`)
     const output = outputOf(callPart(saved.assistant, 'fetch_url'))
     assert.match(output, /"file_path":"\/closures\.csv"/)
     assert.match(output, /"mimeType":"text\/csv"/)
+    const sent = fixture.exportRequests()
+    assert.equal(sent.length, 1)
+    assert.equal(sent[0].headers.cookie, undefined)
+    assert.equal(sent[0].headers.authorization, undefined)
     const read = await turnOverSocket(orgAdmin, saved.conversationId, 'call tool read_file {"file_path":"/closures.csv"}')
     assert.match(outputOf(callPart(read.assistant, 'read_file')), /Rue de la Paix/)
   })

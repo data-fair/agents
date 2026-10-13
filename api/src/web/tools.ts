@@ -10,6 +10,9 @@ import { saveUrl } from '../files/download.ts'
 import { fetchUrl, listSitePages, type FetchUrlInput, type ListSitePagesInput, type WebContext } from './service.ts'
 import { FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME, REQUEST_WEB_ACCESS_TOOL_NAME, MAX_CALLS_PER_RUN, normalizeAllowedUrls } from './operations.ts'
 
+/** With files on, fetch_url can write (and overwrite) a file: the audit record must not call it read-only. */
+export const FETCH_URL_WITH_FILES_ANNOTATIONS = { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: true }
+
 export { FETCH_URL_TOOL_NAME, LIST_SITE_PAGES_TOOL_NAME, REQUEST_WEB_ACCESS_TOOL_NAME }
 
 /** Both readers only read, and read the open web: recorded on every call for audit. */

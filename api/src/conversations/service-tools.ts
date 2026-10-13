@@ -23,7 +23,7 @@ import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_MAX, t
 import type { TurnFiles } from '../files/turn-files.ts'
 import { createFileTools } from '../files/tools.ts'
 import { FILES_SERVER_ID, FILE_TOOL_ANNOTATIONS } from '../files/operations.ts'
-import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS } from '../web/tools.ts'
+import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS, FETCH_URL_WITH_FILES_ANNOTATIONS, FETCH_URL_TOOL_NAME } from '../web/tools.ts'
 import { WEB_SERVER_ID } from '../web/operations.ts'
 import { createRequestMcpAccessTool } from '../mcp-servers/external.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID } from '../mcp-servers/operations.ts'
@@ -134,7 +134,7 @@ const ENTRIES: ServiceToolEntry[] = [
       if (surface === 'chat' && run.triggeredByRole === 'admin') {
         tools[REQUEST_WEB_ACCESS_TOOL_NAME] = createRequestWebAccessTool({ allowedUrls, save: urls => saveWebAllowedUrls(agent, urls) })
       }
-      Object.assign(into.tools, sourcedTools(tools, WEB_SERVER_ID, name => name === REQUEST_WEB_ACCESS_TOOL_NAME ? ACCESS_REQUEST_ANNOTATIONS : WEB_TOOL_ANNOTATIONS))
+      Object.assign(into.tools, sourcedTools(tools, WEB_SERVER_ID, name => name === REQUEST_WEB_ACCESS_TOOL_NAME ? ACCESS_REQUEST_ANNOTATIONS : files && name === FETCH_URL_TOOL_NAME ? FETCH_URL_WITH_FILES_ANNOTATIONS : WEB_TOOL_ANNOTATIONS))
     }
   },
   {

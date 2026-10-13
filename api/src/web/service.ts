@@ -11,7 +11,7 @@ import type { ExtractedFeed, ExtractedPage, PageForm } from './extract.ts'
 import {
   charsetOf, checkUrl, classifyContent, filterEntries, hasFilter, hostAllowed, paginate, parseOpenSearchDescription, parseSitemap, robotsSitemaps, urlAllowed,
   AI_CATALOG_PATH, parseAiCatalog, mcpServerFromCard, type DiscoveredMcpServer,
-  refuseBinary, unreadableTypeMessage, SITEMAP_PAGE_SIZE, type SitemapEntry, type SitemapFilter
+  displayUrl, refuseBinary, unreadableTypeMessage, SITEMAP_PAGE_SIZE, type SitemapEntry, type SitemapFilter
 } from './operations.ts'
 
 /** Below this many characters, an HTML page probably renders its content with JavaScript. */
@@ -47,7 +47,7 @@ const httpError = (res: WebResponse) => {
   const challenge = res.headers['cf-mitigated'] === 'challenge' || (res.status === 403 && /cloudflare/i.test(res.headers.server ?? ''))
   return new Error(challenge
     ? `${res.url} refused an automated client (bot protection, HTTP ${res.status}); its content cannot be read this way`
-    : `${res.url} answered HTTP ${res.status}`)
+    : `${displayUrl(res.url)} answered HTTP ${res.status}`)
 }
 
 export interface FetchUrlInput {

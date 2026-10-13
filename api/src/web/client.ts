@@ -10,7 +10,7 @@ import http from 'node:http'
 import https from 'node:https'
 import axios, { type AxiosInstance } from 'axios'
 import Debug from 'debug'
-import { checkUrl, type UrlScope } from './operations.ts'
+import { checkUrl, displayUrl, type UrlScope } from './operations.ts'
 import { envPublicIps, ipList, publicLookup } from './public-lookup.ts'
 
 const debug = Debug('agents:web')
@@ -119,7 +119,8 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
         chunks.push(chunk)
       })
       stream.on('end', () => { clearTimeout(timer); resolve(Buffer.concat(chunks)) })
-      stream.on('error', (err: Error) => { clearTimeout(timer); reject(new Error(`could not fetch ${url}: ${err.message}`)) })
+      stream.on('error', (err: Error) => { clearTimeout(timer); reject(new Error(`could not fetch ${displayUrl(url)}: ${err.message}`)) })
+      stream.on('close', () => { clearTimeout(timer); reject(new Error(`could not fetch ${displayUrl(url)}: the connection closed before the end of the response`)) })
     })
 
   /** One request, no redirect following: a redirect is a response like any other, and is cached. */
@@ -145,7 +146,7 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
     try {
       res = await ax.get(url, { headers: conditional })
     } catch (err: any) {
-      throw new Error(`could not fetch ${url}: ${err.message}`)
+      throw new Error(`could not fetch ${displayUrl(url)}: ${err.message}`)
     }
     if (res.status === 304 && cached) {
       res.data.destroy()
@@ -178,13 +179,13 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
       const response = await getOne(url, accept)
       const location = response.headers.location
       if (response.status < 300 || response.status >= 400 || !location) return response
-      if (hop >= maxRedirects) throw new Error(`too many redirects from ${rawUrl}`)
+      if (hop >= maxRedirects) throw new Error(`too many redirects from ${displayUrl(rawUrl)}`)
       // the allowlist applies to every hop, not only to the URL the agent asked for
       const target = new URL(location, url).href
       try {
         url = checkUrl(target, allowedUrls, scope).href
       } catch (err: any) {
-        throw new Error(`${url} redirects to ${target}, which cannot be fetched: ${err.message}`)
+        throw new Error(`${displayUrl(url)} redirects to ${displayUrl(target)}, which cannot be fetched: ${err.message}`)
       }
     }
   }
