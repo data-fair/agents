@@ -122,6 +122,24 @@ export const importedACleanedFile: Premise = {
 }
 
 /**
+ * The run did the import inside ONE code_mode script: a code_mode call that did not fail, whose trace
+ * (the `data-subagent` part named code_mode, its `parts` the nested calls) holds an import_table call
+ * that succeeded. Nested calls are not top-level tool calls, so recordedToolCalls does not see them.
+ */
+export const importedACleanedFileWithAScript: Premise = {
+  description: 'a code_mode call succeeded and its trace holds a successful import_table call',
+  holds: exports => exports.some(exported => {
+    if (!recordedToolCalls(exported).some(call => call.toolName === 'code_mode' && !call.failed)) return false
+    return exported.messages.some(message => message.parts.some((stub: any) => {
+      const part: any = (stub.__ref ? exported.blobs.get(stub.__ref) : undefined) ?? stub
+      return part.type === 'data-subagent' && part.data?.name === 'code_mode' &&
+        Array.isArray(part.data.parts) && part.data.parts.some((nested: any) =>
+        nested.type === 'dynamic-tool' && nested.toolName === 'import_table' && nested.state !== 'output-error')
+    }))
+  })
+}
+
+/**
  * The LAST run started with a non-empty memory, after an earlier run read the web. Read off the last
  * run's recorded system prompt, where the memory is rendered as it stood when the run started
  * (renderMemoryBlock, api/src/memory/operations.ts) — so it holds whichever way the earlier run wrote
@@ -440,8 +458,8 @@ export const cases: LocalCase[] = [
     maxTurns: 0
   },
   // FILES, unattended: download a CSV a catalog tool links to, transform it, upload the result. The
-  // transform goes through the file tools alone (read_file, then write_file of the cleaned CSV): code mode,
-  // which would do it in one script, is plan 4 of docs/superpowers/specs/2026-10-12-agent-files-and-scripting-design.md.
+  // transform goes through the file tools alone (read_file, then write_file of the cleaned CSV): this is the
+  // file-tools-only variant; code-mode-clean-and-import-task-run is the same task done in one script.
   // The export link is on the dev MCP server's own origin, so it is fetched anonymously, under the agent's
   // web allowlist (docs/architecture/agent-files.md, the credential rule).
   {
@@ -461,6 +479,28 @@ export const cases: LocalCase[] = [
     },
     persona: 'Nobody is present while this runs. The reader is the organization admin who planned the task: they read its reported outcome afterwards and open the imported table.',
     goal: 'The admin wants the imported table to hold exactly the city-centre closures that reopen more than 7 days after the run, with the export\'s columns and values unchanged, and the outcome to name those streets. A row kept or dropped wrongly, a changed value, or an outcome claiming an import that did not succeed is the worst result for them. The judge can check the kept rows against the export the run read and the hash import_table reports against the file the run wrote.',
+    maxTurns: 0
+  },
+  // CODE MODE, unattended: the same clean-and-import as files-clean-and-import-task-run, expected in ONE script —
+  // export, filter, write and import without the rows entering the model's context
+  // (docs/architecture/code-mode.md). The judge reads the script and its nested calls in the export.
+  {
+    name: 'code-mode-clean-and-import-task-run',
+    premise: importedACleanedFileWithAScript,
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'unattended',
+    user: 'test1-user1',
+    agent: {
+      mcpServers: [{ serverId: 'dev-review-mcp', toolFilter: ['export_closures', 'closure_stats', 'import_table'] }],
+      web: { enabled: true, allowedUrls: [`http://localhost:${Number(process.env.NGINX_PORT) + 31}/exports`] }
+    },
+    task: {
+      title: 'Long city-centre closures table (one script)',
+      prompt: 'Export the current road closures of the "city-center" district, keep only those that reopen more than 7 days from today with the same columns, and import them as a new table titled "Long closures". Do it in a single code_mode script. Report the outcome, with the streets you kept.',
+      scheduling: [{ type: 'weekly', month: '*', dayOfMonth: '*', dayOfWeek: '1', hour: 8, minute: 0, timeZone: 'Europe/Paris' }]
+    },
+    persona: 'Nobody is present while this runs. The reader is the organization admin who planned the task: they read its reported outcome afterwards and open the imported table.',
+    goal: 'The admin wants the imported table to hold exactly the city-centre closures that reopen more than 7 days after the run, with the export\'s columns and values unchanged, and the outcome to name those streets — done by one script whose nested calls the record shows. A row kept or dropped wrongly, a changed value, or an outcome claiming an import that did not succeed is the worst result.',
     maxTurns: 0
   }
 ]
