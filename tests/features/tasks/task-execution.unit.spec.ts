@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema } from 'ai'
 import { applyApprovalPolicy, unattended } from '../../../api/src/conversations/approval-policy.ts'
-import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
+import { buildSystemPrompt, turnDeadlineSeconds } from '../../../api/src/conversations/operations.ts'
 import { renderMemoryBlock } from '../../../api/src/memory/operations.ts'
 import { validateTaskOutcome } from '../../../api/src/tasks/operations.ts'
 
@@ -78,5 +78,14 @@ test.describe('buildSystemPrompt on the task surface', () => {
   test('a chat turn carries no such note', () => {
     assert.doesNotMatch(buildSystemPrompt(agent), /scheduled execution/)
     assert.doesNotMatch(buildSystemPrompt(agent, [], 'chat'), /scheduled execution/)
+  })
+})
+
+test.describe('turnDeadlineSeconds', () => {
+  test('a task run has its own, longer deadline; a chat turn keeps the turn deadline', () => {
+    const limits = { turnTimeoutSeconds: 300, taskTimeoutSeconds: 1800 }
+    assert.equal(turnDeadlineSeconds({ kind: 'task' }, limits), 1800)
+    assert.equal(turnDeadlineSeconds({ kind: 'conversation' }, limits), 300)
+    assert.equal(turnDeadlineSeconds({}, limits), 300)
   })
 })

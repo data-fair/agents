@@ -27,6 +27,14 @@ export type ConversationTurnRun = ConversationRun & { conversationId: string }
 export type RunStopReason = 'completed' | 'waiting' | 'awaiting-approval' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
 
 /**
+ * The wall-clock ceiling of a run. A planned task's is its own (config.taskTimeoutSeconds, 30 min by default):
+ * nobody waits on it, and code mode and files make runs of many steps its normal case. Session renewal means no
+ * credential bounds a turn any more (api/src/nhi); the per-run credit budget bounds its spend.
+ */
+export const turnDeadlineSeconds = (run: { kind?: string }, limits: { turnTimeoutSeconds: number, taskTimeoutSeconds: number }): number =>
+  run.kind === 'task' ? limits.taskTimeoutSeconds : limits.turnTimeoutSeconds
+
+/**
  * The user-facing sentence appended as a terminal assistant message when a run ends.
  *
  * Every branch must return something non-empty: a conversation that simply stops with no

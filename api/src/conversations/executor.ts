@@ -20,7 +20,7 @@ import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
 import type { ConversationRun } from '#types'
-import { runStopReasonMessage, type ToolSet, usageIdentityFor, withAppendedText, type RunStopReason, type ConversationTurnRun } from './operations.ts'
+import { runStopReasonMessage, type ToolSet, turnDeadlineSeconds, usageIdentityFor, withAppendedText, type RunStopReason, type ConversationTurnRun } from './operations.ts'
 import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies } from '../moderation/operations.ts'
 import { conversationTarget, closeConversationRunBare, type TurnTarget, type TurnResult, type TurnFailure } from './turn-target.ts'
@@ -258,11 +258,12 @@ export const driveTurn = async (
   // against the deadline and abandoned if it overruns. Abandoning is safe: performTurn only
   // returns a value, it never writes — all persistence happens in the target's close and fail.
   let timeout: ReturnType<typeof setTimeout> | undefined
+  const deadlineSeconds = turnDeadlineSeconds(run, config)
   const deadline = new Promise<never>((_resolve, reject) => {
     timeout = setTimeout(() => {
       abortController.abort(new TurnStopped('timeout'))
-      reject(new Error(`run exceeded its ${config.turnTimeoutSeconds}s ceiling`))
-    }, config.turnTimeoutSeconds * 1000)
+      reject(new Error(`run exceeded its ${deadlineSeconds}s ceiling`))
+    }, deadlineSeconds * 1000)
   })
 
   let target: TurnTarget | undefined
