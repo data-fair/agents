@@ -9,8 +9,8 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { superAdmin, clean, defaultQuotas, getAnonymousActionToken, nginxAx } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { superAdmin, clean, getAnonymousActionToken, nginxAx } from '../../support/axios.ts'
+import { putMockSettings, mockModelRef } from '../../support/settings.ts'
 import { openAgentSession, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
@@ -18,16 +18,9 @@ const admin = await superAdmin
 const OWNER = { type: 'user', id: 'test-standalone1' } as const
 const OWNER_PATH = 'user/test-standalone1'
 
-const settingsData = (quotas: any = {}) => ({
-  providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: [{
-    model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-    usage: ['assistant'],
-    inputPricePerMillion: 8_000,
-    outputPricePerMillion: 8_000
-  }],
-  modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } },
-  quotas: { ...defaultQuotas, anonymous: { unlimited: false, monthlyLimit: 100_000 }, ...quotas }
+const pricedSettings = (quotas: any = {}) => ({
+  models: [{ model: mockModelRef, usage: ['assistant'], inputPricePerMillion: 8_000, outputPricePerMillion: 8_000 }],
+  quotas: { anonymous: { unlimited: false, monthlyLimit: 100_000 }, ...quotas }
 })
 
 test.describe('Anonymous chat over the agent session', () => {
@@ -35,7 +28,7 @@ test.describe('Anonymous chat over the agent session', () => {
 
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, OWNER_PATH, settingsData())
+    await putMockSettings(admin, OWNER_PATH, pricedSettings())
   })
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
@@ -140,7 +133,7 @@ test.describe('Anonymous chat over the agent session', () => {
   })
 
   test('an account closed to anonymous visitors refuses the hello', async () => {
-    await putSettings(admin, OWNER_PATH, settingsData({ anonymous: { unlimited: false, monthlyLimit: 0 } }))
+    await putMockSettings(admin, OWNER_PATH, pricedSettings({ anonymous: { unlimited: false, monthlyLimit: 0 } }))
     const socket = await open()
     await hello(socket)
     assert.match((await refusalOf(socket)).message, /permission/)

@@ -14,31 +14,13 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { axiosAuth, clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { axiosAuth, clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
 // The PERSON, for reading their own thread: a superadmin is an `external` caller on someone else's
 // account and the conversation routes refuse that (see assertMayTalkTo), admin mode or not.
 const user = await axiosAuth('test-standalone1')
-
-const settingsData = {
-  providers: [
-    { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
-  ],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: defaultQuotas
-}
 
 function isChatFrameUrl (url: string): boolean {
   try {
@@ -60,7 +42,7 @@ async function waitForChatFrame (page: Page) {
 test.describe('Chat silent-drop protection', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
   })
 
   test('An empty model completion shows a fallback instead of a blank turn', async ({ page, goToWithAuth }) => {

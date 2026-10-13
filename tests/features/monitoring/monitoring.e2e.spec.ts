@@ -4,8 +4,8 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { superAdmin, clean } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 const owner = { type: 'user', id: 'test-standalone1' }
 
@@ -21,22 +21,6 @@ function monthlyPeriod (monthsAgo: number): string {
   return `monthly:${d.toISOString().slice(0, 7)}`
 }
 
-const settingsData = {
-  providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: defaultQuotas
-}
-
 test.describe('Monitoring UI', () => {
   test.beforeEach(async () => {
     await clean()
@@ -44,7 +28,7 @@ test.describe('Monitoring UI', () => {
 
   test('Shows monitoring page with monthly and daily histograms', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
 
     // Seed some data
     await admin.post('/api/test-env/usage', { owner, cost: 5, period: dailyPeriod(0) })
@@ -59,7 +43,7 @@ test.describe('Monitoring UI', () => {
 
   test('Shows per-user histogram with day selector', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
 
     await admin.post('/api/test-env/usage', { owner, userId: 'user-a', cost: 10, period: dailyPeriod(0) })
 
@@ -76,7 +60,7 @@ test.describe('Monitoring UI', () => {
 
   test('Shows stackable account histograms with a breakdown selector', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
 
     await admin.post('/api/test-env/usage', {
       owner,
@@ -125,7 +109,7 @@ test.describe('Monitoring UI', () => {
 
   test('Shows no data message when empty', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
 
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 

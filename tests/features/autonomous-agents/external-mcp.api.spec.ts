@@ -5,9 +5,10 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { awaitRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
-import { turnOverSocket, decideOverSocketToRun, runOf } from '../../../dev/socket-turn.ts'
+import { turnOverSocket, decideOverSocketToRun } from '../../../dev/socket-turn.ts'
 import { externalToolName } from '../../../api/src/mcp-servers/operations.ts'
 
 const admin = await superAdmin
@@ -21,15 +22,6 @@ const createAgent = async (over: any = {}) => {
   const agent = (await admin.post(AGENTS, { title: 'Interop', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }], instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }], ...over })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
   return agent
-}
-
-const awaitRun = async (conversationId: string, runId: string) => {
-  for (let i = 0; i < 120; i++) {
-    const run = await runOf(orgAdmin, conversationId, runId)
-    if (run.status !== 'running') return run
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  throw new Error('run never ended')
 }
 
 const offeredTools = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
@@ -92,7 +84,7 @@ test.describe('External MCP servers', () => {
     const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'request_mcp_access')
     assert.deepEqual((await admin.get(`${AGENTS}/${agent.id}`)).data.externalMcpServers, [], 'nothing changes before the decision')
     const { runId } = await decideOverSocketToRun(orgAdmin, conversationId, part.approval.id, { approved: true })
-    await awaitRun(conversationId, runId)
+    await awaitRun(orgAdmin, conversationId, runId)
     assert.deepEqual((await admin.get(`${AGENTS}/${agent.id}`)).data.externalMcpServers, [{ url: externalUrl }])
   })
 })

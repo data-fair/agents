@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { awaitRun } from '../../support/turn.ts'
 import { openAgentSession, newThreadHello } from '../../../dev/agent-session-client.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
@@ -20,15 +21,6 @@ export const createGatedAgent = async (over: any = {}) => {
   })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
   return agent
-}
-
-export const awaitRun = async (conversationId: string, runId: string) => {
-  for (let i = 0; i < 120; i++) {
-    const run = await runOf(orgAdmin, conversationId, runId)
-    if (run.status !== 'running') return run
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  throw new Error('run never ended')
 }
 
 /** A turn: the first of a new thread with an agent, or one in an existing thread. */
@@ -102,8 +94,8 @@ test.describe('The approval gate', () => {
     const { runId: continuation } = await decideRun(conversationId, approvalId, { approved: true })
     await new Promise(resolve => setTimeout(resolve, 500)) // slow_lookup takes 2s
     const { runId: answering } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
-    await awaitRun(conversationId, continuation)
-    await awaitRun(conversationId, answering)
+    await awaitRun(orgAdmin, conversationId, continuation)
+    await awaitRun(orgAdmin, conversationId, answering)
     // Both runs have ended and the 2s lookup has not completed: the run does not wait for an abandoned call.
     assert.deepEqual(fixture.invokedTools(), [])
     const part = callPart(await messageAt(conversationId, assistant.seq), 'slow_lookup')
@@ -120,7 +112,7 @@ test.describe('The approval gate', () => {
   test('approving runs the call exactly once, settled on its original message', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
-    const run = await awaitRun(conv.id, runId)
+    const run = await awaitRun(orgAdmin, conv.id, runId)
     assert.equal(run.trigger, 'approval')
     assert.equal(run.stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
@@ -141,14 +133,14 @@ test.describe('The approval gate', () => {
     const { conv, approvalId } = await pendingApproval()
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await assert.rejects(decide(conv.id, approvalId, { approved: true }), { status: 409 })
-    await awaitRun(conv.id, runId)
+    await awaitRun(orgAdmin, conv.id, runId)
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
   })
 
   test('rejecting tells the model why, and nothing runs', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
     const { runId } = await decideRun(conv.id, approvalId, { approved: false, reason: 'not today' })
-    await awaitRun(conv.id, runId)
+    await awaitRun(orgAdmin, conv.id, runId)
     assert.deepEqual(fixture.invokedTools(), [])
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
     assert.equal(part.state, 'output-denied')
@@ -180,7 +172,7 @@ test.describe('The approval gate', () => {
     const { agent, conv, approvalId, seq } = await pendingApproval()
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: false })
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
-    await awaitRun(conv.id, runId)
+    await awaitRun(orgAdmin, conv.id, runId)
     assert.deepEqual(fixture.invokedTools(), [])
     // Settled as an error rather than left approved with no result, which every later replay would carry.
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
@@ -200,7 +192,7 @@ test.describe('The approval gate', () => {
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: { destructive: 'allow' } })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
-    await awaitRun(conv.id, runId)
+    await awaitRun(orgAdmin, conv.id, runId)
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
     assert.equal(callPart(await messageAt(conv.id, seq), 'wipe_everything').state, 'output-available')
   })
@@ -210,7 +202,7 @@ test.describe('The approval gate', () => {
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: { destructive: 'deny' } })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
-    await awaitRun(conv.id, runId)
+    await awaitRun(orgAdmin, conv.id, runId)
     assert.deepEqual(fixture.invokedTools(), [])
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
     assert.equal(part.state, 'output-error')
@@ -241,7 +233,7 @@ test.describe('The approval gate', () => {
     assert.deepEqual(fixture.invokedTools(), [])
 
     const { runId } = await decideRun(conv.id, second.approval.id, { approved: true })
-    const run = await awaitRun(conv.id, runId)
+    const run = await awaitRun(orgAdmin, conv.id, runId)
     assert.equal(run.stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything', 'wipe_everything'])
     const parts = (await messageAt(conv.id, seq)).parts
@@ -284,7 +276,7 @@ test.describe('The approval gate', () => {
       await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: [{ serverId: 'dev-apikey-mcp' }], enabled: true })
       await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
       const { runId } = await decideRun(conv.id, approvalId, { approved: true })
-      const run = await awaitRun(conv.id, runId)
+      const run = await awaitRun(orgAdmin, conv.id, runId)
       assert.equal(run.status, 'error')
       const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
       assert.equal(part.state, 'output-error')
@@ -318,11 +310,11 @@ test.describe('The approval gate', () => {
       return true
     })
 
-    const asked = await awaitRun(conversationId, runId)
+    const asked = await awaitRun(orgAdmin, conversationId, runId)
     assert.equal(asked.stopReason, 'awaiting-approval')
     assert.equal((await messageAt(conversationId, asking.seq)).pending, false)
     const { runId: continuation } = await decideRun(conversationId, approvalId, { approved: true })
-    assert.equal((await awaitRun(conversationId, continuation)).stopReason, 'completed')
+    assert.equal((await awaitRun(orgAdmin, conversationId, continuation)).stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools().sort(), ['slow_lookup', 'wipe_everything'])
     const part = callPart(await messageAt(conversationId, asking.seq), 'wipe_everything')
     assert.equal(part.state, 'output-available')
@@ -332,7 +324,7 @@ test.describe('The approval gate', () => {
   test('an approval run cut by a restart settles its approved call, and the conversation goes on', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
-    await awaitRun(conv.id, runId)
+    await awaitRun(orgAdmin, conv.id, runId)
     // The state a process dying mid-run leaves: the run still `running`, the approved call with no result.
     await admin.post('/api/test-env/orphan-run', { runId, reopenApproved: true })
     assert.equal(callPart(await messageAt(conv.id, seq), 'wipe_everything').state, 'approval-responded')
@@ -365,8 +357,8 @@ test.describe('The approval gate', () => {
       await admin.post('/api/test-env/unlock-conversation', { conversationId: conv.id })
     }
     await admin.post('/api/test-env/recover-ownerless-runs', {})
-    assert.equal((await awaitRun(conv.id, continuation)).stopReason, 'completed')
-    await awaitRun(conv.id, next)
+    assert.equal((await awaitRun(orgAdmin, conv.id, continuation)).stopReason, 'completed')
+    await awaitRun(orgAdmin, conv.id, next)
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
     assert.equal(part.state, 'output-error')
     assert.equal(part.errorText, 'Approved, but it did not run: the turn continuing from the decision ended without reaching it.')
@@ -382,7 +374,7 @@ test.describe('The approval gate', () => {
     const parts = asking.parts.map((p: any) => p.type === 'dynamic-tool' && p.approval?.id === approvalId ? { ...p, approval: { ...p.approval, signature: 'forged' } } : p)
     await admin.post('/api/test-env/corrupt-message', { conversationId: conv.id, seq, parts })
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
-    assert.equal((await awaitRun(conv.id, runId)).status, 'error')
+    assert.equal((await awaitRun(orgAdmin, conv.id, runId)).status, 'error')
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
     assert.equal(part.state, 'output-error')
     assert.match(part.errorText, /^Approved, but it did not run: the approval could not be verified \(.*signature.*\)\.$/)
@@ -395,7 +387,7 @@ test.describe('The approval gate', () => {
     const agent = await createGatedAgent({ approvals: { write: 'approve' } })
     const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool bulk {"chars":150000}')
     const { runId } = await decideRun(conversationId, callPart(assistant, 'bulk').approval.id, { approved: true })
-    await awaitRun(conversationId, runId)
+    await awaitRun(orgAdmin, conversationId, runId)
     const part = callPart(await messageAt(conversationId, assistant.seq), 'bulk')
     assert.equal(part.state, 'output-available')
     assert.ok(part.toolMetadata.truncated?.totalChars > 150000, 'the size it had before the cut')
@@ -419,8 +411,8 @@ test.describe('The approval gate', () => {
     assert.equal(asking.pending, true)
 
     const { runId: answering } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
-    await awaitRun(conversationId, runId)
-    await awaitRun(conversationId, answering)
+    await awaitRun(orgAdmin, conversationId, runId)
+    await awaitRun(orgAdmin, conversationId, answering)
 
     const part = callPart(await messageAt(conversationId, asking.seq), 'wipe_everything')
     assert.equal(part.state, 'output-denied')

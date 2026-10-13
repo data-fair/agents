@@ -15,27 +15,15 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { MongoClient } from 'mongodb'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { putMockSettings } from '../../support/settings.ts'
 import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
 const OWNER = 'user/test-standalone1'
 
-const settingsData = {
-  providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } },
-  quotas: { admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
-  reviewPersonalAssistant: true
-}
+// External visitors unlimited, and the account offers review.
+const reviewSettings = { quotas: { external: { unlimited: true, monthlyLimit: 0 } }, reviewPersonalAssistant: true }
 
 let client: MongoClient
 let db: any
@@ -57,7 +45,7 @@ test.describe('Purging a conversation', () => {
 
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, OWNER, settingsData)
+    await putMockSettings(admin, OWNER, reviewSettings)
     await setReviewConsent(user, true)
   })
 

@@ -7,8 +7,9 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { awaitRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { decideOverSocketToRun, runOf, turnOverSocket } from '../../../dev/socket-turn.ts'
+import { decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -22,15 +23,6 @@ const turn = async (ax: typeof orgAdmin, target: string | { agentId: string }, c
 
 const callPart = (message: any, toolName: string) =>
   message.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === toolName)
-
-const awaitRun = async (conversationId: string, runId: string) => {
-  for (let i = 0; i < 120; i++) {
-    const run = await runOf(orgAdmin, conversationId, runId)
-    if (run.status !== 'running') return run
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  throw new Error('run never ended')
-}
 
 const createAgent = async (over: any = {}) => {
   const agent = (await admin.post(AGENTS, {
@@ -94,7 +86,7 @@ test.describe('Web access of autonomous agents', () => {
     assert.deepEqual((await admin.get(`${AGENTS}/${agent.id}`)).data.web.allowedUrls, ['https://github.com/data-fair'], 'nothing changes before the decision')
 
     const { runId } = await decideOverSocketToRun(orgAdmin, conversationId, part.approval.id, { approved: true })
-    const continuation = await awaitRun(conversationId, runId)
+    const continuation = await awaitRun(orgAdmin, conversationId, runId)
     assert.equal(continuation.trigger, 'approval')
     assert.deepEqual((await admin.get(`${AGENTS}/${agent.id}`)).data.web.allowedUrls, ['https://github.com/data-fair', 'https://docs.koumoul.com/'])
   })

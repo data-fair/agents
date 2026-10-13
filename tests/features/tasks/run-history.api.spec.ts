@@ -4,6 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
+import { awaitAgentRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
@@ -13,15 +14,6 @@ const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 const member = await axiosAuth('test1-user1', { org: 'test1' })
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
 const agentBase = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}`
-
-const awaitRun = async (agentId: string, runId: string) => {
-  for (let i = 0; i < 150; i++) {
-    const run = (await orgAdmin.get(`${agentBase(agentId)}/runs/${runId}`)).data
-    if (run.status !== 'running') return run
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  throw new Error('run never ended')
-}
 
 test.describe('Run history', () => {
   let fixture: McpFixture
@@ -40,7 +32,7 @@ test.describe('Run history', () => {
     const create = async (prompt: string) => (await admin.post(`${agentBase(agent.id)}/tasks`, { title: 'Probe', prompt, scheduling: [daily] })).data
     const run = async (task: any) => {
       const id = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
-      await awaitRun(agent.id, id)
+      await awaitAgentRun(orgAdmin, agent.id, id)
       return id
     }
     const attention = await run(await create('call tool report_outcome {"status":"needs-attention","summary":"look"}'))
@@ -95,11 +87,11 @@ test.describe('Run history', () => {
     const other = await make('Second')
     const task = (await admin.post(`${agentBase(other.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
     const otherRun = (await admin.post(`${agentBase(other.id)}/tasks/${task.id}/run`)).data.runId as string
-    await awaitRun(other.id, otherRun)
+    await awaitAgentRun(orgAdmin, other.id, otherRun)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${otherRun}`), { status: 404 })
 
     const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
-    await awaitRun(agent.id, runId)
+    await awaitAgentRun(orgAdmin, agent.id, runId)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}/export`), { status: 404 })
     const meta = (await orgAdmin.get(`${agentBase(agent.id)}/runs/${runId}`)).data
     assert.equal(meta.conversationId, conversationId)
@@ -116,9 +108,9 @@ test.describe('Run history', () => {
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const task = (await admin.post(`${agentBase(agent.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
     const taskRun = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
-    await awaitRun(agent.id, taskRun)
+    await awaitAgentRun(orgAdmin, agent.id, taskRun)
     const { runId: conversationRun } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
-    await awaitRun(agent.id, conversationRun)
+    await awaitAgentRun(orgAdmin, agent.id, conversationRun)
 
     const ids = async (kind: string) =>
       (await orgAdmin.get(`${agentBase(agent.id)}/runs`, { params: { kind } })).data.results.map((r: any) => r.id)

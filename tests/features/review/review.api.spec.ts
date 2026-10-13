@@ -14,7 +14,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { putMockSettings } from '../../support/settings.ts'
 import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const user = await axiosAuth('test-standalone1')
@@ -22,26 +22,12 @@ const admin = await superAdmin
 // a member of organization/test1, so their threads on the org account are attributable to them
 const orgMemberUser = await axiosAuth('test1-user1')
 
-const settingsData = (reviewPersonalAssistant: boolean) => ({
-  providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: { admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
-  reviewPersonalAssistant
-})
+// External visitors unlimited; whether the account offers review is the test's.
+const reviewSettings = (reviewPersonalAssistant: boolean) => ({ quotas: { external: { unlimited: true, monthlyLimit: 0 } }, reviewPersonalAssistant })
 
 /** Configure the account, answer the consent question, and run one turn. */
 async function chat (reviewPersonalAssistant: boolean, consented: boolean, owner = 'user/test-standalone1', ax = user) {
-  await putSettings(admin, owner, settingsData(reviewPersonalAssistant))
+  await putMockSettings(admin, owner, reviewSettings(reviewPersonalAssistant))
   await setReviewConsent(ax, consented)
   const { conversationId } = await runTurn(ax, owner)
   return conversationId

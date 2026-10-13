@@ -17,7 +17,7 @@
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { putMockSettings } from '../../support/settings.ts'
 import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const admin = await superAdmin
@@ -25,28 +25,8 @@ const admin = await superAdmin
 // Assigned per test by the turn that creates it: the server owns conversation ids.
 let convId = ''
 
-const settingsData = {
-  providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: {
-    admin: { unlimited: true, monthlyLimit: 0 },
-    contrib: { unlimited: false, monthlyLimit: 0 },
-    user: { unlimited: false, monthlyLimit: 0 },
-    external: { unlimited: true, monthlyLimit: 0 },
-    anonymous: { unlimited: false, monthlyLimit: 0 }
-  },
-  reviewPersonalAssistant: true
-}
+// External visitors unlimited, and the account offers review.
+const reviewSettings = { quotas: { external: { unlimited: true, monthlyLimit: 0 } }, reviewPersonalAssistant: true }
 
 async function waitForReviewable (conversationId: string) {
   for (let i = 0; i < 60; i++) {
@@ -60,7 +40,7 @@ async function waitForReviewable (conversationId: string) {
 test.describe('Activity page', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'organization/test1', settingsData)
+    await putMockSettings(admin, 'organization/test1', reviewSettings)
 
     // A real turn is what makes a conversation reviewable; consent travels in the cookie.
     await setReviewConsent(admin, true)

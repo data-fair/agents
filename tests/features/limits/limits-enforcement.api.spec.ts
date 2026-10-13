@@ -12,7 +12,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { putMockSettings, mockModelRef } from '../../support/settings.ts'
 import { runTurn } from '../../support/turn.ts'
 
 // matches api/config/development.js secretKeys.limits
@@ -21,37 +21,9 @@ const SECRET = 'secretlimits'
 const admin = await superAdmin
 const test1Admin = await axiosAuth('test1-admin1', { org: 'test1' }) // admin of organization/test1
 
-const settingsData = {
-  providers: [
-    {
-      id: 'mock-provider',
-      type: 'mock',
-      name: 'Mock Provider',
-      enabled: true
-    }
-  ],
-  // pricing is irrelevant here: the org cap is enforced from the pushed
-  // limits doc, before any usage/cost is computed from a real call
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 8_000,
-      outputPricePerMillion: 8_000
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: {
-    admin: { unlimited: true, monthlyLimit: 0 },
-    contrib: { unlimited: false, monthlyLimit: 0 },
-    user: { unlimited: false, monthlyLimit: 0 },
-    external: { unlimited: false, monthlyLimit: 0 },
-    anonymous: { unlimited: false, monthlyLimit: 0 },
-    untrusted: { unlimited: false, monthlyLimit: 0 }
-  }
-}
+// Pricing is irrelevant here: the org cap is enforced from the pushed limits doc, before any usage or
+// cost is computed from a real call.
+const pricedSettings = { models: [{ model: mockModelRef, usage: ['assistant'], inputPricePerMillion: 8_000, outputPricePerMillion: 8_000 }] }
 
 async function pushLimits (limit: number, consumption: number) {
   const res = await test1Admin.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
@@ -71,7 +43,7 @@ async function lastAssistantText (owner: string, conversationId: string) {
 test.describe('org credit cap enforcement', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'organization/test1', settingsData)
+    await putMockSettings(admin, 'organization/test1', pricedSettings)
   })
 
   test('a turn is refused, naming the account scope, when consumption reaches the pushed limit', async () => {

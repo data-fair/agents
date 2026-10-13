@@ -9,8 +9,8 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 import { waitForPageTools } from '../../support/page-tools.ts'
 
 const admin = await superAdmin
@@ -27,28 +27,10 @@ const seedFullPanelCookie = (page: Page) => seedFlagsCookie(page, false)
 // Simplified chip rendering (the product default).
 const seedChipCookie = (page: Page) => seedFlagsCookie(page, true)
 
-const settingsData = {
-  providers: [
-    { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
-  ],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: defaultQuotas
-}
-
 test.describe('Chat Sub-Agent UI', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
   })
 
   test('Page loads with correct title and UI elements', async ({ page, goToWithAuth }) => {

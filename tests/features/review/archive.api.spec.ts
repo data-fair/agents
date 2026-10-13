@@ -13,7 +13,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { putMockSettings } from '../../support/settings.ts'
 import { runTurn, setReviewConsent } from '../../support/turn.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 
@@ -21,23 +21,11 @@ const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
 const OWNER = 'user/test-standalone1'
 
-const settingsData = (reviewPersonalAssistant: boolean) => ({
-  providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } },
-  quotas: { admin: { unlimited: true, monthlyLimit: 0 }, contrib: { unlimited: false, monthlyLimit: 0 }, user: { unlimited: false, monthlyLimit: 0 }, external: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: false, monthlyLimit: 0 } },
-  reviewPersonalAssistant
-})
+// External visitors unlimited; whether the account offers review is the test's.
+const reviewSettings = (reviewPersonalAssistant: boolean) => ({ quotas: { external: { unlimited: true, monthlyLimit: 0 } }, reviewPersonalAssistant })
 
 const chat = async (reviewPersonalAssistant: boolean, consented: boolean) => {
-  await putSettings(admin, OWNER, settingsData(reviewPersonalAssistant))
+  await putMockSettings(admin, OWNER, reviewSettings(reviewPersonalAssistant))
   await setReviewConsent(user, consented)
   const { conversationId } = await runTurn(user, OWNER)
   return conversationId

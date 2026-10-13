@@ -4,6 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { awaitRun } from '../../support/turn.ts'
 import { putMockSettings, mockModels, mockModelRef } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { partsText } from '../../../api/src/conversations/operations.ts'
@@ -35,15 +36,6 @@ const createAgent = async (over: any = {}) =>
 // message, restart sweep. The agents here are deliberately left unconfigured and unenrolled,
 // so their turns refuse; that is fine, because a refusal exercises the same lifecycle. The
 // 'model loop' and 'budgets' blocks below configure a model and cover successful turns.
-/** Wait for a run to reach a terminal state. */
-const awaitRun = async (conversationId: string, runId: string, tries = 120) => {
-  for (let i = 0; i < tries; i++) {
-    const run = await runOf(orgAdmin, conversationId, runId)
-    if (run.status !== 'running') return run
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  throw new Error('run never reached a terminal status')
-}
 
 test.describe('Autonomous agent conversations', () => {
   // Conversations this spec locked through the dev seam. The dev-api holds the lock under its
@@ -753,7 +745,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const { conv, runId } = await startTurn(agent.id, 'hello')
-    const run = await awaitRun(conv.id, runId)
+    const run = await awaitRun(orgAdmin, conv.id, runId)
 
     assert.equal(run.status, 'error')
     // credits and steps at zero are what prove the refusal landed BEFORE the model ran.
@@ -775,7 +767,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // Non-zero prices, otherwise a mock turn costs 0 credits and records nothing at all.
     await putMockSettings(admin, 'organization/test1', { models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000 }) })
     const { conv, runId } = await startTurn(agent.id, 'hello')
-    const run = await awaitRun(conv.id, runId)
+    const run = await awaitRun(orgAdmin, conv.id, runId)
     assert.equal(run.status, 'done')
     assert.ok(run.credits > 0, 'a priced turn must record what it cost')
 
@@ -792,7 +784,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // in fewer steps than the repeated-call guard would have taken.
     await putMockSettings(admin, 'organization/test1', { models: mockModels({ inputPricePerMillion: 100_000_000, outputPricePerMillion: 100_000_000 }) })
     const { conv, runId } = await startTurn(agent.id, 'loop forever')
-    const run = await awaitRun(conv.id, runId)
+    const run = await awaitRun(orgAdmin, conv.id, runId)
 
     assert.equal(run.stopReason, 'budget')
     assert.ok(run.steps < 5, `expected the budget to stop the turn before the repeated-call guard, got ${run.steps} steps`)
@@ -822,7 +814,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
       models: mockModels({ inputPricePerMillion: 4_000, outputPricePerMillion: 4_000 })
     })
     const { conv, runId } = await startTurn(agent.id, 'loop forever')
-    const run = await awaitRun(conv.id, runId)
+    const run = await awaitRun(orgAdmin, conv.id, runId)
 
     assert.ok(run.endedAt, 'the turn must end rather than run on')
     const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
@@ -846,7 +838,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // The chat's Stop: a conversation turn is stopped over its socket, not by a route.
     turn.abort()
 
-    const run = await awaitRun(conv.id, runId)
+    const run = await awaitRun(orgAdmin, conv.id, runId)
     assert.equal(run.status, 'aborted')
     assert.equal(run.stopReason, 'aborted')
     const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
@@ -869,7 +861,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
       title: agent.title, persona: agent.persona, mcpServers: [], enabled: false
     })
 
-    const run = await awaitRun(conv.id, runId)
+    const run = await awaitRun(orgAdmin, conv.id, runId)
     assert.equal(run.status, 'aborted', 'the live turn must have been stopped by the disable')
     assert.ok(run.endedAt)
     const assistant = (await messagesOf(conv.id)).find((m: any) => m.role === 'assistant')
@@ -884,7 +876,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const { conv, runId } = await startTurn(agent.id, 'hello')
-    await awaitRun(conv.id, runId)
+    await awaitRun(orgAdmin, conv.id, runId)
     assert.ok((await messagesOf(conv.id)).length >= 2, 'the thread has to exist before deleting proves anything')
 
     await admin.delete(`/api/autonomous-agents/organization/test1/${agent.id}`)
@@ -901,9 +893,9 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
     await enrol(agent.id)
     const { conv, runId } = await startTurn(agent.id, 'hello')
-    await awaitRun(conv.id, runId)
+    await awaitRun(orgAdmin, conv.id, runId)
     const other = await startTurn(agent.id, 'hello')
-    await awaitRun(other.conv.id, other.runId)
+    await awaitRun(orgAdmin, other.conv.id, other.runId)
 
     const res = await orgAdmin.delete(`/api/conversations/organization/test1/${conv.id}`)
     assert.equal(res.status, 204)
@@ -953,7 +945,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
 
     // The owner's Stop, against a LIVE turn.
     live.turn.abort()
-    assert.equal((await awaitRun(live.conv.id, live.runId)).status, 'aborted')
+    assert.equal((await awaitRun(orgAdmin, live.conv.id, live.runId)).status, 'aborted')
   })
 })
 
@@ -974,7 +966,7 @@ test.describe('Autonomous agent turn close', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, content)
-    const run = await awaitRun(conversationId, runId)
+    const run = await awaitRun(orgAdmin, conversationId, runId)
     return { conv: { id: conversationId }, run }
   }
 

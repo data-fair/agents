@@ -7,8 +7,9 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { awaitRun } from '../../support/turn.ts'
 import { putMockSettings, mockModels } from '../../support/settings.ts'
-import { startTurnOverSocket, runOf } from '../../../dev/socket-turn.ts'
+import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -19,17 +20,10 @@ const createAgent = async (memory = true) => {
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
   return agent
 }
-const awaitRun = async (conversationId: string, runId: string) => {
-  for (let i = 0; i < 100; i++) {
-    if ((await runOf(orgAdmin, conversationId, runId)).status !== 'running') return
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  throw new Error('run never ended')
-}
 /** A turn, waited for: the first of a new thread with an agent, or one in an existing thread. Returns the thread. */
 const say = async (target: string | { agentId: string }, content: string) => {
   const { runId, conversationId } = await startTurnOverSocket(orgAdmin, target, content)
-  await awaitRun(conversationId, runId)
+  await awaitRun(orgAdmin, conversationId, runId)
   return conversationId
 }
 const consolidate = async (agentId: string, extra: any = {}) => (await admin.post('/api/test-env/consolidate-memory', { agentId, ...extra })).data

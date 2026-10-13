@@ -6,8 +6,9 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { awaitRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { decideOverSocket, decideOverSocketToRun, runOf, turnOverSocket } from '../../../dev/socket-turn.ts'
+import { decideOverSocket, decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -40,14 +41,6 @@ const callPart = (message: any, toolName: string) => message.parts.find((p: any)
 const offeredTools = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 const messageAt = async (conversationId: string, seq: number) =>
   (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
-const awaitRun = async (conversationId: string, runId: string) => {
-  for (let i = 0; i < 120; i++) {
-    const run = await runOf(orgAdmin, conversationId, runId)
-    if (run.status !== 'running') return run
-    await new Promise(resolve => setTimeout(resolve, 100))
-  }
-  throw new Error('run never ended')
-}
 
 /** An administrator asks for a call; the turn ends on its approval card. */
 const ask = async (agentId: string, toolName: string, input: unknown) => {
@@ -58,7 +51,7 @@ const ask = async (agentId: string, toolName: string, input: unknown) => {
 /** Decide the pending call and wait for the continuation; the call's part as settled on its message. */
 const decide = async (asked: Awaited<ReturnType<typeof ask>>, toolName: string, decision: { approved: boolean, reason?: string }) => {
   const { runId } = await decideOverSocketToRun(orgAdmin, asked.conversationId, asked.part.approval.id, decision)
-  const run = await awaitRun(asked.conversationId, runId)
+  const run = await awaitRun(orgAdmin, asked.conversationId, runId)
   return { run, part: callPart(await messageAt(asked.conversationId, asked.seq), toolName) }
 }
 
@@ -202,7 +195,7 @@ test.describe('Planning tools', () => {
     assert.deepEqual(await tasksOf(agent.id), [])
     // Rejecting stays anyone's who may decide.
     const { runId } = await decideOverSocketToRun(adminElsewhere, asked.conversationId, asked.part.approval.id, { approved: false })
-    await awaitRun(asked.conversationId, runId)
+    await awaitRun(orgAdmin, asked.conversationId, runId)
     assert.equal(callPart(await messageAt(asked.conversationId, asked.seq), 'plan_task').state, 'output-denied')
   })
 

@@ -5,50 +5,22 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, anonymousAx, clean, getAnonymousActionToken } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { putMockSettings, mockModelRef } from '../../support/settings.ts'
 import { runTurn } from '../../support/turn.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
 const otherUser = await axiosAuth('test1-user1')
 
-const settingsData = {
-  providers: [
-    {
-      id: 'mock-provider',
-      type: 'mock',
-      name: 'Mock Provider',
-      enabled: true
-    }
-  ],
-  // 8 000 EUR/M at the 0.008 EUR/credit peg makes one token cost one credit
-  // (credits = tokens × price / 1e6 / eurosPerCredit), so a single mock request
-  // produces a measurable, non-zero usage record. This suite deliberately keeps
-  // non-zero prices: it is the one that exercises the pricing formula end to end.
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 8_000,
-      outputPricePerMillion: 8_000
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: {
-    admin: { unlimited: true, monthlyLimit: 0 },
-    contrib: { unlimited: false, monthlyLimit: 0 },
-    user: { unlimited: false, monthlyLimit: 0 },
-    external: { unlimited: false, monthlyLimit: 0 },
-    anonymous: { unlimited: false, monthlyLimit: 0 }
-  }
-}
+// 8 000 EUR/M at the 0.008 EUR/credit peg makes one token cost one credit (credits = tokens × price / 1e6 /
+// eurosPerCredit), so a single mock request produces a measurable, non-zero usage record. This suite
+// deliberately keeps non-zero prices: it is the one that exercises the pricing formula end to end.
+const pricedSettings = { models: [{ model: mockModelRef, usage: ['assistant'], inputPricePerMillion: 8_000, outputPricePerMillion: 8_000 }] }
 
 test.describe('Usage API', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1', pricedSettings)
   })
 
   test('should return usage with limits after a turn', async () => {
@@ -135,7 +107,7 @@ test.describe('Anonymous Usage', () => {
   // is not — is covered where it is served, over the agent session:
   // tests/features/agent-session/anonymous-chat.api.spec.ts.
   test('should deny anonymous summary access with default quotas', async () => {
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1', pricedSettings)
 
     await assert.rejects(
       anonymousAx.post('/api/summary/user/test-standalone1', {
@@ -146,14 +118,7 @@ test.describe('Anonymous Usage', () => {
   })
 
   test('should allow anonymous summary access when anonymous quota is configured', async () => {
-    const settingsWithAnonymous = {
-      ...settingsData,
-      quotas: {
-        ...settingsData.quotas,
-        anonymous: { unlimited: false, monthlyLimit: 10 }
-      }
-    }
-    await putSettings(admin, 'user/test-standalone1', settingsWithAnonymous)
+    await putMockSettings(admin, 'user/test-standalone1', { ...pricedSettings, quotas: { anonymous: { unlimited: false, monthlyLimit: 10 } } })
 
     const token = await getAnonymousActionToken()
     const res = await anonymousAx.post('/api/summary/user/test-standalone1', {

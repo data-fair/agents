@@ -11,7 +11,7 @@
  */
 
 import type { AxiosInstance } from 'axios'
-import { turnOverSocket } from '../../dev/socket-turn.ts'
+import { turnOverSocket, runOf } from '../../dev/socket-turn.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../ui/src/review/review-consent.ts'
 
 const apiOrigin = `http://localhost:${process.env.NGINX_PORT}/agents`
@@ -47,4 +47,26 @@ export async function runTurn (
   const target = opts?.conversationId ?? { agentId: opts?.agentId ?? 'personal', title: opts?.title ?? 'test turn' }
   const { runId, conversationId } = await turnOverSocket(ax, target, content, { owner })
   return { conversationId, runId }
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** Wait for a conversation's run to reach a terminal status, and return it. */
+export async function awaitRun (ax: AxiosInstance, conversationId: string, runId: string, tries = 120) {
+  for (let i = 0; i < tries; i++) {
+    const run = await runOf(ax, conversationId, runId)
+    if (run.status !== 'running') return run
+    await sleep(100)
+  }
+  throw new Error(`run ${runId} never reached a terminal status`)
+}
+
+/** The same for any run of an agent of organization/test1 — a task run has no conversation. */
+export async function awaitAgentRun (ax: AxiosInstance, agentId: string, runId: string, tries = 150) {
+  for (let i = 0; i < tries; i++) {
+    const run = (await ax.get(`/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`)).data
+    if (run.status !== 'running') return run
+    await sleep(100)
+  }
+  throw new Error(`run ${runId} never reached a terminal status`)
 }
