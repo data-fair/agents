@@ -276,6 +276,7 @@ A task run's target is the other implementation: its record is the run itself (`
 - `memory`: a configured agent with memory enabled (`memoryEnabledFor`), on every surface. Provenance server `agent-memory`.
 - web readers (`api/src/web`): a configured agent with `web.enabled`, on every surface. Provenance server `agent-web`.
 - files (`ls`, `read_file`, `write_file`; `api/src/files`): a configured agent, on every surface, when the deployment has a file store. Provenance server `agent-files`. See [Agent files](./agent-files.md).
+- `read_skill`: whenever one of the turn's tool servers publishes skills or instructions, on every surface, the personal assistant included; read-only, with its own skill envelope instead of the tool-result one. Provenance server `agent-skills`. See [MCP tools](./mcp-tools.md#server-instructions-and-skills).
 - self-knowledge (`get_my_configuration`, `list_my_runs`, `read_conversation`): a configured agent, on every surface, read-only; it reads all of the agent's past runs and conversations, whoever had them. Provenance server `agent-self`.
 - planning (`plan_task`, `update_task`, `delete_task`): a configured agent in a chat an administrator started, each call approved by an administrator; see [planned tasks](./planned-tasks.md#self-knowledge-and-planning). Provenance server `agent-self`.
 - `report_outcome`: the task surface only, how a planned task's run reports its outcome. Provenance server `agent-service`.

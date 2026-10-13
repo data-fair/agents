@@ -227,6 +227,23 @@ export const cases: LocalCase[] = [
     maxTurns: 6
   },
   {
+    // SERVER SKILLS (docs/architecture/mcp-tools.md, "Server instructions and skills"): the dev MCP server
+    // publishes a `closures` skill (tests/support/mcp-fixture.ts, FIXTURE_SKILLS) saying to call
+    // list_road_closures with the district and quote the reopening date, and instructions saying to always
+    // give the district. What the judge checks, from the export: the agent called read_skill for
+    // skill://fixture/closures/SKILL.md BEFORE list_road_closures, and its answer names the district and the
+    // reopening dates as the skill and the instructions say. Needs `npm run dev-mcp` restarted after the
+    // fixture gained its skills.
+    name: 'autonomous-agent-server-skill',
+    route: '/agents/organization/test1/chat?agentId=test-fixture',
+    surface: 'autonomous-agent',
+    user: 'test1-user1',
+    agent: { mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }] },
+    persona: 'You are a delivery dispatcher planning tomorrow\'s routes. You are busy and practical, you never talk about tools or systems, and you want answers you can act on.',
+    goal: 'You want to know which streets are closed in the riverside district and when each one reopens, so you can route around them. A vague answer without streets and dates is not useful to you; ask again if you get one.',
+    maxTurns: 4
+  },
+  {
     // The other half of "uses its tools and reports usefully": what it does when it cannot.
     name: 'autonomous-agent-cannot-answer',
     route: '/agents/organization/test1/chat?agentId=test-fixture',
