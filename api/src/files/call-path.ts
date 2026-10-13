@@ -12,11 +12,14 @@ import type { Tool } from 'ai'
 import { isMediaToolResult } from '@agents/shared/tool-result'
 import type { SourcedTool } from '../conversations/operations.ts'
 import type { TurnFiles } from './turn-files.ts'
-import { scrubUrls } from './operations.ts'
+import type { OpenedDownload } from './download.ts'
+import { scrubUrls, isLinkedToolResult, storedNameForLink, uniqueName, rewriteLinkText, formatBytes, type LinkedToolResult, type LinkOrigin, type ResourceLink } from './operations.ts'
 
 export interface CallPathContext {
   /** The turn's files; undefined when files are off (the personal assistant, or no store). */
   files?: TurnFiles
+  /** Opens a link a tool returned, under the credential rule (api/src/files/download.ts createLinkOpener). Set with files. */
+  openLink?: (link: ResourceLink, origin: LinkOrigin, signal?: AbortSignal) => Promise<OpenedDownload>
 }
 
 const scrubOutput = (output: unknown, signed: Map<string, string>): unknown => {
@@ -25,6 +28,40 @@ const scrubOutput = (output: unknown, signed: Map<string, string>): unknown => {
   if (isMediaToolResult(output)) return { ...output, ...(output.text !== undefined ? { text: scrubUrls(output.text, signed) } : {}) }
   if (output && typeof output === 'object') return JSON.parse(scrubUrls(JSON.stringify(output), signed))
   return output
+}
+
+/**
+ * A link result becomes stored files (spec §4.2): each link fetched under the credential rule, named from its
+ * response, stored, and its URL in the text replaced by the stored path. Without files, the text unchanged —
+ * today's behaviour, where links were dropped and the text kept.
+ */
+const storeLinks = async (result: LinkedToolResult, ctx: CallPathContext, signal?: AbortSignal): Promise<string> => {
+  if (!ctx.files || !ctx.openLink) return result.text
+  const used = new Set<string>()
+  const saved: { uri: string, path: string, line: string }[] = []
+  for (const link of result.links) {
+    let opened: OpenedDownload
+    try {
+      opened = await ctx.openLink(link, { catalog: result.catalog, ...(result.site ? { site: result.site } : {}) }, signal)
+    } catch (err: any) {
+      throw new Error(`Could not save the file linked as "${link.name || link.uri}": ${err?.message ?? err}`)
+    }
+    const name = uniqueName(storedNameForLink({ contentDisposition: opened.contentDisposition, contentType: opened.contentType, link }), used)
+    const file = await ctx.files.save(name, opened.body, opened.contentLength)
+    saved.push({ uri: link.uri, path: file.path, line: `${file.path} (${file.mimeType}, ${formatBytes(file.size)})` })
+  }
+  // Longest URL first: one link's URL may be the start of another's (`…/raw` and `…/raw?format=csv`).
+  let text = result.text
+  for (const { uri, path } of [...saved].sort((a, b) => b.uri.length - a.uri.length)) text = rewriteLinkText(text, uri, path)
+  return `${text}\n\nSaved to your files: ${saved.map(s => s.line).join(', ')}.`
+}
+
+/** An error with a signed URL scrubbed from its message, stack and cause chain, in place (the identity is kept for the loop). */
+const scrubError = (err: Error, signed: Map<string, string>, depth = 0) => {
+  err.message = scrubUrls(err.message, signed)
+  if (err.stack) err.stack = scrubUrls(err.stack, signed)
+  if (err.cause instanceof Error && depth < 5) scrubError(err.cause, signed, depth + 1)
+  else if (err.cause !== undefined) err.cause = scrubUrls(String(err.cause), signed)
 }
 
 const toSignedUrls = async (args: unknown, fileArgs: string[], files: TurnFiles, signed: Map<string, string>) => {
@@ -53,10 +90,11 @@ export const withCallPath = (sourced: SourcedTool, ctx: CallPathContext): Tool =
       try {
         output = await execute(input, opts)
       } catch (err) {
-        if (err instanceof Error && signed.size) err.message = scrubUrls(err.message, signed)
+        if (err instanceof Error && signed.size) scrubError(err, signed)
         throw err
       }
-      return scrubOutput(output, signed)
+      const scrubbed = scrubOutput(output, signed)
+      return isLinkedToolResult(scrubbed) ? await storeLinks(scrubbed, ctx, opts?.abortSignal) : scrubbed
     }
   } as Tool
 }

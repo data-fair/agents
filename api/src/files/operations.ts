@@ -272,3 +272,88 @@ export const scrubUrls = (text: string, replacements: Map<string, string>): stri
   }
   return scrubbed
 }
+
+// ---- links (spec §4.2) ----
+
+export interface ResourceLink { uri: string, name: string, mimeType?: string }
+
+/** Where a link came from: a catalog server or not, and the site its call was bound to (a site-bound entry). */
+export interface LinkOrigin { catalog: boolean, site?: string }
+
+/** An MCP result carrying links, until the call path stores them; never stored or shown as such. */
+export interface LinkedToolResult extends LinkOrigin {
+  _agentsLinkResult: true
+  text: string
+  links: ResourceLink[]
+}
+
+export const isLinkedToolResult = (value: unknown): value is LinkedToolResult =>
+  !!value && typeof value === 'object' && (value as LinkedToolResult)._agentsLinkResult === true && Array.isArray((value as LinkedToolResult).links)
+
+/** The http(s) `resource_link`s of an MCP result (MCP 2026-07-28: a URI the client fetches itself). */
+export const resourceLinksOf = (callResult: { content?: unknown[] }): ResourceLink[] =>
+  (callResult.content ?? []).flatMap((item: any) =>
+    item?.type === 'resource_link' && typeof item.uri === 'string' && /^https?:\/\//i.test(item.uri)
+      ? [{ uri: item.uri, name: typeof item.name === 'string' ? item.name : '', ...(typeof item.mimeType === 'string' ? { mimeType: item.mimeType } : {}) }]
+      : [])
+
+/** A formatted result with its links attached, for the call path. Only a text result: images keep today's behaviour. */
+export const withResourceLinks = <T>(formatted: T, callResult: { content?: unknown[] }, origin: LinkOrigin): T | LinkedToolResult => {
+  const links = resourceLinksOf(callResult)
+  if (!links.length || typeof formatted !== 'string') return formatted
+  return { _agentsLinkResult: true, text: formatted, links, catalog: origin.catalog, ...(origin.site ? { site: origin.site } : {}) }
+}
+
+/**
+ * THE CREDENTIAL RULE (spec §4.2): a link is fetched as its call was made — with the call's session, when it
+ * had one — only when a CATALOG server returned it and its origin is the site that call was bound to. The
+ * URL is then the output of a tool an admin selected, on the site the call acted on. Anything else is
+ * fetched anonymously, under fetch_url's allowlist. Returns that site's origin, or undefined.
+ */
+export const linkCredentialSite = (uri: string, origin: LinkOrigin): string | undefined => {
+  if (!origin.catalog || !origin.site) return undefined
+  try {
+    const site = new URL(origin.site).origin
+    return new URL(uri).origin === site ? site : undefined
+  } catch {
+    return undefined
+  }
+}
+
+/** The file name of a Content-Disposition header: `filename*` (RFC 5987) first, then `filename`. */
+export const dispositionFilename = (header: string | undefined): string | undefined => {
+  if (!header) return undefined
+  const star = /filename\*\s*=\s*[^']*'[^']*'([^;]+)/i.exec(header)
+  if (star) {
+    try { return decodeURIComponent(star[1].trim().replace(/^"|"$/g, '')) } catch {}
+  }
+  const quoted = /filename\s*=\s*"((?:\\.|[^"\\])*)"/i.exec(header)
+  if (quoted) return quoted[1].replace(/\\(.)/g, '$1')
+  return /filename\s*=\s*([^;\s]+)/i.exec(header)?.[1]
+}
+
+/**
+ * The stored name of a fetched link: the response's Content-Disposition, else the link's name, else its
+ * URL's last segment — then an extension from the response type, else the link's type, else `.bin`.
+ * data-fair's /raw and /convert URLs carry no extension, and a file stored without one could not be
+ * uploaded again (data-fair types an upload by its name).
+ */
+export const storedNameForLink = (input: { contentDisposition?: string, contentType?: string, link: ResourceLink }): string => {
+  const lastSegment = (() => { try { return decodeURIComponent(new URL(input.link.uri).pathname.split('/').pop() ?? '') } catch { return '' } })()
+  const name = fileNameFrom(dispositionFilename(input.contentDisposition) || input.link.name || lastSegment)
+  if (extensionOf(name)) return name
+  const ext = extensionForType(input.contentType) ?? extensionForType(input.link.mimeType) ?? 'bin'
+  return fileNameFrom(`${name.slice(0, 100 - ext.length - 1)}.${ext}`)
+}
+
+export const uniqueName = (name: string, used: Set<string>): string => {
+  let candidate = name
+  const ext = extensionOf(name)
+  const base = ext ? name.slice(0, -ext.length - 1) : name
+  for (let i = 2; used.has(candidate); i++) candidate = ext ? `${base}-${i}.${ext}` : `${base}-${i}`
+  used.add(candidate)
+  return candidate
+}
+
+/** The link's text block names its URL (spec §4.2 seams): the model reads the stored path there instead. */
+export const rewriteLinkText = (text: string, uri: string, path: string): string => text.split(uri).join(path)

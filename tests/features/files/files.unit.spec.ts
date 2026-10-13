@@ -6,7 +6,8 @@ import assert from 'node:assert/strict'
 import {
   isStoredName, parseFilePath, fileNameFrom, extensionOf, isValidScope, scopeOfRun, scopePrefix, fileKey,
   mimeTypeOf, isTextType, extensionForType, fileSignature, signedFileUrl, checkFileSignature, formatBytes,
-  noSuchFileMessage, assertFilesConfig, FileError, SIGNED_URL_TTL_SECONDS, fileArgumentsOf, scrubUrls
+  noSuchFileMessage, assertFilesConfig, FileError, SIGNED_URL_TTL_SECONDS, fileArgumentsOf, scrubUrls,
+  resourceLinksOf, withResourceLinks, isLinkedToolResult, linkCredentialSite, dispositionFilename, storedNameForLink, uniqueName, rewriteLinkText
 } from '../../../api/src/files/operations.ts'
 
 const scope = { ownerType: 'organization' as const, ownerId: 'test1', scopeId: 'conv1' }
@@ -164,5 +165,56 @@ test.describe('file arguments', () => {
     const replacements = new Map([['http://agents/api/files/organization/t/c/a.csv?exp=1&sig=x', '/a.csv']])
     assert.equal(scrubUrls('could not fetch http://agents/api/files/organization/t/c/a.csv?exp=1&sig=x: 403', replacements), 'could not fetch /a.csv: 403')
     assert.equal(scrubUrls('GET http://agents/api/files/organization/t/c/a.csv failed', replacements), 'GET /a.csv failed')
+  })
+})
+
+test.describe('links', () => {
+  const link = { uri: 'https://portal.example.org/data-fair/api/v1/datasets/roads/raw', name: 'roads' }
+
+  test('resource_link contents are read; a text-only or image result is left as it is', () => {
+    const result = { content: [{ type: 'resource_link', uri: link.uri, name: 'roads' }, { type: 'text', text: `Download: ${link.uri}` }] }
+    assert.deepEqual(resourceLinksOf(result), [link])
+    const wrapped = withResourceLinks(`Download: ${link.uri}`, result, { catalog: true, site: 'https://portal.example.org' })
+    assert.ok(isLinkedToolResult(wrapped))
+    assert.deepEqual(wrapped, { _agentsLinkResult: true, text: `Download: ${link.uri}`, links: [link], catalog: true, site: 'https://portal.example.org' })
+    assert.equal(withResourceLinks('plain', { content: [{ type: 'text', text: 'plain' }] }, { catalog: true }), 'plain')
+    const media = { _agentsMediaResult: true as const, media: [] }
+    assert.equal(withResourceLinks(media, result, { catalog: true }), media)
+    assert.deepEqual(resourceLinksOf({ content: [{ type: 'resource_link', uri: 'file:///etc/passwd', name: 'x' }] }), [])
+  })
+
+  test('credentials only for a catalog link on the very site its call was bound to', () => {
+    assert.equal(linkCredentialSite(link.uri, { catalog: true, site: 'https://portal.example.org' }), 'https://portal.example.org')
+    assert.equal(linkCredentialSite(link.uri, { catalog: true, site: 'https://other.example.org' }), undefined)
+    assert.equal(linkCredentialSite(link.uri, { catalog: true }), undefined, 'not site-bound: anonymous')
+    assert.equal(linkCredentialSite(link.uri, { catalog: false, site: 'https://portal.example.org' }), undefined, 'external: anonymous')
+    assert.equal(linkCredentialSite('http://portal.example.org/x', { catalog: true, site: 'https://portal.example.org' }), undefined, 'another scheme is another origin')
+    assert.equal(linkCredentialSite('not a url', { catalog: true, site: 'https://portal.example.org' }), undefined)
+  })
+
+  test('the file name comes from Content-Disposition, else the link name, with an extension from the type', () => {
+    assert.equal(dispositionFilename('attachment; filename="roads 2026.csv"'), 'roads 2026.csv')
+    assert.equal(dispositionFilename("attachment; filename*=UTF-8''r%C3%A9sum%C3%A9.csv; filename=\"resume.csv\""), 'résumé.csv')
+    assert.equal(dispositionFilename('attachment; filename=plain.json'), 'plain.json')
+    assert.equal(dispositionFilename(undefined), undefined)
+    assert.equal(storedNameForLink({ contentDisposition: 'attachment; filename="roads 2026.csv"', contentType: 'text/csv', link }), 'roads-2026.csv')
+    assert.equal(storedNameForLink({ contentType: 'text/csv; charset=utf-8', link }), 'roads.csv')
+    assert.equal(storedNameForLink({ contentType: 'application/octet-stream', link }), 'roads.bin')
+    assert.equal(storedNameForLink({ link: { ...link, mimeType: 'application/json' } }), 'roads.json')
+    assert.equal(storedNameForLink({ link: { uri: 'https://x/a/b/report.xlsx', name: '' } }), 'report.xlsx')
+    for (const input of [{ contentType: 'text/csv', link }, { link }, { contentType: 'x/unknown', link: { uri: 'https://x/', name: '' } }]) {
+      assert.equal(isStoredName(storedNameForLink(input)), true, JSON.stringify(input))
+    }
+  })
+
+  test('two links with the same name are stored under distinct names', () => {
+    const used = new Set<string>()
+    assert.equal(uniqueName('a.csv', used), 'a.csv')
+    assert.equal(uniqueName('a.csv', used), 'a-2.csv')
+    assert.equal(uniqueName('a.csv', used), 'a-3.csv')
+  })
+
+  test('the link URL in the text becomes the stored path', () => {
+    assert.equal(rewriteLinkText(`Download: ${link.uri} (and ${link.uri})`, link.uri, '/roads.csv'), 'Download: /roads.csv (and /roads.csv)')
   })
 })

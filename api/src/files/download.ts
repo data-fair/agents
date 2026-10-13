@@ -14,7 +14,8 @@ import { request, type Agent } from 'undici'
 import { checkUrl, displayUrl } from '../web/operations.ts'
 import { USER_AGENT } from '../web/client.ts'
 import { envPublicIps, ipList, isPublicAddress, publicDispatcher } from '../web/public-lookup.ts'
-import { parseFilePath } from './operations.ts'
+import type { SiteCredentials } from '../mcp-servers/operations.ts'
+import { parseFilePath, linkCredentialSite, type LinkOrigin, type ResourceLink } from './operations.ts'
 import type { TurnFiles } from './turn-files.ts'
 
 export interface OpenedDownload {
@@ -121,3 +122,19 @@ export const saveUrl = async (opts: { url: string, path: string, allowedUrls: st
   const file = await opts.files.save(name, opened.body, opened.contentLength)
   return { file_path: file.path, mimeType: file.mimeType, size: file.size }
 }
+
+/**
+ * How a turn opens the links its tools return (spec §4.2). The session is the turn's own: `cookieFor` is the
+ * per-turn, per-site cache the catalog calls use (nhi/service.ts agentSiteCredentials), so a link fetch
+ * reuses the session of the call that produced it. A bound site outside the account has no session: the
+ * link is fetched there anonymously, still without the allowlist — the rule is where the URL came from.
+ */
+export const createLinkOpener = (opts: { sites: Pick<SiteCredentials, 'cookieFor'>, allowedUrls: string[], publicIps?: string[] }) =>
+  async (link: ResourceLink, origin: LinkOrigin, signal?: AbortSignal): Promise<OpenedDownload> => {
+    const site = linkCredentialSite(link.uri, origin)
+    if (site) {
+      const cookie = await opts.sites.cookieFor(site)
+      return await openDownload({ url: link.uri, allowedUrls: [], site: { origin: site, ...(cookie ? { cookie } : {}) }, publicIps: opts.publicIps, signal })
+    }
+    return await openDownload({ url: link.uri, allowedUrls: opts.allowedUrls, publicIps: opts.publicIps, signal })
+  }

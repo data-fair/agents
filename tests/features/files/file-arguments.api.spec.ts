@@ -49,6 +49,12 @@ test.describe('File arguments', () => {
     assert.match(url, new RegExp(`^http://localhost:${process.env.DEV_API_PORT}/api/files/organization/test1/${conversationId}/clean\\.csv\\?exp=\\d+&sig=`))
     const stored = JSON.stringify(uploaded.messages)
     assert.ok(!stored.includes('sig=') && !stored.includes('/api/files/'), 'no signed URL anywhere in the conversation')
+    // ...nor in the run's call telemetry, nor in the export an admin downloads to debug a session.
+    const telemetry = JSON.stringify(uploaded.run.calls)
+    assert.ok(!telemetry.includes('sig=') && !telemetry.includes('/api/files/'), 'no signed URL in the run telemetry')
+    const exported = (await admin.get(`/api/review/organization/test1/${conversationId}/export`, { responseType: 'text', transformResponse: r => r })).data as string
+    assert.ok(exported.includes('import_table'), 'the export holds the call')
+    assert.ok(!exported.includes('sig=') && !exported.includes('/api/files/'), 'no signed URL in the conversation export')
   })
 
   test('a file that does not exist is a tool error the model reads, and nothing is fetched', async () => {

@@ -23,6 +23,8 @@ Types are mostly managed from JSON schemas (for example `api/types/settings/sche
 
 Development processes (dev-api, dev-ui, docker compose services) are managed by the user, not by you. **Never attempt to start, stop, restart, or kill any dev process or container.**
 
+The dev file store of autonomous agents is the gitignored dev/data/files (api/config/development.js files).
+
 ### Checking status
 
 Run `bash dev/status.sh` to see which services are up or down. This probes all known endpoints and reports their status. Always use this when:
@@ -47,8 +49,12 @@ has it, and `dev/status.sh` probes it.
 
 It reuses `tests/support/mcp-fixture.ts` rather than defining a second server, so what you exercise
 by hand is exactly what the suite exercises: tools `echo`, `get_schema`, `ignored` and
-`list_road_closures`. Only the last returns data — the others are structural (a string reflector, a
-fixed empty schema, and a target for `toolFilter`), so it is the one to use when you need to see an
+`list_road_closures`, plus the file tools of autonomous agents — `import_table` (takes a file: an
+`x-mcp-file` argument it fetches from the agents API's signed URL, answering its size and hash),
+`export_closures` (returns a link to a CSV served at `/exports/` beside the MCP endpoint) and
+`export_my_profile` (a link on the call's site, fetched with the agent's session). Only
+`list_road_closures` and the exports return data — the others are structural (a string reflector, a
+fixed empty schema, and a target for `toolFilter`), so they are the ones to use when you need to see an
 agent actually fetch something and quote it.
 
 Only autonomous agents need it. Without it, an agent wired to one of those catalog entries fails with

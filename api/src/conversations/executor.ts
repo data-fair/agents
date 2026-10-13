@@ -39,6 +39,7 @@ import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { settlePendingWait } from './waits.ts'
 import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type StopCause } from './interrupted-turn.ts'
 import { turnFilesFor } from '../files/service.ts'
+import { createLinkOpener } from '../files/download.ts'
 import { buildServiceTools } from './service-tools.ts'
 import { runModelLoop } from './model-loop.ts'
 import { liveRuns, watchStopRequests, type LiveRun } from './live-runs.ts'
@@ -197,7 +198,14 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     const assembled: ToolSet = { ...catalogTools, ...service.tools }
     const tools = target.surface === 'task' ? unattended(assembled) : assembled
 
-    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath: { ...(files ? { files } : {}) } })
+    const callPath = files
+      ? {
+          files,
+          // fetch_url's allowlist for anonymous links: the agent's, as the turn started.
+          openLink: createLinkOpener({ sites, allowedUrls: autonomousAgent.web?.enabled ? autonomousAgent.web.allowedUrls ?? [] : [], publicIps: envPublicIps() })
+        }
+      : {}
+    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()

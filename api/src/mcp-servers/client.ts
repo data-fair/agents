@@ -9,7 +9,7 @@ import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { tool, jsonSchema } from 'ai'
 import memoize from 'memoizee'
 import config from '#config'
-import { fileArgumentsOf } from '../files/operations.ts'
+import { fileArgumentsOf, withResourceLinks } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
@@ -239,7 +239,9 @@ export const openAutonomousAgentTools = async (
           if ((callResult as { isError?: boolean }).isError) {
             throw new Error(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed')
           }
-          return formatted
+          // Links stay links until the call path (api/src/files/call-path.ts) stores them; it needs to know the
+          // call came from the catalog and which site it was bound to — the credential rule (spec §4.2).
+          return withResourceLinks(formatted, callResult as any, { catalog: true, ...(siteBound && site ? { site } : {}) })
         }
       })
       tools[t.name] = { tool: mcpTool, server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }

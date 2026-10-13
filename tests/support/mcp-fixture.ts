@@ -192,6 +192,33 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     }
   )
   mcp.registerTool(
+    'export_closures',
+    // A tool returning a FILE LINK, as openapi-mcp does for `response: { file: true }`: no request made, a
+    // resource_link and a text block naming the URL. Like data-fair's /raw link: on the server's own origin,
+    // no extension in the URL, no mimeType (an octet-stream link carries none); the name comes back in the
+    // response's Content-Disposition (the /exports routes below).
+    { description: 'Exports the road closures of a district as a CSV file', inputSchema: { district: z.string() }, annotations: { readOnlyHint: true } },
+    async ({ district }) => {
+      record('export_closures')
+      const uri = `http://${headers.host}/exports/closures?district=${encodeURIComponent(district)}`
+      return { content: [{ type: 'resource_link' as const, uri, name: `closures-${district}` }, { type: 'text' as const, text: `The export of the road closures of ${district}: ${uri}` }] }
+    }
+  )
+  mcp.registerTool(
+    'export_my_profile',
+    // A link on the SITE the call acts on (its x-forwarded-host): simple-directory's own "who am I", which
+    // answers only to a session. What proves the credential rule end to end: fetched with the call's
+    // session, it names the agent; fetched anonymously, it is a 404.
+    { description: 'Exports your own profile as a JSON file', inputSchema: {}, annotations: { readOnlyHint: true } },
+    async () => {
+      record('export_my_profile')
+      const host = headers['x-forwarded-host']
+      if (!host) return { isError: true, content: [{ type: 'text' as const, text: 'this tool needs a site: call it through a site-bound entry' }] }
+      const uri = `${headers['x-forwarded-proto'] ?? 'http'}://${host}/simple-directory/api/auth/me`
+      return { content: [{ type: 'resource_link' as const, uri, name: 'me', mimeType: 'application/json' }, { type: 'text' as const, text: `Your profile: ${uri}` }] }
+    }
+  )
+  mcp.registerTool(
     'whoami',
     // Which site this call acts on and as whom, as the server received it: the proof that a call landed
     // on the right site with the right identity. Decodes the session's claims without verifying them —
