@@ -52,6 +52,8 @@ export interface McpFixture {
   resetExportRequests: () => void
   /** Make `skills/list` fail, to check a broken skills listing never costs the server's tools. */
   failSkillsList: (fail: boolean) => void
+  /** Make `skills/list` answer only after this many ms (0: at once), to check a slow one never costs the tools. */
+  delaySkillsList: (ms: number) => void
   /** The capabilities the last `initialize` declared: what the agents client says it supports. */
   lastInitializeCapabilities: () => any
   close: () => Promise<void>
@@ -63,7 +65,7 @@ export interface McpFixture {
 // constructed with `sessionIdGenerator: undefined` is shared across requests — unlike what
 // the brief's original one-transport-for-the-process-lifetime sketch assumed. See
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js.
-const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false): McpServer => {
+const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false, skillsListDelay: () => number = () => 0): McpServer => {
   const mcp = new McpServer({ name: 'fixture', version: '1.0.0' }, {
     instructions: FIXTURE_INSTRUCTIONS,
     capabilities: { resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } } as any
@@ -77,6 +79,7 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     ({ uri: s.uri, frontmatter: { name: s.name, description: s.description, ...(s.tools ? { metadata: { tools: s.tools } } : {}) }, resources: [{ uri: s.uri }] })
   mcp.server.setRequestHandler(z.object({ method: z.literal('skills/list'), params: z.any().optional() }), async () => {
     if (failSkillsList()) throw new Error('skills/list is broken on purpose')
+    if (skillsListDelay()) await new Promise(resolve => setTimeout(resolve, skillsListDelay()))
     return { skills: [skillEntry(FIXTURE_SKILLS.listed)] } as any
   })
   mcp.server.setRequestHandler(z.object({ method: z.literal('skills/get'), params: z.object({ uri: z.string() }) }), async (req) => {
@@ -322,6 +325,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   let fileUrls: string[] = []
   let exports: Array<{ url: string, headers: Record<string, string | string[] | undefined> }> = []
   let failSkills = false
+  let skillsDelay = 0
   let initializeCapabilities: any
 
   const server: Server = createServer((req, res) => {
@@ -344,7 +348,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     }
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills)
+    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay)
     // The body is read here, to count methods, and handed to the transport already parsed.
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))
@@ -374,6 +378,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     exportRequests: () => [...exports],
     resetExportRequests: () => { exports = [] },
     failSkillsList: (fail: boolean) => { failSkills = fail },
+    delaySkillsList: (ms: number) => { skillsDelay = ms },
     lastInitializeCapabilities: () => initializeCapabilities,
     close: async () => { await new Promise<void>(resolve => server.close(() => resolve())) }
   }

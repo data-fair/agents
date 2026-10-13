@@ -274,7 +274,9 @@ const neutraliseTags = (text: string, vocabulary: string) => text
   .replace(new RegExp(`<\\/(${vocabulary})`, 'gi'), '<\\/$1')
   .replace(new RegExp(`<(${vocabulary})`, 'gi'), '<\\$1')
 
-const BLOCK_TAGS = 'agent-memory|core|index'
+// With the envelopes the model is taught to read (api/src/mcp-servers/guides.ts, ENVELOPE_TAGS): a note must
+// not be able to forge a loaded skill or server instructions either.
+const BLOCK_TAGS = 'agent-memory|core|index|tool-result|skill|server-instructions'
 /** Defuses every opening or closing tag of the block's vocabulary, whatever its case. */
 const neutraliseBlockTags = (text: string) => neutraliseTags(text, BLOCK_TAGS)
 

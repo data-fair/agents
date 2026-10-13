@@ -29,7 +29,7 @@ import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
 import type { ToolSet } from '../conversations/operations.ts'
 import { boundGuide, type ServerGuide, type GuideSkill } from './guides.ts'
-import { MCP_CLIENT_CAPABILITIES, listServerSkills, readServerSkill } from './skills-client.ts'
+import { MCP_CLIENT_CAPABILITIES, SKILLS_LIST_TIMEOUT_MS, listServerSkills, readServerSkill } from './skills-client.ts'
 
 const debug = Debug('agents:mcp-external')
 
@@ -75,7 +75,7 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
         await client.connect(new StreamableHTTPClientTransport(new URL(url), { fetch: fetchImpl }), { signal, timeout: timeoutMs })
         const tools = (await client.listTools({}, { signal, timeout: timeoutMs })).tools as ListedMcpTool[]
         const instructions = client.getInstructions()?.trim() || undefined
-        described.set(serverId(url), { client, ...(instructions ? { instructions } : {}), skills: await listServerSkills(client, serverId(url)) })
+        described.set(serverId(url), { client, ...(instructions ? { instructions } : {}), skills: await listServerSkills(client, serverId(url), Math.min(SKILLS_LIST_TIMEOUT_MS, Math.floor(timeoutMs / 2))) })
         return tools
       })()
       connecting.catch(() => {})

@@ -18,14 +18,21 @@ const SkillsGetResult = z.object({ skill: z.any() }).passthrough()
 /** Pages followed at most: a listing is bounded anyway (GUIDE_LIMITS.skills), this only stops a looping cursor. */
 const MAX_PAGES = 20
 
-/** A server's skills, when it declares the extension. A failure is logged and is no skills: never the tools. */
-export const listServerSkills = async (client: Client, serverLabel: string): Promise<GuideSkill[]> => {
+/**
+ * How long one `skills/list` request may take. Short, and its own: the SDK's default (60 s) would let a
+ * hanging listing outlast the bound on connecting to an external server and cost it all its tools, or
+ * stall a catalog listing miss — where a timeout here falls into "no skills", as any failure does.
+ */
+export const SKILLS_LIST_TIMEOUT_MS = 5000
+
+/** A server's skills, when it declares the extension. A failure (a timeout included) is logged and is no skills: never the tools. */
+export const listServerSkills = async (client: Client, serverLabel: string, timeoutMs = SKILLS_LIST_TIMEOUT_MS): Promise<GuideSkill[]> => {
   if (!(client.getServerCapabilities() as any)?.extensions?.[SKILLS_EXTENSION]) return []
   const skills: GuideSkill[] = []
   try {
     let cursor: string | undefined
     for (let page = 0; page < MAX_PAGES; page++) {
-      const result = await client.request({ method: 'skills/list', params: cursor ? { cursor } : {} } as any, SkillsListResult)
+      const result = await client.request({ method: 'skills/list', params: cursor ? { cursor } : {} } as any, SkillsListResult, { timeout: timeoutMs })
       skills.push(...skillsFromList(result))
       cursor = result.nextCursor
       if (!cursor) break

@@ -54,6 +54,19 @@ test.describe('openExternalMcpTools', () => {
     } finally { await opened.close() }
   })
 
+  test('a slow skills/list costs the server its skills, never its tools', async () => {
+    fixture.delaySkillsList(6000)
+    try {
+      const opened = await openExternalMcpTools([{ url }], { publicIps: ['127.0.0.1', '::1'], timeoutMs: 4000 })
+      try {
+        assert.deepEqual(opened.skippedServers, [])
+        assert.ok(opened.tools[externalToolName(url, 'echo')])
+        assert.deepEqual(opened.guides.map(g => g.skills.length), [0])
+        assert.match(opened.guides[0].instructions ?? '', /Road closures/)
+      } finally { await opened.close() }
+    } finally { fixture.delaySkillsList(0) }
+  })
+
   test('a server on a non public address is skipped, with the reason', async () => {
     const opened = await openExternalMcpTools([{ url }], { publicIps: [] })
     assert.deepEqual(Object.keys(opened.tools), [])
