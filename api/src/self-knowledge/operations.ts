@@ -184,7 +184,7 @@ export const LIST_MY_RUNS_DESCRIPTION = `List your past runs, newest first: plan
 export const READ_CONVERSATION_DESCRIPTION = [
   'Read one of your past conversations (conversationId), whoever had it, or one of your task runs (runId), in full: what was said, every tool call with its whole result, and per turn the instructions and memory you had then. What you remember of other conversations is only what you read here.',
   LOOK_FIRST,
-  'It is a JSON Lines file read by pages, each line prefixed with its number. Line 1 describes the file, line 2 is the outline: every record with its line, size and preview. Called without `line`, it returns those two; then read only the lines you need with `line` — a large tool result was lifted into its own `blob` line, which the message points at with `__ref`.',
+  'It is a JSON Lines file read by pages, each line prefixed with its number. Line 1 describes the file, line 2 is the outline: every record with its line, size and preview. Called without `line`, it returns those two; then call it once with `line` set to the first line you need: it returns from that line ONWARD, as many lines as fit a page, so one call from line 3 usually covers the whole transcript — a large tool result was lifted into its own `blob` line, which the message points at with `__ref`.',
   'A line longer than a page continues with `offset`. Find conversations with list_my_runs.'
 ].join(' ')
 

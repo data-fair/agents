@@ -91,7 +91,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
         properties: {
           conversationId: { type: 'string' },
           runId: { type: 'string', description: 'A task run, instead of a conversation' },
-          line: { type: 'integer', minimum: 1, description: 'The line to read from. Without it: the file description and the outline only (lines 1 and 2)' },
+          line: { type: 'integer', minimum: 1, description: 'The line to read from: the page runs on from it, several lines at once. Without it: the file description and the outline only (lines 1 and 2)' },
           offset: { type: 'integer', minimum: 0, description: 'Where to go on inside that line, from a previous page' }
         }
       }),

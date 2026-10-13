@@ -227,5 +227,6 @@ test.describe('earlier work', () => {
       assert.match(description, /before loading a skill, fetching data again or saying you cannot/)
       assert.match(description, /even when they do not say it was in another conversation/)
     }
+    assert.match(READ_CONVERSATION_DESCRIPTION, /from that line ONWARD, as many lines as fit a page/)
   })
 })
