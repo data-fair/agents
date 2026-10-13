@@ -3,7 +3,7 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
-import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type Tool } from 'ai'
+import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type Tool, type ToolExecutionOptions } from 'ai'
 import { truncatedToolResultText } from './compaction-policy.ts'
 import { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
@@ -549,6 +549,12 @@ export interface SourcedTool {
   fileArgs?: string[]
   /** The tool envelopes its own result (`read_skill`'s skill envelope): recorded with its server, not wrapped again. */
   selfEnveloped?: boolean
+  /**
+   * What a SCRIPT gets from this tool (code mode, spec §6.4): data where the model gets text — an MCP tool's
+   * structuredContent, a whole file, file records. Undefined: what `tool.execute` returns. Only the code-facing
+   * map calls it (api/src/code-mode/code-tools.ts); the model's tool, the record and replay never see it.
+   */
+  codeExecute?: (input: any, options: ToolExecutionOptions<any>) => Promise<unknown>
 }
 export type ToolSet = Record<string, SourcedTool>
 

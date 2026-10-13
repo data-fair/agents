@@ -7,8 +7,17 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import type { TurnFiles } from './turn-files.ts'
 import {
   FileError, pagingArgument, isTextType, mimeTypeOf, parseFilePath, renderFileList, renderTextPage, binaryFileMessage, formatBytes,
-  READ_LINES_DEFAULT, READ_LINES_MAX, WRITE_MAX_BYTES
+  READ_LINES_DEFAULT, READ_LINES_MAX, WRITE_MAX_BYTES, READ_MAX_BYTES, type FileRecord
 } from './operations.ts'
+
+/** write_file's checks, against the size a caller is held to: the model's WRITE_MAX_BYTES, or a script's. */
+const checkWritable = (input: { file_path: string, content: string }, maxBytes: number) => {
+  const name = parseFilePath(input.file_path)
+  if (!isTextType(mimeTypeOf(name))) throw new FileError(`write_file writes text: give ${input.file_path} the extension of a text type (.csv, .json, .txt, .md…).`)
+  if (typeof input.content !== 'string') throw new FileError('content must be a string: the whole text of the file.')
+  if (Buffer.byteLength(input.content) > maxBytes) throw new FileError(`write_file writes at most ${formatBytes(maxBytes)} of text.`)
+  return name
+}
 
 export const createFileTools = (files: TurnFiles): Record<string, Tool> => ({
   ls: tool({
@@ -50,12 +59,30 @@ export const createFileTools = (files: TurnFiles): Record<string, Tool> => ({
     }),
     // The schema above is advertised, not enforced, by the AI SDK: validated here.
     execute: async (input: { file_path: string, content: string }) => {
-      const name = parseFilePath(input.file_path)
-      if (!isTextType(mimeTypeOf(name))) throw new FileError(`write_file writes text: give ${input.file_path} the extension of a text type (.csv, .json, .txt, .md…).`)
-      if (typeof input.content !== 'string') throw new FileError('content must be a string: the whole text of the file.')
-      if (Buffer.byteLength(input.content) > WRITE_MAX_BYTES) throw new FileError(`write_file writes at most ${formatBytes(WRITE_MAX_BYTES)} of text.`)
+      const name = checkWritable(input, WRITE_MAX_BYTES)
       const file = await files.writeText(`/${name}`, input.content)
       return `Wrote ${file.path} (${file.mimeType}, ${formatBytes(file.size)}).`
     }
   })
+})
+
+/**
+ * What a SCRIPT gets from the file tools (spec §6.4): records and whole files rather than the model's rendered
+ * text and pages. write_file takes up to READ_MAX_BYTES from a script — the size it can read back — where the
+ * model is held to WRITE_MAX_BYTES of text it would have had to write out in full.
+ */
+export const createFileCodeExecutes = (files: TurnFiles) => ({
+  ls: async (_input?: unknown) => (await files.list()).map(f => ({ file_path: f.path, mimeType: f.mimeType, size: f.size, expiresAt: f.expiresAt.toISOString() })),
+  read_file: async (input: { file_path: string }) => {
+    const file = await files.stat(input.file_path)
+    if (!isTextType(file.mimeType)) throw new FileError(binaryFileMessage(file))
+    const { text, truncated } = await files.readText(file.path)
+    if (truncated) throw new FileError(`${file.path} is larger than ${formatBytes(READ_MAX_BYTES)}, the most a script reads. Pass its path to a tool that takes a file instead.`)
+    return text
+  },
+  write_file: async (input: { file_path: string, content: string }) => {
+    const name = checkWritable(input, READ_MAX_BYTES)
+    const file = await files.writeText(`/${name}`, input.content)
+    return { file_path: file.path, mimeType: file.mimeType, size: file.size } satisfies FileRecord
+  }
 })

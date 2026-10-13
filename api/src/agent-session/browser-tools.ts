@@ -33,8 +33,11 @@ export const BROWSER_TOOL_SERVER = 'the-page'
  * `inputSchema` is passed through as the page gave it. It is not validated here: it came from a
  * WebMCP server in the page, the model's provider is what has to accept it, and a schema this service
  * rejected would silently cost the user a capability their page legitimately offers.
+ *
+ * Unwrapped: a script's page tools (code mode) are these, with `drainEvents: false`. A script could not pass
+ * host events on to the model, so they stay pending for the model's next page call or its next turn.
  */
-export function browserToolSet (session: AgentSession, descriptors?: BrowserToolDescriptor[]): Record<string, Tool> {
+export function rawBrowserToolSet (session: AgentSession, descriptors?: BrowserToolDescriptor[], { drainEvents = true }: { drainEvents?: boolean } = {}): Record<string, Tool> {
   const tools: Record<string, Tool> = {}
   for (const descriptor of descriptors ?? session.tools()) {
     tools[descriptor.name] = tool({
@@ -42,6 +45,7 @@ export function browserToolSet (session: AgentSession, descriptors?: BrowserTool
       inputSchema: jsonSchema((descriptor.inputSchema as any) ?? { type: 'object', properties: {} }),
       execute: async (input: unknown) => {
         const output = await session.callBrowserTool(descriptor.name, input)
+        if (!drainEvents) return output
         // The events the call CAUSED ride back with its result, so they land in history exactly
         // where they happened — the Playwright shape, where an action returns the resulting page.
         //
@@ -54,8 +58,14 @@ export function browserToolSet (session: AgentSession, descriptors?: BrowserTool
       }
     })
   }
-  // The same envelope an MCP tool's result gets, from the same implementation. A page's result is
-  // untrusted input in exactly the same way: it is content the model will read, arriving from
-  // somewhere that is not this service.
-  return withProvenance(tools, () => BROWSER_TOOL_SERVER)
+  return tools
+}
+
+/**
+ * The page's tools as the model is offered them: the declared tools, in the same envelope an MCP tool's result
+ * gets, from the same implementation. A page's result is untrusted input in exactly the same way: it is content
+ * the model will read, arriving from somewhere that is not this service.
+ */
+export function browserToolSet (session: AgentSession, descriptors?: BrowserToolDescriptor[]): Record<string, Tool> {
+  return withProvenance(rawBrowserToolSet(session, descriptors), () => BROWSER_TOOL_SERVER)
 }

@@ -1,7 +1,7 @@
 /**
  * THE CALL PATH (spec §4.4): the layer every tool call goes through, under the provenance envelope
- * (modelTools, conversations/operations.ts). A call made by the model and — plan 4 — a call made from a
- * script are the same call: same file handling, same recording, same guards.
+ * (modelTools, conversations/operations.ts). A call made by the model and a call made from a script
+ * (`mode: 'code'`) are the same call: same file handling, same recording, same guards.
  *
  * In: a file argument is the path of one of the turn's files; it is turned into a signed URL for THIS call
  * only, after the call was recorded (the stream loop records the model's input; the SDK's approval request
@@ -14,7 +14,7 @@ import type { SourcedTool } from '../conversations/operations.ts'
 import type { TurnFiles } from './turn-files.ts'
 import type { OpenedDownload } from './download.ts'
 import { displayUrl } from '../web/operations.ts'
-import { FileError, invalidPathMessage, scrubUrls, isLinkedToolResult, storedNameForLink, uniqueName, rewriteLinkText, formatBytes, type LinkedToolResult, type LinkOrigin, type ResourceLink } from './operations.ts'
+import { FileError, invalidPathMessage, scrubUrls, isLinkedToolResult, storedNameForLink, uniqueName, rewriteLinkText, formatBytes, type LinkedToolResult, type FileRecord, type LinkOrigin, type ResourceLink } from './operations.ts'
 
 export interface CallPathContext {
   /** The turn's files; undefined when files are off (the personal assistant, or no store). */
@@ -40,17 +40,16 @@ const scrubOutput = (output: unknown, signed: Map<string, string>): unknown => {
  * effects), and turning a file store on must not break tools that worked. The result says which link was not
  * saved and why; its URL (possibly presigned) is reduced to origin and path.
  */
-const storeLinks = async (result: LinkedToolResult, ctx: CallPathContext, signal?: AbortSignal): Promise<string> => {
-  if (!ctx.files || !ctx.openLink) return result.text
+const saveLinks = async (result: LinkedToolResult, ctx: CallPathContext, signal?: AbortSignal) => {
   const used = new Set<string>()
-  const saved: { uri: string, path: string, line: string }[] = []
+  const saved: { uri: string, record: FileRecord, line: string }[] = []
   const failed: { uri: string, line: string }[] = []
   for (const link of result.links) {
     try {
-      const opened = await ctx.openLink(link, { catalog: result.catalog, ...(result.site ? { site: result.site } : {}) }, signal)
+      const opened = await ctx.openLink!(link, { catalog: result.catalog, ...(result.site ? { site: result.site } : {}) }, signal)
       const name = uniqueName(storedNameForLink({ contentDisposition: opened.contentDisposition, contentType: opened.contentType, link }), used)
-      const file = await ctx.files.save(name, opened.body, opened.contentLength)
-      saved.push({ uri: link.uri, path: file.path, line: `${file.path} (${file.mimeType}, ${formatBytes(file.size)})` })
+      const file = await ctx.files!.save(name, opened.body, opened.contentLength)
+      saved.push({ uri: link.uri, record: { file_path: file.path, mimeType: file.mimeType, size: file.size }, line: `${file.path} (${file.mimeType}, ${formatBytes(file.size)})` })
     } catch (err: any) {
       // the turn was stopped: stop, rather than report every remaining link as failed
       if (signal?.aborted) throw err
@@ -60,13 +59,27 @@ const storeLinks = async (result: LinkedToolResult, ctx: CallPathContext, signal
   }
   // Longest URL first: one link's URL may be the start of another's (`…/raw` and `…/raw?format=csv`).
   let text = result.text
-  for (const { uri, path } of [...saved].sort((a, b) => b.uri.length - a.uri.length)) text = rewriteLinkText(text, uri, path)
+  for (const { uri, record } of [...saved].sort((a, b) => b.uri.length - a.uri.length)) text = rewriteLinkText(text, uri, record.file_path)
   for (const { uri } of failed) text = text.split(uri).join(displayUrl(uri))
+  return { text, saved, failed }
+}
+
+/** For the model: the rewritten text, then what was saved and what was not, as lines. */
+const storeLinks = async (result: LinkedToolResult, ctx: CallPathContext, signal?: AbortSignal): Promise<string> => {
+  if (!ctx.files || !ctx.openLink) return result.text
+  const { text, saved, failed } = await saveLinks(result, ctx, signal)
   return [
     text,
     ...(saved.length ? [`\nSaved to your files: ${saved.map(s => s.line).join(', ')}.`] : []),
     ...(failed.length ? [`${saved.length ? '' : '\n'}${failed.map(f => f.line).join('\n')}`] : [])
   ].join('\n')
+}
+
+/** For a script: the rewritten text and the stored files as records; a link not saved is an `errors` line. */
+const linkRecords = async (result: LinkedToolResult, ctx: CallPathContext, signal?: AbortSignal): Promise<string | { text: string, files: FileRecord[], errors?: string[] }> => {
+  if (!ctx.files || !ctx.openLink) return result.text
+  const { text, saved, failed } = await saveLinks(result, ctx, signal)
+  return { text, files: saved.map(s => s.record), ...(failed.length ? { errors: failed.map(f => f.line) } : {}) }
 }
 
 /** An error with a signed URL scrubbed from its message, stack and cause chain, in place (the identity is kept for the loop). */
@@ -92,10 +105,11 @@ const toSignedUrls = async (args: unknown, fileArgs: string[], files: TurnFiles,
   return input
 }
 
-export const withCallPath = (sourced: SourcedTool, ctx: CallPathContext): Tool => {
+export const withCallPath = (sourced: SourcedTool, ctx: CallPathContext, mode: 'model' | 'code' = 'model'): Tool => {
   const { tool, fileArgs } = sourced
-  if (!tool.execute) return tool
-  const execute = tool.execute
+  // A script gets the tool's data form when it has one (SourcedTool.codeExecute); the model always its text.
+  const execute = mode === 'code' ? (sourced.codeExecute ?? tool.execute) : tool.execute
+  if (!execute) return tool
   return {
     ...tool,
     execute: async (args: any, opts: any) => {
@@ -109,7 +123,8 @@ export const withCallPath = (sourced: SourcedTool, ctx: CallPathContext): Tool =
         throw err
       }
       const scrubbed = scrubOutput(output, signed)
-      return isLinkedToolResult(scrubbed) ? await storeLinks(scrubbed, ctx, opts?.abortSignal) : scrubbed
+      if (!isLinkedToolResult(scrubbed)) return scrubbed
+      return mode === 'code' ? await linkRecords(scrubbed, ctx, opts?.abortSignal) : await storeLinks(scrubbed, ctx, opts?.abortSignal)
     }
   } as Tool
 }

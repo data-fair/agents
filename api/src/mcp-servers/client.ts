@@ -9,7 +9,7 @@ import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { tool, jsonSchema } from 'ai'
 import memoize from 'memoizee'
 import config from '#config'
-import { fileArgumentsOf, withResourceLinks, hideLinkUris } from '../files/operations.ts'
+import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
@@ -228,36 +228,49 @@ export const openAutonomousAgentTools = async (
         needsFiles.push({ name: t.name, server: server.id })
         continue
       }
+      const callMcp = async (rawArgs: any) => {
+        const { portal, args } = splitPortalArgument(rawArgs, injected)
+        const site = portal === undefined ? home : portalByHost.get(portal)
+        if (portal !== undefined && !site) throw new Error(`"${portal}" is not a portal of your organization (${portalHosts.join(', ') || 'none'})`)
+        debug('call tool=%s server=%s site=%s', t.name, server.id, siteBound ? site : '-')
+        const client = await clientFor(server, siteBound ? site : undefined)
+        // request() rather than callTool(): the latter also validates the result's structuredContent against
+        // the declared outputSchema, and a server without one (openapi-mcp emits structured content without)
+        // or with a drifting one would reject an otherwise usable call. The model's text form discards
+        // structuredContent; a script gets it (codeExecute below), and an outputSchema validation of a value
+        // only scripts read would add a failure mode, not a guarantee.
+        const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
+        const formatted = formatMcpToolResult(callResult as any)
+        // An MCP tool reports its OWN failure with `isError`, which is not a transport error and so
+        // does not reject on its own. Rethrown as one, because that is the only thing the model loop
+        // treats as a failure: returned as a value, the turn recorded a failed call in the exact shape
+        // of a successful one — the conflation that hid a broken tool path for a whole plan. The AI SDK
+        // turns this into a `tool-error` part, so the call is stored `output-error` and the model is
+        // handed it as `error-text` rather than as data.
+        if ((callResult as { isError?: boolean }).isError) {
+          throw new Error(hideLinkUris(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed', callResult as any))
+        }
+        // Links stay links until the call path (api/src/files/call-path.ts) stores them; it needs to know the
+        // call came from the catalog and which site it was bound to — the credential rule (spec §4.2).
+        return { callResult, formatted, origin: { catalog: true, ...(siteBound && site ? { site } : {}) } }
+      }
       const mcpTool = tool({
         description: t.description ?? '',
         inputSchema: jsonSchema(schema as any),
         execute: async (rawArgs: any) => {
-          const { portal, args } = splitPortalArgument(rawArgs, injected)
-          const site = portal === undefined ? home : portalByHost.get(portal)
-          if (portal !== undefined && !site) throw new Error(`"${portal}" is not a portal of your organization (${portalHosts.join(', ') || 'none'})`)
-          debug('call tool=%s server=%s site=%s', t.name, server.id, siteBound ? site : '-')
-          const client = await clientFor(server, siteBound ? site : undefined)
-          // request() rather than callTool(): the latter also validates the result's
-          // structuredContent against the declared outputSchema, and formatMcpToolResult
-          // discards structuredContent, so that check could only reject an otherwise
-          // usable call over a value we throw away.
-          const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
-          const formatted = formatMcpToolResult(callResult as any)
-          // An MCP tool reports its OWN failure with `isError`, which is not a transport error and so
-          // does not reject on its own. Rethrown as one, because that is the only thing the model loop
-          // treats as a failure: returned as a value, the turn recorded a failed call in the exact shape
-          // of a successful one — the conflation that hid a broken tool path for a whole plan. The AI SDK
-          // turns this into a `tool-error` part, so the call is stored `output-error` and the model is
-          // handed it as `error-text` rather than as data.
-          if ((callResult as { isError?: boolean }).isError) {
-            throw new Error(hideLinkUris(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed', callResult as any))
-          }
-          // Links stay links until the call path (api/src/files/call-path.ts) stores them; it needs to know the
-          // call came from the catalog and which site it was bound to — the credential rule (spec §4.2).
-          return withResourceLinks(formatted, callResult as any, { catalog: true, ...(siteBound && site ? { site } : {}) })
+          const { callResult, formatted, origin } = await callMcp(rawArgs)
+          return withResourceLinks(formatted, callResult as any, origin)
         }
       })
-      tools[t.name] = { tool: mcpTool, server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
+      // A script gets the data (spec §6.4): structuredContent when the server sent one — data-fair's MCP does —
+      // its text otherwise. A result with links is the text, so the call path stores them (records, for code).
+      const codeExecute = async (rawArgs: any) => {
+        const { callResult, formatted, origin } = await callMcp(rawArgs)
+        const text = typeof formatted === 'string' ? formatted : formatted.text ?? ''
+        const structured = (callResult as { structuredContent?: unknown }).structuredContent
+        return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, origin) : structured
+      }
+      tools[t.name] = { tool: mcpTool, codeExecute, server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
     }
   }
 

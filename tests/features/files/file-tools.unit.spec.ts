@@ -8,17 +8,20 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { FsBackend } from '../../../api/src/files/fs.ts'
 import { createTurnFiles } from '../../../api/src/files/turn-files.ts'
-import { createFileTools } from '../../../api/src/files/tools.ts'
+import { Readable } from 'node:stream'
+import { createFileTools, createFileCodeExecutes } from '../../../api/src/files/tools.ts'
 import { renderTextPage } from '../../../api/src/files/operations.ts'
 
 let dir: string
+let files: ReturnType<typeof createTurnFiles>
 let tools: ReturnType<typeof createFileTools>
 const call = (name: string, input: unknown) => (tools[name] as any).execute(input, { toolCallId: 't', messages: [] })
 
 test.describe('file tools', () => {
   test.beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'file-tools-'))
-    tools = createFileTools(createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' }))
+    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' })
+    tools = createFileTools(files)
   })
   test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
 
@@ -72,5 +75,31 @@ test.describe('renderTextPage', () => {
     const page = renderTextPage(file, 'x'.repeat(25000), 0, 500)
     assert.match(page, /\[line 1 cut at 20,000 characters: the rest of that line cannot be reached with offset\]/)
     assert.equal(renderTextPage({ ...file, size: 0 }, ''), '/a.txt (text/plain, 0 B): empty file.')
+  })
+})
+
+test.describe('file tools from a script', () => {
+  test.beforeEach(async () => {
+    dir = await mkdtemp(join(tmpdir(), 'file-code-'))
+    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' })
+  })
+  test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
+
+  test('ls gives records, read_file the whole text, write_file up to 10 MB and a record', async () => {
+    const code = createFileCodeExecutes(files)
+    const written: any = await code.write_file({ file_path: '/big.csv', content: 'a\n'.repeat(1_000_000) })
+    assert.deepEqual(written, { file_path: '/big.csv', mimeType: 'text/csv', size: 2_000_000 })
+    assert.equal((await code.read_file({ file_path: '/big.csv' }) as string).length, 2_000_000)
+    const listed: any = await code.ls({})
+    assert.deepEqual(listed.map((f: any) => f.file_path), ['/big.csv'])
+    assert.ok(listed[0].expiresAt)
+  })
+
+  test('a binary file, or one over 10 MB, is an error the script can read', async () => {
+    const code = createFileCodeExecutes(files)
+    await files.save('photo.png', Readable.from([Buffer.from([0x89, 0x50])]), 2)
+    await assert.rejects(code.read_file({ file_path: '/photo.png' }), /binary file/)
+    await files.save('huge.csv', Readable.from([Buffer.alloc(10_000_001, 'a')]), 10_000_001)
+    await assert.rejects(code.read_file({ file_path: '/huge.csv' }), /larger than/)
   })
 })

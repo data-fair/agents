@@ -150,6 +150,22 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     }
   )
   mcp.registerTool(
+    'closure_stats',
+    // Returns structuredContent, as data-fair's MCP server does, and declares no outputSchema, as openapi-mcp
+    // does not: a script must get the object (code mode, spec §6.4), the model the text.
+    {
+      description: 'Counts the current road closures of a city district',
+      inputSchema: { district: z.string().describe('District name, e.g. "city-center"') }
+    },
+    async ({ district }) => {
+      record('closure_stats')
+      const key = String(district ?? '').trim().toLowerCase()
+      const closures = closuresOf(key)
+      const stats = { district: key, count: closures.length, streets: closures.map(c => c.street) }
+      return { content: [{ type: 'text', text: JSON.stringify(stats) }], structuredContent: stats }
+    }
+  )
+  mcp.registerTool(
     'bulk',
     /**
      * A big result from a tiny request — the shape tier 1 of the context policy exists for.

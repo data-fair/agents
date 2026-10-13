@@ -41,6 +41,13 @@ test.describe('withCallPath', () => {
     assert.deepEqual(input, { file: '/clean.csv', title: 'Clean' })
   })
 
+  test('in code mode, a tool\'s codeExecute runs instead of its execute, through the same file handling', async () => {
+    const sourced = { tool: target(() => 'text for the model'), server: 's', fileArgs: ['file'], codeExecute: async (args: any) => { received.push(args); return { rows: 2 } } }
+    assert.deepEqual(await run(withCallPath(sourced, { files }, 'code'), { file: '/clean.csv', title: 't' }), { rows: 2 })
+    assert.match(received[0].file, /^http:\/\/agents:8080\/api\/files\//)
+    assert.equal(await run(withCallPath(sourced, { files }), { file: '/clean.csv', title: 't' }), 'text for the model')
+  })
+
   test('a signed URL the server echoes is scrubbed back to the path, in results and in errors', async () => {
     const echoing = withCallPath({ tool: target(args => `fetched ${args.file}`), server: 's', fileArgs: ['file'] }, { files })
     assert.equal(await run(echoing, { file: '/clean.csv', title: 't' }), 'fetched /clean.csv')
@@ -95,6 +102,14 @@ test.describe('withCallPath — links', () => {
     assert.equal(text, 'The file: /roads.csv\n\nSaved to your files: /roads.csv (text/csv, 4 B), /roads-2.csv (text/csv, 4 B).')
     assert.deepEqual(origins.map(([, origin]) => origin), [{ catalog: true, site: 'https://site.example' }, { catalog: true, site: 'https://site.example' }])
     assert.deepEqual((await files.list()).map(f => f.path).sort(), ['/roads-2.csv', '/roads.csv'])
+  })
+
+  test('in code mode, a link result is the stored file records and the rewritten text', async () => {
+    const openLink = async () => opened('a,b\n')
+    const out: any = await run(withCallPath({ tool: target(() => ({ ...linked, links: [linked.links[0]] })), server: 's' }, { files, openLink }, 'code'), {})
+    assert.deepEqual(out.files, [{ file_path: '/roads.csv', mimeType: 'text/csv', size: 4 }])
+    assert.match(out.text, /\/roads\.csv/)
+    assert.doesNotMatch(out.text, /https?:\/\//)
   })
 
   test('a link that cannot be saved leaves the call successful, and the result says which and why', async () => {

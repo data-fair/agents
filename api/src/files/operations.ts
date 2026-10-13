@@ -292,6 +292,9 @@ export const scrubUrls = (text: string, replacements: Map<string, string>): stri
 
 // ---- links (spec §4.2) ----
 
+/** A stored file as a script receives it: the shape fetch_url's saveAs result and the code file tools share. */
+export interface FileRecord { file_path: string, mimeType: string, size: number }
+
 export interface ResourceLink { uri: string, name: string, mimeType?: string }
 
 /** Where a link came from: a catalog server or not, and the site its call was bound to (a site-bound entry). */
