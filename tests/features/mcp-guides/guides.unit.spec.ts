@@ -1,7 +1,7 @@
 // tests/features/mcp-guides/guides.unit.spec.ts
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { skillsFromList, boundGuide, visibleSkills, renderGuidesBlock, skillEnvelope, GUIDE_LIMITS } from '../../../api/src/mcp-servers/guides.ts'
+import { skillsFromList, boundGuide, visibleSkills, renderGuidesBlock, skillEnvelope, workerGuides, GUIDE_LIMITS } from '../../../api/src/mcp-servers/guides.ts'
 
 test.describe('skills/list parsing', () => {
   test('reads name, description, uri and metadata.tools; skips malformed entries', () => {
@@ -93,5 +93,14 @@ test.describe('the skill envelope', () => {
   })
   test('frontmatter is dropped', () => {
     assert.doesNotMatch(skillEnvelope('s', 'skill://s/a/SKILL.md', '---\nname: a\n---\n\nBody'), /name: a/)
+  })
+})
+
+test.describe('sub-agent workers', () => {
+  test('a worker gets the guides of the servers whose tools it reserves', () => {
+    const guides = [{ server: 'a', instructions: 'A', skills: [] }, { server: 'b', instructions: 'B', skills: [] }]
+    const tools = { t1: { tool: {} as any, server: 'a' }, t2: { tool: {} as any, server: 'b' }, page: { tool: {} as any, server: 'the-page' } }
+    assert.deepEqual(workerGuides(guides, ['t1', 'page'], tools).map(g => g.server), ['a'])
+    assert.deepEqual(workerGuides(guides, ['page'], tools), [])
   })
 })

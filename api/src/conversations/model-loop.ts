@@ -33,7 +33,8 @@ import { tokenCountsOf } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { mayBePageTool } from './service-tool-names.ts'
 import { liveRuns } from './live-runs.ts'
-import type { ServerGuide } from '../mcp-servers/guides.ts'
+import { renderGuidesBlock, workerGuides, type ServerGuide } from '../mcp-servers/guides.ts'
+import { createReadSkillTool, READ_SKILL_TOOL_NAME } from '../mcp-servers/read-skill.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -66,7 +67,7 @@ export interface ModelLoopContext {
 }
 
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath, guides } = ctx
+  const { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target).
   const session = target.session
@@ -162,10 +163,19 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     const pinned = workerConfig.model as ModelRole | undefined
     const seat: ModelRole = pinned && WORKER_SEATS.includes(pinned) ? pinned : 'tools'
     const worker = seatFor(seat)
+    // The worker uses the tools it reserves, so it reads what their servers say about them, and may load
+    // their skills — its read_skill limited to those servers. Added unwrapped: workerTools are already the
+    // model's tools, and read_skill envelopes its own result.
+    const own = workerGuides(guides ?? [], Object.keys(workerTools), tools)
+    const block = renderGuidesBlock(own)
+    const config = block ? { ...workerConfig, prompt: [workerConfig.prompt, block].join('\n\n') } : workerConfig
+    const ownTools = block && guidesRead
+      ? { ...workerTools, [READ_SKILL_TOOL_NAME]: createReadSkillTool({ servers: own.map(g => g.server), read: guidesRead }) }
+      : workerTools
     return subAgentDelegation({
       name,
-      config: workerConfig,
-      workerTools,
+      config,
+      workerTools: ownTools,
       model: worker.model,
       abortSignal: AbortSignal.any([abortSignal, workerAbort.signal]),
       // The worker's transcript, streamed to its panel. The lead never sees it — it gets the summary.
