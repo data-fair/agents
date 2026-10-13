@@ -25,7 +25,7 @@ import {
   type MessagePart, type ConversationTurnRun, type RunStopReason
 } from './operations.ts'
 import type { ChatActivity } from '@agents/shared/agent-activity'
-import type { UsageIdentity } from '../usage/enforce.ts'
+import type { UsageIdentity } from '../usage/operations.ts'
 import type { getSettings } from '../settings/service.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 import type { TurnSurface, TaskOutcome } from './service-tools.ts'

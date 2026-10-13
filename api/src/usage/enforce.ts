@@ -15,25 +15,15 @@ import type { Request } from 'express'
 import type { AccountKeys } from '@data-fair/lib-express'
 import { reqIp } from '@data-fair/lib-express/req-origin.js'
 import type { Settings } from '#types'
-import { assertCanUseModel, assertRoleQuota, getEffectiveRole, type EffectiveRole } from '../auth.ts'
+import { assertCanUseModel, assertRoleQuota, getEffectiveRole } from '../auth.ts'
 import { assertAnonymousActionToken } from '../anonymous-token/service.ts'
 import { getUsage, getMonthlyResetsAt } from './service.ts'
 import { getCreditInfo } from '../limits/service.ts'
-import { firstQuotaViolation, isUntrustedRole, quotaWindows, UNTRUSTED_POOL_ID, type QuotaExceeded, type SelfUsage } from './operations.ts'
+import { firstQuotaViolation, personUsageIdentity, quotaWindows, UNTRUSTED_POOL_ID, type QuotaExceeded, type SelfUsage, type UsageIdentity } from './operations.ts'
 
 export type { SelfUsage } from './operations.ts'
 
 type Quotas = NonNullable<Settings['quotas']>
-
-export interface UsageIdentity {
-  trackPerUser: boolean
-  usageUserId?: string
-  usageUserName?: string
-  role: EffectiveRole
-  isUntrusted: boolean
-  // sentinel userId of the shared pool this request contributes to, if any
-  poolId?: string
-}
 
 /**
  * The per-IP key an anonymous caller's usage is recorded and limited under.
@@ -55,7 +45,7 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
     // Anonymous path: per-IP tracking, requires a signed anonymous-action token
     assertRoleQuota('anonymous', quotas)
     await assertAnonymousActionToken(req)
-    return { trackPerUser: true, usageUserId: anonymousUsageUserId(req), role: 'anonymous', isUntrusted: true, poolId: UNTRUSTED_POOL_ID }
+    return personUsageIdentity({ id: anonymousUsageUserId(req) }, 'anonymous', owner)
   }
 
   // Authenticated path
@@ -71,35 +61,10 @@ export async function resolveUsageIdentity (req: Request, owner: AccountKeys, qu
  * needs to be billed as the person rather than as the agent it is talking to.
  */
 export function authenticatedUsageIdentity (sessionState: any, owner: AccountKeys, quotas: Quotas): UsageIdentity {
-  const session = sessionState
-
-  // Admin-mode superadmins may consume any account: treat them as an admin of the owner regardless
-  // of membership. Quotas still apply and usage is still recorded on the owner, so a superadmin
-  // acting on an account they are not a member of is billed to that account rather than untracked.
-  if (session.user?.adminMode) {
-    const trackPerUser = owner.type === 'organization'
-    return {
-      trackPerUser,
-      usageUserId: trackPerUser ? session.user.id : undefined,
-      usageUserName: trackPerUser ? session.user.name : undefined,
-      role: 'admin',
-      isUntrusted: false
-    }
-  }
-
-  const isSameAccount = session.account.type === owner.type && session.account.id === owner.id
-  const trackPerUser = owner.type === 'organization' || !isSameAccount
-  assertCanUseModel(session, owner, quotas)
-  const role = getEffectiveRole(session, owner)
-  const isUntrusted = isUntrustedRole(role)
-  return {
-    trackPerUser,
-    usageUserId: trackPerUser ? session.user.id : undefined,
-    usageUserName: trackPerUser ? session.user.name : undefined,
-    role,
-    isUntrusted,
-    poolId: isUntrusted ? UNTRUSTED_POOL_ID : undefined
-  }
+  // An admin-mode superadmin is an admin of any account (getEffectiveRole): billed to that account
+  // rather than untracked, with the admin quota.
+  assertCanUseModel(sessionState, owner, quotas)
+  return personUsageIdentity({ id: sessionState.user.id, name: sessionState.user.name }, getEffectiveRole(sessionState, owner), owner)
 }
 
 /**

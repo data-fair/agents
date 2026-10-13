@@ -35,6 +35,13 @@ test.describe('getEffectiveRole', () => {
     assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'user')
   })
 
+  test('a superadmin in admin mode is an admin of any account', () => {
+    // As the library's getAccountRole has it: billed and quota'd as an admin there, and allowed to decide
+    // what only an admin decides (an approval of a planning call).
+    const session = { ...makeSession('user', 'superadmin', 'admin'), user: { id: 'superadmin', adminMode: true } }
+    assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'admin')
+  })
+
   test('different account returns external', () => {
     const session = makeSession('user', 'user1', 'admin')
     assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'external')

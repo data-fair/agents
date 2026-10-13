@@ -2,7 +2,7 @@ import { type AccountKeys, httpError } from '@data-fair/lib-express'
 
 interface SessionLike {
   account: { type: string, id: string }
-  user: { id: string }
+  user: { id: string, adminMode?: unknown }
   accountRole?: string
 }
 
@@ -27,6 +27,8 @@ interface QuotasConfig {
  * - Same account → session.accountRole (defaults to 'user')
  */
 export function getEffectiveRole (session: SessionLike, owner: AccountKeys): EffectiveRole {
+  // A superadmin in admin mode acts as an admin of any account, as @data-fair/lib's getAccountRole has it.
+  if (session.user.adminMode) return 'admin'
   const isSameAccount = session.account.type === owner.type && session.account.id === owner.id
   if (!isSameAccount) return 'external'
   return (session.accountRole as EffectiveRole) ?? 'user'

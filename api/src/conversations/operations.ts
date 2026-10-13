@@ -10,10 +10,9 @@ import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-res
 import type { AccountKeys } from '@data-fair/lib-express'
 // Type-only, so this pure module does not pull in enforce.ts (which reaches mongo and config).
 import type { ConversationRun } from '#types'
-import type { UsageIdentity } from '../usage/enforce.ts'
+import { personUsageIdentity, type UsageIdentity } from '../usage/operations.ts'
 import type { EffectiveRole } from '../auth.ts'
 import type { TurnSurface } from './service-tools.ts'
-import { isUntrustedRole, UNTRUSTED_POOL_ID } from '../usage/operations.ts'
 import { renderMemoryBlock, type MemoryDocument } from '../memory/operations.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 
@@ -565,22 +564,8 @@ export const usageIdentityFor = (
   // `autonomous-agent:personal` row, so the per-user histogram an org admin reads to see who spent
   // what showed a single line for the whole organization.
   if (autonomousAgent.id === PERSONAL_AGENT_ID) {
-    const role = run.triggeredByRole ?? 'user'
-    const isUntrusted = isUntrustedRole(role)
-    // Per user on an organization, and on a personal account for anyone but its owner — the rule
-    // `authenticatedUsageIdentity` applies to a request. Only the owner of a personal account is
-    // covered by the account's own totals: an external person chatting there is checked
-    // against their own external quota, and their spend is attributed to them.
-    const trackPerUser = run.owner.type === 'organization' || run.triggeredBy?.userId !== run.owner.id
-    return {
-      trackPerUser,
-      ...(trackPerUser
-        ? { usageUserId: run.triggeredBy?.userId, usageUserName: run.triggeredBy?.userName }
-        : {}),
-      role,
-      isUntrusted,
-      ...(isUntrusted ? { poolId: UNTRUSTED_POOL_ID } : {})
-    }
+    // A missing role falls back to the least privileged normal role, never to admin.
+    return personUsageIdentity({ id: run.triggeredBy?.userId, name: run.triggeredBy?.userName }, run.triggeredByRole ?? 'user', run.owner)
   }
   // A CONFIGURED agent is an org-owned service identity, not a person. Keyed per agent so the
   // per-user histogram reads as spend per agent, which is what an org admin needs; role 'admin'

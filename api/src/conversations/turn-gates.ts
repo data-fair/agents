@@ -12,7 +12,7 @@
 
 import mongo from '#mongo'
 import type { ConversationRun } from '#types'
-import type { UsageIdentity } from '../usage/enforce.ts'
+import type { UsageIdentity } from '../usage/operations.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
 import { quotaErrorBody } from '../usage/operations.ts'
 import {
