@@ -160,7 +160,7 @@ export const forgetAccountSites = (agentId: string) => {
  * own, else the socket's), else the site it was enrolled on (a planned task, a chat turn nobody watches). Its own session on its account sites — an
  * exchange that fails there is an error — and no credential anywhere else.
  *
- * When the account cannot be listed (`listingFailed`), it degrades to the enrolment site alone: no portal is
+ * When the account cannot be listed (`home: 'unconfirmed'` off the enrolment site), it degrades to the enrolment site alone: no portal is
  * offered, and a chat on another site runs anonymously for that turn without claiming that site is foreign.
  */
 export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys, mcpServers?: { serverId: string }[] }, socketSite?: string): Promise<SiteCredentials> => {
@@ -172,7 +172,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   // exchange it does not use: a turn on public tools stays as fast as before sites existed.
   const catalog = config.mcpServers ?? []
   if (autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
-    return { homeSite: home, portals: [], anonymousHome: false, cookieFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
+    return { homeSite: home, portals: [], home: 'account', cookieFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
   }
   let account: string[]
   let listingFailed = false
@@ -190,8 +190,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   return {
     homeSite: home,
     portals: listingFailed ? [] : account.filter(site => site !== home),
-    anonymousHome: !account.includes(home),
-    ...(listingFailed ? { listingFailed } : {}),
+    home: account.includes(home) ? 'account' : listingFailed ? 'unconfirmed' : 'anonymous',
     cookieFor: site => {
       const origin = siteOrigin(site)
       if (!account.includes(origin)) return Promise.resolve(undefined)

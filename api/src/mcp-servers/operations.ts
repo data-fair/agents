@@ -96,10 +96,12 @@ export interface SiteCredentials {
   homeSite?: string
   /** Other account sites a call may name with `portal`, as origins. */
   portals: string[]
-  /** The home site is outside the agent's account: it acts there anonymously. */
-  anonymousHome: boolean
-  /** The account's sites could not be listed: `anonymousHome` is then unconfirmed rather than known. */
-  listingFailed?: boolean
+  /**
+   * How the turn acts on its home site: as itself (`account`, one of its account's sites), anonymously
+   * because that site is outside its account (`anonymous`), or anonymously because its account's sites
+   * could not be listed (`unconfirmed`: the site is not known to be foreign). The system prompt says so.
+   */
+  home: 'account' | 'anonymous' | 'unconfirmed'
   /** The cookie to send to a site, or undefined to call it anonymously. Rejects when an account site's exchange fails. */
   cookieFor: (siteUrl: string) => Promise<string | undefined>
   /**
@@ -117,7 +119,7 @@ export function personSiteCredentials (socketSite: string | undefined, cookie: s
   return {
     homeSite: socketSite,
     portals: [],
-    anonymousHome: false,
+    home: 'account',
     cookieFor: async site => site === socketSite ? cookie : undefined,
     listingIdentity: cookie ? `person:${createHash('sha256').update(cookie).digest('hex')}` : 'anonymous'
   }

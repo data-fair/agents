@@ -148,9 +148,9 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   const sites: SiteCredentials = autonomousAgent.nhi
     ? await agentSiteCredentials(autonomousAgent, target.conversationSiteUrl ?? socketSite)
     : personSiteCredentials(socketSite, session?.sessionCookie())
-  const anonymousHost = sites.anonymousHome && sites.homeSite ? new URL(sites.homeSite).host : undefined
-  const anonymousOn = sites.listingFailed ? undefined : anonymousHost
-  const unconfirmedOn = sites.listingFailed ? anonymousHost : undefined
+  const homeHost = sites.homeSite ? new URL(sites.homeSite).host : undefined
+  const anonymousOn = sites.home === 'anonymous' ? homeHost : undefined
+  const unconfirmedOn = sites.home === 'unconfirmed' ? homeHost : undefined
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
