@@ -1,6 +1,6 @@
 # Multi-provider AI abstraction
 
-The system supports **9 provider types** through a unified factory (`createModel()`, `api/src/models/operations.ts`) built on Vercel AI SDK.
+The system supports **9 provider types** through a unified factory (`createModel()`, `api/src/models/operations.ts`) built on Vercel AI SDK 7 (see [AI SDK version](#ai-sdk-version)).
 
 ```mermaid
 graph LR
@@ -57,3 +57,28 @@ the reference model is the only one in the Scaleway catalog publishing a cache
 tariff. Cache **writes** bill at the plain input price; there is no write tariff
 to configure, because this codebase never sets `cache_control`.
 
+
+## AI SDK version
+
+`ai` is pinned **exactly** (7.0.137), and so is every provider package, at the versions published with it: `@ai-sdk/anthropic` 4.0.78, `@ai-sdk/google` 4.0.93, `@ai-sdk/mistral` 4.0.62, `@ai-sdk/openai` 4.0.91, `@ai-sdk/openai-compatible` 3.0.67, `@ai-sdk/provider` 4.0.26, `@openrouter/ai-sdk-provider` 3.1.0, `ai-sdk-ollama` 4.4.0. Two reasons, both measured:
+
+- `@ai-sdk/code-mode`, the planned code-mode tool, is released in lockstep with `ai` and peer-pins one exact version. A range would let `ai` drift away from it on an ordinary install.
+- The tree must hold **one** `@ai-sdk/provider-utils`. Installed without `npm dedupe`, each provider nests its own copy of the same version, and a `Tool` from one copy does not type-check as a `Tool` from another (31 type errors instead of 7 during the upgrade). After any bump: `npm dedupe`, then `npm ls ai @ai-sdk/provider-utils` must show a single version of each.
+
+What this service relies on in AI SDK 7, and where each is pinned by a test against the real SDK:
+
+| Behaviour | Relied on by | Pinned in |
+|---|---|---|
+| Each step's tools are built from the `tools` object after `prepareStep`, so a map mutated in place is live | `runModelLoop`'s `liveTools` (`api/src/conversations/model-loop.ts`; [MCP tools §7](./mcp-tools.md#7-the-tool-set-is-live-within-a-turn)) | `tests/features/autonomous-agents/live-tool-set.unit.spec.ts` |
+| A `prepareStep` `messages` override carries forward to later steps | `loopGuardPrepareStep` rebuilds each step instead of appending ([loop guards](./loop-guards.md)) | `tests/features/chat-subagent/loop-guards.unit.spec.ts` |
+| `result.response.messages` is the final step's only; `result.responseMessages` is all of them | the sub-agent close-out ([sub-agents §3](./sub-agents.md#loop-guard-close-out)) | `tests/features/agent-session/sub-agents.unit.spec.ts` |
+| `@ai-sdk/openai-compatible` reads provider options under the camelCase name (`openaiCompatible`) | the moderator's `reasoningEffort: 'none'` | `tests/features/models/models.unit.spec.ts` |
+| A v3 model (the mock) receives a tool's image as `file-data` with an `image/*` media type | the mock's `what did you see` seam | `tests/features/models/models.unit.spec.ts` |
+| An abort cancels the model stream | the mock model clears its timer when cancelled, instead of writing to a closed stream and crashing the server (`api/src/models/mock-model.ts`) | not pinned by a dedicated test; observed in the stop paths of the api suites |
+| An abort signalled to a `ToolLoopAgent` is honoured **between steps** | a sub-agent worker crossing the run's credit budget is stopped, not left to run to its step limit ([sub-agents](./sub-agents.md#billing-and-ceilings)) | `tests/features/agent-session/sub-agents.api.spec.ts` |
+| An abort ends an in-flight tool call immediately | a stopped turn does not wait for a slow MCP call; the remote side may still complete, so the stored error says the outcome is unknown ([approval gate](./autonomous-agents.md#the-approval-gate)) | not pinned by a dedicated test; observed in the stop paths of the api suites |
+| An approved call whose tool is gone is silently skipped | `toolApproval: denyGoneApprovedTools(...)` (`api/src/conversations/approved-calls.ts`) denies it by name, so it is settled `output-error` rather than left open | `tests/features/autonomous-agents/approved-calls.unit.spec.ts` |
+
+Deliberately **not** migrated, because v7 still runs them unchanged and migrating would change behaviour: `generateObject` (moderation), `needsApproval` on tools (the approval policy), and the `image-data` / `file-data` tool-result parts of `mediaModelOutput`. The SDK auto-migrates the parts at runtime, and each of the three logs a single `DeprecationWarning` per process. They move with the work that owns them.
+
+Source: [Migrate AI SDK 6.x to 7.0](https://ai-sdk.dev/docs/migration-guides/migration-guide-7-0).

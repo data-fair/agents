@@ -134,7 +134,7 @@ SECRET_LIMITS=a-long-random-shared-secret
 
 ### Turn bounds: `TURN_CREDITS`, `TURN_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`
 
-JSON-parsed numbers, global rather than per account. They bound **every** turn of the server loop (`api/src/conversations/executor.ts`), the in-page chat's personal assistant as much as an autonomous agent.
+JSON-parsed numbers, global rather than per account. They bound **every** turn of the server loop (`api/src/conversations/executor.ts`, the loop in `model-loop.ts`), the in-page chat's personal assistant as much as an autonomous agent.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
@@ -262,7 +262,7 @@ Three rules worth knowing:
 
 - **An unset `cachedInputPricePerMillion` means unknown, not free.** It resolves to the entry's own value, then the snapshot the provider listing gave when the model was picked, then the input price — never to 0. OpenAI, Scaleway, LiteLLM and vLLM publish no cache tariff yet still cache implicitly, and 0 would bill those reads for free and silently loosen every credit cap.
 - **Cache writes bill at the plain input price.** There is no write tariff to configure: this codebase never sets `cache_control`, so no provider reports write tokens today. They are billed rather than dropped so they cannot become free if one ever does.
-- **`noCacheTokens` is taken verbatim** when the provider reports it (ai@6 normalizes this); the subtraction `inputTokens - cacheRead - cacheWrite` is only a fallback, clamped at 0.
+- **`noCacheTokens` is taken verbatim** when the provider reports it (the AI SDK normalizes it as `usage.inputTokenDetails.noCacheTokens`); the subtraction `inputTokens - cacheRead - cacheWrite` is only a fallback, clamped at 0.
 
 Credits, not euros, are what the account cap and every quota are denominated in, and what `limits.ai_credits` holds — the peg exists so a credit has a defined cost, not so the two become interchangeable in the API.
 

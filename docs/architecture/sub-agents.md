@@ -1,6 +1,6 @@
 # Sub-agent orchestration
 
-The orchestrator-worker pattern runs **on the server**, in the same loop as the lead. The main agent delegates tasks to specialized sub-agents via pseudo-tools (`subagent_*`), each backed by a `ToolLoopAgent` from Vercel AI SDK v6.
+The orchestrator-worker pattern runs **on the server**, in the same loop as the lead. The main agent delegates tasks to specialized sub-agents via pseudo-tools (`subagent_*`), each backed by a `ToolLoopAgent` from Vercel AI SDK 7.
 
 It moved with the loop, and not as a choice: a worker is a model loop, and the only way a browser reached a model in the old architecture was the gateway, so "the gateway goes" and "workers move server-side" were one decision. `api/src/agent-session/sub-agents.ts` holds the partition and the delegation; `runModelLoop` in `api/src/conversations/executor.ts` builds them per turn.
 
@@ -126,11 +126,12 @@ Each `ToolLoopAgent` is configured with:
 - **model** — the catalog model resolved for the worker's seat (`config.model` if it names `assistant`, `tools` or `summarizer`, else `tools`); `moderator` is excluded because it is the gate's own seat
 - **instructions** — the sub-agent's system prompt (the host-provided prompt verbatim)
 - **tools** — the reserved tool set (only tools listed in `config.tools`)
-- **stopWhen** — `[stepCountIs(STEP_LIMIT), repeatedCallGuard()]` (see [loop guards](./loop-guards.md)); no `prepareStep`, so a worker is not given the repeat reminder the lead gets
+- **stopWhen** — `[isStepCount(STEP_LIMIT), repeatedCallGuard()]` (see [loop guards](./loop-guards.md))
+- **prepareStep** — `loopGuardPrepareStep`, the lead's own: a worker repeating itself is reminded at 3 before the guard stops it at 5
 
 ### Billing and ceilings
 
-`onUsage` is called, and awaited, on every worker `finish-step` and for the close-out call. The executor charges the step through `chargeModelCall`, exactly as a lead step is charged: priced from the seat's catalog entry, added to the run's spend (0 lead steps) and the turn's in-memory budget, recorded in usage under the worker's actual seat, and recorded as a telemetry entry in the run's `calls`. It then checks the account credit cap and the run budget on every worker step; crossing either sets `budgetExceeded` (which stops the lead between its steps) and aborts every worker of the turn through a shared `AbortController`, composed with the run's own abort signal.
+`onUsage` is called, and awaited, on every worker `finish-step` and for the close-out call. The executor charges the step through `chargeModelCall`, exactly as a lead step is charged: priced from the seat's catalog entry, added to the run's spend (0 lead steps) and the turn's in-memory budget, recorded in usage under the worker's actual seat, and recorded as a telemetry entry in the run's `calls`. It then checks the account credit cap and the run budget on every worker step; crossing either sets `budgetExceeded` (which stops the lead between its steps) and aborts every worker of the turn through a shared `AbortController`, composed with the run's own abort signal. AI SDK 7 honours that abort between steps, so a worker that crosses the budget is stopped at its next step boundary rather than running on to its step limit (pinned by the budget case in `tests/features/agent-session/sub-agents.api.spec.ts`).
 
 ### Loop-guard close-out
 
@@ -139,7 +140,7 @@ until a loop guard ends the run with `finishReason: 'tool-calls'`. Killing it th
 discard a result it already produced and report a bare truncation. Instead, on that finish
 reason the delegation runs
 **one final close-out turn with no tools** (`SUBAGENT_CLOSEOUT_PROMPT` via `generateText`):
-the model cannot loop, so it must synthesize a best-effort answer from its own transcript.
+the model cannot loop, so it must synthesize a best-effort answer from its own transcript — all of it, every step (`result.responseMessages`; since AI SDK 7, `result.response.messages` holds the final step alone).
 That recovered answer replaces the worker's text, is appended to its panel, and is
 surfaced to the lead as a *partial* result rather than a failure (flagged `stepLimitReached`). If the close-out
 call itself fails (other than by an abort), the lead gets the standalone step-limit notice. The close-out is a
@@ -151,7 +152,7 @@ run; see [§6](#6-context-reduction) for how the partial result reaches the lead
 
 ## 4. Streaming the trace to the panel
 
-The worker is run with `agent.stream()`, and the delegation folds its `fullStream` into stored-part shape (`text`, `dynamic-tool` parts moving through `input-available` → `output-available` / `output-error`) — the same shape as the lead's own turn. Two callbacks carry it to whoever watches the conversation:
+The worker is run with `agent.stream()`, and the delegation folds its `stream` into stored-part shape (`text`, `dynamic-tool` parts moving through `input-available` → `output-available` / `output-error`) — the same shape as the lead's own turn. Two callbacks carry it to whoever watches the conversation:
 
 - `onTrace` → a `subagent` frame (`{ parentToolCallId, name, parts, pending }`, `shared/agent-session-protocol.ts`), sent on every text delta, tool call and tool result, and once more with `pending: false` when the worker finishes. The client (`ui/src/composables/use-session-chat.ts`) replaces the panel for that `parentToolCallId` with each frame and merges panels into the transcript at read time, so a `message` frame replacing the lead's turn does not wipe them.
 - `onPhase` → an `activity` frame carrying `parentToolCallId` and `{ kind: 'subagent', name, phase }` (`starting`, `tool`, `analyzing`, or `null`).

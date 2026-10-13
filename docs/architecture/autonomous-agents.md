@@ -319,6 +319,8 @@ it is pending), as "did not run" or "outcome is unknown" (`ApprovedCallsEnd`, `a
   which is "did not run" again;
 - interrupted by a restart: `recoverOwnerlessRuns` closes the run through `finishRun`, "outcome is unknown".
 
+A stop aborts in-flight tools immediately (AI SDK 7): the remote side of an MCP call may still complete, which is why the stored `errorText` says the outcome is unknown rather than that the call failed.
+
 Behind all of these, the replay itself (`storedTurnsToModelMessages`, `settleStrandedApproval`) sends an approved call
 with no result **outside the last message** as an error ("outcome is unknown: no turn reported it") rather than bare:
 the conversion keeps such a call, and a call with no result is a 400 from the provider on every later turn.
