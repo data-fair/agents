@@ -270,13 +270,26 @@ and `https` is expected in production.
   extended list (refusing beyond the cap); the server's tools exist from the agent's next turn. Never
   offered to the personal assistant, which gets no external servers.
 
+### File arguments and links
+
+A listed tool's top-level `x-mcp-file` properties are rewritten into "the path of one of your files"
+(`fileArgumentsOf`), and the tool records them (`SourcedTool.fileArgs`). With files off (the personal
+assistant, or no file store) such a tool is not offered and is listed by `get_my_configuration` as needing
+a file store (`needsFiles`); an external server's file-taking tool is never offered. At call time the call
+path (`api/src/files/call-path.ts`, installed by `modelTools` under the envelope) replaces each path by a
+signed URL served by the agents API, after the call was recorded. Links in results are fetched under the
+credential rule: with the call's own session only for a catalog link on the site the call was bound to.
+Details and reasons: [Agent files](./agent-files.md).
+
 ### Assembly and provenance
 
-The executor (`performTurn`) merges the catalog tools, the page tools (when a socket watches the conversation) and `wait_for_user_action` (only when someone is there to act), in that order — a page tool overrides a catalog tool of the same name. Both catalog and page results are wrapped by `withProvenance` (`api/src/conversations/operations.ts`) in a `<tool-result server="…" tool="…">` envelope marking them as untrusted data; a page's server name is the fixed `the-page`, never its URL. Thrown failures are wrapped too. Sub-agents are then partitioned out (see [Sub-Agent Orchestration](./sub-agents.md)).
+The executor (`performTurn`) merges the catalog tools, the page tools (when a socket watches the conversation) and `wait_for_user_action` (only when someone is there to act), in that order — a page tool overrides a catalog tool of the same name. Both catalog and page results are wrapped by `withProvenance` (`api/src/conversations/operations.ts`) in a `<tool-result server="…" tool="…">` envelope marking them as untrusted data; a page's server name is the fixed `the-page`, never its URL. Thrown failures are wrapped too. Sub-agents are then partitioned out (see [Sub-Agent Orchestration](./sub-agents.md)). Each tool goes through the call path before the envelope (`modelTools(set, callPath)`).
 
 ### Result formatting
 
 `formatMcpToolResult` keeps the text `content` parts (and prefixes `isError` results with `Tool execution failed:`); `structuredContent` is dropped. Text-only results stay a plain string. A result carrying MCP `image` parts becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data, mediaType}]}`); `withProvenance` wraps only its text and keeps the object shape.
+
+A result carrying `resource_link`s (and text) becomes a `LinkedToolResult` (`withResourceLinks`, `api/src/files/operations.ts`) carrying the links, whether a catalog server returned them, and the site the call was bound to; the call path stores them as the agent's files and rewrites the text, or, files off, passes the text through as before. An `isError` result keeps its text with link URIs reduced to origin and path. See [Agent files](./agent-files.md#in-downloads).
 
 Nothing on the server currently rebuilds that envelope into image parts: the gateway's `convertOpenAIMessages` that did so is gone with the gateway, and the executor gives the tools no `toModelOutput`, so the AI SDK hands the envelope to the provider as JSON — base64 included. The redaction helpers in `shared/tool-result.ts` (`redactHistoryMediaToolResults`) are likewise no longer called from `api/src`.
 

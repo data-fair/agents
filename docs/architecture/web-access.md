@@ -1,6 +1,6 @@
 # Web access
 
-A configured autonomous agent may **read the web**: pages, feeds, JSON documents and sitemaps under the URLs it is allowed. It is opt-in per agent (`web: { enabled, allowedUrls }` on the agent, see `api/types/autonomous-agent/schema.js`), never offered to the personal assistant — what a page says could instruct it with the person's own permissions — and read-only: GET, no cookies, no credentials of any kind. There is no web search engine; an agent searches a site through the site's own search or its sitemaps.
+A configured autonomous agent may **read the web**: pages, feeds, JSON documents and sitemaps under the URLs it is allowed. It is opt-in per agent (`web: { enabled, allowedUrls }` on the agent, see `api/types/autonomous-agent/schema.js`), never offered to the personal assistant — what a page says could instruct it with the person's own permissions — and read-only: GET, no cookies, no credentials of any kind. With files on, `fetch_url` can also **save** a response as one of the agent's files (`saveAs`) instead of reading it; see [Agent files](./agent-files.md). There is no web search engine; an agent searches a site through the site's own search or its sitemaps.
 
 The logic is one module, `api/src/web/`, which knows nothing of the agent loop; one entry of the service-tool registry (`api/src/conversations/service-tools.ts`) wires it in.
 
@@ -30,13 +30,15 @@ A site's own metadata — `robots.txt`, its sitemaps, its OpenSearch description
 
 | Tool | Surfaces | Approval | Does |
 | --- | --- | --- | --- |
-| `fetch_url({ url, offset? })` | chats, task runs | none — the allowlist is the control | one page of the content (20,000 characters, `nextOffset` to read on) |
+| `fetch_url({ url, offset?, saveAs? })` | chats, task runs | none — the allowlist is the control | one page of the content (20,000 characters, `nextOffset` to read on); with `saveAs` (files on), the whole response stored as a file, any type, up to 100 MB, answering `{ file_path, mimeType, size }` |
 | `list_site_pages({ site, contains?, since?, offset? })` | chats, task runs | none | pages listed by the site's sitemaps, filtered by URL substring or modification date, 200 at a time |
 | `request_web_access({ add, reason })` | chats with an organization admin | always, by an organization admin | extends the allowlist |
 
 `request_mcp_access` (connecting an MCP server a site publishes) is the sibling of `request_web_access`, with the same approval rules; see [MCP tools](./mcp-tools.md#external-mcp-servers).
 
 `fetch_url` dispatches on the content type: HTML becomes markdown (defuddle, in a worker thread); RSS/Atom become a dated list; JSON is pretty-printed; other text passes through; anything else is refused by name. On the first page of an HTML document it also returns the page's links, its GET forms (a site's search: fields to put in the query string) and `searchTemplates` — URLs with a `{searchTerms}` placeholder, from the page's OpenSearch descriptions (read on the spot) and its schema.org `SearchAction`. A page with almost no text says it probably needs JavaScript, which is never run; a bot challenge says so too. Neither is an empty success.
+
+A **declared binary type is refused from the response headers, before the body is read** (a 50 MB spreadsheet is not downloaded to be thrown away) with, when files are on, a hint to save it with `saveAs`. A missing or vague type is read and sniffed as before. `saveAs` goes through the one download function of [Agent files](./agent-files.md#in-downloads): the same allowlist at every hop and public-address check, no credential ever, and never the shared cache.
 
 `list_site_pages` finds sitemaps in `robots.txt`, else at `/sitemap.xml`, follows an index one level (25 children at most, `.xml.gz` included), and without a filter returns a split site's sitemap files as a table of contents. A filter that matches nothing says that URLs do not always contain their topic's words, and points to the site's search.
 
@@ -73,8 +75,8 @@ Read-only GET is not harmless either. An agent holding private data from its cat
 `api/src/web/client.ts`, one instance per process:
 
 - **Public addresses only**, checked at DNS resolution (`public-lookup.ts`), so it holds for redirects and against DNS rebinding; `SSRF_PUBLIC_IPS` declares exceptions (localhost in `npm run dev-api`), the same for the external MCP servers, as for lib-node. Same rules as `@data-fair/lib-node`'s `ssrf.ts` (2.14+), whose `publicLookup` should replace this file once the service upgrades lib-node — that upgrade also switches the check on for the lib-node axios instance the service uses to reach stack services, which then need its private instance. Environment proxies are ignored: they would resolve names out of reach of the check.
-- Everything goes through this one client, the cache and sitemap reading included. Both are written here rather than taken from a library: a library that brings its own HTTP client (sitemap parsers, undici's cache interceptor) would step around the address check.
-- 10 MB body cap, 15 s timeout, 5 redirects, an honest `User-Agent`.
+- Everything goes through this one client, the cache and sitemap reading included. Both are written here rather than taken from a library: a library that brings its own HTTP client (sitemap parsers, undici's cache interceptor) would step around the address check. Downloads into an agent's files are the one exception: they stream to the store through `api/src/files/download.ts`, which reuses this module's address check (`publicDispatcher`) and URL checks but no cache.
+- 10 MB body cap (bodies are read as streams, so a declared binary type is refused before any of it is read), 15 s timeout, 5 redirects, an honest `User-Agent`.
 - **A shared cache**, safe to share because no credential is ever sent: every response is public by construction. Fresh for at least 10 minutes whatever the headers say (more when `max-age` says so): every agent of a deployment leaves from the same address and so shares each site's rate limit (60 requests an hour for GitHub's unauthenticated API), and this floor lets agents and repeated runs share fetches. Then revalidated with `ETag` / `Last-Modified`; `no-store` and 5xx are not kept; 64 MB, least recently used first. A cache hit keeps the body's `Buffer`, and the extraction is memoized on it, so it skips the worker too.
 - Extraction runs in **one worker thread** (`extractor.ts`): up to a second of CPU for a 2 MB page would otherwise stall every live turn. A job over 20 s terminates the worker; the next job starts a fresh one.
 

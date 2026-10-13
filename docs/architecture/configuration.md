@@ -339,3 +339,18 @@ Two consequences to plan for **before** upgrading:
 - **A self-hosted instance that wants accounts to just work must set `DEFAULT_CREDITS=-1`** (or a finite free-tier number). That restores the "works out of the box" posture, at the cost of every account being an uncapped consumer of the deployment's keys — the server logs a `[credits]` notice for that too.
 
 Existing orgs are unaffected by this default: the migration seeds each one an `ai_credits.limit` from its old `quotas.global` (see the previous section), so only accounts that never had a global quota fall through to `DEFAULT_CREDITS`.
+
+## Files
+
+The file store of autonomous agents ([Agent files](./agent-files.md)). Unset: files are off and nothing
+file-related is offered. Validated at boot (`assertFilesConfig`), and the store's access is checked at boot.
+
+| Env var | Config | |
+|---|---|---|
+| `FILES_STORAGE` | `files.storage` | `fs` or `s3` |
+| `FILES_DATA_DIR` | `files.dataDir` | `fs`: a directory on a volume shared by every node when scaled |
+| `FILES_S3_ENDPOINT`, `FILES_S3_REGION`, `FILES_S3_BUCKET`, `FILES_S3_ACCESS_KEY_ID`, `FILES_S3_SECRET_ACCESS_KEY`, `FILES_S3_FORCE_PATH_STYLE` | `files.s3.*` | `s3` (`bucket` required; path-style by default) |
+| `FILES_SECRET` | `files.secret` | at least 32 characters; signs the file URLs MCP servers fetch |
+| `FILES_PUBLIC_URL` | `files.publicUrl` | the agents API base URL as the MCP servers reach it; they set it as `FILE_URL_PREFIXES` |
+
+Dev: `fs` on the gitignored `dev/data/files`, `publicUrl` the API's own dev port.

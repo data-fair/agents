@@ -248,6 +248,7 @@ threads through review, and an agent reads its own past conversations through it
   agent is audited, so it is always **archived** rather than purged, with no expiry: gone for the person,
   still reviewable by the organization's admins until the agent is deleted — see
   [conversation review](./conversation-review.md#retention-and-why-deleting-archives).
+  Its files are deleted at once, archived or not: they are not review material ([Agent files](./agent-files.md#the-store)).
 
 There is **no TTL** on a live conversation, deliberately. It is the conversation of record, so a timer
 that silently destroyed it would take the audit trail with it. What it needs instead is someone who can
@@ -274,6 +275,7 @@ A task run's target is the other implementation: its record is the run itself (`
 - `wait_for_user_action`: only in a chat with someone watching (a session). Unwrapped: its result is the loop's own handover.
 - `memory`: a configured agent with memory enabled (`memoryEnabledFor`), on every surface. Provenance server `agent-memory`.
 - web readers (`api/src/web`): a configured agent with `web.enabled`, on every surface. Provenance server `agent-web`.
+- files (`ls`, `read_file`, `write_file`; `api/src/files`): a configured agent, on every surface, when the deployment has a file store. Provenance server `agent-files`. See [Agent files](./agent-files.md).
 - self-knowledge (`get_my_configuration`, `list_my_runs`, `read_conversation`): a configured agent, on every surface, read-only; it reads all of the agent's past runs and conversations, whoever had them. Provenance server `agent-self`.
 - planning (`plan_task`, `update_task`, `delete_task`): a configured agent in a chat an administrator started, each call approved by an administrator; see [planned tasks](./planned-tasks.md#self-knowledge-and-planning). Provenance server `agent-self`.
 - `report_outcome`: the task surface only, how a planned task's run reports its outcome. Provenance server `agent-service`.
