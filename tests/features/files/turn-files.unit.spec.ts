@@ -97,8 +97,38 @@ test.describe('TurnFiles', () => {
     await assert.rejects(files.signedUrl('/b.csv'), /There is no file named \/b\.csv here/)
   })
 
-  test('a store failure is named as one', async () => {
-    const failing: FileBackend = { ...backend, lsrWithStats: async () => { throw new Error('EACCES') } } as any
-    await assert.rejects(make({ backend: failing }).list(), (err: any) => err instanceof FileError && err.message === 'The file store failed (EACCES); your other tools still work.')
+  test('a store failure is named as one, without paths or keys', async () => {
+    const failing: FileBackend = { ...backend, lsrWithStats: async () => { throw Object.assign(new Error("EACCES: permission denied, open '/data/organization/test1/conv1/.a.csv.x.part'"), { code: 'EACCES' }) } } as any
+    await assert.rejects(make({ backend: failing }).list(), (err: any) => err instanceof FileError && err.message === 'The file store failed (EACCES); your other tools still work.' && !err.message.includes('/'))
+  })
+
+  test('a body that errors while the store is being listed is handled, and nothing is stored', async () => {
+    const uncaught: Error[] = []
+    const onUncaught = (err: Error) => uncaught.push(err)
+    process.on('uncaughtException', onUncaught)
+    try {
+      const slow: FileBackend = { ...backend, lsrWithStats: async (prefix: string) => { await new Promise(resolve => setTimeout(resolve, 50)); return backend.lsrWithStats(prefix) } } as any
+      const body = new Readable({ read () {} })
+      setTimeout(() => body.destroy(new Error('socket hang up')), 10)
+      await assert.rejects(make({ backend: slow }).save('x.csv', body), /the download failed: socket hang up/)
+      await new Promise(resolve => setTimeout(resolve, 20))
+      assert.deepEqual(uncaught, [])
+      assert.deepEqual(await make().list(), [])
+    } finally { process.off('uncaughtException', onUncaught) }
+  })
+
+  test('a truncated read does not end on a half character', async () => {
+    const files = make()
+    await files.writeText('/e.txt', 'é'.repeat(10))
+    const { text, truncated } = await files.readText('/e.txt', 5)
+    assert.equal(text, 'éé')
+    assert.equal(truncated, true)
+  })
+
+  test('the scope bound hit mid-stream with no declared size says the scope is full', async () => {
+    const files = make({ limits: { file: 100, scope: 15 } })
+    await files.writeText('/a.txt', 'x'.repeat(10))
+    await assert.rejects(files.save('b.txt', Readable.from([Buffer.alloc(4), Buffer.alloc(4)])), (err: any) => err instanceof FileError && /15 B limit \(10 B already used\)/.test(err.message))
+    assert.deepEqual((await files.list()).map(f => f.path), ['/a.txt'])
   })
 })

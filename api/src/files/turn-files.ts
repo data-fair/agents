@@ -4,6 +4,7 @@
  * on a temp directory; files/service.ts builds it from the deployment's store.
  */
 import { pipeline, Readable, Transform } from 'node:stream'
+import Debug from 'debug'
 import type { FileBackend } from './types.ts'
 import {
   FILE_MAX_BYTES, SCOPE_MAX_BYTES, FILE_TTL_MS, READ_MAX_BYTES, FileError, fileKey, scopePrefix, isStoredName, parseFilePath,
@@ -40,10 +41,17 @@ export interface TurnFilesOptions {
   now?: () => Date
 }
 
+const debug = Debug('df-agents:files')
+
 const isNotFound = (err: any) => err?.status === 404
 
 /** A failure of the store itself, named as one so the model does not take it for its own mistake. */
-const storageFailure = (err: any): FileError => err instanceof FileError ? err : new FileError(storageFailureMessage(err?.message ?? String(err)))
+const storageFailure = (err: any): FileError => {
+  if (err instanceof FileError) return err
+  // The full error carries paths and storage keys: it is logged, and the model gets only its code.
+  debug('file store failure: %o', err)
+  return new FileError(storageFailureMessage(String(err?.code ?? err?.name ?? 'unknown error')))
+}
 
 export const createTurnFiles = (opts: TurnFilesOptions): TurnFiles => {
   const { backend, scope, secret, publicUrl } = opts
@@ -86,12 +94,16 @@ export const createTurnFiles = (opts: TurnFilesOptions): TurnFiles => {
       read += buffer.length
       if (read >= maxBytes) { body.destroy(); break }
     }
-    return { file, text: new TextDecoder().decode(Buffer.concat(chunks)), truncated: file.size > maxBytes }
+    return { file, text: new TextDecoder().decode(Buffer.concat(chunks), { stream: true }), truncated: file.size > maxBytes }
   }
 
   const save = async (name: string, body: Readable, declaredSize?: number): Promise<StoredFile> => {
+    // First, before any await: a fetch-shaped body erroring while the store is listed must not be unhandled.
+    let bodyError: Error | undefined
+    body.once('error', err => { bodyError = err })
     if (!isStoredName(name)) { body.destroy(); throw new Error(`invalid stored name ${name}`) }
     const files = await list().catch(err => { body.destroy(); throw err })
+    if (bodyError) { body.destroy(); throw new Error(`the download failed: ${(bodyError as Error).message}`) }
     const used = files.filter(f => f.name !== name).reduce((sum, f) => sum + f.size, 0)
     const room = Math.min(limits.file, limits.scope - used)
     const tooLarge = (bytes: number) => new FileError(bytes > limits.file ? fileTooLargeMessage(limits.file) : scopeFullMessage(used, limits.scope))
@@ -101,8 +113,6 @@ export const createTurnFiles = (opts: TurnFilesOptions): TurnFiles => {
     // Counted as it streams: a missing or lying Content-Length cannot get past the bounds.
     let seen = 0
     let limitError: FileError | undefined
-    let bodyError: Error | undefined
-    body.once('error', err => { bodyError = err })
     const limiter = new Transform({
       transform (chunk, _encoding, callback) {
         seen += chunk.length
@@ -115,11 +125,11 @@ export const createTurnFiles = (opts: TurnFilesOptions): TurnFiles => {
     } catch (err) {
       body.destroy()
       if (limitError) throw limitError
-      if (bodyError) throw new Error(`the download failed: ${bodyError.message}`)
+      if (bodyError) throw new Error(`the download failed: ${(bodyError as Error).message}`)
       throw storageFailure(err)
     }
     if (limitError) throw limitError
-    if (bodyError) throw new Error(`the download failed: ${bodyError.message}`)
+    if (bodyError) throw new Error(`the download failed: ${(bodyError as Error).message}`)
     return await stat(`/${name}`)
   }
 
