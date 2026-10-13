@@ -24,7 +24,10 @@ import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-age
 import { WAIT_TOOL_NAME, type ChatActivity } from '@agents/shared/agent-activity'
 import { toolDescription } from '@agents/shared/tool-description'
 import { denyGoneApprovedTools, TOOL_NO_LONGER_AVAILABLE } from './approved-calls.ts'
-import { browserToolSet } from '../agent-session/browser-tools.ts'
+import { browserToolSet, rawBrowserToolSet } from '../agent-session/browser-tools.ts'
+import { createScriptTool } from '../code-mode/tool.ts'
+import { codeFacingTools, createCodeTrace } from '../code-mode/code-tools.ts'
+import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS } from '../code-mode/operations.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
@@ -40,6 +43,9 @@ const debug = Debug('df-agents:autonomous-agent-executor')
 
 /** Shown when the provider returns no text at all, so the turn never renders blank. */
 const EMPTY_COMPLETION_MESSAGE = 'I was not able to produce a response for this turn. Please try rephrasing the request.'
+
+/** Where a code_mode call comes from: its result's envelope and its stored call name this server. */
+const CODE_MODE_SOURCE = { server: CODE_MODE_SERVER_ID, annotations: CODE_MODE_ANNOTATIONS }
 
 export interface ModelLoopContext {
   run: ConversationRun
@@ -159,6 +165,12 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     if (at === -1) parts.push(stored)
     else parts[at] = stored
   }
+  // A script's nested calls, as a trace under its code_mode call (api/src/code-mode/code-tools.ts): streamed like a
+  // worker's, stored on the message when the script ends, left out of replay.
+  const codeTrace = createCodeTrace(trace => {
+    if (!trace.pending) storeSubAgentTrace(trace)
+    target.frames.subAgent(trace)
+  })
   const buildDelegation: Parameters<typeof partitionSubAgents>[1] = (name, workerConfig, workerTools) => {
     const pinned = workerConfig.model as ModelRole | undefined
     const seat: ModelRole = pinned && WORKER_SEATS.includes(pinned) ? pinned : 'tools'
@@ -246,6 +258,25 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       { ...fixedTools, ...(session ? Object.fromEntries(Object.entries(browserToolSet(session)).filter(([name]) => mayBePageTool(name))) : {}) },
       buildDelegation
     )
+    // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
+    // page tools that appeared mid-turn included, a worker's reserved tools excluded (the partition ran above).
+    // A page tool shadows a catalog tool of the same name for the model ({ ...fixedTools, ...page } above), so
+    // it does for a script too.
+    const page = session ? Object.fromEntries(Object.entries(rawBrowserToolSet(session, undefined, { drainEvents: false })).filter(([name]) => mayBePageTool(name))) : {}
+    const scriptTool = createScriptTool(codeFacingTools({
+      names: Object.keys(mainTools),
+      fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page))),
+      page,
+      callPath,
+      trace: codeTrace
+    }))
+    const runScript = scriptTool.execute!
+    mainTools[CODE_MODE_TOOL_NAME] = modelTools({
+      [CODE_MODE_TOOL_NAME]: {
+        tool: { ...scriptTool, execute: async (input: any, options: any) => { try { return await runScript(input, options) } finally { codeTrace.finish(options.toolCallId) } } },
+        ...CODE_MODE_SOURCE
+      }
+    })[CODE_MODE_TOOL_NAME]
     for (const name of Object.keys(liveTools)) if (!(name in mainTools)) delete liveTools[name]
     Object.assign(liveTools, mainTools)
   }
@@ -447,6 +478,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           // erase exactly that.
           }
         }
+        // code_mode is built in assembleTools, not one of the fixed tools: its source is stated, not looked up.
+        const source = part.toolName === CODE_MODE_TOOL_NAME ? CODE_MODE_SOURCE : tools[part.toolName]
         recorder.openCall({
           toolCallId: part.toolCallId,
           toolName: part.toolName,
@@ -455,8 +488,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           // types this slot as a JSONObject, which has no room for `undefined`, and a browser tool has
           // no catalog server to name.
           toolMetadata: {
-            ...(tools[part.toolName]?.server ? { serverId: tools[part.toolName].server } : {}),
-            ...(tools[part.toolName]?.annotations ? { annotations: tools[part.toolName].annotations } : {})
+            ...(source?.server ? { serverId: source.server } : {}),
+            ...(source?.annotations ? { annotations: source.annotations } : {})
           } as JSONObject
         })
         // Immediately, not on the persist clock: a tool chip appearing is what tells the person the

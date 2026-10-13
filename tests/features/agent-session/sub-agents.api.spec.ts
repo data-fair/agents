@@ -168,6 +168,19 @@ test.describe('A delegation over the agent session', () => {
     assert.equal(leadCalls.length, 0, 'the page was never asked to run a reserved tool for the lead')
   })
 
+  test('a reserved tool is not reachable from a code_mode script either', async () => {
+    // Code mode follows the partition: a script calls what the LEAD can call, so a worker's tool stays the worker's.
+    const socket = await open()
+    const js = 'try { await tools.query_data({ dataset: "test" }); return "ran" } catch (e) { return e.message }'
+    const { conversation, frames } = await runDelegation(socket, `call tool code_mode ${JSON.stringify({ js })}`)
+    assert.equal(frames.filter(frame => frame.type === 'tool-call' && frame.name === 'query_data').length, 0, 'the page was never asked to run it')
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversation.id}/messages`)).data
+    const call = messages.results.flatMap((message: any) => message.parts ?? [])
+      .find((part: any) => part.type === 'dynamic-tool' && part.toolName === 'code_mode')
+    assert.ok(call, 'the script ran')
+    assert.match(JSON.stringify(call.output ?? call.errorText), /Unknown tool: query_data/)
+  })
+
   test('every worker step is billed, on the tools seat', async () => {
     const socket = await open()
     const { conversation } = await runDelegation(socket, 'call tool subagent_data_analyst {"task":"analyze the closures"}')

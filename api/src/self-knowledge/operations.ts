@@ -104,7 +104,9 @@ export const renderConfiguration = (view: ConfigurationView): string => {
     '## Files',
     view.files
       ? `On: your files belong to this conversation (or task run). ls lists them, read_file reads a text file, write_file writes one; fetch_url can save what it downloads (saveAs), a file a tool returns as a link is saved for you, and a tool argument that takes a file takes one of your paths. Up to ${formatBytes(FILE_MAX_BYTES)} per file and ${formatBytes(SCOPE_MAX_BYTES)} in all; a file is deleted 7 days after it was last written.`
-      : 'Off: this deployment has no file store, so you cannot download, keep or upload files, and tools that take a file are not offered.'
+      : 'Off: this deployment has no file store, so you cannot download, keep or upload files, and tools that take a file are not offered.',
+    '## Code mode',
+    'On: code_mode runs a JavaScript script that calls your tools as async functions and transforms what they return, without the intermediate results entering this conversation. It can call every tool you have here except those needing approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents. Limits per script: 100 tool calls, 2 minutes, 10 s of CPU.'
   ].join('\n')
 }
 

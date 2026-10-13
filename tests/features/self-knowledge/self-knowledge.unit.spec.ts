@@ -5,6 +5,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import type { Tool } from 'ai'
 import { renderConfiguration, renderRunRow, exportPage, agentGuide, readAgentSkill, EARLIER_WORK_SKILL_URI, LIST_MY_RUNS_DESCRIPTION, READ_CONVERSATION_DESCRIPTION, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, PLANNED_TASKS_HEADER, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
+import { CODE_MODE_POLICY } from '../../../api/src/code-mode/operations.ts'
 import { SERVICE_TOOL_NAMES } from '../../../api/src/conversations/service-tool-names.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 
@@ -83,6 +84,14 @@ test.describe('renderConfiguration', () => {
     offered.serviceTools = [...offered.serviceTools, ...PLANNING_TOOL_NAMES]
     assert.ok(!renderConfiguration(offered).includes(PLANNING_NEEDS_ADMIN))
     assert.ok(!renderConfiguration(view('task')).includes(PLANNING_NEEDS_ADMIN))
+  })
+
+  test('code mode is stated as on, on every surface, with the limits the policy sets', () => {
+    for (const surface of ['chat', 'task'] as const) {
+      const text = renderConfiguration(view(surface))
+      assert.match(text, /## Code mode\nOn: code_mode runs a JavaScript script/)
+      assert.match(text, new RegExp(`${CODE_MODE_POLICY.maxBridgeRequests} tool calls, ${CODE_MODE_POLICY.timeoutMs / 60_000} minutes`))
+    }
   })
 
   test('a task disabled by an admin, not paused, reads as disabled', () => {
