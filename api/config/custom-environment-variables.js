@@ -44,6 +44,14 @@ export default {
     __name: 'SHUTDOWN_GRACE_SECONDS',
     __format: 'json'
   },
+  taskTimeoutSeconds: {
+    __name: 'TASK_TIMEOUT_SECONDS',
+    __format: 'json'
+  },
+  codeModeMaxWorkers: {
+    __name: 'CODE_MODE_MAX_WORKERS',
+    __format: 'json'
+  },
   files: {
     storage: 'FILES_STORAGE',
     dataDir: 'FILES_DATA_DIR',

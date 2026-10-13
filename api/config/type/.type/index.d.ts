@@ -154,6 +154,14 @@ export type ApiConfig = {
   compactionPercent: CompactionPercent;
   turnCredits: TurnCreditBudget;
   turnTimeoutSeconds: TurnTimeoutSeconds;
+  /**
+   * Wall-clock ceiling of one planned task's run. Longer than a chat turn's: nobody waits on it, and code mode and files make long runs the normal case.
+   */
+  taskTimeoutSeconds: number;
+  /**
+   * How many code_mode scripts this process runs at once (one QuickJS worker each, up to 64 MiB). A script started while all are busy is refused, not queued.
+   */
+  codeModeMaxWorkers: number;
   shutdownGraceSeconds: ShutdownGraceSeconds;
 }
 /**

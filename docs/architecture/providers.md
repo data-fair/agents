@@ -87,7 +87,7 @@ OpenAI's optional `promptCacheKey` routing hint, and a separate cache-write pric
 
 `ai` is pinned **exactly** (7.0.137), and so is every provider package, at the versions published with it: `@ai-sdk/anthropic` 4.0.78, `@ai-sdk/google` 4.0.93, `@ai-sdk/mistral` 4.0.62, `@ai-sdk/openai` 4.0.91, `@ai-sdk/openai-compatible` 3.0.67, `@ai-sdk/provider` 4.0.26, `@openrouter/ai-sdk-provider` 3.1.0, `ai-sdk-ollama` 4.4.0. Two reasons, both measured:
 
-- `@ai-sdk/code-mode`, the planned code-mode tool, is released in lockstep with `ai` and peer-pins one exact version. A range would let `ai` drift away from it on an ordinary install.
+- `@ai-sdk/code-mode` (1.0.94, the code-mode tool), is released in lockstep with `ai` and peer-pins one exact version: `@ai-sdk/code-mode@1.0.94` ↔ `ai@7.0.137`. A range would let `ai` drift away from it on an ordinary install.
 - The tree must hold **one** `@ai-sdk/provider-utils`. Installed without `npm dedupe`, each provider nests its own copy of the same version, and a `Tool` from one copy does not type-check as a `Tool` from another (31 type errors instead of 7 during the upgrade). After any bump: `npm dedupe`, then `npm ls ai @ai-sdk/provider-utils` must show a single version of each.
 
 What this service relies on in AI SDK 7, and where each is pinned by a test against the real SDK:

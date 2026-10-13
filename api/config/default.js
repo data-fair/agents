@@ -62,5 +62,11 @@ export default {
   // (api/src/conversations/live-runs.ts, drainLiveRuns). Short of turnTimeoutSeconds on purpose: a
   // deploy should not wait five minutes for one long task run. The pod's terminationGracePeriodSeconds
   // must exceed it, or the kubelet kills the process mid-drain.
-  shutdownGraceSeconds: 90
+  shutdownGraceSeconds: 90,
+  // A planned task's run: nobody waits on it, and code mode and files make runs of many steps the normal case.
+  // Session renewal (api/src/nhi) means no credential bounds it any more; the per-run credit budget bounds its spend.
+  taskTimeoutSeconds: 1800,
+  // code_mode scripts running at once in this process: one QuickJS worker each (64 MiB heap). The pool refuses
+  // rather than queues when full (api/src/code-mode).
+  codeModeMaxWorkers: 4
 }
