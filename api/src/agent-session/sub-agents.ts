@@ -272,7 +272,9 @@ export function subAgentDelegation (opts: {
         const stoppedMidChain = (await result.finishReason) === 'tool-calls'
         if (stoppedMidChain) {
           try {
-            const transcript = (await result.response).messages
+            // EVERY step's messages: in AI SDK 7 `result.response.messages` is the final step's alone, which
+            // would hand the close-out one call of a chain it was stopped in the middle of.
+            const transcript = await result.responseMessages
             const closeout = await generateText({
               model: opts.model as any,
               system: opts.config.prompt,

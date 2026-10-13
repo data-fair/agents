@@ -299,6 +299,56 @@ test.describe('subAgentDelegation — the worker trace', () => {
     assert.equal(phases[phases.length - 1], null)
   })
 
+  // The close-out turn is given the worker's WHOLE transcript to synthesize from. AI SDK 7 narrowed
+  // `result.response.messages` to the final step's own messages, so reading it there handed the close-out
+  // only the last call: a worker stopped after five reads reported on one.
+  test('a worker stopped mid-chain closes out over every step it took', async () => {
+    let closeoutPrompt: any[] | undefined
+    let streamed = 0
+    const usage = { inputTokens: { total: 1 }, outputTokens: { total: 1 } }
+    const delegation = subAgentDelegation({
+      name: 'subagent_looper',
+      config: { prompt: 'You analyse.', tools: ['query_data'] },
+      workerTools: { query_data: fake('rows') },
+      model: {
+        specificationVersion: 'v3',
+        provider: 'probe',
+        modelId: 'probe',
+        supportedUrls: {},
+        // The same call every step, with the same result: the repeated-call guard stops the worker.
+        doStream: async () => {
+          streamed++
+          const id = `w${streamed}`
+          return {
+            stream: new ReadableStream({
+              start (c) {
+                c.enqueue({ type: 'stream-start', warnings: [] })
+                c.enqueue({ type: 'tool-input-start', id, toolName: 'query_data' })
+                c.enqueue({ type: 'tool-input-delta', id, delta: '{}' })
+                c.enqueue({ type: 'tool-input-end', id })
+                c.enqueue({ type: 'tool-call', toolCallId: id, toolName: 'query_data', input: '{}' })
+                c.enqueue({ type: 'finish', finishReason: { unified: 'tool-calls', raw: undefined }, usage })
+                c.close()
+              }
+            })
+          }
+        },
+        // The close-out: no tools, so it is a plain generate call.
+        doGenerate: async (options: any) => {
+          closeoutPrompt = options.prompt
+          return { content: [{ type: 'text', text: 'partial: rows' }], finishReason: { unified: 'stop', raw: undefined }, usage, warnings: [] }
+        }
+      }
+    })
+
+    const summary = await delegation.execute!({ task: 'count the rows' } as never, { toolCallId: 'parent-3', messages: [], context: undefined })
+
+    assert.match(String(summary), /partial: rows/)
+    assert.ok(closeoutPrompt, 'the close-out turn must have run')
+    const toolResults = closeoutPrompt.filter(m => m.role === 'tool').length
+    assert.equal(toolResults, streamed, 'the close-out must see every step the worker took, not only the last')
+  })
+
   test('a worker that fails still clears its phase line', async () => {
     // Otherwise a panel spins for ever on a failure, which is the one state a reader cannot recover
     // from by waiting.
