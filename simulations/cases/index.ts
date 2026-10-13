@@ -439,7 +439,7 @@ export const cases: LocalCase[] = [
     },
     task: {
       title: 'Long city-centre closures table',
-      prompt: 'Export the current road closures of the city centre. Keep only the closures that reopen more than 7 days from today, with the same columns, as a CSV file, and import it as a new table titled "Long closures". Report the outcome, with the streets you kept.',
+      prompt: 'Export the current road closures of the "city-center" district. Keep only the closures that reopen more than 7 days from today, with the same columns, as a CSV file, and import it as a new table titled "Long closures". Report the outcome, with the streets you kept.',
       scheduling: [{ type: 'weekly', month: '*', dayOfMonth: '*', dayOfWeek: '1', hour: 8, minute: 0, timeZone: 'Europe/Paris' }]
     },
     persona: 'Nobody is present while this runs. The reader is the organization admin who planned the task: they read its reported outcome afterwards and open the imported table.',
