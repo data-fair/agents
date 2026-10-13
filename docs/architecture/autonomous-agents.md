@@ -303,7 +303,7 @@ one by one and the model resumes once, after the last.
 
 The `approval` run **replays** the conversation and the AI SDK executes the approved call, **settled on its original
 part** — that is the double-execution guard: the call has exactly one part, and a part that holds a result is never
-run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call the SDK refuses to run on replay — its class was set to `deny`, or to `allow`, since the request — is settled `output-error` on its own part ("this tool is no longer available", or that the policy changed), never left open. Moderation is **skipped** on an
+run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call whose tool is gone on replay (removed, its class set to `deny` since the request, or filtered out of an unattended run) is denied by name and settled `output-error` on its own part ("this tool is no longer available"), never left open; a call whose class was relaxed to `allow` since the request runs, because the person approved it and the policy now requires less. Moderation is **skipped** on an
 approval run: there is no new user text, and the decision is not something to classify.
 
 A run that does not reach the model must not leave an approved call without a result. `finishRun` settles them at the

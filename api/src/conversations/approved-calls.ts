@@ -5,6 +5,10 @@
  * run one whose tool was no longer offered (the agent's class for it was set to `deny` since) and answered it
  * with a denial; 7 silently skips it, leaving an approved call with no result after it — which the provider
  * then rejects. The SDK's `toolApproval` option can deny by tool name, so the names are found here.
+ *
+ * A name denied at turn start stays denied for the WHOLE turn: a page tool of that name registered mid-turn and
+ * called afresh is auto-denied. Narrow, and it fails closed; a per-call function would replace the tools' own
+ * `needsApproval`, so the by-name record is deliberate.
  */
 import type { ModelMessage, ToolApprovalConfiguration, ToolSet } from 'ai'
 

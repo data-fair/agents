@@ -22,7 +22,7 @@ import { securityKey } from '../cipher/service.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import { WAIT_TOOL_NAME, type ChatActivity } from '@agents/shared/agent-activity'
 import { toolDescription } from '@agents/shared/tool-description'
-import { denyGoneApprovedTools } from './approved-calls.ts'
+import { denyGoneApprovedTools, TOOL_NO_LONGER_AVAILABLE } from './approved-calls.ts'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
@@ -525,19 +525,15 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         await persistStructure()
         debug('tool failed tool=%s error=%o', part.toolName, part.error)
       }
-      // AN APPROVED CALL THE SDK REFUSED TO RUN on replay. It re-checks every approved call against the
-      // tools of THIS turn and denies, rather than executes, one whose tool is gone (its class was set to
-      // `deny` since) or no longer needs approval (set to `allow`) — a `tool-output-denied` part, not a
-      // throw and not a `tool-error`. Stored as an error on the call's own part: left `approval-responded`,
-      // every later replay would carry an approved call with no result after it. A call denied by the
-      // person never comes through here, its stored `output-denied` already replays with its result.
+      // AN APPROVED CALL WHOSE TOOL IS GONE (removed, denied since, or filtered out of an unattended run),
+      // denied by name through `toolApproval` (./approved-calls.ts): a `tool-output-denied` part, not a throw
+      // and not a `tool-error`. Stored as an error on the call's own part: left `approval-responded`, every
+      // later replay would carry an approved call with no result after it. A call denied by the person never
+      // comes through here, its stored `output-denied` already replays with its result. A call whose class was
+      // relaxed to `allow` since the request is deliberately NOT denied: the person approved it and the policy
+      // now requires less, so it runs.
       if (part.type === 'tool-output-denied' && !recorder.hasCall(part.toolCallId)) {
-        await target.settleEarlierCall(part.toolCallId, {
-          state: 'output-error',
-          errorText: part.toolName in liveTools
-            ? 'the approval policy of this tool changed since the request, so the approved call was not run'
-            : 'this tool is no longer available'
-        })
+        await target.settleEarlierCall(part.toolCallId, { state: 'output-error', errorText: TOOL_NO_LONGER_AVAILABLE })
       }
     }
   } finally {

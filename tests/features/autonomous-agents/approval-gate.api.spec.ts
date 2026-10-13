@@ -193,6 +193,16 @@ test.describe('The approval gate', () => {
     assert.deepEqual(fixture.invokedTools(), [])
   })
 
+  test('a class relaxed to allow between the request and the decision runs the approved call exactly once', async () => {
+    const { agent, conv, approvalId, seq } = await pendingApproval()
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: { destructive: 'allow' } })
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    const { runId } = await decideRun(conv.id, approvalId, { approved: true })
+    await awaitRun(conv.id, runId)
+    assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
+    assert.equal(callPart(await messageAt(conv.id, seq), 'wipe_everything').state, 'output-available')
+  })
+
   // If the SDK throws on replaying an approved call whose tool is gone (rather than emitting a
   // `tool-error`), catch that in runModelLoop's stream handling and settle the part with
   // settleStoredToolPart(…, { state: 'output-error', errorText: 'this tool is no longer available' }).
