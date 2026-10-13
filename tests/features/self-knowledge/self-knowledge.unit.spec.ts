@@ -51,6 +51,12 @@ test.describe('renderConfiguration', () => {
     assert.ok(all.includes('- registry: Registry — Searches datasets'), text)
   })
 
+  test('the skills its tool servers publish are listed with how to load them; none, none', () => {
+    const withSkills = { ...view('chat'), skills: [{ server: 'roads', name: 'closures', uri: 'skill://roads/closures/SKILL.md' }] }
+    assert.ok(lines(renderConfiguration(withSkills)).includes('- closures (server roads): load it with read_skill, uri skill://roads/closures/SKILL.md'))
+    assert.match(renderConfiguration(view('chat')), /## Skills\nNone\./)
+  })
+
   test('on the task surface a tool needing approval is out of reach: nobody is present', () => {
     assert.ok(lines(renderConfiguration(view('task'))).includes('- wipe (server roads): not usable here: needs approval and nobody is present'))
   })

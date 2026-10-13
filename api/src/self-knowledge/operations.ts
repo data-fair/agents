@@ -42,6 +42,8 @@ export interface ConfigurationView {
   serviceTools: string[]
   /** Catalog servers the agent does not reference. */
   notConnected: { id: string, name: string, description?: string }[]
+  /** The skills this turn's tool servers publish (docs/architecture/mcp-tools.md, "Server instructions and skills"). */
+  skills?: { server: string, name: string, uri: string }[]
   tasks: { id: string, title: string, scheduling: ScheduleRule[], nextRunAt?: string, enabled: boolean, pausedReason?: string }[]
 }
 
@@ -86,6 +88,8 @@ export const renderConfiguration = (view: ConfigurationView): string => {
     bullets(view.serviceTools),
     '## Not connected',
     bullets(view.notConnected.map(server => `${server.id}: ${server.name}${server.description ? ` — ${server.description}` : ''}`)),
+    '## Skills',
+    bullets((view.skills ?? []).map(s => `${s.name} (server ${s.server}): load it with read_skill, uri ${s.uri}`)),
     '## Planned tasks',
     // Said outright: a listed task needs nothing more. A judged run read its own approved, stored task
     // as still awaiting approval and told the person so until they had it deleted.

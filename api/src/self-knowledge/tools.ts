@@ -46,6 +46,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
           serviceTools: serviceToolNames().filter(name => !own.has(name)),
           notConnected: (config.mcpServers ?? []).filter(server => !referenced.has(server.id))
             .map(({ id, name, description }) => ({ id, name, description })),
+          skills: (ctx.guides?.list ?? []).flatMap(g => g.skills.map(s => ({ server: g.server, name: s.name, uri: s.uri }))),
           tasks: tasks.map(task => ({ ...task, scheduling: task.scheduling as ScheduleRule[] }))
         })
       }

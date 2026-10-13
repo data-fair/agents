@@ -34,6 +34,17 @@ test.describe('buildSystemPrompt', () => {
   // CONFIGURED agent, which is the kind that has a service identity of its own.
   const agent = { id: 'a1', title: 'Support triage', persona: 'You triage support questions.', instructions: 'Answer in French.', nhi: { clientId: 'c1' } }
 
+  test('server guides go after the identity clauses and before memory', () => {
+    const memory = [{ path: 'MEMORY.md', description: '', content: 'remembered note', version: 1, updatedAt: '2026-10-13T00:00:00.000Z' }]
+    const prompt = buildSystemPrompt(agent, memory as any, 'chat', { guides: [{ server: 'data-fair', instructions: 'Use filters.', skills: [] }] })
+    assert.ok(prompt.indexOf('Instructions from tool servers') > prompt.indexOf('own service identity'))
+    assert.ok(prompt.indexOf('Instructions from tool servers') < prompt.indexOf('remembered note'))
+  })
+
+  test('no guides, no block', () => {
+    assert.doesNotMatch(buildSystemPrompt(agent, undefined, 'chat', { guides: [] }), /tool servers/)
+  })
+
   test('includes the persona and the instructions', () => {
     const prompt = buildSystemPrompt(agent)
     assert.match(prompt, /You triage support questions\./)

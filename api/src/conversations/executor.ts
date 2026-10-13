@@ -161,7 +161,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
-  const { tools: listedTools, skippedServers, filteredOut, needsFiles, close: closeTools } =
+  const { tools: listedTools, skippedServers, filteredOut, needsFiles, guides: catalogGuides, readSkill: readCatalogSkill, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sites, {
       onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw',
       files: !!files
@@ -176,6 +176,12 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     }
     const catalog: ToolSet = { ...listedTools, ...external?.tools }
     if (external) skippedServers.push(...external.skippedServers)
+    // What the turn's servers say about their tools (instructions, skills), catalog first then external, in
+    // the agent's order; and one reader routing a skill read to whichever side holds that server.
+    const guides = [...catalogGuides, ...(external?.guides ?? [])]
+    const readSkill = (server: string, uri: string): Promise<string> => catalogGuides.some(g => g.server === server)
+      ? readCatalogSkill(server, uri)
+      : external ? external.readSkill(server, uri) : Promise.reject(new Error(`"${server}" is not one of your tool servers this turn`))
     if (skippedServers.length) {
       debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
     }
@@ -192,7 +198,8 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       session,
       ...(files ? { files } : {}),
       ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
-      catalog: { tools: catalog, filteredOut, skippedServers, needsFiles }
+      catalog: { tools: catalog, filteredOut, skippedServers, needsFiles },
+      guides: { list: guides, read: readSkill }
     })
     // An UNATTENDED turn (a planned task's run) is offered no tool needing approval, from any source.
     const assembled: ToolSet = { ...catalogTools, ...service.tools }
@@ -205,7 +212,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
           openLink: createLinkOpener({ sites, allowedUrls: autonomousAgent.web?.enabled ? autonomousAgent.web.allowedUrls ?? [] : [], publicIps: envPublicIps() })
         }
       : {}
-    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath })
+    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead: readSkill })
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()

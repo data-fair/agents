@@ -33,6 +33,7 @@ import { tokenCountsOf } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { mayBePageTool } from './service-tool-names.ts'
 import { liveRuns } from './live-runs.ts'
+import type { ServerGuide } from '../mcp-servers/guides.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -58,15 +59,19 @@ export interface ModelLoopContext {
   target: TurnTarget
   /** The turn's call path: its files, and how it opens links (api/src/files/call-path.ts). */
   callPath: CallPathContext
+  /** What the turn's tool servers say about their tools: rendered into the system prompt (api/src/mcp-servers/guides.ts). */
+  guides?: ServerGuide[]
+  /** How a skill of one of those servers is read: what a sub-agent worker's read_skill uses. */
+  guidesRead?: (server: string, uri: string) => Promise<string>
 }
 
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath } = ctx
+  const { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath, guides } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target).
   const session = target.session
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
-  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn })
+  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides })
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })

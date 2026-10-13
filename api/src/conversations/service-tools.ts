@@ -26,6 +26,8 @@ import { FILES_SERVER_ID, FILE_TOOL_ANNOTATIONS } from '../files/operations.ts'
 import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS, FETCH_URL_WITH_FILES_ANNOTATIONS, FETCH_URL_TOOL_NAME } from '../web/tools.ts'
 import { WEB_SERVER_ID } from '../web/operations.ts'
 import { createRequestMcpAccessTool } from '../mcp-servers/external.ts'
+import { createReadSkillTool, READ_SKILL_TOOL_NAME, READ_SKILL_ANNOTATIONS, SKILLS_SERVER_ID } from '../mcp-servers/read-skill.ts'
+import type { ServerGuide } from '../mcp-servers/guides.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID } from '../mcp-servers/operations.ts'
 import { saveExternalMcpServers, saveWebAllowedUrls } from '../autonomous-agents/service.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
@@ -66,6 +68,8 @@ export interface ServiceToolContext {
   reportOutcome?: (outcome: TaskOutcome) => void
   /** The turn's catalog tools, for the agent's own reading of what it can use. */
   catalog?: TurnCatalog
+  /** What the turn's tool servers say about their tools, and how a skill of one is read (api/src/mcp-servers/guides.ts). */
+  guides?: { list: ServerGuide[], read: (server: string, uri: string) => Promise<string> }
 }
 
 export interface BuiltServiceTools {
@@ -147,6 +151,20 @@ const ENTRIES: ServiceToolEntry[] = [
     build: async ({ agent }, into) => {
       const tools = { [REQUEST_MCP_ACCESS_TOOL_NAME]: createRequestMcpAccessTool({ servers: [...(agent.externalMcpServers ?? [])], save: servers => saveExternalMcpServers(agent, servers) }) }
       Object.assign(into.tools, sourcedTools(tools, EXTERNAL_MCP_SERVER_ID, () => ACCESS_REQUEST_ANNOTATIONS))
+    }
+  },
+  {
+    // SKILLS (api/src/mcp-servers/read-skill.ts): loading a skill a tool server publishes, whenever one of the
+    // turn's servers publishes skills or instructions (which may point at a skill URI). On every surface, the
+    // personal assistant's included; read-only, so outside the approval gate. It envelopes its own result.
+    applies: ctx => !!ctx.guides?.list.length,
+    build: async ({ guides }, into) => {
+      into.tools[READ_SKILL_TOOL_NAME] = {
+        tool: createReadSkillTool({ servers: guides!.list.map(g => g.server), read: guides!.read }),
+        server: SKILLS_SERVER_ID,
+        annotations: READ_SKILL_ANNOTATIONS,
+        selfEnveloped: true
+      }
     }
   },
   {
