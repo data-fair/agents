@@ -54,6 +54,14 @@ test.describe('withCallPath', () => {
     assert.equal(received.length, 0)
   })
 
+  test('a file argument that is not a string is refused, and the target is never called; an absent one passes', async () => {
+    const wrapped = withCallPath({ tool: target(() => 'imported'), server: 's', fileArgs: ['file'] }, { files })
+    await assert.rejects(run(wrapped, { file: 42 }), /"42" is not a valid file path/)
+    await assert.rejects(run(wrapped, { file: { url: 'http://evil' } }), /is not a valid file path/)
+    assert.equal(received.length, 0)
+    assert.equal(await run(wrapped, { title: 't' }), 'imported')
+  })
+
   test('a tool without file arguments, or a turn without files, passes the input through', async () => {
     await run(withCallPath({ tool: target(() => 'ok'), server: 's' }, { files }), { file: '/clean.csv' })
     await run(withCallPath({ tool: target(() => 'ok'), server: 's', fileArgs: ['file'] }, {}), { file: '/clean.csv' })
@@ -89,28 +97,37 @@ test.describe('withCallPath — links', () => {
     assert.deepEqual((await files.list()).map(f => f.path).sort(), ['/roads-2.csv', '/roads.csv'])
   })
 
-  test('a refused link fetch is a tool error with the reason', async () => {
+  test('a link that cannot be saved leaves the call successful, and the result says which and why', async () => {
     const openLink = async () => { throw new Error('"https://x" is not under this agent\'s allowed URLs (none)') }
     const wrapped = withCallPath({ tool: target(() => linked), server: 's' }, { files, openLink })
-    await assert.rejects(run(wrapped, {}), /Could not save the file linked as "roads": "https:\/\/x" is not under this agent's allowed URLs \(none\)/)
+    assert.equal(await run(wrapped, {}), 'The file: https://site.example/data-fair/api/v1/datasets/roads/raw\n\nCould not save the file linked as roads: "https://x" is not under this agent\'s allowed URLs (none)\nCould not save the file linked as roads: "https://x" is not under this agent\'s allowed URLs (none)')
   })
 
-  test('an unnamed link is shown without its query; a later failure names the files already saved', async () => {
-    const presigned = { _agentsLinkResult: true, text: 'x', links: [{ uri: 'https://site.example/f?sig=secret', name: '' }], catalog: false }
-    const refuse = async () => { throw new Error('answered HTTP 403') }
-    await assert.rejects(run(withCallPath({ tool: target(() => presigned), server: 's' }, { files, openLink: refuse }), {}), (err: any) => {
-      assert.match(err.message, /Could not save the file linked as "https:\/\/site\.example\/f": answered HTTP 403/)
-      assert.ok(!err.message.includes('secret') && !err.message.includes('?'), err.message)
-      return true
-    })
+  test('an unnamed link is shown without its query, in the line and in the text', async () => {
+    const presigned = { _agentsLinkResult: true, text: 'see https://site.example/f?sig=secret', links: [{ uri: 'https://site.example/f?sig=secret', name: '' }], catalog: false }
+    const refuse = async () => { throw new Error('answered HTTP 403 for https://site.example/f?sig=secret') }
+    const out = await run(withCallPath({ tool: target(() => presigned), server: 's' }, { files, openLink: refuse }), {})
+    assert.equal(out, 'see https://site.example/f\n\nCould not save the file linked as https://site.example/f: answered HTTP 403 for https://site.example/f')
+    assert.ok(!out.includes('secret'))
+  })
+
+  test('a later failure keeps the files already saved, each failure on its own line', async () => {
     let n = 0
     const second = async () => { if (n++) throw new Error('boom'); return opened('a,b\n') }
-    await assert.rejects(run(withCallPath({ tool: target(() => linked), server: 's' }, { files, openLink: second }), {}), /Could not save the file linked as "roads": boom\n\nThe files already saved from this result stay in your files: \/roads\.csv\./)
+    const out = await run(withCallPath({ tool: target(() => linked), server: 's' }, { files, openLink: second }), {})
+    assert.equal(out, 'The file: /roads.csv\n\nSaved to your files: /roads.csv (text/csv, 4 B).\nCould not save the file linked as roads: boom')
+    assert.deepEqual((await files.list()).map(f => f.path), ['/roads.csv'])
   })
 
-  test('a save failure (cap, scope) is reported with the link it refers to', async () => {
-    const wrapped = withCallPath({ tool: target(() => linked), server: 's' }, { files: { ...files, save: async () => { throw new Error('over the cap') } } as any, openLink: async () => opened('a') })
-    await assert.rejects(run(wrapped, {}), /Could not save the file linked as "roads": over the cap/)
+  test('a save failure (cap, scope) is reported with the link it refers to, not thrown', async () => {
+    const wrapped = withCallPath({ tool: target(() => ({ ...linked, links: [linked.links[0]] })), server: 's' }, { files: { ...files, save: async () => { throw new Error('over the cap') } } as any, openLink: async () => opened('a') })
+    assert.match(await run(wrapped, {}), /\n\nCould not save the file linked as roads: over the cap$/)
+  })
+
+  test('a stopped turn is not reported as failed links', async () => {
+    const ac = new AbortController()
+    const openLink = async () => { ac.abort(); throw new Error('aborted') }
+    await assert.rejects(withCallPath({ tool: target(() => linked), server: 's' }, { files, openLink }).execute!({}, { toolCallId: 't', messages: [], abortSignal: ac.signal } as any), /aborted/)
   })
 
   test('without files, a link result is its text, unchanged', async () => {

@@ -26,7 +26,7 @@ converge. Listings return files only, relative to the listed prefix.
 - `fs` (`files.dataDir`): a directory, **on a volume shared by every node** when the service is scaled
   (data-fair's rule for its `dataDir`). A write goes to a hidden temp file beside the target, is synced,
   then renamed: a failed or interrupted write never leaves a truncated file under a real name, and the
-  hidden temp files never show in a listing.
+  hidden temp files never show in the model's listing (only the sweep lists them, `includeHidden`).
 - `s3` (`files.s3`): `@aws-sdk/client-s3` + `@aws-sdk/lib-storage`, as data-fair. Listings are paginated
   (the sweep reads the whole store), and checksums are `WHEN_REQUIRED`: the SDK's default trailing
   checksums use `aws-chunked` bodies that several S3-compatible stores refuse.
@@ -53,28 +53,33 @@ listing before a write (the file being overwritten not counted), and both bounds
 the bytes stream**: a missing or lying `Content-Length` changes nothing, and a download over a bound is
 aborted, never stored truncated. Storage is not charged to credits. A storage failure tells the model only
 the error's `code` or `name` ("The file store failed (…); your other tools still work"); the full error,
-which carries paths and keys, goes to the debug log.
+which carries paths and keys, goes to the debug log. The scope bound is checked per write, so saves running
+in parallel can overshoot it by what they add together. A write over an existing name (`write_file`, or a
+saved link or download named alike) replaces the file and **resets its 7-day clock**.
 
 **Lifetime**:
 - Deleting a conversation deletes its files at once, whether it is purged or archived (files are not review
   material). The delete lives inside `purgeConversation` and `archiveConversation`, so every purge path
   gets it, an admin's GDPR erasure included. It is logged, never thrown: the conversation is already gone.
 - One hourly sweep (`sweepFilesOnce`, one instance at a time under a lock) lists `agent-files/` and removes
-  what was last written more than 7 days ago, the same on both backends. A file that fails to delete is
+  what was last written more than 7 days ago, the same on both backends. On `fs` the listing includes the
+  hidden `.<name>.<id>.part` temp files, so one a hard crash orphaned is removed by the same rule. A file that fails to delete is
   logged and the pass goes on; the next pass retries it.
-- Deleting an agent bulk-deletes its conversations without going through the purge, so its files are left
-  to the sweep; so is anything a crash left behind. The sweep is the one cleanup that needs no bookkeeping.
+- Deleting an agent bulk-deletes its conversations; `deleteAutonomousAgentData` then deletes each one's
+  files at once (logged, never blocking). Its task runs' files, and anything a crash left behind, are left
+  to the sweep: the one cleanup that needs no bookkeeping.
 - A file in use is not renewed: past 7 days, the agent downloads it again.
 
 At boot, `assertFilesConfig` validates the configuration and `checkAccess` fails the start when the store
-cannot be reached, as data-fair's does.
+cannot be reached, as data-fair's does (on S3 its probe object lives under `agent-files/`, so a credential
+limited to that prefix passes).
 
 ## The tools
 
 | Tool | Does |
 |---|---|
 | `ls()` | the scope's files: path, type, size, expiry, and how much of the 500 MB is used |
-| `read_file({ file_path, offset?, limit? })` | a page of a text file by lines (0-based `offset`, 500 lines by default, at most 2,000 and 20,000 characters), numbered like `cat -n`, with where to read on; at most the first 10 MB of a file; a line over 20,000 characters is cut and says so; a binary file answers its metadata and that it can be passed to a tool |
+| `read_file({ file_path, offset?, limit? })` | a page of a text file by lines (0-based `offset`, 500 lines by default, at most 2,000 and 20,000 characters), numbered like `cat -n`, with where to read on (an `offset` or `limit` that is not an integer is refused, not defaulted); at most the first 10 MB of a file; a line over 20,000 characters is cut and says so; a binary file answers its metadata and that it can be passed to a tool |
 | `write_file({ file_path, content })` | creates or overwrites a text file (an extension of a text type), at most 1 MB |
 
 Named and shaped after Claude Code's and deepagents' tools, so the model meets names it was trained on. No
@@ -119,8 +124,10 @@ URL's last segment, with an extension from the response type, else the link's `m
 data-fair's `/raw` and `/convert` links carry no extension and no type, and a file stored without its
 extension could not be uploaded again. The result's text block also names the URL: it is rewritten to the
 stored path, and a closing line lists what was saved, so the model sees one consistent reference. Two
-links named alike in one result get `-2`, `-3`. A link that cannot be saved fails the call with
-"Could not save the file linked as …" and names the files already saved from that result. Embedded `blob`
+links named alike in one result get `-2`, `-3`. A link that cannot be saved does **not** fail the call:
+the tool already ran (a retry would repeat its side effects) and turning a store on must not break tools that
+worked. The result keeps the text (each saved link rewritten to its path), then one line per failure, "Could not save
+the file linked as <name or address without query>: <reason>". Embedded `blob`
 resources are not handled (nothing returns them; openapi-mcp returns links); image results keep their
 behaviour. An `isError` result has the URI of any link it carried reduced to origin and path.
 
@@ -129,7 +136,7 @@ behaviour. An `isError` result has the URI of any link it carried reduced to ori
 A tool input property `{ type: 'string', format: 'uri', 'x-mcp-file': { accept?, maxSize? } }` at the top
 level (openapi-mcp produces nothing deeper) takes a file. `x-mcp-file` is the keyword of the MCP file-input
 proposals (SEP-2356, superseded by the open draft SEP-2631); `contentMediaType` is not used, since in JSON
-Schema it says the string *is* the bytes. The model is offered a plain string "the path of one of your
+Schema it says the string *is* the bytes. `x-mcp-file: true` is read like the object form. The model is offered a plain string "the path of one of your
 files", with `accept` and `maxSize` in the description; the target enforces them. **External MCP servers'**
 tools that take a file are never offered: `files.publicUrl` is where the platform's own servers reach this
 API, often an internal address, so the call could not succeed.
@@ -157,7 +164,7 @@ SEP-2631 lands, its `mcp-file:` values are one more accepted form.
 stored input, the approval card (path, type and size, from `toolMetadata.files`) and the transcript hold the
 path, and an approved call replays with a URL signed at that moment, not at the request. The model never
 sees a URL. One a target echoes back is scrubbed to the path, whole and without its query, in the result
-and in an error's message, stack and cause chain.
+and in an error's message, stack and cause chain; a last pass strips any `exp=`/`sig=` pair left by an echo that changed the URL (`&amp;`, percent-encoding). A file argument that is not a string is refused with the invalid-path message.
 
 ## One call path
 
@@ -178,7 +185,7 @@ same call: same file handling, same recording, same guards.
 | file over 100 MB | the cap; nothing stored |
 | conversation over 500 MB | the cap and the current total |
 | file store unreachable | named as a storage failure with the error code; other tools keep working |
-| link fetch refused | "Could not save the file linked as …" with the download's own message |
+| link fetch refused | the call succeeds; a line "Could not save the file linked as …" with the download's own message |
 
 ## Sources
 

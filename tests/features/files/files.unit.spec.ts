@@ -161,10 +161,39 @@ test.describe('file arguments', () => {
     assert.deepEqual(fileArgumentsOf(undefined).fileArgs, [])
   })
 
+  test('the boolean form of the marker is a file argument like the object form', () => {
+    const { schema, fileArgs } = fileArgumentsOf({ type: 'object', properties: { file: { type: 'string', 'x-mcp-file': true }, off: { type: 'string', 'x-mcp-file': false }, other: { type: 'string' } } })
+    assert.deepEqual(fileArgs, ['file'])
+    assert.match(schema.properties.file.description, /The path of one of your files/)
+    assert.equal(schema.properties.off.type, 'string')
+  })
+
   test('signed URLs are replaced by their path, whole or without their query', () => {
     const replacements = new Map([['http://agents/api/files/organization/t/c/a.csv?exp=1&sig=x', '/a.csv']])
     assert.equal(scrubUrls('could not fetch http://agents/api/files/organization/t/c/a.csv?exp=1&sig=x: 403', replacements), 'could not fetch /a.csv: 403')
     assert.equal(scrubUrls('GET http://agents/api/files/organization/t/c/a.csv failed', replacements), 'GET /a.csv failed')
+  })
+})
+
+test.describe('scrubUrls — echoes', () => {
+  const scope = { ownerType: 'organization' as const, ownerId: 't', scopeId: 'c' }
+  const url = signedFileUrl('http://agents', 's'.repeat(32), scope, 'a.csv', 1_800_000_000)
+  const sig = new URL(url).searchParams.get('sig')!
+  const replacements = new Map([[url, '/a.csv']])
+
+  test('an HTML-escaped, JSON or percent-encoded echo leaks no signature', () => {
+    const escaped = url.replace('&', '&amp;')
+    assert.equal(scrubUrls(`<a href="${escaped}">x</a>`, replacements), '<a href="/a.csv">x</a>')
+    assert.equal(scrubUrls(`<a href="${url.split('?')[0]}?exp=1800000600&amp;sig=${sig}">`, replacements), '<a href="/a.csv">')
+    assert.equal(scrubUrls(`{"u":"${url}"}`, replacements), '{"u":"/a.csv"}')
+    assert.equal(scrubUrls(`redirect=${encodeURIComponent(url)}&x=1`, replacements), 'redirect=/a.csv&x=1')
+    const half = `redirect=${encodeURIComponent(url.split('?')[0])}%3Fexp%3D1800000600%26sig%3D${sig}&x=1`
+    assert.ok(!scrubUrls(half, replacements).includes(sig), 'percent-encoded separators')
+    assert.ok(!scrubUrls(half, replacements).includes('exp'))
+  })
+
+  test('without a signed URL in the call, the text is left alone', () => {
+    assert.equal(scrubUrls('?exp=1800000600&sig=' + sig, new Map()), '?exp=1800000600&sig=' + sig)
   })
 })
 

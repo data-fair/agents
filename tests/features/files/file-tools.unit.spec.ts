@@ -29,6 +29,16 @@ test.describe('file tools', () => {
     assert.equal(await call('read_file', { file_path: '/notes.csv' }), '/notes.csv (text/csv, 8 B, 2 lines): lines 1-2\n     1\ta,b\n     2\t1,2\nEnd of file.')
   })
 
+  test('read_file refuses a paging argument that is not an integer, rather than rendering lines 1-0', async () => {
+    await call('write_file', { file_path: '/notes.csv', content: 'a,b\n1,2\n' })
+    await assert.rejects(call('read_file', { file_path: '/notes.csv', offset: 'abc' }), /offset must be an integer of 0 or more \(got "abc"\)/)
+    await assert.rejects(call('read_file', { file_path: '/notes.csv', limit: 0 }), /limit must be an integer of 1 or more/)
+    await assert.rejects(call('read_file', { file_path: '/notes.csv', limit: 1.5 }), /limit must be an integer/)
+    await assert.rejects(call('read_file', { file_path: '/notes.csv', offset: -1 }), /offset must be/)
+    assert.match(await call('read_file', { file_path: '/notes.csv', offset: '1', limit: 1 }), /lines 2-2\n {5}2\t1,2/)
+    assert.match(await call('read_file', { file_path: '/notes.csv', offset: null }), /lines 1-2/)
+  })
+
   test('write_file writes text only, and small text', async () => {
     await assert.rejects(call('write_file', { file_path: '/x.xlsx', content: 'a' }), /write_file writes text: give \/x\.xlsx the extension of a text type/)
     await assert.rejects(call('write_file', { file_path: '/x.txt', content: 'a'.repeat(1_000_001) }), /at most 1 MB/)

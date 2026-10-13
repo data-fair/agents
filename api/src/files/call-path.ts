@@ -14,7 +14,7 @@ import type { SourcedTool } from '../conversations/operations.ts'
 import type { TurnFiles } from './turn-files.ts'
 import type { OpenedDownload } from './download.ts'
 import { displayUrl } from '../web/operations.ts'
-import { scrubUrls, isLinkedToolResult, storedNameForLink, uniqueName, rewriteLinkText, formatBytes, type LinkedToolResult, type LinkOrigin, type ResourceLink } from './operations.ts'
+import { FileError, invalidPathMessage, scrubUrls, isLinkedToolResult, storedNameForLink, uniqueName, rewriteLinkText, formatBytes, type LinkedToolResult, type LinkOrigin, type ResourceLink } from './operations.ts'
 
 export interface CallPathContext {
   /** The turn's files; undefined when files are off (the personal assistant, or no store). */
@@ -35,28 +35,38 @@ const scrubOutput = (output: unknown, signed: Map<string, string>): unknown => {
  * A link result becomes stored files (spec §4.2): each link fetched under the credential rule, named from its
  * response, stored, and its URL in the text replaced by the stored path. Without files, the text unchanged —
  * today's behaviour, where links were dropped and the text kept.
+ *
+ * A link that cannot be saved does NOT fail the call: the tool already ran (a retry would repeat its side
+ * effects), and turning a file store on must not break tools that worked. The result says which link was not
+ * saved and why; its URL (possibly presigned) is reduced to origin and path.
  */
 const storeLinks = async (result: LinkedToolResult, ctx: CallPathContext, signal?: AbortSignal): Promise<string> => {
   if (!ctx.files || !ctx.openLink) return result.text
   const used = new Set<string>()
   const saved: { uri: string, path: string, line: string }[] = []
+  const failed: { uri: string, line: string }[] = []
   for (const link of result.links) {
-    let file: Awaited<ReturnType<TurnFiles['save']>>
     try {
       const opened = await ctx.openLink(link, { catalog: result.catalog, ...(result.site ? { site: result.site } : {}) }, signal)
       const name = uniqueName(storedNameForLink({ contentDisposition: opened.contentDisposition, contentType: opened.contentType, link }), used)
-      file = await ctx.files.save(name, opened.body, opened.contentLength)
+      const file = await ctx.files.save(name, opened.body, opened.contentLength)
+      saved.push({ uri: link.uri, path: file.path, line: `${file.path} (${file.mimeType}, ${formatBytes(file.size)})` })
     } catch (err: any) {
-      // A link's URL can be presigned: its name, else its address without query.
-      const already = saved.length ? `\n\nThe files already saved from this result stay in your files: ${saved.map(s => s.path).join(', ')}.` : ''
-      throw new Error(`Could not save the file linked as "${link.name || displayUrl(link.uri)}": ${err?.message ?? err}${already}`)
+      // the turn was stopped: stop, rather than report every remaining link as failed
+      if (signal?.aborted) throw err
+      const shown = displayUrl(link.uri)
+      failed.push({ uri: link.uri, line: `Could not save the file linked as ${link.name || shown}: ${String(err?.message ?? err).split(link.uri).join(shown)}` })
     }
-    saved.push({ uri: link.uri, path: file.path, line: `${file.path} (${file.mimeType}, ${formatBytes(file.size)})` })
   }
   // Longest URL first: one link's URL may be the start of another's (`…/raw` and `…/raw?format=csv`).
   let text = result.text
   for (const { uri, path } of [...saved].sort((a, b) => b.uri.length - a.uri.length)) text = rewriteLinkText(text, uri, path)
-  return `${text}\n\nSaved to your files: ${saved.map(s => s.line).join(', ')}.`
+  for (const { uri } of failed) text = text.split(uri).join(displayUrl(uri))
+  return [
+    text,
+    ...(saved.length ? [`\nSaved to your files: ${saved.map(s => s.line).join(', ')}.`] : []),
+    ...(failed.length ? [`${saved.length ? '' : '\n'}${failed.map(f => f.line).join('\n')}`] : [])
+  ].join('\n')
 }
 
 /** An error with a signed URL scrubbed from its message, stack and cause chain, in place (the identity is kept for the loop). */
@@ -71,7 +81,9 @@ const toSignedUrls = async (args: unknown, fileArgs: string[], files: TurnFiles,
   const input: Record<string, unknown> = { ...(args && typeof args === 'object' ? args as Record<string, unknown> : {}) }
   for (const name of fileArgs) {
     const value = input[name]
-    if (typeof value !== 'string') continue
+    if (value === undefined || value === null) continue
+    // a path is a string: anything else is refused, never handed to the target as it is
+    if (typeof value !== 'string') throw new FileError(invalidPathMessage(JSON.stringify(value)))
     // Checks the file exists (a HEAD on S3): "no file named X here", with the list, rather than a 404 from the target.
     const { url, file } = await files.signedUrl(value)
     signed.set(url, file.path)

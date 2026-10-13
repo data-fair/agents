@@ -51,8 +51,9 @@ test.describe('File links', () => {
     await enrolSiteBound()
     const refused = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool export_closures {"district":"riverside"}')
     const part = callPart(refused.assistant, 'export_closures')
-    assert.equal(part.state, 'output-error')
-    assert.match(outputOf(part), /Could not save the file linked as "closures-riverside": .*is not under this agent's allowed URLs \(none\)/)
+    assert.equal(part.state, 'output-available', 'the tool ran: the call stays successful')
+    assert.match(outputOf(part), /Could not save the file linked as closures-riverside: .*is not under this agent's allowed URLs \(none\)/)
+    assert.ok(!outputOf(part).includes('Saved to your files'))
     assert.deepEqual(fixture.exportRequests(), [])
 
     await enrolSiteBound({ web: { enabled: true, allowedUrls: [`${FIXTURE_ORIGIN}/exports`] } })

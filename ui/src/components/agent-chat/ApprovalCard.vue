@@ -188,6 +188,9 @@ fr:
   confirmReject: Confirmer le refus
   cancel: Annuler
   fileMissing: "fichier introuvable"
+  unitByte: o
+  unitKilo: ko
+  unitMega: Mo
   webWarning: "L'agent pourra lire ces adresses, et un texte peut contenir des instructions : leurs auteurs pourront de fait lui en donner, avec son identité et tous ses outils. Seul un administrateur de l'organisation peut approuver."
 en:
   heading: "Approve \"{name}\"?"
@@ -208,6 +211,9 @@ en:
   confirmReject: Confirm rejection
   cancel: Cancel
   fileMissing: "no such file"
+  unitByte: B
+  unitKilo: kB
+  unitMega: MB
   webWarning: "The agent will be able to read these addresses, and text can contain instructions: their authors will in effect be able to instruct it, with its identity and all its tools. Only an administrator of the organization can approve."
 </i18n>
 
@@ -273,7 +279,7 @@ const inputObject = computed<Record<string, unknown>>(() =>
 // A file argument reads as the file it sends: path, type and size (spec §4.3), never a URL.
 const formatSize = (bytes: number) => {
   const format = (n: number) => new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 }).format(n)
-  return bytes < 1000 ? `${bytes} B` : bytes < 1_000_000 ? `${format(bytes / 1000)} kB` : `${format(bytes / 1_000_000)} MB`
+  return bytes < 1000 ? `${bytes} ${t('unitByte')}` : bytes < 1_000_000 ? `${format(bytes / 1000)} ${t('unitKilo')}` : `${format(bytes / 1_000_000)} ${t('unitMega')}`
 }
 const args = computed(() => Object.entries(inputObject.value).map(([key, value]) => {
   const file = props.files?.[key]

@@ -206,6 +206,14 @@ export const renderFileList = (files: { path: string, mimeType: string, size: nu
 export const binaryFileMessage = (file: { path: string, mimeType: string, size: number }): string =>
   `${file.path} is ${file.mimeType} (${formatBytes(file.size)}): a binary file, which cannot be read here. Pass its path to a tool that takes a file.`
 
+/** A paging argument the model gave (the schema is advertised, not enforced): absent is the default, anything but an integer ≥ `min` is refused. */
+export const pagingArgument = (value: unknown, name: 'offset' | 'limit', fallback: number, min: number): number => {
+  if (value === undefined || value === null) return fallback
+  const n = typeof value === 'string' && value.trim() !== '' ? Number(value) : value
+  if (typeof n !== 'number' || !Number.isInteger(n) || n < min) throw new FileError(`${name} must be an integer of ${min} or more (got ${JSON.stringify(value)}).`)
+  return n
+}
+
 /**
  * One page of a text file, numbered like `cat -n` (Claude Code's Read, deepagents' read_file): lines from a
  * 0-based `offset`, at most `limit` of them and READ_PAGE_CHARS characters, then where to read on.
@@ -237,7 +245,7 @@ export const renderTextPage = (file: { path: string, mimeType: string, size: num
 // ---- file arguments (spec §4.3) ----
 
 const filePathProperty = (property: Record<string, any>): Record<string, any> => {
-  const marker = property['x-mcp-file'] as Record<string, unknown>
+  const marker = (property['x-mcp-file'] && typeof property['x-mcp-file'] === 'object' ? property['x-mcp-file'] : {}) as Record<string, unknown>
   const accept = typeof marker.accept === 'string' ? [marker.accept] : Array.isArray(marker.accept) ? marker.accept.filter((a): a is string => typeof a === 'string') : []
   const parts = ['The path of one of your files, as ls lists it (for example "/data.csv").']
   if (accept.length) parts.push(`Accepted types: ${accept.join(', ')}.`)
@@ -257,7 +265,8 @@ export const fileArgumentsOf = (inputSchema: unknown): { schema: Record<string, 
   const properties = schema.properties && typeof schema.properties === 'object' ? schema.properties as Record<string, any> : {}
   const fileArgs = Object.keys(properties).filter(name => {
     const marker = properties[name]?.['x-mcp-file']
-    return !!marker && typeof marker === 'object'
+    // the object form (accept, maxSize) or the bare boolean form
+    return marker === true || (!!marker && typeof marker === 'object')
   })
   if (!fileArgs.length) return { schema, fileArgs }
   const rewritten = { ...properties }
@@ -265,13 +274,20 @@ export const fileArgumentsOf = (inputSchema: unknown): { schema: Record<string, 
   return { schema: { ...schema, properties: rewritten }, fileArgs }
 }
 
-/** Every signed URL of a call, whole then without its query, replaced by its path: nothing the model reads carries one. */
+// what is left of a signed URL once its address was replaced: the pair `exp=<seconds>` / `sig=<sha256, base64url>`,
+// with the separator before it as sent, HTML-escaped or percent-encoded (a target may echo the URL in HTML, JSON or a query)
+const SIGNED_RESIDUE = /(?:[?&]|&amp;|%26|%3F)(?:exp(?:=|%3D)\d{10}|sig(?:=|%3D)[A-Za-z0-9_-]{43})(?![A-Za-z0-9_-])/gi
+
+/**
+ * Every signed URL of a call, whole, percent-encoded, then without its query, replaced by its path — and a final
+ * pass for what an echo may have changed (`&amp;`, `%26`): nothing the model reads carries a signature.
+ */
 export const scrubUrls = (text: string, replacements: Map<string, string>): string => {
   let scrubbed = text
   for (const [url, path] of replacements) {
-    scrubbed = scrubbed.split(url).join(path).split(url.split('?')[0]).join(path)
+    scrubbed = scrubbed.split(url).join(path).split(encodeURIComponent(url)).join(path).split(url.split('?')[0]).join(path)
   }
-  return scrubbed
+  return replacements.size ? scrubbed.replace(SIGNED_RESIDUE, '') : scrubbed
 }
 
 // ---- links (spec §4.2) ----

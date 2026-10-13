@@ -6,7 +6,7 @@
 import { tool, jsonSchema, type Tool } from 'ai'
 import type { TurnFiles } from './turn-files.ts'
 import {
-  FileError, isTextType, mimeTypeOf, parseFilePath, renderFileList, renderTextPage, binaryFileMessage, formatBytes,
+  FileError, pagingArgument, isTextType, mimeTypeOf, parseFilePath, renderFileList, renderTextPage, binaryFileMessage, formatBytes,
   READ_LINES_DEFAULT, READ_LINES_MAX, WRITE_MAX_BYTES
 } from './operations.ts'
 
@@ -29,10 +29,12 @@ export const createFileTools = (files: TurnFiles): Record<string, Tool> => ({
       }
     }),
     execute: async (input: { file_path: string, offset?: number, limit?: number }) => {
+      const offset = pagingArgument(input.offset, 'offset', 0, 0)
+      const limit = pagingArgument(input.limit, 'limit', READ_LINES_DEFAULT, 1)
       const file = await files.stat(input.file_path)
       if (!isTextType(file.mimeType)) return binaryFileMessage(file)
       const { text, truncated } = await files.readText(file.path)
-      return renderTextPage(file, text, input.offset ?? 0, input.limit ?? READ_LINES_DEFAULT, truncated)
+      return renderTextPage(file, text, offset, limit, truncated)
     }
   }),
   write_file: tool({
