@@ -41,6 +41,7 @@ import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type 
 import { turnFilesFor } from '../files/service.ts'
 import { createLinkOpener } from '../files/download.ts'
 import { buildServiceTools } from './service-tools.ts'
+import { agentGuide, readAgentSkill, AGENT_SKILLS_SERVER } from '../self-knowledge/operations.ts'
 import { runModelLoop } from './model-loop.ts'
 import { liveRuns, watchStopRequests, type LiveRun } from './live-runs.ts'
 import { acceptingTurns } from './shutdown.ts'
@@ -178,10 +179,16 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     if (external) skippedServers.push(...external.skippedServers)
     // What the turn's servers say about their tools (instructions, skills), catalog first then external, in
     // the agent's order; and one reader routing a skill read to whichever side holds that server.
-    const guides = [...catalogGuides, ...(external?.guides ?? [])]
-    const readSkill = (server: string, uri: string): Promise<string> => catalogGuides.some(g => g.server === server)
-      ? readCatalogSkill(server, uri)
-      : external ? external.readSkill(server, uri) : Promise.reject(new Error(`"${server}" is not one of your tool servers this turn`))
+    // A configured agent's own skills come first (api/src/self-knowledge/operations.ts, agentGuide): the
+    // personal assistant has no history tools, so no earlier-work skill either.
+    const ownGuide = autonomousAgent.id === PERSONAL_AGENT_ID ? [] : [agentGuide()]
+    const guides = [...ownGuide, ...catalogGuides, ...(external?.guides ?? [])]
+    const readSkill = async (server: string, uri: string): Promise<string> => {
+      if (ownGuide.length && server === AGENT_SKILLS_SERVER) return readAgentSkill(uri)
+      if (catalogGuides.some(g => g.server === server)) return await readCatalogSkill(server, uri)
+      if (external) return await external.readSkill(server, uri)
+      throw new Error(`"${server}" is not one of your tool servers this turn`)
+    }
     if (skippedServers.length) {
       debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
     }

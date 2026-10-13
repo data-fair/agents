@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import type { Tool } from 'ai'
-import { renderConfiguration, renderRunRow, exportPage, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, PLANNED_TASKS_HEADER, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
+import { renderConfiguration, renderRunRow, exportPage, agentGuide, readAgentSkill, EARLIER_WORK_SKILL_URI, LIST_MY_RUNS_DESCRIPTION, READ_CONVERSATION_DESCRIPTION, SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES, PLANNING_NEEDS_ADMIN, PLANNED_TASKS_HEADER, type ConfigurationView } from '../../../api/src/self-knowledge/operations.ts'
 import { SERVICE_TOOL_NAMES } from '../../../api/src/conversations/service-tool-names.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 
@@ -196,5 +196,28 @@ test.describe('renderConfiguration — files', () => {
   })
   test('files off: said plainly', () => {
     assert.match(renderConfiguration({ ...view('chat'), files: false }), /## Files\nOff: this deployment has no file store/)
+  })
+})
+
+test.describe('earlier work', () => {
+  test('the agent publishes its own skill for reading earlier work, listed under its own label', () => {
+    const guide = agentGuide()
+    assert.equal(guide.server, 'agent')
+    assert.deepEqual(guide.skills.map(s => s.uri), [EARLIER_WORK_SKILL_URI])
+    assert.match(guide.skills[0].description, /earlier conversation or task run, or asks why you did something/)
+  })
+
+  test('the skill walks from list_my_runs to read_conversation, and forbids claiming no visibility without looking', () => {
+    const body = readAgentSkill(EARLIER_WORK_SKILL_URI)
+    assert.match(body, /list_my_runs[^]*read_conversation/)
+    assert.match(body, /never say you cannot see/i)
+    assert.throws(() => readAgentSkill('skill://agent/nope/SKILL.md'), /no skill/)
+  })
+
+  test('the history tools say to look first, before a skill, fresh data or a refusal, even when the earlier work is only implied', () => {
+    for (const description of [LIST_MY_RUNS_DESCRIPTION, READ_CONVERSATION_DESCRIPTION]) {
+      assert.match(description, /before loading a skill, fetching data again or saying you cannot/)
+      assert.match(description, /even when they do not say it was in another conversation/)
+    }
   })
 })

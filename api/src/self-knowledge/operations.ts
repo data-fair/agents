@@ -11,6 +11,7 @@ import { FILE_MAX_BYTES, SCOPE_MAX_BYTES, formatBytes } from '../files/operation
 import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
 import { classifyTool, resolveApproval, type ApprovalClass, type Approvals } from '../conversations/approval-policy.ts'
 import type { TurnCatalog, TurnSurface } from '../conversations/service-tools.ts'
+import type { ServerGuide } from '../mcp-servers/guides.ts'
 
 export const SELF_KNOWLEDGE_TOOL_NAMES = ['get_my_configuration', 'list_my_runs', 'read_conversation'] as const
 
@@ -155,4 +156,63 @@ export const exportPage = (jsonl: string, line = 1, offset = 0, maxChars = EXPOR
       ? `[more: call again with line ${next.line}${next.offset ? `, offset ${next.offset}` : ''}]`
       : `[end of the export, ${lines.length} lines]`
   ].join('\n')
+}
+
+/** The most runs one list_my_runs call returns. */
+export const LIST_RUNS_MAX = 20
+
+/**
+ * WHEN TO READ THE PAST, said where the model reads it: in the two history tools' descriptions, and in the
+ * agent's own `earlier-work` skill (below). Judged runs answered "why did you leave them out?" by loading a
+ * domain skill and saying they could not see the earlier list: the reference to earlier work was only
+ * implied, and "load a matching skill before acting" won over a tool description that only said "earlier".
+ */
+const LOOK_FIRST = 'Your past conversations and runs are readable: when someone refers to something said, decided or produced earlier — a list, an answer, a choice, what you "left out", "last time", "why did you…" — look here first, even when they do not say it was in another conversation, and before loading a skill, fetching data again or saying you cannot see it. Never say something did not happen, or that you have no access to it, without having read it.'
+
+export const LIST_MY_RUNS_DESCRIPTION = `List your past runs, newest first: planned task runs and conversation turns (with the conversation's title), their status, outcome and cost. At most ${LIST_RUNS_MAX} rows. ${LOOK_FIRST} Then read the one that matches with read_conversation.`
+
+export const READ_CONVERSATION_DESCRIPTION = [
+  'Read one of your past conversations (conversationId), whoever had it, or one of your task runs (runId), in full: what was said, every tool call with its whole result, and per turn the instructions and memory you had then. What you remember of other conversations is only what you read here.',
+  LOOK_FIRST,
+  'It is a JSON Lines file read by pages, each line prefixed with its number. Line 1 describes the file, line 2 is the outline: every record with its line, size and preview. Read from line 1 first; then read only the lines you need with `line` — a large tool result was lifted into its own `blob` line, which the message points at with `__ref`.',
+  'A line longer than a page continues with `offset`. Find conversations with list_my_runs.'
+].join(' ')
+
+/**
+ * The agent's own skills, listed in the system prompt's Skills index under the label `agent` beside the
+ * skills its tool servers publish, and loaded with the same read_skill (api/src/mcp-servers/read-skill.ts).
+ * A procedure spanning several of the service's own tools is a skill, not a system-prompt sentence: it sits
+ * where the model looks for "how do I do this", on the same footing as the servers' skills.
+ */
+export const AGENT_SKILLS_SERVER = 'agent'
+export const EARLIER_WORK_SKILL_URI = 'skill://agent/earlier-work/SKILL.md'
+
+const EARLIER_WORK_BODY = `# Earlier work
+
+Use this whenever someone refers to something said, decided or produced before this conversation, or asks why you did something — even when they only imply it ("the list I sent around", "why were they left out?").
+
+1. Call list_my_runs (narrow it with \`since\` or \`kind: conversation\` when you know roughly when). A conversation row gives its title and conversation id; the one marked "(this conversation)" is the one you are in.
+2. Read the conversation that matches with read_conversation: line 1, then the outline on line 2, then only the lines you need.
+3. Answer from what you read: what was asked, what you did and why, quoting the instruction or the result. If it was deliberate, say so; do not apologise for a mistake you did not make.
+4. Only if nothing matches, say what you looked through and ask a precise question.
+
+Never say you cannot see, do not remember or have no access to earlier work without having looked. Do this before loading another skill, fetching data again or asking for details the earlier conversation already holds.`
+
+const AGENT_SKILLS: Record<string, string> = { [EARLIER_WORK_SKILL_URI]: EARLIER_WORK_BODY }
+
+/** The agent's own guide: its skills, in the shape the servers' guides have (api/src/mcp-servers/guides.ts). */
+export const agentGuide = (): ServerGuide => ({
+  server: AGENT_SKILLS_SERVER,
+  skills: [{
+    name: 'earlier-work',
+    description: 'When someone refers to something said or done in an earlier conversation or task run, or asks why you did something: how to find and read it before answering.',
+    uri: EARLIER_WORK_SKILL_URI
+  }]
+})
+
+/** One of the agent's own skills, by URI. */
+export const readAgentSkill = (uri: string): string => {
+  const body = AGENT_SKILLS[uri]
+  if (!body) throw new Error(`there is no skill at ${uri}`)
+  return body
 }
