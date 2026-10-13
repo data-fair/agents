@@ -91,6 +91,7 @@
                     :tool-name="invocation.toolName"
                     :tool-title="invocation.toolTitle"
                     :description="invocation.description"
+                    :files="invocation.files"
                     :input="invocation.input"
                     :server-id="invocation.serverId"
                     :agent-path="agentPath"

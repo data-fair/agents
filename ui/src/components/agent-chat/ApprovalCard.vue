@@ -95,13 +95,15 @@
         class="text-body-small approval-card__args"
       >
         <template
-          v-for="[key, value] in args"
+          v-for="[key, value, isFile] in args"
           :key="key"
         >
           <dt class="font-weight-medium">
             {{ key }}
           </dt>
-          <dd>{{ value }}</dd>
+          <dd :data-testid="isFile ? 'approval-file' : undefined">
+            {{ value }}
+          </dd>
         </template>
       </dl>
       <v-text-field
@@ -185,6 +187,7 @@ fr:
   reason: Raison (facultative)
   confirmReject: Confirmer le refus
   cancel: Annuler
+  fileMissing: "fichier introuvable"
   webWarning: "L'agent pourra lire ces adresses, et un texte peut contenir des instructions : leurs auteurs pourront de fait lui en donner, avec son identité et tous ses outils. Seul un administrateur de l'organisation peut approuver."
 en:
   heading: "Approve \"{name}\"?"
@@ -204,6 +207,7 @@ en:
   reason: Reason (optional)
   confirmReject: Confirm rejection
   cancel: Cancel
+  fileMissing: "no such file"
   webWarning: "The agent will be able to read these addresses, and text can contain instructions: their authors will in effect be able to instruct it, with its identity and all its tools. Only an administrator of the organization can approve."
 </i18n>
 
@@ -220,6 +224,8 @@ const props = defineProps<{
   /** The tool's description, recorded on the gated call: what the call will do, in the tool's words. */
   description?: string
   input?: unknown
+  /** The files the call would send, by argument (path, type, size). */
+  files?: Record<string, { path: string, mimeType?: string, size?: number, missing?: boolean }>
   serverId?: string
   /** The configured agent's API path, where a planning call's current task is read from. */
   agentPath?: string
@@ -264,9 +270,16 @@ const clippedDescription = computed(() => {
 const inputObject = computed<Record<string, unknown>>(() =>
   props.input && typeof props.input === 'object' && !Array.isArray(props.input) ? props.input as Record<string, unknown> : {})
 // The arguments as the model sent them — what the person approves is this exact call — one line each.
-// A tool's input is always an object (its schema is one), so nothing else needs a rendering.
-const args = computed(() => Object.entries(inputObject.value).map(([key, value]) =>
-  [key, typeof value === 'string' ? value : JSON.stringify(value)]))
+// A file argument reads as the file it sends: path, type and size (spec §4.3), never a URL.
+const formatSize = (bytes: number) => {
+  const format = (n: number) => new Intl.NumberFormat(locale.value, { maximumFractionDigits: 1 }).format(n)
+  return bytes < 1000 ? `${bytes} B` : bytes < 1_000_000 ? `${format(bytes / 1000)} kB` : `${format(bytes / 1_000_000)} MB`
+}
+const args = computed(() => Object.entries(inputObject.value).map(([key, value]) => {
+  const file = props.files?.[key]
+  if (file) return [key, file.missing ? `${file.path} — ${t('fileMissing')}` : `${file.path} — ${file.mimeType}, ${formatSize(file.size ?? 0)}`, true] as const
+  return [key, typeof value === 'string' ? value : JSON.stringify(value), false] as const
+}))
 
 type TaskShape = { title?: string, prompt?: string, scheduling?: ScheduleRule[], enabled?: boolean, pausedReason?: string }
 type TaskSection = { label?: string, task?: TaskShape, missing?: boolean, resumes?: boolean }

@@ -184,4 +184,22 @@ test.describe('a sub-agent transcript stored on the message', () => {
     assert.equal(chat.content, '')
     assert.deepEqual(chat.toolInvocations?.map(call => call.toolName), ['subagent_analyst'])
   })
+
+  test('a gated call carries the files its card shows', () => {
+    const chat = autonomousAgentMessageToChat({
+      seq: 2,
+      role: 'assistant',
+      pending: false,
+      parts: [{
+        type: 'dynamic-tool',
+        toolCallId: 'c1',
+        toolName: 'import_table',
+        state: 'approval-requested',
+        input: { file: '/clean.csv', title: 'Clean' },
+        approval: { id: 'a1' },
+        toolMetadata: { serverId: 'dev-public-mcp', files: { file: { path: '/clean.csv', mimeType: 'text/csv', size: 52 } } }
+      } as any]
+    })
+    assert.deepEqual(chat.toolInvocations?.[0].files, { file: { path: '/clean.csv', mimeType: 'text/csv', size: 52 } })
+  })
 })

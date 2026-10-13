@@ -26,6 +26,8 @@ export interface ChatMessage {
     toolTitle?: string
     /** The tool's description, recorded on a gated call: what an approval card says the call will do. */
     description?: string
+    /** A gated call's file arguments, as its approval card shows them: path, type, size — or missing. */
+    files?: Record<string, { path: string, mimeType?: string, size?: number, missing?: boolean }>
     /** Set on a gated call someone approved: its chip says so, as a denied one says it was declined. */
     approved?: true
   }>
