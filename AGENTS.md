@@ -1,5 +1,14 @@
 # Development notes for agents
 
+## Project intent
+
+We are not trying to lead agent-harness development. Two goals, in this order of where custom work is justified:
+
+1. **Deep, clean integration with the data-fair stack** (simple-directory identities and NHIs, openapi-mcp, events, processings, portals, quotas). This is why the harness is custom, and where original design is expected.
+2. **Everywhere else, a harness close to the state of the art and to what people are used to elsewhere** (Claude, ChatGPT, Codex, Cursor, Managed Agents…). Prefer the established convention, the AI SDK's or MCP's own mechanism, or a widely used library over an original design. Diverging needs a stated reason, and "it is simpler for us" counts less than "users expect it to work this way".
+
+When a design discussion drifts toward novelty outside the integration, say so.
+
 ## Typing
 
 Types are mostly managed from JSON schemas (for example `api/types/settings/schema.js`), prepared using `npm run build-types` and imported from #types in which is an alias for `api/types/index.ts`.
