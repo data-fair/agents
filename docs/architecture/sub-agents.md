@@ -2,7 +2,7 @@
 
 The orchestrator-worker pattern runs **on the server**, in the same loop as the lead. The main agent delegates tasks to specialized sub-agents via pseudo-tools (`subagent_*`), each backed by a `ToolLoopAgent` from Vercel AI SDK 7.
 
-It moved with the loop, and not as a choice: a worker is a model loop, and the only way a browser reached a model in the old architecture was the gateway, so "the gateway goes" and "workers move server-side" were one decision. `api/src/agent-session/sub-agents.ts` holds the partition and the delegation; `runModelLoop` in `api/src/conversations/executor.ts` builds them per turn.
+It moved with the loop, and not as a choice: a worker is a model loop, and the only way a browser reached a model in the old architecture was the gateway, so "the gateway goes" and "workers move server-side" were one decision. `api/src/agent-session/sub-agents.ts` holds the partition and the delegation; `runModelLoop` in `api/src/conversations/model-loop.ts` builds them per turn.
 
 ```mermaid
 flowchart TB
