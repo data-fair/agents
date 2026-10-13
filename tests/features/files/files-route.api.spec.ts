@@ -84,6 +84,13 @@ test.describe('Signed file URLs', () => {
     assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
   })
 
+  test('an admin erasure purges the conversation and its files at once', async () => {
+    const { scope, conversationId } = await withFile()
+    assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results.length, 1)
+    await orgAdmin.delete(`/api/review/organization/test1/${conversationId}`)
+    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
+  })
+
   test('the sweep removes what was last written more than 7 days ago, and keeps the rest', async () => {
     const { scope } = await withFile()
     const prefix = 'agent-files/organization/test1/'

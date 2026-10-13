@@ -19,6 +19,7 @@ import { canInstruct, type InstructableAgent } from '../autonomous-agents/operat
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '../autonomous-agents/service.ts'
 import { getSettings } from '../settings/service.ts'
+import { deleteConversationFiles } from '../files/service.ts'
 
 const debug = Debug('df-agents:conversations')
 
@@ -129,15 +130,20 @@ export const requireConversationById = async (conversationId: string) => {
  * "archived".
  */
 export const archiveConversation = async (conversationId: string): Promise<boolean> => {
-  const result = await mongo.conversations.updateOne(
+  const archived = await mongo.conversations.findOneAndUpdate(
     { id: conversationId, archivedAt: { $exists: false } },
-    { $set: { archivedAt: new Date().toISOString() } }
+    { $set: { archivedAt: new Date().toISOString() } },
+    { projection: { _id: 0, owner: 1 } }
   )
-  return result.modifiedCount > 0
+  // Its files go at once: they are not review material (docs/architecture/agent-files.md).
+  if (archived) await deleteConversationFiles(archived.owner, conversationId)
+  return !!archived
 }
 
 /** Delete a thread and everything hanging off it. Messages and runs are separate documents. */
 export const purgeConversation = async (conversationId: string): Promise<{ messages: number, runs: number }> => {
+  const conversation = await mongo.conversations.findOne({ id: conversationId }, { projection: { _id: 0, owner: 1 } })
+  if (conversation) await deleteConversationFiles(conversation.owner, conversationId)
   const messages = await mongo.messages.deleteMany({ conversationId })
   const runs = await mongo.runs.deleteMany({ conversationId })
   await mongo.conversations.deleteOne({ id: conversationId })

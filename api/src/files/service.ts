@@ -57,8 +57,17 @@ export const sweepFiles = async (now = new Date(), prefix = `${FILES_ROOT}/`): P
   const listed = prefix.endsWith('/') ? prefix : `${prefix}/`
   const cutoff = now.getTime() - FILE_TTL_MS
   const stale = (await backend.lsrWithStats(listed)).filter(file => file.lastModified.getTime() < cutoff)
-  for (const file of stale) await backend.removeFile(`${listed}${file.path}`)
-  return stale.length
+  let removed = 0
+  for (const file of stale) {
+    // one failing key must not abort the pass; the next one retries it
+    try {
+      await backend.removeFile(`${listed}${file.path}`)
+      removed++
+    } catch (err) {
+      console.error('[files] could not sweep a file', err instanceof Error ? err.message : err)
+    }
+  }
+  return removed
 }
 
 const SWEEP_LOCK = 'agent-files-sweep'

@@ -28,7 +28,10 @@ router.get('/:ownerType/:ownerId/:scopeId/:name', async (req, res) => {
   if (check === 'invalid') throw httpError(403, 'invalid file URL signature')
   if (check === 'expired') throw httpError(403, 'this file URL has expired')
 
-  const { body, size } = await backend.readStream(fileKey(scope, name))
+  const key = fileKey(scope, name)
+  // HEAD never opens the object: a stat answers it, with the same headers.
+  const head = req.method === 'HEAD'
+  const { body, size } = head ? { body: undefined, size: (await backend.fileStats(key)).size } : await backend.readStream(key)
   res.set({
     'content-type': mimeTypeOf(name),
     // Exact: data-fair answers 411 to a chunked upload, and openapi-mcp frames the multipart from it.
@@ -36,7 +39,7 @@ router.get('/:ownerType/:ownerId/:scopeId/:name', async (req, res) => {
     'content-disposition': `attachment; filename="${name}"`,
     'cache-control': 'private, no-store'
   })
-  if (req.method === 'HEAD') { body.destroy(); res.end(); return }
+  if (!body) { res.end(); return }
   try {
     await pipeline(body, res)
   } catch (err) {
