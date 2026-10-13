@@ -91,12 +91,13 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
         properties: {
           conversationId: { type: 'string' },
           runId: { type: 'string', description: 'A task run, instead of a conversation' },
-          line: { type: 'integer', minimum: 1, description: 'The line to read from (default 1)' },
+          line: { type: 'integer', minimum: 1, description: 'The line to read from. Without it: the file description and the outline only (lines 1 and 2)' },
           offset: { type: 'integer', minimum: 0, description: 'Where to go on inside that line, from a previous page' }
         }
       }),
       execute: async (input: any) => {
-        const line = Math.max(1, Math.floor(Number(input?.line) || 1))
+        // No line: the description and the outline only (exportPage), what a first read should be.
+        const line = input?.line === undefined || input?.line === null ? undefined : Math.max(1, Math.floor(Number(input.line) || 1))
         const offset = Math.max(0, Math.floor(Number(input?.offset) || 0))
         if (input?.runId) {
           const run = await getRun(owner, agent.id, String(input.runId)).catch(asToolError)

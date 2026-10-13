@@ -170,7 +170,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     const block = renderGuidesBlock(own)
     const config = block ? { ...workerConfig, prompt: [workerConfig.prompt, block].join('\n\n') } : workerConfig
     const ownTools = block && guidesRead
-      ? { ...workerTools, [READ_SKILL_TOOL_NAME]: createReadSkillTool({ servers: own.map(g => g.server), read: guidesRead }) }
+      ? { ...workerTools, [READ_SKILL_TOOL_NAME]: createReadSkillTool({ guides: own, read: guidesRead }) }
       : workerTools
     return subAgentDelegation({
       name,

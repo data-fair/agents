@@ -311,8 +311,11 @@ publishes one listed skill and one reachable by URI only.
   publish nothing gets no block. The run's recorded system prompt shows what the agent read.
 - **`read_skill({ server, uri })`** (`api/src/mcp-servers/read-skill.ts`), the loading tool the SEP's host
   guidelines sketch, keyed by origin and URI rather than by name. `server` is our label — the catalog id,
-  or the host of an external server — never the server's self-reported name. A server outside the turn is
-  refused, so one server's skill cannot make us read from another; a URI must be `skill://`; one the
+  or the host of an external server — never the server's self-reported name. `server` may be left out, and a
+  label that is not one of the turn's servers is not trusted: either way the one server of the turn that lists
+  the URI is used (a judged run passed the provider's name), and a URI listed by several or by none needs the
+  server named. A read therefore never goes to a server outside the turn, so one server's skill cannot make us
+  read from another; a URI must be `skill://`; one the
   server did not list (handed over by instructions or another skill) is confirmed with `skills/get`
   first. The body is read with `resources/read` over the turn's own connection to that server, with the
   same site and credentials as its tool calls.
@@ -330,6 +333,13 @@ publishes one listed skill and one reachable by URI only.
   exception, a skill loaded with `read_skill`: without it a cautious model ignores every skill it loads.
 - **Sub-agent workers** get the blocks of the servers whose tools they reserve, and a `read_skill` limited
   to those servers.
+- **The agent's own skills.** A configured agent also publishes skills of its own, listed first under the
+  label `agent` and loaded with the same `read_skill` (`agentGuide`, `api/src/self-knowledge/operations.ts`):
+  `earlier-work`, the procedure for answering about earlier conversations and runs (`list_my_runs`, then
+  `read_conversation`, outline first). A procedure spanning several of the service's tools is a skill rather
+  than a system-prompt sentence: it sits where the model looks for "how do I do this", on the same footing as
+  the servers' skills — judged runs asked "why did you leave them out?" loaded a server's skill instead of
+  reading their history until it existed (0/4, then 3/3).
 - **The model-side convention** is the AI SDK cookbook's
   ([agent skills](https://ai-sdk.dev/cookbook/guides/agent-skills)): a Skills section telling the model to
   load a matching skill before acting, and a loading tool. Claude Code does the same, and puts MCP server

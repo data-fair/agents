@@ -129,9 +129,19 @@ export const renderRunRow = (run: ConversationRun, title: string | undefined, cu
  * One page of a conversation export (api/src/review/operations.ts), as the agent reads it: from `line`
  * (1-based), at most `maxChars`, each line prefixed with its number — the in-tool equivalent of
  * `sed -n`. A line longer than the page is cut, and the next page goes on inside it from `offset`.
+ *
+ * Without a `line`: the file description and the outline only (lines 1 and 2), so a first read is what
+ * the earlier-work skill and the tool's own guide say to read first, and the rest is asked for by line.
+ * Judged runs called it with a conversation id alone and were handed the whole export, system prompt
+ * and telemetry included, where they needed two messages.
  */
-export const exportPage = (jsonl: string, line = 1, offset = 0, maxChars = EXPORT_PAGE_CHARS): string => {
+export const exportPage = (jsonl: string, line?: number, offset = 0, maxChars = EXPORT_PAGE_CHARS): string => {
   const lines = jsonl.split('\n').filter((l, i, all) => l || i < all.length - 1)
+  if (line === undefined) {
+    const head = lines.slice(0, 2).map((l, i) => `${i + 1}: ${l.slice(0, maxChars)}`)
+    const tail = lines.length > 2 ? `[outline only: read the lines you need with \`line\` (from 3 to ${lines.length})]` : `[end of the export, ${lines.length} lines]`
+    return [...head, tail].join('\n')
+  }
   if (line < 1 || line > lines.length) return `There is no line ${line}: the export has ${lines.length} lines.`
   const out: string[] = []
   let size = 0
@@ -174,7 +184,7 @@ export const LIST_MY_RUNS_DESCRIPTION = `List your past runs, newest first: plan
 export const READ_CONVERSATION_DESCRIPTION = [
   'Read one of your past conversations (conversationId), whoever had it, or one of your task runs (runId), in full: what was said, every tool call with its whole result, and per turn the instructions and memory you had then. What you remember of other conversations is only what you read here.',
   LOOK_FIRST,
-  'It is a JSON Lines file read by pages, each line prefixed with its number. Line 1 describes the file, line 2 is the outline: every record with its line, size and preview. Read from line 1 first; then read only the lines you need with `line` — a large tool result was lifted into its own `blob` line, which the message points at with `__ref`.',
+  'It is a JSON Lines file read by pages, each line prefixed with its number. Line 1 describes the file, line 2 is the outline: every record with its line, size and preview. Called without `line`, it returns those two; then read only the lines you need with `line` — a large tool result was lifted into its own `blob` line, which the message points at with `__ref`.',
   'A line longer than a page continues with `offset`. Find conversations with list_my_runs.'
 ].join(' ')
 

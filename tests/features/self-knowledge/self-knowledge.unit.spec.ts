@@ -145,6 +145,14 @@ test.describe('renderRunRow', () => {
 })
 
 test.describe('exportPage', () => {
+  test('called without a line, it gives the file description and the outline only, and says how to read on', () => {
+    const jsonl = ['{"type":"meta"}', '{"type":"outline"}', '{"type":"message","text":"' + 'x'.repeat(50) + '"}', '{"type":"run"}'].join('\n')
+    const page = exportPage(jsonl)
+    assert.match(page, /^1: \{"type":"meta"\}\n2: \{"type":"outline"\}\n/)
+    assert.doesNotMatch(page, /"type":"message"/)
+    assert.match(page, /\[outline only: read the lines you need with `line` \(from 3 to 4\)\]$/)
+  })
+
   const jsonl = ['{"type":"meta"}', '{"type":"outline"}', ...Array.from({ length: 10 }, (_, i) => JSON.stringify({ type: 'message', seq: i + 1, text: 'x'.repeat(100) })), JSON.stringify({ type: 'blob', value: 'b'.repeat(5000) })].join('\n') + '\n'
 
   test('reads from a line, numbers each line, and says where the next page starts', () => {

@@ -160,7 +160,7 @@ const ENTRIES: ServiceToolEntry[] = [
     applies: ctx => !!ctx.guides?.list.length,
     build: async ({ guides }, into) => {
       into.tools[READ_SKILL_TOOL_NAME] = {
-        tool: createReadSkillTool({ servers: guides!.list.map(g => g.server), read: guides!.read }),
+        tool: createReadSkillTool({ guides: guides!.list, read: guides!.read }),
         server: SKILLS_SERVER_ID,
         annotations: READ_SKILL_ANNOTATIONS,
         selfEnveloped: true

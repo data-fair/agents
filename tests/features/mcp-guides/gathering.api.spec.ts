@@ -119,11 +119,13 @@ test.describe('Server instructions and skills', () => {
     assert.match(String(fixture.lastHeaders().cookie ?? ''), /id_token=/)
   })
 
-  test('read_skill naming a server outside the turn reads nothing', async () => {
+  test('read_skill never reads from a server outside the turn: a wrong label falls back to the turn\'s server listing the URI, or reads nothing', async () => {
     const agent = await createAgent()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    const listed = await runTurn(agent.id, 'call tool read_skill {"server":"dev-session-mcp","uri":"skill://fixture/closures/SKILL.md"}')
+    assert.match(toolCall(listed.assistant, 'read_skill').output, /^<skill server="dev-public-mcp"/)
     fixture.resetMethodCounts()
-    const { assistant } = await runTurn(agent.id, 'call tool read_skill {"server":"dev-session-mcp","uri":"skill://fixture/closures/SKILL.md"}')
+    const { assistant } = await runTurn(agent.id, 'call tool read_skill {"server":"dev-session-mcp","uri":"skill://fixture/hidden/SKILL.md"}')
     const call = toolCall(assistant, 'read_skill')
     assert.equal(call?.state, 'output-error')
     assert.match(call.errorText, /not one of your tool servers this turn \(agent, dev-public-mcp\)/)
