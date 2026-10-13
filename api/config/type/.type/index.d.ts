@@ -11,7 +11,7 @@ export type CompactionPercent = number;
  */
 export type TurnCreditBudget = number;
 /**
- * Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock.
+ * Wall-clock ceiling for one chat turn, so a hanging model or MCP server cannot hold a conversation's lock. A planned task run has its own, taskTimeoutSeconds.
  */
 export type TurnTimeoutSeconds = number;
 /**

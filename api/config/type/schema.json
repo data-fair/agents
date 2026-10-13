@@ -240,7 +240,7 @@
     "turnTimeoutSeconds": {
       "type": "number",
       "title": "Turn timeout (seconds)",
-      "description": "Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock.",
+      "description": "Wall-clock ceiling for one chat turn, so a hanging model or MCP server cannot hold a conversation's lock. A planned task run has its own, taskTimeoutSeconds.",
       "default": 300,
       "minimum": 10
     },

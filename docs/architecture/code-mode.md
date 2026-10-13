@@ -31,9 +31,20 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
 - Input `{ js }`, the package's own. JavaScript; TypeScript syntax is stripped, not checked. Top-level
   `await` and `return`.
 - The description is the package's: the TypeScript signatures of every callable tool, generated from its
-  input schema (and output schema, when it declares one). We drop the package's "Tool call examples" block
-  and append a short paragraph of ours: console output, failures as exceptions, files, and which tools can
-  only be called directly (`describeScriptTool`).
+  input schema, with its output schema as the return type (`Promise<unknown>` without one). The output schema
+  is the code-facing tool's only (`SourcedTool.codeOutputSchema`, set in `codeFacingTools`; the model's tools
+  are unchanged): the file tools declare theirs (`FILE_CODE_OUTPUT_SCHEMAS`: `read_file` a string, `write_file`
+  a record, `ls` an array of records), and an MCP tool carries the `outputSchema` its server declared, which is
+  what its `structuredContent` follows. Most servers declare none (openapi-mcp does not), so we drop the
+  package's "Tool call examples" block and append a short paragraph of ours (`describeScriptTool`): console
+  output, failures as exceptions, **the conventions of what a tool returns** (an MCP tool its structured result
+  as an object when it has one, otherwise its text as a string to `JSON.parse`; a result carrying files
+  `{ text, files }`; `read_file` the whole text), "check what you got before writing or importing it", and which
+  tools can only be called directly. The conventions are there because a script that guesses a shape parses
+  nothing, silently: in the first simulation of an export-filter-import task, the model guessed `read_file`
+  returned `{ text }`, imported an empty table, and needed four scripts.
+- The `js` argument's description is ours too (`SCRIPT_ARGUMENT_DESCRIPTION`): the package's promises the
+  call examples we drop.
 - No `fetch`, filesystem, `require`, `process`, `eval`, `Function`, timers or crypto in the sandbox; built-in
   prototypes are frozen (`run`'s security model). `Date.now` exists.
 - Annotations: not read-only, not destructive, not idempotent, open-world. A script may call writing tools;
@@ -74,13 +85,20 @@ The policy (`CODE_MODE_POLICY`, `api/src/code-mode/operations.ts`):
 | `maxBridgeRequests` | 100 | tool calls per script, equal to `STEP_LIMIT`: a script cannot make more calls than a turn could steps |
 | `maxInFlightBridgeRequests` | 8 | concurrent tool calls (`Promise.all`); the package's 32 would let one script fan out against one MCP server |
 
-Every invocation's abort signal is the turn's, so Stop, the deadline and a deploy's drain stop a script and
-its in-flight tool calls.
+Every invocation's abort signal is the turn's, so Stop, the deadline and a deploy's drain stop a script. The
+script's own timeout aborts its nested calls' signal too (`run` aborts the invocation's controller on any
+terminal failure). A nested call gets that signal, and the MCP clients pass it to the request (catalog and
+external, `{ signal }` on `client.request`), as the model's own calls do: a call is cancelled where it can be.
+**A call already sent may still complete** — a server that received a write does not undo it, and a tool that
+ignores its signal finishes on its own — so the timeout message says the script was stopped and that a call
+it had already sent may still have completed ("check before repeating a write"). Such a call is recorded as
+stopped (below), and its late answer is ignored.
 
 **Why this sandbox** (spec §6.6, restated briefly): `isolated-vm` is in maintenance mode and had a critical
 guest-to-host escape (GHSA-864f-rcv7-6rh4) — a V8 bug there escapes into the API process; `node:vm` is not a
 security boundary and `vm2` was abandoned after repeated escapes; hand-rolling `quickjs-emscripten` is what
-`run` already is; a micro-VM (Firecracker, gVisor, e2b) is only needed for packages, a filesystem, network or
+`run` already is, and that package's latest release bundles a QuickJS-ng in the range of CVE-2026-3979, so it
+would also mean tracking the engine's fixes ourselves; a micro-VM (Firecracker, gVisor, e2b) is only needed for packages, a filesystem, network or
 long processes, none of which text and JSON need. WASM QuickJS is defence in depth, as the package's docs put
 it: **the tools are the trust boundary**, each validating its input and enforcing its own bounds.
 
@@ -172,11 +190,20 @@ callbacks, telemetry and stream see only the outer `code_mode` call. So our code
 the `code_mode` call (`name: 'code_mode'`), keyed by the package's nested id `<outer>:tool-<n>`. It is the
 mechanism sub-agent workers already use, so there is one way to show nested work:
 
-- streamed as `subagent` frames while the script runs;
-- stored on the assistant message when the script ends;
+- streamed as `subagent` frames while the script runs, coalesced within 25 ms (`TRACE_FLUSH_MS`, as the
+  session's text deltas): each frame carries the whole trace, so one per open and settle made the traffic
+  quadratic in the script's calls;
+- each call's input is recorded **bounded** (`boundRecordedInput`, `parts-recorder.ts`): every string cut at
+  10,000 characters with its length named, and an input still larger than a stored result kept as the head of
+  its JSON. A script passes tools megabytes (`write_file` takes 10 MB from code); verbatim, a few such calls
+  in a trace stored on one message would pass MongoDB's 16 MB document cap. Nothing replays these inputs, so
+  nothing is lost to the model; the model's own calls are stored unbounded, as before;
+- stored on the assistant message when the script ends: `finish` settles any call still open as "stopped: the
+  script ended before this call answered", sends the final frame, and ignores whatever answers after it — a
+  late frame would replace the finished trace in the chat with an empty pending one;
 - left out of replay — the point: the model never sees intermediate results;
-- rendered by the chat as a panel under the call, titled "Script" (the sub-agent panel, which also opens for
-  `code_mode`).
+- rendered by the chat like a worker's: with the default `simpleSubAgents` display flag, a status chip on
+  the `code_mode` call; with the flag off, a panel under the call, titled "Script", listing the nested calls.
 
 Nested calls are not entries of the run's `calls` telemetry, which records model calls.
 
@@ -197,7 +224,10 @@ Nested calls are not entries of the run's `calls` telemetry, which records model
 
 - A tool failure inside a script is rethrown as `CodeModeToolError(message)`, which the script can catch and
   which, uncaught, fails the script with the tool's own message. Any other error the package replaces with
-  "Host tool failed.", which tells the model nothing.
+  "Host tool failed.", which tells the model nothing. Each carries a **code of its own**
+  (`CODE_MODE_TOOL_ERROR:<nested call id>`): the package keeps every such error a script's calls threw and,
+  when the script fails, reports the first with the failure's code (`findPreservedCodeModeError`), so with the
+  class's shared code a script that caught one failure and died of a later one was reported as the first.
 - The package's and `run`'s limits are translated into sentences: CPU, wall clock, bridge limit, an
   unawaited call ("await every tool call"), a full pool, a source too large, a result too large ("write the
   data to a file with write_file and return its path"). A syntax error or the script's own `throw` keeps its
@@ -242,9 +272,12 @@ R4, pending.
 
 Tests: `tests/features/code-mode/code-mode.unit.spec.ts` (the engine against the real package: sandbox,
 console, line numbers, errors, limits, abort, description), `code-tools.unit.spec.ts` (`codeCallable`, data
-and recording, failures), `code-mode.api.spec.ts` (through the mock model: `structuredContent` and nested
+and recording, failures, the uncaught failure reported as itself, bounded inputs, a trace closed after a
+timeout with nothing sent after it, coalesced frames, the file tools' return types),
+`tests/features/autonomous-agents/external-mcp.unit.spec.ts` (a call's abort signal reaches the MCP request), `code-mode.api.spec.ts` (through the mock model: `structuredContent` and nested
 records, files end to end, gated and reserved tools absent, errors, the personal assistant, self-knowledge),
 `tests/features/agent-session/sub-agents.api.spec.ts` (a worker's reserved tool is out of a script's reach),
+`code-mode.e2e.spec.ts` (the nested calls listed under the `code_mode` call, and after a reload),
 `tests/features/files/call-path.unit.spec.ts` (mode `'code'`). The fixture's `closure_stats` returns
 `structuredContent` without an `outputSchema`, as data-fair's MCP does. The unattended simulation case
 `code-mode-clean-and-import-task-run` does export, filter and import in one script.
