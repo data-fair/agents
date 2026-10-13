@@ -191,4 +191,26 @@ test.describe('A delegation over the agent session', () => {
     const byRole = history.entries.find((entry: any) => entry.label === today)?.breakdown ?? {}
     assert.ok((byRole.tools ?? 0) > 0, `tools-role usage should be recorded, got ${JSON.stringify(byRole)}`)
   })
+
+  test('a worker that crosses the run budget is stopped before its summary, and the run says so', async () => {
+    // The old price: one worker step costs far more than the per-run budget (turnCredits, 500), so the
+    // ceiling is crossed by the worker's first billed step. It is a spending ceiling AI SDK 7 enforces
+    // between a worker's steps, which nothing else pinned.
+    const priced = structuredClone(settings)
+    priced.models[1].inputPricePerMillion = 400000
+    priced.models[1].outputPricePerMillion = 400000
+    await putMockSettings(admin, 'organization/test1', priced)
+    const socket = await open()
+    const { conversation } = await runDelegation(socket, 'call tool subagent_data_analyst {"task":"analyze the closures"}')
+
+    const run = (await orgAdmin.get(`/api/conversations/organization/test1/${conversation.id}/runs`)).data.results[0]
+    assert.equal(run.stopReason, 'budget')
+    // The chain stopped short: it never reached the summary step (the chain is get_schema, query_data, summary).
+    const workerCalls = (run.calls ?? []).filter((call: any) => call.modelRole === 'tools')
+    assert.ok(workerCalls.length > 0 && workerCalls.length < 3, `the worker was stopped before its third step, got ${workerCalls.length} billed steps`)
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversation.id}/messages`)).data.results
+    const delegating = messages.flatMap((message: any) => message.parts ?? []).find((part: any) => part.type === 'dynamic-tool' && part.toolName === 'subagent_data_analyst')
+    assert.equal(delegating.state, 'output-error', 'the worker part is settled as an error')
+    assert.ok(!/Analysis complete|task completed/i.test(JSON.stringify(delegating)), 'and carries no summary')
+  })
 })
