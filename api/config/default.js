@@ -55,13 +55,14 @@ export default {
   // with a 30k-token context blows immediately, so every multi-tool turn would have ended
   // at 'budget' on step one. This is a ceiling for a runaway, not a per-turn allowance.
   turnCredits: 500,
-  // Wall-clock ceiling for one turn. A model or MCP server that hangs must not hold a
-  // conversation's lock until the lock's own TTL expires.
+  // Wall-clock ceiling for one chat turn. A model or MCP server that hangs must not hold a
+  // conversation's lock until the lock's own TTL expires. A planned task's run uses
+  // taskTimeoutSeconds instead (below).
   turnTimeoutSeconds: 300,
   // On SIGTERM, running turns get this long to finish before being stopped as "the server restarted"
-  // (api/src/conversations/live-runs.ts, drainLiveRuns). Short of turnTimeoutSeconds on purpose: a
-  // deploy should not wait five minutes for one long task run. The pod's terminationGracePeriodSeconds
-  // must exceed it, or the kubelet kills the process mid-drain.
+  // (api/src/conversations/live-runs.ts, drainLiveRuns). Short of both run deadlines on purpose: a
+  // deploy should not wait for one long run (a task run still going is stopped, and runs at its next slot).
+  // The pod's terminationGracePeriodSeconds must exceed it, or the kubelet kills the process mid-drain.
   shutdownGraceSeconds: 90,
   // A planned task's run: nobody waits on it, and code mode and files make runs of many steps the normal case.
   // Session renewal (api/src/nhi) means no credential bounds it any more; the per-run credit budget bounds its spend.

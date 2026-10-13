@@ -110,7 +110,8 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
             return withResourceLinks(formatted, callResult as any, { catalog: false })
           }
         })
-        // A script gets structuredContent when the server sent one, else the text (as a catalog tool, ./client.ts).
+        // A script gets structuredContent when the server sent one, else the text (as a catalog tool, ./client.ts);
+        // a media result, its text only.
         const codeExecute = async (args: any) => {
           const { callResult, formatted } = await callExternal(args)
           const text = typeof formatted === 'string' ? formatted : formatted.text ?? ''

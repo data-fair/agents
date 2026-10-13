@@ -52,8 +52,9 @@ by hand is exactly what the suite exercises: tools `echo`, `get_schema`, `ignore
 `list_road_closures`, plus the file tools of autonomous agents — `import_table` (takes a file: an
 `x-mcp-file` argument it fetches from the agents API's signed URL, answering its size and hash),
 `export_closures` (returns a link to a CSV served at `/exports/` beside the MCP endpoint) and
-`export_my_profile` (a link on the call's site, fetched with the agent's session). Only
-`list_road_closures` and the exports return data — the others are structural (a string reflector, a
+`export_my_profile` (a link on the call's site, fetched with the agent's session) — and `closure_stats`,
+which returns `structuredContent` beside its text, as data-fair's MCP does: a `code_mode` script gets the
+object, the model the text. Only `list_road_closures`, `closure_stats` and the exports return data — the others are structural (a string reflector, a
 fixed empty schema, and a target for `toolFilter`), so they are the ones to use when you need to see an
 agent actually fetch something and quote it.
 

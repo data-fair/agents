@@ -251,7 +251,8 @@ export const driveTurn = async (
   // The run's telemetry and spend are held from here until finishRun writes them (see bufferRunWrites).
   bufferRunWrites(run.id)
 
-  // The ceiling has to be enforced twice over, because abort() is only a REQUEST.
+  // The ceiling is the run's: turnTimeoutSeconds for a chat, taskTimeoutSeconds for a planned task's run
+  // (turnDeadlineSeconds). It has to be enforced twice over, because abort() is only a REQUEST.
   // abortController.signal asks the provider and the MCP client to stop, which is what a
   // well-behaved fetch-based client does; but a client that ignores the signal would hold
   // the conversation's lock until the lock's own TTL expired. So the turn is also raced

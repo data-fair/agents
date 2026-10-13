@@ -264,6 +264,7 @@ export const openAutonomousAgentTools = async (
       })
       // A script gets the data (spec §6.4): structuredContent when the server sent one — data-fair's MCP does —
       // its text otherwise. A result with links is the text, so the call path stores them (records, for code).
+      // A media result reaches a script as its text only: the images are for the model, not for code.
       const codeExecute = async (rawArgs: any) => {
         const { callResult, formatted, origin } = await callMcp(rawArgs)
         const text = typeof formatted === 'string' ? formatted : formatted.text ?? ''
