@@ -44,7 +44,10 @@ const settings = {
     { model: { id: 'mock-model', name: 'Mock Model', provider }, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
     // Priced NON-ZERO, deliberately: at 0 the credit total is 0, `if (total > 0)` skips the usage
     // record, and a billing assertion would pass on a worker that was never charged for anything.
-    { model: { id: 'mock-tools', name: 'Mock Tools Model', provider }, usage: ['tools'], inputPricePerMillion: 400000, outputPricePerMillion: 400000 }
+    // But SMALL: a worker's whole chain must stay under the per-run budget (api/config/default.js
+    // turnCredits, 500). Crossing it aborts the worker, and AI SDK 7 honours that abort between steps
+    // (6 did not, so the old price, 400000, only ever worked by accident).
+    { model: { id: 'mock-tools', name: 'Mock Tools Model', provider }, usage: ['tools'], inputPricePerMillion: 1000, outputPricePerMillion: 1000 }
   ],
   modelMapping: {
     assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
