@@ -107,6 +107,11 @@ test.describe('The approval gate', () => {
     const part = callPart(await messageAt(conversationId, assistant.seq), 'slow_lookup')
     assert.equal(part.state, 'output-error', JSON.stringify(part))
     assert.equal(part.errorText, 'Approved, but its outcome is unknown: the turn ended before it reported (the person spoke).')
+    // The server records the call when its 2s lookup finishes. The run no longer waits for that (AI SDK 7
+    // aborts the in-flight call at once), so wait for the server to get there, and past it, to see the call
+    // was not run a second time.
+    for (let waited = 0; waited < 3000 && fixture.invokedTools().length === 0; waited += 50) await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise(resolve => setTimeout(resolve, 300))
     assert.deepEqual(fixture.invokedTools(), ['slow_lookup'])
   })
 

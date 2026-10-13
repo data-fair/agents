@@ -132,6 +132,7 @@ export const startTurnOverSocket = async (
 
   let failure: Error | undefined
   let ended = false
+  let runSeen = false
   const done = (async () => {
     const frames = [...history]
     try {
@@ -139,7 +140,13 @@ export const startTurnOverSocket = async (
         const frame = await socket.next(timeoutMs)
         frames.push(frame)
         if (frame.type === 'error') throw refusal(frame)
-        if (frame.type === 'turn-end') return frames
+        if (frame.type === 'turn-end') {
+          // On a conversation that already had a turn running, a turn-end seen before OUR run exists can be
+          // that turn's: this prompt took it back (stop reason `aborted`, "the person spoke"). It used to
+          // end after ours began, but AI SDK 7 aborts an in-flight tool at once, so it now ends first.
+          const takenBack = typeof target === 'string' && !runSeen && frame.stopReason === 'aborted' && /person spoke/.test(String(frame.detail ?? ''))
+          if (!takenBack) return frames
+        }
       }
     } catch (err: any) {
       failure = err
@@ -155,6 +162,7 @@ export const startTurnOverSocket = async (
   for (;;) {
     if (failure) throw failure
     const created = (await runsOf(ax, owner, conversationId)).find(r => !known.has(r.id))
+    if (created) runSeen = true
     if (created) return { runId: created.id, conversationId, socket, done, abort: () => socket.send({ type: 'abort' }) }
     // A turn that ended before its run was seen cannot be located; surface the real reason.
     if (ended) { await done; throw new Error('the turn ended without a run being created') }
