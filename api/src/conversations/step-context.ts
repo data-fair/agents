@@ -17,13 +17,13 @@
  * placeholder (computed from the tier-0 bounded text both times), so the prefix is byte-identical from step to
  * step and the provider's cache of it survives. Nothing here touches the record.
  *
- * Only `{type:'text'}` outputs are rewritten. `json`, `content` (media) and error variants are left as the tools
- * produced them: their size is not a string length to bound honestly, and media is already excluded from the fill
- * measure by redactModelMedia.
+ * Only `{type:'text'}` outputs are BOUNDED (tier 0). `json`, `content` (media) and error variants are left as the
+ * tools produced them (no honest string cut; media is excluded from the fill by redactModelMedia), but can still be
+ * CLEARED by tier 1, and stay cleared, from the same text clearOldToolResults reads.
  */
 import type { ModelMessage } from 'ai'
 import { boundToolResult, redactModelMedia } from './operations.ts'
-import { clearOldToolResults, clearedToolResultText, estimateTokens } from './compaction-policy.ts'
+import { clearOldToolResults, clearedToolResultText, estimateTokens, toolResultText } from './compaction-policy.ts'
 
 type ResultPart = { type: 'tool-result', toolCallId: string, toolName: string, output: { type: string, value?: unknown } }
 
@@ -49,10 +49,10 @@ export const createStepContext = (budget: number) => {
   const applyCleared = (bounded: ModelMessage[]) => cleared.size === 0
     ? bounded
     : mapResults(bounded, part => {
-      const text = textOf(part.output)
-      return text !== undefined && cleared.has(part.toolCallId)
-        ? { ...part, output: { type: 'text', value: clearedToolResultText(part.toolName, text.length, text) } }
-        : part
+      if (!cleared.has(part.toolCallId)) return part
+      // Any output shape: clearOldToolResults clears a json result too, from the same text.
+      const text = toolResultText(part.output)
+      return { ...part, output: { type: 'text', value: clearedToolResultText(part.toolName, text.length, text) } }
     })
   return (messages: ModelMessage[]): ModelMessage[] => {
     const bounded = mapResults(messages, part => {

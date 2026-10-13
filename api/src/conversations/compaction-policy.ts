@@ -167,7 +167,7 @@ export function truncatedToolResultText (headText: string, totalChars: number): 
 }
 
 /** The text of a tool-result part's output, whatever shape the output takes. */
-function toolResultText (output: unknown): string {
+export function toolResultText (output: unknown): string {
   if (output == null) return ''
   if (typeof output === 'string') return output
   const value = (output as { value?: unknown }).value
