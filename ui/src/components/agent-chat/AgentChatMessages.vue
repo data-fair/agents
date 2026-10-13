@@ -101,7 +101,7 @@
                     @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
                   />
                   <v-chip
-                    v-else-if="simpleSubAgents || !invocation.toolName.startsWith('subagent_')"
+                    v-else-if="simpleSubAgents || !isNestedWork(invocation.toolName)"
                     size="small"
                     :color="invocation.state === 'done' ? 'success' : invocation.state === 'denied' ? 'error' : 'warning'"
                     variant="outlined"
@@ -195,7 +195,7 @@
                         v-else-if="invocation.state === 'done'"
                         class="text-body-medium text-medium-emphasis"
                       >
-                        {{ t('subAgentDone') }}
+                        {{ invocation.toolName === 'code_mode' ? t('scriptDone') : t('subAgentDone') }}
                       </div>
                     </div>
                   </v-expand-transition>
@@ -267,6 +267,8 @@
 fr:
   reasoning: Raisonnement
   subAgentDone: Sous-agent terminé.
+  scriptTitle: Script
+  scriptDone: Script terminé.
   jumpToBottom: Aller en bas
   activityCompacting: Compression de la conversation…
   activityThinking: Réflexion…
@@ -285,6 +287,8 @@ fr:
 en:
   reasoning: Reasoning
   subAgentDone: Sub-agent finished.
+  scriptTitle: Script
+  scriptDone: Script finished.
   jumpToBottom: Jump to bottom
   activityCompacting: Compacting conversation…
   activityThinking: Thinking…
@@ -364,7 +368,7 @@ const isActionPrompt = (message: ChatMessage) => {
 }
 
 const hasVisibleTools = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => props.simpleSubAgents || !ti.toolName.startsWith('subagent_'))
+  !!message.toolInvocations?.some(ti => props.simpleSubAgents || !isNestedWork(ti.toolName))
 
 const { t } = useI18n()
 
@@ -482,10 +486,13 @@ const jumpToBottom = () => {
 // delegating toolCallId so concurrent sub-agents expand/collapse independently.
 const expanded = reactive<Record<string, boolean>>({})
 const toggleExpanded = (toolCallId: string) => { expanded[toolCallId] = !expanded[toolCallId] }
+// A script's calls are shown like a worker's: in a panel under the call (api/src/code-mode/code-tools.ts).
+const isNestedWork = (toolName: string) => toolName.startsWith('subagent_') || toolName === 'code_mode'
 const subAgentInvocations = (message: ChatMessage) =>
-  message.toolInvocations?.filter(ti => ti.toolName.startsWith('subagent_')) ?? []
+  message.toolInvocations?.filter(ti => isNestedWork(ti.toolName)) ?? []
 
 const subAgentTitle = (toolName: string) => {
+  if (toolName === 'code_mode') return t('scriptTitle')
   const title = props.toolTitle(toolName)
   if (title !== toolName) return title
   const name = toolName.replace(/^subagent_/, '')
