@@ -95,6 +95,24 @@ test.describe('withCallPath — links', () => {
     await assert.rejects(run(wrapped, {}), /Could not save the file linked as "roads": "https:\/\/x" is not under this agent's allowed URLs \(none\)/)
   })
 
+  test('an unnamed link is shown without its query; a later failure names the files already saved', async () => {
+    const presigned = { _agentsLinkResult: true, text: 'x', links: [{ uri: 'https://site.example/f?sig=secret', name: '' }], catalog: false }
+    const refuse = async () => { throw new Error('answered HTTP 403') }
+    await assert.rejects(run(withCallPath({ tool: target(() => presigned), server: 's' }, { files, openLink: refuse }), {}), (err: any) => {
+      assert.match(err.message, /Could not save the file linked as "https:\/\/site\.example\/f": answered HTTP 403/)
+      assert.ok(!err.message.includes('secret') && !err.message.includes('?'), err.message)
+      return true
+    })
+    let n = 0
+    const second = async () => { if (n++) throw new Error('boom'); return opened('a,b\n') }
+    await assert.rejects(run(withCallPath({ tool: target(() => linked), server: 's' }, { files, openLink: second }), {}), /Could not save the file linked as "roads": boom\n\nThe files already saved from this result stay in your files: \/roads\.csv\./)
+  })
+
+  test('a save failure (cap, scope) is reported with the link it refers to', async () => {
+    const wrapped = withCallPath({ tool: target(() => linked), server: 's' }, { files: { ...files, save: async () => { throw new Error('over the cap') } } as any, openLink: async () => opened('a') })
+    await assert.rejects(run(wrapped, {}), /Could not save the file linked as "roads": over the cap/)
+  })
+
   test('without files, a link result is its text, unchanged', async () => {
     assert.equal(await run(withCallPath({ tool: target(() => linked), server: 's' }, {}), {}), `The file: ${uri}`)
   })

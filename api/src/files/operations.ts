@@ -6,6 +6,7 @@
  * scopes, types, signed URLs, the bounds and the messages the model reads.
  */
 
+import { displayUrl } from '../web/operations.ts'
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import mime from 'mime-types'
 import type { ApiConfig } from '../../config/type/index.ts'
@@ -357,3 +358,7 @@ export const uniqueName = (name: string, used: Set<string>): string => {
 
 /** The link's text block names its URL (spec §4.2 seams): the model reads the stored path there instead. */
 export const rewriteLinkText = (text: string, uri: string, path: string): string => text.split(uri).join(path)
+
+/** The text of an error result, with the URL of any link it carried reduced to origin and path: it may be presigned. */
+export const hideLinkUris = (text: string, callResult: { content?: unknown[] }): string =>
+  resourceLinksOf(callResult).reduce((acc, link) => acc.split(link.uri).join(displayUrl(link.uri)), text)

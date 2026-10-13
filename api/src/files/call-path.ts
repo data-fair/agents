@@ -13,6 +13,7 @@ import { isMediaToolResult } from '@agents/shared/tool-result'
 import type { SourcedTool } from '../conversations/operations.ts'
 import type { TurnFiles } from './turn-files.ts'
 import type { OpenedDownload } from './download.ts'
+import { displayUrl } from '../web/operations.ts'
 import { scrubUrls, isLinkedToolResult, storedNameForLink, uniqueName, rewriteLinkText, formatBytes, type LinkedToolResult, type LinkOrigin, type ResourceLink } from './operations.ts'
 
 export interface CallPathContext {
@@ -40,14 +41,16 @@ const storeLinks = async (result: LinkedToolResult, ctx: CallPathContext, signal
   const used = new Set<string>()
   const saved: { uri: string, path: string, line: string }[] = []
   for (const link of result.links) {
-    let opened: OpenedDownload
+    let file: Awaited<ReturnType<TurnFiles['save']>>
     try {
-      opened = await ctx.openLink(link, { catalog: result.catalog, ...(result.site ? { site: result.site } : {}) }, signal)
+      const opened = await ctx.openLink(link, { catalog: result.catalog, ...(result.site ? { site: result.site } : {}) }, signal)
+      const name = uniqueName(storedNameForLink({ contentDisposition: opened.contentDisposition, contentType: opened.contentType, link }), used)
+      file = await ctx.files.save(name, opened.body, opened.contentLength)
     } catch (err: any) {
-      throw new Error(`Could not save the file linked as "${link.name || link.uri}": ${err?.message ?? err}`)
+      // A link's URL can be presigned: its name, else its address without query.
+      const already = saved.length ? `\n\nThe files already saved from this result stay in your files: ${saved.map(s => s.path).join(', ')}.` : ''
+      throw new Error(`Could not save the file linked as "${link.name || displayUrl(link.uri)}": ${err?.message ?? err}${already}`)
     }
-    const name = uniqueName(storedNameForLink({ contentDisposition: opened.contentDisposition, contentType: opened.contentType, link }), used)
-    const file = await ctx.files.save(name, opened.body, opened.contentLength)
     saved.push({ uri: link.uri, path: file.path, line: `${file.path} (${file.mimeType}, ${formatBytes(file.size)})` })
   }
   // Longest URL first: one link's URL may be the start of another's (`…/raw` and `…/raw?format=csv`).

@@ -22,7 +22,7 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
-import { fileArgumentsOf, withResourceLinks } from '../files/operations.ts'
+import { fileArgumentsOf, withResourceLinks, hideLinkUris } from '../files/operations.ts'
 import { publicDispatcher } from '../web/public-lookup.ts'
 import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
 import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
@@ -93,7 +93,7 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
             const formatted = formatMcpToolResult(callResult as any)
             // Same rule as a catalog tool (./client.ts): a tool's own failure is a failure, not data.
             if ((callResult as { isError?: boolean }).isError) {
-              throw new Error(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed')
+              throw new Error(hideLinkUris(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed', callResult as any))
             }
             return withResourceLinks(formatted, callResult as any, { catalog: false })
           }

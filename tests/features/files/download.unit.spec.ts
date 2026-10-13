@@ -11,7 +11,7 @@ import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { displayUrl } from '../../../api/src/web/operations.ts'
-import { openDownload, saveUrl } from '../../../api/src/files/download.ts'
+import { openDownload, saveUrl, createLinkOpener } from '../../../api/src/files/download.ts'
 import { FsBackend } from '../../../api/src/files/fs.ts'
 import { createTurnFiles } from '../../../api/src/files/turn-files.ts'
 
@@ -126,5 +126,30 @@ test.describe('saveUrl', () => {
     const small = files({ file: 1000, scope: 10_000 })
     await assert.rejects(saveUrl({ url: `${A}/chunked`, path: '/big.bin', allowedUrls: [A], files: small, publicIps }), /1 kB limit per file/)
     assert.deepEqual(await small.list(), [])
+  })
+})
+
+test.describe('createLinkOpener', () => {
+  test('only a catalog link on the bound site carries the cookie and skips the allowlist', async () => {
+    const asked: string[] = []
+    const open = createLinkOpener({ sites: { cookieFor: async (site: string) => { asked.push(site); return 'id_token=abc' } } as any, allowedUrls: [], publicIps })
+    const bound = { catalog: true, site: A }
+    ;(await open({ uri: `${A}/data.csv`, name: 'd' }, bound)).body.destroy()
+    assert.deepEqual(asked, [A])
+    assert.deepEqual(seen.map(s => s.cookie), ['id_token=abc'])
+    // everything else: anonymous, and the (empty) allowlist applies
+    seen.length = 0
+    for (const [link, origin] of [
+      [{ uri: `${A}/data.csv`, name: 'd' }, { catalog: false, site: A }],
+      [{ uri: `${A}/data.csv`, name: 'd' }, { catalog: true }],
+      [{ uri: `${B}/elsewhere.csv`, name: 'd' }, bound]
+    ] as const) {
+      await assert.rejects(open(link, origin), /is not under this agent's allowed URLs/)
+    }
+    assert.deepEqual(asked, [A], 'no session was even asked for')
+    assert.equal(seen.length, 0)
+    const anonymous = createLinkOpener({ sites: { cookieFor: async () => 'id_token=abc' } as any, allowedUrls: [A], publicIps })
+    ;(await anonymous({ uri: `${A}/data.csv`, name: 'd' }, { catalog: false, site: A })).body.destroy()
+    assert.deepEqual(seen.map(s => s.cookie), [undefined])
   })
 })
