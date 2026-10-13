@@ -22,6 +22,7 @@ import { securityKey } from '../cipher/service.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import { WAIT_TOOL_NAME, type ChatActivity } from '@agents/shared/agent-activity'
 import { toolDescription } from '@agents/shared/tool-description'
+import { denyGoneApprovedTools } from './approved-calls.ts'
 import { browserToolSet } from '../agent-session/browser-tools.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
@@ -249,6 +250,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // Signs each approval request when it is issued and verifies it on replay, so a stored
     // `approved: true` that did not come through the decision route fails instead of executing.
     experimental_toolApprovalSecret: securityKey,
+    // An approved call whose tool is gone is denied by name: the SDK would otherwise skip it silently.
+    toolApproval: denyGoneApprovedTools(history, liveTools),
     stopWhen: [
       isStepCount(STEP_LIMIT),
       repeatedCallGuard(),
