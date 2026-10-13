@@ -333,7 +333,7 @@ export const cases: LocalCase[] = [
   },
   {
     // ONE HISTORY: memory OFF, so what the second conversation needs can only come from reading the
-    // first one (list_my_runs, get_run, read_conversation). The question is the one the design names:
+    // first one (list_my_runs, read_conversation). The question is the one the design names:
     // "why did you do that?", asked in a new conversation about what was decided in another.
     name: 'autonomous-agent-why-earlier',
     premise: twoConversations,

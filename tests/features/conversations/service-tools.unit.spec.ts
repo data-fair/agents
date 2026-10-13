@@ -7,7 +7,7 @@ import { SERVICE_TOOL_NAMES, mayBePageTool } from '../../../api/src/conversation
 
 test.describe('service tool names', () => {
   test('the wait, the memory, the outcome, the web, the self-knowledge and the planning tools are the service\'s own', () => {
-    assert.deepEqual([...SERVICE_TOOL_NAMES].sort(), ['delete_task', 'fetch_url', 'get_my_configuration', 'get_run', 'list_my_runs', 'list_site_pages', 'memory', 'plan_task', 'read_conversation', 'report_outcome', 'request_mcp_access', 'request_web_access', 'update_task', 'wait_for_user_action'])
+    assert.deepEqual([...SERVICE_TOOL_NAMES].sort(), ['delete_task', 'fetch_url', 'get_my_configuration', 'list_my_runs', 'list_site_pages', 'memory', 'plan_task', 'read_conversation', 'report_outcome', 'request_mcp_access', 'request_web_access', 'update_task', 'wait_for_user_action'])
   })
 
   test('a page tool may not take a service tool\'s name', () => {

@@ -10,7 +10,7 @@ import type { AccountKeys } from '@data-fair/lib-express'
 import type { ServiceToolContext } from '../conversations/service-tools.ts'
 import { listTasks, listRuns, getRun, type RunFilters } from '../tasks/service.ts'
 import { memoryEnabledFor } from '../memory/operations.ts'
-import { renderConfiguration, renderRun, renderRunRow, exportPage, SELF_KNOWLEDGE_TOOL_NAMES } from './operations.ts'
+import { renderConfiguration, renderRunRow, exportPage, SELF_KNOWLEDGE_TOOL_NAMES } from './operations.ts'
 import { buildConversationExport } from '../review/operations.ts'
 import { runAsMessages } from '../tasks/run-messages.ts'
 import type { ScheduleRule } from '@agents/shared/task-schedule'
@@ -21,14 +21,6 @@ const LIST_RUNS_MAX = 20
 /** An HTTP error from the read layer keeps its status in the text the model reads (e.g. "404 unknown run"). */
 export const asToolError = (err: any): never => {
   throw new Error(err?.status ? `${err.status} ${err.message}` : err?.message ?? String(err))
-}
-
-/** The seq range of a conversation turn's own messages: the ones it wrote, and the person's message that started it. */
-const turnSeqs = async (run: { id: string, conversationId?: string }) => {
-  if (!run.conversationId) return undefined
-  const written = await mongo.messages.find({ conversationId: run.conversationId, runId: run.id }, { projection: { _id: 0, seq: 1 } }).sort({ seq: 1 }).toArray()
-  if (!written.length) return undefined
-  return { from: Math.max(1, written[0].seq - 1), to: written[written.length - 1].seq }
 }
 
 const taskTitles = async (owner: AccountKeys, agentId: string) =>
@@ -58,7 +50,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
       }
     }),
     list_my_runs: tool({
-      description: `List your past runs, newest first: planned task runs and conversation turns (with the conversation's title), their status, outcome and cost. At most ${LIST_RUNS_MAX} rows. When someone refers to something said or done earlier, find it here and read it (read_conversation, get_run) before answering; never say something did not happen without having read it.`,
+      description: `List your past runs, newest first: planned task runs and conversation turns (with the conversation's title), their status, outcome and cost. At most ${LIST_RUNS_MAX} rows. When someone refers to something said or done earlier, find it here and read it (read_conversation) before answering; never say something did not happen without having read it.`,
       inputSchema: jsonSchema<unknown>({
         type: 'object',
         additionalProperties: false,
@@ -84,18 +76,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
         const conversationTitles = new Map((await mongo.conversations.find({ id: { $in: conversationIds } }, { projection: { _id: 0, id: 1, title: 1 } }).toArray()).map(c => [c.id, c.title]))
         return [`${results.length} of ${count} runs (id | kind | subject | trigger | started | status | outcome | credits):`,
           ...results.map(r => renderRunRow(r, r.taskId ? titles.get(r.taskId) : conversationTitles.get(r.conversationId ?? ''), run.conversationId)),
-          'Read a conversation with read_conversation, a task run with get_run.'].join('\n')
-      }
-    }),
-    get_run: tool({
-      description: 'Read one of your runs by id: a task run with its outcome and transcript, a conversation turn with its transcript.',
-      inputSchema: jsonSchema<unknown>({ type: 'object', additionalProperties: false, required: ['runId'], properties: { runId: { type: 'string' } } }),
-      execute: async (input: any) => {
-        const found = await getRun(owner, agent.id, String(input?.runId ?? '')).catch(asToolError)
-        const title = found.taskId
-          ? (await taskTitles(owner, agent.id)).get(found.taskId)
-          : found.conversationId ? (await mongo.conversations.findOne({ id: found.conversationId }, { projection: { _id: 0, title: 1 } }))?.title : undefined
-        return renderRun(found, title, await turnSeqs(found))
+          'Read a conversation (conversationId) or a task run (runId) with read_conversation.'].join('\n')
       }
     }),
     // Every conversation of the agent, whoever had it: an agent has ONE history, which is why its

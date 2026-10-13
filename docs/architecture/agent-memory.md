@@ -10,7 +10,7 @@ Three ways of carrying knowledge across runs, each for its own kind of knowledge
 
 | | What it holds | Written by | Read |
 | --- | --- | --- | --- |
-| **The past itself** | every conversation and task run, verbatim | the service, as it runs | on demand, by the agent: `list_my_runs`, `get_run`, and `read_conversation`, which reads the conversation export page by page ([self-knowledge](./planned-tasks.md#self-knowledge-and-planning)) |
+| **The past itself** | every conversation and task run, verbatim | the service, as it runs | on demand, by the agent: `list_my_runs` and `read_conversation`, which reads the conversation export page by page ([self-knowledge](./planned-tasks.md#self-knowledge-and-planning)) |
 | **Memory** | where information lives and how to get it, what did not work, corrections and preferences, durable facts | the agent, deliberately, during its runs | always: `MEMORY.md` in full and an index of the rest, in the system prompt |
 | **Consolidation** | nothing of its own: a safety net that tidies memory and catches a "remember this" the agent missed | a daily per-agent pass | — |
 

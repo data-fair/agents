@@ -2,7 +2,7 @@
  * The read layer of a task run's content.
  *
  * A task run keeps its content on the run itself (`prompt`, `parts`), not in a conversation's messages.
- * Everything that reads a transcript — the export, get_run — expects messages, so this is the
+ * Everything that reads a transcript — the export, read_conversation — expects messages, so this is the
  * one place that presents a task run as two: the prompt the task gave, and what the model produced.
  */
 import { textPart, type MessagePart } from '@agents/shared/message-parts'

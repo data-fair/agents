@@ -53,7 +53,7 @@ export function runStopReasonMessage (stopReason: RunStopReason, detail?: string
 }
 
 /** The system prompt's note on the task surface (see buildSystemPrompt). */
-export const TASK_SURFACE_NOTE = 'This is a scheduled execution of one of your planned tasks. Nobody is present: there is no one to ask, and no action can be approved. Do what the task asks with the tools you have, then end by calling report_outcome with what you found or did. Your earlier runs and what they reported are listed by list_my_runs (kind task) and read with get_run: use them to compare and to say what changed, but do the task again — report only what this run read, never an earlier run\'s findings as current.'
+export const TASK_SURFACE_NOTE = 'This is a scheduled execution of one of your planned tasks. Nobody is present: there is no one to ask, and no action can be approved. Do what the task asks with the tools you have, then end by calling report_outcome with what you found or did. Your earlier runs and what they reported are listed by list_my_runs (kind task) and read with read_conversation (runId): use them to compare and to say what changed, but do the task again — report only what this run read, never an earlier run\'s findings as current.'
 
 /** The system prompt's pointer to the self-knowledge tools, for a configured agent (see buildSystemPrompt). */
 export const SELF_KNOWLEDGE_NOTE = 'Before telling someone you cannot do something, check get_my_configuration: it lists what you can use, and why anything else is out of reach.'

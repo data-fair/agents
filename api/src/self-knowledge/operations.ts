@@ -10,10 +10,8 @@ import type { ConversationRun } from '#types'
 import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
 import { classifyTool, resolveApproval, type ApprovalClass, type Approvals } from '../conversations/approval-policy.ts'
 import type { TurnCatalog, TurnSurface } from '../conversations/service-tools.ts'
-import { transcriptTail } from '../memory/operations.ts'
-import { runAsMessages } from '../tasks/run-messages.ts'
 
-export const SELF_KNOWLEDGE_TOOL_NAMES = ['get_my_configuration', 'list_my_runs', 'get_run', 'read_conversation'] as const
+export const SELF_KNOWLEDGE_TOOL_NAMES = ['get_my_configuration', 'list_my_runs', 'read_conversation'] as const
 
 /** How much of a conversation's export one `read_conversation` call returns. */
 export const EXPORT_PAGE_CHARS = 30000
@@ -30,7 +28,7 @@ export const PLANNED_TASKS_HEADER = 'These tasks exist and run on their schedule
 /** The source a stored self-knowledge or planning call names. */
 export const SELF_KNOWLEDGE_SERVER_ID = 'agent-self'
 
-/** How much of an outcome summary a run row shows: the row is a listing, `get_run` has the rest. */
+/** How much of an outcome summary a run row shows: the row is a listing, `read_conversation` has the rest. */
 export const RUN_ROW_SUMMARY_CHARS = 300
 
 export interface ConfigurationView {
@@ -112,29 +110,6 @@ export const renderRunRow = (run: ConversationRun, title: string | undefined, cu
   const status = run.status === 'skipped' ? `skipped: ${run.error ?? 'no reason recorded'}` : run.status
   const outcome = run.outcome ? `outcome ${run.outcome.status}: ${clip(run.outcome.summary, RUN_ROW_SUMMARY_CHARS)}` : 'no outcome'
   return [run.id, isTaskRun(run) ? 'task' : 'conversation', subject, `trigger ${run.trigger}`, run.startedAt, status, outcome, `${run.credits ?? 0} credits`].join(' | ')
-}
-
-/**
- * One run in full. A task run's content is on the run itself, read as a transcript (tool results cut to
- * an excerpt); `read_conversation` reads it whole. A conversation turn is read in its conversation's
- * export, where its messages are found by their seq.
- */
-export const renderRun = (run: ConversationRun, taskTitle: string | undefined, turnSeqs?: { from: number, to: number }): string => {
-  if (!isTaskRun(run)) {
-    return [
-      renderRunRow(run, taskTitle),
-      `Read it with read_conversation, conversationId ${run.conversationId}${turnSeqs ? `: this turn is messages seq ${turnSeqs.from} to ${turnSeqs.to}` : ''}.`
-    ].join('\n')
-  }
-  return [
-    `Task: ${taskTitle ?? run.taskId}`,
-    `Trigger: ${run.trigger}`,
-    `Status: ${run.status}`,
-    ...(run.error ? [`Error: ${run.error}`] : []),
-    `Outcome: ${run.outcome ? `${run.outcome.status}: ${run.outcome.summary}` : 'none reported'}`,
-    'Transcript (tool results cut; read_conversation with this runId has them whole):',
-    transcriptTail(runAsMessages(run)).text
-  ].join('\n')
 }
 
 /**

@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
-  consolidationDue, conversationsForConsolidation, consolidationUserMessage, consolidationSystemPrompt, transcriptTail,
+  consolidationDue, conversationsForConsolidation, consolidationUserMessage, consolidationSystemPrompt,
   CONSOLIDATION_MARKER, MEMORY_CLAUSE
 } from '../../../api/src/memory/operations.ts'
 
@@ -96,43 +96,8 @@ test.describe('consolidation prompt', () => {
 
 test.describe('memory clause', () => {
   test('points to the readable past and asks to date observations', () => {
-    assert.match(MEMORY_CLAUSE, /list_my_runs, get_run and read_conversation/)
+    assert.match(MEMORY_CLAUSE, /list_my_runs and read_conversation/)
     assert.match(MEMORY_CLAUSE, /do not copy into memory what you found or did/)
     assert.match(MEMORY_CLAUSE, /date it, and do not claim it persists/)
-  })
-})
-
-test.describe('transcripts read back', () => {
-  const messages = [
-    { seq: 1, role: 'user', parts: [{ type: 'text', text: 'hello' }] },
-    {
-      seq: 2,
-      role: 'assistant',
-      parts: [
-        { type: 'reasoning', text: 'secret thoughts' },
-        { type: 'dynamic-tool', toolName: 'search', toolCallId: 'c1', state: 'output-available', input: { q: 'x' }, output: 'r'.repeat(5000) },
-        { type: 'dynamic-tool', toolName: 'boom', toolCallId: 'c2', state: 'output-error', input: {}, errorText: 'failed hard' },
-        { type: 'text', text: 'Noted.' }
-      ]
-    }
-  ] as any
-
-  test('a tail renders text and tool calls, drops reasoning, truncates tool output', () => {
-    const { text, truncated } = transcriptTail(messages)
-    assert.equal(truncated, false)
-    assert.match(text, /\[1\] user: hello/)
-    assert.match(text, /\[2\] assistant: Noted\./)
-    assert.match(text, /tool search\(\{"q":"x"\}\) → r{1500}… \[truncated\]/)
-    assert.match(text, /tool boom\(\{\}\) → error: failed hard/)
-    assert.doesNotMatch(text, /secret thoughts/)
-  })
-
-  test('a tail keeps the most recent part when over budget, and says so', () => {
-    const many = Array.from({ length: 50 }, (_, i) => ({ seq: i + 1, role: 'user', parts: [{ type: 'text', text: `m${i + 1} ${'x'.repeat(100)}` }] })) as any
-    const { text, truncated } = transcriptTail(many, 1000)
-    assert.equal(truncated, true)
-    assert.match(text, /^\(earlier messages omitted\)/)
-    assert.match(text, /m50/)
-    assert.doesNotMatch(text, /m1 /)
   })
 })
