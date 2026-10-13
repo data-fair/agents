@@ -174,6 +174,10 @@ planned task the runner runs itself, with no persona at all, judged from the run
 `playwright.config.ts` — a bare `npm run test` would otherwise spend plan
 quota.
 
+## AI SDK version
+
+`ai` and every `@ai-sdk/*` provider (plus `@openrouter/ai-sdk-provider` and `ai-sdk-ollama`) are pinned to **exact** versions released together. Bump them together, never one alone, then run `npm dedupe` and check that `npm ls ai @ai-sdk/provider-utils` shows a single version of each. Why, and the v7 behaviours the code relies on: `docs/architecture/providers.md` ("AI SDK version").
+
 ## Code patterns
 
 Topical architecture docs (for understanding the service) live in `docs/architecture/`, one file per concern; `docs/architecture/overview.md` indexes them. Read on a need-to-know basis.
