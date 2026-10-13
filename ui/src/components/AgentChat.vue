@@ -31,40 +31,32 @@
       :text="t('auditedNotice')"
     />
 
-    <template v-if="messages.length">
-      <agent-chat-messages
-        data-testid="agent-chat-transcript"
-        :messages="messages"
-        :is-streaming="isStreaming"
-        :activity="activity"
-        :sub-agent-activities="subAgentActivities"
-        :chat-error="chatError"
-        :welcome-text="t('welcome')"
-        :tool-title="toolTitle"
-        :action-visible-prompt="actionVisiblePrompt"
-        :mermaid-enabled="mermaidEnabled"
-        :simple-sub-agents="simpleSubAgentsEnabled"
-        :show-reasoning="showReasoningEnabled"
-        :agent-path="agentPath"
-        @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
-        @fix-mermaid="handleFixMermaid"
-        @mermaid-error="handleMermaidError"
-        @decide-approval="d => chat.decideApproval(d.approvalId, d.approved, d.reason)"
-        @update:scrolled="value => headerElevated = value"
-      />
+    <agent-chat-messages
+      v-if="messages.length"
+      data-testid="agent-chat-transcript"
+      :messages="messages"
+      :is-streaming="isStreaming"
+      :activity="activity"
+      :sub-agent-activities="subAgentActivities"
+      :chat-error="chatError"
+      :welcome-text="t('welcome')"
+      :tool-title="toolTitle"
+      :action-visible-prompt="actionVisiblePrompt"
+      :mermaid-enabled="mermaidEnabled"
+      :simple-sub-agents="simpleSubAgentsEnabled"
+      :show-reasoning="showReasoningEnabled"
+      :agent-path="agentPath"
+      @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
+      @fix-mermaid="handleFixMermaid"
+      @mermaid-error="handleMermaidError"
+      @decide-approval="d => chat.decideApproval(d.approvalId, d.approved, d.reason)"
+      @update:scrolled="value => headerElevated = value"
+    />
 
-      <agent-chat-input
-        v-model:text="composerText"
-        :is-streaming="isStreaming"
-        :waiting-for-user="isWaitingForUser"
-        @send="handleSend"
-        @abort="handleAbort"
-      />
-    </template>
-
+    <!-- The empty state: centered with the composer, by the spacer below it. -->
     <div
       v-else
-      class="flex-grow-1 d-flex flex-column align-center justify-center"
+      class="flex-grow-1 d-flex flex-column align-center justify-end"
       style="min-height: 0"
     >
       <v-alert
@@ -82,14 +74,20 @@
       >
         {{ t('welcome') }}
       </p>
-      <agent-chat-input
-        v-model:text="composerText"
-        :is-streaming="isStreaming"
-        style="width: 100%"
-        @send="handleSend"
-        @abort="handleAbort"
-      />
     </div>
+
+    <!-- ONE composer, outside the branches: the first message arriving (a restored conversation, the first
+         answer) does not replace it, so nothing typed, focused or being filled in is lost. -->
+    <agent-chat-input
+      :is-streaming="isStreaming"
+      :waiting-for-user="isWaitingForUser"
+      @send="handleSend"
+      @abort="handleAbort"
+    />
+    <div
+      v-if="!messages.length"
+      class="flex-grow-1"
+    />
 
     <agent-chat-debug-dialog
       v-model="showDebugDialog"
@@ -586,9 +584,6 @@ const toolTitle = createToolTitleMemo((toolName: string) => (chat.tools.value[to
 // the handover's label can arrive before its turn has ended, and a message sent in
 // that gap is queued rather than dropped.
 const queuedUserMessage = ref<string | null>(null)
-
-// One text for both composers (the empty state's and the transcript's): see AgentChatInput.
-const composerText = ref('')
 
 const deliver = (userMessage: string) => {
   mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET

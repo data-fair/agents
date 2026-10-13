@@ -66,6 +66,7 @@ en:
 </i18n>
 
 <script lang="ts" setup>
+import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { mdiSend, mdiStop, mdiCreation } from '@mdi/js'
 
@@ -86,10 +87,7 @@ const emit = defineEmits<{
 
 const { t } = useI18n()
 
-// What is being typed, owned by the parent when it binds `v-model:text`: the chat swaps
-// between two composers when the first messages arrive, and a person typing while a
-// resumed thread loads would otherwise lose their words to the swap.
-const localInput = defineModel<string>('text', { default: '' })
+const localInput = ref('')
 
 const handleSend = () => {
   const userMessage = localInput.value.trim()
