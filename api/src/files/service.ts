@@ -31,5 +31,5 @@ export const fileStore = (): FileBackend | undefined => {
 export const turnFilesFor = (run: ConversationRun): TurnFiles | undefined => {
   const backend = fileStore()
   if (!backend || !config.files) return undefined
-  return createTurnFiles({ backend, scope: scopeOfRun(run as any), secret: config.files.secret, publicUrl: config.files.publicUrl })
+  return createTurnFiles({ backend, scope: scopeOfRun(run), secret: config.files.secret, publicUrl: config.files.publicUrl })
 }

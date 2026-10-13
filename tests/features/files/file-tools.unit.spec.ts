@@ -58,4 +58,9 @@ test.describe('renderTextPage', () => {
     assert.match(page, /^\/a\.txt \(text\/plain, 45 kB, 5 lines in its first 10 MB\): lines 1-2\n/)
     assert.match(page, /Read on with offset 2\.$/)
   })
+  test('a line cut at the page size says so, an empty file says it is empty', () => {
+    const page = renderTextPage(file, 'x'.repeat(25000), 0, 500)
+    assert.match(page, /\[line 1 cut at 20,000 characters: the rest of that line cannot be reached with offset\]/)
+    assert.equal(renderTextPage({ ...file, size: 0 }, ''), '/a.txt (text/plain, 0 B): empty file.')
+  })
 })

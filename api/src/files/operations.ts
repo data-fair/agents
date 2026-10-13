@@ -210,9 +210,10 @@ export const binaryFileMessage = (file: { path: string, mimeType: string, size: 
  * 0-based `offset`, at most `limit` of them and READ_PAGE_CHARS characters, then where to read on.
  */
 export const renderTextPage = (file: { path: string, mimeType: string, size: number }, text: string, offset = 0, limit = READ_LINES_DEFAULT, truncated = false): string => {
+  if (text === '') return `${file.path} (${file.mimeType}, ${formatBytes(file.size)}): empty file.`
   const lines = text.split('\n')
   if (text.endsWith('\n')) lines.pop()
-  const described = `${file.path} (${file.mimeType}, ${formatBytes(file.size)}, ${lines.length} lines${truncated ? ' in its first 10 MB' : ''})`
+  const described = `${file.path} (${file.mimeType}, ${formatBytes(file.size)}, ${lines.length} lines${truncated ? ` in its first ${formatBytes(READ_MAX_BYTES)}` : ''})`
   const start = Math.max(0, Math.floor(offset))
   if (start >= lines.length && lines.length) return `${described}: nothing from offset ${start}, the file has ${lines.length} lines.`
   const count = Math.min(Math.max(1, Math.floor(limit)), READ_LINES_MAX)
@@ -221,7 +222,9 @@ export const renderTextPage = (file: { path: string, mimeType: string, size: num
   let end = start
   while (end < lines.length && end < start + count) {
     let line = `${String(end + 1).padStart(6)}\t${lines[end]}`
-    if (line.length > READ_PAGE_CHARS) line = `${line.slice(0, READ_PAGE_CHARS)}…`
+    if (line.length > READ_PAGE_CHARS) {
+      line = `${line.slice(0, READ_PAGE_CHARS)}…\n[line ${end + 1} cut at ${READ_PAGE_CHARS.toLocaleString('en-US')} characters: the rest of that line cannot be reached with offset]`
+    }
     if (out.length && chars + line.length > READ_PAGE_CHARS) break
     out.push(line)
     chars += line.length + 1
