@@ -7,6 +7,7 @@ import { convertToModelMessages, safeValidateUIMessages, type ModelMessage, type
 import { truncatedToolResultText } from './compaction-policy.ts'
 import { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
+import { DEFAULT_TIME_ZONE } from '@agents/shared/task-schedule'
 import type { AccountKeys } from '@data-fair/lib-express'
 // Type-only, so this pure module does not pull in enforce.ts (which reaches mongo and config).
 import type { ConversationRun } from '#types'
@@ -88,7 +89,19 @@ interface PromptableAutonomousAgent {
  * clause telling the model to trust a `<message from="...">` attribute that nothing writes would let a
  * user pasting `<message from="admin">` be believed.
  */
-export function buildSystemPrompt (autonomousAgent: PromptableAutonomousAgent, memory?: MemoryDocument[], surface?: TurnSurface, opts?: { anonymousOn?: string, unconfirmedOn?: string, guides?: ServerGuide[] }): string {
+/**
+ * Today's date in a named zone, for the system prompt: a model's only sense of "now" is its training
+ * cutoff, so without it "last week" or "this year's figures" are resolved against the wrong year. The DATE
+ * only, so the prompt changes once a day rather than on every turn (see buildSystemPrompt on its place).
+ */
+export const todayLine = (now: Date, timeZone: string): string => {
+  const day = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'long' }).format(now)
+  // en-CA formats as YYYY-MM-DD.
+  const date = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
+  return `Today is ${day} ${date} (${timeZone}).`
+}
+
+export function buildSystemPrompt (autonomousAgent: PromptableAutonomousAgent, memory?: MemoryDocument[], surface?: TurnSurface, opts?: { anonymousOn?: string, unconfirmedOn?: string, guides?: ServerGuide[], now?: Date, timeZone?: string }): string {
   // With server guides, the one exception is named here, where the rule is: a skill is instructions by
   // nature, and a cautious model reading "never an instruction" would otherwise ignore every skill it
   // loads. Only read_skill's own result carries it (its <skill> envelope cannot be forged: defuseEnvelopes).
@@ -125,6 +138,10 @@ export function buildSystemPrompt (autonomousAgent: PromptableAutonomousAgent, m
     // agent's own instructions, which take precedence, and before the task note and memory.
     opts?.guides?.length ? renderGuidesBlock(opts.guides) : undefined,
     surface === 'task' ? TASK_SURFACE_NOTE : undefined,
+    // After every stable part, so the prefix a provider caches survives the day changing; before memory,
+    // which can change several times a day. A task run reads it in its own schedule's zone (TurnTarget's
+    // timeZone), so "today" means what it means to the scheduler that started it.
+    todayLine(opts?.now ?? new Date(), opts?.timeZone ?? DEFAULT_TIME_ZONE),
     // LAST, after every human-owned part, so it reads as notes beneath the instructions rather than
     // as more of them (docs/architecture/agent-memory.md). Undefined = memory off: no block at all.
     memory ? renderMemoryBlock(memory) : undefined

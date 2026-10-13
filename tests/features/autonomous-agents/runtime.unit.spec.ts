@@ -47,6 +47,17 @@ test.describe('buildSystemPrompt', () => {
     assert.doesNotMatch(buildSystemPrompt(agent, undefined, 'chat'), /read_skill/)
   })
 
+  test('states today\'s date in a named zone, after the stable parts and before memory', () => {
+    const memory = [{ path: 'MEMORY.md', description: '', content: 'remembered note', version: 1, updatedAt: '2026-10-13T00:00:00.000Z' }]
+    // 23:30 UTC on the 13th is already the 14th in Paris: the zone decides the day.
+    const now = new Date('2026-10-13T23:30:00.000Z')
+    const prompt = buildSystemPrompt(agent, memory as any, 'task', { now })
+    const today = prompt.indexOf('Today is Wednesday 2026-10-14 (Europe/Paris).')
+    assert.ok(today > prompt.indexOf('scheduled execution'), 'after the task note')
+    assert.ok(today < prompt.indexOf('remembered note'), 'before memory')
+    assert.match(buildSystemPrompt(agent, undefined, 'chat', { now, timeZone: 'America/New_York' }), /Today is Tuesday 2026-10-13 \(America\/New_York\)\./)
+  })
+
   test('no guides, no block', () => {
     assert.doesNotMatch(buildSystemPrompt(agent, undefined, 'chat', { guides: [] }), /tool servers/)
   })

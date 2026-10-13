@@ -10,6 +10,7 @@ import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import type { ConversationRun } from '#types'
 import type { Event } from '@data-fair/lib-common-types/event/index.js'
 import { partsText, type MessagePart } from '@agents/shared/message-parts'
+import { DEFAULT_TIME_ZONE } from '@agents/shared/task-schedule'
 
 export type Scheduling = AutonomousAgentTask['scheduling'][number]
 
@@ -28,7 +29,7 @@ export const toCron = (rule: Scheduling): string => {
 export const nextRunAfter = (rules: Scheduling[], after: Date): Date => {
   let next: Date | null = null
   for (const rule of rules) {
-    const candidate = new Cron(toCron(rule), { timezone: (rule as any).timeZone || 'Europe/Paris' }).nextRun(after)
+    const candidate = new Cron(toCron(rule), { timezone: (rule as any).timeZone || DEFAULT_TIME_ZONE }).nextRun(after)
     if (!candidate) throw new Error(`no next slot for the schedule ${JSON.stringify(rule)}`)
     if (!next || candidate < next) next = candidate
   }

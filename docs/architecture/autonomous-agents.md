@@ -268,6 +268,8 @@ swept by their own purges.)
 
 A task run's target is the other implementation: its record is the run itself (`prompt`, `parts`, `outcome`) and nobody watches it; see [planned tasks](./planned-tasks.md#the-turn).
 
+The system prompt (`buildSystemPrompt`) states today's date, as Claude.ai and ChatGPT state theirs: a model's only other sense of "now" is its training cutoff, which puts "last week" or "this year's figures" in the wrong year. It gives the date without the time, so the prompt changes once a day rather than every turn. The date comes after every stable part, so the prefix a provider caches survives the day changing, and before the memory block, which can change several times a day. It names its zone: for a task run, the zone of the task's first schedule rule, so "today" means to the agent what it means to the scheduler that started the run (the target's `timeZone`); otherwise `DEFAULT_TIME_ZONE` (`shared/task-schedule.ts`), which is also the scheduler's own default.
+
 ## The service's own tools
 
 `buildServiceTools` (`api/src/conversations/service-tools.ts`) is a registry of the service's own tools, each entry declaring when it applies (the surface and the agent) and how it is built. Entries:

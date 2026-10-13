@@ -18,6 +18,9 @@ export interface ScheduleRule {
   timeZone?: string
 }
 
+/** The zone of a rule that names none, and of "today" in an agent's system prompt outside a task run. */
+export const DEFAULT_TIME_ZONE = 'Europe/Paris'
+
 const pad = (n: unknown) => String(n).padStart(2, '0')
 
 const DAYS = {
@@ -28,7 +31,7 @@ const DAYS = {
 const describeRule = (rule: ScheduleRule, locale: 'en' | 'fr'): string => {
   const r = rule as any
   const time = `${pad(r.hour)}:${pad(r.minute)}`
-  const zone = `(${r.timeZone || 'Europe/Paris'})`
+  const zone = `(${r.timeZone || DEFAULT_TIME_ZONE})`
   if (locale === 'fr') {
     switch (r.type) {
       case 'hours': return `${(r.hourStep ?? 1) === 1 ? 'toutes les heures' : `toutes les ${r.hourStep} heures`} à HH:${pad(r.minute)} ${zone}`

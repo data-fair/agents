@@ -115,6 +115,8 @@ export interface TurnFailure {
 export interface TurnTarget {
   /** Which tools the service adds to the turn (see ./service-tools.ts). */
   surface: TurnSurface
+  /** The zone "today" is told in, in the system prompt: a task run's schedule's. Undefined = the default zone. */
+  timeZone?: string
   /** The page in front of the person, as the turn started: its tools and host events. Undefined is normal. */
   session?: AgentSession
   /** The site the conversation was started on, when it recorded one: a configured agent's home. */

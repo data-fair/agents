@@ -11,6 +11,7 @@ import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import type { PlannedTask as TaskWriteReq } from '#doc/autonomous-agents/task-write-req/index.ts'
 import { minGapSeconds, nextRunAfter, toCron, type Scheduling } from './operations.ts'
+import { DEFAULT_TIME_ZONE } from '@agents/shared/task-schedule'
 
 export type TaskActor = { userId: string, userName?: string, conversationId?: string }
 
@@ -48,7 +49,7 @@ const assertSchedule = (scheduling: Scheduling[], now: Date): Date => {
 }
 
 /** A schedule's identity, insensitive to key order: what each rule fires at, in which zone. */
-const scheduleKey = (rules: Scheduling[]) => JSON.stringify(rules.map(rule => [toCron(rule), (rule as any).timeZone || 'Europe/Paris']))
+const scheduleKey = (rules: Scheduling[]) => JSON.stringify(rules.map(rule => [toCron(rule), (rule as any).timeZone || DEFAULT_TIME_ZONE]))
 
 const actorOf = (user: TaskActor, now: Date) => ({
   userId: user.userId,

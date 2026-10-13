@@ -72,7 +72,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // the history by the target).
   const session = target.session
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
-  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides })
+  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides, timeZone: target.timeZone })
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })

@@ -55,6 +55,9 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
 
   return {
     surface: 'task',
+    // The first rule's: a task whose rules name several zones has no single one, and the first is the one
+    // an admin set up first.
+    timeZone: task.scheduling[0]?.timeZone,
     history: async () => ({
       messages: [{ role: 'user', content: `Planned task "${task.title}":\n\n${run.prompt}` }],
       credits: 0,
