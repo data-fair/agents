@@ -175,17 +175,14 @@ export function repeatedCallNudge (steps: unknown, at: number = REPEATED_CALL_NU
  * A `prepareStep` hook that adds the nudge, last, to the messages sent for the next step.
  * The extra message only exists in that model request, never in the stored transcript.
  * It OWNS `messages`: another per-step override of `messages` would drop the rebuild (and the nudge), so
- * compose it only with overrides of other fields (`{ ...loopGuardPrepareStep(opts), toolChoice }`).
+ * compose it by function composition over its result (`stepContext(guarded.messages)`, ./step-context.ts),
+ * never as a second override.
  *
  * The step is REBUILT every time from what the call was given and what the steps answered, rather than
  * appended to `messages`: AI SDK 7 carries a `messages` override forward — the next step starts from what
  * this one was sent — so an appended nudge stayed in every later request and a new one was stacked on each
  * repeat. Rebuilt, a step without a nudge is exactly what the SDK would have sent, and a step with one
  * carries exactly one.
- *
- * Forward, code mode: `experimental_toolCallers` messages would be re-appended at the END of each request, not
- * carried from their first position, and its configuration is fixed at `streamText` start (see
- * docs/architecture/loop-guards.md, "Forward: code mode").
  */
 export function loopGuardPrepareStep ({ steps, initialMessages, responseMessages }: { steps: unknown, initialMessages: ModelMessage[], responseMessages: ModelMessage[] }): { messages: ModelMessage[] } {
   const nudge = repeatedCallNudge(steps)

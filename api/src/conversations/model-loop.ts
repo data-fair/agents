@@ -35,6 +35,7 @@ import { createPartsRecorder, resultSettlement, errorSettlement } from './parts-
 import { tokenCountsOf } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { mayBePageTool } from './service-tool-names.ts'
+import { createStepContext } from './step-context.ts'
 import { liveRuns } from './live-runs.ts'
 import { renderGuidesBlock, workerGuides, type ServerGuide } from '../mcp-servers/guides.ts'
 import { createReadSkillTool, READ_SKILL_TOOL_NAME } from '../mcp-servers/read-skill.ts'
@@ -289,6 +290,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const idleWatchdog = createIdleWatchdog(STREAM_IDLE_TIMEOUT_MS, () => {
     idleAbort.abort(new Error(`the model stream went silent for ${STREAM_IDLE_TIMEOUT_MS / 1000}s`))
   })
+  // Context between steps (./step-context.ts): composed AFTER the loop guards' rebuild, which owns `messages`.
+  const stepContext = createStepContext(budget)
   const result = streamText({
     model,
     instructions: systemPrompt,
@@ -322,7 +325,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         debug('tool set refreshed mid-turn: %d tool(s)', Object.keys(liveTools).length)
       }
       for (const name of Object.keys(liveTools)) offeredTools.add(name)
-      return loopGuardPrepareStep(options)
+      const guarded = loopGuardPrepareStep(options)
+      return { ...guarded, messages: stepContext(guarded.messages) }
     },
     // No SDK `timeout`: the run's deadline (driveTurn) bounds the whole turn, stream included, and its
     // abort reaches the stream through abortSignal. The IDLE bound is ours (idleWatchdog below), not the

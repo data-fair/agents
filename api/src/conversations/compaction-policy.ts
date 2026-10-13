@@ -181,6 +181,7 @@ interface ToolResultRef {
   /** Index into that message's content array. */
   part: number
   toolName: string
+  toolCallId: string
   text: string
 }
 
@@ -189,12 +190,13 @@ function toolResultsIn (history: ModelMessage[]): ToolResultRef[] {
   const refs: ToolResultRef[] = []
   history.forEach((message, messageIndex) => {
     if (message.role !== 'tool' || !Array.isArray(message.content)) return
-    ;(message.content as Array<{ type?: string, toolName?: string, output?: unknown }>).forEach((part, partIndex) => {
+    ;(message.content as Array<{ type?: string, toolName?: string, toolCallId?: string, output?: unknown }>).forEach((part, partIndex) => {
       if (part?.type !== 'tool-result') return
       refs.push({
         message: messageIndex,
         part: partIndex,
         toolName: part.toolName ?? 'a tool',
+        toolCallId: part.toolCallId ?? '',
         text: toolResultText(part.output)
       })
     })
@@ -204,7 +206,7 @@ function toolResultsIn (history: ModelMessage[]): ToolResultRef[] {
 
 export type ClearingDecision =
   | { clear: false, reason: 'nothing-to-clear' | 'below-clear-at-least' }
-  | { clear: true, history: ModelMessage[], clearedCount: number, freedTokens: number }
+  | { clear: true, history: ModelMessage[], clearedCount: number, freedTokens: number, clearedToolCallIds: string[] }
 
 /**
  * Replace the payloads of the OLDEST tool results with placeholders, keeping their calls.
@@ -259,7 +261,7 @@ export function clearOldToolResults (
     content[ref.part] = part
     cleared[ref.message] = { ...message, content } as ModelMessage
   }
-  return { clear: true, history: cleared, clearedCount: eligible.length, freedTokens }
+  return { clear: true, history: cleared, clearedCount: eligible.length, freedTokens, clearedToolCallIds: eligible.map(ref => ref.toolCallId) }
 }
 
 export interface ContextDecisionInput extends CompactionInput {
