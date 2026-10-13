@@ -12,6 +12,7 @@ import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 const unusedTool = {} as Tool
 
 const view = (surface: 'chat' | 'task'): ConfigurationView => ({
+  files: true,
   agent: { title: 'Roads', persona: 'You watch the roads.', instructions: 'Answer in French.', approvals: { write: 'deny' }, memoryEnabled: false },
   surface,
   catalog: {
@@ -176,5 +177,16 @@ test.describe('self-knowledge names and prompt', () => {
     assert.ok(prompt.includes(sentence))
     assert.ok(prompt.indexOf(sentence) < prompt.indexOf('This is a scheduled execution'))
     assert.ok(!buildSystemPrompt({ title: 'Personal', persona: 'p' }).includes('get_my_configuration'))
+  })
+})
+
+test.describe('renderConfiguration — files', () => {
+  test('files on: what the agent can do with them, and the bounds', () => {
+    const text = renderConfiguration(view('chat'))
+    assert.match(text, /## Files\nOn: your files belong to this conversation \(or task run\)/)
+    assert.match(text, /100 MB per file and 500 MB in all; a file is deleted 7 days after it was last written\./)
+  })
+  test('files off: said plainly', () => {
+    assert.match(renderConfiguration({ ...view('chat'), files: false }), /## Files\nOff: this deployment has no file store/)
   })
 })

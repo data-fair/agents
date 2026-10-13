@@ -20,6 +20,9 @@ import { loadMemory } from '../memory/service.ts'
 import { createMemoryTool } from '../memory/tool.ts'
 import { REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
 import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_MAX, type TaskOutcome } from '../tasks/operations.ts'
+import type { TurnFiles } from '../files/turn-files.ts'
+import { createFileTools } from '../files/tools.ts'
+import { FILES_SERVER_ID, FILE_TOOL_ANNOTATIONS } from '../files/operations.ts'
 import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS } from '../web/tools.ts'
 import { WEB_SERVER_ID } from '../web/operations.ts'
 import { createRequestMcpAccessTool } from '../mcp-servers/external.ts'
@@ -50,6 +53,8 @@ export interface TurnCatalog {
 }
 
 export interface ServiceToolContext {
+  /** The turn's files, for a configured agent on a deployment with a file store (docs/architecture/agent-files.md). */
+  files?: TurnFiles
   agent: AutonomousAgent
   run: ConversationRun
   surface: TurnSurface
@@ -103,6 +108,14 @@ const ENTRIES: ServiceToolEntry[] = [
           })
         })
       }, MEMORY_SERVER_ID, () => MEMORY_TOOL_ANNOTATIONS))
+    }
+  },
+  {
+    // FILES (api/src/files): a configured agent's files, on every surface, when the deployment has a file
+    // store. performTurn gives `files` to configured agents only: the personal assistant has none (spec §2).
+    applies: ctx => !!ctx.files,
+    build: async ({ files }, into) => {
+      Object.assign(into.tools, sourcedTools(createFileTools(files!), FILES_SERVER_ID, name => FILE_TOOL_ANNOTATIONS[name]))
     }
   },
   {

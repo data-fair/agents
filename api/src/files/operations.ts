@@ -183,3 +183,49 @@ export function assertFilesConfig (files: FilesConfig | undefined): void {
   try { url = new URL(files.publicUrl) } catch { throw new Error(`invalid files config: files.publicUrl "${files.publicUrl}" is not a URL`) }
   if (url.protocol !== 'http:' && url.protocol !== 'https:') throw new Error('invalid files config: files.publicUrl must be http(s)')
 }
+
+// ---- what the file tools return ----
+
+/** Recorded on every call, like the web readers' (MCP annotations: the approval policy's vocabulary). */
+export const FILE_TOOL_ANNOTATIONS: Record<string, Record<string, boolean>> = {
+  ls: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  read_file: { readOnlyHint: true, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+  write_file: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false }
+}
+
+export const renderFileList = (files: { path: string, mimeType: string, size: number, expiresAt: Date }[], scopeMax = SCOPE_MAX_BYTES): string => {
+  if (!files.length) return 'You have no files.'
+  const used = files.reduce((sum, f) => sum + f.size, 0)
+  return [
+    `Your files (${formatBytes(used)} of ${formatBytes(scopeMax)} used; a file is deleted 7 days after it was last written):`,
+    ...files.map(f => `- ${f.path} — ${f.mimeType}, ${formatBytes(f.size)}, expires ${f.expiresAt.toISOString()}`)
+  ].join('\n')
+}
+
+export const binaryFileMessage = (file: { path: string, mimeType: string, size: number }): string =>
+  `${file.path} is ${file.mimeType} (${formatBytes(file.size)}): a binary file, which cannot be read here. Pass its path to a tool that takes a file.`
+
+/**
+ * One page of a text file, numbered like `cat -n` (Claude Code's Read, deepagents' read_file): lines from a
+ * 0-based `offset`, at most `limit` of them and READ_PAGE_CHARS characters, then where to read on.
+ */
+export const renderTextPage = (file: { path: string, mimeType: string, size: number }, text: string, offset = 0, limit = READ_LINES_DEFAULT, truncated = false): string => {
+  const lines = text.split('\n')
+  if (text.endsWith('\n')) lines.pop()
+  const described = `${file.path} (${file.mimeType}, ${formatBytes(file.size)}, ${lines.length} lines${truncated ? ' in its first 10 MB' : ''})`
+  const start = Math.max(0, Math.floor(offset))
+  if (start >= lines.length && lines.length) return `${described}: nothing from offset ${start}, the file has ${lines.length} lines.`
+  const count = Math.min(Math.max(1, Math.floor(limit)), READ_LINES_MAX)
+  const out: string[] = []
+  let chars = 0
+  let end = start
+  while (end < lines.length && end < start + count) {
+    let line = `${String(end + 1).padStart(6)}\t${lines[end]}`
+    if (line.length > READ_PAGE_CHARS) line = `${line.slice(0, READ_PAGE_CHARS)}…`
+    if (out.length && chars + line.length > READ_PAGE_CHARS) break
+    out.push(line)
+    chars += line.length + 1
+    end++
+  }
+  return [`${described}: lines ${start + 1}-${end}`, ...out, end < lines.length ? `Read on with offset ${end}.` : 'End of file.'].join('\n')
+}

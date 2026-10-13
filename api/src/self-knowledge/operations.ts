@@ -7,6 +7,7 @@
  * who talks to it.
  */
 import type { ConversationRun } from '#types'
+import { FILE_MAX_BYTES, SCOPE_MAX_BYTES, formatBytes } from '../files/operations.ts'
 import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
 import { classifyTool, resolveApproval, type ApprovalClass, type Approvals } from '../conversations/approval-policy.ts'
 import type { TurnCatalog, TurnSurface } from '../conversations/service-tools.ts'
@@ -33,6 +34,8 @@ export const RUN_ROW_SUMMARY_CHARS = 300
 
 export interface ConfigurationView {
   agent: { title: string, persona: string, instructions?: string, approvals?: Approvals, memoryEnabled: boolean }
+  /** Whether this turn has files (a file store is configured). */
+  files: boolean
   surface: TurnSurface
   catalog: TurnCatalog
   /** The other service tools offered this turn. */
@@ -91,7 +94,11 @@ export const renderConfiguration = (view: ConfigurationView): string => {
     // (conversations/service-tools.ts): without this line the agent could only guess why it cannot plan.
     ...(surface === 'chat' && !view.serviceTools.includes(PLANNING_TOOL_NAMES[0]) ? [PLANNING_NEEDS_ADMIN] : []),
     '## Memory',
-    agent.memoryEnabled ? 'On' : 'Off'
+    agent.memoryEnabled ? 'On' : 'Off',
+    '## Files',
+    view.files
+      ? `On: your files belong to this conversation (or task run). ls lists them, read_file reads a text file, write_file writes one; fetch_url can save what it downloads (saveAs), a file a tool returns as a link is saved for you, and a tool argument that takes a file takes one of your paths. Up to ${formatBytes(FILE_MAX_BYTES)} per file and ${formatBytes(SCOPE_MAX_BYTES)} in all; a file is deleted 7 days after it was last written.`
+      : 'Off: this deployment has no file store, so you cannot download, keep or upload files, and tools that take a file are not offered.'
   ].join('\n')
 }
 

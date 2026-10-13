@@ -38,6 +38,7 @@ import { notifyMessage } from '../agent-session/registry.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { settlePendingWait } from './waits.ts'
 import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type StopCause } from './interrupted-turn.ts'
+import { turnFilesFor } from '../files/service.ts'
 import { buildServiceTools } from './service-tools.ts'
 import { runModelLoop } from './model-loop.ts'
 import { liveRuns, watchStopRequests, type LiveRun } from './live-runs.ts'
@@ -115,6 +116,10 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
 
   const settings = await getSettings(run.owner)
 
+  // The turn's files: a configured agent's, when the deployment has a file store. Undefined is "files off",
+  // and it is exactly what the personal assistant gets: nothing file-related is offered (spec §2).
+  const files = autonomousAgent.id === PERSONAL_AGENT_ID ? undefined : turnFilesFor(run)
+
   // BEFORE ANY MODEL CALL: a refused turn must cost nothing.
   //
   // Read as a list, which is what extracting them bought. The identity is per agent — a configured
@@ -183,6 +188,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       run,
       surface: target.surface,
       session,
+      ...(files ? { files } : {}),
       ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
       catalog: { tools: catalog, filteredOut, skippedServers }
     })
