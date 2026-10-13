@@ -17,7 +17,7 @@ import { recordCall } from './turn-telemetry.ts'
 import { setRunSystemPrompt } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import type { ModelRole } from '../models/operations.ts'
+import { CACHED_PREFIX_PROVIDER_OPTIONS, type ModelRole } from '../models/operations.ts'
 import { securityKey } from '../cipher/service.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import { WAIT_TOOL_NAME, type ChatActivity } from '@agents/shared/agent-activity'
@@ -247,6 +247,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // Always the live map, even empty: `undefined` would freeze "no tools" for the whole turn, while an
     // empty object is "no tools for this step" and fills in when the page registers one.
     tools: liveTools,
+    // Each step resends the turn so far, and the next turn the conversation: worth caching.
+    providerOptions: CACHED_PREFIX_PROVIDER_OPTIONS,
     // Signs each approval request when it is issued and verifies it on replay, so a stored
     // `approved: true` that did not come through the decision route fails instead of executing.
     experimental_toolApprovalSecret: securityKey,

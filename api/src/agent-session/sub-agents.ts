@@ -20,6 +20,7 @@ import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep } from '../conversa
 import { subAgentModelOutput } from '../conversations/subagent-output.ts'
 import { unwrapToolResult } from '../conversations/operations.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement } from '../conversations/parts-recorder.ts'
+import { CACHED_PREFIX_PROVIDER_OPTIONS } from '../models/operations.ts'
 import type { MessagePart } from '@agents/shared/message-parts'
 
 const debug = Debug('agents:sub-agents')
@@ -211,6 +212,8 @@ export function subAgentDelegation (opts: {
         // `allowSystemInMessages` is what governs system messages arriving in the prompt instead.
         instructions: opts.config.prompt,
         tools: opts.workerTools,
+        // A worker is a loop over its own growing transcript; its close-out below is a one-off.
+        providerOptions: CACHED_PREFIX_PROVIDER_OPTIONS,
         stopWhen: [isStepCount(STEP_LIMIT), repeatedCallGuard()],
         // The lead's nudge too: a worker repeating itself is told so before the guard stops it, rather
         // than only stopped — which is what the guard's design assumes for every loop it bounds.

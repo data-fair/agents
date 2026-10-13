@@ -195,11 +195,11 @@ export function priceTokensBreakdown (counts: TokenCounts, prices: TokenPrices):
   const cacheWrite = counts.cacheWriteTokens ?? 0
   const noCache = counts.noCacheTokens ?? Math.max(counts.inputTokens - cacheRead - cacheWrite, 0)
   // Cache WRITES bill at the plain input price. There is no separate write tariff to
-  // configure: this codebase never sets `cache_control`, so no provider reports write
-  // tokens today. They are still billed rather than dropped — both @ai-sdk/anthropic
-  // and @ai-sdk/openai exclude cacheWrite from `noCache`, so omitting the term would
-  // silently make them free if a provider ever did report them. Anthropic's real rate
-  // is 1.25x input; billing at 1x under-bills slightly rather than not at all.
+  // configure: only Anthropic reports writes, and only on the loop calls that ask for
+  // caching (CACHED_PREFIX_PROVIDER_OPTIONS). Both @ai-sdk/anthropic and @ai-sdk/openai
+  // exclude cacheWrite from `noCache`, so omitting the term would make them free.
+  // Anthropic's real rate is 1.25x input; billing at 1x under-bills slightly rather
+  // than not at all.
   const atInputPrice = noCache + cacheWrite
   // Divide each term individually rather than summing first and dividing once: the two
   // are not equivalent in floating point, and the test expectations are built from

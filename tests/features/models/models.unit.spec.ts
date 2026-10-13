@@ -4,10 +4,12 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { scalewayBaseURL, streamedToolCallsBroken, nonStreamingWithTools, errorMessage, describeFetchError, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME, type CatalogModel } from '../../../api/src/models/operations.ts'
+import { scalewayBaseURL, streamedToolCallsBroken, nonStreamingWithTools, errorMessage, describeFetchError, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME, CACHED_PREFIX_PROVIDER_OPTIONS, type CatalogModel } from '../../../api/src/models/operations.ts'
 import { MockLanguageModelV3, simulateReadableStream } from 'ai/test'
 import { streamText, generateText, wrapLanguageModel, tool, jsonSchema } from 'ai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createAnthropic } from '@ai-sdk/anthropic'
+import { tokenCountsOf } from '../../../api/src/usage/operations.ts'
 import { commandLine, createMockLanguageModel } from '../../../api/src/models/mock-model.ts'
 
 test.describe('Scaleway base URL', () => {
@@ -269,5 +271,60 @@ test.describe('openai-compatible provider options key', () => {
     })
     assert.equal(body.reasoning_effort, 'none')
     assert.deepEqual((result.warnings ?? []).filter(w => w.type === 'deprecated'), [])
+  })
+})
+
+// Anthropic caches only when a request asks for it; the loops ask through CACHED_PREFIX_PROVIDER_OPTIONS,
+// one-off calls do not. Pinned through the real providers and the real request bodies, so an SDK
+// upgrade renaming the option fails here rather than silently turning caching off.
+test.describe('prompt caching options', () => {
+  const anthropicWith = (onBody: (body: any) => void) => createAnthropic({
+    apiKey: 'k',
+    baseURL: 'http://anthropic.test/v1',
+    fetch: (async (_url: any, init: any) => {
+      onBody(JSON.parse(String(init.body)))
+      return new Response(JSON.stringify({
+        id: 'msg',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-sonnet-4-5',
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 10, output_tokens: 1, cache_read_input_tokens: 4000, cache_creation_input_tokens: 0 }
+      }), { headers: { 'content-type': 'application/json' } })
+    }) as any
+  })('claude-sonnet-4-5')
+
+  test('a loop call asks Anthropic to cache, and the cache read reaches the token counts', async () => {
+    let body: any
+    const result = await generateText({ model: anthropicWith(b => { body = b }), prompt: 'hi', providerOptions: CACHED_PREFIX_PROVIDER_OPTIONS })
+    assert.deepEqual(body.cache_control, { type: 'ephemeral' })
+    assert.equal(tokenCountsOf(result.usage).cacheReadTokens, 4000)
+  })
+
+  test('a one-off call does not ask, so Anthropic does not cache it', async () => {
+    let body: any
+    await generateText({ model: anthropicWith(b => { body = b }), prompt: 'hi' })
+    assert.equal(body.cache_control, undefined)
+    assert.ok(!JSON.stringify(body).includes('cache_control'))
+  })
+
+  test('other providers ignore the option', async () => {
+    let body: any
+    const fetch = async (_url: any, init: any) => {
+      body = JSON.parse(String(init.body))
+      return new Response(JSON.stringify({
+        id: 'r',
+        object: 'chat.completion',
+        created: 0,
+        model: 'm',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+      }), { headers: { 'content-type': 'application/json' } })
+    }
+    const model = createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, baseURL: 'http://compat.test/v1', fetch: fetch as any }).chatModel('m')
+    await generateText({ model, prompt: 'hi', providerOptions: CACHED_PREFIX_PROVIDER_OPTIONS })
+    assert.ok(!JSON.stringify(body).includes('cache_control'))
   })
 })

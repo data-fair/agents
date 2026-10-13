@@ -114,10 +114,10 @@ compacted.
 
 ## Prompt caching
 
-Clearing **invalidates the cached prompt prefix** — that is why `clear_at_least` exists upstream. We do
-not place cache breakpoints yet, so today this costs nothing and `clearAtLeast` is pure churn-avoidance.
-When caching lands it becomes the knob deciding whether a clear is worth a cache write. Stated here so it
-is not rediscovered then.
+Clearing **invalidates the cached prompt prefix** — that is why `clear_at_least` exists upstream. The
+prefix is cached by most providers on their own, and by Anthropic because the loop asks for it (see
+[prompt caching](./providers.md#prompt-caching)), so `clearAtLeast` is the knob deciding whether a clear
+is worth the cache write that follows it. Its 2% default is upstream's, not measured here.
 
 ## Planned, and explicitly not done
 

@@ -26,6 +26,7 @@ import { createMemoryTool } from './tool.ts'
 import { withProvenance, usageIdentityFor } from '../conversations/operations.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
+import { CACHED_PREFIX_PROVIDER_OPTIONS } from '../models/operations.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 
@@ -154,6 +155,8 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
       instructions: consolidationSystemPrompt(agent.title),
       messages: [{ role: 'user', content: consolidationUserMessage(documents, transcript) }],
       tools,
+      // Up to CONSOLIDATION_STEP_LIMIT steps over the same transcript.
+      providerOptions: CACHED_PREFIX_PROVIDER_OPTIONS,
       stopWhen: isStepCount(CONSOLIDATION_STEP_LIMIT),
       abortSignal: AbortSignal.any([withdrawn.signal, AbortSignal.timeout(CONSOLIDATION_TIMEOUT_MS)]),
       onStepEnd: async ({ usage }) => {

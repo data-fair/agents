@@ -55,7 +55,32 @@ reason prices are per token class at all. Left empty, a model's cache price fall
 back to its input price (*unknown*, never *free*), which is what most entries do:
 the reference model is the only one in the Scaleway catalog publishing a cache
 tariff. Cache **writes** bill at the plain input price; there is no write tariff
-to configure, because this codebase never sets `cache_control`.
+to configure. Only Anthropic reports writes (at 1.25× input, so they are slightly
+under-billed), and only on the calls below.
+
+### Prompt caching
+
+Most providers cache an identical prompt prefix **on their own**, with nothing in the request:
+OpenAI, Gemini (implicit caching), DeepSeek, and vLLM-style servers behind `openai-compatible`
+(measured on GreenPT and Scaleway with `dev/bench-prompt-cache.ts`). **Anthropic caches only when a
+request asks for it.**
+
+The calls that send a growing prefix again ask, by passing `CACHED_PREFIX_PROVIDER_OPTIONS`
+(`api/src/models/operations.ts`): the lead loop's steps (`model-loop.ts`), sub-agent workers
+(`sub-agents.ts`) and memory consolidation (`memory/consolidation.ts`). It is
+`{ anthropic: { cacheControl: { type: 'ephemeral' } } }`, a request-level option that
+`@ai-sdk/anthropic` sends as Anthropic's top-level `cache_control` — automatic mode: the cache point
+is the request's last block, so each step reads what the previous step wrote, and a request never
+exceeds the four explicit cache points Anthropic allows. Other providers ignore the `anthropic` key,
+so the call sites pass it whatever the provider.
+
+One-off calls do **not** ask — compaction, the conversation title, the summary route, the sub-agent
+close-out, moderation: an Anthropic cache write costs 1.25× the input price and they would not read
+it back, and not asking is how an Anthropic call stays out of the cache. Cache reads and writes come
+back in `usage.inputTokenDetails` and are charged by `priceTokensBreakdown`.
+
+Not done: cache points for Claude models reached through OpenRouter (it needs its own markers),
+OpenAI's optional `promptCacheKey` routing hint, and a separate cache-write price.
 
 
 ## AI SDK version
@@ -74,6 +99,7 @@ What this service relies on in AI SDK 7, and where each is pinned by a test agai
 | `result.response.messages` is the final step's only; `result.responseMessages` is all of them | the sub-agent close-out ([sub-agents §3](./sub-agents.md#loop-guard-close-out)) | `tests/features/agent-session/sub-agents.unit.spec.ts` |
 | A step's tools run only after the model call ends (`model-call-end`, `execute-tools-from-stream.ts`), not as each call streams in: a small latency change | the activity-label comment in `runModelLoop` (`api/src/conversations/model-loop.ts`) | none (read from the SDK source) |
 | `@ai-sdk/openai-compatible` reads provider options under the camelCase name (`openaiCompatible`) | the moderator's `reasoningEffort: 'none'` | `tests/features/models/models.unit.spec.ts` |
+| `@ai-sdk/anthropic` sends a request-level `cacheControl` as the top-level `cache_control`, and reports cache reads in `inputTokenDetails` | [prompt caching](#prompt-caching) on the loops | `tests/features/models/models.unit.spec.ts` ("prompt caching options") |
 | A v3 model (the mock) receives a tool's image as `file-data` with an `image/*` media type | the mock's `what did you see` seam | `tests/features/models/models.unit.spec.ts` |
 | An abort cancels the model stream | the mock model clears its timer when cancelled, instead of writing to a closed stream and crashing the server (`api/src/models/mock-model.ts`) | `tests/features/agents/mock-model.unit.spec.ts` ("a stream cancelled mid-text stops pushing, instead of crashing the process") |
 | An abort signalled to a `ToolLoopAgent` is honoured **between steps** | a sub-agent worker crossing the run's credit budget is stopped, not left to run to its step limit ([sub-agents](./sub-agents.md#billing-and-ceilings)) | `tests/features/agent-session/sub-agents.api.spec.ts` |
