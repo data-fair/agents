@@ -71,7 +71,8 @@ export const scriptErrorMessage = (err: unknown, policy: CodeModePolicy = CODE_M
   const e = err as { name?: string, code?: string, message?: string }
   switch (e?.name) {
     case 'RunCpuTimeoutError': return 'The script used more than 10 s of CPU time and was stopped. Do less work in one script: filter earlier, or split it.'
-    case 'CodeModeTimeoutError': return `The script ran for more than ${policy.timeoutMs / 1000} s, tool calls included, and was stopped.`
+    // A nested call is aborted with the script, but one already sent may have completed on its server (docs/architecture/code-mode.md).
+    case 'CodeModeTimeoutError': return `The script ran for more than ${policy.timeoutMs / 1000} s, tool calls included, and was stopped. A tool call it had already sent may still have completed: check before repeating a write.`
     case 'CodeModeBridgeLimitError': return `The script made more than ${policy.maxBridgeRequests} tool calls, the most one script may make.`
     case 'CodeModeDetachedBridgeRequestError': return 'The script started a tool call it did not wait for. await every tool call (or Promise.all them) before returning.'
     case 'CodeModeConcurrencyError': return 'Too many scripts are running on this server right now. Try again in a moment, or call the tools directly.'
@@ -82,13 +83,21 @@ export const scriptErrorMessage = (err: unknown, policy: CodeModePolicy = CODE_M
   return e?.name && !message.startsWith(e.name) ? `${e.name}: ${message}` : message
 }
 
-/** The package's description without its examples block (one call per tool: it grows with the set), and our part. */
+/**
+ * The package's description without its examples block (one call per tool: it grows with the set), and our part:
+ * the conventions of what a tool returns to a script, since most signatures cannot say (an MCP server rarely
+ * declares an output schema), and what a script cannot call.
+ */
+/** The `js` argument's description: the package's promises "call examples", which describeScriptTool drops. */
+export const SCRIPT_ARGUMENT_DESCRIPTION = 'The script: JavaScript calling the global `tools` API whose signatures this tool\'s description lists. TypeScript syntax is stripped, not checked.'
+
 export const describeScriptTool = (packageDescription: string): string => {
   const head = packageDescription.split('\nTool call examples:')[0].trimEnd()
   return [
     head,
     'console.log output is returned after the result. A tool failure is an exception carrying the tool\'s message.',
-    'Your files are reachable from the script through the same file tools; a tool that returns a file gives the script { text, files }.',
+    'What a tool returns, when its signature says `unknown`: an MCP tool returns its structured result as an object when it has one, otherwise its text as a string (JSON.parse it if it is JSON). A tool whose result carries files returns { text, files: [{ file_path, mimeType, size }] }. read_file returns the whole text of the file.',
+    'Check what you got before writing or importing it: a parse that yields nothing should throw, not write an empty file.',
     'Tools that need approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents can only be called directly.'
   ].join('\n\n')
 }

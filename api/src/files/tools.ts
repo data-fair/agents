@@ -86,3 +86,19 @@ export const createFileCodeExecutes = (files: TurnFiles) => ({
     return { file_path: file.path, mimeType: file.mimeType, size: file.size } satisfies FileRecord
   }
 })
+
+const FILE_RECORD_SCHEMA = {
+  type: 'object',
+  required: ['file_path', 'mimeType', 'size'],
+  properties: { file_path: { type: 'string' }, mimeType: { type: 'string' }, size: { type: 'number' } }
+} as const
+
+/**
+ * What each of createFileCodeExecutes returns, as a schema: the package renders it as the tool's return type in
+ * code_mode's description, so a script knows read_file answers a string rather than guessing (SourcedTool.codeOutputSchema).
+ */
+export const FILE_CODE_OUTPUT_SCHEMAS = {
+  ls: { type: 'array', items: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'expiresAt'], properties: { ...FILE_RECORD_SCHEMA.properties, expiresAt: { type: 'string' } } } },
+  read_file: { type: 'string' },
+  write_file: FILE_RECORD_SCHEMA
+} satisfies Record<keyof ReturnType<typeof createFileCodeExecutes>, Record<string, unknown>>

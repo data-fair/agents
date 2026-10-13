@@ -93,3 +93,10 @@ test.describe('code_mode engine', () => {
     assert.equal(describeScriptTool('Head\n\nTool call examples:\n```ts\nx\n```'), describeScriptTool('Head'))
   })
 })
+
+test('the js argument describes the script, without the examples the description no longer has', async () => {
+  const schema = await (createScriptTool({ echo }).inputSchema as any).jsonSchema
+  assert.deepEqual(Object.keys(schema.properties), ['js'])
+  assert.deepEqual(schema.required, ['js'])
+  assert.doesNotMatch(schema.properties.js.description, /example/i)
+})

@@ -5,9 +5,9 @@
  *
  * The package is touched only here and in ./code-tools.ts: its API is experimental.
  */
-import { tool, type Tool } from 'ai'
+import { tool, jsonSchema, type Tool } from 'ai'
 import { experimental_createCodeModeTool as createCodeModeTool, experimental_setMaxWorkers as setMaxWorkers } from '@ai-sdk/code-mode'
-import { CODE_MODE_POLICY, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
+import { CODE_MODE_POLICY, SCRIPT_ARGUMENT_DESCRIPTION, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
 
 /** The process-wide worker pool's size (config.codeModeMaxWorkers): set once, at startup. */
 export const configureCodeMode = (maxWorkers: number) => { setMaxWorkers(maxWorkers) }
@@ -17,7 +17,13 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
   const inner = createCodeModeTool(tools, { executionPolicy: policy })
   return tool({
     description: describeScriptTool(inner.description),
-    inputSchema: inner.inputSchema,
+    // The package's own input, `{ js }`, with our description of it (SCRIPT_ARGUMENT_DESCRIPTION).
+    inputSchema: jsonSchema<{ js: string }>({
+      type: 'object',
+      properties: { js: { type: 'string', description: SCRIPT_ARGUMENT_DESCRIPTION } },
+      required: ['js'],
+      additionalProperties: false
+    }),
     execute: async (input: { js: string }, options) => {
       try {
         return renderScriptResult(await inner.execute!({ js: wrapScript(String(input?.js ?? '')) }, options))

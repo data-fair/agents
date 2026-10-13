@@ -13,6 +13,7 @@ import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../../../api/src/mcp-servers/opera
 import { PLANNING_TOOL_NAMES } from '../../../api/src/self-knowledge/operations.ts'
 import { READ_SKILL_TOOL_NAME } from '../../../api/src/mcp-servers/read-skill.ts'
 import { SUBAGENT_PREFIX } from '../../../api/src/agent-session/sub-agents.ts'
+import { FILE_CODE_OUTPUT_SCHEMAS } from '../../../api/src/files/tools.ts'
 
 const plain = (execute: (input: any) => Promise<unknown>) => tool({ description: 'd', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute })
 const traces: any[] = []
@@ -85,5 +86,75 @@ test.describe('code-facing tools', () => {
 
   test('the direct-only names are the service\'s own constants', () => {
     for (const name of [REQUEST_WEB_ACCESS_TOOL_NAME, REQUEST_MCP_ACCESS_TOOL_NAME, ...PLANNING_TOOL_NAMES, READ_SKILL_TOOL_NAME, `${SUBAGENT_PREFIX}x`]) assert.equal(codeCallable(name, {}), false, name)
+  })
+})
+
+test.describe('the trace of a script', () => {
+  test.beforeEach(() => { traces.length = 0 })
+
+  const runScript = async (fixed: any, js: string, toolCallId: string, policy?: any) => {
+    const t = trace()
+    const script = createScriptTool(codeFacingTools({ names: Object.keys(fixed), fixed, page: {}, callPath: {}, trace: t }), policy ? { policy } : {})
+    try {
+      return { t, result: await script.execute!({ js }, { toolCallId, messages: [], context: {} }) }
+    } catch (error) {
+      return { t, error }
+    } finally {
+      t.finish(toolCallId)
+    }
+  }
+
+  test('a nested call\'s input is recorded bounded: a 10 MB write_file content is cut', async () => {
+    const { t } = await runScript({ write_file: { tool: plain(async () => 'ok'), server: 'files', codeExecute: async () => ({ file_path: '/big.csv', mimeType: 'text/csv', size: 10_000_000 }) } }, 'await tools.write_file({ file_path: "/big.csv", content: "x".repeat(10_000_000) }); return 1', 'cm-in')
+    assert.ok(t)
+    const call = traces[traces.length - 1].parts.find((p: any) => p.type === 'dynamic-tool')
+    assert.equal(call.input.file_path, '/big.csv')
+    assert.ok(call.input.content.length < 11_000, `content kept ${call.input.content.length} chars`)
+    assert.match(call.input.content, /10000000 chars in total/)
+    assert.ok(JSON.stringify(traces).length < 200_000)
+  })
+
+  test('a script stopped by its timeout: the trace is closed and nothing is emitted after the final frame', async () => {
+    let settled = false
+    let signal: AbortSignal | undefined
+    const stubborn = tool({ description: 'd', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async (_input, options) => { signal = options.abortSignal; return await new Promise(resolve => setTimeout(() => { settled = true; resolve('late') }, 600)) } })
+    const { error } = await runScript({ stubborn: { tool: stubborn, server: 'dev' } }, 'await tools.stubborn({})', 'cm-to', { timeoutMs: 200 })
+    assert.match(String((error as Error)?.message), /ran for more than 0\.2 s/)
+    assert.equal(signal?.aborted, true, 'the package aborts the nested call\'s signal on the timeout')
+    const count = traces.length
+    const last = traces[count - 1]
+    assert.equal(last.pending, false)
+    const call = last.parts.find((p: any) => p.type === 'dynamic-tool')
+    assert.equal(call.state, 'output-error')
+    assert.match(call.errorText, /stopped/)
+    await new Promise(resolve => setTimeout(resolve, 800))
+    assert.ok(settled, 'the tool did answer, late')
+    assert.equal(traces.length, count, 'no frame after the final one')
+  })
+
+  test('an uncaught failure is reported as itself, not as an earlier caught one', async () => {
+    const lookup = { tool: tool({ description: 'd', inputSchema: jsonSchema<{ id: string }>({ type: 'object', properties: { id: { type: 'string' } } }), execute: async ({ id }): Promise<string> => { throw new Error(`dataset "${id}" not found`) } }), server: 'dev' }
+    const { error } = await runScript({ lookup }, 'try { await tools.lookup({ id: "a" }) } catch {} ; await tools.lookup({ id: "b" })', 'cm-two')
+    assert.match(String((error as Error)?.message), /dataset "b" not found/)
+    assert.doesNotMatch(String((error as Error)?.message), /CODE_MODE_TOOL_ERROR/)
+  })
+
+  test('pending frames are coalesced; the final frame is always sent', async () => {
+    const { result } = await runScript({ quick: { tool: plain(async () => 'ok'), server: 'dev' } }, 'await Promise.all([1,2,3,4,5,6,7,8].map(() => tools.quick({}))); return 1', 'cm-many')
+    assert.equal(result, '1')
+    assert.ok(traces.length < 17, `${traces.length} frames for 8 calls`)
+    assert.equal(traces[traces.length - 1].pending, false)
+    assert.equal(traces[traces.length - 1].parts.filter((p: any) => p.state === 'output-available').length, 8)
+  })
+
+  test('the description tells a script what the file tools return', async () => {
+    const fixed: any = {}
+    for (const name of ['ls', 'read_file', 'write_file'] as const) fixed[name] = { tool: plain(async () => ''), server: 'files', codeOutputSchema: FILE_CODE_OUTPUT_SCHEMAS[name] }
+    const description = String(createScriptTool(codeFacingTools({ names: Object.keys(fixed), fixed, page: {}, callPath: {}, trace: trace() })).description)
+    assert.match(description, /read_file: \(input: \{\s*\}\) => Promise<string>/)
+    assert.match(description, /write_file: \(input: \{\s*\}\) => Promise<\{[^}]*file_path: string[^}]*mimeType: string[^}]*size: number/)
+    assert.match(description, /ls: \(input: \{\s*\}\) => Promise<(Array<\{|\{)[^}]*expiresAt: string/)
+    assert.match(description, /JSON\.parse/)
+    assert.match(description, /\{ text, files/)
   })
 })

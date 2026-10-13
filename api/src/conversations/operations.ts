@@ -563,6 +563,11 @@ export interface SourcedTool {
    * map calls it (api/src/code-mode/code-tools.ts); the model's tool, the record and replay never see it.
    */
   codeExecute?: (input: any, options: ToolExecutionOptions<any>) => Promise<unknown>
+  /**
+   * The JSON schema of what a script gets (codeExecute's return, or `tool.execute`'s): code_mode's description
+   * shows it as the tool's return type. Set only on the code-facing tool, never on the model's.
+   */
+  codeOutputSchema?: Record<string, unknown>
 }
 export type ToolSet = Record<string, SourcedTool>
 

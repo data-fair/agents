@@ -11,11 +11,11 @@
  *   out of replay like a worker's trace.
  * - A failure is rethrown as CodeModeToolError: the package replaces any other error with "Host tool failed."
  */
-import type { Tool } from 'ai'
+import { jsonSchema, type Tool } from 'ai'
 import { CodeModeToolError } from '@ai-sdk/code-mode'
 import type { MessagePart } from '@agents/shared/message-parts'
 import type { ToolSet } from '../conversations/operations.ts'
-import { createPartsRecorder, resultSettlement, errorSettlement } from '../conversations/parts-recorder.ts'
+import { createPartsRecorder, resultSettlement, errorSettlement, boundRecordedInput, type CallSettlement } from '../conversations/parts-recorder.ts'
 import { withCallPath, type CallPathContext } from '../files/call-path.ts'
 import { CODE_MODE_TOOL_NAME, codeCallable } from './operations.ts'
 
@@ -24,39 +24,80 @@ export interface CodeTrace {
   finish (parentToolCallId: string): void
 }
 
-/** The nested calls of each code_mode call, keyed by its id: the package names a nested call `<outer>:tool-<n>`. */
+/** Pending frames of one script are merged within this window, like the session's text deltas (DELTA_FLUSH_MS). */
+export const TRACE_FLUSH_MS = 25
+/** What a call still open when its script ends is recorded as: the script no longer waits for it. */
+export const STOPPED_CALL_MESSAGE = 'stopped: the script ended before this call answered'
+
+/**
+ * The nested calls of each code_mode call, keyed by its id: the package names a nested call `<outer>:tool-<n>`.
+ *
+ * - Inputs are recorded bounded (boundRecordedInput): a script may pass a tool megabytes.
+ * - Pending frames are coalesced (TRACE_FLUSH_MS): each one carries the whole trace, so one per open and
+ *   settle made a script's frame traffic quadratic in its calls.
+ * - `finish` closes the trace: a call still open is settled as stopped, the final frame is sent, and anything
+ *   that answers afterwards is ignored — a call the package stopped waiting for (a timeout, an abort) may still
+ *   complete, and a frame after the final one would replace the finished trace with an empty pending one.
+ */
 export const createCodeTrace = (onTrace: (trace: { parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }) => void): CodeTrace => {
-  const recorders = new Map<string, ReturnType<typeof createPartsRecorder>>()
+  const traces = new Map<string, { recorder: ReturnType<typeof createPartsRecorder>, timer?: NodeJS.Timeout }>()
+  const finished = new Set<string>()
   const parentOf = (toolCallId: string) => toolCallId.replace(/:tool-\d+$/, '')
-  const recorderOf = (parent: string) => {
-    let recorder = recorders.get(parent)
-    if (!recorder) { recorder = createPartsRecorder(); recorders.set(parent, recorder) }
-    return recorder
+  const traceOf = (parent: string) => {
+    let trace = traces.get(parent)
+    if (!trace) { trace = { recorder: createPartsRecorder() }; traces.set(parent, trace) }
+    return trace
   }
-  const emit = (parent: string, pending: boolean) => onTrace({ parentToolCallId: parent, name: CODE_MODE_TOOL_NAME, parts: [...recorderOf(parent).parts], pending })
+  const send = (parent: string, pending: boolean) => onTrace({ parentToolCallId: parent, name: CODE_MODE_TOOL_NAME, parts: [...traceOf(parent).recorder.parts], pending })
+  const schedule = (parent: string) => {
+    const trace = traceOf(parent)
+    trace.timer ??= setTimeout(() => { trace.timer = undefined; if (!finished.has(parent)) send(parent, true) }, TRACE_FLUSH_MS)
+  }
   return {
     async record (toolCallId, toolName, input, run) {
       const parent = parentOf(toolCallId)
-      const recorder = recorderOf(parent)
-      recorder.openCall({ toolCallId, toolName, input })
-      emit(parent, true)
+      if (finished.has(parent)) return await run()
+      const { recorder } = traceOf(parent)
+      recorder.openCall({ toolCallId, toolName, input: boundRecordedInput(input) })
+      schedule(parent)
+      const settle = (settled: CallSettlement) => {
+        if (finished.has(parent)) return
+        recorder.settleCall(toolCallId, settled)
+        schedule(parent)
+      }
       try {
         const output = await run()
-        recorder.settleCall(toolCallId, resultSettlement(output))
+        settle(resultSettlement(output))
         return output
       } catch (err) {
-        recorder.settleCall(toolCallId, errorSettlement(err))
+        settle(errorSettlement(err))
         throw err
-      } finally {
-        emit(parent, true)
       }
     },
     finish (parent) {
-      if (!recorders.has(parent)) return
-      emit(parent, false)
-      recorders.delete(parent)
+      const trace = traces.get(parent)
+      if (!trace) return
+      clearTimeout(trace.timer)
+      for (const part of trace.recorder.parts) {
+        if (part.type === 'dynamic-tool' && part.state === 'input-available') trace.recorder.settleCall(part.toolCallId, errorSettlement(STOPPED_CALL_MESSAGE))
+      }
+      send(parent, false)
+      traces.delete(parent)
+      finished.add(parent)
     }
   }
+}
+
+/**
+ * A tool's failure as the script sees it, with a code of its own. The package keeps every CodeModeError a call
+ * threw and, when the script fails, reports the first one with the failure's `code` (findPreservedCodeModeError):
+ * with the class's shared code, a script that caught one failure and died of a later one was reported as the
+ * first. The code is per call, so the failure reported is the one that killed the script.
+ */
+const toolError = (err: unknown, toolCallId: string) => {
+  const error = new CodeModeToolError(err instanceof Error ? err.message : String(err))
+  ;(error as { code: string }).code = `${error.code}:${toolCallId}`
+  return error
 }
 
 export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: Record<string, Tool>, callPath: CallPathContext, trace: CodeTrace }): Record<string, Tool> => {
@@ -68,6 +109,9 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
     const execute = base.execute
     out[name] = {
       ...base,
+      // What the script receives, as the return type of its signature in code_mode's description: the package
+      // renders `outputSchema` there, and a tool without one reads `Promise<unknown>` (SourcedTool.codeOutputSchema).
+      ...(sourced?.codeOutputSchema ? { outputSchema: jsonSchema(sourced.codeOutputSchema) } : {}),
       // A script's tool never asks for approval (codeCallable keeps those out); stated so the package never prompts.
       needsApproval: undefined,
       execute: async (input: any, options: any) => await opts.trace.record(options.toolCallId, name, input, async () => {
@@ -75,7 +119,7 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
           return await execute(input, options)
         } catch (err) {
           if (options?.abortSignal?.aborted) throw err
-          throw new CodeModeToolError(err instanceof Error ? err.message : String(err))
+          throw toolError(err, options.toolCallId)
         }
       })
     } as Tool

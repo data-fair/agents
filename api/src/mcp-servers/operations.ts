@@ -220,3 +220,6 @@ export const EXTERNAL_MCP_SERVER_ID = 'agent-external-mcp'
 
 /** The most external MCP servers an agent may list; the agent schema's `maxItems` is the same number. */
 export const EXTERNAL_MCP_SERVERS_MAX = 50
+
+/** Whether a server-declared schema is a JSON schema object (anything else is ignored rather than trusted). */
+export const isSchemaObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)

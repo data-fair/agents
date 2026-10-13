@@ -12,7 +12,7 @@ import config from '#config'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
+import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, isSchemaObject, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
 import type { ToolSet } from '../conversations/operations.ts'
@@ -56,6 +56,8 @@ export interface ListedMcpTool {
   name: string
   description?: string
   inputSchema?: unknown
+  /** What the tool's structuredContent follows, when the server declares it: a script's return type (SourcedTool.codeOutputSchema). */
+  outputSchema?: unknown
   annotations?: unknown
 }
 
@@ -228,7 +230,9 @@ export const openAutonomousAgentTools = async (
         needsFiles.push({ name: t.name, server: server.id })
         continue
       }
-      const callMcp = async (rawArgs: any) => {
+      // The call's abort signal reaches the request, so Stop, the deadline or a script's end cancels it rather
+      // than letting it complete unseen; what the server already did is not undone.
+      const callMcp = async (rawArgs: any, signal?: AbortSignal) => {
         const { portal, args } = splitPortalArgument(rawArgs, injected)
         const site = portal === undefined ? home : portalByHost.get(portal)
         if (portal !== undefined && !site) throw new Error(`"${portal}" is not a portal of your organization (${portalHosts.join(', ') || 'none'})`)
@@ -239,7 +243,7 @@ export const openAutonomousAgentTools = async (
         // or with a drifting one would reject an otherwise usable call. The model's text form discards
         // structuredContent; a script gets it (codeExecute below), and an outputSchema validation of a value
         // only scripts read would add a failure mode, not a guarantee.
-        const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
+        const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema, signal ? { signal } : undefined)
         const formatted = formatMcpToolResult(callResult as any)
         // An MCP tool reports its OWN failure with `isError`, which is not a transport error and so
         // does not reject on its own. Rethrown as one, because that is the only thing the model loop
@@ -257,21 +261,23 @@ export const openAutonomousAgentTools = async (
       const mcpTool = tool({
         description: t.description ?? '',
         inputSchema: jsonSchema(schema as any),
-        execute: async (rawArgs: any) => {
-          const { callResult, formatted, origin } = await callMcp(rawArgs)
+        execute: async (rawArgs: any, options) => {
+          const { callResult, formatted, origin } = await callMcp(rawArgs, options?.abortSignal)
           return withResourceLinks(formatted, callResult as any, origin)
         }
       })
       // A script gets the data (spec §6.4): structuredContent when the server sent one — data-fair's MCP does —
       // its text otherwise. A result with links is the text, so the call path stores them (records, for code).
       // A media result reaches a script as its text only: the images are for the model, not for code.
-      const codeExecute = async (rawArgs: any) => {
-        const { callResult, formatted, origin } = await callMcp(rawArgs)
+      const codeExecute = async (rawArgs: any, options?: { abortSignal?: AbortSignal }) => {
+        const { callResult, formatted, origin } = await callMcp(rawArgs, options?.abortSignal)
         const text = typeof formatted === 'string' ? formatted : formatted.text ?? ''
         const structured = (callResult as { structuredContent?: unknown }).structuredContent
         return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, origin) : structured
       }
-      tools[t.name] = { tool: mcpTool, codeExecute, server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
+      // The declared outputSchema is what structuredContent follows: a script's return type when the server has one.
+      const codeOutputSchema = isSchemaObject(t.outputSchema) ? t.outputSchema : undefined
+      tools[t.name] = { tool: mcpTool, codeExecute, ...(codeOutputSchema ? { codeOutputSchema } : {}), server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
     }
   }
 

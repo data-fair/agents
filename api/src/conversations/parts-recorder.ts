@@ -8,7 +8,7 @@
 import type { JSONObject } from '@ai-sdk/provider'
 import type { MessagePart } from '@agents/shared/message-parts'
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
-import { boundToolResult } from './operations.ts'
+import { boundToolResult, TOOL_RESULT_LIMIT } from './operations.ts'
 
 /** How a call is completed: its result or its error, already bounded. */
 export type CallSettlement =
@@ -40,6 +40,29 @@ export const resultSettlement = (output: unknown): CallSettlement => {
 /** A tool's failure as it is stored: its message, bounded like a result. */
 export const errorSettlement = (error: unknown): CallSettlement =>
   ({ state: 'output-error', errorText: boundToolResult(error instanceof Error ? error.message : String(error)).result })
+
+/** What a recorded input keeps of each of its strings, and of itself as JSON (boundRecordedInput). */
+export const RECORDED_INPUT_STRING_CHARS = 10_000
+
+/**
+ * A call's arguments as a TRACE records them, when nothing replays them: a script's nested calls (code mode).
+ * A script may pass a tool megabytes (write_file takes 10 MB from code), and the trace is stored on the
+ * message and re-sent in every frame — verbatim, a few such calls would pass MongoDB's 16 MB document cap.
+ * Each string is cut at RECORDED_INPUT_STRING_CHARS with its length named; an input still larger than a
+ * stored result (many small strings) is kept as its JSON's head. The model's own calls are not bounded:
+ * a revived turn replays the call the model actually made.
+ */
+export const boundRecordedInput = (input: unknown): unknown => {
+  const cut = (value: unknown): unknown => {
+    if (typeof value === 'string') return value.length > RECORDED_INPUT_STRING_CHARS ? `${value.slice(0, RECORDED_INPUT_STRING_CHARS)}… [cut in this record — ${value.length} chars in total]` : value
+    if (Array.isArray(value)) return value.map(cut)
+    if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([key, v]) => [key, cut(v)]))
+    return value
+  }
+  const bounded = cut(input)
+  const json = JSON.stringify(bounded) ?? ''
+  return json.length > TOOL_RESULT_LIMIT ? { input: `${json.slice(0, RECORDED_INPUT_STRING_CHARS)}… [cut in this record — ${json.length} chars in total]` } : bounded
+}
 
 export const createPartsRecorder = () => {
   const parts: MessagePart[] = []

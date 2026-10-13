@@ -54,6 +54,16 @@ test.describe('openExternalMcpTools', () => {
     } finally { await opened.close() }
   })
 
+  test('a call\'s abort signal reaches the request, from the model\'s tool and a script\'s', async () => {
+    const opened = await openExternalMcpTools([{ url }], { publicIps: ['127.0.0.1', '::1'] })
+    try {
+      const sourced = opened.tools[externalToolName(url, 'echo')]
+      const stopped = AbortSignal.abort(new Error('stopped by the person'))
+      await assert.rejects(sourced.tool.execute!({ value: 'hi' }, { toolCallId: 'c1', messages: [], abortSignal: stopped } as any), /stopped by the person/)
+      await assert.rejects(sourced.codeExecute!({ value: 'hi' }, { toolCallId: 'c2', messages: [], abortSignal: stopped } as any), /stopped by the person/)
+    } finally { await opened.close() }
+  })
+
   test('a slow skills/list costs the server its skills, never its tools', async () => {
     fixture.delaySkillsList(6000)
     try {

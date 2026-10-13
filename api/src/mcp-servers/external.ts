@@ -24,7 +24,7 @@ import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { publicDispatcher } from '../web/public-lookup.ts'
-import { externalToolName, normalizeExternalMcpServers, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
+import { externalToolName, normalizeExternalMcpServers, isSchemaObject, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
 import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
 import type { ToolSet } from '../conversations/operations.ts'
@@ -91,10 +91,11 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
         const name = externalToolName(url, t.name)
         const connected = client
         // The call cap is spent here, once per call, whichever form (the model's or a script's) runs it.
-        const callExternal = async (args: any) => {
+        // The call's abort signal reaches the request (as a catalog tool's, ./client.ts).
+        const callExternal = async (args: any, signal?: AbortSignal) => {
           if (++used > maxCalls) throw new Error(`this run has used all of its ${maxCalls} external MCP calls`)
           debug('call tool=%s server=%s', t.name, url)
-          const callResult = await connected.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema)
+          const callResult = await connected.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema, signal ? { signal } : undefined)
           const formatted = formatMcpToolResult(callResult as any)
           // Same rule as a catalog tool (./client.ts): a tool's own failure is a failure, not data.
           if ((callResult as { isError?: boolean }).isError) {
@@ -105,20 +106,21 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
         const externalTool = tool({
           description: t.description ?? '',
           inputSchema: jsonSchema((t.inputSchema as any) ?? { type: 'object', properties: {} }),
-          execute: async (args: any) => {
-            const { callResult, formatted } = await callExternal(args)
+          execute: async (args: any, options) => {
+            const { callResult, formatted } = await callExternal(args, options?.abortSignal)
             return withResourceLinks(formatted, callResult as any, { catalog: false })
           }
         })
         // A script gets structuredContent when the server sent one, else the text (as a catalog tool, ./client.ts);
         // a media result, its text only.
-        const codeExecute = async (args: any) => {
-          const { callResult, formatted } = await callExternal(args)
+        const codeExecute = async (args: any, options?: { abortSignal?: AbortSignal }) => {
+          const { callResult, formatted } = await callExternal(args, options?.abortSignal)
           const text = typeof formatted === 'string' ? formatted : formatted.text ?? ''
           const structured = (callResult as { structuredContent?: unknown }).structuredContent
           return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, { catalog: false }) : structured
         }
-        tools[name] = { tool: externalTool, codeExecute, server: serverId(url), ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}) }
+        const codeOutputSchema = isSchemaObject(t.outputSchema) ? t.outputSchema : undefined
+        tools[name] = { tool: externalTool, codeExecute, ...(codeOutputSchema ? { codeOutputSchema } : {}), server: serverId(url), ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}) }
       }
     } catch (err: any) {
       // Skipped and reported, never fatal: the organization chose the server, not the operator, and it

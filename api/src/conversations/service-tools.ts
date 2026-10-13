@@ -21,7 +21,7 @@ import { createMemoryTool } from '../memory/tool.ts'
 import { REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
 import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_MAX, type TaskOutcome } from '../tasks/operations.ts'
 import type { TurnFiles } from '../files/turn-files.ts'
-import { createFileTools, createFileCodeExecutes } from '../files/tools.ts'
+import { createFileTools, createFileCodeExecutes, FILE_CODE_OUTPUT_SCHEMAS } from '../files/tools.ts'
 import { FILES_SERVER_ID, FILE_TOOL_ANNOTATIONS } from '../files/operations.ts'
 import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS, FETCH_URL_WITH_FILES_ANNOTATIONS, FETCH_URL_TOOL_NAME } from '../web/tools.ts'
 import { WEB_SERVER_ID } from '../web/operations.ts'
@@ -123,7 +123,10 @@ const ENTRIES: ServiceToolEntry[] = [
     build: async ({ files }, into) => {
       const code = createFileCodeExecutes(files!)
       const sourced = sourcedTools(createFileTools(files!), FILES_SERVER_ID, name => FILE_TOOL_ANNOTATIONS[name])
-      for (const [name, entry] of Object.entries(sourced)) entry.codeExecute = code[name as keyof typeof code]
+      for (const [name, entry] of Object.entries(sourced)) {
+        entry.codeExecute = code[name as keyof typeof code]
+        entry.codeOutputSchema = FILE_CODE_OUTPUT_SCHEMAS[name as keyof typeof FILE_CODE_OUTPUT_SCHEMAS]
+      }
       Object.assign(into.tools, sourced)
     }
   },
