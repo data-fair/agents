@@ -62,6 +62,8 @@ const routes: Record<string, (req: http.IncomingMessage, res: http.ServerRespons
   '/file.pdf': (req, res) => { res.writeHead(200, { 'content-type': 'application/pdf' }).end('%PDF-1.4') },
   // Headers, then nothing: a client reading the body before deciding would wait out its timeout.
   '/stalled.zip': (req, res) => { res.writeHead(200, { 'content-type': 'application/zip' }); res.write(Buffer.alloc(10)) },
+  // A declared length it never delivers: the connection closes mid-body.
+  '/cut': (req, res) => { res.writeHead(200, { 'content-type': 'text/plain', 'content-length': '1000' }); res.write('abc'); setTimeout(() => req.socket.destroy(), 20) },
   '/robots.txt': (req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }).end(`User-agent: *\nSitemap: ${base}/sitemap_index.xml\nSitemap: https://elsewhere.test/sitemap.xml\n`) },
   '/sitemap_index.xml': (req, res) => {
     res.writeHead(200, { 'content-type': 'application/xml' }).end(`<?xml version="1.0"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -198,6 +200,16 @@ test.describe('web access', () => {
     const started = Date.now()
     await assert.rejects(fetchUrl({ url: `${base}/stalled.zip` }, context()), /application\/zip, which cannot be read as text\.$/)
     assert.ok(Date.now() - started < 2000, 'refused without waiting for the body')
+  })
+
+  test('model-facing errors never carry a query', async () => {
+    await assert.rejects(fetchUrl({ url: `${base}/file.pdf?sig=secret` }, context()), (err: Error) => /\/file\.pdf is application\/pdf/.test(err.message) && !/secret|sig=/.test(err.message))
+    await assert.rejects(fetchUrl({ url: `${base}/bot?sig=secret` }, context()), (err: Error) => /bot protection/.test(err.message) && !/secret|sig=/.test(err.message))
+    await assert.rejects(fetchUrl({ url: `${base}/missing?sig=secret` }, context()), (err: Error) => /answered HTTP 404/.test(err.message) && !/secret|sig=/.test(err.message))
+  })
+
+  test('a body cut short by the connection closing is an error, not a short page', async () => {
+    await assert.rejects(fetchUrl({ url: `${base}/cut?sig=secret` }, context()), (err: Error) => /could not fetch/.test(err.message) && !/secret/.test(err.message))
   })
 
   test('with files on, the refusal says to save it as a file', async () => {

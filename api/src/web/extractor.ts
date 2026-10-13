@@ -4,6 +4,7 @@
  */
 
 import { Worker } from 'node:worker_threads'
+import { displayUrl } from './operations.ts'
 import type { ExtractedFeed, ExtractedPage } from './extract.ts'
 
 export interface Extractor {
@@ -58,7 +59,7 @@ export const createExtractor = (opts: { timeoutMs?: number } = {}): Extractor =>
     w.ref()
     const id = nextId++
     const timer = setTimeout(() => {
-      failAll(new Error(`the content of ${url} took too long to extract`))
+      failAll(new Error(`the content of ${displayUrl(url)} took too long to extract`))
       w.terminate().catch(() => {})
     }, timeoutMs)
     pending.set(id, { resolve, reject, timer })

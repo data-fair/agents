@@ -335,7 +335,7 @@ export function mcpServerFromCard (card: unknown): DiscoveredMcpServer | undefin
 
 /** What fetch_url says it cannot read; with files on, how to keep it anyway (spec §4.2). */
 export const unreadableTypeMessage = (url: string, type: string, filesOn: boolean): string =>
-  `${url} is ${type || 'of an unknown type'}, which cannot be read as text.${filesOn ? ' Save it as one of your files instead: call fetch_url again with saveAs (for example "/data.xlsx"), then pass its path to a tool that takes a file.' : ''}`
+  `${displayUrl(url)} is ${type || 'of an unknown type'}, which cannot be read as text.${filesOn ? ' Save it as one of your files instead: call fetch_url again with saveAs (for example "/data.xlsx"), then pass its path to a tool that takes a file.' : ''}`
 
 /**
  * fetch_url's check on a response's declared type, before its body is read: a declared binary type is

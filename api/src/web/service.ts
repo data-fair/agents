@@ -46,7 +46,7 @@ const decode = (res: WebResponse) => new TextDecoder(charsetOf(res.contentType))
 const httpError = (res: WebResponse) => {
   const challenge = res.headers['cf-mitigated'] === 'challenge' || (res.status === 403 && /cloudflare/i.test(res.headers.server ?? ''))
   return new Error(challenge
-    ? `${res.url} refused an automated client (bot protection, HTTP ${res.status}); its content cannot be read this way`
+    ? `${displayUrl(res.url)} refused an automated client (bot protection, HTTP ${res.status}); its content cannot be read this way`
     : `${displayUrl(res.url)} answered HTTP ${res.status}`)
 }
 
