@@ -59,14 +59,16 @@ export const parseFilePath = (input: unknown): string => {
 /** A name from a header or a link, transliterated to the stored set. Never empty; may lack an extension. */
 export const fileNameFrom = (candidate: string): string => {
   const base = candidate.split(/[\\/]/).pop() ?? ''
-  let name = base.normalize('NFKD').replace(/[̀-ͯ]/g, '')
+  let name = base.normalize('NFKD').replace(/[\u0300-\u036f]/g, '')
     .replace(/[^A-Za-z0-9._-]+/g, '-')
     .replace(/\.{2,}/g, '.')
     .replace(/^[^A-Za-z0-9]+/, '')
     .replace(/[-.]+$/, '')
   if (name.length > MAX_NAME_LENGTH) {
     const ext = extensionOf(name)
-    name = ext ? `${name.slice(0, MAX_NAME_LENGTH - ext.length - 1)}.${ext}` : name.slice(0, MAX_NAME_LENGTH)
+    // a cut can end on a separator: strip it so the result is still a stored name
+    const stem = (ext ? name.slice(0, MAX_NAME_LENGTH - ext.length - 1) : name.slice(0, MAX_NAME_LENGTH)).replace(/[-.]+$/, '')
+    name = ext ? `${stem}.${ext}` : stem
   }
   return name || 'file'
 }

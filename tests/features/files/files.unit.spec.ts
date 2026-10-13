@@ -35,8 +35,32 @@ test.describe('file names', () => {
     const long = fileNameFrom('a'.repeat(150) + '.csv')
     assert.equal(long.length, 100)
     assert.ok(long.endsWith('.csv'))
+    const cut = fileNameFrom('a'.repeat(95) + '.' + 'b'.repeat(20) + '.csv')
+    assert.equal(isStoredName(cut), true, cut)
+    assert.equal(cut.length <= 100, true)
+    assert.equal(fileNameFrom('a'.repeat(99) + '.csv').length <= 100, true)
+    assert.equal(isStoredName(fileNameFrom('a'.repeat(99) + '.csv')), true)
+    assert.equal(fileNameFrom('a'.repeat(99) + '-' + 'b'.repeat(10)).endsWith('-'), false)
     assert.equal(extensionOf('a.tar.gz'), 'gz')
     assert.equal(extensionOf('closures-city-center'), undefined)
+  })
+})
+
+test.describe('hostile names', () => {
+  test('control characters, percent-encoding and backslashes are refused from the model, sanitized from headers', () => {
+    for (const bad of ['/a\nb.csv', '/a\u0000b.csv', '/a\tb.csv', '/%2e.csv', '/%2e%2e.csv', '/a%2Fb.csv', '/..\\..\\x.csv', '/a\\b.csv']) {
+      assert.throws(() => parseFilePath(bad), FileError, JSON.stringify(bad))
+    }
+    assert.throws(() => parseFilePath('a'.repeat(97) + '.csv'), FileError)
+    assert.equal(parseFilePath('/' + 'a'.repeat(96) + '.csv'), 'a'.repeat(96) + '.csv')
+    assert.equal(fileNameFrom('a\nb\u0000c.csv'), 'a-b-c.csv')
+    assert.equal(fileNameFrom('%2e.csv'), '2e.csv')
+    assert.equal(fileNameFrom('a%2Fb.csv'), 'a-2Fb.csv')
+    assert.equal(fileNameFrom('..\\..\\x.csv'), 'x.csv')
+    for (const raw of ['a\nb.csv', '%2e%2e', '..\\..\\x.csv', '\u0000', 'a'.repeat(300)]) {
+      const n = fileNameFrom(raw)
+      assert.equal(/^[A-Za-z0-9._-]{1,100}$/.test(n) && !n.includes('..'), true, JSON.stringify(raw))
+    }
   })
 })
 
