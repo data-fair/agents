@@ -13,8 +13,10 @@ import { cleanupOldUsage } from './usage/cleanup.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
 import { recoverOwnerlessTaskRuns } from './tasks/execution.ts'
 import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/service.ts'
-import { assertSessionOutlivesRun, ASSERTION_TTL_SECONDS } from './nhi/operations.ts'
 import { startAgentSessions } from './agent-session/service.ts'
+import { sessionFor } from './agent-session/registry.ts'
+import { liveRuns } from './conversations/live-runs.ts'
+import { stopAcceptingTurns, drainLiveRuns } from './conversations/shutdown.ts'
 import { sweepConsolidations } from './memory/consolidation.ts'
 import { runSchedulerPass } from './tasks/scheduler.ts'
 
@@ -87,12 +89,6 @@ export const start = async () => {
   await locks.start(mongo.db)
   await runUpgradeScripts()
 
-  // Asserted at API boot, NOT in config.ts: that module is pulled into the UI dev server through a
-  // request-time dynamic import of ui-config.ts, so a cross-module invariant there takes the UI down
-  // with it. config.ts validates config SHAPE; this is a relationship between an api constant and a
-  // config value that only the api runtime cares about.
-  assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, config.turnTimeoutSeconds)
-
   // BEFORE the recovery pass: a task run it interrupts is notified (tasks/follow-up.ts, afterTaskRun),
   // and pushing to a queue not yet started throws.
   if (config.privateEventsUrl) {
@@ -159,6 +155,22 @@ export const start = async () => {
 
 export const stop = async () => {
   for (const interval of intervals.splice(0)) clearInterval(interval)
+  // Let the running turns finish instead of dying with the process (live-runs.ts, SHUTDOWN): no new turn
+  // begins here, sessions with nothing running are closed so their next message reaches a healthy
+  // instance, and the rest get the grace period before being stopped as "the server restarted".
+  stopAcceptingTurns()
+  // At each poll, so a person whose turn has just finished is moved on at once rather than refused until
+  // the others are done.
+  const closeIdleSessions = () => {
+    const watching = new Set([...liveRuns.values()].flatMap(live => {
+      const watcher = live.conversationId ? sessionFor(live.conversationId) : undefined
+      return watcher ? [watcher] : []
+    }))
+    agentSessions?.closeAllBut(watching)
+  }
+  const drained = await drainLiveRuns(liveRuns, config.shutdownGraceSeconds * 1000, { onTick: closeIdleSessions })
+  if (drained.finished || drained.stopped) console.log(`shutdown: ${drained.finished} turn(s) finished, ${drained.stopped} stopped at the end of the grace period`)
+  // After the drain: a task run closing in it notifies through the queue.
   await eventsQueue.stop?.()
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
   // left with a socket that stops answering, and every pending browser tool call has to fail so the

@@ -8,7 +8,7 @@ import { httpError, reqSiteUrl, type AccountKeys } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { SignJWT, importJWK } from 'jose'
 import axios from '@data-fair/lib-node/axios.js'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS, sessionNeedsRenewal } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
 
 import type { SiteCredentials } from '../mcp-servers/operations.ts'
@@ -123,11 +123,10 @@ const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent, site
 export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl?: string): Promise<string> => {
   const { siteUrl: enrolledSite } = requireEnrolment(autonomousAgent)
   const site = siteOrigin(siteUrl ?? enrolledSite)
-  // Never reused across turns: a session lives ASSERTION_TTL_SECONDS, no longer than a turn may run
-  // (assertSessionOutlivesRun), and the MCP transport holds the cookie for the whole turn — so a cached
-  // one could expire mid-turn. A turn exchanges once per site it acts on (see agentSiteCredentials).
-  // Lengthening the TTL would let sessions be reused, at the cost of a longer-lived credential handed
-  // to every `nhi-session` MCP server; if the exchange rate limit ever binds, that is the lever.
+  // Never reused across turns: a turn exchanges once per site it acts on, and again when a session it
+  // holds nears its expiry (see agentSiteCredentials). Lengthening the TTL would cut exchanges, at the
+  // cost of a longer-lived credential handed to every `nhi-session` MCP server; if the exchange rate
+  // limit ever binds, that is the lever.
   return await exchangeForSession(autonomousAgent, site)
 }
 
@@ -185,8 +184,9 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     account = [enrolled]
     listingFailed = true
   }
-  // One exchange per site for the turn these credentials serve.
-  const cookies = new Map<string, Promise<string>>()
+  // One exchange per site for the turn these credentials serve, renewed when it nears its expiry: a turn
+  // may outlast a session. Timed from BEFORE the exchange, so the renewal point errs early.
+  const cookies = new Map<string, { cookie: Promise<string>, obtainedAt: number }>()
   return {
     homeSite: home,
     portals: listingFailed ? [] : account.filter(site => site !== home),
@@ -194,12 +194,12 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     cookieFor: site => {
       const origin = siteOrigin(site)
       if (!account.includes(origin)) return Promise.resolve(undefined)
-      let cookie = cookies.get(origin)
-      if (!cookie) {
-        cookies.set(origin, cookie = getAutonomousAgentSession(autonomousAgent, origin))
-        cookie.catch(() => { if (cookies.get(origin) === cookie) cookies.delete(origin) })
-      }
-      return cookie
+      const held = cookies.get(origin)
+      if (held && !sessionNeedsRenewal(held.obtainedAt, Date.now())) return held.cookie
+      const entry = { cookie: getAutonomousAgentSession(autonomousAgent, origin), obtainedAt: Date.now() }
+      cookies.set(origin, entry)
+      entry.cookie.catch(() => { if (cookies.get(origin) === entry) cookies.delete(origin) })
+      return entry.cookie
     },
     listingIdentity: `agent:${autonomousAgent.id}`
   }

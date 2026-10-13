@@ -34,27 +34,22 @@ export interface NhiPublicJwk {
  * Assertion lifetime, and therefore session lifetime (see buildAssertionClaims).
  * nhi-proxy uses 120s because a browser it drives holds the cookie directly; here the
  * cookie never leaves this process, so 300s cuts exchanges ~15x against the 30m cap
- * at a cost bounded by the assertion never being exposed.
+ * at a cost bounded by the assertion never being exposed. A turn longer than that renews
+ * its sessions (sessionNeedsRenewal): the TTL bounds a credential, not a turn.
  */
 export const ASSERTION_TTL_SECONDS = 300
 
 /**
- * The session an agent obtains must be able to outlive a whole turn.
- *
- * A turn acquires the session once and the MCP transport holds that cookie for the entire tool chain,
- * so if the assertion TTL is shorter than the run timeout then even a FRESHLY minted session expires
- * mid-turn and every later tool call comes back 401. The cache's headroom check cannot save that case —
- * there is no session long enough to satisfy it — so this has to be refused at boot rather than
- * discovered as intermittent tool failures in production.
+ * How long before its expiry a session is exchanged again. A turn may run longer than a session lives
+ * (turnTimeoutSeconds is independent of the assertion TTL), so a site's session is renewed when it gets
+ * this close to the end, and every MCP request reads the current one (connectMcpServer). A minute covers
+ * a request that starts just before the renewal point and still has to be accepted upstream.
  */
-export function assertSessionOutlivesRun (assertionTtlSeconds: number, runTimeoutSeconds: number): void {
-  if (assertionTtlSeconds < runTimeoutSeconds) {
-    throw new Error(
-      `invalid NHI config: the assertion TTL (${assertionTtlSeconds}s) is shorter than the autonomous ` +
-      `agent run timeout (${runTimeoutSeconds}s), so an agent's session would expire mid-turn and its ` +
-      'tool calls would start failing with 401. Raise the TTL or lower the run timeout.'
-    )
-  }
+export const SESSION_RENEW_MARGIN_SECONDS = 60
+
+/** Whether a session obtained at `obtainedAt` (ms) must be renewed before use at `now`. */
+export function sessionNeedsRenewal (obtainedAt: number, now: number, ttlSeconds = ASSERTION_TTL_SECONDS, marginSeconds = SESSION_RENEW_MARGIN_SECONDS): boolean {
+  return now >= obtainedAt + (ttlSeconds - marginSeconds) * 1000
 }
 
 /**

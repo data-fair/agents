@@ -3,6 +3,7 @@
  * turn continues from the decision. The approval gate's equivalent of ./waits.ts.
  */
 import { httpError } from '@data-fair/lib-express'
+import { assertAcceptingTurns } from './shutdown.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import type { Conversation } from '#types'
 import type { MessagePart } from '@agents/shared/message-parts'
@@ -49,6 +50,8 @@ export const decideAndContinue = async (input: {
   approved: boolean
   reason?: string
 }): Promise<{ runId: string } | { pending: number }> => {
+  // Before the decision is recorded, so the card stays pending and can be decided again after the restart.
+  assertAcceptingTurns()
   const { conversation, session } = input
   assertCanInstruct(await requireAutonomousAgent(conversation.owner, conversation.agentId), session)
   // An administrator's call (ADMIN_DECISIONS) approved by anyone else is refused before anything is

@@ -139,7 +139,8 @@ JSON-parsed numbers, global rather than per account. They bound **every** turn o
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `TURN_CREDITS` | `500` | per-run credit ceiling; the turn stops with stop reason `budget` once crossed. A runaway ceiling, not a per-turn allowance — the account credit cap still applies on top. |
-| `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one turn, so a hung model or MCP server cannot hold the conversation's lock. Also checked at boot against the NHI assertion TTL (`assertSessionOutlivesRun`). |
+| `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one turn, so a hung model or MCP server cannot hold the conversation's lock. Independent of the NHI session lifetime: a longer turn renews its sessions. |
+| `SHUTDOWN_GRACE_SECONDS` | `90` | on SIGTERM, how long running turns get to finish before being stopped as "the server restarted" (see [autonomous agents](./autonomous-agents.md#recovery)). The pod's `terminationGracePeriodSeconds` must exceed it by about 15 s. |
 | `COMPACTION_PERCENT` | `70` | share of the assistant model's context window above which history is compacted (see [Context management](./context-management.md)). |
 
 ### `MCP_SERVERS`

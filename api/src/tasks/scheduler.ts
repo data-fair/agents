@@ -12,6 +12,7 @@
 import mongo from '#mongo'
 import { nextRunAfter } from './operations.ts'
 import { startTaskRun } from './execution.ts'
+import { acceptingTurns } from '../conversations/shutdown.ts'
 
 const BATCH = 50
 
@@ -40,6 +41,8 @@ export const runSchedulerPass = async (now: Date = new Date(), scope: Record<str
         if (paused.modifiedCount === 1) console.error(`task scheduler: task ${task.id} paused, its schedule cannot be computed`, err)
         continue
       }
+      // Shutdown: the slot is left unclaimed for another instance rather than spent on a refused start.
+      if (!acceptingTurns()) break
       const claim = await mongo.autonomousAgentTasks.updateOne({ id: task.id, nextRunAt: slot }, { $set: { nextRunAt: next } })
       if (claim.modifiedCount !== 1) continue
       const started = await startTaskRun(task, 'schedule', { scheduledFor: slot })

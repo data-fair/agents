@@ -114,7 +114,7 @@ export default {
     },
     {
       title: 'Error frame',
-      description: 'A refusal or a failure, with the HTTP status it would have had: 400 a malformed frame, 401 a refused anonymous token, 403 not allowed, 404 an unknown conversation, approval or tool call, 409 a conflict (a decision already taken, a turn still finishing, the thread opened elsewhere), 500 anything else.',
+      description: 'A refusal or a failure, with the HTTP status it would have had: 400 a malformed frame, 401 a refused anonymous token, 403 not allowed, 404 an unknown conversation, approval or tool call, 409 a conflict (a decision already taken, a turn still finishing, the thread opened elsewhere), 503 the service is restarting (send again), 500 anything else.',
       type: 'object',
       additionalProperties: false,
       required: ['type', 'status', 'message'],

@@ -23,6 +23,7 @@ import { updateMessage, createRun, rejectPendingApprovals, PENDING_APPROVAL_ACTE
 import { startRun } from './executor.ts'
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import type { AgentSession } from '../agent-session/session.ts'
+import { acceptingTurns } from './shutdown.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -73,6 +74,9 @@ export const settlePendingWait = async (conversationId: string, answer: (wait: P
  * a socket attached elsewhere are not this conversation's to answer with.
  */
 export const wakeIfAnswered = async (conversationId: string, session: AgentSession | undefined = sessionFor(conversationId)): Promise<void> => {
+  // Shutdown: no wake turn begins here. The wait stays pending; the person's next action or message on a
+  // healthy instance answers it (the events held by this socket are lost with it).
+  if (!acceptingTurns()) return
   if (!session || sessionFor(conversationId) !== session || !session.hostEvents.hasWaitAnswer()) return
   // Checked before taking anything: events with no wait to answer stay pending, for the next turn.
   const waiting = await mongo.conversations.findOne({ id: conversationId, pendingWait: { $exists: true } }, { projection: { _id: 0, pendingWait: 1 } })

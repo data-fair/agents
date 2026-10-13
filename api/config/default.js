@@ -57,5 +57,10 @@ export default {
   turnCredits: 500,
   // Wall-clock ceiling for one turn. A model or MCP server that hangs must not hold a
   // conversation's lock until the lock's own TTL expires.
-  turnTimeoutSeconds: 300
+  turnTimeoutSeconds: 300,
+  // On SIGTERM, running turns get this long to finish before being stopped as "the server restarted"
+  // (api/src/conversations/live-runs.ts, drainLiveRuns). Short of turnTimeoutSeconds on purpose: a
+  // deploy should not wait five minutes for one long task run. The pod's terminationGracePeriodSeconds
+  // must exceed it, or the kubelet kills the process mid-drain.
+  shutdownGraceSeconds: 90
 }

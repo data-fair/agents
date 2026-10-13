@@ -151,7 +151,7 @@ export function listingKey (server: GlobalMcpServer, siteUrl: string | undefined
   return `${server.id}\0${siteUrl ?? ''}\0${listingIdentity}`
 }
 
-/** One open connection of a turn per server, and per site for a site-bound one: its headers are fixed at connect. */
+/** One open connection of a turn per server, and per site for a site-bound one: the site is fixed at connect (its session is not). */
 export function connectionKey (server: GlobalMcpServer, siteUrl: string | undefined): string {
   return server.auth === 'nhi-session' ? `${server.id}\0${siteUrl ?? ''}` : server.id
 }

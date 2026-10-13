@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertNhiConfig, assertSessionOutlivesRun, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { assertNhiConfig, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -261,24 +261,21 @@ test.describe('sanitizeExchangeError', () => {
   })
 })
 
-test.describe('assertSessionOutlivesRun', () => {
-  // The precondition the cache's headroom check silently depends on. If the assertion TTL is shorter
-  // than the run timeout then NO session can satisfy that check — even a freshly minted one expires
-  // mid-turn — so every tool call late in a chain would 401. That has to be refused at boot rather than
-  // show up as intermittent tool failures.
-  test('accepts a TTL that covers the run timeout', () => {
-    assert.doesNotThrow(() => assertSessionOutlivesRun(300, 300))
-    assert.doesNotThrow(() => assertSessionOutlivesRun(600, 300))
+test.describe('sessionNeedsRenewal', () => {
+  // A turn may outlast a session: each site's session is exchanged again when it nears its expiry, so a
+  // late call in a long turn does not 401. The turn deadline no longer depends on the assertion TTL.
+  const t0 = 1_000_000
+  test('a fresh session is reused', () => {
+    assert.equal(sessionNeedsRenewal(t0, t0), false)
+    assert.equal(sessionNeedsRenewal(t0, t0 + (ASSERTION_TTL_SECONDS - SESSION_RENEW_MARGIN_SECONDS) * 1000 - 1), false)
   })
 
-  test('refuses a TTL shorter than the run timeout, naming both numbers', () => {
-    assert.throws(() => assertSessionOutlivesRun(120, 300), /120s.*300s|300s.*120s/)
+  test('a session within the margin of its expiry is renewed, and so is an expired one', () => {
+    assert.equal(sessionNeedsRenewal(t0, t0 + (ASSERTION_TTL_SECONDS - SESSION_RENEW_MARGIN_SECONDS) * 1000), true)
+    assert.equal(sessionNeedsRenewal(t0, t0 + ASSERTION_TTL_SECONDS * 1000 * 3), true)
   })
 
-  test('the shipped values satisfy it', () => {
-    // A drift guard: raising the run timeout past the assertion TTL would otherwise reintroduce the bug
-    // silently, since the boot assertion is the only thing connecting the two.
-    assert.equal(ASSERTION_TTL_SECONDS, 300)
-    assert.doesNotThrow(() => assertSessionOutlivesRun(ASSERTION_TTL_SECONDS, 300))
+  test('the margin leaves most of the session usable', () => {
+    assert.ok(SESSION_RENEW_MARGIN_SECONDS * 2 < ASSERTION_TTL_SECONDS)
   })
 })

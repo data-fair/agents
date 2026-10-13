@@ -24,6 +24,7 @@
     "compactionPercent",
     "turnCredits",
     "turnTimeoutSeconds",
+    "shutdownGraceSeconds",
     "tasks"
   ],
   "$defs": {
@@ -210,6 +211,13 @@
       "description": "Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock.",
       "default": 300,
       "minimum": 10
+    },
+    "shutdownGraceSeconds": {
+      "type": "number",
+      "title": "Shutdown grace (seconds)",
+      "description": "On SIGTERM, how long running turns are given to finish before they are stopped as 'the server restarted'. The pod's terminationGracePeriodSeconds must exceed it.",
+      "default": 90,
+      "minimum": 0
     }
   }
 }

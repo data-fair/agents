@@ -41,6 +41,7 @@ import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type 
 import { buildServiceTools } from './service-tools.ts'
 import { runModelLoop } from './model-loop.ts'
 import { liveRuns, watchStopRequests, type LiveRun } from './live-runs.ts'
+import { acceptingTurns } from './shutdown.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -343,7 +344,9 @@ export const startRun = async (run: ConversationTurnRun): Promise<void> => {
     if (!await locks.acquire(lockId, LOCK_ORIGIN)) return
     try {
       let current: ConversationTurnRun | null = await nextPendingRun(run.conversationId)
-      while (current) {
+      // Once shutdown has begun, a queued run is not begun here: it has no assistant message yet, so
+      // recovery resumes it on another instance once this one releases the lock (live-runs.ts, SHUTDOWN).
+      while (current && acceptingTurns()) {
         await runTurn(current)
         current = await nextPendingRun(run.conversationId)
       }
@@ -351,7 +354,7 @@ export const startRun = async (run: ConversationTurnRun): Promise<void> => {
       // In a finally so a throw cannot wedge the conversation permanently.
       await locks.release(lockId)
     }
-    if (!await nextPendingRun(run.conversationId)) return
+    if (!acceptingTurns() || !await nextPendingRun(run.conversationId)) return
   }
 }
 

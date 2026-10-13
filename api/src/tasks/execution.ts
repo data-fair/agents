@@ -13,6 +13,7 @@ import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import { createRun, finishRun } from '../conversations/service.ts'
 import { driveTurn } from '../conversations/executor.ts'
 import { isRunLive } from '../conversations/live-runs.ts'
+import { acceptingTurns, SHUTTING_DOWN } from '../conversations/shutdown.ts'
 import { taskTarget } from './task-target.ts'
 import { afterTaskRun } from './follow-up.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
@@ -75,6 +76,8 @@ export const startTaskRun = async (
     { id: task.agentId, 'owner.type': task.owner.type, 'owner.id': task.owner.id },
     { projection: { _id: 0, enabled: 1 } }
   )
+  // Nothing recorded: the scheduler stops claiming slots before this, so only a run now lands here.
+  if (!acceptingTurns()) return { refused: SHUTTING_DOWN }
   if (!agent) return { refused: 'the autonomous agent no longer exists' }
   if (agent.enabled === false) return { refused: 'the autonomous agent is disabled' }
 

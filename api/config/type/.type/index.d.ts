@@ -14,6 +14,10 @@ export type TurnCreditBudget = number;
  * Wall-clock ceiling for one turn, so a hanging model or MCP server cannot hold a conversation's lock.
  */
 export type TurnTimeoutSeconds = number;
+/**
+ * On SIGTERM, how long running turns are given to finish before they are stopped as 'the server restarted'. The pod's terminationGracePeriodSeconds must exceed it.
+ */
+export type ShutdownGraceSeconds = number;
 
 export type ApiConfig = {
   mongoUrl: string;
@@ -122,6 +126,7 @@ export type ApiConfig = {
   compactionPercent: CompactionPercent;
   turnCredits: TurnCreditBudget;
   turnTimeoutSeconds: TurnTimeoutSeconds;
+  shutdownGraceSeconds: ShutdownGraceSeconds;
 }
 /**
  * This interface was referenced by `ApiConfig`'s JSON-Schema

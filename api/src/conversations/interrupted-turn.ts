@@ -20,7 +20,7 @@ import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
  * of a turn another process holds, the run's stored `abortReason` — so a turn is settled the same way
  * wherever it was stopped, and nothing is recognised by its wording.
  */
-export type StopCause = 'stop' | 'person-spoke' | 'agent-stopped' | 'run-deleted' | 'late-block' | 'timeout'
+export type StopCause = 'stop' | 'person-spoke' | 'agent-stopped' | 'run-deleted' | 'late-block' | 'timeout' | 'shutdown'
 
 const STOP_MESSAGES: Record<StopCause, string> = {
   stop: 'the reply was stopped',
@@ -28,7 +28,8 @@ const STOP_MESSAGES: Record<StopCause, string> = {
   'agent-stopped': 'autonomous agent stopped',
   'run-deleted': 'the run was deleted',
   'late-block': 'moderation: a late verdict blocked this message',
-  timeout: 'run timeout'
+  timeout: 'run timeout',
+  shutdown: 'the server restarted'
 }
 
 /** The abort reason of a stopped turn. */

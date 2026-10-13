@@ -18,9 +18,19 @@ import type { ToolSet } from '../conversations/operations.ts'
 
 const debug = Debug('agents:mcp-client')
 
-export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, cookieHeader?: string) => {
-  const headers = callHeaders(server, siteUrl, cookieHeader)
-  const transport = new StreamableHTTPClientTransport(new URL(server.url), { requestInit: { headers } })
+/**
+ * A connection to one catalog server, for one site. The credential headers are computed for EVERY request
+ * rather than fixed when it connects: `cookie` is asked each time, so a session renewed during a long turn
+ * (agentSiteCredentials) reaches the calls already holding this connection.
+ */
+export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, cookie: () => Promise<string | undefined> = async () => undefined) => {
+  const transport = new StreamableHTTPClientTransport(new URL(server.url), {
+    fetch: async (url, init) => {
+      const headers = new Headers(init?.headers)
+      for (const [name, value] of Object.entries(callHeaders(server, siteUrl, await cookie()))) headers.set(name, value)
+      return await fetch(url, { ...init, headers })
+    }
+  })
   const client = new Client({ name: 'data-fair-agents', version: '1.0.0' })
   await client.connect(transport)
   return { client, close: async () => { await client.close() } }
@@ -91,14 +101,17 @@ export const TOOL_LISTING_TTL_MS = 60_000
  * session exchange.
  */
 const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials): Promise<ListedMcpTool[]> => {
-  const cookie = server.auth === 'nhi-session' && siteUrl ? await sites.cookieFor(siteUrl) : undefined
-  const { client, close } = await connectMcpServer(server, siteUrl, cookie)
+  const { client, close } = await connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites))
   try {
     return (await client.listTools()).tools as ListedMcpTool[]
   } finally {
     await close().catch(() => {})
   }
 }, { promise: true, maxAge: TOOL_LISTING_TTL_MS, max: 1000, length: 1 })
+
+/** What a call to this server, on this site, authenticates with: the site's session for a site-bound entry, else nothing. */
+const cookieOf = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials) =>
+  async () => server.auth === 'nhi-session' && siteUrl ? await sites.cookieFor(siteUrl) : undefined
 
 /** Forget every cached listing. The test environment's reset calls it, so specs stay independent. */
 export const clearToolListings = () => { listing.clear() }
@@ -140,18 +153,15 @@ export const openAutonomousAgentTools = async (
   const portalHosts = [...portalByHost.keys()]
 
   // This turn's connections, opened by the first call to each server — and each SITE, for a
-  // site-bound server: its headers (site and session) are fixed when it connects.
+  // site-bound server: the site is the connection's; its session is read again on every request.
   const connections = new Map<string, ReturnType<typeof connectMcpServer>>()
   const clientFor = async (server: GlobalMcpServer, siteUrl: string | undefined) => {
     const key = connectionKey(server, siteUrl)
     let connection = connections.get(key)
     if (!connection) {
-      // The promise is stored before the cookie is awaited, so two concurrent first calls to the same
-      // site share one connection instead of each exchanging and connecting.
-      connection = (async () => {
-        const cookie = server.auth === 'nhi-session' && siteUrl ? await sites.cookieFor(siteUrl) : undefined
-        return await connectMcpServer(server, siteUrl, cookie)
-      })()
+      // The promise is stored before connecting, so two concurrent first calls to the same site share one
+      // connection (and one exchange: cookieFor shares it too) instead of each connecting.
+      connection = connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites))
       connections.set(key, connection)
       // A failed connect is forgotten, so the next call retries rather than replaying the failure.
       connection.catch(() => { if (connections.get(key) === connection) connections.delete(key) })

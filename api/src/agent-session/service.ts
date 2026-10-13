@@ -38,10 +38,10 @@ const debug = Debug('agents:agent-session')
 
 /**
  * The `error` frame for a refusal or a failure: the 4xx status an `httpError` carries (400 malformed,
- * 403 not allowed, 404 unknown, 409 conflict…), 500 for anything else.
+ * 403 not allowed, 404 unknown, 409 conflict…), 503 while the service is restarting, 500 for anything else.
  */
 const errorFrame = (err: any, fallback: string): ServerMessage =>
-  ({ type: 'error', status: err?.status >= 400 && err?.status < 500 ? err.status : 500, message: err?.message || fallback })
+  ({ type: 'error', status: (err?.status >= 400 && err?.status < 500) || err?.status === 503 ? err.status : 500, message: err?.message || fallback })
 
 /** Live sessions, so shutdown can close every one of them. */
 const sessions = new Map<WebSocket, AgentSession>()
@@ -357,6 +357,18 @@ export const startAgentSessions = (server: Server) => {
   })
 
   return {
+    /**
+     * Shutdown's first move: close every session except those watching a live turn (`keep`). Their
+     * page reopens a socket the next time it sends anything, which lands on a healthy instance; the
+     * kept ones see their turn end here, then are closed by `close`.
+     */
+    closeAllBut: (keep: Set<AgentSession>) => {
+      for (const [ws, agentSession] of sessions) {
+        if (keep.has(agentSession) || ws.readyState !== ws.OPEN) continue
+        agentSession.close('the server is shutting down')
+        ws.close()
+      }
+    },
     close: async () => {
       for (const [ws, agentSession] of sessions) {
         agentSession.close('the server is shutting down')

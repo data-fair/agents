@@ -70,7 +70,10 @@ In development the poll excludes `test*` owners (`schedulerScope` in `server.ts`
 
 `executeTaskRun` calls `driveTurn(run, open, closeBare)` with a `taskTarget`.
 
-**Recovery.** `recoverOwnerlessRuns` (`api/src/conversations/executor.ts`) never resumes a task run: one that began may have fired its tools, and one that did not is the next slot's. A `running` task run that this process is not running and whose `task:` lock nobody holds is closed `interrupted` (error "interrupted by a restart") and followed up like any failure: it is notified and counts toward the pause. Boot order matters (`api/src/server.ts`): the events queue starts BEFORE the recovery pass, since a run the pass interrupts is notified and pushing to a queue not yet started throws.
+**Recovery.** `recoverOwnerlessRuns` (`api/src/conversations/executor.ts`) never resumes a task run: one that began may have fired its tools, and one that did not is the next slot's. A `running` task run that this process is not running and whose `task:` lock nobody holds is closed `interrupted` (error "interrupted by a restart") and followed up like any failure: it is notified and counts toward the pause. A deploy that lets the process drain does not get there: a
+task run still running at the end of the shutdown grace is stopped as `shutdown` and closed `aborted` by
+its own process, which is neither notified nor counted (see [autonomous agents](./autonomous-agents.md#recovery)).
+Boot order matters (`api/src/server.ts`): the events queue starts BEFORE the recovery pass, since a run the pass interrupts is notified and pushing to a queue not yet started throws.
 
 ## The turn
 

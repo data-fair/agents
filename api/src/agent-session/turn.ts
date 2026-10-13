@@ -17,6 +17,7 @@ import {
 } from '../conversations/service.ts'
 import { startRun } from '../conversations/executor.ts'
 import { abortRunsOfConversation, liveTurnOf } from '../conversations/live-runs.ts'
+import { assertAcceptingTurns } from '../conversations/shutdown.ts'
 import { settlePendingWait } from '../conversations/waits.ts'
 import { interruptedWaitResult } from '../conversations/interrupted-turn.ts'
 import mongo from '#mongo'
@@ -59,6 +60,9 @@ export interface SessionTurnRequest {
  * Throws an http error (400 empty), so the caller can report the reason to the browser.
  */
 export const startSessionTurn = async (request: SessionTurnRequest): Promise<string> => {
+  // Before anything is stored or stopped: the person's message is refused whole, and sent again lands on
+  // a healthy instance (the socket is closed once this one's turns have drained).
+  assertAcceptingTurns()
   const { conversation, caller } = request
   const person = caller.kind === 'person'
     ? { userId: caller.session.user.id, userName: caller.session.user.name }

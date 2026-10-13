@@ -113,6 +113,29 @@ has an assistant message -> it started, its tools may have fired -> interrupt
 no assistant message     -> it died before doing anything        -> resume
 ```
 
+**A deploy does not interrupt turns, within a grace period.** On SIGTERM (`stop`, `api/src/server.ts`;
+the logic in `api/src/conversations/shutdown.ts`):
+
+1. No new turn begins in this process (`stopAcceptingTurns`). A prompt, an approval decision or a task's
+   run now is refused with a **503** saying to send it again, before anything is stored, so the decision
+   card stays pending and the message is not half-recorded. The scheduler stops claiming slots, leaving
+   them to another instance. A run queued for its conversation's lock but not begun is not started:
+   it has no assistant message, so recovery resumes it elsewhere. A wake is not started either; the wait
+   stays pending, and the person's next action or message answers it.
+2. Sockets with no live turn are closed at once, and the others as soon as their turn ends. The chat
+   reopens its socket on its own the next time it sends anything, so the person's next message reaches
+   a healthy instance.
+3. Live turns get `shutdownGraceSeconds` (default 90) to finish normally (`drainLiveRuns`). Those still
+   running then are stopped with the cause `shutdown` ("the server restarted") and settled by their own
+   process: an `aborted` run with its message closed, not an `interrupted` one, so a task run cut short
+   by a deploy is neither notified nor counted toward its task's pause. Its slot is spent; the next one
+   runs.
+
+Only then are the events queue, the sockets, the HTTP server and Mongo closed. The grace is shorter
+than the turn deadline on purpose: a deploy should not wait five minutes for one long task run. The
+pod's `terminationGracePeriodSeconds` must exceed `shutdownGraceSeconds` plus about 15 s (settling and
+closing), or the kubelet kills the process mid-drain and recovery applies as below.
+
 `recoverOwnerlessRuns` runs at boot and on a 30s interval. A started turn is **never** resumed: MCP
 tools are not required to be idempotent and the operator catalog may contain writes, so re-running a
 turn would be at-least-once execution of real side effects. Durable-execution platforms (Temporal,
@@ -132,17 +155,19 @@ client id changes, and kept by later saves, so editing an agent from another of 
 sites does not move it.
 
 - The subject is `autonomous-agent:<agent id>`, which is what binds one NHI to one agent.
-- Sessions are short-lived and non-refreshable, exchanged **per turn and per site**. A session lives
-  the assertion TTL (`ASSERTION_TTL_SECONDS`, 300 s — simple-directory caps a session at its assertion's
-  expiry; longer than nhi-proxy's 120 s because the cookie never leaves this process) and the
-  MCP transport holds it for the whole turn, so it is never reused across turns, where it could expire
-  mid-call. simple-directory's sessions are host-only, so one is exchanged for each site the agent acts
+- Sessions are short-lived and non-refreshable, exchanged **per turn and per site**, and exchanged
+  again within a turn when one nears its expiry. A session lives the assertion TTL
+  (`ASSERTION_TTL_SECONDS`, 300 s — simple-directory caps a session at its assertion's expiry; longer
+  than nhi-proxy's 120 s because the cookie never leaves this process). A site's session is renewed
+  `SESSION_RENEW_MARGIN_SECONDS` (60 s) before it would expire (`sessionNeedsRenewal`), and the MCP
+  transport reads the current one on every request rather than fixing it when it connects
+  (`connectMcpServer`), so a turn may run longer than a session lives: the TTL bounds a credential,
+  not a turn. A session is never reused across turns. simple-directory's sessions are host-only, so one is exchanged for each site the agent acts
   on, and only for its *account sites* (the enrolment site plus the organization's sites, listed by simple-directory as the
   agent and cached for a minute — `listAccountSites`, `agentSiteCredentials` in `api/src/nhi/service.ts`).
   Elsewhere the agent is anonymous. An agent that references no `nhi-session` catalog entry never
   lists its account nor exchanges anything; if the listing fails, the turn degrades to the enrolment
-  site alone. See [Hosts](./overview.md#hosts). `assertSessionOutlivesRun` fails at
-  boot if the assertion TTL could not outlive a whole run.
+  site alone. See [Hosts](./overview.md#hosts).
 - Enrolment is driven from the admin page, **client-side**: the browser calls simple-directory's NHI
   API with the admin's own session (`ui/src/composables/use-autonomous-agent-enrolment.ts`), taking
   the subject from `shared/autonomous-agent-identity.ts` and the issuer from this service's discovery

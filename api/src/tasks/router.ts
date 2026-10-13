@@ -19,6 +19,7 @@ import { buildConversationExport } from '../review/operations.ts'
 import { runAsMessages } from './run-messages.ts'
 import { startTaskRun, isTaskRunning, PREVIOUS_RUN_STILL_RUNNING } from './execution.ts'
 import { abortRun } from '../conversations/live-runs.ts'
+import { assertAcceptingTurns } from '../conversations/shutdown.ts'
 
 const router = Router()
 export default router
@@ -144,6 +145,7 @@ router.post('/:type/:id/:agentId/tasks/:taskId/run', async (req, res, next) => {
     const { owner, agent } = await reqAgent(req, 'write')
     const task = await getTask(owner, agent.id, req.params.taskId)
     if (await isTaskRunning(task.id)) throw httpError(409, PREVIOUS_RUN_STILL_RUNNING)
+    assertAcceptingTurns()
     const started = await startTaskRun(task, 'manual', { by: actorOf(req) })
     if ('refused' in started) throw httpError(409, started.refused)
     // Skipped — the account's credit cap is exhausted, or another start won the lock: recorded, and

@@ -39,5 +39,9 @@ export default {
   turnTimeoutSeconds: {
     __name: 'TURN_TIMEOUT_SECONDS',
     __format: 'json'
+  },
+  shutdownGraceSeconds: {
+    __name: 'SHUTDOWN_GRACE_SECONDS',
+    __format: 'json'
   }
 }
