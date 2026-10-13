@@ -64,6 +64,14 @@ test.describe('S3Backend', () => {
     await assert.rejects(backend().readStream('agent-files/o/c/missing.csv'), (err: any) => err.status === 404)
   })
 
+  test('the access check writes and removes its probe under the store root, for a credential limited to it', async () => {
+    s3.on(PutObjectCommand).resolves({})
+    s3.on(DeleteObjectCommand).resolves({})
+    await backend().checkAccess()
+    assert.equal(s3.commandCalls(PutObjectCommand)[0].args[0].input.Key, 'agent-files/.check-access')
+    assert.equal(s3.commandCalls(DeleteObjectCommand)[0].args[0].input.Key, 'agent-files/.check-access')
+  })
+
   test('a small write is one PutObject of the whole stream under the key', async () => {
     let sent: any
     s3.on(PutObjectCommand).callsFake(async (input, getClient) => {

@@ -7,11 +7,12 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdtemp, rm, writeFile, utimes } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { Readable } from 'node:stream'
 import { nanoid } from 'nanoid'
+import { sweepBackend } from '../../../api/src/files/sweep.ts'
 import { FsBackend } from '../../../api/src/files/fs.ts'
 import { S3Backend } from '../../../api/src/files/s3.ts'
 import { failingSource } from '../../support/failing-source.ts'
@@ -85,9 +86,8 @@ const contract = (name: string, open: () => Promise<{ backend: FileBackend, root
   })
 }
 
-let fsDir = ''
 contract('fs', async () => {
-  fsDir = await mkdtemp(join(tmpdir(), 'agent-files-'))
+  const fsDir = await mkdtemp(join(tmpdir(), 'agent-files-'))
   return { backend: new FsBackend(fsDir), root: 'agent-files', close: () => rm(fsDir, { recursive: true, force: true }) }
 })
 
@@ -112,6 +112,31 @@ test.describe('fs backend specifics', () => {
       await backend.writeStream(Readable.from([Buffer.from('x')]), 'agent-files/h/real.csv')
       await writeFile(join(dir, 'agent-files/h/.x.csv.abc123.part'), 'partial')
       assert.deepEqual((await backend.lsrWithStats('agent-files/h/')).map(f => f.path), ['real.csv'])
+    } finally { await rm(dir, { recursive: true, force: true }) }
+  })
+
+  test('the sweep can see hidden temp files, which no other listing shows', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'agent-files-'))
+    try {
+      const backend = new FsBackend(dir)
+      await backend.writeStream(Readable.from([Buffer.from('x')]), 'agent-files/h/real.csv')
+      await writeFile(join(dir, 'agent-files/h/.x.csv.abc123.part'), 'partial')
+      assert.deepEqual((await backend.lsrWithStats('agent-files/h/', { includeHidden: true })).map(f => f.path).sort(), ['.x.csv.abc123.part', 'real.csv'])
+    } finally { await rm(dir, { recursive: true, force: true }) }
+  })
+
+  test('the sweep removes a stale hidden temp file and keeps a fresh one; the model-facing listing never shows either', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'agent-files-'))
+    try {
+      const backend = new FsBackend(dir)
+      await backend.writeStream(Readable.from([Buffer.from('x')]), 'agent-files/o/c/real.csv')
+      const old = new Date(Date.now() - 8 * 24 * 3600_000)
+      await writeFile(join(dir, 'agent-files/o/c/.old.csv.abc12345.part'), 'partial')
+      await utimes(join(dir, 'agent-files/o/c/.old.csv.abc12345.part'), old, old)
+      await writeFile(join(dir, 'agent-files/o/c/.new.csv.abc12345.part'), 'partial')
+      assert.equal(await sweepBackend(backend, new Date(), 'agent-files/'), 1)
+      assert.deepEqual((await backend.lsrWithStats('agent-files/o/c/', { includeHidden: true })).map(f => f.path).sort(), ['.new.csv.abc12345.part', 'real.csv'])
+      assert.deepEqual((await backend.lsrWithStats('agent-files/o/c/')).map(f => f.path), ['real.csv'])
     } finally { await rm(dir, { recursive: true, force: true }) }
   })
 

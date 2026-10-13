@@ -19,7 +19,7 @@ let fixture: McpFixture
 const withFile = async () => {
   const agent = await createFilesAgent()
   const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, `call tool write_file {"file_path":"/notes.csv","content":${JSON.stringify(CONTENT)}}`)
-  return { scope: { ownerType: 'organization', ownerId: 'test1', scopeId: conversationId }, conversationId }
+  return { scope: { ownerType: 'organization', ownerId: 'test1', scopeId: conversationId }, conversationId, agentId: agent.id }
 }
 const sign = async (scope: any, name: string, now = new Date()) =>
   (await anonymousAx.post('/api/test-env/sign-file-url', { scope, name, now: now.toISOString() })).data.url as string
@@ -88,6 +88,13 @@ test.describe('Signed file URLs', () => {
     const { scope, conversationId } = await withFile()
     assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results.length, 1)
     await orgAdmin.delete(`/api/review/organization/test1/${conversationId}`)
+    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
+  })
+
+  test('deleting the agent removes its conversations\' files at once', async () => {
+    const { scope, agentId } = await withFile()
+    assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results.length, 1)
+    await admin.delete(`/api/autonomous-agents/organization/test1/${agentId}`)
     assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
   })
 

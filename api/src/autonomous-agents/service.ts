@@ -14,6 +14,7 @@ import { listExternalToolDescriptors } from '../mcp-servers/external.ts'
 import { envPublicIps } from '../web/public-lookup.ts'
 import { agentStoreId } from '../memory/operations.ts'
 import { deleteMemoryStore } from '../memory/service.ts'
+import { deleteConversationFiles } from '../files/service.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 import { canInstruct } from './operations.ts'
 
@@ -222,7 +223,7 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
   // Memory first: it is derived from the conversations, and must not outlive them.
   const memory = await deleteMemoryStore(agentStoreId(agentId))
   const conversations = await mongo.conversations
-    .find({ agentId }, { projection: { _id: 0, id: 1 } })
+    .find({ agentId }, { projection: { _id: 0, id: 1, owner: 1 } })
     .toArray()
   const conversationIds = conversations.map(conversation => conversation.id)
   // Every TASK run of the agent: it has no conversation to reach it through, and an agent that only ever ran
@@ -239,6 +240,9 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
   const messages = await mongo.messages.deleteMany({ conversationId: { $in: conversationIds } })
   const runs = await mongo.runs.deleteMany({ conversationId: { $in: conversationIds } })
   const removed = await mongo.conversations.deleteMany({ agentId })
+  // Their files go at once, as with any conversation delete (logged, never thrown). A task run's files are
+  // left to the sweep: a task run has no deletion path of its own.
+  for (const conversation of conversations) await deleteConversationFiles(conversation.owner, conversation.id)
   // Again: a turn on another instance, or one mid-call here, can write memory after the first pass,
   // and nothing could reach that store once the agent is gone.
   const late = await deleteMemoryStore(agentStoreId(agentId))

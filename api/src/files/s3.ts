@@ -9,6 +9,7 @@ import { Upload } from '@aws-sdk/lib-storage'
 import type { Readable } from 'node:stream'
 import { httpError } from '@data-fair/lib-express'
 import type { FileBackend, FileStats } from './types.ts'
+import { FILES_ROOT } from './operations.ts'
 
 export interface S3BackendOptions {
   bucket: string
@@ -19,6 +20,9 @@ export interface S3BackendOptions {
 }
 
 const isMissing = (err: any): boolean => err?.name === 'NoSuchKey' || err?.name === 'NotFound' || err?.$metadata?.httpStatusCode === 404
+
+/** Under the store's root: a credential limited to that prefix must pass the boot check. */
+const ACCESS_PROBE_KEY = `${FILES_ROOT}/.check-access`
 
 /** A directory has no object on S3, only a key prefix: without the trailing `/`, `a` would also match `ab`. */
 const dirPrefix = (prefix: string) => prefix.endsWith('/') ? prefix : `${prefix}/`
@@ -42,10 +46,12 @@ export class S3Backend implements FileBackend {
   }
 
   async checkAccess () {
-    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: 'check-access.txt', Body: 'ok' }), { requestTimeout: 10_000 } as any)
+    await this.client.send(new PutObjectCommand({ Bucket: this.bucket, Key: ACCESS_PROBE_KEY, Body: 'ok' }), { requestTimeout: 10_000 } as any)
+    await this.client.send(new DeleteObjectCommand({ Bucket: this.bucket, Key: ACCESS_PROBE_KEY }), { requestTimeout: 10_000 } as any)
   }
 
-  async lsrWithStats (prefix: string): Promise<FileStats[]> {
+  // S3 writes are atomic and leave no temp object: `includeHidden` has nothing more to show
+  async lsrWithStats (prefix: string, _options?: { includeHidden?: boolean }): Promise<FileStats[]> {
     const listed = dirPrefix(prefix)
     const results: FileStats[] = []
     for await (const page of paginateListObjectsV2({ client: this.client }, { Bucket: this.bucket, Prefix: listed })) {

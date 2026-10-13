@@ -40,7 +40,7 @@ export class FsBackend implements FileBackend {
     await fs.rm(probe, { force: true })
   }
 
-  async lsrWithStats (prefix: string): Promise<FileStats[]> {
+  async lsrWithStats (prefix: string, options: { includeHidden?: boolean } = {}): Promise<FileStats[]> {
     const dir = this.full(prefix)
     let entries
     try {
@@ -51,8 +51,8 @@ export class FsBackend implements FileBackend {
     }
     const results: FileStats[] = []
     for (const entry of entries) {
-      // a name starting with a dot is a writer's temp file (in flight or orphaned by a crash), never a stored file
-      if (!entry.isFile() || entry.name.startsWith('.')) continue
+      // a name starting with a dot is a writer's temp file (in flight or orphaned by a crash), never a stored file: only the sweep asks to see them
+      if (!entry.isFile() || (entry.name.startsWith('.') && !options.includeHidden)) continue
       const file = path.join(entry.parentPath, entry.name)
       const stat = await fs.stat(file).catch(() => undefined)
       if (!stat) continue

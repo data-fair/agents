@@ -14,8 +14,11 @@ export type FileStats = {
 
 export interface FileBackend {
   checkAccess (): Promise<void>
-  /** Every file under the prefix, recursively; an absent prefix lists nothing. */
-  lsrWithStats (prefix: string): Promise<FileStats[]>
+  /**
+   * Every file under the prefix, recursively; an absent prefix lists nothing. A writer's hidden temp file
+   * (fs backend: a name starting with a dot) is listed only with `includeHidden`, which the sweep alone uses.
+   */
+  lsrWithStats (prefix: string, options?: { includeHidden?: boolean }): Promise<FileStats[]>
   /** Rejects with an httpError 404 when absent. */
   fileStats (key: string): Promise<{ size: number, lastModified: Date }>
   /** Rejects with an httpError 404 when absent. */

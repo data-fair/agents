@@ -11,7 +11,8 @@ import type { FileBackend } from './types.ts'
 import { FsBackend } from './fs.ts'
 import { S3Backend } from './s3.ts'
 import { createTurnFiles, type StoredFile, type TurnFiles } from './turn-files.ts'
-import { FILES_ROOT, FILE_TTL_MS, isValidScope, scopeOfRun, scopePrefix, signedFileUrl, type FileScope } from './operations.ts'
+import { sweepBackend } from './sweep.ts'
+import { FILES_ROOT, isValidScope, scopeOfRun, scopePrefix, signedFileUrl, type FileScope } from './operations.ts'
 
 let store: FileBackend | undefined | null = null
 
@@ -48,26 +49,12 @@ export const deleteConversationFiles = async (owner: { type: string, id: string 
 
 /**
  * THE cleanup (spec §3): remove every file last written more than 7 days ago, under `prefix` (the whole
- * store by default). One listing, the same on both backends; retention and account deletion included.
+ * store by default). One listing, the same on both backends; retention and account deletion included. The listing
+ * includes a crashed writer's hidden temp file (fs), which no other listing shows.
  */
 export const sweepFiles = async (now = new Date(), prefix = `${FILES_ROOT}/`): Promise<number> => {
   const backend = fileStore()
-  if (!backend) return 0
-  if (!prefix.startsWith(`${FILES_ROOT}/`)) throw new Error(`the sweep only reaches ${FILES_ROOT}/`)
-  const listed = prefix.endsWith('/') ? prefix : `${prefix}/`
-  const cutoff = now.getTime() - FILE_TTL_MS
-  const stale = (await backend.lsrWithStats(listed)).filter(file => file.lastModified.getTime() < cutoff)
-  let removed = 0
-  for (const file of stale) {
-    // one failing key must not abort the pass; the next one retries it
-    try {
-      await backend.removeFile(`${listed}${file.path}`)
-      removed++
-    } catch (err) {
-      console.error('[files] could not sweep a file', err instanceof Error ? err.message : err)
-    }
-  }
-  return removed
+  return backend ? await sweepBackend(backend, now, prefix) : 0
 }
 
 const SWEEP_LOCK = 'agent-files-sweep'
