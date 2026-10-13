@@ -48,6 +48,11 @@ test.describe('code_mode engine', () => {
     assert.equal(out, '1\n\nConsole output:\nrows: 2 {"ok":true}\ncareful')
   })
 
+  test('console.log of a circular value or a BigInt does not fail the script', async () => {
+    const out = await run(createScriptTool({}), 'const a = {}; a.self = a; console.log(a, 1n); return 1')
+    assert.match(String(out), /^1\n\nConsole output:\n/)
+  })
+
   test('the prelude keeps the script\'s line numbers', async () => {
     const lines = wrapScript('first\nsecond').split('\n')
     assert.ok(lines[0].endsWith('first'), 'the prelude and the script\'s first line share line 1')

@@ -7,6 +7,7 @@
  * this module holds what is ours around it: the limits, the console prelude, how a result and a failure
  * read to the model, and which tools a script may call.
  */
+import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import { truncatedToolResultText } from '../conversations/compaction-policy.ts'
 
 export const CODE_MODE_TOOL_NAME = 'code_mode'
@@ -46,7 +47,7 @@ export const SCRIPT_LOG_CHARS = 5_000
  * This prelude shadows `console` inside the script and returns `{ value, logs }`. All on the script's FIRST
  * line, so a syntax error or a stack names the line the model wrote.
  */
-const PRELUDE = 'const __agentLogs = []; const __agentLog = (...values) => { __agentLogs.push(values.map(v => typeof v === "string" ? v : String(JSON.stringify(v))).join(" ")) }; const console = { log: __agentLog, info: __agentLog, warn: __agentLog, error: __agentLog, debug: __agentLog }; return { value: await (async () => {'
+const PRELUDE = 'const __agentLogs = []; const __agentShow = (v) => { if (typeof v === "string") return v; try { return String(JSON.stringify(v)) } catch (e) { return String(v) } }; const __agentLog = (...values) => { __agentLogs.push(values.map(__agentShow).join(" ")) }; const console = { log: __agentLog, info: __agentLog, warn: __agentLog, error: __agentLog, debug: __agentLog }; return { value: await (async () => {'
 export const wrapScript = (js: string): string => `${PRELUDE}${js}\n})(), logs: __agentLogs }`
 
 /** What the model reads: the value (JSON unless a string), cut like any large result, then the console. */
@@ -91,3 +92,20 @@ export const describeScriptTool = (packageDescription: string): string => {
     'Tools that need approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents can only be called directly.'
   ].join('\n\n')
 }
+
+/**
+ * Tools a script may NOT call, whatever the turn offers (spec §6.3, plan 4 decision 4): the handover ends the
+ * turn; the access and planning requests ask an administrator; read_skill is guidance for the model, which in a
+ * script would be data nobody reads; and code_mode itself. Names restated, not imported, to keep this module pure
+ * of the service tools' modules — a unit test pins them against the real constants.
+ */
+const DIRECT_ONLY = new Set([WAIT_TOOL_NAME, 'request_web_access', 'request_mcp_access', 'plan_task', 'update_task', 'delete_task', 'read_skill', CODE_MODE_TOOL_NAME])
+
+/**
+ * Whether a script may call this tool. Never one needing approval: the package refuses it without an approval
+ * callback (and its docs say not to expose one), and a script cannot pause for a person — lifting this goes
+ * through `run`'s signed continuations, upstream vercel/ai#18143. Never a sub-agent delegation: a model loop
+ * inside a script (vercel/ai#18145), and its trace is keyed on the model's own call.
+ */
+export const codeCallable = (name: string, tool: { needsApproval?: unknown }): boolean =>
+  !tool.needsApproval && !DIRECT_ONLY.has(name) && !name.startsWith('subagent_')
