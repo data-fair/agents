@@ -92,6 +92,34 @@ export type ApiConfig = {
      */
     maxConsecutiveFailures: number;
   };
+  /**
+   * The file store of autonomous agents (docs/architecture/agent-files.md). Unset: files are off.
+   */
+  files?: {
+    storage: "fs" | "s3";
+    /**
+     * fs: a directory on a volume shared by every node when the service is scaled.
+     */
+    dataDir?: string;
+    s3?: {
+      region?: string;
+      endpoint?: string;
+      bucket?: string;
+      credentials?: {
+        accessKeyId?: string;
+        secretAccessKey?: string;
+      };
+      forcePathStyle?: boolean;
+    };
+    /**
+     * Signs the file URLs MCP servers fetch.
+     */
+    secret: string;
+    /**
+     * The agents API base URL as MCP servers reach it: what they configure as FILE_URL_PREFIXES.
+     */
+    publicUrl: string;
+  };
   nhiSigningKey?: {
     kty: string;
     crv: string;

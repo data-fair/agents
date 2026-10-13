@@ -135,6 +135,36 @@
         "maxConsecutiveFailures": { "type": "integer", "minimum": 1, "default": 5, "description": "Failed runs in a row after which a task is paused." }
       }
     },
+    "files": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["storage", "secret", "publicUrl"],
+      "description": "The file store of autonomous agents (docs/architecture/agent-files.md). Unset: files are off.",
+      "properties": {
+        "storage": { "type": "string", "enum": ["fs", "s3"] },
+        "dataDir": { "type": "string", "description": "fs: a directory on a volume shared by every node when the service is scaled." },
+        "s3": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "region": { "type": "string" },
+            "endpoint": { "type": "string" },
+            "bucket": { "type": "string" },
+            "credentials": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "accessKeyId": { "type": "string" },
+                "secretAccessKey": { "type": "string" }
+              }
+            },
+            "forcePathStyle": { "type": "boolean" }
+          }
+        },
+        "secret": { "type": "string", "minLength": 32, "description": "Signs the file URLs MCP servers fetch." },
+        "publicUrl": { "type": "string", "pattern": "^https?://", "description": "The agents API base URL as MCP servers reach it: what they configure as FILE_URL_PREFIXES." }
+      }
+    },
     "nhiSigningKey": {
       "type": "object",
       "required": ["kty", "crv", "x", "y", "d", "kid"],

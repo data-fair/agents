@@ -21,3 +21,6 @@ docs/presentation-fr/*.pdf
 simulations/tmp
 # rendered from users.template.json by dev/init-env.sh (carries {NGINX_PORT} placeholders)
 dev/resources/users.json
+
+# the dev file store of autonomous agents (api/config/development.js files.dataDir)
+dev/data/

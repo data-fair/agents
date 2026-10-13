@@ -4,6 +4,7 @@ import nodeConfig from 'config'
 import { assertGlobalAiConfig } from './models/operations.ts'
 import { assertGlobalMcpConfig } from './mcp-servers/operations.ts'
 import { assertNhiConfig } from './nhi/operations.ts'
+import { assertFilesConfig } from './files/operations.ts'
 
 // A mutable copy: node-config's object is immutable once read, and validation applies the schema defaults.
 const config = { ...nodeConfig } as unknown as ApiConfig
@@ -13,5 +14,6 @@ assertValid(config, { lang: 'en', name: 'config', internal: true })
 assertGlobalAiConfig(config.providers ?? [], config.models ?? [], config.defaultModels ?? {})
 assertGlobalMcpConfig(config.mcpServers ?? [])
 assertNhiConfig(config.nhiSigningKey)
+assertFilesConfig(config.files)
 
 export default config

@@ -1,3 +1,4 @@
+import { resolve } from 'node:path'
 import dotenv from 'dotenv'
 dotenv.config({ path: import.meta.resolve('../../.env').replace('file://', '') })
 
@@ -51,5 +52,13 @@ export default {
   nhiSigningKey: { kty: 'EC', crv: 'P-256', x: 'iuGRxiUsSj4YmAvrp3XpXGnvttc6ruQIYakEVp-B4Ig', y: 'nF0kPlKpzNztlqKozkb9T4sHl_sCD1M6ngrpwEnTL-M', d: 'Hv71PS5oK6z6bqiRT-nq62cmgauiaCreaO-zmS30-6Q', kid: 'dev-1', alg: 'ES256' },
   // uncapped in dev/test: the production default of 0 would block every
   // account that has not been pushed a limit, which most specs never do
-  defaultLimits: { credits: -1 }
+  defaultLimits: { credits: -1 },
+  // The file store of autonomous agents, on a local directory (gitignored). publicUrl is the API itself on
+  // its dev port: the dev MCP fixture fetches signed file URLs there directly, as an internal request.
+  files: {
+    storage: 'fs',
+    dataDir: resolve(import.meta.dirname, '../../dev/data/files'),
+    secret: 'dev-files-secret-not-for-production-0123456789',
+    publicUrl: `http://localhost:${process.env.DEV_API_PORT}`
+  }
 }

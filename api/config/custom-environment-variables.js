@@ -43,5 +43,21 @@ export default {
   shutdownGraceSeconds: {
     __name: 'SHUTDOWN_GRACE_SECONDS',
     __format: 'json'
+  },
+  files: {
+    storage: 'FILES_STORAGE',
+    dataDir: 'FILES_DATA_DIR',
+    secret: 'FILES_SECRET',
+    publicUrl: 'FILES_PUBLIC_URL',
+    s3: {
+      region: 'FILES_S3_REGION',
+      endpoint: 'FILES_S3_ENDPOINT',
+      bucket: 'FILES_S3_BUCKET',
+      credentials: {
+        accessKeyId: 'FILES_S3_ACCESS_KEY_ID',
+        secretAccessKey: 'FILES_S3_SECRET_ACCESS_KEY'
+      },
+      forcePathStyle: { __name: 'FILES_S3_FORCE_PATH_STYLE', __format: 'json' }
+    }
   }
 }
