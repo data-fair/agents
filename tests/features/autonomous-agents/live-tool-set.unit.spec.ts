@@ -2,7 +2,7 @@
  * The AI SDK contract the live tool set rests on (api/src/conversations/model-loop.ts, `liveTools`).
  *
  * `runModelLoop` hands `streamText` ONE map and mutates it in place from `prepareStep` when the page's
- * tools change mid-turn. That works only while the SDK re-reads the map when it builds each step — to
+ * tools change mid-turn: tools added, unmounted ones deleted, changed ones replaced. That works only while the SDK re-reads the map when it builds each step — to
  * advertise the step's tools and to execute its calls. AI SDK 7 builds a per-step copy after
  * `prepareStep`, which keeps the contract; this pins it, so an SDK bump that snapshots the map at the
  * start of the call fails here rather than in the live-tools e2e spec.
@@ -55,4 +55,42 @@ test('a tool added to the live map in prepareStep is advertised and executed in 
   assert.deepEqual(advertised[0], ['open_panel'])
   assert.deepEqual(advertised[1].sort(), ['open_panel', 'set_display'])
   assert.deepEqual(ran, ['open_panel', 'set_display'])
+})
+
+test('a tool deleted from the live map in prepareStep is neither advertised nor executed, a replaced one runs its new definition', async () => {
+  const advertised: string[][] = []
+  const ran: string[] = []
+  const model = new MockLanguageModelV3({
+    doStream: async (options: any) => {
+      advertised.push((options.tools ?? []).map((t: any) => t.name))
+      const step = advertised.length
+      // Step 2 calls the tool whose component unmounted (a model working from an earlier step), then the replaced one.
+      return { stream: step === 1 ? call('c1', 'close_panel') : step === 2 ? call('c2', 'set_display') : step === 3 ? call('c3', 'refresh') : say('done') } as any
+    }
+  })
+  const liveTools: Record<string, Tool> = {
+    close_panel: plain(() => { ran.push('close_panel'); return 'closed' }),
+    set_display: plain(() => { ran.push('set_display'); return 'shown' }),
+    refresh: plain(() => { ran.push('refresh:old'); return 'old' })
+  }
+  const result = streamText({
+    model,
+    prompt: 'go',
+    tools: liveTools,
+    stopWhen: isStepCount(6),
+    prepareStep: ({ steps }) => {
+      // What runModelLoop does when the panel's tools unmount and another is re-registered: the SAME object, mutated.
+      if (steps.length === 1) {
+        delete liveTools.set_display
+        liveTools.refresh = plain(() => { ran.push('refresh:new'); return 'new' })
+      }
+      return {}
+    }
+  })
+  assert.equal(await result.text, 'done')
+  assert.deepEqual(advertised[0].sort(), ['close_panel', 'refresh', 'set_display'])
+  assert.deepEqual(advertised[1].sort(), ['close_panel', 'refresh'])
+  assert.deepEqual(ran, ['close_panel', 'refresh:new'])
+  const gone = (await result.steps)[1].content.find((p: any) => p.type === 'tool-error')
+  assert.equal((gone as any)?.toolName, 'set_display')
 })
