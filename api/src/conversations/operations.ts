@@ -113,7 +113,7 @@ export function buildSystemPrompt (autonomousAgent: PromptableAutonomousAgent, m
       ? `Your organization's sites could not be confirmed, so you are acting anonymously on ${opts.unconfirmedOn}, and only see what anyone can see there.`
       : undefined,
     // A planned task's run: nobody watches it, so the agent must not ask, nor wait on an approval (it is
-    // offered no gated tool, see withoutGatedTools), and its outcome is what an admin reads afterwards.
+    // offered no gated tool, see unattended in ./approval-policy.ts), and its outcome is what an admin reads afterwards.
     // Before the memory block, which stays last.
     surface === 'task' ? TASK_SURFACE_NOTE : undefined,
     // LAST, after every human-owned part, so it reads as notes beneath the instructions rather than

@@ -32,7 +32,7 @@ import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
 import { openExternalMcpTools } from '../mcp-servers/external.ts'
 import { envPublicIps } from '../web/public-lookup.ts'
 import { personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
-import { applyApprovalPolicy, withoutGatedTools } from './approval-policy.ts'
+import { applyApprovalPolicy, unattended } from './approval-policy.ts'
 import { agentSiteCredentials } from '../nhi/service.ts'
 import { notifyMessage } from '../agent-session/registry.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
@@ -173,13 +173,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     }
     // THE APPROVAL GATE, on the catalog tools of a configured autonomous agent only. The personal assistant
     // has no policy, page tools act in the person's own browser, and service tools are the loop's own.
-    // An UNATTENDED turn (a planned task's run) is offered only what the policy allows outright: nobody is
-    // there to decide on a gated call. The personal assistant has no tasks; its branch stays first regardless.
-    const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID
-      ? catalog
-      : target.surface === 'task'
-        ? withoutGatedTools(catalog, autonomousAgent.approvals)
-        : applyApprovalPolicy(catalog, autonomousAgent.approvals)
+    const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID ? catalog : applyApprovalPolicy(catalog, autonomousAgent.approvals)
 
     // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
     // happens to share a name cannot stand in for one, and recorded like a catalog call's source.
@@ -191,7 +185,9 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
       catalog: { tools: catalog, filteredOut, skippedServers }
     })
-    const tools: ToolSet = { ...catalogTools, ...service.tools }
+    // An UNATTENDED turn (a planned task's run) is offered no tool needing approval, from any source.
+    const assembled: ToolSet = { ...catalogTools, ...service.tools }
+    const tools = target.surface === 'task' ? unattended(assembled) : assembled
 
     return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn })
   } finally {

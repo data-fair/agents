@@ -4,7 +4,7 @@
  *
  * Compared with a conversation's target, everything about a person is absent: no history beyond the
  * task's prompt, no frames, no page, no approval to settle. A task run is offered no gated tool and no
- * wait (see withoutGatedTools and the service-tool registry), so a turn that still ends on one is recorded
+ * wait (see unattended in ../conversations/approval-policy.ts, and the service-tool registry), so a turn that still ends on one is recorded
  * as an error rather than left waiting on someone who will never come.
  */
 import mongo from '#mongo'

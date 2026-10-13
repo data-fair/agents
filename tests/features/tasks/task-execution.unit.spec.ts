@@ -5,15 +5,17 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema } from 'ai'
-import { withoutGatedTools } from '../../../api/src/conversations/approval-policy.ts'
+import { applyApprovalPolicy, unattended } from '../../../api/src/conversations/approval-policy.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
 import { renderMemoryBlock } from '../../../api/src/memory/operations.ts'
 import { validateTaskOutcome } from '../../../api/src/tasks/operations.ts'
 
 const t = () => tool({ description: 'x', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'ok' })
 
-test.describe('withoutGatedTools', () => {
+test.describe('unattended', () => {
   const tools = { read: { tool: t(), annotations: { readOnlyHint: true } }, write: { tool: t() }, wipe: { tool: t(), annotations: { destructiveHint: true } } }
+  // What a task run is offered: the policy applied, as in a chat, then everything left needing approval dropped.
+  const withoutGatedTools = (set: typeof tools, approvals?: Parameters<typeof applyApprovalPolicy>[1]) => unattended(applyApprovalPolicy(set, approvals))
 
   test('under the default approvals, a destructive tool is dropped and the others kept as they are', () => {
     const offered = withoutGatedTools(tools)
@@ -35,6 +37,11 @@ test.describe('withoutGatedTools', () => {
   test('an unannotated tool is a write: dropped when writes need approval', () => {
     // `write` carries no annotation at all, which is most hand-written servers' case.
     assert.deepEqual(Object.keys(withoutGatedTools(tools, { write: 'approve' })).sort(), ['read'])
+  })
+
+  test('a tool that gates itself is dropped too: a service tool\'s own needsApproval', () => {
+    const asking = { request_web_access: { tool: { ...t(), needsApproval: true } as any }, read: tools.read }
+    assert.deepEqual(Object.keys(unattended(asking)), ['read'])
   })
 })
 

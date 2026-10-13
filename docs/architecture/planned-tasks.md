@@ -84,7 +84,7 @@ In development the poll excludes `test*` owners (`schedulerScope` in `server.ts`
 
 **Unattended tool policy.** Nobody is present, so a task run is offered only what cannot need a person:
 
-- catalog tools go through `withoutGatedTools` (`api/src/conversations/approval-policy.ts`): only those whose approval class resolves to `allow`; a tool that would need approval is dropped, not gated, as a gated call could only end the turn on a card no one will see;
+- every tool needing approval is dropped, not gated (`unattended`, `api/src/conversations/approval-policy.ts`), whether the approval policy gated it or it gates itself (a service tool's own `needsApproval`): a gated call could only end the turn on a card no one will see;
 - `wait_for_user_action` is not offered (it applies to a chat with a session only), and neither is any page tool;
 - if the turn still ends on a wait or an approval request, `close` records it as an `error` (`CANNOT_WAIT`: "a task run cannot wait on a person");
 - the `memory` service tool applies as on every surface.

@@ -48,7 +48,7 @@ const CLASS_LABELS: Record<ApprovalClass, string> = { readOnly: 'read-only tools
 
 /**
  * Why a catalog tool is or is not usable this turn, by the same rule the turn applies: `deny` removes it,
- * `approve` gates it in a chat and removes it on the task surface (withoutGatedTools).
+ * `approve` gates it in a chat and removes it on the task surface (unattended).
  */
 const toolStatus = (annotations: Record<string, unknown> | undefined, approvals: Approvals | undefined, surface: TurnSurface): string => {
   const policy = resolveApproval(classifyTool(annotations), approvals)
