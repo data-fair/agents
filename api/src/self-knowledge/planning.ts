@@ -47,7 +47,7 @@ const APPROVAL_NOTE = 'The person in this chat will see the task and approve or 
 const DELIVERY_NOTE = 'Nobody watches a task run. A person is notified only when a run fails, the task is paused, or the run reports the outcome needs-attention through report_outcome; any other outcome is only kept in the run history for administrators. ' +
   'When the person wants to hear about what a task finds, say in its prompt when to report needs-attention (for example: "if there are closures, report needs-attention with the list"). Never promise to report back in any other way.'
 const REFUSAL_NOTE = 'A refusal for the schedule, the minimum interval or the task cap is final: do not retry the same input, tell the person.'
-const SCHEDULE_NOTE = 'Schedules use the rule format of data-fair processings (see the schema): one or more monthly, weekly, daily or every-N-hours rules, each at a time in a time zone.'
+const SCHEDULE_NOTE = 'Schedules use the rule format of data-fair processings (see the schema): monthly, weekly, daily or every-N-hours rules, each at a time in a time zone. An empty schedule is allowed for a task that should run only when something happens: an administrator then wires its trigger URL (for example to a dataset\'s update events) from the task\'s admin page, which you cannot do yourself; until then it runs only when an administrator runs it now.'
 
 /** An HTTP error from the task service (400 cap or interval, invalid input, 404) keeps its status in the text. */
 const guarded = <T>(write: () => Promise<T>): Promise<T> => write().catch(asToolError)
@@ -80,7 +80,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
 
   return {
     plan_task: tool({
-      description: `Plan a new task of yours: an instruction you will run on a schedule, with nobody present. ${APPROVAL_NOTE} ${DELIVERY_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
+      description: `Plan a new task of yours: an instruction you will run on a schedule or when triggered, with nobody present. ${APPROVAL_NOTE} ${DELIVERY_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
       inputSchema: jsonSchema<unknown>(taskSchema),
       needsApproval: true,
       execute: async (input: unknown) => {

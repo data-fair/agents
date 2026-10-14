@@ -92,6 +92,17 @@ test.describe('Planning tools', () => {
     assert.equal(runs[0].trigger, 'schedule')
   })
 
+  test('a task with no schedule can be planned: it runs by its trigger URL or run now, and says so', async () => {
+    const agent = await createAgent()
+    const asked = await ask(agent.id, 'plan_task', { ...digest, title: 'On dataset change', scheduling: [] })
+    const { part } = await decide(asked, 'plan_task', { approved: true })
+    assert.equal(part.state, 'output-available', JSON.stringify(part))
+    const [task] = await tasksOf(agent.id)
+    assert.deepEqual(task.scheduling, [])
+    assert.equal(task.nextRunAt, undefined)
+    assert.match(part.output, /active: no schedule: runs by webhook or when run now, next run none\./)
+  })
+
   test('rejected with a reason, nothing is planned and the call carries the reason', async () => {
     const agent = await createAgent()
     const asked = await ask(agent.id, 'plan_task', digest)
