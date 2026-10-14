@@ -118,6 +118,8 @@ test.describe('Agent page, History tab', () => {
     await expect(view.locator('.assistant-content')).toContainText('world')
     // read-only: nothing to type into
     await expect(view.getByRole('textbox')).toHaveCount(0)
+    // the mock reports only when reminded: the header says so, the transcript having no place for it
+    await expect(view.getByTestId('agent-run-reminded')).toHaveText('after a reminder')
 
     const downloadPromise = page.waitForEvent('download')
     await view.getByRole('link', { name: 'Export' }).click()
@@ -134,6 +136,15 @@ test.describe('Agent page, History tab', () => {
     await page.goBack()
     await expect(page).not.toHaveURL(/run=/)
     await expect(view).toHaveCount(0)
+  })
+
+  test('an open run whose model ignored the reminder says so; the list only that it has no outcome', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    await runTask(agentId, 'Silent digest', 'ignore the reminder')
+    await openHistory(page, goToWithAuth, agentId)
+    await expect(runItem(page, 'Silent digest').getByTestId('agent-run-no-outcome')).toHaveText('No outcome reported')
+    await runItem(page, 'Silent digest').click()
+    await expect(page.getByTestId('task-run-view').getByTestId('agent-run-no-outcome')).toHaveText('No outcome reported, even after a reminder')
   })
 
   test('a notification url opens directly on the run', async ({ page, goToWithAuth }) => {
