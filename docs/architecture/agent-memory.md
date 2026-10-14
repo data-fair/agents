@@ -1,6 +1,6 @@
 # Agent memory
 
-A configured autonomous agent may keep a **memory**: markdown documents it wrote in earlier runs, shown to it at the start of every later run and shared by everyone who instructs it. It is opt-in per agent (`memory.enabled` on the agent, see `api/types/autonomous-agent/schema.js`) and exists only for configured agents: `memoryEnabledFor` (`api/src/memory/operations.ts`) requires an audited agent id, so the personal assistant, which acts as the person, remembers nothing. Because one instructor's words can shape every later run, memory is agent-wide and **audited**: every change is attributed and versioned, administrators can read, edit, restore and redact it, and the conversations it is learnt from are never private (below). Memory is data, not instructions: the prompt clause says it may be wrong and that the agent's instructions always take precedence.
+A configured autonomous agent may keep a **memory**: markdown documents it wrote in earlier runs, shown to it at the start of every later run and shared by everyone who instructs it. It is opt-in per agent (`memory.enabled` on the agent, see `api/types/autonomous-agent/schema.js`) and exists only for configured agents: `memoryEnabledFor` (`api/src/memory/operations.ts`) requires an audited agent id, so the personal assistant, which acts as the person, remembers nothing. Because one instructor's words can shape every later run, memory is agent-wide and **audited**: every change is attributed and versioned, whoever instructs the agent can read it, administrators edit, restore and redact it, and the conversations it is learnt from are never private (below). Memory is data, not instructions: the prompt clause says it may be wrong and that the agent's instructions always take precedence.
 
 One store per agent, `agent:<agentId>` (`agentStoreId`), in two collections: `agent-memories` (the live documents) and `agent-memory-versions` (the append-only log).
 
@@ -83,7 +83,7 @@ One trigger: a sweep every 15 minutes (`api/src/server.ts`), where each agent wi
 
 ## Admin surface
 
-`/api/memory/:type/:id/:agentId` (`api/src/memory/router.ts`), for **administrators of the owning organization only**: an agent-wide memory can hold what other instructors said, so a plain instructor does not see it.
+`/api/memory/:type/:id/:agentId` (`api/src/memory/router.ts`). The reads (`GET` routes) are open to **whoever may instruct the agent** (`canInstruct`); every change is for **administrators of the owning organization**. Sharing is the design, not a leak: an agent with an identity and continuity keeps one memory and one history across everyone it talks with, the chat says its conversations are not private, and `MEMORY.md` is in every run's recorded system prompt anyway. Hiding the memory from an instructor hid nothing they could not ask the agent for.
 
 | Route | Purpose |
 | --- | --- |
@@ -95,7 +95,7 @@ One trigger: a sweep every 15 minutes (`api/src/server.ts`), where each agent wi
 | `POST /versions/:versionId/restore` | restore |
 | `POST /versions/:versionId/redact` | redact |
 
-Writes also require the progressive-rollout session (`reqWriteSession`: admin mode while `autonomousAgentsRequireAdminMode` is on); reads do not. A refusal is a 400 with its reason, a lost precondition a 409. Deleting the agent erases its store first, and again at the end of the cascade (a turn on another instance, or one mid-call, can write after the first pass): memory is derived from the conversations and must not outlive them. The UI is `ui/src/components/AgentMemoryDialog.vue`, opened from the agent's section by a Memory button shown to admins for every configured agent, memory on or off (the dialog's banner says when it is off: the notes are kept, not used): documents with edit and delete, and a history tab with restore and redact.
+Writes also require the progressive-rollout session (`reqWriteSession`: admin mode while `autonomousAgentsRequireAdminMode` is on); reads do not. A refusal is a 400 with its reason, a lost precondition a 409. Deleting the agent erases its store first, and again at the end of the cascade (a turn on another instance, or one mid-call, can write after the first pass): memory is derived from the conversations and must not outlive them. The UI is `ui/src/components/AgentMemoryDialog.vue`, opened from the agent's section by a Memory button shown to admins for every configured agent, memory on or off (the dialog's banner says when it is off: the notes are kept, not used): documents with edit and delete, and a history tab with restore and redact. The chat opens the same dialog read-only from its "not private" notice, for every signed-in person talking with a configured agent.
 
 ## Audited conversations
 
@@ -112,6 +112,5 @@ Recorded, not resolved; roughly in order of weight. What is in place is above: m
 
 1. **Poisoning through tool output.** An autonomous agent reads untrusted MCP and web output with no human in the loop, and a memory write promotes it into standing context for every later run (Unit 42's [Bedrock memory poisoning](https://unit42.paloaltonetworks.com/indirect-prompt-injection-poisons-ai-longterm-memory/), [MINJA](https://arxiv.org/abs/2503.03704), OWASP agentic ASI06). Candidates: stage writes made after untrusted output for approval (Hermes `write_approval`, Devin's suggestions), a read-only memory mode.
 2. **Exfiltration channels.** Only invisible and control characters are refused; URLs in memory could be followed later; a markdown image of another site no longer loads when rendered (it becomes a link, [web access](./web-access.md)). Candidates: strip images, flag URLs, scan for credential-shaped strings before accepting a write.
-3. **Cross-instructor disclosure.** Agent-wide memory carries what one instructor said into another's runs; only admins can read it. Open: whether instructors should see it, and whether the chat should say memory is shared.
-4. **Erasure.** A GDPR erasure (`DELETE /api/review/:type/:id?userId=`) deletes the person's conversations but not memory written from them, nor its versions. Together with redaction's copies (above), this calls for one utility finding a text across versions, messages and recorded run prompts.
-5. **Admin edits** can write anything into memory, by design: an admin writes the instructions too. Their edits are versioned under their identity.
+3. **Erasure.** A GDPR erasure (`DELETE /api/review/:type/:id?userId=`) deletes the person's conversations but not memory written from them, nor its versions. Together with redaction's copies (above), this calls for one utility finding a text across versions, messages and recorded run prompts.
+4. **Admin edits** can write anything into memory, by design: an admin writes the instructions too. Their edits are versioned under their identity.

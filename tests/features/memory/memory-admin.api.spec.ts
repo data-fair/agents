@@ -82,8 +82,23 @@ test.describe('Agent memory admin API', () => {
     assert.equal((await orgAdmin.get(base(agent.id))).data.documents.length, 0)
   })
 
-  test('an instructor who is not an admin cannot read memory', async () => {
+  test('an instructor who is not an admin reads memory but cannot change it', async () => {
+    // The agent's memory is shared across everyone it talks with by design, and it reaches every run's
+    // system prompt anyway: hiding it from an instructor hid nothing. Changing it stays the admins'.
     const agent = await createAgent()
+    const written = (await put(agent.id, 'MEMORY.md', { description: 'Core facts', content: '- the sales dataset is "ventes"' })).data
+    assert.equal((await instructor.get(base(agent.id))).data.documents[0].path, 'MEMORY.md')
+    assert.equal((await instructor.get(`${base(agent.id)}/document`, { params: { path: 'MEMORY.md' } })).data.content, '- the sales dataset is "ventes"')
+    const versions = (await instructor.get(`${base(agent.id)}/versions`)).data.results
+    assert.equal(versions.length, 1)
+    await assert.rejects(instructor.put(`${base(agent.id)}/document`, { description: 'd', content: 'a', version: written.version }, { params: { path: 'MEMORY.md' } }), { status: 403 })
+    await assert.rejects(instructor.post(`${base(agent.id)}/versions/${versions[0].id}/redact`), { status: 403 })
+  })
+
+  test('someone who may not instruct the agent cannot read its memory', async () => {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'Mem', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true }
+    })).data
     await assert.rejects(instructor.get(base(agent.id)), { status: 403 })
   })
 
