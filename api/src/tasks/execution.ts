@@ -142,12 +142,13 @@ export const startTaskRun = async (
  * Close the task runs left `running` by a dead process. Never resumed: a task run that began may have
  * fired its tools, and one that did not is simply the next slot's to run. Ownerless when nobody holds its
  * task's lock and this process is not running it. Closed `interrupted`, which notifies and counts toward
- * the task's pause like any failure. The conversation half is `recoverOwnerlessRuns` (executor.ts).
+ * the task's pause like any failure. The conversation half is `recoverOwnerlessRuns` (executor.ts). `scope`
+ * narrows the runs considered (the real-clock job leaves the specs' `test*` owners to their test-env seam).
  */
-export const recoverOwnerlessTaskRuns = async (): Promise<{ interrupted: number, skipped: number }> => {
+export const recoverOwnerlessTaskRuns = async (scope: Record<string, unknown> = {}): Promise<{ interrupted: number, skipped: number }> => {
   let interrupted = 0
   let skipped = 0
-  const taskCandidates = await mongo.runs.find({ status: 'running', kind: 'task' }, { projection: { _id: 0 } }).toArray()
+  const taskCandidates = await mongo.runs.find({ status: 'running', kind: 'task', ...scope }, { projection: { _id: 0 } }).toArray()
   const heldTaskLocks = new Set((await mongo.db.collection<{ _id: string }>('locks')
     .find({ _id: { $regex: '^task:' } }, { projection: { _id: 1 } }).toArray()).map(doc => String(doc._id).slice('task:'.length)))
   for (const run of taskCandidates) {

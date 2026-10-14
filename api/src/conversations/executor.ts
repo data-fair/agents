@@ -429,9 +429,9 @@ export const startRun = async (run: ConversationTurnRun): Promise<void> => {
  * are skipped entirely. Because a lock's TTL is refreshed only by its holder, a dead process's lock
  * expires and its runs are recovered on a later pass.
  */
-export const recoverOwnerlessRuns = async (): Promise<{ interrupted: number, resumed: number, skipped: number }> => {
+export const recoverOwnerlessRuns = async (scope: Record<string, unknown> = {}): Promise<{ interrupted: number, resumed: number, skipped: number }> => {
   const candidates = await mongo.runs
-    .find({ status: 'running', kind: 'conversation' }, { projection: { _id: 0 } })
+    .find({ status: 'running', kind: 'conversation', ...scope }, { projection: { _id: 0 } })
     .toArray() as ConversationTurnRun[]
 
   const heldLocks = new Set(

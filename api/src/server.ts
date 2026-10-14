@@ -113,7 +113,9 @@ export const start = async () => {
   // again, which may be never. This reaper makes "running with nobody running it" recoverable
   // without a restart. The interval is well inside the 60s lock TTL, so it does not fight a
   // live holder.
-  every(30 * 1000, 'autonomous agent recovery', () => Promise.all([recoverOwnerlessRuns(), recoverOwnerlessTaskRuns()]))
+  // realClockScope: a spec inserts unlocked `running` runs on purpose and drives recovery through test-env; this
+  // pass closing one between two of its requests made the spec flaky.
+  every(30 * 1000, 'autonomous agent recovery', () => Promise.all([recoverOwnerlessRuns(realClockScope), recoverOwnerlessTaskRuns(realClockScope)]))
 
   every(24 * 60 * 60 * 1000, 'usage cleanup', cleanupOldUsage, { now: true })
 
