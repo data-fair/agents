@@ -265,7 +265,10 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
 
   // The reminder a planned task's run gets when it ended without report_outcome (executor.ts performTurn): the
   // mock reports, as a model told to would. After the tool-result guard above, so it answers the call with text.
+  // A task prompt saying "ignore the reminder" makes it answer in text instead: a model may, and the run then ends
+  // with no outcome.
   if (lastMessage === OUTCOME_REMINDER) {
+    if (JSON.stringify(prompt).includes('ignore the reminder')) return { type: 'text', text: 'reminder ignored' }
     return { type: 'tool-call', toolName: 'report_outcome', toolArgs: JSON.stringify({ status: 'done', summary: 'reported when reminded' }) }
   }
 

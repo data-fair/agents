@@ -84,6 +84,15 @@ test.describe('Task runs', () => {
     assert.equal(run.calls.length, 2, 'two model calls, each recorded with its own spend')
   })
 
+  test('a run whose model ignores the reminder ends with no outcome, reminded only once', async () => {
+    const agent = await createAgent()
+    const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, (await createTask(agent.id, 'ignore the reminder')).id))
+    assert.equal(run.status, 'done')
+    assert.equal(run.outcome, undefined)
+    assert.equal(run.messages[1].parts.filter((p: any) => p.type === 'data-outcome-reminder').length, 1)
+    assert.equal(run.calls.length, 2)
+  })
+
   test('a run that reported its outcome is not reminded', async () => {
     const agent = await createAgent()
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, (await createTask(agent.id, 'call tool report_outcome {"status":"done","summary":"all good"}')).id))

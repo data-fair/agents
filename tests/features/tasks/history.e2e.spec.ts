@@ -65,7 +65,7 @@ test.describe('Agent page, History tab', () => {
   test('each state of a task run reads distinctly', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     await runTask(agentId, 'Reported digest', 'call tool report_outcome {"status":"needs-attention","summary":"Two datasets are stale"}')
-    await runTask(agentId, 'Silent digest', 'hello')
+    await runTask(agentId, 'Silent digest', 'ignore the reminder')
     await runTask(agentId, 'Broken digest', 'stream error')
     const running = await runTask(agentId, 'Stalling digest', 'stall', false)
     try {
