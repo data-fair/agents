@@ -35,7 +35,7 @@ needs a redesign; most fixes are a few lines.
 ## Medium
 
 **Authorization**
-- **M1 Department admin counts as org admin.** `getEffectiveRole` compares account type+id, not
+- **M1 ✅ Department admin counts as org admin.** *Owner ruling: a department role grants nothing implicitly on the root organization; `getEffectiveRole` now uses lib-common-types' `getAccountRole`, so a department session is `external` there. Follow-up: let quotas and their UI target departments explicitly (a department, or a department wildcard).* `getEffectiveRole` compares account type+id, not
   department (`auth.ts:31`). With an instructor ref `{organization O}` (all departments), a department
   admin is offered and may approve `request_web_access`, `request_mcp_access`, planning tools; also
   gets the unlimited `admin` quota on the personal assistant. Fix: compare `department` as `canInstruct`

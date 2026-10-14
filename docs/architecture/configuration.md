@@ -322,6 +322,8 @@ Doc shape (`api/types/limits/schema.js`):
 2. **Untrusted pool** — combined `anonymous` + `external` usage against `quotas.untrusted`, only for untrusted callers.
 3. **Per-profile / per-user quota** — `quotas[role]` (`admin`/`contrib`/`user`/`external`/`anonymous`), only when usage is tracked per-user.
 
+The role is the stack's (`getEffectiveRole`, `api/src/auth.ts`, over lib-common-types' `getAccountRole`): the active account must match the owner, **department included**. Accounts here are organization roots, so a person whose active account is a department of the organization counts as `external` — a department role grants nothing implicitly on the root, an admin of a department included. Giving departments something (a quota of their own, a department wildcard) is a later extension of the quotas and of their settings UI, not an implicit rule.
+
 See [Quotas & usage](./quotas-usage.md) for the full flow and the daily/weekly = monthly/2/4 derivation, unchanged by this refactor.
 
 **Renewal semantics.** `incrementConsumption()` stamps `consumptionMonth` on every recorded credit spend. `resetDefaultsConsumption()` (`api/src/limits/service.ts`), run daily from the usage cleanup loop, zeroes `ai_credits.consumption` for any doc where `defaults: true` and `consumptionMonth` is behind the current calendar month — i.e. **only self-managed (`defaults: true`) docs reset automatically, on the calendar month.** A doc customers has pushed to (`defaults` absent/false) is never touched by this reset: customers is expected to reset `ai_credits.consumption` itself on the subscription's actual renewal day (which may not align with the calendar month), typically via the same `POST` endpoint.
