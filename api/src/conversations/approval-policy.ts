@@ -37,6 +37,17 @@ export const applyApprovalPolicy = (tools: ToolSet, approvals?: Approvals): Tool
 }
 
 /**
+ * The personal assistant's catalog tools. It acts as the person, through their own session, so every
+ * change it makes is theirs: anything that is not a read waits for their approval, a write as much as a
+ * destructive call — unlike a configured agent, whose administrator chose what it may do alone. An
+ * anonymous visitor is offered reads only, since nobody signed in is there to decide on a card.
+ */
+export const personalAssistantTools = (tools: ToolSet, opts: { anonymous: boolean }): ToolSet => {
+  const gated = applyApprovalPolicy(tools, { write: 'approve', destructive: 'approve' })
+  return opts.anonymous ? unattended(gated) : gated
+}
+
+/**
  * The tool set of an UNATTENDED turn (a planned task's run): every tool needing approval is dropped,
  * whatever made it so — the policy (applyApprovalPolicy) or the tool itself (a service tool's own
  * `needsApproval`). Nobody is there to decide, so a gated call could only end the turn on a card no one

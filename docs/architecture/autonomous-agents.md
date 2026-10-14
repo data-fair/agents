@@ -295,9 +295,17 @@ A tool call is classified from the MCP `annotations` its server declares (`api/s
 an unannotated tool is a **write** — the safe reading of a tool that said nothing. Each agent carries
 `approvals`, one of `allow` / `approve` / `deny` per class; the defaults are `readOnly: 'allow'`,
 `write: 'allow'` and `destructive: 'approve'`: gating only what a server declares destructive keeps cards rare
-enough to be read rather than clicked through, and an admin raises `write` where it matters. It applies to the
-**catalog tools of configured autonomous agents** only: the personal assistant's tools and the service's own tools
-are exempt.
+enough to be read rather than clicked through, and an admin raises `write` where it matters. It applies to
+**catalog tools** only: the service's own tools and page tools are exempt.
+
+The **personal assistant** has no `approvals` of its own but a fixed policy (`personalAssistantTools`): every
+catalog call that is not read-only asks, a write as much as a destructive one. It acts as the person, so a change
+it makes is theirs; in the page the convention is that the assistant prepares and the person saves, and
+approving each change keeps that convention for tools that save on the server. Its cards are therefore
+expected to be rarer than a configured agent's would be with `write: 'approve'`: data-fair's MCP (openapi-mcp)
+marks every GET read-only. An anonymous visitor is offered reads only, as nobody signed in can decide. The
+person deciding is the conversation's owner; for a configured agent the decider must also be allowed to
+instruct it (`canInstruct`), since approving borrows its identity.
 
 - `deny` **removes** the tool from the set the model sees, so it cannot be asked for.
 - `approve` **stops the turn**: the call is stored in the AI SDK's `approval-requested` state and the run ends

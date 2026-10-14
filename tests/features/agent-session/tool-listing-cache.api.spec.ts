@@ -52,8 +52,9 @@ test.describe('Tool listings across turns', () => {
     const socket = await personalSession()
     await turn(socket, 'hello')
     const afterFirst = fixture.methodCounts()
-    // The dev catalog points three entries at this fixture (public, session, api key): one listing each.
-    assert.equal(afterFirst['tools/list'], 3)
+    // The dev catalog points two of the personal assistant's entries at this fixture (public, session): one
+    // listing each. The third, with an api key, is a configured agent's only.
+    assert.equal(afterFirst['tools/list'], 2)
 
     await turn(socket, 'hello')
     assert.deepEqual(fixture.methodCounts(), afterFirst, 'a second turn must reuse the listings, and call no server')
@@ -64,9 +65,10 @@ test.describe('Tool listings across turns', () => {
     await turn(socket, 'hello')
     const before = fixture.methodCounts()
 
-    const end = await turn(socket, 'call tool echo {"value":"x"}')
+    // A read: the personal assistant asks before anything else.
+    const end = await turn(socket, 'call tool get_schema {}')
     assert.equal(end.stopReason, 'completed')
-    assert.deepEqual(fixture.invokedTools(), ['echo'])
+    assert.deepEqual(fixture.invokedTools(), ['get_schema'])
     const after = fixture.methodCounts()
     assert.equal((after.initialize ?? 0) - (before.initialize ?? 0), 1)
     assert.equal(after['tools/list'], before['tools/list'])
@@ -75,7 +77,7 @@ test.describe('Tool listings across turns', () => {
   test('turns starting together share one listing per server', async () => {
     const sockets = await Promise.all([personalSession(), personalSession(), personalSession(), personalSession()])
     await Promise.all(sockets.map(socket => turn(socket, 'hello')))
-    assert.equal(fixture.methodCounts()['tools/list'], 3)
+    assert.equal(fixture.methodCounts()['tools/list'], 2)
   })
 
   // Keyed on the agent, not on its session cookie: a configured agent exchanges a fresh session every

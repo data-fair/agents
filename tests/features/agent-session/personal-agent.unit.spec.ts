@@ -11,7 +11,7 @@ import { personalAgent, PERSONAL_AGENT_ID } from '../../../api/src/agent-session
 import { createAgentSession } from '../../../api/src/agent-session/session.ts'
 
 /** A catalog, passed in rather than read from config — which is what keeps this unit testable. */
-const CATALOG = [{ id: 'dev-public-mcp' }, { id: 'dev-session-mcp' }]
+const CATALOG = [{ id: 'dev-public-mcp', auth: 'none' as const }, { id: 'dev-session-mcp', auth: 'nhi-session' as const }]
 
 test.describe('the personal assistant', () => {
   test('the persona does NOT restate the permission ceiling, which the prompt adds once', () => {
@@ -43,7 +43,7 @@ test.describe('the personal assistant', () => {
     assert.equal(PERSONAL_AGENT_ID, 'personal')
   })
 
-  test('it reaches every catalog entry, unfiltered', () => {
+  test('it reaches every catalog entry it can call as the person, unfiltered', () => {
     // Narrowing here would be a second, weaker copy of an authorization decision that upstream already
     // makes — and it acts as the person, so their own permissions are already the ceiling.
     const agent = personalAgent(CATALOG)!
@@ -51,6 +51,13 @@ test.describe('the personal assistant', () => {
     // Nothing filtered out, explicitly: a toolFilter here would be a weaker copy of an authorization
     // decision upstream already makes.
     assert.deepEqual(agent.mcpServers?.map((ref: { toolFilter?: string[] }) => ref.toolFilter), [undefined, undefined])
+  })
+
+  test('never an entry carrying the deployment\'s own key: that one acts as the operator, not the person', () => {
+    // An `apiKey` entry sends the same header whoever is chatting, an anonymous visitor included, so the
+    // person's permissions are not its ceiling. Configured agents may still reference it.
+    const agent = personalAgent([...CATALOG, { id: 'third-party', auth: 'apiKey' }])
+    assert.deepEqual(agent.mcpServers?.map(ref => ref.serverId), ['dev-public-mcp', 'dev-session-mcp'])
   })
 })
 

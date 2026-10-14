@@ -102,7 +102,7 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     // has something to call in an autonomous agent's tool set. Without it the turn calls a
     // tool the agent does not have and ends as an unknown-tool error, which would still
     // satisfy a naive "the run stopped" assertion while testing the wrong thing.
-    { description: 'Returns a fixed schema', inputSchema: {} },
+    { description: 'Returns a fixed schema', inputSchema: {}, annotations: { readOnlyHint: true } },
     async () => { record('get_schema'); return { content: [{ type: 'text', text: '{"fields":[]}' }] } }
   )
   mcp.registerTool(
@@ -117,7 +117,8 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     // answer instead of calling this will not produce "Rue de la Paix" or the 2026-07 dates.
     {
       description: 'Lists current road closures for a city district, with reason and expected reopening date',
-      inputSchema: { district: z.string().describe('District name, e.g. "city-center"') }
+      inputSchema: { district: z.string().describe('District name, e.g. "city-center"') },
+      annotations: { readOnlyHint: true }
     },
     async ({ district }) => {
       record('list_road_closures')
@@ -155,7 +156,8 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     // does not: a script must get the object (code mode, spec §6.4), the model the text.
     {
       description: 'Counts the current road closures of a city district',
-      inputSchema: { district: z.string().describe('District name, e.g. "city-center"') }
+      inputSchema: { district: z.string().describe('District name, e.g. "city-center"') },
+      annotations: { readOnlyHint: true }
     },
     async ({ district }) => {
       record('closure_stats')
@@ -176,7 +178,7 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
      * to a knife edge. With this one the payload dominates, which is what a real MCP conversation looks
      * like once a tool returns a page of rows.
      */
-    { description: 'Returns a result of the requested size', inputSchema: { chars: z.number() } },
+    { description: 'Returns a result of the requested size', inputSchema: { chars: z.number() }, annotations: { readOnlyHint: true } },
     async ({ chars }) => {
       record('bulk')
       return { content: [{ type: 'text', text: 'b'.repeat(Math.min(chars, 200_000)) }] }
@@ -201,8 +203,8 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
   mcp.registerTool(
     'wipe_everything',
     // Declares MCP `annotations`, which the run records per call: they are what makes a write auditable
-    // and are the input P1's approval gate reads. Nothing else here declares any, so without this tool
-    // "annotations are carried through" is untestable.
+    // and are the input P1's approval gate reads. The reads here declare `readOnlyHint`, as openapi-mcp
+    // does for a GET; `echo` and the others declare nothing, so they are writes.
     {
       description: 'Declares destructive annotations, and does nothing',
       inputSchema: {},
@@ -214,7 +216,7 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     'snapshot',
     // The only tool here that returns an IMAGE, which is what an image-bearing result can only be tested
     // with: such a result is stored and replayed as an envelope, and reaches the model as image parts.
-    { description: 'Returns a tiny PNG chart and a caption', inputSchema: {} },
+    { description: 'Returns a tiny PNG chart and a caption', inputSchema: {}, annotations: { readOnlyHint: true } },
     async () => {
       record('snapshot')
       return {
@@ -273,7 +275,7 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     // Which site this call acts on and as whom, as the server received it: the proof that a call landed
     // on the right site with the right identity. Decodes the session's claims without verifying them —
     // a fixture reporting what it was sent, not an authority.
-    { description: 'Says which site the call acts on, and as whom', inputSchema: {} },
+    { description: 'Says which site the call acts on, and as whom', inputSchema: {}, annotations: { readOnlyHint: true } },
     async () => {
       record('whoami')
       const cookie = String(headers.cookie ?? '')

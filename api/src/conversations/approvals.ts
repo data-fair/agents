@@ -16,6 +16,7 @@ import { getEffectiveRole } from '../auth.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../self-knowledge/operations.ts'
+import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
 
 /**
  * The calls whose approval is an administrator's of the organization, not any instructor's, and why.
@@ -30,10 +31,11 @@ const ADMIN_DECISIONS: Record<string, string> = {
 }
 
 /**
- * The socket's `approval` frame is the only way in, and the grant is checked here: approvals
- * exist only on configured autonomous agents, and approving borrows the autonomous agent's permissions
- * exactly as instructing it does — someone whose grant was revoked since the request may not approve it.
- * That the conversation is the caller's own is the caller's check (it already holds the conversation).
+ * The socket's `approval` frame is the only way in, and the grant is checked here: approving a configured
+ * agent's call borrows its permissions exactly as instructing it does — someone whose grant was revoked
+ * since the request may not approve it. The personal assistant lends nothing (it acts as the person), so
+ * its owner decides, as for every other turn of their thread. That the conversation is the caller's own is
+ * the caller's check (it already holds the conversation).
  *
  * The decision is recorded BEFORE the run is created, and atomically (see decideApproval): of two
  * decisions racing on the same call, exactly one gets a message back, the other is told 409. Of two
@@ -53,7 +55,7 @@ export const decideAndContinue = async (input: {
   // Before the decision is recorded, so the card stays pending and can be decided again after the restart.
   assertAcceptingTurns()
   const { conversation, session } = input
-  assertCanInstruct(await requireAutonomousAgent(conversation.owner, conversation.agentId), session)
+  if (conversation.agentId !== PERSONAL_AGENT_ID) assertCanInstruct(await requireAutonomousAgent(conversation.owner, conversation.agentId), session)
   // An administrator's call (ADMIN_DECISIONS) approved by anyone else is refused before anything is
   // recorded, so the call stays pending for an administrator. Rejecting it is anyone's.
   if (input.approved && getEffectiveRole(session, conversation.owner) !== 'admin') {

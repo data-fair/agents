@@ -32,7 +32,7 @@ import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
 import { openExternalMcpTools } from '../mcp-servers/external.ts'
 import { envPublicIps } from '../web/public-lookup.ts'
 import { personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
-import { applyApprovalPolicy, unattended } from './approval-policy.ts'
+import { applyApprovalPolicy, personalAssistantTools, unattended } from './approval-policy.ts'
 import { agentSiteCredentials } from '../nhi/service.ts'
 import { notifyMessage } from '../agent-session/registry.ts'
 import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
@@ -193,9 +193,12 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     if (skippedServers.length) {
       debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
     }
-    // THE APPROVAL GATE, on the catalog tools of a configured autonomous agent only. The personal assistant
-    // has no policy, page tools act in the person's own browser, and service tools are the loop's own.
-    const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID ? catalog : applyApprovalPolicy(catalog, autonomousAgent.approvals)
+    // THE APPROVAL GATE, on catalog tools: a configured agent's policy, or the personal assistant's fixed
+    // one (every change waits for the person). Page tools act in the person's own browser, and service
+    // tools are the loop's own.
+    const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID
+      ? personalAssistantTools(catalog, { anonymous: run.triggeredByRole === 'anonymous' })
+      : applyApprovalPolicy(catalog, autonomousAgent.approvals)
 
     // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
     // happens to share a name cannot stand in for one, and recorded like a catalog call's source.

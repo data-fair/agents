@@ -9,6 +9,7 @@
 
 import { PERSONAL_AGENT_ID } from '@agents/shared/agent-audit'
 import type { AutonomousAgentForTools } from '../mcp-servers/client.ts'
+import type { McpServerAuth } from '../mcp-servers/operations.ts'
 
 export { PERSONAL_AGENT_ID }
 
@@ -28,16 +29,18 @@ export interface PersonalAgent extends AutonomousAgentForTools {
 /**
  * Build the personal assistant.
  *
- * Every catalog entry, unfiltered: it acts as the person, so their own permissions are already the
- * ceiling. Narrowing here would be a second, weaker copy of an authorization decision that whatever the
- * tool calls already makes — and it is why an unreachable entry is skipped rather than fatal for it
- * (see ../mcp-servers/client.ts).
+ * Every catalog entry it calls as the person, unfiltered: their own permissions are already the ceiling.
+ * Narrowing here would be a second, weaker copy of an authorization decision that whatever the tool calls
+ * already makes — and it is why an unreachable entry is skipped rather than fatal for it (see
+ * ../mcp-servers/client.ts). The one exception is an `apiKey` entry: it sends the deployment's own key
+ * whoever is chatting, an anonymous visitor included, so the person is not its ceiling. Only a configured
+ * agent, chosen by an administrator, may reference one.
  *
  * The catalog is passed in rather than read from `#config`, following the rule `contextBudget` follows:
  * a module that imports `#config` cannot be unit tested, because that import validates the whole
  * deployment environment.
  */
-export const personalAgent = (catalog: Array<{ id: string }>): PersonalAgent => ({
+export const personalAgent = (catalog: Array<{ id: string, auth: McpServerAuth }>): PersonalAgent => ({
   id: PERSONAL_AGENT_ID,
   title: PERSONAL_AGENT_TITLE,
   persona: [
@@ -49,5 +52,5 @@ export const personalAgent = (catalog: Array<{ id: string }>): PersonalAgent => 
     'You help the person using it with what is on the page in front of them, and with the data they can reach.'
   ].join(' '),
   enabled: true,
-  mcpServers: catalog.map(server => ({ serverId: server.id }))
+  mcpServers: catalog.filter(server => server.auth !== 'apiKey').map(server => ({ serverId: server.id }))
 })

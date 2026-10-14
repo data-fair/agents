@@ -383,8 +383,8 @@ test.describe('The approval gate', () => {
   })
 
   test('an approved call\'s result cut at the bound says so on its own part', async () => {
-    // Approval-run results are precisely the audited writes: a review must be able to tell one was cut.
-    const agent = await createGatedAgent({ approvals: { write: 'approve' } })
+    // Approval-run results are precisely the audited calls: a review must be able to tell one was cut.
+    const agent = await createGatedAgent({ approvals: { readOnly: 'approve' } })
     const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool bulk {"chars":150000}')
     const { runId } = await decideRun(conversationId, callPart(assistant, 'bulk').approval.id, { approved: true })
     await awaitRun(orgAdmin, conversationId, runId)

@@ -117,7 +117,7 @@ export const startAgentSessions = (server: Server) => {
       },
       // A decision on a call the approval gate stopped, for the conversation this socket is bound to —
       // never one named in the frame, so a socket cannot decide on someone else's thread. An anonymous
-      // visitor has none to decide: approvals exist only on configured autonomous agents.
+      // visitor has none to decide: the personal assistant offers them no tool that asks.
       onApproval: async (approvalId, approved, reason) => {
         const conversationId = boundConversationId
         if (!conversationId || !sessionState?.user) {

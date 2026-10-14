@@ -5,7 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema } from 'ai'
-import { classifyTool, resolveApproval, applyApprovalPolicy, DEFAULT_APPROVALS } from '../../../api/src/conversations/approval-policy.ts'
+import { classifyTool, resolveApproval, applyApprovalPolicy, personalAssistantTools, DEFAULT_APPROVALS } from '../../../api/src/conversations/approval-policy.ts'
 
 const t = () => tool({ description: 'x', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'ok' })
 
@@ -52,5 +52,25 @@ test.describe('applyApprovalPolicy', () => {
     const gated = applyApprovalPolicy({ wipe: wipe(), plain: { tool: t() } }, undefined)
     assert.equal((gated.wipe.tool as any).needsApproval, true)
     assert.equal((gated.plain.tool as any).needsApproval, undefined)
+  })
+})
+
+test.describe('personalAssistantTools', () => {
+  const tools = {
+    read: { tool: t(), server: 's', annotations: { readOnlyHint: true } },
+    write: { tool: t(), server: 's' },
+    wipe: { tool: t(), server: 's', annotations: { destructiveHint: true } }
+  }
+
+  test('everything but a read waits for the person: the assistant acts for them, so they approve each change', () => {
+    const gated = personalAssistantTools(tools, { anonymous: false })
+    assert.deepEqual(Object.keys(gated), ['read', 'write', 'wipe'])
+    assert.equal(gated.read.tool.needsApproval, undefined)
+    assert.equal(gated.write.tool.needsApproval, true)
+    assert.equal(gated.wipe.tool.needsApproval, true)
+  })
+
+  test('an anonymous visitor is offered reads only: nobody signed in can decide on a card', () => {
+    assert.deepEqual(Object.keys(personalAssistantTools(tools, { anonymous: true })), ['read'])
   })
 })
