@@ -27,12 +27,13 @@ import { startSessionTurn, sendHistory } from './turn.ts'
 import { verifyAnonymousActionToken } from '../anonymous-token/service.ts'
 import { anonymousUsageUserId } from '../usage/enforce.ts'
 import { PORTAL_ASSISTANT_ID } from './personal-agent.ts'
-import { abortRunsOfConversation } from '../conversations/live-runs.ts'
+import { abortRunsOfConversation, liveTurnOf } from '../conversations/live-runs.ts'
 import { decideAndContinue } from '../conversations/approvals.ts'
 import { settlePendingWait, wakeIfAnswered } from '../conversations/waits.ts'
 import { INTERRUPTED_RESULTS } from '../conversations/interrupted-turn.ts'
 import { getSettings } from '../settings/service.ts'
 import { siteOriginFromHeaders } from '../sites/operations.ts'
+import { upgradeRefusal, sessionExpiresAt } from './upgrade.ts'
 
 const debug = Debug('agents:agent-session')
 
@@ -174,6 +175,24 @@ export const startAgentSessions = (server: Server) => {
     sessions.set(ws, agentSession)
     debug('session opened, %d live', sessions.size)
 
+    // Who this socket speaks for was read from the token at the upgrade, and a frame carries no cookie to
+    // read it again: once that token expires, its role and memberships are older than any HTTP request of
+    // the stack would accept. The socket is then closed, and the chat reopens it with the cookie as it is
+    // now the next time it sends anything — silently, when nothing was in flight. A turn streaming to it
+    // is let finish first (checked again shortly), and a prompt or a decision arriving meanwhile is refused.
+    const expiresAt = sessionExpiresAt(sessionState ?? {})
+    const expired = () => expiresAt !== undefined && Date.now() >= expiresAt
+    let expiryTimer: NodeJS.Timeout | undefined
+    const closeAtExpiry = () => {
+      if (boundConversationId && liveTurnOf(boundConversationId)) {
+        expiryTimer = setTimeout(closeAtExpiry, 30_000)
+        return
+      }
+      ws.close(1008, 'the session expired')
+    }
+    // Capped: a longer delay overflows setTimeout and fires at once.
+    if (expiresAt !== undefined) expiryTimer = setTimeout(closeAtExpiry, Math.min(Math.max(0, expiresAt - Date.now()), 2 ** 31 - 1))
+
     /**
      * The account a thread belongs to, once the caller has been checked against it.
      *
@@ -275,6 +294,11 @@ export const startAgentSessions = (server: Server) => {
         await hello(parsed)
         return
       }
+      if ((parsed.type === 'prompt' || parsed.type === 'approval') && expired()) {
+        send({ type: 'error', status: 401, message: 'your session expired, send again' })
+        ws.close(1008, 'the session expired')
+        return
+      }
       if (parsed.type === 'prompt' && !boundConversationId && agentSession.attached()) {
         try {
           await startNewThread(parsed.title)
@@ -312,6 +336,7 @@ export const startAgentSessions = (server: Server) => {
     }
 
     ws.on('close', () => {
+      clearTimeout(expiryTimer)
       sessions.delete(ws)
       debug('session closed, %d live', sessions.size)
       closeSession('the connection closed')
@@ -338,6 +363,12 @@ export const startAgentSessions = (server: Server) => {
     // consequence of not looking.
     expressSession.req(req as any)
       .then(async (sessionState) => {
+        const refusal = upgradeRefusal(req.headers, sessionState)
+        if (refusal) {
+          debug('refused an upgrade: %s', refusal.message)
+          socket.end(`HTTP/1.1 ${refusal.status} Forbidden\r\nConnection: close\r\n\r\n${refusal.message}`)
+          return
+        }
         // Whether this account offers personal-assistant review at all, resolved HERE because the upgrade is the one
         // async moment before the first frame — `handle` is synchronous, and `attached` has to carry
         // it so the chat knows whether to ask the person for consent.

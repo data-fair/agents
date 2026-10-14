@@ -233,6 +233,18 @@ threads through review, and an agent reads its own past conversations through it
   superadmin in admin mode is the only exception. An org admin reads someone else's thread only
   through [conversation review](./conversation-review.md), which a configured agent's thread always
   allows, being audited.
+- That grant is checked again on **every prompt** of a thread, not only when it starts
+  (`startSessionTurn` runs `assertMayStartConversation`), as an approval re-checks `canInstruct`: an
+  instructor removed from the list, or an agent disabled since, cannot keep driving the agent from a
+  thread opened before. Their own transcript stays readable to them.
+- The socket resolves who it speaks for once, from the cookie of its upgrade (a frame carries none), so
+  it is **closed when that session token expires** (`sessionExpiresAt`, `api/src/agent-session/upgrade.ts`)
+  — after the turn streaming to it, if any — and the chat reopens it with the cookie as it is now on its
+  next frame. A role or a membership withdrawn in simple-directory thus reaches an open chat within the
+  token's life (15 minutes by default), the bound every HTTP route of the stack has. The upgrade itself
+  is refused (403) to a browser page of another site — its `Origin` must be the site the request came
+  through, against cross-site websocket hijacking from a sibling under the same domain — and to a
+  simple-directory pseudo session, which the stack confines to reading.
 
 ## Stopping and erasing
 

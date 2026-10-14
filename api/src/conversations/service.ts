@@ -201,8 +201,9 @@ export const talkRefusal = (
 
 /**
  * The checks a new thread passes: may this caller start a conversation with this agent on this
- * account. Run when a socket names the agent (so a refusal shows when the chat opens) and again when
- * its first prompt creates the thread. Returns the account the thread is stored under.
+ * account. Run when a socket names the agent (so a refusal shows when the chat opens), again when
+ * its first prompt creates the thread, and on every later prompt of it (startSessionTurn), since a grant
+ * can be withdrawn while the thread lives. Returns the account the thread is stored under.
  *
  * A configured agent stays organization-only (`assertCanOwnAgent`); an anonymous visitor may only talk
  * to the personal assistant, on an account whose quotas let anonymous visitors in.

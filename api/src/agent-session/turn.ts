@@ -13,6 +13,7 @@ import {
   requireConversationById,
   setReviewConsent,
   rejectPendingApprovals,
+  assertMayStartConversation,
   type TurnCaller
 } from '../conversations/service.ts'
 import { startRun } from '../conversations/executor.ts'
@@ -57,13 +58,18 @@ export interface SessionTurnRequest {
 /**
  * Append the prompt and run the turn. Returns the run id.
  *
- * Throws an http error (400 empty), so the caller can report the reason to the browser.
+ * Throws an http error (403 no longer allowed, 400 empty), so the caller can report the reason to the browser.
  */
 export const startSessionTurn = async (request: SessionTurnRequest): Promise<string> => {
   // Before anything is stored or stopped: the person's message is refused whole, and sent again lands on
   // a healthy instance (the socket is closed once this one's turns have drained).
   assertAcceptingTurns()
   const { conversation, caller } = request
+  // May this caller still talk to this agent here: the check a new thread passed, run again on EVERY
+  // prompt. A thread lends its agent's identity, tools and the account's credits, so an instructor removed
+  // from the agent's list, or an agent disabled since, must not keep driving it from a thread opened
+  // before — as an approval already re-checks (../conversations/approvals.ts).
+  await assertMayStartConversation(conversation.owner, conversation.agentId, caller)
   const person = caller.kind === 'person'
     ? { userId: caller.session.user.id, userName: caller.session.user.name }
     : { userId: caller.usageUserId, userName: 'Anonymous' }
