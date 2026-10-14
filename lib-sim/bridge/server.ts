@@ -11,7 +11,7 @@ import { createToolServer, TOOL_TIMEOUT_MS } from './tool-server.ts'
 import { SessionStore, continuationOf, hashMessages, sameToolSet } from './sessions.ts'
 import { Conversation, type TurnOutcome, type SdkMessage } from './conversation.ts'
 import {
-  extractSystemPrompt, renderTranscript, toolNameToMcp, textChunk, toolCallsChunk,
+  systemPromptFor, renderTranscript, toolNameToMcp, textChunk, toolCallsChunk,
   finalChunk, errorBody, completionOf, MCP_SERVER_NAME,
   type OpenAIMessage, type OpenAIToolDef
 } from './openai.ts'
@@ -221,7 +221,8 @@ async function handleCompletion (
     options: {
       ...isolationOptions(getNeutralCwd()),
       model,
-      systemPrompt: extractSystemPrompt(messages),
+      // Plus the whole description of any tool Claude Code would cut (openai.ts, MCP_DESCRIPTION_LIMIT).
+      systemPrompt: systemPromptFor(messages, tools),
       // The tool server deliberately holds the LOW-LEVEL MCP `Server` (see
       // tool-server.ts: the high-level `McpServer` helper rejects raw JSON
       // Schema, which is exactly what an OpenAI request hands us). The SDK's

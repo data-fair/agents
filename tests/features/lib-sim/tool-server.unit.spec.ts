@@ -5,7 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { listToolsFor, createToolServer, TOOL_TIMEOUT_MS } from '../../../lib-sim/bridge/tool-server.ts'
-import type { OpenAIToolDef } from '../../../lib-sim/bridge/openai.ts'
+import { systemPromptFor, MCP_DESCRIPTION_LIMIT, type OpenAIToolDef } from '../../../lib-sim/bridge/openai.ts'
 
 const TOOLS: OpenAIToolDef[] = [{
   type: 'function',
@@ -17,6 +17,21 @@ const TOOLS: OpenAIToolDef[] = [{
 }]
 
 test.describe('tool listing', () => {
+  test('a description over Claude Code\'s MCP limit is cut in the listing and given whole in the system prompt', () => {
+    const long = `${'signature line\n'.repeat(200)}THE LAST PARAGRAPH`
+    const tools: OpenAIToolDef[] = [{ type: 'function', function: { name: 'code_mode', description: long } }, ...TOOLS]
+    const listed = listToolsFor(tools)
+    assert.ok(long.length > MCP_DESCRIPTION_LIMIT)
+    assert.ok(listed[0].description.length <= MCP_DESCRIPTION_LIMIT, 'within the limit, so nothing of ours is cut silently')
+    assert.match(listed[0].description, /continued in the system prompt/)
+    assert.equal(listed[1].description, 'Get the weather', 'a short one is untouched')
+    const prompt = systemPromptFor([{ role: 'system', content: 'You are an agent.' }], tools)
+    assert.ok(prompt.startsWith('You are an agent.'))
+    assert.ok(prompt.includes(long), 'the whole description, verbatim')
+    assert.doesNotMatch(prompt, /get_weather/, 'only the cut ones')
+    assert.equal(systemPromptFor([{ role: 'system', content: 'You are an agent.' }], TOOLS), 'You are an agent.')
+  })
+
   test('passes the JSON Schema through verbatim', () => {
     const listed = listToolsFor(TOOLS)
     assert.equal(listed.length, 1)

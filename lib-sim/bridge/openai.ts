@@ -35,6 +35,32 @@ export function mcpNameToTool (name: string): string {
   return name.startsWith(PREFIX) ? name.slice(PREFIX.length) : name
 }
 
+/**
+ * Claude Code cuts an MCP tool's description at 2048 characters ("… [truncated]"), silently, and the bridge
+ * serves every tool to it as an MCP tool. A product whose descriptions run longer (code_mode lists every tool's
+ * signature, then its own conventions after them) was simulated without their end: scripts ignored a library and
+ * a time-zone rule they never saw, while the product sends them whole to a real provider. So a longer description
+ * is cut HERE, with a pointer, and given whole in the system prompt (systemPromptFor), which is not cut.
+ */
+export const MCP_DESCRIPTION_LIMIT = 2048
+const continuedNote = (name: string) => `… (continued in the system prompt, under "Full description of the ${name} tool")`
+
+/** A tool's description as the MCP listing carries it: whole, or cut to fit with a pointer to the rest. */
+export function listedDescription (name: string, description: string): string {
+  if (description.length <= MCP_DESCRIPTION_LIMIT) return description
+  const note = continuedNote(name)
+  return description.slice(0, MCP_DESCRIPTION_LIMIT - note.length) + note
+}
+
+/** The system prompt, then the whole description of every tool the listing had to cut. */
+export function systemPromptFor (messages: OpenAIMessage[], tools: OpenAIToolDef[]): string {
+  const long = tools.filter(t => (t.function.description ?? '').length > MCP_DESCRIPTION_LIMIT)
+  return [
+    extractSystemPrompt(messages),
+    ...long.map(t => `# Full description of the ${t.function.name} tool\n\n${t.function.description}`)
+  ].join('\n\n')
+}
+
 export function extractSystemPrompt (messages: OpenAIMessage[]): string {
   return messages
     .filter(m => m.role === 'system')

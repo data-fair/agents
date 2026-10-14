@@ -12,7 +12,7 @@
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import { MCP_SERVER_NAME, type OpenAIToolDef } from './openai.ts'
+import { MCP_SERVER_NAME, listedDescription, type OpenAIToolDef } from './openai.ts'
 
 // A suspended handler must outlive a slow client turn — a tool wired to a human
 // action button can wait minutes. The default MCP timeout would abort it.
@@ -21,7 +21,7 @@ export const TOOL_TIMEOUT_MS = 600000
 export function listToolsFor (tools: OpenAIToolDef[]) {
   return tools.map(t => ({
     name: t.function.name,
-    description: t.function.description ?? '',
+    description: listedDescription(t.function.name, t.function.description ?? ''),
     inputSchema: t.function.parameters ?? { type: 'object', properties: {} }
   }))
 }
