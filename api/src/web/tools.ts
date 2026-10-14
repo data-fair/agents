@@ -73,7 +73,7 @@ export const createWebTools = (opts: WebToolsOptions): Record<string, Tool> => {
         properties: {
           url: { type: 'string', description: 'Absolute http(s) URL' },
           offset: { type: 'integer', minimum: 0, description: 'Where to continue reading, from a previous `nextOffset`' },
-          ...(files ? { saveAs: { type: 'string', description: 'Save the response as one of your files under this path, e.g. "/data.csv", instead of reading it' } } : {})
+          ...(files ? { saveAs: { type: 'string', description: 'Save the response as one of your files under this path, e.g. "/data.csv", instead of reading it. The answer gives the file\'s sha256, and the server\'s etag and lastModified when it sent them: keep them to tell later whether the file changed.' } } : {})
         }
       }),
       execute: async (input: FetchUrlInput, options?: { abortSignal?: AbortSignal }) => {

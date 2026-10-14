@@ -295,6 +295,17 @@ export const scrubUrls = (text: string, replacements: Map<string, string>): stri
 /** A stored file as a script receives it: the shape fetch_url's saveAs result and the code file tools share. */
 export interface FileRecord { file_path: string, mimeType: string, size: number }
 
+/**
+ * A downloaded file's record: what tells a later download of the same URL apart. The hash is computed while the
+ * bytes stream into the store, so it costs no memory; the response's validators are kept when it sent them
+ * (`lastModified` as ISO). An agent that keeps them can tell a remote file changed by downloading it again.
+ */
+export interface DownloadRecord extends FileRecord { sha256: string, etag?: string, lastModified?: string }
+
+/** A download record as a line the model reads: `/roads.csv (text/csv, 4 B, sha256 …, etag "r1")`. */
+export const downloadLine = (record: DownloadRecord): string =>
+  `${record.file_path} (${[record.mimeType, formatBytes(record.size), `sha256 ${record.sha256}`, ...(record.etag ? [`etag ${record.etag}`] : []), ...(record.lastModified ? [`last modified ${record.lastModified}`] : [])].join(', ')})`
+
 export interface ResourceLink { uri: string, name: string, mimeType?: string }
 
 /** Where a link came from: a catalog server or not, and the site its call was bound to (a site-bound entry). */

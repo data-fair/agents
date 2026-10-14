@@ -100,7 +100,7 @@ path only (`displayUrl`): a redirect target or a link can be presigned. The one 
 `fetch_url` result, which reports the URL that answered.
 
 1. **`fetch_url` with `saveAs`** stores the response whatever its type and answers
-   `{ file_path, mimeType, size }`. The URL comes from the model, so it is **always anonymous and
+   `{ file_path, mimeType, size, sha256, etag?, lastModified? }` (see "Telling a new version apart" below). The URL comes from the model, so it is **always anonymous and
    allowlisted at every redirect hop**: a credentialed fetch would let the agent read any route its
    identity reaches, outside the toolset an admin selected. Without `saveAs`, `fetch_url` is unchanged,
    except that a declared binary type is refused **from the headers, before the body is read**, with a hint
@@ -130,6 +130,17 @@ worked. The result keeps the text (each saved link rewritten to its path), then 
 the file linked as <name or address without query>: <reason>". Embedded `blob`
 resources are not handled (nothing returns them; openapi-mcp returns links); image results keep their
 behaviour. An `isError` result has the URI of any link it carried reduced to origin and path.
+
+### Telling a new version apart
+
+Every download, `saveAs` or link, answers a **`sha256`** of the stored bytes, and the response's **`etag`** and
+**`lastModified`** (as ISO) when it sent them (`saveOpened`, `DownloadRecord`); the model reads them in the
+"Saved to your files" line too. The hash is computed while the bytes stream to the store, so it costs no memory
+and no second read. A recurring task that keeps them, in its memory, can tell the remote file changed by
+downloading it again and comparing, the way `import_table` answers a size and a hash. There is no conditional
+or `HEAD` request: `fetch_url` stays one GET, a download is cheap next to the task, and a server's validators are
+optional where the hash always holds. Repeating a transformation on each new version is a data-fair processing's
+job, not a script's: the agent's part is to notice and say so.
 
 ## Out: a file passed to a tool
 
@@ -189,7 +200,7 @@ A script gets data where the model gets text (`SourcedTool.codeExecute`; `create
 - `write_file` takes up to **10 MB** from a script, where the model is held to 1 MB (it would have to write
   the content out in full as output tokens; a script writes what it computed, and 10 MB is what it can read
   back), and returns the record of the file written;
-- a tool result carrying links becomes `{ text, files: [{ file_path, mimeType, size }] }` once the links are
+- a tool result carrying links becomes `{ text, files: [{ file_path, mimeType, size, sha256, etag?, lastModified? }] }` once the links are
   stored, plus `errors` for a link that could not be saved (the call still succeeds, as for the model), so a
   script can pass `files[0].file_path` straight to the next tool's file argument.
 

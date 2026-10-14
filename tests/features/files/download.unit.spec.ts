@@ -10,6 +10,7 @@ import type { AddressInfo } from 'node:net'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { displayUrl } from '../../../api/src/web/operations.ts'
 import { openDownload, saveUrl, createLinkOpener } from '../../../api/src/files/download.ts'
 import { FsBackend } from '../../../api/src/files/fs.ts'
@@ -35,7 +36,7 @@ test.beforeAll(async () => {
   B = origin(b)
   a = await start('a', {
     // An explicit length: after writeHead, Node would send the body chunked.
-    '/data.csv': (req, res) => res.writeHead(200, { 'content-type': 'text/csv', 'content-length': '8', 'content-disposition': 'attachment; filename="data.csv"' }).end('a,b\n1,2\n'),
+    '/data.csv': (req, res) => res.writeHead(200, { 'content-type': 'text/csv', 'content-length': '8', 'content-disposition': 'attachment; filename="data.csv"', etag: '"v1"', 'last-modified': 'Tue, 13 Oct 2026 08:00:00 GMT' }).end('a,b\n1,2\n'),
     '/hop': (req, res) => res.writeHead(302, { location: '/data.csv' }).end(),
     '/away': (req, res) => res.writeHead(302, { location: `${B}/elsewhere.csv` }).end(),
     '/missing': (req, res) => res.writeHead(404).end(),
@@ -56,6 +57,8 @@ test.describe('openDownload', () => {
     assert.equal(opened.contentType, 'text/csv')
     assert.equal(opened.contentDisposition, 'attachment; filename="data.csv"')
     assert.equal(opened.contentLength, 8)
+    assert.equal(opened.etag, '"v1"')
+    assert.equal(opened.lastModified, 'Tue, 13 Oct 2026 08:00:00 GMT')
     opened.body.destroy()
     assert.ok(seen.every(s => s.cookie === undefined))
   })
@@ -113,8 +116,17 @@ test.describe('saveUrl', () => {
   test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
   const files = (limits?: { file: number, scope: number }) => createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents', limits })
 
-  test('stores the body under the given path and answers path, type and size', async () => {
-    assert.deepEqual(await saveUrl({ url: `${A}/data.csv`, path: '/copy.csv', allowedUrls: [A], files: files(), publicIps }), { file_path: '/copy.csv', mimeType: 'text/csv', size: 8 })
+  test('stores the body under the given path and answers path, type, size and what tells a later version apart', async () => {
+    assert.deepEqual(await saveUrl({ url: `${A}/data.csv`, path: '/copy.csv', allowedUrls: [A], files: files(), publicIps }), {
+      file_path: '/copy.csv',
+      mimeType: 'text/csv',
+      size: 8,
+      sha256: createHash('sha256').update('a,b\n1,2\n').digest('hex'),
+      etag: '"v1"',
+      lastModified: '2026-10-13T08:00:00.000Z'
+    })
+    // No validator headers: the hash alone.
+    assert.deepEqual(Object.keys(await saveUrl({ url: `${B}/elsewhere.csv`, path: '/b.csv', allowedUrls: [B], files: files(), publicIps })), ['file_path', 'mimeType', 'size', 'sha256'])
   })
 
   test('an invalid path is refused before any request', async () => {

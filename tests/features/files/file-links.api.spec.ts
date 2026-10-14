@@ -40,7 +40,7 @@ test.describe('File links', () => {
     const { assistant, conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool export_closures {"district":"city-center"}')
     const output = outputOf(callPart(assistant, 'export_closures'))
     assert.match(output, /The export of the road closures of city-center: \/closures-city-center\.csv/)
-    assert.match(output, /Saved to your files: \/closures-city-center\.csv \(text\/csv, [\d.]+ (B|kB)\)\./)
+    assert.match(output, /Saved to your files: \/closures-city-center\.csv \(text\/csv, [\d.]+ (B|kB), sha256 [0-9a-f]{64}[^)]*\)\./)
     assert.ok(!output.includes(`${FIXTURE_ORIGIN}/exports`), 'the URL is gone from what the model reads')
     const read = await turnOverSocket(orgAdmin, conversationId, 'call tool read_file {"file_path":"/closures-city-center.csv"}')
     assert.match(outputOf(callPart(read.assistant, 'read_file')), /Rue de la Paix/)

@@ -111,7 +111,7 @@ export const describeScriptTool = (packageDescription: string): string => {
   return [
     head,
     'console.log output is returned after the result. A tool failure is an exception carrying the tool\'s message.',
-    'What a tool returns, when its signature says `unknown`: an MCP tool returns its structured result as an object when it has one, otherwise its text as a string (JSON.parse it if it is JSON). A tool whose result carries files returns { text, files: [{ file_path, mimeType, size }] }. read_file returns the whole text of the file.',
+    'What a tool returns, when its signature says `unknown`: an MCP tool returns its structured result as an object when it has one, otherwise its text as a string (JSON.parse it if it is JSON). A tool whose result carries files returns { text, files: [{ file_path, mimeType, size, sha256, etag?, lastModified? }] }. read_file returns the whole text of the file.',
     'Check what you got before writing or importing it: a parse that yields nothing should throw, not write an empty file.',
     `Everything a script passes to and gets from its tools counts toward ${transferLimit}; a larger file belongs in a tool that takes the file itself.`,
     'Tools that need approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents can only be called directly.'

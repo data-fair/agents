@@ -30,7 +30,7 @@ A site's own metadata — `robots.txt`, its sitemaps, its OpenSearch description
 
 | Tool | Surfaces | Approval | Does |
 | --- | --- | --- | --- |
-| `fetch_url({ url, offset?, saveAs? })` | chats, task runs | none — the allowlist is the control | one page of the content (20,000 characters, `nextOffset` to read on); with `saveAs` (files on), the whole response stored as a file, any type, up to 100 MB, answering `{ file_path, mimeType, size }` |
+| `fetch_url({ url, offset?, saveAs? })` | chats, task runs | none — the allowlist is the control | one page of the content (20,000 characters, `nextOffset` to read on); with `saveAs` (files on), the whole response stored as a file, any type, up to 100 MB, answering `{ file_path, mimeType, size, sha256, etag?, lastModified? }` |
 | `list_site_pages({ site, contains?, since?, offset? })` | chats, task runs | none | pages listed by the site's sitemaps, filtered by URL substring or modification date, 200 at a time |
 | `request_web_access({ add, reason })` | chats with an organization admin | always, by an organization admin | extends the allowlist |
 

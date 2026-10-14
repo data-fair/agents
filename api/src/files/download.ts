@@ -9,13 +9,14 @@
  * 5 minutes overall. Messages show origin and path only: a redirect target or a link can be presigned.
  */
 import net from 'node:net'
-import type { Readable } from 'node:stream'
+import { Transform, type Readable } from 'node:stream'
+import { createHash } from 'node:crypto'
 import { request, type Agent } from 'undici'
 import { checkUrl, displayUrl } from '../web/operations.ts'
 import { USER_AGENT } from '../web/client.ts'
 import { envPublicIps, ipList, isPublicAddress, publicDispatcher } from '../web/public-lookup.ts'
 import type { SiteCredentials } from '../mcp-servers/operations.ts'
-import { parseFilePath, linkCredentialSite, type LinkOrigin, type ResourceLink } from './operations.ts'
+import { parseFilePath, linkCredentialSite, type LinkOrigin, type ResourceLink, type DownloadRecord } from './operations.ts'
 import type { TurnFiles } from './turn-files.ts'
 
 export interface OpenedDownload {
@@ -24,6 +25,9 @@ export interface OpenedDownload {
   contentType: string
   contentDisposition?: string
   contentLength?: number
+  /** The response's validators, raw: what tells this version apart from a later one. */
+  etag?: string
+  lastModified?: string
   body: Readable
 }
 
@@ -110,17 +114,40 @@ export const openDownload = async (opts: DownloadOptions): Promise<OpenedDownloa
       contentType: first(res.headers['content-type']) ?? '',
       ...(first(res.headers['content-disposition']) ? { contentDisposition: first(res.headers['content-disposition']) } : {}),
       ...(length && /^\d+$/.test(length) ? { contentLength: Number(length) } : {}),
+      ...(first(res.headers.etag) ? { etag: first(res.headers.etag) } : {}),
+      ...(first(res.headers['last-modified']) ? { lastModified: first(res.headers['last-modified']) } : {}),
       body: res.body as unknown as Readable
     }
   }
 }
 
+/**
+ * An opened download stored under `name`, answered as its record (DownloadRecord): the SHA-256 is computed as the
+ * bytes pass to the store. A store that gives up on the body (a bound passed) destroys the hashing stream, which
+ * releases the response too.
+ */
+export const saveOpened = async (files: TurnFiles, name: string, opened: OpenedDownload): Promise<DownloadRecord> => {
+  const hash = createHash('sha256')
+  const hashed = new Transform({ transform (chunk, _encoding, callback) { hash.update(chunk); callback(null, chunk) } })
+  opened.body.on('error', err => hashed.destroy(err))
+  hashed.on('close', () => { if (!opened.body.readableEnded) opened.body.destroy() })
+  const file = await files.save(name, opened.body.pipe(hashed), opened.contentLength)
+  const lastModified = opened.lastModified && !Number.isNaN(Date.parse(opened.lastModified)) ? new Date(opened.lastModified).toISOString() : undefined
+  return {
+    file_path: file.path,
+    mimeType: file.mimeType,
+    size: file.size,
+    sha256: hash.digest('hex'),
+    ...(opened.etag ? { etag: opened.etag } : {}),
+    ...(lastModified ? { lastModified } : {})
+  }
+}
+
 /** fetch_url with saveAs: the model chose the URL, so anonymous and allowlisted, always (spec §4.2). */
-export const saveUrl = async (opts: { url: string, path: string, allowedUrls: string[], files: TurnFiles, publicIps?: string[], signal?: AbortSignal }) => {
+export const saveUrl = async (opts: { url: string, path: string, allowedUrls: string[], files: TurnFiles, publicIps?: string[], signal?: AbortSignal }): Promise<DownloadRecord> => {
   const name = parseFilePath(opts.path)
   const opened = await openDownload({ url: opts.url, allowedUrls: opts.allowedUrls, publicIps: opts.publicIps, signal: opts.signal })
-  const file = await opts.files.save(name, opened.body, opened.contentLength)
-  return { file_path: file.path, mimeType: file.mimeType, size: file.size }
+  return await saveOpened(opts.files, name, opened)
 }
 
 /**

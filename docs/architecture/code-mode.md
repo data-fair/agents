@@ -177,7 +177,7 @@ record and replay never see it.
 | Tool | A script gets | The model gets |
 |---|---|---|
 | catalog / external MCP tool (`client.ts`, `external.ts`) | `structuredContent` when the server sent one (data-fair's MCP does), else the text | the text; `structuredContent` is dropped |
-| an MCP result with `resource_link`s | `{ text, files: [{ file_path, mimeType, size }] }`, plus `errors` for a link not saved | the text, with "Saved to your files: …" lines |
+| an MCP result with `resource_link`s | `{ text, files: [{ file_path, mimeType, size, sha256, etag?, lastModified? }] }`, plus `errors` for a link not saved | the text, with "Saved to your files: …" lines |
 | an MCP result with image content | its text only (or its `structuredContent`); the images are not passed | the text and the images |
 | `read_file` | the whole text file, up to 10 MB; an error beyond, naming the size | a page of numbered lines |
 | `ls` | records `{ file_path, mimeType, size, expiresAt }` | a rendered listing |

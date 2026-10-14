@@ -12,9 +12,9 @@ import type { Tool } from 'ai'
 import { isMediaToolResult } from '@agents/shared/tool-result'
 import type { SourcedTool } from '../conversations/operations.ts'
 import type { TurnFiles } from './turn-files.ts'
-import type { OpenedDownload } from './download.ts'
+import { saveOpened, type OpenedDownload } from './download.ts'
 import { displayUrl } from '../web/operations.ts'
-import { FileError, invalidPathMessage, scrubUrls, isLinkedToolResult, storedNameForLink, uniqueName, rewriteLinkText, formatBytes, type LinkedToolResult, type FileRecord, type LinkOrigin, type ResourceLink } from './operations.ts'
+import { FileError, invalidPathMessage, scrubUrls, isLinkedToolResult, storedNameForLink, uniqueName, rewriteLinkText, type LinkedToolResult, type FileRecord, type DownloadRecord, downloadLine, type LinkOrigin, type ResourceLink } from './operations.ts'
 
 export interface CallPathContext {
   /** The turn's files; undefined when files are off (the personal assistant, or no store). */
@@ -42,14 +42,14 @@ const scrubOutput = (output: unknown, signed: Map<string, string>): unknown => {
  */
 const saveLinks = async (result: LinkedToolResult, ctx: CallPathContext, signal?: AbortSignal) => {
   const used = new Set<string>()
-  const saved: { uri: string, record: FileRecord, line: string }[] = []
+  const saved: { uri: string, record: DownloadRecord, line: string }[] = []
   const failed: { uri: string, line: string }[] = []
   for (const link of result.links) {
     try {
       const opened = await ctx.openLink!(link, { catalog: result.catalog, ...(result.site ? { site: result.site } : {}) }, signal)
       const name = uniqueName(storedNameForLink({ contentDisposition: opened.contentDisposition, contentType: opened.contentType, link }), used)
-      const file = await ctx.files!.save(name, opened.body, opened.contentLength)
-      saved.push({ uri: link.uri, record: { file_path: file.path, mimeType: file.mimeType, size: file.size }, line: `${file.path} (${file.mimeType}, ${formatBytes(file.size)})` })
+      const record = await saveOpened(ctx.files!, name, opened)
+      saved.push({ uri: link.uri, record, line: downloadLine(record) })
     } catch (err: any) {
       // the turn was stopped: stop, rather than report every remaining link as failed
       if (signal?.aborted) throw err
