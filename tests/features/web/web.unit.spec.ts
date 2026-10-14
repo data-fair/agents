@@ -4,9 +4,10 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
+import { gzipSync } from 'node:zlib'
 import {
   normalizeAllowedUrl, normalizeAllowedUrls, urlAllowed, hostAllowed, checkUrl, classifyContent, charsetOf, paginate,
-  robotsSitemaps, parseSitemap, filterEntries, normalizeSearchTemplate, parseOpenSearchDescription, parseAiCatalog, mcpServerFromCard
+  robotsSitemaps, parseSitemap, sitemapText, filterEntries, normalizeSearchTemplate, parseOpenSearchDescription, parseAiCatalog, mcpServerFromCard
 } from '../../../api/src/web/operations.ts'
 import { ipList, isPublicAddress } from '../../../api/src/web/public-lookup.ts'
 import { extractHtml, renderFeed } from '../../../api/src/web/extract.ts'
@@ -218,6 +219,30 @@ test.describe('web sitemaps', () => {
       <url><loc>https://a.test/p?a=1&amp;b=2</loc><image:image><image:loc>https://a.test/i.png</image:loc></image:image></url>
       <url><lastmod>2026-01-01</lastmod></url></urlset>`)
     assert.deepEqual(urlset, { kind: 'urlset', entries: [{ loc: 'https://a.test/p?a=1&b=2' }] })
+  })
+
+  // These parsers run on the API's event loop, over bodies an allowed site writes (up to the 10 MB
+  // body cap): a backtracking pattern there froze every conversation of the instance.
+  test('reads hostile robots.txt, sitemaps and OpenSearch descriptions in linear time', () => {
+    const fast = (label: string, fn: () => unknown) => {
+      const start = performance.now()
+      fn()
+      const ms = performance.now() - start
+      assert.ok(ms < 200, `${label} took ${Math.round(ms)} ms`)
+    }
+    fast('blank lines in robots.txt', () => robotsSitemaps('\n'.repeat(60_000)))
+    fast('unclosed <url> openers', () => parseSitemap('<urlset>' + '<url>'.repeat(20_000)))
+    fast('unclosed <loc> openers', () => parseSitemap('<urlset><url>' + '<loc>'.repeat(20_000) + '</url>'))
+    fast('unclosed <Url openers', () => parseOpenSearchDescription('<Url '.repeat(20_000), 'https://a.test/'))
+    fast('one huge <Url tag', () => parseOpenSearchDescription('<Url ' + 'a'.repeat(200_000) + '>', 'https://a.test/'))
+  })
+
+  test('inflates a .xml.gz sitemap, but not past the size the sitemap protocol allows', () => {
+    const xml = '<urlset><url><loc>https://a.test/p</loc></url></urlset>'
+    assert.equal(sitemapText(Buffer.from(xml)), xml)
+    assert.equal(sitemapText(gzipSync(xml)), xml)
+    // 60 MB of zeros gzips to ~60 KB: well under the body cap, far over 50 MB once inflated
+    assert.throws(() => sitemapText(gzipSync(Buffer.alloc(60 * 1024 * 1024))), /larger than 50 MB/)
   })
 
   test('filters by URL substring and by modification date', () => {

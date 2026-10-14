@@ -81,6 +81,13 @@ test.describe('code_mode engine', () => {
     await assert.rejects(run(createScriptTool({}), `// ${'x'.repeat(65 * 1024)}\nreturn 1`), /longer than 64 KiB/)
   })
 
+  // Node's TypeScript stripper runs on the API's own thread, and a few KB of nested brackets overflowed its
+  // WASM stack and left it broken for the whole process (every later typed script failed, every tenant's).
+  test('a script nesting brackets deeper than any real code is refused before it is stripped', async () => {
+    await assert.rejects(run(createScriptTool({}), `return ${'('.repeat(2000)}1${')'.repeat(2000)}`), /nests brackets more than 200 deep/)
+    assert.equal(await run(createScriptTool({}), `const f = (x: number): number[] => [${'['.repeat(50)}x${']'.repeat(50)}].flat(Infinity) as number[]\nreturn f(3)[0]`), '3')
+  })
+
   test('Papa is declared in TypeScript right after the tools, as part of the API a script is written against', async () => {
     const description = String(createScriptTool({ echo }).description)
     const tools = description.indexOf('declare const tools')

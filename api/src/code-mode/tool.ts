@@ -7,7 +7,7 @@
  */
 import { tool, jsonSchema, type Tool } from 'ai'
 import { experimental_createCodeModeTool as createCodeModeTool, experimental_setMaxWorkers as setMaxWorkers } from '@ai-sdk/code-mode'
-import { CODE_MODE_POLICY, SCRIPT_ARGUMENT_DESCRIPTION, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
+import { CODE_MODE_POLICY, MAX_BRACKET_DEPTH, SCRIPT_ARGUMENT_DESCRIPTION, bracketDepth, bracketDepthMessage, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
 
 /** The process-wide worker pool's size (config.codeModeMaxWorkers): set once, at startup. */
 export const configureCodeMode = (maxWorkers: number) => { setMaxWorkers(maxWorkers) }
@@ -28,6 +28,7 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
     execute: async (input: { js: string }, options) => {
       const js = String(input?.js ?? '')
       if (Buffer.byteLength(js) > policy.maxSourceBytes) throw new Error(scriptErrorMessage({ name: 'CodeModeSourceTooLargeError' }, policy))
+      if (bracketDepth(js) > MAX_BRACKET_DEPTH) throw new Error(bracketDepthMessage)
       try {
         return renderScriptResult(await inner.execute!({ js: wrapScript(js) }, options))
       } catch (err) {

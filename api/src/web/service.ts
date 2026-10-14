@@ -4,12 +4,11 @@
  * Knows nothing of the agent loop: ./tools.ts adapts it to AI SDK tools.
  */
 
-import { gunzipSync } from 'node:zlib'
 import { createWebClient, type WebClient, type WebResponse } from './client.ts'
 import { createExtractor, type Extractor } from './extractor.ts'
 import type { ExtractedFeed, ExtractedPage, PageForm } from './extract.ts'
 import {
-  charsetOf, checkUrl, classifyContent, filterEntries, hasFilter, hostAllowed, paginate, parseOpenSearchDescription, parseSitemap, robotsSitemaps, urlAllowed,
+  charsetOf, checkUrl, classifyContent, filterEntries, hasFilter, hostAllowed, paginate, parseOpenSearchDescription, parseSitemap, robotsSitemaps, sitemapText, urlAllowed,
   AI_CATALOG_PATH, parseAiCatalog, mcpServerFromCard, type DiscoveredMcpServer,
   displayUrl, refuseBinary, unreadableTypeMessage, SITEMAP_PAGE_SIZE, type SitemapEntry, type SitemapFilter
 } from './operations.ts'
@@ -197,9 +196,7 @@ export interface ListSitePagesResult {
 const loadSitemap = async (url: string, ctx: WebContext) => {
   const res = await clientOf(ctx).get(url, ctx.allowedUrls, 'site')
   if (res.status >= 400) throw httpError(res)
-  // a .xml.gz file, served as a file rather than with a content-encoding the client would undo
-  const body = res.body[0] === 0x1f && res.body[1] === 0x8b ? gunzipSync(res.body) : res.body
-  return parseSitemap(body.toString('utf-8'))
+  return parseSitemap(sitemapText(res.body))
 }
 
 export const listSitePages = async (input: ListSitePagesInput, ctx: WebContext): Promise<ListSitePagesResult> => {

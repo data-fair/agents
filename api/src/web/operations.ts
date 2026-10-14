@@ -5,6 +5,7 @@
  */
 
 import net from 'node:net'
+import { gunzipSync } from 'node:zlib'
 
 export const FETCH_URL_TOOL_NAME = 'fetch_url'
 export const LIST_SITE_PAGES_TOOL_NAME = 'list_site_pages'
@@ -209,6 +210,45 @@ export const normalizeSearchTemplate = (template: string, base: string, termsNam
   } catch {}
 }
 
+// The XML these parsers read is written by any allowed site and read on the API's event loop, up to
+// the 10 MB body cap, so they scan with indexOf rather than lazy or open-ended regular expressions:
+// those restart from every unclosed opener and rescan the rest of the document, which is quadratic
+// and froze the whole instance on a crafted file. An opener with no closer after it ends the scan,
+// since no later one can be closed either.
+
+/** The opening tags `<name …>` of a document, `<name>` included, `<names …>` not. */
+function * openingTags (xml: string, name: string): Generator<string> {
+  let from = 0
+  while (true) {
+    const start = xml.indexOf(`<${name}`, from)
+    if (start === -1) return
+    const after = start + name.length + 1
+    if (/\w/.test(xml[after] ?? 'x')) { from = after; continue }
+    const end = xml.indexOf('>', after)
+    if (end === -1) return
+    yield xml.slice(start, end + 1)
+    from = end + 1
+  }
+}
+
+/** What each `<name>…</name>` element holds, the attributes of its opening tag included. */
+function * elementContents (xml: string, name: string): Generator<string> {
+  const close = `</${name}>`
+  let from = 0
+  while (true) {
+    const start = xml.indexOf(`<${name}`, from)
+    if (start === -1) return
+    const after = start + name.length + 1
+    if (xml[after] !== '>' && !/\s/.test(xml[after] ?? 'x')) { from = after; continue }
+    const end = xml.indexOf(close, after + 1)
+    if (end === -1) return
+    yield xml.slice(after + 1, end)
+    from = end + close.length
+  }
+}
+
+const firstElement = (xml: string, name: string): string | undefined => elementContents(xml, name).next().value ?? undefined
+
 const xmlAttributes = (tag: string) => Object.fromEntries(
   [...tag.matchAll(/([\w:-]+)\s*=\s*("([^"]*)"|'([^']*)')/g)].map(m => [m[1], decodeXmlText(m[3] ?? m[4])])
 )
@@ -219,7 +259,9 @@ const xmlAttributes = (tag: string) => Object.fromEntries(
  */
 export const parseOpenSearchDescription = (xml: string, descriptionUrl: string): string[] => {
   const templates: string[] = []
-  for (const tag of xml.match(/<Url\b[^>]*>/g) ?? []) {
+  for (const tag of openingTags(xml, 'Url')) {
+    // a real one is a few hundred characters; the attribute pattern is quadratic over a huge one
+    if (tag.length > 4096) continue
     const attrs = xmlAttributes(tag)
     if ((attrs.method ?? 'get').toLowerCase() !== 'get') continue
     if (/suggestions/.test(attrs.type ?? '') || attrs.rel === 'suggestions') continue
@@ -229,9 +271,12 @@ export const parseOpenSearchDescription = (xml: string, descriptionUrl: string):
   return templates
 }
 
-/** The `Sitemap:` lines of a robots.txt. */
+/**
+ * The `Sitemap:` lines of a robots.txt. Horizontal blanks only around the field: `\s` also takes line
+ * breaks, and backtracked quadratically over a run of blank lines.
+ */
 export const robotsSitemaps = (robotsTxt: string): string[] =>
-  [...robotsTxt.matchAll(/^\s*sitemap:\s*(\S+)/gim)].map(m => m[1])
+  [...robotsTxt.matchAll(/^[ \t]*sitemap:[ \t]*(\S+)/gim)].map(m => m[1])
 
 export interface SitemapEntry {
   loc: string
@@ -249,18 +294,36 @@ const decodeXmlText = (s: string) => s
   .replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&quot;/g, '"').replace(/&apos;/g, "'").replace(/&amp;/g, '&')
   .trim()
 
+/** The sitemap protocol's own limit on an uncompressed sitemap. */
+const SITEMAP_MAX_BYTES = 50 * 1024 * 1024
+
 /**
- * Reads a sitemap with two regular expressions rather than an XML parser: the format is flat and
- * a 1 MB sitemap of 5,000 URLs is common, which a DOM would cost far more to build.
+ * A sitemap's text. A .xml.gz file, served as a file rather than with a content-encoding the client
+ * would undo, is inflated — within the protocol's limit: gzip reaches 1000:1, so a file under the
+ * body cap would otherwise inflate to gigabytes, synchronously.
+ */
+export const sitemapText = (body: Buffer): string => {
+  if (body[0] !== 0x1f || body[1] !== 0x8b) return body.toString('utf-8')
+  try {
+    return gunzipSync(body, { maxOutputLength: SITEMAP_MAX_BYTES }).toString('utf-8')
+  } catch (err: any) {
+    if (err?.code === 'ERR_BUFFER_TOO_LARGE') throw new Error('the sitemap is larger than 50 MB once inflated')
+    throw err
+  }
+}
+
+/**
+ * Reads a sitemap by searching for its elements rather than with an XML parser: the format is flat
+ * and a 1 MB sitemap of 5,000 URLs is common, which a DOM would cost far more to build.
  */
 export const parseSitemap = (xml: string): ParsedSitemap => {
   const kind = /<sitemapindex[\s>]/.test(xml) ? 'index' : 'urlset'
   const tag = kind === 'index' ? 'sitemap' : 'url'
   const entries: SitemapEntry[] = []
-  for (const block of xml.matchAll(new RegExp(`<${tag}[\\s>]([\\s\\S]*?)</${tag}>`, 'g'))) {
-    const loc = /<loc>([\s\S]*?)<\/loc>/.exec(block[1])?.[1]
+  for (const block of elementContents(xml, tag)) {
+    const loc = firstElement(block, 'loc')
     if (!loc) continue
-    const lastmod = /<lastmod>([\s\S]*?)<\/lastmod>/.exec(block[1])?.[1]
+    const lastmod = firstElement(block, 'lastmod')
     entries.push({ loc: decodeXmlText(loc), ...(lastmod ? { lastmod: decodeXmlText(lastmod) } : {}) })
   }
   return { kind, entries }

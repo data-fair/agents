@@ -88,6 +88,7 @@ The policy (`CODE_MODE_POLICY`, `api/src/code-mode/operations.ts`):
 | `memoryLimitBytes` | 64 MiB | QuickJS heap. Text and JSON need no more; it is the unit the pool is sized in. |
 | `maxStackSizeBytes` | 2 MiB | the package's default |
 | `maxSourceBytes` | 64 KiB | a script is a few dozen lines; anything longer is data that belongs in a file. The model's own source: checked before wrapping, so the console prelude and papaparse do not count (`WRAPPER_BYTES`) |
+| bracket nesting | 200 | ours (`MAX_BRACKET_DEPTH`, checked before wrapping). `run` strips TypeScript with Node's own stripper on the API's thread, outside the sandbox, and a few KB of nested brackets overflowed its WASM stack and left it broken for the whole process. Real code nests a few dozen deep |
 | `maxResultBytes` | 1 MiB | the model reads 20,000 characters of it anyway; a larger result is told to go to `write_file` |
 | `maxConsoleOutputBytes` | 64 KiB | the model reads 5,000 characters of it |
 | `maxToolInputBytes`, `maxToolOutputBytes` | 16 MiB | at least the 10 MB a script may read or write as a file, plus JSON escaping |

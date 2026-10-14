@@ -83,6 +83,25 @@ export const wrapScript = (js: string): string => usesPapa(js)
   : `${PRELUDE}${SCRIPT_START}${js}\n})(), logs: __agentLogs }`
 
 /** What the model reads: the value (JSON unless a string), cut like any large result, then the console. */
+/**
+ * How deep a script may nest brackets. `run` strips TypeScript with Node's own stripper on the API's thread, not
+ * in the sandbox, and a few KB of nesting overflowed its WASM stack and left it broken for the whole process: every
+ * later typed script failed, whoever wrote it. Real code stays far below; strings and comments are counted too,
+ * which can only refuse more.
+ */
+export const MAX_BRACKET_DEPTH = 200
+export const bracketDepthMessage = `The script nests brackets more than ${MAX_BRACKET_DEPTH} deep. Write flatter code.`
+
+export const bracketDepth = (js: string): number => {
+  let depth = 0
+  let max = 0
+  for (let i = 0; i < js.length; i++) {
+    const c = js.charCodeAt(i)
+    if (c === 40 || c === 91 || c === 123) { if (++depth > max) max = depth } else if ((c === 41 || c === 93 || c === 125) && depth > 0) depth--
+  }
+  return max
+}
+
 export const renderScriptResult = (output: unknown): string => {
   const { value, logs } = output && typeof output === 'object' && Array.isArray((output as { logs?: unknown }).logs)
     ? output as { value: unknown, logs: string[] }
