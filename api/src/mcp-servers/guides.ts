@@ -64,7 +64,9 @@ const attributeSafe = (value: string): string => value.replace(/[^a-zA-Z0-9._/:-
  */
 export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions', 'webhook-payload']
 
-const defuseTag = (text: string, tag: string): string => text.split(`</${tag}`).join(`<\\/${tag}`).split(`<${tag}`).join(`<\\${tag}`)
+// In any letter case: a model reads `</TOOL-RESULT>` as the tag too. The text's own case is kept.
+const defuseTag = (text: string, tag: string): string =>
+  text.replace(new RegExp(`<(/?)(${tag})`, 'gi'), (_, slash: string, name: string) => `<\\${slash}${name}`)
 
 /** Escape both delimiters of every envelope tag, so a payload can neither close its envelope nor forge another. */
 export const defuseEnvelopes = (text: string): string => ENVELOPE_TAGS.reduce(defuseTag, text)

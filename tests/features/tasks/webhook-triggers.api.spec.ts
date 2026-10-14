@@ -65,7 +65,7 @@ test.describe('Webhook triggers', () => {
     assert.equal(run.triggeredBy, undefined)
     assert.equal(run.status, 'done')
     const prompt = run.messages[0].parts[0].text as string
-    assert.match(prompt, /^This run was triggered by a webhook\./)
+    assert.match(prompt, /^Webhook calls received since the last run\./)
     assert.match(prompt, /<webhook-payload received="[^"]+">\n\{\n {2}"topic": \{\n {4}"key": "data-fair:dataset-data-updated:abc"/)
     assert.ok(prompt.endsWith('\n\nhello'))
   })
