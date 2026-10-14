@@ -44,7 +44,7 @@ needs a redesign; most fixes are a few lines.
   superadmin gate is a temporary release lever to hide the capability from most orgs, not a control.
   Org admins approving the agent's own calls (`approvals.ts:66`) is intended. Only matters as a
   product leak while the gate is on.
-- **M3 Cross-interlocutor reads beyond the NHI's reach.** `read_conversation`/`list_my_runs` are
+- ~~M3 Cross-interlocutor reads beyond the NHI's reach.~~ **By design** (owner, 2026-10-14): an autonomous agent with an identity and continuity keeps one memory and one history across everyone it talks with; its conversations are not private and users are told so. *Done instead: the notice says the agent may repeat what is said to the other people it talks with and opens its memory read-only; instructors read memory (changes stay admins'). Pages an admin shows the agent through page tools, read with the admin's session, are that admin telling the agent: covered by the notice.* Original text: `read_conversation`/`list_my_runs` are
   offered to every instructor (`self-knowledge/tools.ts:51-124`). *Within the "agent reads all its
   history" ruling, new angle*: stored threads also hold **page-tool results run in admin A's browser
   with A's personal session**, A's hidden context, and results of calls A approved — none bounded by
@@ -56,16 +56,19 @@ needs a redesign; most fixes are a few lines.
   with H4 (re-resolve per prompt/approval, close at `exp`).
 
 **Prompt injection & moderation**
-- **M5 Memory poisoning by a non-admin instructor reaches admin chats and unattended tasks**, and
+- **M5 ✅ Memory poisoning by a non-admin instructor reaches admin chats and unattended tasks**, and
   consolidation launders attribution (transcript lines are just `person:`; "newer statement wins";
   result attributed to `consolidation`). Combined with H2 it is persistent exfiltration (SpAIware
   class); combined with self-config tools it is social engineering of the approving admin. Fix:
   label role+name in the consolidation transcript and keep only admins' corrections; stage writes
   from non-admin runs or after untrusted output for review; refuse images/off-allowlist URLs in
-  memory writes.
-- **M6 Compaction recap moves tool-derived text into an unlabelled `role:'user'` message**
+  memory writes. *Done: the consolidation transcript names each person and their role, the pass records who
+  said what and keeps an administrator's statement over another's. Staging writes was not wanted (shared
+  memory is the design); images are covered by H2 (only the person's own site loads; memory is never rendered
+  as markdown).*
+- **M6 ✅ Compaction recap moves tool-derived text into an unlabelled `role:'user'` message**
   (`compaction-prompt.ts:24,39`). Long chats lose the envelope. Fix: summarizer keeps tool facts
-  attributed, never restates tool-found instructions as user goals; recap carries the data note.
+  attributed, never restates tool-found instructions as user goals; recap carries the data note. *Done as written.*
 - **M7 ✅ Configured agents are moderated as `admin`.** *Moderation now keys on the person who wrote (`speakerIdentityFor`): role, events, strikes; billing stays the agent's.* `usageIdentityFor` returns role `admin`
   (`conversations/operations.ts:625-635`), and moderation keys on it, so partner/external instructors
   are never moderated nor struck. Fix: bill as the agent, moderate on `run.triggeredByRole`.
@@ -199,8 +202,8 @@ string is a sink, as Anthropic's Cowork incident showed — the admin approval c
 - ✅ Credentials never enter the sandbox; scripts reach tools only through the bridge
 - ✅ Presigned file URLs single-object, short TTL, scope-bound, never to external servers
 - ✅ No server-initiated MCP sampling/elicitation; external servers anonymous
-- ⚠️ Provenance envelope as spotlighting — fine as a probabilistic layer; gaps L-envelope, M6
-- ⚠️ Memory: versioned, attributed, admin-visible ✅; provenance of the writer's role/taint ❌ (M5)
+- ⚠️ Provenance envelope as spotlighting — fine as a probabilistic layer; gap L-envelope (M6 ✅)
+- ⚠️ Memory: versioned, attributed, admin-visible ✅; provenance of the writer's role ✅ through consolidation (M5); taint computable from the run, not stored
 - ⚠️ NHI per agent, short-lived, site-bound ✅; no RFC 8693 `act` chain / audience binding — catalog
   auth is cookies + `x-forwarded-host` (D1, cross-repo, already open)
 - ✅ Image/link exfiltration in the renderer (H2) — every major vendor now blocks auto-loaded remote images
@@ -224,7 +227,7 @@ string is a sink, as Anthropic's Cowork incident showed — the admin approval c
 4. **H4 + M4 + H5**: one per-turn authority check in `startSessionTurn` (talkRefusal + current role);
    Origin check and pseudo-session refusal at upgrade.
 5. **M1, M2, M7** (role computation), **M11** (frame/payload caps), **M9** (live-run cap per identity).
-6. **M3, M5, M6** (cross-interlocutor and memory provenance) — design-level, worth a short spec.
+6. ✅ **M3, M5, M6** (cross-interlocutor and memory provenance) — design-level, worth a short spec.
 7. The Lows, opportunistically; **M14** needs simple-directory.
 
 Sources for the state-of-the-art claims: OWASP Top 10 for LLM Apps 2025 and Agentic Top 10 2026;
