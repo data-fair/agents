@@ -186,6 +186,8 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     // Returns structuredContent, as data-fair's MCP server does, and declares no outputSchema, as openapi-mcp
     // does not: a script must get the object (code mode, spec §6.4), the model the text.
     {
+      // A top-level title and no annotations.title, as openapi-mcp declares one (the MCP tool's display name).
+      title: 'Closure statistics',
       description: 'Counts the current road closures of a city district',
       inputSchema: { district: z.string().describe('District name, e.g. "city-center"') },
       annotations: { readOnlyHint: true }

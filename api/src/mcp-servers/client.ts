@@ -60,6 +60,8 @@ export interface ListedMcpTool {
   /** What the tool's structuredContent follows, when the server declares it: a script's return type (SourcedTool.codeOutputSchema). */
   outputSchema?: unknown
   annotations?: unknown
+  /** The display name (MCP 2025-06-18), beside the older annotations.title. */
+  title?: string
 }
 
 /**
@@ -301,7 +303,10 @@ export const openAutonomousAgentTools = async (
         return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, origin) : structured
       }
       // The declared outputSchema is what structuredContent follows: a script's return type when the server has one.
-      tools[t.name] = { tool: mcpTool, codeExecute, codeOutputSchema: codeOutputSchemaFor(t.outputSchema), server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
+      // A top-level title (openapi-mcp declares one) joins the annotations, where the run records them and the
+      // chat reads its chip label: without it the person saw « datafair_list_account_datasets ».
+      const annotations = typeof t.title === 'string' && t.title ? { title: t.title, ...(t.annotations as Record<string, unknown> | undefined) } : t.annotations as Record<string, unknown> | undefined
+      tools[t.name] = { tool: mcpTool, codeExecute, codeOutputSchema: codeOutputSchemaFor(t.outputSchema), server: server.id, ...(annotations ? { annotations } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
     }
   }
 

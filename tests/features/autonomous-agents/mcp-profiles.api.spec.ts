@@ -80,6 +80,11 @@ test.describe('profile selection at run time', () => {
     assert.deepEqual(res.data.results.map((t: any) => t.name).sort(), ['closure_stats', 'list_road_closures'])
     assert.deepEqual(res.data.profiles, [{ server: 'dev-profiled-mcp', profiles: ['read'] }])
   })
+  test('a tool\'s top-level title is what the chat shows: it reaches annotations.title', async () => {
+    await seedAgent('test-fixture', ['read'])
+    const res = await admin.get(`${base}/test-fixture/tools`)
+    assert.equal(res.data.results.find((t: any) => t.name === 'closure_stats').annotations.title, 'Closure statistics')
+  })
   test('equal selections in another order give the same tools; a different selection does not', async () => {
     await seedAgent('test-fixture', ['write', 'catalog'])
     const first = (await admin.get(`${base}/test-fixture/tools`)).data.results.map((t: any) => t.name).sort()
