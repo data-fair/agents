@@ -17,6 +17,7 @@ import { acceptingTurns, SHUTTING_DOWN } from '../conversations/shutdown.ts'
 import { taskTarget } from './task-target.ts'
 import { afterTaskRun } from './follow-up.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
+import { webhookPrompt, type PendingTrigger } from './operations.ts'
 
 const LOCK_ORIGIN = 'agents-task-run'
 
@@ -57,6 +58,20 @@ export const executeTaskRun = async (run: ConversationRun, task: AutonomousAgent
 }
 
 export type StartedTaskRun = { run: ConversationRun } | { refused: string }
+
+/**
+ * The task's pending triggers, taken: unset in one atomic step, under the task's lock, so a trigger arriving
+ * meanwhile lands either here or in the list the next run takes — never nowhere. `triggerSeq` moves too, so a
+ * trigger computed from the list before this take retries (acceptTrigger).
+ */
+export const takePendingTriggers = async (taskId: string): Promise<{ pending?: PendingTrigger[], dropped?: number }> => {
+  const before = await mongo.autonomousAgentTasks.findOneAndUpdate(
+    { id: taskId, 'pendingTriggers.0': { $exists: true } },
+    { $unset: { pendingTriggers: '', droppedTriggers: '' }, $inc: { triggerSeq: 1 } },
+    { projection: { _id: 0, pendingTriggers: 1, droppedTriggers: 1 }, returnDocument: 'before' }
+  )
+  return { pending: before?.pendingTriggers, dropped: before?.droppedTriggers }
+}
 
 /**
  * Start a run of a task now — its slot came due (`schedule`), an admin asked (`manual`), or its trigger URL
@@ -109,7 +124,9 @@ export const startTaskRun = async (
   }
   let run: ConversationRun
   try {
-    run = await createRun({ ...base, status: 'running', prompt: task.prompt })
+    // Every run takes the pending payloads, whatever its trigger: a run of the task is what they waited for.
+    const { pending, dropped } = await takePendingTriggers(task.id)
+    run = await createRun({ ...base, status: 'running', prompt: webhookPrompt(task.prompt, pending, dropped) })
   } catch (err) {
     await locks.release(lockId)
     throw err

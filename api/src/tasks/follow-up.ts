@@ -6,7 +6,7 @@ import mongo from '#mongo'
 import config from '#config'
 import type { ConversationRun } from '#types'
 import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
-import { taskEvent, failedInARow } from './operations.ts'
+import { taskEvent, failedInARow, earliestAfterRun } from './operations.ts'
 import { pushTaskEvent } from './notifications.ts'
 
 /**
@@ -20,6 +20,15 @@ export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousA
   const taskId = task?.id ?? run.taskId
   const current = taskId ? await mongo.autonomousAgentTasks.findOne({ id: taskId }, { projection: { _id: 0 } }) : null
   if (!current) return
+
+  // Triggers that arrived during this run wait for the next one: at this run's start + the minimum interval,
+  // or a sooner planned slot. Conditional on the list still being there (a run now may have taken it).
+  if (current.pendingTriggers?.length && !current.pausedReason && current.enabled) {
+    await mongo.autonomousAgentTasks.updateOne(
+      { id: current.id, 'pendingTriggers.0': { $exists: true } },
+      { $set: { nextRunAt: earliestAfterRun(run.startedAt, current.nextRunAt, config.tasks.minIntervalSeconds) } }
+    )
+  }
 
   // A timeout is an `error`; an abort is an admin's act, not a failure.
   const failed = run.status === 'error' || run.status === 'interrupted'

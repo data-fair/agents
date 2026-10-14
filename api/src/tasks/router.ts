@@ -8,7 +8,7 @@
  * explicit means a later `/:type/:id/:agentId/:something` route cannot shadow it silently.
  */
 
-import { Router, type Request } from 'express'
+import express, { Router, type Request } from 'express'
 import { httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as writeReqBody from '#doc/autonomous-agents/task-write-req/index.ts'
@@ -20,7 +20,8 @@ import { runAsMessages } from './run-messages.ts'
 import { startTaskRun, isTaskRunning, PREVIOUS_RUN_STILL_RUNNING } from './execution.ts'
 import { abortRun } from '../conversations/live-runs.ts'
 import { assertAcceptingTurns } from '../conversations/shutdown.ts'
-import { readWebhookKey, regenerateWebhookKey } from './webhook-triggers.ts'
+import { readWebhookKey, regenerateWebhookKey, acceptTrigger } from './webhook-triggers.ts'
+import { renderWebhookPayload, WEBHOOK_LIMITS } from './operations.ts'
 
 const router = Router()
 export default router
@@ -169,6 +170,26 @@ router.delete('/:type/:id/:agentId/tasks/:taskId/webhook-key', async (req, res, 
   try {
     const { owner, agent } = await reqAgent(req, 'write')
     res.type('text/plain').send(await regenerateWebhookKey(owner, agent.id, req.params.taskId, { req }))
+  } catch (err) { next(err) }
+})
+
+// A task's trigger URL, called without a session (docs/architecture/planned-tasks.md, "Webhook triggers"). JSON
+// is parsed by the app's global parser; any other body by this raw one, capped at 64 KB (a 413 beyond).
+router.post('/:type/:id/:agentId/tasks/:taskId/_trigger', express.raw({ type: () => true, limit: WEBHOOK_LIMITS.bodyBytes }), async (req, res, next) => {
+  try {
+    const parsedJson = !Buffer.isBuffer(req.body) && req.body !== undefined
+    if (parsedJson && JSON.stringify(req.body).length > WEBHOOK_LIMITS.bodyBytes) throw httpError(413, 'the payload is larger than 64 KB')
+    const empty = Number(req.headers['content-length'] ?? 0) === 0 && !req.headers['transfer-encoding']
+    const key = typeof req.query.key === 'string' ? req.query.key : req.get('x-webhook-key')
+    const result = await acceptTrigger({
+      owner: { type: req.params.type, id: req.params.id } as any,
+      agentId: req.params.agentId,
+      taskId: req.params.taskId,
+      key,
+      payload: () => renderWebhookPayload(req.body, req.get('content-type'), empty),
+      log: { req }
+    })
+    res.status(202).json(result)
   } catch (err) { next(err) }
 })
 

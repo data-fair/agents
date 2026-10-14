@@ -380,6 +380,10 @@ export const createTestEnvRouter = () => {
     })
     res.send()
   })
+  router.post('/pause-task', async (req, res) => {
+    await mongo.autonomousAgentTasks.updateOne({ id: req.body.taskId }, { $set: { pausedReason: 'paused by a test' }, $unset: { nextRunAt: '' } })
+    res.send()
+  })
   router.post('/recover-ownerless-runs', async (req, res) => {
     const conversations = await recoverOwnerlessRuns()
     const tasks = await recoverOwnerlessTaskRuns()

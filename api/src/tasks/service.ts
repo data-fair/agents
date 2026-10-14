@@ -122,6 +122,8 @@ export const updateTask = async (owner: AccountKeys, agent: { id: string }, task
     // Emptied: no slot of its own any more. A pending trigger's slot stays, so its payloads still run.
     $unset.nextRunAt = ''
   }
+  // Resumed with no schedule of its own but payloads waiting: they run at once.
+  if (reEnabled && !nextRunAt && pending?.length) $set.nextRunAt = now.toISOString()
   if (reEnabled) $unset.pausedReason = ''
   // Resumed from a pause: the failures that paused it no longer count toward the next one (afterTaskRun).
   if (reEnabled && existing.pausedReason) $set.resumedAt = now.toISOString()
