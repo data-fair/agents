@@ -62,6 +62,7 @@ en:
     approval: Approval
     schedule: Scheduled
     manual: Run manually
+    webhook: Webhook
 fr:
   credits: "{n} crédits"
   noOutcome: Aucun résultat signalé
@@ -75,6 +76,7 @@ fr:
     approval: Approbation
     schedule: Planifiée
     manual: Lancée manuellement
+    webhook: Webhook
 </i18n>
 
 <script lang="ts" setup>

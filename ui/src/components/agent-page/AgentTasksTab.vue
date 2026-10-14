@@ -93,6 +93,12 @@
       />
       <v-btn
         variant="text"
+        :prepend-icon="mdiWebhook"
+        :text="t('triggerUrl')"
+        @click="openTrigger(task)"
+      />
+      <v-btn
+        variant="text"
         :prepend-icon="mdiPencil"
         :text="t('edit')"
         @click="openForm(task)"
@@ -172,6 +178,63 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
+
+  <!-- The task's trigger URL (docs/architecture/planned-tasks.md, "Webhook triggers"): its key is fetched on
+       demand from the key route, never part of the task read. -->
+  <v-dialog
+    v-model="triggerDialog"
+    max-width="720"
+  >
+    <v-card :title="t('triggerUrl')">
+      <v-card-text>
+        <p class="mb-2">
+          {{ t('triggerHelp') }}
+        </p>
+        <code
+          class="d-block text-break"
+          data-testid="task-trigger-url"
+        >{{ triggerUrl }}</code>
+      </v-card-text>
+      <v-card-actions class="flex-wrap">
+        <v-btn
+          variant="text"
+          :prepend-icon="mdiContentCopy"
+          :text="t('copy')"
+          @click="copyTriggerUrl()"
+        />
+        <v-menu max-width="400">
+          <template #activator="{ props: activatorProps }">
+            <v-btn
+              v-bind="activatorProps"
+              variant="text"
+              color="warning"
+              :prepend-icon="mdiRefresh"
+              :text="t('regenerate')"
+            />
+          </template>
+          <v-card>
+            <v-card-text>{{ t('confirmRegenerate') }}</v-card-text>
+            <v-card-actions>
+              <v-spacer />
+              <v-btn :text="t('cancel')" />
+              <v-btn
+                color="warning"
+                variant="flat"
+                :text="t('confirm')"
+                @click="regenerateKey()"
+              />
+            </v-card-actions>
+          </v-card>
+        </v-menu>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :text="t('close')"
+          @click="triggerDialog = false"
+        />
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 </template>
 
 <i18n lang="yaml">
@@ -194,6 +257,14 @@ en:
   saved: The task has been saved
   deleted: The task has been deleted
   failed: The task could not be saved
+  triggerUrl: Trigger URL
+  triggerHelp: "A POST to this secret URL runs the task, with the request body given to the agent as data. Paste it into an events webhook subscription on a dataset topic to run the task when the dataset changes. Triggers closer than the minimum interval are merged into one run."
+  copy: Copy
+  copied: Copied
+  regenerate: Regenerate
+  confirmRegenerate: The current URL will stop working at once.
+  confirm: Confirm
+  close: Close
 fr:
   newTask: Nouvelle tâche
   editTask: Modifier la tâche
@@ -213,12 +284,20 @@ fr:
   saved: La tâche a été enregistrée
   deleted: La tâche a été supprimée
   failed: La tâche n'a pas pu être enregistrée
+  triggerUrl: URL de déclenchement
+  triggerHelp: "Une requête POST sur cette URL secrète exécute la tâche, et le corps de la requête est transmis à l'agent comme donnée. Collez-la dans un abonnement webhook du service d'événements sur un sujet de jeu de données pour exécuter la tâche quand le jeu de données change. Les déclenchements plus rapprochés que l'intervalle minimal sont regroupés en une seule exécution."
+  copy: Copier
+  copied: Copié
+  regenerate: Régénérer
+  confirmRegenerate: L'URL actuelle cessera immédiatement de fonctionner.
+  confirm: Confirmer
+  close: Fermer
 </i18n>
 
 <script lang="ts" setup>
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { mdiDelete, mdiPencil, mdiPlay, mdiPlus } from '@mdi/js'
+import { mdiContentCopy, mdiDelete, mdiPencil, mdiPlay, mdiPlus, mdiRefresh, mdiWebhook } from '@mdi/js'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { describeScheduling } from '@agents/shared/task-schedule'
@@ -288,6 +367,36 @@ const remove = async (task: any) => {
   } finally {
     busy[task.id] = undefined
   }
+}
+
+// ---- the trigger URL ----
+const triggerDialog = ref(false)
+const triggerTask = ref<any>(null)
+const triggerKey = ref('')
+const keyUrl = (task: any) => `${tasksUrl.value}/${task.id}/webhook-key`
+const triggerUrl = computed(() => triggerTask.value
+  ? new URL(`${tasksUrl.value}/${triggerTask.value.id}/_trigger?key=${triggerKey.value}`, window.location.origin).href
+  : '')
+
+const openTrigger = async (task: any) => {
+  try {
+    triggerKey.value = await $fetch<string>(keyUrl(task), { credentials: 'include' })
+    triggerTask.value = task
+    triggerDialog.value = true
+  } catch (error) {
+    sendUiNotif({ type: 'error', msg: apiErrorMessage(error) ?? t('failed'), error: error as any })
+  }
+}
+const regenerateKey = async () => {
+  try {
+    triggerKey.value = await $fetch<string>(keyUrl(triggerTask.value), { method: 'DELETE', credentials: 'include' })
+  } catch (error) {
+    sendUiNotif({ type: 'error', msg: apiErrorMessage(error) ?? t('failed'), error: error as any })
+  }
+}
+const copyTriggerUrl = async () => {
+  await navigator.clipboard.writeText(triggerUrl.value)
+  sendUiNotif({ type: 'success', msg: t('copied') })
 }
 
 // ---- the form ----
