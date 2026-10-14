@@ -233,6 +233,13 @@ mechanism sub-agent workers already use, so there is one way to show nested work
 
 Nested calls are not entries of the run's `calls` telemetry, which records model calls.
 
+**Open (todo): no bound on a message's traces as a whole.** Each nested call is bounded (input ~100 KB, result
+`TOOL_RESULT_LIMIT`), but a script makes up to 100 calls, so one trace can reach ~20 MB, and a turn may run
+several scripts into the same message — past MongoDB's 16 MB document cap, the message fails to save and the
+turn's record is lost. Unlikely (dozens of near-maximal calls), not yet seen. Intended fix: a per-message
+budget of a few MB across traces, past which a nested call is recorded with its name and state only and a
+note that its detail was dropped; the model's own calls and the script's result are untouched.
+
 **Guards.** A nested call is not a model step (spec §6.5 expected it to count; it cannot without SDK events):
 
 - the step limit and the repeated-call guard see the `code_mode` call, not what it does — five identical
