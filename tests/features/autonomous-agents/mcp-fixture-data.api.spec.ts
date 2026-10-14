@@ -14,6 +14,8 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
 import { startMcpFixture } from '../../support/mcp-fixture.ts'
 
 const port = Number(process.env.NGINX_PORT) + 30
@@ -69,5 +71,29 @@ test.describe('list_road_closures fixture data', () => {
     for (const closure of closures) {
       assert.ok(closure.reopens > closure.from, `${closure.street} must reopen after it closes`)
     }
+  })
+})
+
+// The profiled mode (docs/superpowers/specs/2026-10-14-mcp-profile-selection-design.md): the fixture behaves as
+// data-fair's mcp does — a vocabulary, a tool set composed per `profiles` query, a 400 on an unknown one.
+test.describe('profiled fixture', () => {
+  let fixture: Awaited<ReturnType<typeof startMcpFixture>>
+  test.beforeAll(async () => { fixture = await startMcpFixture(port) })
+  test.afterAll(async () => { await fixture.close() })
+
+  test('the profiled mode lists the tools of the selected profiles only', async () => {
+    const base = `http://127.0.0.1:${fixture.port}`
+    const vocab = await (await fetch(`${base}/profiled/profiles`)).json()
+    assert.deepEqual(vocab.profiles.map((p: any) => p.name), ['catalog', 'read', 'write', 'read_roads', 'write_roads'])
+    const list = async (profiles: string) => {
+      const client = new Client({ name: 't', version: '0' })
+      await client.connect(new StreamableHTTPClientTransport(new URL(`${base}/profiled/mcp?profiles=${profiles}`)))
+      try { return (await client.listTools()).tools.map(t => t.name).sort() } finally { await client.close() }
+    }
+    assert.deepEqual(await list('catalog'), ['echo'])
+    assert.deepEqual(await list('write'), ['closure_stats', 'import_table', 'list_road_closures'])
+    const bad = await fetch(`${base}/profiled/mcp?profiles=nope`, { method: 'POST', headers: { 'content-type': 'application/json', accept: 'application/json, text/event-stream' }, body: '{}' })
+    assert.equal(bad.status, 400)
+    assert.match(await bad.text(), /unknown profile: nope/)
   })
 })

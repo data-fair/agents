@@ -41,6 +41,9 @@ export default {
       { id: 'dev-review-session-mcp', name: 'Dev Review MCP (as the agent)', url: reviewUrl, auth: 'nhi-session' },
       { id: 'dev-public-mcp', name: 'Dev Public MCP', url: fixtureUrl, auth: 'none' },
       { id: 'dev-session-mcp', name: 'Dev Session MCP', url: fixtureUrl, auth: 'nhi-session' },
+      // A profiled server (profilesUrl): references select profiles. Served by the test fixture's /profiled
+      // routes, whose vocabulary mirrors data-fair's mcp on fixture tools.
+      { id: 'dev-profiled-mcp', name: 'Dev Profiled MCP', url: fixtureUrl.replace(/\/mcp$/, '/profiled/mcp'), profilesUrl: fixtureUrl.replace(/\/mcp$/, '/profiled/profiles'), auth: 'nhi-session' },
       // Only entry that carries a credential — needed so the "no credentials in the
       // catalog" api test actually exercises the apiKey-stripping path instead of
       // trivially passing because no configured entry ever had a key to leak.
