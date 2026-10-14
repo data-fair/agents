@@ -19,6 +19,7 @@ import reviewRouter from './review/router.ts'
 import moderationRouter from './moderation/router.ts'
 import limitsRouter from './limits/router.ts'
 import { createTestEnvRouter } from './test-env/router.ts'
+import { SPA_CSP_DIRECTIVES } from './spa-csp.ts'
 import config from '#config'
 
 export const app = express()
@@ -65,7 +66,7 @@ if (process.env.NODE_ENV === 'development') app.use('/api/test-env', createTestE
 app.use('/api', (req, res) => res.status(404).send('unknown api endpoint'))
 
 app.use(await createSpaMiddleware(resolve(import.meta.dirname, '../../ui/dist'), uiConfig, {
-  csp: { nonce: true, header: true },
+  csp: { nonce: true, header: SPA_CSP_DIRECTIVES },
   privateDirectoryUrl: config.privateDirectoryUrl
 }))
 
