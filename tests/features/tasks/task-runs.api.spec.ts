@@ -7,6 +7,7 @@ import assert from 'node:assert/strict'
 import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
 import { awaitAgentRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { OUTCOME_REMINDER } from '../../../api/src/conversations/service-tool-names.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
@@ -68,11 +69,26 @@ test.describe('Task runs', () => {
     assert.equal(event.url, `${siteUrl}/agents/organization/test1/agents/${agent.id}?tab=history&run=${run.id}`)
   })
 
-  test('no report_outcome leaves the outcome absent, not a guessed done', async () => {
+  test('a run that ends without report_outcome is reminded once, in the same run, and its outcome recorded', async () => {
     const agent = await createAgent()
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, (await createTask(agent.id, 'hello')).id))
     assert.equal(run.status, 'done')
-    assert.equal(run.outcome, undefined)
+    // the mock answers the reminder by reporting (api/src/models/mock-model.ts): an outcome, not a guessed one
+    assert.deepEqual(run.outcome, { status: 'done', summary: 'reported when reminded' })
+    const parts = run.messages[1].parts
+    const first = parts.findIndex((p: any) => p.type === 'text' && /world/.test(p.text))
+    const reminder = parts.findIndex((p: any) => p.type === 'data-outcome-reminder')
+    const call = parts.findIndex((p: any) => p.type === 'dynamic-tool' && p.toolName === 'report_outcome')
+    assert.ok(first !== -1 && first < reminder && reminder < call, 'the first answer, then the reminder, then the call: one record')
+    assert.equal(parts[reminder].data.text, OUTCOME_REMINDER)
+    assert.equal(run.calls.length, 2, 'two model calls, each recorded with its own spend')
+  })
+
+  test('a run that reported its outcome is not reminded', async () => {
+    const agent = await createAgent()
+    const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, (await createTask(agent.id, 'call tool report_outcome {"status":"done","summary":"all good"}')).id))
+    assert.ok(!run.messages[1].parts.some((p: any) => p.type === 'data-outcome-reminder'))
+    assert.equal(run.calls.length, 1)
   })
 
   test('a tool needing approval is not offered, and never runs', async () => {

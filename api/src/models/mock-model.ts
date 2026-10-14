@@ -1,5 +1,6 @@
 import type { LanguageModel } from 'ai'
 import type { LanguageModelV3StreamPart, LanguageModelV3Usage } from '@ai-sdk/provider'
+import { OUTCOME_REMINDER } from '../conversations/outcome-reminder.ts'
 
 interface MockPromptResult {
   type: 'text' | 'tool-call' | 'error'
@@ -260,6 +261,12 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {
     return { type: 'text', text: 'done' }
+  }
+
+  // The reminder a planned task's run gets when it ended without report_outcome (executor.ts performTurn): the
+  // mock reports, as a model told to would. After the tool-result guard above, so it answers the call with text.
+  if (lastMessage === OUTCOME_REMINDER) {
+    return { type: 'tool-call', toolName: 'report_outcome', toolArgs: JSON.stringify({ status: 'done', summary: 'reported when reminded' }) }
   }
 
   // "wait and call <name>" → a wait AND another call in one step: the handover wins and ends the turn,

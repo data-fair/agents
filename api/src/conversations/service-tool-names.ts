@@ -16,6 +16,11 @@ import { CODE_MODE_TOOL_NAME } from '../code-mode/operations.ts'
 
 /** How a planned task's run reports what it found or did (the task surface only). */
 export const REPORT_OUTCOME_TOOL_NAME = 'report_outcome'
+export { OUTCOME_REMINDER } from './outcome-reminder.ts'
+
+/** Whether a turn's parts hold a report_outcome call that succeeded. */
+export const reportedOutcome = (parts: readonly { type: string, toolName?: string, state?: string }[]): boolean =>
+  parts.some(part => part.type === 'dynamic-tool' && part.toolName === REPORT_OUTCOME_TOOL_NAME && part.state === 'output-available')
 
 export const SERVICE_TOOL_NAMES: ReadonlySet<string> = new Set([WAIT_TOOL_NAME, MEMORY_TOOL_NAME, REPORT_OUTCOME_TOOL_NAME, ...WEB_TOOL_NAMES, ...FILE_TOOL_NAMES, REQUEST_MCP_ACCESS_TOOL_NAME, READ_SKILL_TOOL_NAME, ...SELF_KNOWLEDGE_TOOL_NAMES, ...PLANNING_TOOL_NAMES, CODE_MODE_TOOL_NAME])
 

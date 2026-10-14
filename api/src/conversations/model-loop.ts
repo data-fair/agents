@@ -6,7 +6,7 @@
 
 import config from '#config'
 import Debug from 'debug'
-import { streamText, isStepCount, type Tool } from 'ai'
+import { streamText, isStepCount, convertToModelMessages, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
@@ -71,6 +71,13 @@ export interface ModelLoopContext {
   guides?: ServerGuide[]
   /** How a skill of one of those servers is read: what a sub-agent worker's read_skill uses. */
   guidesRead?: (server: string, uri: string) => Promise<string>
+  /**
+   * A second pass of the same turn (executor.ts performTurn): the first pass's parts, replayed to the model and
+   * kept at the head of the record, then `note` as the next user message, recorded as a `data-outcome-reminder`
+   * part. `credits` and `steps` are the first pass's: the run's ceiling counts both passes, each pass's
+   * telemetry its own.
+   */
+  continuation?: { parts: MessagePart[], note: string, credits: number, steps: number }
 }
 
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
@@ -82,7 +89,18 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides, timeZone: target.timeZone })
   const identity = usageIdentityFor(autonomousAgent, run)
 
-  const { messages: history, credits: compactionCredits, hostBlockChars } = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
+  const loaded = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
+  const { credits: compactionCredits, hostBlockChars } = loaded
+  const continuation = ctx.continuation
+  // A second pass sees the first as the model produced it, then the note: the same conversion a stored turn's
+  // replay uses (data parts, such as the reminder itself, are left out of it by the SDK).
+  const history = continuation
+    ? [
+        ...loaded.messages,
+        ...await convertToModelMessages([{ role: 'assistant', parts: continuation.parts }], { ignoreIncompleteToolCalls: true }),
+        { role: 'user' as const, content: continuation.note }
+      ]
+    : loaded.messages
 
   // Every tool offered on any step of the turn, for its telemetry (see the run schema's `toolNames`).
   const offeredTools = new Set<string>()
@@ -111,7 +129,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     if (accountCap) {
       budgetExceeded = true
       stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
-    } else if (credits >= config.turnCredits) {
+    } else if (credits + (continuation?.credits ?? 0) >= config.turnCredits) {
       budgetExceeded = true
     }
   }
@@ -369,6 +387,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // saw has to end up here, or a revived conversation is a different conversation.
   const recorder = createPartsRecorder()
   const { parts, appendText } = recorder
+  // A second pass's record continues the first's: what the model said, then what it was told.
+  if (continuation) parts.push(...continuation.parts, { type: 'data-outcome-reminder', data: { text: continuation.note } } as MessagePart)
   const live = liveRuns.get(run.id)
   if (live) live.parts = () => parts
 
@@ -662,8 +682,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // closed in the store (see TurnFrames).
   return {
     parts: finalParts,
-    steps,
-    credits,
+    // The turn's, both passes: what the run is charged and how far it went.
+    steps: steps + (continuation?.steps ?? 0),
+    credits: credits + (continuation?.credits ?? 0),
     stopDetail,
     ...(handover ? { handover } : {}),
     ...(awaitingApproval ? { awaitingApproval: true as const } : {}),

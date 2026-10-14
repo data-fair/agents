@@ -41,6 +41,7 @@ import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type 
 import { turnFilesFor } from '../files/service.ts'
 import { createLinkOpener } from '../files/download.ts'
 import { buildServiceTools } from './service-tools.ts'
+import { REPORT_OUTCOME_TOOL_NAME, OUTCOME_REMINDER, reportedOutcome } from './service-tool-names.ts'
 import { agentGuide, readAgentSkill, AGENT_SKILLS_SERVER } from '../self-knowledge/operations.ts'
 import { runModelLoop } from './model-loop.ts'
 import { liveRuns, watchStopRequests, type LiveRun } from './live-runs.ts'
@@ -219,7 +220,20 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
           openLink: createLinkOpener({ sites, allowedUrls: autonomousAgent.web?.enabled ? autonomousAgent.web.allowedUrls ?? [] : [], publicIps: envPublicIps() })
         }
       : {}
-    return await runModelLoop({ run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead: readSkill })
+    const loop = { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead: readSkill }
+    const result = await runModelLoop(loop)
+    // A PLANNED TASK'S RUN THAT DID NOT REPORT is reminded, once: a second pass of the same turn, offered only
+    // report_outcome, whose record continues the first's. Only after a turn that finished — a turn cut short
+    // explains itself, and its failure is the outcome. A run still silent after it keeps no outcome.
+    if (target.surface === 'task' && result.stopReason === 'completed' && tools[REPORT_OUTCOME_TOOL_NAME] && !reportedOutcome(result.parts)) {
+      debug('task run %s ended without report_outcome: reminding it once', run.id)
+      return await runModelLoop({
+        ...loop,
+        tools: { [REPORT_OUTCOME_TOOL_NAME]: tools[REPORT_OUTCOME_TOOL_NAME] },
+        continuation: { parts: result.parts, note: OUTCOME_REMINDER, credits: result.credits, steps: result.steps }
+      })
+    }
+    return result
   } finally {
     // The turn is over (normally, by throw, or by abandonment): release the MCP connections.
     await closeTools()
