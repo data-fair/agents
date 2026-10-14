@@ -8,6 +8,7 @@ import { renderConfiguration, renderRunRow, exportPage, agentGuide, readAgentSki
 import { CODE_MODE_POLICY } from '../../../api/src/code-mode/operations.ts'
 import { SERVICE_TOOL_NAMES } from '../../../api/src/conversations/service-tool-names.ts'
 import { buildSystemPrompt } from '../../../api/src/conversations/operations.ts'
+import { notSelectedProfiles } from '../../../shared/mcp-profiles.ts'
 
 // Rendering reads a tool's provenance, never the tool itself.
 const unusedTool = {} as Tool
@@ -244,4 +245,24 @@ test('a profiled server is described by its profiles', () => {
   const base = view('chat')
   const text = renderConfiguration({ ...base, catalog: { ...base.catalog, profiled: [{ server: 'datafair', profiles: ['read', 'write_portals'] }] } })
   assert.match(text, /server datafair: profiles read, write_portals, chosen by an administrator/)
+})
+
+test('a profiled server names the profiles an administrator could add, so the agent can say what is out of reach', () => {
+  const base = view('chat')
+  const notSelected = [{ name: 'catalog', title: 'Catalogue', description: 'Données publiées sur les portails' }, { name: 'write', title: 'Modifier' }]
+  const text = renderConfiguration({ ...base, catalog: { ...base.catalog, profiled: [{ server: 'datafair', profiles: ['read'], notSelected }] } })
+  assert.match(text, /server datafair: profiles read, chosen by an administrator\. Not selected, an administrator can add them: catalog \(Catalogue — Données publiées sur les portails\), write \(Modifier\)/)
+})
+
+test('notSelectedProfiles lists the roots neither selected nor included by the selection', () => {
+  const vocabulary = [
+    { name: 'catalog', title: 'Catalogue' },
+    { name: 'read', includes: ['read_datasets'] },
+    { name: 'read_datasets' },
+    { name: 'write', includes: ['write_datasets'] },
+    { name: 'write_datasets', includes: ['read_datasets'] }
+  ]
+  assert.deepEqual(notSelectedProfiles(vocabulary, ['read']).map(p => p.name), ['catalog', 'write'])
+  assert.deepEqual(notSelectedProfiles(vocabulary, ['write_datasets']).map(p => p.name), ['catalog', 'read', 'write'])
+  assert.deepEqual(notSelectedProfiles(vocabulary, ['catalog', 'read', 'write']), [])
 })

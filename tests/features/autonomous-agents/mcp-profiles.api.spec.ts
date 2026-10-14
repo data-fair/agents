@@ -3,8 +3,10 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { superAdmin, clean } from '../../support/axios.ts'
+import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { turnOverSocket } from '../../../dev/socket-turn.ts'
+import { callPart, outputOf } from '../../support/files.ts'
 
 const admin = await superAdmin
 const base = '/api/autonomous-agents/organization/test1'
@@ -87,6 +89,12 @@ test.describe('profile selection at run time', () => {
     assert.deepEqual(first, ['closure_stats', 'echo', 'import_table', 'list_road_closures'])
     await seedAgent('test-fixture', ['catalog'])
     assert.deepEqual((await admin.get(`${base}/test-fixture/tools`)).data.results.map((t: any) => t.name), ['echo'])
+  })
+  test('get_my_configuration names the profiles an administrator could still add, from the vocabulary', async () => {
+    await seedAgent('test-fixture', ['read'])
+    const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool get_my_configuration {}')
+    assert.match(outputOf(callPart(assistant, 'get_my_configuration')), /server dev-profiled-mcp: profiles read, chosen by an administrator\. Not selected, an administrator can add them: catalog \(Catalog\), write \(Write\)/)
   })
   test('a withdrawn profile fails by name', async () => {
     await seedAgent('test-fixture', ['read'])

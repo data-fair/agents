@@ -12,6 +12,7 @@ import { describeScheduling, type ScheduleRule } from '@agents/shared/task-sched
 import { classifyTool, resolveApproval, type ApprovalClass, type Approvals } from '../conversations/approval-policy.ts'
 import type { TurnCatalog, TurnSurface } from '../conversations/service-tools.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
+import type { McpProfile } from '@agents/shared/mcp-profiles'
 
 export const SELF_KNOWLEDGE_TOOL_NAMES = ['get_my_configuration', 'list_my_runs', 'read_conversation'] as const
 
@@ -61,6 +62,11 @@ const toolStatus = (annotations: Record<string, unknown> | undefined, approvals:
   return 'usable'
 }
 
+const profileLabel = (p: McpProfile) => {
+  const label = [p.title, p.description].filter(Boolean).join(' — ')
+  return label ? `${p.name} (${label})` : p.name
+}
+
 const bullets = (items: string[]) => items.length ? items.map(item => `- ${item}`).join('\n') : 'None.'
 
 export const renderConfiguration = (view: ConfigurationView): string => {
@@ -68,7 +74,10 @@ export const renderConfiguration = (view: ConfigurationView): string => {
   const tools = [
     ...Object.entries(catalog.tools).map(([name, { server, annotations }]) => `${name} (server ${server}): ${toolStatus(annotations, agent.approvals, surface)}`),
     ...catalog.filteredOut.map(({ name, server }) => `${name} (server ${server}): not selected for you by an administrator`),
-    ...(catalog.profiled ?? []).map(({ server, profiles }) => `server ${server}: profiles ${profiles.join(', ')}, chosen by an administrator`),
+    ...(catalog.profiled ?? []).map(({ server, profiles, notSelected }) => `server ${server}: profiles ${profiles.join(', ')}, chosen by an administrator` +
+      // What is out of reach and why, as SELF_KNOWLEDGE_NOTE promises: with « read » alone, a judged run could not
+      // tell that « catalog » reaches published data, and asked the person for an MCP server's address instead.
+      (notSelected?.length ? `. Not selected, an administrator can add them: ${notSelected.map(profileLabel).join(', ')}` : '')),
     ...(catalog.needsFiles ?? []).map(({ name, server }) => `${name} (server ${server}): not usable: it takes a file, and this deployment has no file store`),
     ...catalog.skippedServers.map(({ id, reason }) => `server ${id}: server unreachable: ${reason}`)
   ]

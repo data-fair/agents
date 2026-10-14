@@ -7,13 +7,15 @@ import { tool, jsonSchema, type Tool } from 'ai'
 import config from '#config'
 import mongo from '#mongo'
 import type { AccountKeys } from '@data-fair/lib-express'
-import type { ServiceToolContext } from '../conversations/service-tools.ts'
+import type { ServiceToolContext, TurnCatalog } from '../conversations/service-tools.ts'
 import { listTasks, listRuns, getRun, type RunFilters } from '../tasks/service.ts'
 import { memoryEnabledFor } from '../memory/operations.ts'
 import { renderConfiguration, renderRunRow, exportPage, SELF_KNOWLEDGE_TOOL_NAMES, LIST_RUNS_MAX, LIST_MY_RUNS_DESCRIPTION, READ_CONVERSATION_DESCRIPTION } from './operations.ts'
 import { buildConversationExport } from '../review/operations.ts'
 import { runAsMessages } from '../tasks/run-messages.ts'
 import type { ScheduleRule } from '@agents/shared/task-schedule'
+import { notSelectedProfiles } from '@agents/shared/mcp-profiles'
+import { fetchProfiles } from '../mcp-servers/profiles.ts'
 
 const LIST_RUNS_DEFAULT = 10
 
@@ -24,6 +26,21 @@ export const asToolError = (err: any): never => {
 
 const taskTitles = async (owner: AccountKeys, agentId: string) =>
   new Map((await listTasks(owner, agentId)).map(task => [task.id, task.title]))
+
+/** The profiles each profiled server could still give: read from its vocabulary, left out when that is unreadable. */
+const withNotSelected = async (catalog: TurnCatalog): Promise<TurnCatalog> => {
+  if (!catalog.profiled?.length) return catalog
+  const profiled = await Promise.all(catalog.profiled.map(async entry => {
+    const server = (config.mcpServers ?? []).find(s => s.id === entry.server)
+    if (!server?.profilesUrl) return entry
+    try {
+      return { ...entry, notSelected: notSelectedProfiles(await fetchProfiles(server), entry.profiles) }
+    } catch {
+      return entry
+    }
+  }))
+  return { ...catalog, profiled }
+}
 
 export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNames: () => string[]): Record<string, Tool> => {
   const { agent, run, surface } = ctx
@@ -41,7 +58,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
           agent: { title: agent.title, persona: agent.persona, instructions: agent.instructions, approvals: agent.approvals, memoryEnabled: memoryEnabledFor(agent) },
           surface,
           files: !!ctx.files,
-          catalog: ctx.catalog ?? { tools: {}, filteredOut: [], skippedServers: [] },
+          catalog: await withNotSelected(ctx.catalog ?? { tools: {}, filteredOut: [], skippedServers: [] }),
           serviceTools: serviceToolNames().filter(name => !own.has(name)),
           notConnected: (config.mcpServers ?? []).filter(server => !referenced.has(server.id))
             .map(({ id, name, description }) => ({ id, name, description })),

@@ -29,6 +29,12 @@ export function includedBy (vocabulary: McpProfile[], selected: string[]): Map<s
   return out
 }
 
+/** The roots a selection neither names nor includes: what an administrator could still add, in the server's order. */
+export function notSelectedProfiles (vocabulary: McpProfile[], selected: string[]): McpProfile[] {
+  const implied = includedBy(vocabulary, selected)
+  return profileRoots(vocabulary).filter(p => !selected.includes(p.name) && !implied.has(p.name))
+}
+
 /** Roots by role, for the stack's vocabulary; a root this table does not know is offered to admins only. */
 const ROOTS_BY_ROLE: Record<string, string[]> = {
   user: ['catalog', 'read'],
