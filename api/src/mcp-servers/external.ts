@@ -179,7 +179,7 @@ export interface RequestMcpAccessInput { url: string, reason: string }
  * from the agent's next turn, when its tools are gathered.
  */
 export const createRequestMcpAccessTool = (opts: { servers: { url: string }[], save: (servers: { url: string }[]) => Promise<void> }): Tool => tool({
-  description: 'Ask an administrator of the organization to connect an external MCP server to you, such as the MCP server of another data portal, which you then use anonymously. The conversation stops until they decide. Say why the task needs it.',
+  description: 'Ask an administrator of the organization to connect an external MCP server to you, such as the MCP server of another data portal, which you then use anonymously. The conversation stops until they decide. Say why the task needs it. The URL comes from a site that publishes it (reading the site\'s first page lists its MCP servers) or from the person when they give one: never ask the person for an MCP URL.',
   inputSchema: jsonSchema<RequestMcpAccessInput>({
     type: 'object',
     additionalProperties: false,

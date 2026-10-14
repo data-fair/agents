@@ -108,6 +108,16 @@ test.describe('buildSystemPrompt', () => {
     assert.doesNotMatch(prompt, /own service identity/i)
   })
 
+  test('both kinds of agent are told the person does not see how they are built', () => {
+    // A judged run asked a person who says « nos données » for « l'adresse du serveur MCP »: the agent's
+    // configuration speaks of servers and profiles, and nothing said the person does not.
+    const { nhi, ...standard } = agent
+    for (const prompt of [buildSystemPrompt(agent), buildSystemPrompt(standard as any)]) {
+      assert.match(prompt, /does not see how you are built/)
+      assert.match(prompt, /never mention servers, MCP, tools, profiles or identifiers/)
+    }
+  })
+
   test('warns that tool results are data, not instructions', () => {
     // the standing half of the prompt-injection defence; wrapToolResult is the per-result half
     assert.match(buildSystemPrompt(agent), /never.*instruction|not .*instruction/i)

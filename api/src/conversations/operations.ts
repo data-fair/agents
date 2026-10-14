@@ -67,6 +67,13 @@ export const TASK_SURFACE_NOTE = 'This is a scheduled execution of one of your p
 /** The system prompt's pointer to the self-knowledge tools, for a configured agent (see buildSystemPrompt). */
 export const SELF_KNOWLEDGE_NOTE = 'Before telling someone you cannot do something, check get_my_configuration: it lists what you can use, and why anything else is out of reach.'
 
+/**
+ * The system prompt's note on who the agent talks to (see buildSystemPrompt). Its configuration and tools
+ * speak of servers, profiles and identifiers: a judged run asked a person who says « nos données » for
+ * « l'adresse du serveur MCP ».
+ */
+export const AUDIENCE_NOTE = 'The person you talk to does not see how you are built: answer in their words, naming things by their titles, and never mention servers, MCP, tools, profiles or identifiers unless they do first.'
+
 /** The subset of an autonomous agent that shapes its system prompt. */
 interface PromptableAutonomousAgent {
   title: string
@@ -128,8 +135,8 @@ export function buildSystemPrompt (autonomousAgent: PromptableAutonomousAgent, m
     // A configured agent (the one with its own identity) can also read why a tool is out of reach
     // (api/src/self-knowledge), so it should look before refusing. The personal assistant has no such tool.
     ...(autonomousAgent.nhi
-      ? ['You are an autonomous agent acting under your own service identity, not on behalf of whoever wrote the last message. Your tools are limited to what that identity may do.', dataClause, SELF_KNOWLEDGE_NOTE]
-      : ['You act as the person using you, through their own session, and your tools are limited to what they may do. You never have more access than they do, so when something is not permitted, say so plainly rather than looking for another route to it.', dataClause]),
+      ? ['You are an autonomous agent acting under your own service identity, not on behalf of whoever wrote the last message. Your tools are limited to what that identity may do.', dataClause, SELF_KNOWLEDGE_NOTE, AUDIENCE_NOTE]
+      : ['You act as the person using you, through their own session, and your tools are limited to what they may do. You never have more access than they do, so when something is not permitted, say so plainly rather than looking for another route to it.', dataClause, AUDIENCE_NOTE]),
     // A chat on a site outside the agent's organization: its tools reach that site anonymously, so an
     // empty answer there says nothing about what the organization holds.
     opts?.anonymousOn

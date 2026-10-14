@@ -114,6 +114,11 @@ test.describe('openExternalMcpTools', () => {
 test.describe('createRequestMcpAccessTool', () => {
   const run = (tool: any, url: string) => tool.execute({ url, reason: 'x' }, { toolCallId: 't', messages: [] })
 
+  test('says where the URL comes from, so the agent does not ask a person for one', () => {
+    const tool: any = createRequestMcpAccessTool({ servers: [], save: async () => {} })
+    assert.match(tool.description, /never ask the person for an MCP URL/)
+  })
+
   test('refuses to exceed the maximum, without saving', async () => {
     const servers = Array.from({ length: 50 }, (_, i) => ({ url: `https://s${i}.example.org/mcp` }))
     let saved = 0
