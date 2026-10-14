@@ -17,7 +17,7 @@ import type { MessagePart } from '@agents/shared/message-parts'
 import type { ToolSet } from '../conversations/operations.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement, boundRecordedInput, type CallSettlement } from '../conversations/parts-recorder.ts'
 import { withCallPath, type CallPathContext } from '../files/call-path.ts'
-import { CODE_MODE_TOOL_NAME, codeCallable } from './operations.ts'
+import { CODE_MODE_TOOL_NAME, codeCallable, SCRIPT_TRANSFER_BYTES, bridgedBytes, transferRefusedMessage, transferExceededMessage } from './operations.ts'
 
 export interface CodeTrace {
   record<T> (toolCallId: string, toolName: string, input: unknown, run: () => Promise<T>): Promise<T>
@@ -102,6 +102,15 @@ const toolError = (err: unknown, toolCallId: string) => {
 
 export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: Record<string, Tool>, callPath: CallPathContext, trace: CodeTrace }): Record<string, Tool> => {
   const out: Record<string, Tool> = {}
+  // What each script has moved so far (SCRIPT_TRANSFER_BYTES), keyed like the trace. The map is rebuilt every step
+  // and a running script keeps the one it started with, so this lives as long as the scripts that use it.
+  const moved = new Map<string, number>()
+  const spend = (toolCallId: string, bytes: number, message: string) => {
+    const parent = toolCallId.replace(/:tool-\d+$/, '')
+    const total = (moved.get(parent) ?? 0) + bytes
+    if (total > SCRIPT_TRANSFER_BYTES) throw new Error(message)
+    moved.set(parent, total)
+  }
   for (const name of opts.names) {
     const sourced = opts.fixed[name]
     const base = sourced ? withCallPath(sourced, opts.callPath, 'code') : opts.page[name]
@@ -116,7 +125,10 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
       needsApproval: undefined,
       execute: async (input: any, options: any) => await opts.trace.record(options.toolCallId, name, input, async () => {
         try {
-          return await execute(input, options)
+          spend(options.toolCallId, bridgedBytes(input), transferRefusedMessage)
+          const output = await execute(input, options)
+          spend(options.toolCallId, bridgedBytes(output), transferExceededMessage)
+          return output
         } catch (err) {
           if (options?.abortSignal?.aborted) throw err
           throw toolError(err, options.toolCallId)

@@ -5,7 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema } from 'ai'
-import { codeCallable } from '../../../api/src/code-mode/operations.ts'
+import { codeCallable, SCRIPT_TRANSFER_BYTES } from '../../../api/src/code-mode/operations.ts'
 import { codeFacingTools, createCodeTrace } from '../../../api/src/code-mode/code-tools.ts'
 import { createScriptTool } from '../../../api/src/code-mode/tool.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../../../api/src/web/operations.ts'
@@ -82,6 +82,40 @@ test.describe('code-facing tools', () => {
       trace: trace()
     })
     assert.deepEqual(Object.keys(tools), ['a'])
+  })
+
+  test('what a script moves through its tools is budgeted: the call that would pass the budget fails in words, the earlier ones stand', async () => {
+    const MiB = 1024 * 1024
+    const tools = codeFacingTools({
+      names: ['big'],
+      fixed: { big: { tool: plain(async () => 'x'.repeat(9 * MiB)), server: 'dev' } },
+      page: {},
+      callPath: {},
+      trace: trace()
+    })
+    const script = createScriptTool(tools)
+    // Two 9 MiB results fit; the third would pass SCRIPT_TRANSFER_BYTES, and run's own 32 MiB record behind it.
+    const out = await script.execute!({ js: 'const got = []; for (let i = 0; i < 3; i++) { try { got.push((await tools.big({})).length) } catch (e) { got.push(e.message) } } return got' }, { toolCallId: 'cm5', messages: [], context: {} })
+    const got = JSON.parse(out as string)
+    assert.equal(got[0], 9 * MiB)
+    assert.equal(got[1], 9 * MiB)
+    assert.match(got[2], new RegExp(`ran, but its result would bring .* past ${SCRIPT_TRANSFER_BYTES / MiB} MiB`))
+    await assert.rejects(script.execute!({ js: 'for (let i = 0; i < 4; i++) await tools.big({})' }, { toolCallId: 'cm6', messages: [], context: {} }), /past 24 MiB/)
+  })
+
+  test('an input over the budget is refused before the tool runs', async () => {
+    let ran = 0
+    const MiB = 1024 * 1024
+    const tools = codeFacingTools({
+      names: ['big', 'sink'],
+      fixed: { big: { tool: plain(async () => 'x'.repeat(9 * MiB)), server: 'dev' }, sink: { tool: plain(async () => { ran++; return 'ok' }), server: 'dev' } },
+      page: {},
+      callPath: {},
+      trace: trace()
+    })
+    // 18 MiB of results spent, then a 7 MiB input: the sink must not run.
+    await assert.rejects(createScriptTool(tools).execute!({ js: 'await tools.big({}); await tools.big({}); await tools.sink({ content: "y".repeat(7 * 1024 * 1024) })' }, { toolCallId: 'cm7', messages: [], context: {} }), /was not made: its input would bring/)
+    assert.equal(ran, 0)
   })
 
   test('the direct-only names are the service\'s own constants', () => {

@@ -84,6 +84,22 @@ The policy (`CODE_MODE_POLICY`, `api/src/code-mode/operations.ts`):
 | `maxToolInputBytes`, `maxToolOutputBytes` | 16 MiB | at least the 10 MB a script may read or write as a file, plus JSON escaping |
 | `maxBridgeRequests` | 100 | tool calls per script, equal to `STEP_LIMIT`: a script cannot make more calls than a turn could steps |
 | `maxInFlightBridgeRequests` | 8 | concurrent tool calls (`Promise.all`); the package's 32 would let one script fan out against one MCP server |
+| `SCRIPT_TRANSFER_BYTES` | 24 MiB | **everything a script passes to and gets from its tools, together** (ours, enforced in `codeFacingTools`; see below) |
+
+**Why a transfer budget.** `run` keeps every call's input and result until the script ends: it is the record a
+paused script is replayed from (each completed call answered from it, not run again). That record is bounded
+by `maxContinuationBytes`, 32 MiB, which the package neither sets nor exposes, and past it the script dies with
+"CodeModeProtocolError: Continuation state exceeds the 33554432 byte size limit" — reading a 10 MB file twice
+was enough. So each call is counted the way `run` counts its entry (the value's JSON, kept as a string inside
+the entry's JSON: escaped twice, so a CSV's quotes weigh four bytes each), and the call that would pass 24 MiB
+fails in words: refused before it runs when its input is what passes, or, when its result is, reported as
+having run (a write happened) with a result the script cannot have. The protocol error itself is translated too,
+should an entry outweigh the count. The consequence is deliberate: **a script is for orchestration and small
+data**, not for streaming large files through the sandbox. Every vendor of a light code mode (this package,
+Cloudflare's isolates, Anthropic's programmatic tool calling) ships a separate full runtime for bulk work; ours
+is data-fair itself — a temporary dataset, its API and filtered exports — and its processings for a
+transformation to repeat. Serializing a large input is also slow inside QuickJS: a 25 MiB string passed to a
+tool exhausted the 10 s of CPU before reaching it.
 
 Every invocation's abort signal is the turn's, so Stop, the deadline and a deploy's drain stop a script. The
 script's own timeout aborts its nested calls' signal too (`run` aborts the invocation's controller on any

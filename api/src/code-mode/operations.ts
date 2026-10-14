@@ -37,6 +37,19 @@ export const CODE_MODE_POLICY = {
 }
 export type CodeModePolicy = typeof CODE_MODE_POLICY
 
+/**
+ * What one script may move through its tools, inputs and results together. `run` keeps every call's input and
+ * result until the script ends — the record it replays a paused script from — and fails the script past 32 MiB
+ * (`maxContinuationBytes`, which the package does not let us set) with a protocol error the model cannot act on.
+ * Counted as `run` counts it (bridgedBytes), with room left for each entry's own fields.
+ */
+export const SCRIPT_TRANSFER_BYTES = 24 * MiB
+/** A value's weight in `run`'s record: its JSON, kept as a string inside the entry's own JSON — escaped twice. */
+export const bridgedBytes = (value: unknown): number => Buffer.byteLength(JSON.stringify(JSON.stringify(value ?? null)))
+const transferLimit = `${SCRIPT_TRANSFER_BYTES / MiB} MiB`
+export const transferRefusedMessage = `This call was not made: its input would bring the data this script passed to and from its tools past ${transferLimit}, the most one script may move. Move less in one script (smaller files, fewer rows), or split the work across scripts.`
+export const transferExceededMessage = `This call ran, but its result would bring the data this script passed to and from its tools past ${transferLimit}, the most one script may move, so the script cannot have it. Move less in one script (smaller files, fewer rows), or split the work across scripts.`
+
 /** What the model reads of a script's return value, and of its console. */
 export const SCRIPT_RESULT_CHARS = 20_000
 export const SCRIPT_LOG_CHARS = 5_000
@@ -78,6 +91,8 @@ export const scriptErrorMessage = (err: unknown, policy: CodeModePolicy = CODE_M
     case 'CodeModeConcurrencyError': return 'Too many scripts are running on this server right now. Try again in a moment, or call the tools directly.'
     case 'CodeModeSourceTooLargeError': return `The script is longer than ${policy.maxSourceBytes / 1024} KiB. Write a shorter one.`
   }
+  // The backstop of SCRIPT_TRANSFER_BYTES: `run`'s own record limit, should a call's entry outweigh our count.
+  if (e?.name === 'CodeModeProtocolError' && /Continuation state exceeds/.test(e.message ?? '')) return `The script moved more than ${transferLimit} through its tools, the most one script may move. Move less in one script (smaller files, fewer rows), or split the work across scripts.`
   if (e?.code === 'CODE_MODE_SERIALIZATION_ERROR') return `The script's result is larger than ${policy.maxResultBytes / (1024 * 1024)} MiB. Return less: write the data to a file with write_file and return its path.`
   const message = e?.message ?? String(err)
   return e?.name && !message.startsWith(e.name) ? `${e.name}: ${message}` : message
@@ -98,6 +113,7 @@ export const describeScriptTool = (packageDescription: string): string => {
     'console.log output is returned after the result. A tool failure is an exception carrying the tool\'s message.',
     'What a tool returns, when its signature says `unknown`: an MCP tool returns its structured result as an object when it has one, otherwise its text as a string (JSON.parse it if it is JSON). A tool whose result carries files returns { text, files: [{ file_path, mimeType, size }] }. read_file returns the whole text of the file.',
     'Check what you got before writing or importing it: a parse that yields nothing should throw, not write an empty file.',
+    `Everything a script passes to and gets from its tools counts toward ${transferLimit}; a larger file belongs in a tool that takes the file itself.`,
     'Tools that need approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents can only be called directly.'
   ].join('\n\n')
 }
