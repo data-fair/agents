@@ -12,7 +12,7 @@ import config from '#config'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
+import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer, type McpServerRef } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
 import type { ToolSet } from '../conversations/operations.ts'
@@ -42,7 +42,7 @@ export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string
 export interface AutonomousAgentForTools {
   id: string
   nhi?: { clientId: string, siteUrl?: string, issuer?: string }
-  mcpServers?: { serverId: string, toolFilter?: string[] }[]
+  mcpServers?: McpServerRef[]
 }
 
 /** A catalog entry that could not be reached, when the caller asked to skip rather than fail. */

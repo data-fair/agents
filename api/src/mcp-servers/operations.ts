@@ -27,6 +27,11 @@ export interface GlobalMcpServer {
   apiKeyHeader?: string
   /** only with auth: 'apiKey' — a deployment secret, never returned by the API */
   apiKey?: string
+  /**
+   * The server's profile vocabulary (data-fair's mcp: /mcp-server/profiles). Set, the server is PROFILED: a
+   * reference selects `profiles`, sent as the `profiles` query parameter of `url`, and never a toolFilter.
+   */
+  profilesUrl?: string
 }
 
 /** The same entry as exposed to org admins: identical minus the credential. */
@@ -36,6 +41,32 @@ export interface McpServerCatalogEntry {
   description?: string
   url: string
   auth: McpServerAuth
+  /** Whether references to it select profiles (the form shows the profile tree) rather than a toolFilter. */
+  profiled: boolean
+}
+
+/** A reference to a catalog entry, from an autonomous agent or a personal assistant. */
+export type McpServerRef = { serverId: string, profiles?: string[], toolFilter?: string[] }
+
+/**
+ * Shape rules of references to profiled servers, at boot (personal assistants) and at save (agents): a
+ * profiled server takes a non-empty `profiles` and no toolFilter, once; another server takes no `profiles`.
+ * Profile NAMES are checked against the vocabulary at save only (../mcp-servers/profiles.ts).
+ */
+export function assertProfiledRefsShape (servers: Array<Pick<GlobalMcpServer, 'id' | 'profilesUrl'>>, refs: McpServerRef[], where: string): void {
+  const seen = new Set<string>()
+  for (const ref of refs) {
+    const server = servers.find(s => s.id === ref.serverId)
+    if (!server) continue // unknown ids have their own check and message
+    if (server.profilesUrl) {
+      if (ref.toolFilter?.length) throw new Error(`${where}: server "${server.id}" declares profiles: select profiles, not toolFilter`)
+      if (!ref.profiles?.length) throw new Error(`${where}: server "${server.id}" declares profiles: select at least one profile`)
+      if (seen.has(server.id)) throw new Error(`${where}: server "${server.id}" is referenced twice; list all its profiles in one reference`)
+      seen.add(server.id)
+    } else if (ref.profiles) {
+      throw new Error(`${where}: server "${server.id}" declares no profiles: use toolFilter, not profiles`)
+    }
+  }
 }
 
 /**
@@ -59,6 +90,22 @@ export function assertGlobalMcpConfig (servers: GlobalMcpServer[]): void {
       throw new Error(`invalid global MCP config: server "${server.id}" url must be http(s), got "${url.protocol}"`)
     }
 
+    if (server.profilesUrl !== undefined) {
+      let profilesUrl: URL
+      try {
+        profilesUrl = new URL(server.profilesUrl)
+      } catch {
+        throw new Error(`invalid global MCP config: server "${server.id}" has an invalid profilesUrl "${server.profilesUrl}"`)
+      }
+      if (profilesUrl.protocol !== 'http:' && profilesUrl.protocol !== 'https:') {
+        throw new Error(`invalid global MCP config: server "${server.id}" profilesUrl must be http(s), got "${profilesUrl.protocol}"`)
+      }
+      // the selection is set on the url per reference: a fixed one here would be overwritten silently
+      if (url.searchParams.has('profiles')) {
+        throw new Error(`invalid global MCP config: server "${server.id}" url already carries a profiles parameter; with profilesUrl, references select profiles`)
+      }
+    }
+
     if (server.auth === 'apiKey') {
       if (!server.apiKeyHeader) throw new Error(`invalid global MCP config: server "${server.id}" with auth "apiKey" requires apiKeyHeader`)
       if (!server.apiKey) throw new Error(`invalid global MCP config: server "${server.id}" with auth "apiKey" requires apiKey`)
@@ -75,14 +122,19 @@ export function assertGlobalMcpConfig (servers: GlobalMcpServer[]): void {
  * have is a typo that would otherwise surface as a 400 on someone's first message.
  */
 export function assertPersonalAssistantsConfig (
-  assistants: Record<string, { mcpServers?: { serverId: string }[] } | undefined>,
-  servers: { id: string }[]
+  assistants: Record<string, { mcpServers?: McpServerRef[] } | undefined>,
+  servers: Array<Pick<GlobalMcpServer, 'id' | 'profilesUrl'>>
 ): void {
   for (const [name, assistant] of Object.entries(assistants)) {
     for (const ref of assistant?.mcpServers ?? []) {
       if (!servers.some(server => server.id === ref.serverId)) {
         throw new Error(`invalid personalAssistants config: personal assistant "${name}" references unknown MCP server "${ref.serverId}"`)
       }
+    }
+    try {
+      assertProfiledRefsShape(servers, assistant?.mcpServers ?? [], `personal assistant "${name}"`)
+    } catch (err: any) {
+      throw new Error(`invalid personalAssistants config: ${err.message}`)
     }
   }
 }
@@ -94,6 +146,7 @@ export function listMcpServerCatalog (servers: GlobalMcpServer[]): McpServerCata
     name: server.name,
     url: server.url,
     auth: server.auth,
+    profiled: !!server.profilesUrl,
     ...(server.description ? { description: server.description } : {})
   }))
 }

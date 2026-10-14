@@ -87,3 +87,8 @@ test.describe('the session cookie', () => {
     assert.equal(createAgentSession({ send: () => {} }).sessionCookie(), undefined)
   })
 })
+
+test('a profiled reference keeps its profiles on the synthetic agent', () => {
+  const agent = personalAgent(PORTAL_ASSISTANT_ID, { portal: { mcpServers: [{ serverId: 'datafair', profiles: ['catalog'] }] } })!
+  assert.deepEqual(agent.mcpServers, [{ serverId: 'datafair', profiles: ['catalog'] }])
+})

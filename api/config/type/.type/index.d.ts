@@ -72,6 +72,10 @@ export type ApiConfig = {
     auth: "nhi-session" | "none" | "apiKey";
     apiKeyHeader?: string;
     apiKey?: string;
+    /**
+     * The server's profile vocabulary. Set: references select profiles (sent as the profiles query parameter), never a toolFilter.
+     */
+    profilesUrl?: string;
   }[];
   /**
    * The servers of each built-in personal assistant: references into mcpServers, like a configured agent's. Unset: no catalog servers.
@@ -80,12 +84,14 @@ export type ApiConfig = {
     portal?: {
       mcpServers?: {
         serverId: string;
+        profiles?: string[];
         toolFilter?: string[];
       }[];
     };
     backOffice?: {
       mcpServers?: {
         serverId: string;
+        profiles?: string[];
         toolFilter?: string[];
       }[];
     };
