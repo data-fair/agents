@@ -180,7 +180,7 @@ Two differences from processings, both because a model reads what a plugin could
   `tasks.minIntervalSeconds` ago (the schedules' minimum, one cost guard for both); otherwise `nextRunAt` is brought
   to the earliest allowed time, or, while a run is going, that run's end sets it (`afterTaskRun`). Every run, whatever
   its trigger, takes the pending payloads under the task's lock, so a trigger arriving during a start lands in that
-  run or the next, never nowhere. A slot a trigger set runs with trigger `webhook`; a schedule slot keeps `schedule`.
+  run or the next, never nowhere. A slot a trigger set runs with trigger `webhook`; a schedule slot keeps `schedule`. Two gaps are closed by the scheduler itself: payloads left pending with no `nextRunAt` (a trigger that came while a run was closing, after its follow-up read the task, or a start skipped or refused after its slot was claimed) are armed by the next pass at the task's last run + the minimum interval, skipped runs included so an exhausted credit cap records one skipped run per interval; and a trigger's slot whose payloads a run now already took is spent without a run.
 
 A task may have no schedule (`scheduling: []`): it runs only by webhook or run now.
 

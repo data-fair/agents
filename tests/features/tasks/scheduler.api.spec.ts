@@ -22,6 +22,13 @@ const dueTask = async (agentId: string, prompt = 'hello', dueAt = '2026-01-15T10
   await admin.post('/api/test-env/task-next-run', { taskId: task.id, nextRunAt: dueAt })
   return task
 }
+const settleRun = async (agentId: string, runId: string) => {
+  for (let i = 0; i < 150; i++) {
+    const run = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`)).data
+    if (run.status !== 'running') return
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+}
 const pass = async (now: string) => (await admin.post('/api/test-env/scheduler-pass', { now })).data
 const runsOf = async (agentId: string, taskId: string) =>
   (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agentId}/runs`, { params: { taskId } })).data.results
@@ -129,5 +136,28 @@ test.describe('The scheduler', () => {
     const after = (await admin.get(`${base(agent.id)}/${task.id}`)).data
     assert.equal(after.nextRunAt, undefined)
     assert.equal(after.pausedReason, undefined)
+  })
+
+  test('payloads pending with no next run (a trigger that came as a run was closing, a start refused) are re-armed by the next pass', async () => {
+    const agent = await createAgent()
+    const task = (await admin.post(base(agent.id), { title: 'On demand', prompt: 'hello', scheduling: [] })).data
+    await admin.post('/api/test-env/task-pending-trigger', { taskId: task.id, nextRunAt: '2026-01-01T00:00:00.000Z', payload: 'stranded' })
+    await admin.post('/api/test-env/task-next-run', { taskId: task.id, nextRunAt: null })
+    assert.equal((await pass('2026-01-01T00:00:01.000Z')).fired, 1)
+    await settle(agent.id, task.id)
+    const runs = await runsOf(agent.id, task.id)
+    assert.equal(runs.length, 1)
+    assert.equal(runs[0].trigger, 'webhook')
+  })
+
+  test('a trigger\'s slot whose payloads a run now already took is spent without a run', async () => {
+    const agent = await createAgent()
+    const task = (await admin.post(base(agent.id), { title: 'Hourly', prompt: 'hello', scheduling: [hourly] })).data
+    await admin.post('/api/test-env/task-pending-trigger', { taskId: task.id, nextRunAt: '2026-01-15T10:20:00.500Z' })
+    await settleRun(agent.id, (await admin.post(`${base(agent.id)}/${task.id}/run`)).data.runId)
+    const result = await pass('2026-01-15T10:20:01.000Z')
+    assert.equal(result.fired, 0)
+    assert.equal((await runsOf(agent.id, task.id)).length, 1)
+    assert.equal((await admin.get(`${base(agent.id)}/${task.id}`)).data.nextRunAt, '2026-01-15T11:00:00.000Z')
   })
 })
