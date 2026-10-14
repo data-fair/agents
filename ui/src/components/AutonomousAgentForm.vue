@@ -7,7 +7,18 @@
       v-model="draft"
       :locale="locale"
       :options="vjsfOptions"
-    />
+    >
+      <template #mcp-profiles="{ node, statefulLayout }">
+        <mcp-profiles-tree
+          :account-type="accountType"
+          :account-id="accountId"
+          :agent-id="draft?.id"
+          :server-id="serverIdOf(node.dataPath)"
+          :model-value="(node.data as string[] | undefined) ?? []"
+          @update:model-value="(value: string[]) => statefulLayout.input(node, value)"
+        />
+      </template>
+    </vjsf-autonomous-agent-write-req>
   </v-form>
   <v-alert
     v-if="webWithUnapprovedWrites"
@@ -35,6 +46,7 @@ import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DEFAULT_APPROVALS } from '@agents/shared/approval-policy'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
+import McpProfilesTree from '~/components/McpProfilesTree.vue'
 import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
 import { $apiPath, $sdUrl } from '~/context'
 
@@ -66,6 +78,13 @@ const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled && (
  * and would prefix simple-directory urls into it, see use-autonomous-agent-enrolment.ts). The
  * access-ref schema names simple-directory root-absolute, so it is rewritten onto $sitePath here.
  */
+// Which catalog servers are profiled: their references show the profile tree instead of the tool filter
+// (the profiles and toolFilter layouts read context.profiledServers).
+const catalogFetch = useFetch<{ results: { id: string, profiled: boolean }[] }>(() => `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/mcp-servers`)
+const profiledServers = computed(() => catalogFetch.data.value?.results.filter(s => s.profiled).map(s => s.id) ?? [])
+// A reference's profiles node has the dataPath /mcpServers/<i>/profiles: the server is that reference's.
+const serverIdOf = (dataPath: string): string | undefined => draft.value?.mcpServers?.[Number(dataPath.split('/')[2])]?.serverId
+
 const vjsfOptions = computed(() => ({
   validateOn: 'input' as const,
   // 'input', not 'blur': a toggle that only reaches the model on blur is read as unchanged by a save
@@ -79,7 +98,8 @@ const vjsfOptions = computed(() => ({
     apiPath: $apiPath,
     accountType: props.accountType,
     accountId: props.accountId,
-    owner: { type: props.accountType, id: props.accountId }
+    owner: { type: props.accountType, id: props.accountId },
+    profiledServers: profiledServers.value
   },
   fetch: async (url: string, fetchOptions: RequestInit) => {
     const response = await globalThis.fetch(rewriteSimpleDirectoryUrl(url, $sdUrl), { credentials: 'include', ...fetchOptions })

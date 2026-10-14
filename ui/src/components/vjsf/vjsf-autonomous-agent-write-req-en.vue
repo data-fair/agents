@@ -115,7 +115,7 @@ validate24.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
 const export2 = validate25;
 const schema32 = {"$id":"export2","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items"};
-const schema33 = {"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"profiles":{"type":"array","title":"Profiles","description":"What this server lets the agent do, by profile.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles","errorMessage":{}},"toolFilter":{"type":"array","title":"Only these tools","description":"Leave empty to expose every tool this server offers.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"required information"}}};
+const schema33 = {"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"profiles":{"type":"array","title":"Profiles","description":"What this server lets the agent do, by profile.","layout":{"if":"context.profiledServers?.includes(parent.data?.serverId)","slots":{"component":{"name":"mcp-profiles"}}},"items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles","errorMessage":{}},"toolFilter":{"type":"array","layout":{"if":"!context.profiledServers?.includes(parent.data?.serverId)"},"title":"Only these tools","description":"Leave empty to expose every tool this server offers.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"required information"}}};
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
 function validate25(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -331,7 +331,7 @@ validate25.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const export3 = validate26;
 const schema34 = {"$id":"export3","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/0"};
-const schema36 = {"title":"An organization member","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Member","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}/members","pure":true,"dataAlias":"value","ref":9},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":10}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
+const schema36 = {"title":"An organization member","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Member","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}/members","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":12}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
 
 function validate26(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export3" */;
@@ -790,7 +790,7 @@ validate29.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
 const export6 = validate30;
 const schema41 = {"$id":"export6","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/2"};
-const schema42 = {"title":"A partner organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type","errorMessage":{}},"department":{"type":"string","const":"*","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department","errorMessage":{}},"roles":{"type":"array","const":[],"items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles","errorMessage":{}},"id":{"type":"string","title":"Partner","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.partners","pure":true,"dataAlias":"body","ref":13},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":12}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
+const schema42 = {"title":"A partner organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type","errorMessage":{}},"department":{"type":"string","const":"*","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department","errorMessage":{}},"roles":{"type":"array","const":[],"items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles","errorMessage":{}},"id":{"type":"string","title":"Partner","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":13},"itemsResults":{"type":"js-eval","expr":"data.partners","pure":true,"dataAlias":"body","ref":15},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":14}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
 const func0 = equal;
 
 function validate30(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -1126,7 +1126,7 @@ validate31.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
 const export8 = validate32;
 const schema45 = {"$id":"export8","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/3"};
-const schema46 = {"title":"A role or department of my organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id","errorMessage":{}},"department":{"type":"string","title":"Department","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","pure":true,"dataAlias":"body","ref":14},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department","errorMessage":{}},"roles":{"type":"array","title":"Roles","items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}},"layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.roles","pure":true,"dataAlias":"body","ref":15}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
+const schema46 = {"title":"A role or department of my organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id","errorMessage":{}},"department":{"type":"string","title":"Department","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":13},"itemsResults":{"type":"js-eval","expr":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","pure":true,"dataAlias":"body","ref":16},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department","errorMessage":{}},"roles":{"type":"array","title":"Roles","items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}},"layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":13},"itemsResults":{"type":"js-eval","expr":"data.roles","pure":true,"dataAlias":"body","ref":17}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
 
 function validate32(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export8" */;
@@ -1401,7 +1401,7 @@ validate32.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const export9 = validate33;
 const schema47 = {"$id":"export9","$ref":"https://github.com/data-fair/lib/access-ref#"};
-const schema28 = {"$id":"https://github.com/data-fair/lib/access-ref","x-exports":["types","validate"],"title":"Access Ref","type":"object","discriminator":{"propertyName":"mode"},"oneOfLayout":{"emptyData":true},"oneOf":[{"title":"An organization member","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Member","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}/members","pure":true,"dataAlias":"value","ref":9},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":10}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}},{"title":"An email","required":["mode","type","email"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type","errorMessage":{}},"email":{"type":"string","format":"email","title":"Email address","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1","errorMessage":{"required":{"mode":"required information","type":"required information","email":"required information"}}},{"title":"A partner organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type","errorMessage":{}},"department":{"type":"string","const":"*","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department","errorMessage":{}},"roles":{"type":"array","const":[],"items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles","errorMessage":{}},"id":{"type":"string","title":"Partner","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.partners","pure":true,"dataAlias":"body","ref":13},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":12}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}},{"title":"A role or department of my organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id","errorMessage":{}},"department":{"type":"string","title":"Department","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","pure":true,"dataAlias":"body","ref":14},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department","errorMessage":{}},"roles":{"type":"array","title":"Roles","items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}},"layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.roles","pure":true,"dataAlias":"body","ref":15}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}}],"__pointer":"https://github.com/data-fair/lib/access-ref","errorMessage":{"oneOf":"chose one"}};
+const schema28 = {"$id":"https://github.com/data-fair/lib/access-ref","x-exports":["types","validate"],"title":"Access Ref","type":"object","discriminator":{"propertyName":"mode"},"oneOfLayout":{"emptyData":true},"oneOf":[{"title":"An organization member","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Member","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}/members","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":12}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}},{"title":"An email","required":["mode","type","email"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type","errorMessage":{}},"email":{"type":"string","format":"email","title":"Email address","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1","errorMessage":{"required":{"mode":"required information","type":"required information","email":"required information"}}},{"title":"A partner organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type","errorMessage":{}},"department":{"type":"string","const":"*","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department","errorMessage":{}},"roles":{"type":"array","const":[],"items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles","errorMessage":{}},"id":{"type":"string","title":"Partner","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":13},"itemsResults":{"type":"js-eval","expr":"data.partners","pure":true,"dataAlias":"body","ref":15},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":14}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}},{"title":"A role or department of my organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id","errorMessage":{}},"department":{"type":"string","title":"Department","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":13},"itemsResults":{"type":"js-eval","expr":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","pure":true,"dataAlias":"body","ref":16},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department","errorMessage":{}},"roles":{"type":"array","title":"Roles","items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}},"layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":13},"itemsResults":{"type":"js-eval","expr":"data.roles","pure":true,"dataAlias":"body","ref":17}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}}],"__pointer":"https://github.com/data-fair/lib/access-ref","errorMessage":{"oneOf":"chose one"}};
 
 function validate33(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export9" */;
@@ -2628,7 +2628,7 @@ validate35.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 const export12 = validate36;
 const schema53 = {"$id":"export12","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Autonomous agent","x-exports":["validate","types","vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"How it should work: procedures, constraints, what to do when unsure.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructions","errorMessage":{}},"mcpServers":{"type":"array","default":[],"title":"MCP servers","description":"Picked from the servers configured for this deployment.","layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"profiles":{"type":"array","title":"Profiles","description":"What this server lets the agent do, by profile.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles","errorMessage":{}},"toolFilter":{"type":"array","title":"Only these tools","description":"Leave empty to expose every tool this server offers.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"required information"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers","errorMessage":{}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Non-human identity","properties":{"clientId":{"type":"string","minLength":1,"title":"Client id","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId","errorMessage":{}},"siteUrl":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/siteUrl","errorMessage":{}},"issuer":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/issuer","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi","errorMessage":{"required":{"clientId":"required information"}}},"instructors":{"type":"array","default":[],"title":"Who may instruct","description":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","items":{"$ref":"https://github.com/data-fair/lib/access-ref","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors","errorMessage":{}},"approvals":{"type":"object","additionalProperties":false,"title":"Approvals","description":"What happens when this autonomous agent calls a tool, by the kind of action the tool declares. \"Approve\" stops the turn until the person in the chat approves the call; a scheduled task never gets such a tool. Tools that declare nothing count as writing.","properties":{"readOnly":{"type":"string","title":"Reading","default":"allow","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/readOnly","errorMessage":{"oneOf":"chose one"}},"write":{"type":"string","title":"Writing","default":"allow","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/write","errorMessage":{"oneOf":"chose one"}},"destructive":{"type":"string","title":"Destructive","default":"approve","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/destructive","errorMessage":{"oneOf":"chose one"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals","errorMessage":{}},"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/memory/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/memory","errorMessage":{"required":{"enabled":"required information"}}},"web":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Web access","description":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","properties":{"enabled":{"type":"boolean","default":false,"title":"Read web pages","description":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/enabled","errorMessage":{}},"allowedUrls":{"type":"array","maxItems":100,"default":[],"title":"Allowed URLs","description":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","layout":{"if":"parent.data?.enabled"},"items":{"type":"string","minLength":1,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web","errorMessage":{"required":{"enabled":"required information"}}},"externalMcpServers":{"type":"array","maxItems":50,"default":[],"title":"External MCP servers","description":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","layout":{"itemTitle":"item?.url || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items","errorMessage":{"required":{"url":"required information"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers","errorMessage":{}},"enabled":{"type":"boolean","default":true,"title":"Enabled","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#","errorMessage":{"required":{"title":"required information","persona":"required information","mcpServers":"required information","enabled":"required information"}}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Autonomous agent","x-exports":["validate","types","vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"How it should work: procedures, constraints, what to do when unsure.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructions","errorMessage":{}},"mcpServers":{"type":"array","default":[],"title":"MCP servers","description":"Picked from the servers configured for this deployment.","layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"profiles":{"type":"array","title":"Profiles","description":"What this server lets the agent do, by profile.","layout":{"if":"context.profiledServers?.includes(parent.data?.serverId)","slots":{"component":{"name":"mcp-profiles"}}},"items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles","errorMessage":{}},"toolFilter":{"type":"array","layout":{"if":"!context.profiledServers?.includes(parent.data?.serverId)"},"title":"Only these tools","description":"Leave empty to expose every tool this server offers.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"required information"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers","errorMessage":{}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Non-human identity","properties":{"clientId":{"type":"string","minLength":1,"title":"Client id","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId","errorMessage":{}},"siteUrl":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/siteUrl","errorMessage":{}},"issuer":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/issuer","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi","errorMessage":{"required":{"clientId":"required information"}}},"instructors":{"type":"array","default":[],"title":"Who may instruct","description":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","items":{"$ref":"https://github.com/data-fair/lib/access-ref","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors","errorMessage":{}},"approvals":{"type":"object","additionalProperties":false,"title":"Approvals","description":"What happens when this autonomous agent calls a tool, by the kind of action the tool declares. \"Approve\" stops the turn until the person in the chat approves the call; a scheduled task never gets such a tool. Tools that declare nothing count as writing.","properties":{"readOnly":{"type":"string","title":"Reading","default":"allow","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/readOnly","errorMessage":{"oneOf":"chose one"}},"write":{"type":"string","title":"Writing","default":"allow","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/write","errorMessage":{"oneOf":"chose one"}},"destructive":{"type":"string","title":"Destructive","default":"approve","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/destructive","errorMessage":{"oneOf":"chose one"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals","errorMessage":{}},"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/memory/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/memory","errorMessage":{"required":{"enabled":"required information"}}},"web":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Web access","description":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","properties":{"enabled":{"type":"boolean","default":false,"title":"Read web pages","description":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/enabled","errorMessage":{}},"allowedUrls":{"type":"array","maxItems":100,"default":[],"title":"Allowed URLs","description":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","layout":{"if":"parent.data?.enabled"},"items":{"type":"string","minLength":1,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web","errorMessage":{"required":{"enabled":"required information"}}},"externalMcpServers":{"type":"array","maxItems":50,"default":[],"title":"External MCP servers","description":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","layout":{"itemTitle":"item?.url || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items","errorMessage":{"required":{"url":"required information"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers","errorMessage":{}},"enabled":{"type":"boolean","default":true,"title":"Enabled","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#","errorMessage":{"required":{"title":"required information","persona":"required information","mcpServers":"required information","enabled":"required information"}}};
 const func1 = Object.prototype.hasOwnProperty;
 
 function validate23(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -5183,43 +5183,49 @@ return (item.id)
 }function expression5(data,body,options,context,display,layout,readOnly,summary,validates
 ) {
 return (data.results)
-}function expression6(data,value,options,context,display,layout,readOnly,summary,validates
+}function expression6(data,value,options,context,display,layout,readOnly,summary,validates,rootData,parent
 ) {
-return (layout.options)
-}function expression7(data,value,options,context,display,layout,readOnly,summary,validates
+return (context.profiledServers?.includes(parent.data?.serverId))
+}function expression7(data,value,options,context,display,layout,readOnly,summary,validates,rootData,parent
 ) {
-return (context.owner.type === 'organization')
+return (!context.profiledServers?.includes(parent.data?.serverId))
 }function expression8(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
-return (layout.constData)
+return (layout.options)
 }function expression9(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
-return `/simple-directory/api/organizations/${context.owner.id}/members`
-}function expression10(data,item,options,context,display,layout,readOnly,summary,validates
+return (context.owner.type === 'organization')
+}function expression10(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
-return (`/simple-directory/api/avatars/user/${item.id}/avatar.png`)
+return (layout.constData)
 }function expression11(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
-return `/simple-directory/api/organizations/${context.owner.id}`
+return `/simple-directory/api/organizations/${context.owner.id}/members`
 }function expression12(data,item,options,context,display,layout,readOnly,summary,validates
 ) {
+return (`/simple-directory/api/avatars/user/${item.id}/avatar.png`)
+}function expression13(data,value,options,context,display,layout,readOnly,summary,validates
+) {
+return `/simple-directory/api/organizations/${context.owner.id}`
+}function expression14(data,item,options,context,display,layout,readOnly,summary,validates
+) {
 return (`/simple-directory/api/avatars/organization/${item.id}/avatar.png`)
-}function expression13(data,body,options,context,display,layout,readOnly,summary,validates
-) {
-return (data.partners)
-}function expression14(data,body,options,context,display,layout,readOnly,summary,validates
-) {
-return ([...(data.departments || []), {id: "*", name: "Tous les départements"}, {id: "-", name: "Racine de l'organisation uniquement"}])
 }function expression15(data,body,options,context,display,layout,readOnly,summary,validates
 ) {
+return (data.partners)
+}function expression16(data,body,options,context,display,layout,readOnly,summary,validates
+) {
+return ([...(data.departments || []), {id: "*", name: "Tous les départements"}, {id: "-", name: "Racine de l'organisation uniquement"}])
+}function expression17(data,body,options,context,display,layout,readOnly,summary,validates
+) {
 return (data.roles)
-}function expression16(data,value,options,context,display,layout,readOnly,summary,validates
+}function expression18(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
 return ([{"const":"allow","title":"Allow","key":"allow","value":"allow"},{"const":"approve","title":"Approve each call","key":"approve","value":"approve"},{"const":"deny","title":"Never offer","key":"deny","value":"deny"}])
-}function expression17(data,value,options,context,display,layout,readOnly,summary,validates,rootData,parent
+}function expression19(data,value,options,context,display,layout,readOnly,summary,validates,rootData,parent
 ) {
 return (parent.data?.enabled)
-}function expression18(data,item,options,context,display,layout,readOnly,summary,validates
+}function expression20(data,item,options,context,display,layout,readOnly,summary,validates
 ) {
 return (item?.url || "")
 }
@@ -5401,7 +5407,7 @@ const compiledLayout = {
       key: "mcpServers",
       pointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers",
       refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers",
-      pure: true,
+      pure: false,
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
@@ -5417,7 +5423,7 @@ const compiledLayout = {
       key: "",
       pointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items",
       refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items",
-      pure: true,
+      pure: false,
 
       propertyKeys: [
         "serverId",
@@ -5453,7 +5459,7 @@ const compiledLayout = {
       key: "profiles",
       pointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles",
       refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles",
-      pure: true,
+      pure: false,
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
@@ -5481,7 +5487,7 @@ const compiledLayout = {
       key: "toolFilter",
       pointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter",
       refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter",
-      pure: true,
+      pure: false,
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
@@ -6296,9 +6302,22 @@ const compiledLayout = {
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles": {
-      comp: "combobox",
-      multiple: true,
-      label: "Profiles",
+      if: {
+        type: "js-eval",
+        expr: "context.profiledServers?.includes(parent.data?.serverId)",
+        pure: false,
+        dataAlias: "value",
+        ref: 6
+      },
+
+      slots: {
+        component: {
+          name: "mcp-profiles",
+          props: undefined
+        }
+      },
+
+      comp: "slot",
       help: "<p>What this server lets the agent do, by profile.</p>"
     },
 
@@ -6309,6 +6328,14 @@ const compiledLayout = {
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter": {
+      if: {
+        type: "js-eval",
+        expr: "!context.profiledServers?.includes(parent.data?.serverId)",
+        pure: false,
+        dataAlias: "value",
+        ref: 7
+      },
+
       comp: "combobox",
       multiple: true,
       label: "Only these tools",
@@ -6354,7 +6381,7 @@ const compiledLayout = {
         expr: "layout.options",
         pure: true,
         dataAlias: "value",
-        ref: 6
+        ref: 8
       }
     },
 
@@ -6372,7 +6399,7 @@ const compiledLayout = {
         expr: "layout.options",
         pure: true,
         dataAlias: "value",
-        ref: 6
+        ref: 8
       }
     },
 
@@ -6457,7 +6484,7 @@ const compiledLayout = {
         expr: "context.owner.type === 'organization'",
         pure: true,
         dataAlias: "value",
-        ref: 7
+        ref: 9
       },
 
       comp: "section",
@@ -6491,7 +6518,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6504,7 +6531,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6515,7 +6542,7 @@ const compiledLayout = {
           expr: "/simple-directory/api/organizations/${context.owner.id}/members",
           pure: true,
           dataAlias: "value",
-          ref: 9
+          ref: 11
         },
 
         itemsResults: {
@@ -6547,7 +6574,7 @@ const compiledLayout = {
           expr: "`/simple-directory/api/avatars/user/${item.id}/avatar.png`",
           pure: true,
           dataAlias: "item",
-          ref: 10
+          ref: 12
         }
       },
 
@@ -6587,7 +6614,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6600,7 +6627,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6615,7 +6642,7 @@ const compiledLayout = {
         expr: "context.owner.type === 'organization'",
         pure: true,
         dataAlias: "value",
-        ref: 7
+        ref: 9
       },
 
       comp: "section",
@@ -6653,7 +6680,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6666,7 +6693,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6679,7 +6706,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6692,7 +6719,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6709,7 +6736,7 @@ const compiledLayout = {
           expr: "/simple-directory/api/organizations/${context.owner.id}",
           pure: true,
           dataAlias: "value",
-          ref: 11
+          ref: 13
         },
 
         itemsResults: {
@@ -6717,7 +6744,7 @@ const compiledLayout = {
           expr: "data.partners",
           pure: true,
           dataAlias: "body",
-          ref: 13
+          ref: 15
         },
 
         itemTitle: {
@@ -6741,7 +6768,7 @@ const compiledLayout = {
           expr: "`/simple-directory/api/avatars/organization/${item.id}/avatar.png`",
           pure: true,
           dataAlias: "item",
-          ref: 12
+          ref: 14
         }
       },
 
@@ -6755,7 +6782,7 @@ const compiledLayout = {
         expr: "context.owner.type === 'organization'",
         pure: true,
         dataAlias: "value",
-        ref: 7
+        ref: 9
       },
 
       comp: "section",
@@ -6793,7 +6820,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6806,7 +6833,7 @@ const compiledLayout = {
         expr: "layout.constData",
         pure: true,
         dataAlias: "value",
-        ref: 8
+        ref: 10
       }
     },
 
@@ -6821,7 +6848,7 @@ const compiledLayout = {
           expr: "/simple-directory/api/organizations/${context.owner.id}",
           pure: true,
           dataAlias: "value",
-          ref: 11
+          ref: 13
         },
 
         itemsResults: {
@@ -6829,7 +6856,7 @@ const compiledLayout = {
           expr: "[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]",
           pure: true,
           dataAlias: "body",
-          ref: 14
+          ref: 16
         },
 
         itemTitle: {
@@ -6860,7 +6887,7 @@ const compiledLayout = {
           expr: "/simple-directory/api/organizations/${context.owner.id}",
           pure: true,
           dataAlias: "value",
-          ref: 11
+          ref: 13
         },
 
         itemsResults: {
@@ -6868,7 +6895,7 @@ const compiledLayout = {
           expr: "data.roles",
           pure: true,
           dataAlias: "body",
-          ref: 15
+          ref: 17
         }
       },
 
@@ -6907,7 +6934,7 @@ const compiledLayout = {
         dataAlias: "value",
         expr: "[{\"const\":\"allow\",\"title\":\"Allow\",\"key\":\"allow\",\"value\":\"allow\"},{\"const\":\"approve\",\"title\":\"Approve each call\",\"key\":\"approve\",\"value\":\"approve\"},{\"const\":\"deny\",\"title\":\"Never offer\",\"key\":\"deny\",\"value\":\"deny\"}]",
         immutable: true,
-        ref: 16
+        ref: 18
       },
 
       label: "Reading",
@@ -6931,7 +6958,7 @@ const compiledLayout = {
         dataAlias: "value",
         expr: "[{\"const\":\"allow\",\"title\":\"Allow\",\"key\":\"allow\",\"value\":\"allow\"},{\"const\":\"approve\",\"title\":\"Approve each call\",\"key\":\"approve\",\"value\":\"approve\"},{\"const\":\"deny\",\"title\":\"Never offer\",\"key\":\"deny\",\"value\":\"deny\"}]",
         immutable: true,
-        ref: 16
+        ref: 18
       },
 
       label: "Writing",
@@ -6955,7 +6982,7 @@ const compiledLayout = {
         dataAlias: "value",
         expr: "[{\"const\":\"allow\",\"title\":\"Allow\",\"key\":\"allow\",\"value\":\"allow\"},{\"const\":\"approve\",\"title\":\"Approve each call\",\"key\":\"approve\",\"value\":\"approve\"},{\"const\":\"deny\",\"title\":\"Never offer\",\"key\":\"deny\",\"value\":\"deny\"}]",
         immutable: true,
-        ref: 16
+        ref: 18
       },
 
       label: "Destructive",
@@ -7029,7 +7056,7 @@ const compiledLayout = {
         expr: "parent.data?.enabled",
         pure: false,
         dataAlias: "value",
-        ref: 17
+        ref: 19
       },
 
       comp: "combobox",
@@ -7059,7 +7086,7 @@ const compiledLayout = {
         expr: "item?.url || \"\"",
         pure: true,
         dataAlias: "item",
-        ref: 18
+        ref: 20
       },
 
       listActions: ["add", "edit", "delete"],
@@ -7156,7 +7183,9 @@ const compiledLayout = {
     expression15,
     expression16,
     expression17,
-    expression18
+    expression18,
+    expression19,
+    expression20
   ],
 
   locale: "en",

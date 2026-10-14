@@ -31,6 +31,7 @@ declare module 'vue' {
     FormActions: typeof import('./src/components/FormActions.vue')['default']
     LiveToolsPanel: typeof import('./src/components/dev/LiveToolsPanel.vue')['default']
     MarkdownContent: typeof import('./src/components/agent-chat/MarkdownContent.vue')['default']
+    McpProfilesTree: typeof import('./src/components/McpProfilesTree.vue')['default']
     ModerationSection: typeof import('./src/components/ModerationSection.vue')['default']
     MonitoringAccountHistogram: typeof import('./src/components/MonitoringAccountHistogram.vue')['default']
     MonitoringGlobalSection: typeof import('./src/components/MonitoringGlobalSection.vue')['default']
