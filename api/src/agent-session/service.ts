@@ -11,7 +11,7 @@ import { WebSocketServer, type WebSocket } from 'ws'
 import { session as expressSession, httpError, type AccountKeys } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import Debug from 'debug'
-import { parseClientMessage, isAgentSessionPath, type ServerMessage, type ClientMessage } from '@agents/shared/agent-session-protocol'
+import { parseClientMessage, isAgentSessionPath, isSupersededFrame, type ServerMessage, type ClientMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
 import {
@@ -44,6 +44,21 @@ const debug = Debug('agents:agent-session')
 const errorFrame = (err: any, fallback: string): ServerMessage =>
   ({ type: 'error', status: (err?.status >= 400 && err?.status < 500) || err?.status === 503 ? err.status : 500, message: err?.message || fallback })
 
+/**
+ * The largest frame a browser may send, in bytes: ws accepts 100 MiB by default, all of it parsed on
+ * the main thread. Above the largest field the frame schema allows (a 200 000-character prompt is at
+ * most 800 KB of UTF-8); what is left bounds a page tool's result. A larger frame closes the socket
+ * (1009), as ws does.
+ */
+const MAX_FRAME_BYTES = 1024 * 1024
+
+/**
+ * How much may wait unsent for a browser before frames a later one replaces are skipped
+ * (isSupersededFrame): a slow or stalled reader must not make the server buffer, and stringify, every
+ * intermediate state of a long turn.
+ */
+const SEND_BACKLOG_BYTES = 1024 * 1024
+
 /** Live sessions, so shutdown can close every one of them. */
 const sessions = new Map<WebSocket, AgentSession>()
 
@@ -51,13 +66,16 @@ const sessions = new Map<WebSocket, AgentSession>()
 export const liveAgentSessions = (): AgentSession[] => [...sessions.values()]
 
 export const startAgentSessions = (server: Server) => {
-  const wss = new WebSocketServer({ noServer: true })
+  const wss = new WebSocketServer({ noServer: true, maxPayload: MAX_FRAME_BYTES })
 
   wss.on('connection', (ws: WebSocket, req: IncomingMessage, sessionState: any, reviewOffered?: boolean) => {
     const send = (message: ServerMessage) => {
       // readyState is checked because a turn can finish producing after the person closed the tab, and
       // writing to a closed socket throws rather than no-ops.
-      if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(message))
+      if (ws.readyState !== ws.OPEN) return
+      // Checked before stringifying, which is the main-thread cost of a large in-progress transcript.
+      if (ws.bufferedAmount > SEND_BACKLOG_BYTES && isSupersededFrame(message)) return
+      ws.send(JSON.stringify(message))
     }
     // The conversation this connection is bound to: set only once the ownership check has passed, so
     // a socket that merely NAMES someone else's conversation is bound to nothing. Remembered so the close

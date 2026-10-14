@@ -49,6 +49,14 @@ invalid frame is answered with the field that was wrong, never dropped silently)
 reads it leniently, ignoring a type it does not know. A refusal is an `error` frame carrying the status
 the same refusal would have had over HTTP (400, 401, 403, 404, 409), or 500 for anything else.
 
+Both directions are bounded. A browser frame is at most 1 MiB (`maxPayload`; a larger one closes the
+socket with 1009) and its fields have sizes (`shared/agent-session-client-frame/limits.js`: a prompt of
+200 000 characters, 100 tools, 100 host events of 1000 characters…), which the chat itself fits what it
+forwards to. Towards a browser that is not reading fast enough (over 1 MiB waiting), frames a later one
+replaces whole — an in-progress message or sub-agent transcript, a delta — are skipped before being
+serialized (`isSupersededFrame`); the final message, calls to the page, activities and the turn's end
+always go.
+
 A conversation starts one way, for everyone: a `hello` without `conversationId` names the account and
 the agent, and is checked at once, so a refused agent is reported when the chat opens; the first
 `prompt` then creates the thread (`createConversation`), carrying its title, and an `attached` frame

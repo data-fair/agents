@@ -1,5 +1,6 @@
 import { getCurrentScope, onScopeDispose } from 'vue'
-import { getTabChannelId, type AgentEvent } from '@data-fair/lib-vue-agents'
+import { getTabChannelId, TRUNCATED_MARKER, type AgentEvent } from '@data-fair/lib-vue-agents'
+import { CLIENT_FRAME_LIMITS } from '@agents/shared/agent-session-protocol'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:use-host-events')
@@ -11,15 +12,21 @@ const debug = Debug('df-agents:use-host-events')
  * `<host-events>`/`<host-state>` block, and a non-string `key` becomes a retention key
  * (breaking the Map-keyed coalescing/eviction the rest of the store assumes a string).
  * Returns null to drop an event with no usable name rather than guess one.
+ *
+ * Also fitted to the socket's frame limits (CLIENT_FRAME_LIMITS): a host posting here directly skips
+ * lib-vue's serializeDetail, and an event the server refuses would be lost with an error instead.
  */
-function sanitizeEvent (raw: any): AgentEvent | null {
-  if (!raw || typeof raw.name !== 'string' || !raw.name) return null
+export function sanitizeEvent (raw: any): AgentEvent | null {
+  if (!raw || typeof raw.name !== 'string' || !raw.name || raw.name.length > CLIENT_FRAME_LIMITS.eventName) return null
   const at = Number.isFinite(raw.at) ? raw.at : Date.now()
   const event: AgentEvent = { name: raw.name, at }
-  if (typeof raw.detail === 'string') event.detail = raw.detail
+  if (typeof raw.detail === 'string') {
+    const max = CLIENT_FRAME_LIMITS.eventDetail
+    event.detail = raw.detail.length <= max ? raw.detail : raw.detail.slice(0, max - TRUNCATED_MARKER.length) + TRUNCATED_MARKER
+  }
   // A non-string key is dropped rather than coerced (stringifying it could silently
   // collide two unrelated keys); the event itself still gets through, as unkeyed.
-  if (typeof raw.key === 'string' && raw.key) event.key = raw.key
+  if (typeof raw.key === 'string' && raw.key && raw.key.length <= CLIENT_FRAME_LIMITS.eventName) event.key = raw.key
   return event
 }
 

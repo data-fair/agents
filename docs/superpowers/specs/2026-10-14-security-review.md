@@ -84,7 +84,7 @@ needs a redesign; most fixes are a few lines.
   the full IPv6 address. Spoofable unless the production ingress overwrites XFF; one /64 = infinite
   keys. Fix: verify ingress, key IPv6 on /64, require a non-zero untrusted pool when anonymous is on.
   (Stack-wide: lib-express.)
-- **M11 Websocket has no `maxPayload` (ws default 100 MiB), no `maxLength`/`maxItems` in the client
+- **M11 ✅ (but the trace)** *1 MiB `maxPayload`, field caps in the client-frame schema (`limits.js`), superseded frames skipped above a 1 MiB backlog. Still open: the code-mode trace resent whole on each nested call (delta frames, per-message trace budget — the item already open in code-mode.md).* **Websocket has no `maxPayload` (ws default 100 MiB), no `maxLength`/`maxItems` in the client
   frame schema, no backpressure** (`service.ts:53`, frames chained with `then`). Code-mode live trace
   resends the whole trace on every nested call: one script measured **556 MB serialized, 1.8 s of
   main-thread stringify**, 11 MB final trace; two such scripts exceed Mongo's 16 MB document.
