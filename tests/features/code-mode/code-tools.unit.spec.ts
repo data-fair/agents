@@ -9,7 +9,7 @@ import { codeCallable, SCRIPT_TRANSFER_BYTES } from '../../../api/src/code-mode/
 import { codeFacingTools, createCodeTrace } from '../../../api/src/code-mode/code-tools.ts'
 import { createScriptTool } from '../../../api/src/code-mode/tool.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../../../api/src/web/operations.ts'
-import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../../../api/src/mcp-servers/operations.ts'
+import { REQUEST_MCP_ACCESS_TOOL_NAME, codeOutputSchemaFor } from '../../../api/src/mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../../../api/src/self-knowledge/operations.ts'
 import { READ_SKILL_TOOL_NAME } from '../../../api/src/mcp-servers/read-skill.ts'
 import { SUBAGENT_PREFIX } from '../../../api/src/agent-session/sub-agents.ts'
@@ -190,5 +190,18 @@ test.describe('the trace of a script', () => {
     assert.match(description, /ls: \(input: \{\s*\}\) => Promise<(Array<\{|\{)[^}]*expiresAt: string/)
     assert.match(description, /JSON\.parse/)
     assert.match(description, /\{ text, files/)
+  })
+
+  test('an MCP tool that declares no output schema reads as what the call path can return, files included', async () => {
+    const declared = { type: 'object', properties: { count: { type: 'number' } } }
+    assert.equal(codeOutputSchemaFor(declared), declared)
+    const fixed: any = { export_closures: { tool: plain(async () => ''), server: 'dev', codeOutputSchema: codeOutputSchemaFor(undefined) } }
+    const description = String(createScriptTool(codeFacingTools({ names: ['export_closures'], fixed, page: {}, callPath: {}, trace: trace() })).description)
+    const signature = description.slice(description.indexOf('export_closures:'))
+    assert.match(signature, /=> Promise<string \|/)
+    assert.match(signature, /text: string/)
+    assert.match(signature, /files: \{[^}]*file_path: string[^}]*sha256: string[^}]*\}\[\]/)
+    assert.match(signature, /Record<string, unknown>/)
+    assert.match(description, /`text` only describes the files/)
   })
 })

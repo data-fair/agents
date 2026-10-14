@@ -302,6 +302,27 @@ export interface FileRecord { file_path: string, mimeType: string, size: number 
  */
 export interface DownloadRecord extends FileRecord { sha256: string, etag?: string, lastModified?: string }
 
+/** DownloadRecord as a schema: what a script is told a saved link's record holds. */
+export const DOWNLOAD_RECORD_SCHEMA = {
+  type: 'object',
+  required: ['file_path', 'mimeType', 'size', 'sha256'],
+  properties: { file_path: { type: 'string' }, mimeType: { type: 'string' }, size: { type: 'number' }, sha256: { type: 'string' }, etag: { type: 'string' }, lastModified: { type: 'string' } }
+}
+
+/**
+ * What an MCP tool that declares no output schema returns to a script, as the call path builds it: its text, its
+ * structured content (which a server may send undeclared), or, when it returned links, `{ text, files }` once they
+ * are stored. Rendered as the tool's return type, so a script branches on `files` rather than guessing a key — it
+ * took a link tool's one-line text for the file's content, twice in simulation, while the type read `unknown`.
+ */
+export const MCP_CODE_OUTPUT_SCHEMA = {
+  anyOf: [
+    { type: 'string' },
+    { type: 'object', required: ['text', 'files'], properties: { text: { type: 'string' }, files: { type: 'array', items: DOWNLOAD_RECORD_SCHEMA }, errors: { type: 'array', items: { type: 'string' } } } },
+    { type: 'object', additionalProperties: true }
+  ]
+}
+
 /** A download record as a line the model reads: `/roads.csv (text/csv, 4 B, sha256 …, etag "r1")`. */
 export const downloadLine = (record: DownloadRecord): string =>
   `${record.file_path} (${[record.mimeType, formatBytes(record.size), `sha256 ${record.sha256}`, ...(record.etag ? [`etag ${record.etag}`] : []), ...(record.lastModified ? [`last modified ${record.lastModified}`] : [])].join(', ')})`

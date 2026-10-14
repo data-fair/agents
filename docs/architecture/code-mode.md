@@ -34,8 +34,14 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
   input schema, with its output schema as the return type (`Promise<unknown>` without one). The output schema
   is the code-facing tool's only (`SourcedTool.codeOutputSchema`, set in `codeFacingTools`; the model's tools
   are unchanged): the file tools declare theirs (`FILE_CODE_OUTPUT_SCHEMAS`: `read_file` a string, `write_file`
-  a record, `ls` an array of records), and an MCP tool carries the `outputSchema` its server declared, which is
-  what its `structuredContent` follows. Most servers declare none (openapi-mcp does not), so we drop the
+  a record with its `sha256`, `ls` an array of records), and an MCP tool carries the `outputSchema` its server
+  declared, which is what its `structuredContent` follows. **An MCP tool that declares none** (openapi-mcp declares
+  none, and nothing in an MCP listing says a tool returns a file) reads as every shape the call path can return
+  (`codeOutputSchemaFor`, `MCP_CODE_OUTPUT_SCHEMA`): `Promise<string | { text: string; files: {…}[]; errors?: string[] }
+  | Record<string, unknown>>`. With `unknown` there, a script twice took a link tool's one-line text for the
+  file's content and imported it (the code-mode simulation, 2026-10-13 and 2026-10-14): a model that cannot see the
+  shape writes code that guesses keys. A union a script can branch on is truthful where an exact type is not
+  knowable; an exact one would need data-fair's MCP to mark its file tools in the listing. We also drop the
   package's "Tool call examples" block and append a short paragraph of ours (`describeScriptTool`): console
   output, failures as exceptions, **the conventions of what a tool returns** (an MCP tool its structured result
   as an object when it has one, otherwise its text as a string to `JSON.parse`; a result carrying files
@@ -181,7 +187,7 @@ record and replay never see it.
 | an MCP result with image content | its text only (or its `structuredContent`); the images are not passed | the text and the images |
 | `read_file` | the whole text file, up to 10 MB; an error beyond, naming the size | a page of numbered lines |
 | `ls` | records `{ file_path, mimeType, size, expiresAt }` | a rendered listing |
-| `write_file` | up to **10 MB** of text, answering a record | at most 1 MB, answering a sentence |
+| `write_file` | up to **10 MB** of text, answering a record with the content's `sha256` | at most 1 MB, answering a sentence with the same hash |
 | other service tools, page tools | what `execute` returns (usually text) | the same, enveloped |
 
 `structuredContent` is not validated against a declared `outputSchema`: openapi-mcp emits it without one,

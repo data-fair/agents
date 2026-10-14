@@ -3,12 +3,19 @@
  * the model meets names it was trained on: ls, read_file, write_file. No edit_file, glob, grep or
  * delete_file: files expire, and nothing needs them yet (spec §4.1). Wired by a service-tools entry.
  */
+import { createHash } from 'node:crypto'
 import { tool, jsonSchema, type Tool } from 'ai'
 import type { TurnFiles } from './turn-files.ts'
 import {
   FileError, pagingArgument, isTextType, mimeTypeOf, parseFilePath, renderFileList, renderTextPage, binaryFileMessage, formatBytes,
   READ_LINES_DEFAULT, READ_LINES_MAX, WRITE_MAX_BYTES, READ_MAX_BYTES, type FileRecord
 } from './operations.ts'
+
+/**
+ * A written file's hash, as a download's (DownloadRecord): the one a tool that takes the file answers (import_table's), so
+ * the record shows the file it received is the one written.
+ */
+const sha256Of = (content: string) => createHash('sha256').update(content).digest('hex')
 
 /** write_file's checks, against the size a caller is held to: the model's WRITE_MAX_BYTES, or a script's. */
 const checkWritable = (input: { file_path: string, content: string }, maxBytes: number) => {
@@ -61,7 +68,7 @@ export const createFileTools = (files: TurnFiles): Record<string, Tool> => ({
     execute: async (input: { file_path: string, content: string }) => {
       const name = checkWritable(input, WRITE_MAX_BYTES)
       const file = await files.writeText(`/${name}`, input.content)
-      return `Wrote ${file.path} (${file.mimeType}, ${formatBytes(file.size)}).`
+      return `Wrote ${file.path} (${file.mimeType}, ${formatBytes(file.size)}, sha256 ${sha256Of(input.content)}).`
     }
   })
 })
@@ -83,7 +90,7 @@ export const createFileCodeExecutes = (files: TurnFiles) => ({
   write_file: async (input: { file_path: string, content: string }) => {
     const name = checkWritable(input, READ_MAX_BYTES)
     const file = await files.writeText(`/${name}`, input.content)
-    return { file_path: file.path, mimeType: file.mimeType, size: file.size } satisfies FileRecord
+    return { file_path: file.path, mimeType: file.mimeType, size: file.size, sha256: sha256Of(input.content) } satisfies FileRecord & { sha256: string }
   }
 })
 
@@ -100,5 +107,5 @@ const FILE_RECORD_SCHEMA = {
 export const FILE_CODE_OUTPUT_SCHEMAS = {
   ls: { type: 'array', items: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'expiresAt'], properties: { ...FILE_RECORD_SCHEMA.properties, expiresAt: { type: 'string' } } } },
   read_file: { type: 'string' },
-  write_file: FILE_RECORD_SCHEMA
+  write_file: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'sha256'], properties: { ...FILE_RECORD_SCHEMA.properties, sha256: { type: 'string' } } }
 } satisfies Record<keyof ReturnType<typeof createFileCodeExecutes>, Record<string, unknown>>

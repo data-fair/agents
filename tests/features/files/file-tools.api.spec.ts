@@ -27,7 +27,7 @@ test.describe('File tools', () => {
     const agent = await createFilesAgent()
     const first = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool write_file {"file_path":"/notes.csv","content":"street,reason\\nRue A,works\\n"}')
     assert.ok(['ls', 'read_file', 'write_file'].every(name => offered(first.run).includes(name)), offered(first.run).join())
-    assert.match(outputOf(callPart(first.assistant, 'write_file')), /Wrote \/notes\.csv \(text\/csv, 26 B\)/)
+    assert.match(outputOf(callPart(first.assistant, 'write_file')), /Wrote \/notes\.csv \(text\/csv, 26 B, sha256 [0-9a-f]{64}\)/)
 
     const read = await turnOverSocket(orgAdmin, first.conversationId, 'call tool read_file {"file_path":"/notes.csv"}')
     assert.match(outputOf(callPart(read.assistant, 'read_file')), /2\tRue A,works/)

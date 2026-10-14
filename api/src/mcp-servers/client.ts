@@ -12,7 +12,7 @@ import config from '#config'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, isSchemaObject, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
+import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
 import type { ToolSet } from '../conversations/operations.ts'
@@ -276,8 +276,7 @@ export const openAutonomousAgentTools = async (
         return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, origin) : structured
       }
       // The declared outputSchema is what structuredContent follows: a script's return type when the server has one.
-      const codeOutputSchema = isSchemaObject(t.outputSchema) ? t.outputSchema : undefined
-      tools[t.name] = { tool: mcpTool, codeExecute, ...(codeOutputSchema ? { codeOutputSchema } : {}), server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
+      tools[t.name] = { tool: mcpTool, codeExecute, codeOutputSchema: codeOutputSchemaFor(t.outputSchema), server: server.id, ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
     }
   }
 

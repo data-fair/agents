@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { mkdtemp, rm } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createHash } from 'node:crypto'
 import { FsBackend } from '../../../api/src/files/fs.ts'
 import { createTurnFiles } from '../../../api/src/files/turn-files.ts'
 import { Readable } from 'node:stream'
@@ -27,7 +28,7 @@ test.describe('file tools', () => {
 
   test('ls, then write_file, then ls and read_file', async () => {
     assert.equal(await call('ls', {}), 'You have no files.')
-    assert.equal(await call('write_file', { file_path: '/notes.csv', content: 'a,b\n1,2\n' }), 'Wrote /notes.csv (text/csv, 8 B).')
+    assert.equal(await call('write_file', { file_path: '/notes.csv', content: 'a,b\n1,2\n' }), `Wrote /notes.csv (text/csv, 8 B, sha256 ${createHash('sha256').update('a,b\n1,2\n').digest('hex')}).`)
     assert.match(await call('ls', {}), /^Your files \(8 B of 500 MB used; a file is deleted 7 days after it was last written\):\n- \/notes\.csv — text\/csv, 8 B, expires \d{4}-\d\d-\d\dT/)
     assert.equal(await call('read_file', { file_path: '/notes.csv' }), '/notes.csv (text/csv, 8 B, 2 lines): lines 1-2\n     1\ta,b\n     2\t1,2\nEnd of file.')
   })
@@ -88,7 +89,7 @@ test.describe('file tools from a script', () => {
   test('ls gives records, read_file the whole text, write_file up to 10 MB and a record', async () => {
     const code = createFileCodeExecutes(files)
     const written: any = await code.write_file({ file_path: '/big.csv', content: 'a\n'.repeat(1_000_000) })
-    assert.deepEqual(written, { file_path: '/big.csv', mimeType: 'text/csv', size: 2_000_000 })
+    assert.deepEqual(written, { file_path: '/big.csv', mimeType: 'text/csv', size: 2_000_000, sha256: createHash('sha256').update('a\n'.repeat(1_000_000)).digest('hex') })
     assert.equal((await code.read_file({ file_path: '/big.csv' }) as string).length, 2_000_000)
     const listed: any = await code.ls({})
     assert.deepEqual(listed.map((f: any) => f.file_path), ['/big.csv'])

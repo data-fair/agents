@@ -80,7 +80,7 @@ limited to that prefix passes).
 |---|---|
 | `ls()` | the scope's files: path, type, size, expiry, and how much of the 500 MB is used |
 | `read_file({ file_path, offset?, limit? })` | a page of a text file by lines (0-based `offset`, 500 lines by default, at most 2,000 and 20,000 characters), numbered like `cat -n`, with where to read on (an `offset` or `limit` that is not an integer is refused, not defaulted); at most the first 10 MB of a file; a line over 20,000 characters is cut and says so; a binary file answers its metadata and that it can be passed to a tool |
-| `write_file({ file_path, content })` | creates or overwrites a text file (an extension of a text type), at most 1 MB |
+| `write_file({ file_path, content })` | creates or overwrites a text file (an extension of a text type), at most 1 MB, answering its `sha256` — the hash a tool that takes the file (data-fair's import) answers too, so the record shows the file received is the one written |
 
 Named and shaped after Claude Code's and deepagents' tools, so the model meets names it was trained on. No
 `edit_file`, `glob`, `grep` or `delete_file`: files expire and nothing needs them yet. `write_file` is

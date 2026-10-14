@@ -6,6 +6,7 @@
 import { createHash } from 'node:crypto'
 import { normalizeHttpUrl } from '../web/operations.ts'
 import { forwardedSiteHeaders } from '../sites/operations.ts'
+import { MCP_CODE_OUTPUT_SCHEMA } from '../files/operations.ts'
 
 /**
  * How the MCP client authenticates to a server:
@@ -223,3 +224,6 @@ export const EXTERNAL_MCP_SERVERS_MAX = 50
 
 /** Whether a server-declared schema is a JSON schema object (anything else is ignored rather than trusted). */
 export const isSchemaObject = (value: unknown): value is Record<string, unknown> => !!value && typeof value === 'object' && !Array.isArray(value)
+
+/** A script's return type for an MCP tool (SourcedTool.codeOutputSchema): its declared output schema, else every shape the call path can return. */
+export const codeOutputSchemaFor = (outputSchema: unknown): Record<string, unknown> => isSchemaObject(outputSchema) ? outputSchema : MCP_CODE_OUTPUT_SCHEMA

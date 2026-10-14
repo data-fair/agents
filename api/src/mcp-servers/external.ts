@@ -24,7 +24,7 @@ import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { publicDispatcher } from '../web/public-lookup.ts'
-import { externalToolName, normalizeExternalMcpServers, isSchemaObject, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
+import { externalToolName, normalizeExternalMcpServers, codeOutputSchemaFor, EXTERNAL_MCP_SERVERS_MAX } from './operations.ts'
 import { MAX_CALLS_PER_RUN } from '../web/operations.ts'
 import type { SkippedServer, McpToolDescriptor, ListedMcpTool } from './client.ts'
 import type { ToolSet } from '../conversations/operations.ts'
@@ -119,8 +119,7 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
           const structured = (callResult as { structuredContent?: unknown }).structuredContent
           return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, { catalog: false }) : structured
         }
-        const codeOutputSchema = isSchemaObject(t.outputSchema) ? t.outputSchema : undefined
-        tools[name] = { tool: externalTool, codeExecute, ...(codeOutputSchema ? { codeOutputSchema } : {}), server: serverId(url), ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}) }
+        tools[name] = { tool: externalTool, codeExecute, codeOutputSchema: codeOutputSchemaFor(t.outputSchema), server: serverId(url), ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}) }
       }
     } catch (err: any) {
       // Skipped and reported, never fatal: the organization chose the server, not the operator, and it
