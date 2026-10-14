@@ -62,7 +62,7 @@ test.describe('Audited conversations', () => {
 
   test('a personal-assistant thread stays consent-gated', async () => {
     // Review Focus 4: the audit change must not widen the personal assistant's privacy model.
-    const { conversationId } = await runTurn(orgAdmin, 'organization/test1') // agentId 'personal'
+    const { conversationId } = await runTurn(orgAdmin, 'organization/test1') // agentId 'portal-assistant'
     const list = await orgAdmin.get('/api/review/organization/test1')
     assert.equal(list.data.results.length, 0)
     await assert.rejects(orgAdmin.get(`/api/review/organization/test1/${conversationId}`), { status: 404 })

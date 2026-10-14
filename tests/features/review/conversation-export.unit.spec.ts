@@ -13,7 +13,7 @@ import { buildConversationExport, exportFilename, EXTRACT_THRESHOLD } from '../.
 
 const conversation = {
   id: 'conv-1',
-  agentId: 'personal',
+  agentId: 'portal-assistant',
   owner: { type: 'organization', id: 'test1' },
   userId: 'test1-user1',
   title: 'A thread',

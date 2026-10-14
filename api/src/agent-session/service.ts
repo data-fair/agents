@@ -26,7 +26,7 @@ import {
 import { startSessionTurn, sendHistory } from './turn.ts'
 import { verifyAnonymousActionToken } from '../anonymous-token/service.ts'
 import { anonymousUsageUserId } from '../usage/enforce.ts'
-import { PERSONAL_AGENT_ID } from './personal-agent.ts'
+import { PORTAL_ASSISTANT_ID } from './personal-agent.ts'
 import { abortRunsOfConversation } from '../conversations/live-runs.ts'
 import { decideAndContinue } from '../conversations/approvals.ts'
 import { settlePendingWait, wakeIfAnswered } from '../conversations/waits.ts'
@@ -225,7 +225,7 @@ export const startAgentSessions = (server: Server) => {
       if (!message.conversationId) await dropAnonymousThread()
       await agentSession.handle(message)
       if (message.conversationId || !message.account) return
-      const target = { owner: message.account, agentId: message.agentId ?? PERSONAL_AGENT_ID }
+      const target = { owner: message.account, agentId: message.agentId || PORTAL_ASSISTANT_ID }
       try {
         if (!sessionState?.user) await verifyAnonymousActionToken(message.anonymousToken).catch(err => { helloRefusal = err; throw err })
         newThread = target

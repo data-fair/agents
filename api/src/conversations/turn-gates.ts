@@ -22,7 +22,7 @@ import {
   MODERATION_REFUSAL
 } from '../moderation/operations.ts'
 import { startModeration, isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
-import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { partsText, textPart, type RunStopReason, type MessagePart } from './operations.ts'
 import type { getSettings } from '../settings/service.ts'
 
@@ -72,7 +72,7 @@ export const checkQuotas = async (
 ): Promise<RefusedTurn | undefined> => {
   const violation = await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity)
   if (!violation) return undefined
-  const lead = agentId === PERSONAL_AGENT_ID ? 'I could not answer' : 'This autonomous agent could not run'
+  const lead = isPersonalAgentId(agentId) ? 'I could not answer' : 'This autonomous agent could not run'
   // REDACTED like main's 429 body (#74), through the same function: the account and the untrusted
   // pool are budgets shared with everyone else, and an external or anonymous caller has no business
   // reading their numbers. The text named them for every caller until this port.

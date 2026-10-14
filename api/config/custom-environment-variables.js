@@ -17,6 +17,7 @@ export default {
   providers: { __name: 'PROVIDERS', __format: 'json' },
   models: { __name: 'MODELS', __format: 'json' },
   mcpServers: { __name: 'MCP_SERVERS', __format: 'json' },
+  personalAssistants: { __name: 'PERSONAL_ASSISTANTS', __format: 'json' },
   autonomousAgentsRequireAdminMode: { __name: 'AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE', __format: 'json' },
   tasks: {
     minIntervalSeconds: { __name: 'TASKS_MIN_INTERVAL_SECONDS', __format: 'json' },

@@ -6,7 +6,7 @@
  *
  * It exists because of a defect the swap introduced and nothing caught: one `usageIdentityFor` served
  * every agent, so a person chatting with the personal assistant was billed as
- * `autonomous-agent:personal` at role 'admin'. Role 'admin' means "no per-profile quota applies", so
+ * `autonomous-agent:portal-assistant` at role 'admin'. Role 'admin' means "no per-profile quota applies", so
  * the `user`/`external` quotas were silently unenforced for the chat — bounded only by the account
  * credit cap — and every person's spend landed on one histogram row, which is the figure an org admin
  * reads to see who spent what.
@@ -16,7 +16,7 @@ import assert from 'node:assert/strict'
 import { usageIdentityFor } from '../../../api/src/conversations/operations.ts'
 import { UNTRUSTED_POOL_ID } from '../../../api/src/usage/operations.ts'
 
-const standard = { id: 'personal', title: 'Assistant' }
+const standard = { id: 'portal-assistant', title: 'Assistant' }
 const configured = { id: 'support-triage', title: 'Support triage' }
 const org = { type: 'organization' as const, id: 'test1' }
 const personal = { type: 'user' as const, id: 'dmeadus0' }
@@ -43,7 +43,7 @@ test.describe('usageIdentityFor — the personal assistant bills the PERSON', ()
     assert.equal(identity.usageUserId, 'u1')
     assert.equal(identity.usageUserName, 'Una')
     // The regression, stated as the assertion that would have caught it.
-    assert.notEqual(identity.usageUserId, 'autonomous-agent:personal')
+    assert.notEqual(identity.usageUserId, 'autonomous-agent:portal-assistant')
   })
 
   test('an untrusted role joins the shared pool', () => {

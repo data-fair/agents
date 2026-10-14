@@ -44,11 +44,11 @@ test.describe('A turn over the agent session', () => {
 
   /** A thread with the PERSONAL assistant that already has a turn in it, started by its first prompt. */
   const personalConversation = async () =>
-    (await turnOverSocket(orgAdmin, { agentId: 'personal', title: 'personal' }, 'hello')).conversationId
+    (await turnOverSocket(orgAdmin, { agentId: 'portal-assistant', title: 'portal-assistant' }, 'hello')).conversationId
 
   /** The stored conversation, as its owner lists it. */
   const storedConversation = async (id: string) =>
-    (await orgAdmin.get('/api/conversations/organization/test1?agentId=personal')).data.results.find((c: any) => c.id === id)
+    (await orgAdmin.get('/api/conversations/organization/test1?agentId=portal-assistant')).data.results.find((c: any) => c.id === id)
 
   /** Collect frames until one of `type` arrives, returning everything seen. */
   const collectUntil = async (socket: AgentSessionClient, type: string, timeoutMs = 15000) => {
@@ -68,10 +68,10 @@ test.describe('A turn over the agent session', () => {
     const hello = await session.next()
     assert.equal(hello.type, 'attached')
     assert.equal(hello.conversationId, undefined, 'nothing is created by the hello')
-    assert.equal((await orgAdmin.get('/api/conversations/organization/test1?agentId=personal')).data.count, 0)
+    assert.equal((await orgAdmin.get('/api/conversations/organization/test1?agentId=portal-assistant')).data.count, 0)
 
     // The title travels with the prompt that creates the thread: the chat stamps it at send time.
-    session.send({ type: 'prompt', content: 'hello', title: 'personal' })
+    session.send({ type: 'prompt', content: 'hello', title: 'portal-assistant' })
     const created = await session.next()
     assert.equal(created.type, 'attached')
     assert.ok(created.conversationId, 'the attached frame names the new thread')
@@ -82,9 +82,9 @@ test.describe('A turn over the agent session', () => {
     assert.equal(frames[frames.length - 1].stopReason, 'completed')
 
     // The personal assistant exists without being stored, and a thread with it belongs to its user.
-    assert.equal(conversation.agentId, 'personal')
+    assert.equal(conversation.agentId, 'portal-assistant')
     assert.equal(conversation.userId, 'test1-admin1')
-    assert.equal(conversation.title, 'personal')
+    assert.equal(conversation.title, 'portal-assistant')
   })
 
   test('a person who may not talk to the agent is refused at the hello and at the first prompt, and nothing is created', async () => {
@@ -341,7 +341,7 @@ test.describe('A turn over the agent session', () => {
     }
     const threads = frames.filter(f => f.type === 'attached' && f.conversationId).map(f => f.conversationId)
     assert.equal(new Set(threads).size, 1, 'one thread')
-    const listed = (await orgAdmin.get('/api/conversations/organization/test1?agentId=personal')).data.results
+    const listed = (await orgAdmin.get('/api/conversations/organization/test1?agentId=portal-assistant')).data.results
     assert.deepEqual(listed.map((c: any) => c.id), [threads[0]])
     const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${threads[0]}/messages`)).data.results
     const userTexts = messages.filter((m: any) => m.role === 'user').map((m: any) => m.parts.find((p: any) => p.type === 'text')?.text)
@@ -418,7 +418,7 @@ test.describe('A turn over the agent session', () => {
     try {
       await client.db().collection('conversations').insertOne({
         id: 'test-empty-thread',
-        agentId: 'personal',
+        agentId: 'portal-assistant',
         owner: { type: 'organization', id: 'test1' },
         userId: 'test1-admin1',
         title: 'never spoken in',

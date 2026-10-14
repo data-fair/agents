@@ -56,7 +56,7 @@ test.describe('review retention', () => {
     // So deleting a thread cannot extend how long the organization can see it.
     const filter = expiredArchiveFilter(now) as any
     assert.deepEqual(filter.lastMessageAt, { $lt: daysAgo(30) })
-    assert.equal(filter.agentId, 'personal', 'only the personal assistant expires')
+    assert.deepEqual(filter.agentId, { $in: ['portal-assistant', 'back-office-assistant'] }, 'only the personal assistants expire')
     assert.equal(Object.keys(filter).length, 3, 'the three clauses, and only those')
   })
 })

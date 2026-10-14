@@ -73,6 +73,23 @@ export type ApiConfig = {
     apiKeyHeader?: string;
     apiKey?: string;
   }[];
+  /**
+   * The servers of each built-in personal assistant: references into mcpServers, like a configured agent's. Unset: no catalog servers.
+   */
+  personalAssistants?: {
+    portal?: {
+      mcpServers?: {
+        serverId: string;
+        toolFilter?: string[];
+      }[];
+    };
+    backOffice?: {
+      mcpServers?: {
+        serverId: string;
+        toolFilter?: string[];
+      }[];
+    };
+  };
   autonomousAgentsRequireAdminMode?: boolean;
   tasks: {
     /**

@@ -26,9 +26,9 @@ const call = (modelRole: string, over: Record<string, unknown> = {}) =>
 /** One conversation's export, through the real builder. */
 const exported = (opts: { parts?: unknown[], calls?: unknown[], credits?: number } = {}) => parseConversationExport({
   conversationId: 'c1',
-  agentId: 'personal',
+  agentId: 'portal-assistant',
   jsonl: buildConversationExport({
-    conversation: { id: 'c1', agentId: 'personal' },
+    conversation: { id: 'c1', agentId: 'portal-assistant' },
     messages: [
       { seq: 1, role: 'user', parts: [{ type: 'text', text: 'hello' }] },
       { seq: 2, role: 'assistant', parts: [...(opts.parts ?? []), { type: 'text', text: 'done' }] }
@@ -51,7 +51,7 @@ test.describe('parseConversationExport', () => {
     const parsed = parseConversationExport({
       conversationId: 'c1',
       jsonl: buildConversationExport({
-        conversation: { id: 'c1', agentId: 'personal' },
+        conversation: { id: 'c1', agentId: 'portal-assistant' },
         messages: [{ seq: 1, role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
         runs: [{ id: 'r1', status: 'error', stopReason: 'error', error: 'credit cap reached', credits: 0, calls: [] }]
       })
@@ -156,7 +156,7 @@ test.describe('writeEvidence', () => {
       conversation: conversation('user', 'assistant'),
       consoleErrors: [],
       observations: [],
-      exports: [{ conversationId: 'c1', agentId: 'personal', jsonl }, { conversationId: 'c2', jsonl: 'not an export' }]
+      exports: [{ conversationId: 'c1', agentId: 'portal-assistant', jsonl }, { conversationId: 'c2', jsonl: 'not an export' }]
     }, { case: 'case-a', valid: true, assistantModel: 'a', userModel: 'u', turns: 1, durationMs: 1, finishedAt: 'now' }, dir)
 
     const transcript = JSON.parse(fs.readFileSync(path.join(dir, 'sim-case-a.json'), 'utf8'))

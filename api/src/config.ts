@@ -2,7 +2,7 @@ import type { ApiConfig } from '../config/type/index.ts'
 import { assertValid } from '../config/type/index.ts'
 import nodeConfig from 'config'
 import { assertGlobalAiConfig } from './models/operations.ts'
-import { assertGlobalMcpConfig } from './mcp-servers/operations.ts'
+import { assertGlobalMcpConfig, assertPersonalAssistantsConfig } from './mcp-servers/operations.ts'
 import { assertNhiConfig } from './nhi/operations.ts'
 import { assertFilesConfig } from './files/operations.ts'
 
@@ -13,6 +13,7 @@ assertValid(config, { lang: 'en', name: 'config', internal: true })
 
 assertGlobalAiConfig(config.providers ?? [], config.models ?? [], config.defaultModels ?? {})
 assertGlobalMcpConfig(config.mcpServers ?? [])
+assertPersonalAssistantsConfig(config.personalAssistants ?? {}, config.mcpServers ?? [])
 assertNhiConfig(config.nhiSigningKey)
 assertFilesConfig(config.files)
 

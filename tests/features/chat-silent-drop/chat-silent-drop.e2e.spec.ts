@@ -66,7 +66,7 @@ test.describe('Chat silent-drop protection', () => {
     await expect.poll(async () => {
       // The person's own thread list, not the review list: review needs `reviewPersonalAssistant` plus consent,
       // neither of which this scenario sets, and the run is readable without them.
-      const list = await user.get('/api/conversations/user/test-standalone1?agentId=personal').catch(() => null)
+      const list = await user.get('/api/conversations/user/test-standalone1?agentId=portal-assistant').catch(() => null)
       const conversationId = list?.data.results[0]?.id
       if (!conversationId) return undefined
       const runs = await user.get(`/api/conversations/user/test-standalone1/${conversationId}/runs`).catch(() => null)

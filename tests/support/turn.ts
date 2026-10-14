@@ -44,7 +44,7 @@ export async function runTurn (
   content = 'hello',
   opts?: { agentId?: string, conversationId?: string, title?: string }
 ): Promise<RunTurnResult> {
-  const target = opts?.conversationId ?? { agentId: opts?.agentId ?? 'personal', title: opts?.title ?? 'test turn' }
+  const target = opts?.conversationId ?? { agentId: opts?.agentId ?? 'portal-assistant', title: opts?.title ?? 'test turn' }
   const { runId, conversationId } = await turnOverSocket(ax, target, content, { owner })
   return { conversationId, runId }
 }

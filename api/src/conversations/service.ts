@@ -4,7 +4,7 @@
 
 import mongo from '#mongo'
 import config from '#config'
-import { personalAgent, PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { personalAgent, isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { assertRoleQuota, assertCanUseModel } from '../auth.ts'
 import { nanoid } from 'nanoid'
@@ -74,7 +74,7 @@ export const requireAutonomousAgent = async (owner: AccountKeys, agentId: string
 export const resolveAgent = async (owner: AccountKeys, agentId: string) => {
   // The personal assistant FIRST, which is also what reserves its id: a configured agent sharing it
   // would otherwise shadow it, and a conversation naming it would resolve to the wrong identity.
-  if (agentId === PERSONAL_AGENT_ID) return { ...personalAgent(config.mcpServers ?? []), owner } as unknown as AutonomousAgent
+  if (isPersonalAgentId(agentId)) return { ...personalAgent(agentId, config.personalAssistants ?? {}), owner } as unknown as AutonomousAgent
   // Anything else is a CONFIGURED agent, and those remain organization-owned: their identity rests on
   // an NHI, which simple-directory binds to exactly one organization. Asserted rather than left to the
   // lookup below returning nothing — it would, since configured agents are stored org-owned, but a 404
@@ -186,7 +186,7 @@ export const talkRefusal = (
   session: SessionStateAuthenticated,
   settings: { quotas?: Parameters<typeof assertCanUseModel>[2] }
 ): string | undefined => {
-  if (agentId === PERSONAL_AGENT_ID) {
+  if (isPersonalAgentId(agentId)) {
     try {
       assertCanUseModel(session, owner, settings.quotas ?? {})
     } catch (err) {
@@ -209,7 +209,7 @@ export const talkRefusal = (
  */
 export const assertMayStartConversation = async (owner: AccountKeys, agentId: string, caller: TurnCaller): Promise<AccountKeys> => {
   if (caller.kind === 'anonymous') {
-    if (agentId !== PERSONAL_AGENT_ID) throw httpError(403, 'an anonymous visitor can only talk to the personal assistant')
+    if (!isPersonalAgentId(agentId)) throw httpError(403, 'an anonymous visitor can only talk to the personal assistant')
     assertRoleQuota('anonymous', (await getSettings(owner)).quotas ?? {})
     return owner
   }

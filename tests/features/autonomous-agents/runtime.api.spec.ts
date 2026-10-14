@@ -133,7 +133,7 @@ test.describe('Autonomous agent conversations', () => {
     const adminList = (await orgAdmin.get('/api/conversations/organization/test1/agents')).data.results
     // The personal assistant is offered because the mock settings grant every role a model quota; it
     // is exactly the gate conversation creation applies.
-    assert.ok(adminList.some((a: any) => a.id === 'personal'))
+    assert.ok(adminList.some((a: any) => a.id === 'back-office-assistant'))
     assert.ok(adminList.some((a: any) => a.id === agent.id))
     assert.deepEqual(Object.keys(adminList[0]).sort(), ['id', 'title'], 'an entry is an id and a title, nothing more')
     assert.ok(adminList.some((a: any) => a.title === 'Hidden'), 'an account admin may instruct every enabled agent')
@@ -145,7 +145,7 @@ test.describe('Autonomous agent conversations', () => {
     // first personal-assistant message, so the picker not offering it is the honest answer.
     const memberList = (await orgMember.get('/api/conversations/organization/test1/agents')).data.results
     assert.ok(memberList.some((a: any) => a.id === agent.id))
-    assert.ok(!memberList.some((a: any) => a.id === 'personal'))
+    assert.ok(!memberList.some((a: any) => a.id === 'back-office-assistant'))
     assert.ok(!memberList.some((a: any) => a.title === 'Hidden'))
   })
 

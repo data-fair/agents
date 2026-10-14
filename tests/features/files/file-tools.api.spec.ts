@@ -48,7 +48,7 @@ test.describe('File tools', () => {
   })
 
   test('the personal assistant is offered no file tool', async () => {
-    const { run } = await turnOverSocket(orgAdmin, { agentId: 'personal' }, 'hello')
+    const { run } = await turnOverSocket(orgAdmin, { agentId: 'portal-assistant' }, 'hello')
     assert.ok(!offered(run).some(name => ['ls', 'read_file', 'write_file'].includes(name)), offered(run).join())
   })
 })

@@ -18,6 +18,8 @@ export default {
   providers: [],
   models: [],
   mcpServers: [],
+  // Each personal assistant's servers, by reference into mcpServers. Unset: none.
+  personalAssistants: {},
   // Progressive exposure: while true, configuring an autonomous agent additionally
   // requires admin mode. This is a rollout control, not an ownership boundary —
   // nothing in the document is durably superadmin-owned, and flipping this to false

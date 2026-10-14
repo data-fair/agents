@@ -46,7 +46,7 @@ test.describe('Conversation review API', () => {
     // out of a stored request body, and once the executor stopped copying messages into that body it
     // silently became empty — the list fell back to showing the conversation id.
     assert.equal(res.data.results[0].preview, 'hello')
-    assert.equal(res.data.results[0].agentId, 'personal')
+    assert.equal(res.data.results[0].agentId, 'portal-assistant')
   })
 
   test('a thread the person did NOT consent to is invisible', async () => {

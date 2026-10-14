@@ -5,14 +5,14 @@ against MCP tools it reaches as its own identity, on conversations that each bel
 
 It was once the one part of this service that held server-side conversation state. The loop moved to
 the server for every agent, so a configured autonomous agent and the in-page chat's personal assistant
-(the one built-in agent, `personalAgent()` in `api/src/agent-session/personal-agent.ts`) now run the same executor
+(two built-in agents, for the portal and the back office, `personalAgent()` in `api/src/agent-session/personal-agent.ts`) now run the same executor
 (`api/src/conversations/executor.ts`: `runTurn` → `performTurn` → `runModelLoop` in `model-loop.ts`) over the same
 collections. What still distinguishes an autonomous agent is WHO it acts as (its own non-human identity
 rather than the person's forwarded session), WHO it bills as (itself rather than the person), and that
 it is configured rather than built in.
 
 The UI converges too: there is ONE chat window. `GET /api/conversations/:type/:id/agents` lists what
-the caller may talk to — the personal assistant when they may use it, plus the enabled configured agents they may
+the caller may talk to — the back-office assistant when they may use it, plus the enabled configured agents they may
 instruct — and `GET /api/conversations/:type/:id` (its `agentId` optional) feeds the history.
 Front-office embeds stay mono-agent; the back office sets `agents` on the embeddable components and
 gets the picker and history (see [Embedding](./embedding.md#back-office-mode-agents)). The standalone

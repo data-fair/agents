@@ -175,6 +175,16 @@ Boot validation (`assertGlobalMcpConfig`) rejects:
 - an `auth: 'apiKey'` entry missing `apiKeyHeader` or `apiKey`;
 - a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential.
 
+### `PERSONAL_ASSISTANTS`
+
+JSON object: the servers of the two built-in personal assistants, `portal` (`portal-assistant`, what a front-office embed talks to) and `backOffice` (`back-office-assistant`, what a back-office embed with `agents` talks to). Each is `{ "mcpServers": [{ "serverId": "…", "toolFilter": ["…"] }] }`, references into `MCP_SERVERS` exactly like a configured agent's. Example, data-fair's MCP with its read-only `catalog` profile for both:
+
+```json
+{ "portal": { "mcpServers": [{ "serverId": "datafair-catalog" }] }, "backOffice": { "mcpServers": [{ "serverId": "datafair-catalog" }] } }
+```
+
+Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write profiles, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`). Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
+
 ### `NHI_SIGNING_KEY`
 
 JSON, an ES256 private JWK carrying a `kid` (checked at boot by `assertNhiConfig`, `api/src/nhi/operations.ts`). It signs the assertions an autonomous agent exchanges for its own session (see [Autonomous agents](./autonomous-agents.md#identity-the-agent-acts-as-itself)). Absent, the feature is off: the issuer routes (`/api/nhi/...`) 404, no configured autonomous agent can obtain a session or reach an `nhi-session` MCP server, and the server logs an `[nhi]` notice at boot. The personal assistant does not need it — it acts through the person's forwarded session.

@@ -66,7 +66,7 @@ test.describe('code_mode', () => {
   })
 
   test('the personal assistant is offered code_mode, without file tools', async () => {
-    const { run } = await turnOverSocket(orgAdmin, { agentId: 'personal' }, 'hello')
+    const { run } = await turnOverSocket(orgAdmin, { agentId: 'portal-assistant' }, 'hello')
     assert.ok(offered(run).includes('code_mode'), offered(run).join())
     assert.ok(!offered(run).includes('read_file'))
   })

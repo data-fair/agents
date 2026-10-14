@@ -16,7 +16,7 @@ import { getEffectiveRole } from '../auth.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../self-knowledge/operations.ts'
-import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 
 /**
  * The calls whose approval is an administrator's of the organization, not any instructor's, and why.
@@ -55,7 +55,7 @@ export const decideAndContinue = async (input: {
   // Before the decision is recorded, so the card stays pending and can be decided again after the restart.
   assertAcceptingTurns()
   const { conversation, session } = input
-  if (conversation.agentId !== PERSONAL_AGENT_ID) assertCanInstruct(await requireAutonomousAgent(conversation.owner, conversation.agentId), session)
+  if (!isPersonalAgentId(conversation.agentId)) assertCanInstruct(await requireAutonomousAgent(conversation.owner, conversation.agentId), session)
   // An administrator's call (ADMIN_DECISIONS) approved by anyone else is refused before anything is
   // recorded, so the call stays pending for an administrator. Rejecting it is anyone's.
   if (input.approved && getEffectiveRole(session, conversation.owner) !== 'admin') {

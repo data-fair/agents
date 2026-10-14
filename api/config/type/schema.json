@@ -125,6 +125,16 @@
         }
       }
     },
+    "personalAssistants": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The servers of each built-in personal assistant: references into mcpServers, like a configured agent's. Unset: no catalog servers.",
+      "default": {},
+      "properties": {
+        "portal": { "type": "object", "additionalProperties": false, "properties": { "mcpServers": { "type": "array", "default": [], "items": { "type": "object", "additionalProperties": false, "required": ["serverId"], "properties": { "serverId": { "type": "string" }, "toolFilter": { "type": "array", "items": { "type": "string" } } } } } } },
+        "backOffice": { "type": "object", "additionalProperties": false, "properties": { "mcpServers": { "type": "array", "default": [], "items": { "type": "object", "additionalProperties": false, "required": ["serverId"], "properties": { "serverId": { "type": "string" }, "toolFilter": { "type": "array", "items": { "type": "string" } } } } } } }
+      }
+    },
     "autonomousAgentsRequireAdminMode": { "type": "boolean", "default": true },
     "tasks": {
       "type": "object",

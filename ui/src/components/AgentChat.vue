@@ -146,7 +146,7 @@ import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
-import { isAuditedAgentId, PERSONAL_AGENT_ID } from '@agents/shared/agent-audit'
+import { isAuditedAgentId, isPersonalAgentId, PORTAL_ASSISTANT_ID, BACK_OFFICE_ASSISTANT_ID } from '@agents/shared/agent-audit'
 import { useSessionChat } from '~/composables/use-session-chat'
 import type { ChatMessage } from '~/utils/chat-message'
 import { formatMermaidFix, shouldAutoFixMermaid, MERMAID_AUTO_FIX_BUDGET } from '~/utils/mermaid-fix'
@@ -167,7 +167,8 @@ const props = defineProps<{
   isAdmin?: boolean
   title?: string
   /**
-   * Which agent to talk to: `personal` (the personal assistant, the default) or a configured agent's id.
+   * Which agent to talk to: a personal assistant (`portal-assistant`, `back-office-assistant`) or a
+   * configured agent's id. Unset: the back-office assistant in back-office mode, the portal one otherwise.
    * The server resolves its persona and instructions.
    */
   agentId?: string
@@ -275,7 +276,9 @@ const chat = useSessionChat({
   // The page's `?agentId=` first, then the embedding component's init config: the drawer, menu and
   // block write `agentId` there, and it used to be read for `title` only, so an embedded chat always
   // talked to the personal assistant whatever agent its host had named.
-  ...((props.agentId ?? initConfig?.agentId) ? { agentId: props.agentId ?? initConfig?.agentId } : {}),
+  // Unnamed (the page passes `''` without `?agentId=`), the office decides which personal assistant: the
+  // host cannot, as the back office is a path on the main portal's domain.
+  agentId: props.agentId || initConfig?.agentId || (props.multiAgent ? BACK_OFFICE_ASSISTANT_ID : PORTAL_ASSISTANT_ID),
   initialMessages: props.initialMessages,
   // The picker's own conversations are titled by the date; a host chat title would name every
   // thread of an agent identically, which is exactly what a history list cannot afford.
@@ -296,7 +299,7 @@ const chat = useSessionChat({
 
 const audited = computed(() => isAuditedAgentId(chat.activeAgentId.value))
 // Where an approval card reads the task a planning call would change. The personal assistant has no tasks.
-const agentPath = computed(() => chat.activeAgentId.value === PERSONAL_AGENT_ID
+const agentPath = computed(() => isPersonalAgentId(chat.activeAgentId.value)
   ? undefined
   : `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${chat.activeAgentId.value}`)
 
@@ -355,7 +358,7 @@ const loadAgents = async () => {
  */
 const resolveAgentTitle = async () => {
   const agentId = props.agentId ?? initConfig?.agentId
-  if (!agentId || agentId === PERSONAL_AGENT_ID || !session.state.user) return
+  if (!agentId || isPersonalAgentId(agentId) || !session.state.user) return
   try {
     const agent = await $fetch<{ title: string }>(
       `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${agentId}`,

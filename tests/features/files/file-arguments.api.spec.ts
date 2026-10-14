@@ -67,7 +67,7 @@ test.describe('File arguments', () => {
   })
 
   test('the personal assistant (files off) is offered no tool that takes a file, and fetch_url has no saveAs', async () => {
-    const { run } = await turnOverSocket(orgAdmin, { agentId: 'personal' }, 'hello')
+    const { run } = await turnOverSocket(orgAdmin, { agentId: 'portal-assistant' }, 'hello')
     assert.ok(!offered(run).includes('import_table'), offered(run).join())
     assert.ok(offered(run).includes('echo'), 'the rest of the catalog is offered')
   })

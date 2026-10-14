@@ -13,7 +13,7 @@ import { getAutonomousAgent } from '../autonomous-agents/service.ts'
 import { assertMayStartConversation, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation, talkRefusal } from './service.ts'
 import { abortRunsOfConversation } from './live-runs.ts'
 import { withinRetention } from '../retention.ts'
-import { PERSONAL_AGENT_ID, PERSONAL_AGENT_TITLE } from '../agent-session/personal-agent.ts'
+import { BACK_OFFICE_ASSISTANT_ID, isPersonalAgentId, personalAgentTitle } from '../agent-session/personal-agent.ts'
 import { getSettings } from '../settings/service.ts'
 
 const router = Router()
@@ -73,7 +73,8 @@ router.get('/:type/:id/agents', async (req, res, next) => {
     const settings = await getSettings(owner)
 
     const results: Array<{ id: string, title: string }> = []
-    if (!talkRefusal(PERSONAL_AGENT_ID, undefined, owner, session, settings)) results.push({ id: PERSONAL_AGENT_ID, title: PERSONAL_AGENT_TITLE })
+    // The picker is the back office's, so its assistant is the back-office one.
+    if (!talkRefusal(BACK_OFFICE_ASSISTANT_ID, undefined, owner, session, settings)) results.push({ id: BACK_OFFICE_ASSISTANT_ID, title: personalAgentTitle(BACK_OFFICE_ASSISTANT_ID)! })
 
     // Configured agents are organizations only (their identity rests on an NHI), so on a personal
     // account the list is just the personal assistant.
@@ -165,7 +166,7 @@ router.get('/:type/:id', async (req, res, next) => {
       for (const conversation of results) {
         let ok = usable.get(conversation.agentId)
         if (ok === undefined) {
-          const agent = conversation.agentId === PERSONAL_AGENT_ID || owner.type !== 'organization'
+          const agent = isPersonalAgentId(conversation.agentId) || owner.type !== 'organization'
             ? undefined
             : await getAutonomousAgent(owner, conversation.agentId)
           ok = !talkRefusal(conversation.agentId, agent, owner, session, settings)

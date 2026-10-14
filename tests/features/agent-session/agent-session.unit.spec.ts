@@ -62,8 +62,8 @@ test.describe('parseClientMessage', () => {
   })
 
   test('a hello starting a thread carries the consent answer the browser holds; its first prompt carries the title', () => {
-    assert.deepEqual(parse({ type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', reviewConsent: true }), {
-      type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'personal', reviewConsent: true
+    assert.deepEqual(parse({ type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'portal-assistant', reviewConsent: true }), {
+      type: 'hello', tools: [], account: { type: 'user', id: 'u1' }, agentId: 'portal-assistant', reviewConsent: true
     })
     assert.deepEqual(parse({ type: 'hello', tools: [], reviewConsent: false }), { type: 'hello', tools: [], reviewConsent: false })
     // Strictly boolean: a truthy string must not read as consent.

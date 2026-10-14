@@ -64,7 +64,7 @@ test.describe('wait_for_user_action over the socket', () => {
   const waitPart = (frames: any[], state: string) => toolParts(frames).find(p => p.toolName === 'wait_for_user_action' && p.state === state)
 
   const conversation = async (id: string) =>
-    (await user.get(`/api/conversations/${OWNER}?agentId=personal`)).data.results.find((c: any) => c.id === id)
+    (await user.get(`/api/conversations/${OWNER}?agentId=portal-assistant`)).data.results.find((c: any) => c.id === id)
   const runs = async (id: string) => (await user.get(`/api/conversations/${OWNER}/${id}/runs`)).data.results as any[]
 
   /** Hand over: prompt the mock's wait seam, and return once the handover turn has ended. */

@@ -25,7 +25,7 @@ export interface AgentSessionClient {
  */
 export const newThreadHello = (owner = 'organization/test1', extra: Record<string, unknown> = {}) => {
   const [type, id] = owner.split('/')
-  return { type: 'hello', tools: [], account: { type, id }, agentId: 'personal', ...extra }
+  return { type: 'hello', tools: [], account: { type, id }, agentId: 'portal-assistant', ...extra }
 }
 
 /**

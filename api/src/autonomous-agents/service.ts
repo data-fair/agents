@@ -15,7 +15,7 @@ import { envPublicIps } from '../web/public-lookup.ts'
 import { agentStoreId } from '../memory/operations.ts'
 import { deleteMemoryStore } from '../memory/service.ts'
 import { deleteConversationFiles } from '../files/service.ts'
-import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { canInstruct } from './operations.ts'
 
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
@@ -54,7 +54,7 @@ export function assertOrganizationOwner (owner: AccountKeys): asserts owner is A
  * assertion above.
  */
 export function assertCanOwnAgent (owner: AccountKeys, agentId: string): void {
-  if (agentId === PERSONAL_AGENT_ID) return
+  if (isPersonalAgentId(agentId)) return
   assertOrganizationOwner(owner)
 }
 

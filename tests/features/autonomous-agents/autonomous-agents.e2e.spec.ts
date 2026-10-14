@@ -356,11 +356,11 @@ test.describe('Agent switcher and conversation history', () => {
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
 
     await page.getByTestId('agent-chat-agent-picker').click()
-    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Assistant' }).click()
+    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Back-office assistant' }).click()
 
     // The personal assistant has no thread yet: an empty pane, and the picker names it.
     await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
-    await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('Assistant')
+    await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('Back-office assistant')
 
     // Back to the autonomous agent: its ongoing conversation is reopened, not a third one started.
     // The first menu's content must be gone before reopening: clicking through its closing transition
@@ -380,13 +380,13 @@ test.describe('Agent switcher and conversation history', () => {
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
 
     await page.getByTestId('agent-chat-agent-picker').click()
-    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Assistant' }).click()
+    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Back-office assistant' }).click()
     await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
     await fillAndSend(page, 'hello')
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
 
     const threadsOf = async (id: string) => (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${id}`)).data.results
-    expect((await threadsOf('personal')).length).toBe(1)
+    expect((await threadsOf('back-office-assistant')).length).toBe(1)
     const [agentThread] = await threadsOf(agentId)
     const agentMessages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${agentThread.id}/messages`)).data.results
     expect(agentMessages.filter((m: any) => m.role === 'user')).toHaveLength(1)

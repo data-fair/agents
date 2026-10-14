@@ -25,7 +25,7 @@ import { ref, shallowRef, computed, watch, onScopeDispose, readonly, type Ref } 
 import type { Tool } from 'ai'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
-import { PERSONAL_AGENT_ID } from '@agents/shared/agent-audit'
+import { PORTAL_ASSISTANT_ID } from '@agents/shared/agent-audit'
 import Debug from 'debug'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
@@ -269,7 +269,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
   })
 
   /** Which agent the next conversation is with. A conversation carries its own agent. */
-  const activeAgentId = ref(options.agentId ?? PERSONAL_AGENT_ID)
+  const activeAgentId = ref(options.agentId ?? PORTAL_ASSISTANT_ID)
 
   // The consent sheet's trigger, and the answer's path back.
   //

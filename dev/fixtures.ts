@@ -135,7 +135,7 @@ async function seedChats (sessions: Record<string, any>) {
     let conversationId: string | undefined
     let answer: any
     for (const turn of chat.turns) {
-      const done = await runChatTurn(ax, chat.owner, conversationId ?? { agentId: 'personal', title: chat.title }, turn)
+      const done = await runChatTurn(ax, chat.owner, conversationId ?? { agentId: 'portal-assistant', title: chat.title }, turn)
       conversationId = done.conversationId
       answer = done.assistant
     }

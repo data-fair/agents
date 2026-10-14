@@ -34,10 +34,6 @@ export default {
     // the zellij layout that would make the api suite unrunnable in a normal dev session.
     const fixtureUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 30}/mcp`
     const reviewUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 31}/mcp`
-    // ORDER MATTERS to the personal assistant, which takes every entry: both servers list the same tool
-    // names, and of two tools sharing a name the later entry's wins. The test fixture's entries come last,
-    // so a spec reaches the fixture it started; in a manual session that fixture is down, its entries are
-    // skipped, and dev-mcp serves the calls.
     return [
       // Served by `npm run dev-mcp`, so a seeded autonomous agent keeps working while a human
       // reviews the UI and posts new messages.
@@ -50,6 +46,14 @@ export default {
       // trivially passing because no configured entry ever had a key to leak.
       { id: 'dev-apikey-mcp', name: 'Dev API-key MCP', url: fixtureUrl, auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'dev-secret-value' }
     ]
+  })(),
+  // Both assistants get both MCP servers, session and anonymous. ORDER MATTERS: both servers list the
+  // same tool names, and of two tools sharing a name the later reference's wins. The test fixture's
+  // entries come last, so a spec reaches the fixture it started; in a manual session that fixture is
+  // down, its entries are skipped, and dev-mcp serves the calls.
+  personalAssistants: (() => {
+    const mcpServers = ['dev-review-mcp', 'dev-review-session-mcp', 'dev-public-mcp', 'dev-session-mcp'].map(serverId => ({ serverId }))
+    return { portal: { mcpServers }, backOffice: { mcpServers } }
   })(),
   // Dev-only keypair, generated for this plan and round-trip verified. NEVER reuse a
   // committed key in a real deployment.

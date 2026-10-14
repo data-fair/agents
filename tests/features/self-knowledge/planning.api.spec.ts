@@ -211,7 +211,7 @@ test.describe('Planning tools', () => {
   })
 
   test('the personal assistant is offered none of the planning tools', async () => {
-    const { run } = await turnOverSocket(orgAdmin, { agentId: 'personal' }, 'hello')
+    const { run } = await turnOverSocket(orgAdmin, { agentId: 'portal-assistant' }, 'hello')
     for (const name of PLANNING_TOOLS) assert.ok(!offeredTools(run).includes(name), name)
   })
 })

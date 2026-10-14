@@ -32,7 +32,7 @@ const chat = async (reviewPersonalAssistant: boolean, consented: boolean) => {
 }
 
 const mineList = async () =>
-  (await user.get(`/api/conversations/${OWNER}?agentId=personal`)).data.results
+  (await user.get(`/api/conversations/${OWNER}?agentId=portal-assistant`)).data.results
 
 test.describe('Deleting a reviewable conversation', () => {
   test.beforeEach(async () => { await clean() })

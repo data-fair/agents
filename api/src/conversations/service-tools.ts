@@ -30,7 +30,7 @@ import { createReadSkillTool, READ_SKILL_TOOL_NAME, READ_SKILL_ANNOTATIONS, SKIL
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID } from '../mcp-servers/operations.ts'
 import { saveExternalMcpServers, saveWebAllowedUrls } from '../autonomous-agents/service.ts'
-import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { createSelfKnowledgeTools } from '../self-knowledge/tools.ts'
 import { createPlanningTools, PLANNING_TOOL_ANNOTATIONS } from '../self-knowledge/planning.ts'
 import { SELF_KNOWLEDGE_SERVER_ID } from '../self-knowledge/operations.ts'
@@ -138,7 +138,7 @@ const ENTRIES: ServiceToolEntry[] = [
     // an administrator in it: only an administrator may approve it (conversations/approvals.ts), so
     // offering it to anyone else would end their turn on a card they cannot decide. A run continuing
     // from a decision was started by the decider, so the approved call finds its tool there.
-    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && !!ctx.agent.web?.enabled,
+    applies: ctx => !isPersonalAgentId(ctx.agent.id) && !!ctx.agent.web?.enabled,
     build: async ({ agent, run, surface, files }, into) => {
       // One array for the run: an approved request extends it in place, so the readers see the new URLs.
       const allowedUrls = [...(agent.web?.allowedUrls ?? [])]
@@ -153,7 +153,7 @@ const ENTRIES: ServiceToolEntry[] = [
     // EXTERNAL MCP (api/src/mcp-servers/external.ts): asking to connect a public MCP server. Only in a chat
     // an administrator started, like request_web_access and for the same reason: only an administrator may
     // approve it. Never the personal assistant, which has no external servers.
-    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
+    applies: ctx => !isPersonalAgentId(ctx.agent.id) && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
     build: async ({ agent }, into) => {
       const tools = { [REQUEST_MCP_ACCESS_TOOL_NAME]: createRequestMcpAccessTool({ servers: [...(agent.externalMcpServers ?? [])], save: servers => saveExternalMcpServers(agent, servers) }) }
       Object.assign(into.tools, sourcedTools(tools, EXTERNAL_MCP_SERVER_ID, () => ACCESS_REQUEST_ANNOTATIONS))
@@ -179,7 +179,7 @@ const ENTRIES: ServiceToolEntry[] = [
     // what a past run read comes back inside the envelope like any tool result: reported, not obeyed.
     // The list of the turn's other service tools is read when called, so entries built after this one
     // (report_outcome) are in it.
-    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID,
+    applies: ctx => !isPersonalAgentId(ctx.agent.id),
     build: async (ctx, into) => {
       const tools = createSelfKnowledgeTools(ctx, () => Object.keys(into.tools))
       Object.assign(into.tools, sourcedTools(tools, SELF_KNOWLEDGE_SERVER_ID, () => ({ readOnlyHint: true })))
@@ -192,7 +192,7 @@ const ENTRIES: ServiceToolEntry[] = [
     // these calls (conversations/approvals.ts), as only one may write tasks through the routes, so offering
     // them to anyone else would end their turn on a card they cannot decide. A run continuing from a
     // decision was started by the decider, so the approved call finds its tool there.
-    applies: ctx => ctx.agent.id !== PERSONAL_AGENT_ID && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
+    applies: ctx => !isPersonalAgentId(ctx.agent.id) && ctx.surface === 'chat' && ctx.run.triggeredByRole === 'admin',
     build: async (ctx, into) => {
       const tools = createPlanningTools(ctx)
       Object.assign(into.tools, sourcedTools(tools, SELF_KNOWLEDGE_SERVER_ID, name => PLANNING_TOOL_ANNOTATIONS[name]))

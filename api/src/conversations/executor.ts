@@ -35,7 +35,7 @@ import { personSiteCredentials, type SiteCredentials } from '../mcp-servers/oper
 import { applyApprovalPolicy, personalAssistantTools, unattended } from './approval-policy.ts'
 import { agentSiteCredentials } from '../nhi/service.ts'
 import { notifyMessage } from '../agent-session/registry.ts'
-import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { settlePendingWait } from './waits.ts'
 import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type StopCause } from './interrupted-turn.ts'
 import { turnFilesFor } from '../files/service.ts'
@@ -107,7 +107,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // The PERSONAL assistant is the deliberate exception — it has no non-human identity BY DESIGN and acts as
   // the person whose socket it is. This guard predates them and would have refused every such turn
   // with a message about enrolment, which is how the first end-to-end test failed.
-  if (autonomousAgent.id !== PERSONAL_AGENT_ID && !autonomousAgent.nhi?.clientId) {
+  if (!isPersonalAgentId(autonomousAgent.id) && !autonomousAgent.nhi?.clientId) {
     return {
       parts: [{ type: 'text', text: 'This autonomous agent has no non-human identity enrolled, so it cannot reach any of its tools. An administrator needs to complete its enrolment before it can run.' }],
       steps: 0,
@@ -121,7 +121,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
 
   // The turn's files: a configured agent's, when the deployment has a file store. Undefined is "files off",
   // and it is exactly what the personal assistant gets: nothing file-related is offered (spec §2).
-  const files = autonomousAgent.id === PERSONAL_AGENT_ID ? undefined : turnFilesFor(run)
+  const files = isPersonalAgentId(autonomousAgent.id) ? undefined : turnFilesFor(run)
 
   // BEFORE ANY MODEL CALL: a refused turn must cost nothing.
   //
@@ -165,7 +165,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // agent's selection is deliberate, so for it a failure still throws.
   const { tools: listedTools, skippedServers, filteredOut, needsFiles, guides: catalogGuides, readSkill: readCatalogSkill, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sites, {
-      onServerError: autonomousAgent.id === PERSONAL_AGENT_ID ? 'skip' : 'throw',
+      onServerError: isPersonalAgentId(autonomousAgent.id) ? 'skip' : 'throw',
       files: !!files
     })
   // Everything from here on releases the connections however it ends: an open that succeeded and a later
@@ -173,7 +173,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   let external: Awaited<ReturnType<typeof openExternalMcpTools>> | undefined
   try {
   // External MCP servers: anonymous, egress-guarded, never the personal assistant's (see ./mcp-servers/external.ts).
-    if (autonomousAgent.id !== PERSONAL_AGENT_ID && autonomousAgent.externalMcpServers?.length) {
+    if (!isPersonalAgentId(autonomousAgent.id) && autonomousAgent.externalMcpServers?.length) {
       external = await openExternalMcpTools(autonomousAgent.externalMcpServers, { publicIps: envPublicIps() })
     }
     const catalog: ToolSet = { ...listedTools, ...external?.tools }
@@ -182,7 +182,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     // the agent's order; and one reader routing a skill read to whichever side holds that server.
     // A configured agent's own skills come first (api/src/self-knowledge/operations.ts, agentGuide): the
     // personal assistant has no history tools, so no earlier-work skill either.
-    const ownGuide = autonomousAgent.id === PERSONAL_AGENT_ID ? [] : [agentGuide()]
+    const ownGuide = isPersonalAgentId(autonomousAgent.id) ? [] : [agentGuide()]
     const guides = [...ownGuide, ...catalogGuides, ...(external?.guides ?? [])]
     const readSkill = async (server: string, uri: string): Promise<string> => {
       if (ownGuide.length && server === AGENT_SKILLS_SERVER) return readAgentSkill(uri)
@@ -196,7 +196,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     // THE APPROVAL GATE, on catalog tools: a configured agent's policy, or the personal assistant's fixed
     // one (every change waits for the person). Page tools act in the person's own browser, and service
     // tools are the loop's own.
-    const catalogTools = autonomousAgent.id === PERSONAL_AGENT_ID
+    const catalogTools = isPersonalAgentId(autonomousAgent.id)
       ? personalAssistantTools(catalog, { anonymous: run.triggeredByRole === 'anonymous' })
       : applyApprovalPolicy(catalog, autonomousAgent.approvals)
 

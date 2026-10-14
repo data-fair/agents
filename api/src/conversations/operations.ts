@@ -16,7 +16,7 @@ import type { EffectiveRole } from '../auth.ts'
 import type { TurnSurface } from './service-tools.ts'
 import { renderMemoryBlock, type MemoryDocument } from '../memory/operations.ts'
 import { renderGuidesBlock, defuseEnvelopes, type ServerGuide } from '../mcp-servers/guides.ts'
-import { PERSONAL_AGENT_ID } from '../agent-session/personal-agent.ts'
+import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 
 // Re-exported: the parts contract is shared/message-parts, and callers here already import from this
 // module. One definition, one import site.
@@ -618,7 +618,7 @@ export const usageIdentityFor = (
   // only by the account credit cap; and every person's spend was recorded against one
   // `autonomous-agent:personal` row, so the per-user histogram an org admin reads to see who spent
   // what showed a single line for the whole organization.
-  if (autonomousAgent.id === PERSONAL_AGENT_ID) {
+  if (isPersonalAgentId(autonomousAgent.id)) {
     // A missing role falls back to the least privileged normal role, never to admin.
     return personUsageIdentity({ id: run.triggeredBy?.userId, name: run.triggeredBy?.userName }, run.triggeredByRole ?? 'user', run.owner)
   }

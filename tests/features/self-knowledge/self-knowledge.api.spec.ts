@@ -138,7 +138,7 @@ test.describe('Self-knowledge', () => {
   })
 
   test('the personal assistant is offered none of the three tools', async () => {
-    const { run } = await turnOverSocket(orgAdmin, { agentId: 'personal' }, 'hello')
+    const { run } = await turnOverSocket(orgAdmin, { agentId: 'portal-assistant' }, 'hello')
     const offered = run.calls.flatMap((c: any) => c.toolNames ?? [])
     for (const name of SELF_TOOLS) assert.ok(!offered.includes(name), name)
 

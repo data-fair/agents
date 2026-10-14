@@ -214,7 +214,7 @@ test.describe('memory scope', () => {
     assert.equal(agentStoreId('abc'), 'agent:abc')
     assert.equal(memoryEnabledFor({ id: 'abc', memory: { enabled: true } }), true)
     assert.equal(memoryEnabledFor({ id: 'abc' }), false)
-    assert.equal(memoryEnabledFor({ id: 'personal', memory: { enabled: true } }), false)
+    assert.equal(memoryEnabledFor({ id: 'portal-assistant', memory: { enabled: true } }), false)
   })
 })
 

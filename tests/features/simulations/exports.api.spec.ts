@@ -26,7 +26,7 @@ const user = await axiosAuth(OWNER.id)
 const say = async (content: string, consent = true) => {
   // Through the client's cookie jar: it owns the Cookie header, and replaces one set by hand.
   await (user as any).cookieJar.setCookie(`${CONSENT_COOKIE}=${consent ? CONSENT_YES : 'no'}`, directoryUrl)
-  return (await turnOverSocket(user, { agentId: 'personal' }, content, { owner: `${OWNER.type}/${OWNER.id}` })).conversationId
+  return (await turnOverSocket(user, { agentId: 'portal-assistant' }, content, { owner: `${OWNER.type}/${OWNER.id}` })).conversationId
 }
 
 test.describe('Simulation evidence', () => {
@@ -44,7 +44,7 @@ test.describe('Simulation evidence', () => {
     const exports = await fetchConversationExports(OWNER, OWNER.id)
     // Only the consented thread: the runner reads what review would show, nothing more.
     assert.deepEqual(exports.map(e => e.conversationId), [conversation.id])
-    assert.equal(exports[0].agentId, 'personal')
+    assert.equal(exports[0].agentId, 'portal-assistant')
 
     const parsed = parseConversationExport(exports[0])
     assert.ok(parsed.runs[0].calls.some(call => call.modelRole === 'assistant'), 'the run\'s model calls are in the file')

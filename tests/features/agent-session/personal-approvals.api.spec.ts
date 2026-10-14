@@ -32,7 +32,7 @@ test.describe('The personal assistant\'s approval gate', () => {
   })
 
   test('a write waits for the person, who approves it on their own thread', async () => {
-    const { run, assistant, conversationId } = await turnOverSocket(member, { agentId: 'personal' }, 'call tool echo {"value":"x"}')
+    const { run, assistant, conversationId } = await turnOverSocket(member, { agentId: 'portal-assistant' }, 'call tool echo {"value":"x"}')
     assert.equal(run.stopReason, 'awaiting-approval', JSON.stringify(run))
     const part = callPart(assistant, 'echo')
     assert.equal(part.state, 'approval-requested')
@@ -45,7 +45,7 @@ test.describe('The personal assistant\'s approval gate', () => {
   })
 
   test('a read runs without asking', async () => {
-    const { run, assistant } = await turnOverSocket(member, { agentId: 'personal' }, 'call tool slow_lookup {}')
+    const { run, assistant } = await turnOverSocket(member, { agentId: 'portal-assistant' }, 'call tool slow_lookup {}')
     assert.equal(run.stopReason, 'completed', JSON.stringify(run))
     assert.equal(callPart(assistant, 'slow_lookup').state, 'output-available')
   })

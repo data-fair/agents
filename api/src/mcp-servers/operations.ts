@@ -70,6 +70,23 @@ export function assertGlobalMcpConfig (servers: GlobalMcpServer[]): void {
   }
 }
 
+/**
+ * Fail-fast boot validation of `personalAssistants`: an assistant naming a server the catalog does not
+ * have is a typo that would otherwise surface as a 400 on someone's first message.
+ */
+export function assertPersonalAssistantsConfig (
+  assistants: Record<string, { mcpServers?: { serverId: string }[] } | undefined>,
+  servers: { id: string }[]
+): void {
+  for (const [name, assistant] of Object.entries(assistants)) {
+    for (const ref of assistant?.mcpServers ?? []) {
+      if (!servers.some(server => server.id === ref.serverId)) {
+        throw new Error(`invalid personalAssistants config: personal assistant "${name}" references unknown MCP server "${ref.serverId}"`)
+      }
+    }
+  }
+}
+
 /** Strip the credential. The only shape the API is allowed to return. */
 export function listMcpServerCatalog (servers: GlobalMcpServer[]): McpServerCatalogEntry[] {
   return servers.map(server => ({

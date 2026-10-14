@@ -2,7 +2,7 @@
  * E2E tests for naming an agent, and for the prose path it replaced.
  *
  * A host used to hand the chat its own system prompt — through a prop, and on the chat route through a
- * `?systemPrompt=` query parameter. It now names an agent by id instead (`personal` or a configured agent's), and the persona text
+ * `?systemPrompt=` query parameter. It now names an agent by id instead (a personal assistant, `portal-assistant` or `back-office-assistant`, or a configured agent's), and the persona text
  * lives on the server (api/src/agent-session/personal-agent.ts).
  *
  * The second test is the one that matters: it is a regression guard on a REMOVED capability, and the
@@ -48,7 +48,7 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
   })
 
   test('the drawer hands an agent id as init config, and no prose', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-drawer?agentId=personal', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-drawer?agentId=portal-assistant', 'test-standalone1')
 
     await expect(page.locator(fabSelector)).toBeVisible()
     await page.locator(fabSelector).dispatchEvent('click')
@@ -57,7 +57,7 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
     const written = await frame.evaluate(() => sessionStorage.getItem('df-agent-init-config:drawer'))
     expect(written).toBeTruthy()
     const config = JSON.parse(written!)
-    expect(config.agentId).toBe('personal')
+    expect(config.agentId).toBe('portal-assistant')
     // Asserted absent, not merely unused: `prompt` is the field the old path wrote, and a host
     // component still populating it would keep that path alive behind a passing agentId assertion.
     expect(config.prompt).toBeUndefined()

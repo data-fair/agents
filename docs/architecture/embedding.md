@@ -114,7 +114,7 @@ All three components (drawer, menu, block) accept:
 | `accountId` | `string` | Account ID for the chat session |
 | `src` | `string` | Custom iframe URL (overrides account-based URL resolution) |
 | `chatTitle` | `string` | Title displayed in the chat header |
-| `agentId` | `string` | Which agent to talk to: `personal` (the built-in personal assistant, `api/src/agent-session/personal-agent.ts`; the default) or a configured agent's id. Replaces `systemPrompt` |
+| `agentId` | `string` | Which agent to talk to: a built-in personal assistant (`portal-assistant`, `back-office-assistant`; `api/src/agent-session/personal-agent.ts`) or a configured agent's id. Unset, the back-office assistant with `agents`, the portal assistant otherwise — the office is the client's to say, as the back office is a path on the main portal's domain. Replaces `systemPrompt` |
 | `agents` | `boolean` | **Back-office mode**: the chat offers the agent switcher (the personal assistant plus every autonomous agent the caller may instruct in the account). Off — the front-office shape — embeds stay mono-agent. The conversation history is offered to every signed-in person either way |
 | `systemPrompt` | `string` | **Deprecated, ignored** — logs a one-time console warning (`hostInitConfig`) |
 | `initConfigKey` | `string` | Override the per-variant init-config key. Only needed when mounting several instances of the same variant in one tab (defaults to `'drawer'` / `'menu'` / `'block'`) |
@@ -321,7 +321,7 @@ The drawer/menu/block components then append `?initConfig=<key>` (see next secti
 
 ### Back-office mode (`agents`)
 
-The same chat window serves both offices. In the front office (portals) it is embedded with no `agents` prop: one agent. In the back office (data-fair) the host sets `agents`, and the header gains an **agent picker** fed by `GET /api/conversations/:type/:id/agents` — the personal assistant when the caller may use it, plus every enabled configured agent they may instruct (`canInstruct`), so the list cannot offer one the first message would be refused for — and a **New conversation** button in place of Reset.
+The same chat window serves both offices. In the front office (portals) it is embedded with no `agents` prop: one agent. In the back office (data-fair) the host sets `agents`, and the header gains an **agent picker** fed by `GET /api/conversations/:type/:id/agents` — the back-office assistant when the caller may use it, plus every enabled configured agent they may instruct (`canInstruct`), so the list cannot offer one the first message would be refused for — and a **New conversation** button in place of Reset.
 
 Both offices, for any signed-in person:
 
