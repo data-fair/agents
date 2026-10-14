@@ -101,11 +101,26 @@ const FILE_RECORD_SCHEMA = {
 } as const
 
 /**
- * What each of createFileCodeExecutes returns, as a schema: the package renders it as the tool's return type in
- * code_mode's description, so a script knows read_file answers a string rather than guessing (SourcedTool.codeOutputSchema).
+ * Each code file tool's own signature in code_mode's description: what it says, takes and returns
+ * (SourcedTool.codeDescription, codeInputSchema, codeOutputSchema). Not the model's: a script reads a whole file, not
+ * numbered pages, and writes up to 10 MB, not 1 MB. With the model's, a script paged through read_file with an
+ * offset it ignores, and stripped line numbers it never gets (the code-mode simulation, 2026-10-14).
  */
-export const FILE_CODE_OUTPUT_SCHEMAS = {
-  ls: { type: 'array', items: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'expiresAt'], properties: { ...FILE_RECORD_SCHEMA.properties, expiresAt: { type: 'string' } } } },
-  read_file: { type: 'string' },
-  write_file: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'sha256'], properties: { ...FILE_RECORD_SCHEMA.properties, sha256: { type: 'string' } } }
-} satisfies Record<keyof ReturnType<typeof createFileCodeExecutes>, Record<string, unknown>>
+const PATH_ARGUMENT = { type: 'string', description: 'The path of the file, as ls lists it, e.g. "/data.csv"' }
+export const FILE_CODE_SIGNATURES = {
+  ls: {
+    codeDescription: 'List your files: path, type, size and when each expires.',
+    codeInputSchema: { type: 'object', properties: {} },
+    codeOutputSchema: { type: 'array', items: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'expiresAt'], properties: { ...FILE_RECORD_SCHEMA.properties, expiresAt: { type: 'string' } } } }
+  },
+  read_file: {
+    codeDescription: `Read the whole text of one of your text files (up to ${formatBytes(READ_MAX_BYTES)}), as a string: no line numbers, no pages. A binary file cannot be read: pass its path to a tool that takes a file.`,
+    codeInputSchema: { type: 'object', required: ['file_path'], properties: { file_path: PATH_ARGUMENT } },
+    codeOutputSchema: { type: 'string' }
+  },
+  write_file: {
+    codeDescription: `Create or overwrite one of your text files (up to ${formatBytes(READ_MAX_BYTES)}): CSV, JSON, Markdown or plain text, typed by its extension. Answers its record, with the content's sha256.`,
+    codeInputSchema: { type: 'object', required: ['file_path', 'content'], properties: { file_path: { type: 'string', description: 'A path with one name and an extension, e.g. "/clean.csv"' }, content: { type: 'string', description: 'The whole content of the file' } } },
+    codeOutputSchema: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'sha256'], properties: { ...FILE_RECORD_SCHEMA.properties, sha256: { type: 'string' } } }
+  }
+} satisfies Record<keyof ReturnType<typeof createFileCodeExecutes>, { codeDescription: string, codeInputSchema: Record<string, unknown>, codeOutputSchema: Record<string, unknown> }>

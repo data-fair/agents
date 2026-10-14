@@ -121,6 +121,9 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
       // What the script receives, as the return type of its signature in code_mode's description: the package
       // renders `outputSchema` there, and a tool without one reads `Promise<unknown>` (SourcedTool.codeOutputSchema).
       ...(sourced?.codeOutputSchema ? { outputSchema: jsonSchema(sourced.codeOutputSchema) } : {}),
+      // Its own description and input when the script's tool differs from the model's (SourcedTool.codeDescription).
+      ...(sourced?.codeDescription ? { description: sourced.codeDescription } : {}),
+      ...(sourced?.codeInputSchema ? { inputSchema: jsonSchema(sourced.codeInputSchema) } : {}),
       // A script's tool never asks for approval (codeCallable keeps those out); stated so the package never prompts.
       needsApproval: undefined,
       execute: async (input: any, options: any) => await opts.trace.record(options.toolCallId, name, input, async () => {

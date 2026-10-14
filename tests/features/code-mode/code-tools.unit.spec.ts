@@ -13,7 +13,7 @@ import { REQUEST_MCP_ACCESS_TOOL_NAME, codeOutputSchemaFor } from '../../../api/
 import { PLANNING_TOOL_NAMES } from '../../../api/src/self-knowledge/operations.ts'
 import { READ_SKILL_TOOL_NAME } from '../../../api/src/mcp-servers/read-skill.ts'
 import { SUBAGENT_PREFIX } from '../../../api/src/agent-session/sub-agents.ts'
-import { FILE_CODE_OUTPUT_SCHEMAS } from '../../../api/src/files/tools.ts'
+import { FILE_CODE_SIGNATURES, createFileTools } from '../../../api/src/files/tools.ts'
 
 const plain = (execute: (input: any) => Promise<unknown>) => tool({ description: 'd', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute })
 const traces: any[] = []
@@ -183,10 +183,17 @@ test.describe('the trace of a script', () => {
 
   test('the description tells a script what the file tools return', async () => {
     const fixed: any = {}
-    for (const name of ['ls', 'read_file', 'write_file'] as const) fixed[name] = { tool: plain(async () => ''), server: 'files', codeOutputSchema: FILE_CODE_OUTPUT_SCHEMAS[name] }
+    // The MODEL's tools: paged, numbered, 1 MB. A script must read its own signature, not theirs.
+    const model = createFileTools({} as any)
+    for (const name of ['ls', 'read_file', 'write_file'] as const) fixed[name] = { tool: model[name], server: 'files', ...FILE_CODE_SIGNATURES[name] }
     const description = String(createScriptTool(codeFacingTools({ names: Object.keys(fixed), fixed, page: {}, callPath: {}, trace: trace() })).description)
-    assert.match(description, /read_file: \(input: \{\s*\}\) => Promise<string>/)
-    assert.match(description, /write_file: \(input: \{\s*\}\) => Promise<\{[^}]*file_path: string[^}]*mimeType: string[^}]*size: number/)
+    const readFile = description.slice(description.indexOf('read_file:'), description.indexOf('=> Promise', description.indexOf('read_file:')))
+    assert.match(readFile, /file_path: string/)
+    assert.doesNotMatch(readFile, /offset|limit/)
+    assert.match(description, /read_file: \(input: \{[^}]*\}\) => Promise<string>/)
+    assert.match(description, /whole text of one of your text files/)
+    assert.doesNotMatch(description, /a page of lines at a time|at most 1 MB/)
+    assert.match(description, /write_file: \(input: \{[^}]*content: string[^}]*\}\) => Promise<\{[^}]*file_path: string[^}]*mimeType: string[^}]*size: number/)
     assert.match(description, /ls: \(input: \{\s*\}\) => Promise<(Array<\{|\{)[^}]*expiresAt: string/)
     assert.match(description, /JSON\.parse/)
     assert.match(description, /\{ text, files/)

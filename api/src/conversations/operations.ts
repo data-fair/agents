@@ -568,6 +568,12 @@ export interface SourcedTool {
    * shows it as the tool's return type. Set only on the code-facing tool, never on the model's.
    */
   codeOutputSchema?: Record<string, unknown>
+  /**
+   * What code_mode's description says of this tool and what it takes, when the script's tool differs from the
+   * model's (the file tools: a whole file, not numbered pages). Set only on the code-facing tool.
+   */
+  codeDescription?: string
+  codeInputSchema?: Record<string, unknown>
 }
 export type ToolSet = Record<string, SourcedTool>
 

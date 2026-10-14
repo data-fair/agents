@@ -33,8 +33,11 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
 - The description is the package's: the TypeScript signatures of every callable tool, generated from its
   input schema, with its output schema as the return type (`Promise<unknown>` without one). The output schema
   is the code-facing tool's only (`SourcedTool.codeOutputSchema`, set in `codeFacingTools`; the model's tools
-  are unchanged): the file tools declare theirs (`FILE_CODE_OUTPUT_SCHEMAS`: `read_file` a string, `write_file`
-  a record with its `sha256`, `ls` an array of records), and an MCP tool carries the `outputSchema` its server
+  are unchanged): the file tools declare a whole signature of their own (`FILE_CODE_SIGNATURES`, also
+  `SourcedTool.codeDescription` and `codeInputSchema`: `read_file` takes a path and returns the whole text, with no
+  paging and no line numbers; `write_file` takes 10 MB and returns a record with its `sha256`; `ls` an array of
+  records) — with the model's description and paging arguments, a script paged through a file it already had
+  whole and stripped line numbers it never got, and an MCP tool carries the `outputSchema` its server
   declared, which is what its `structuredContent` follows. **An MCP tool that declares none** (openapi-mcp declares
   none, and nothing in an MCP listing says a tool returns a file) reads as every shape the call path can return
   (`codeOutputSchemaFor`, `MCP_CODE_OUTPUT_SCHEMA`): `Promise<string | { text: string; files: {…}[]; errors?: string[] }

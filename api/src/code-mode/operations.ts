@@ -132,6 +132,7 @@ export const describeScriptTool = (packageDescription: string): string => {
     'console.log output is returned after the result. A tool failure is an exception carrying the tool\'s message.',
     'What a tool returns: an MCP tool returns its structured result as an object when it has one, otherwise its text as a string (JSON.parse it if it is JSON). A tool whose result carries files returns { text, files: [{ file_path, mimeType, size, sha256, etag?, lastModified? }] }, where `text` only describes the files: read their content with read_file(files[0].file_path). read_file returns the whole text of the file.',
     'Check what you got before writing or importing it: a parse that yields nothing should throw, not write an empty file.',
+    'Have the script read its data itself (call the tool, read_file the path it returned), never paste in what an earlier call showed you: the script must work on what is there when it runs.',
     `Everything a script passes to and gets from its tools counts toward ${transferLimit}; a larger file belongs in a tool that takes the file itself.`,
     `For CSV, \`Papa\` is papaparse ${PAPAPARSE_VERSION}: Papa.parse(text, { header: true, skipEmptyLines: true }).data and Papa.unparse(rows). Use it rather than splitting lines and commas yourself, which breaks on quoted fields.`,
     'Tools that need approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents can only be called directly.'
