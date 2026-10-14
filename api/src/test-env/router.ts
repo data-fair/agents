@@ -373,6 +373,13 @@ export const createTestEnvRouter = () => {
     await mongo.autonomousAgentTasks.updateOne({ id: req.body.taskId }, { $set: { nextRunAt: req.body.nextRunAt, ...(req.body.scheduling ? { scheduling: req.body.scheduling } : {}) } })
     res.send()
   })
+  // Dev-only: a pending trigger stored directly, with the slot a trigger would set.
+  router.post('/task-pending-trigger', async (req, res) => {
+    await mongo.autonomousAgentTasks.updateOne({ id: req.body.taskId }, {
+      $set: { nextRunAt: req.body.nextRunAt, pendingTriggers: [{ receivedAt: new Date().toISOString(), payload: req.body.payload ?? 'seeded' }] }
+    })
+    res.send()
+  })
   router.post('/recover-ownerless-runs', async (req, res) => {
     const conversations = await recoverOwnerlessRuns()
     const tasks = await recoverOwnerlessTaskRuns()

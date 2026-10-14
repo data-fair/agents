@@ -34,7 +34,9 @@ export const getTask = async (owner: AccountKeys, agentId: string, taskId: strin
  * The caps every write is held to: the schedule must have a next slot, and must not fire more often than the
  * deployment's minimum interval (two rules close together count, see minGapSeconds). Returns the next slot.
  */
-const assertSchedule = (scheduling: Scheduling[], now: Date): Date => {
+const assertSchedule = (scheduling: Scheduling[], now: Date): Date | undefined => {
+  // No rule: the task runs by webhook or run now only, and has no slot of its own.
+  if (!scheduling.length) return undefined
   let next: Date
   try {
     next = nextRunAfter(scheduling, now)
@@ -76,7 +78,7 @@ export const createTask = async (owner: AccountKeys, agent: { id: string }, body
     prompt: body.prompt,
     scheduling: body.scheduling,
     enabled,
-    ...(enabled ? { nextRunAt: nextRunAt.toISOString() } : {}),
+    ...(enabled && nextRunAt ? { nextRunAt: nextRunAt.toISOString() } : {}),
     createdBy: actorOf(user, now),
     updatedBy: actorOf(user, now),
     createdAt: now.toISOString(),
@@ -111,6 +113,9 @@ export const updateTask = async (owner: AccountKeys, agent: { id: string }, task
     $unset.nextRunAt = ''
   } else if (nextRunAt) {
     $set.nextRunAt = nextRunAt.toISOString()
+  } else if (scheduleChanged && !(body.scheduling as Scheduling[]).length && !existing.pendingTriggers?.length) {
+    // Emptied: no slot of its own any more. A pending trigger's slot stays, so its payloads still run.
+    $unset.nextRunAt = ''
   }
   if (reEnabled) $unset.pausedReason = ''
   // Resumed from a pause: the failures that paused it no longer count toward the next one (afterTaskRun).

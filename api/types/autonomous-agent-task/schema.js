@@ -54,7 +54,7 @@ export default {
     },
     scheduling: {
       type: 'array',
-      minItems: 1,
+      minItems: 0,
       maxItems: 10,
       title: 'Scheduling',
       'x-i18n-title': { en: 'Scheduling', fr: 'Planification' },
@@ -132,6 +132,17 @@ export default {
     // runs started after this, so a resumed task is not re-paused by the failures that paused it.
     resumedAt: { type: 'string', format: 'date-time', readOnly: true },
     nextRunAt: { type: 'string', format: 'date-time', readOnly: true },
+    // Webhook triggers (docs/architecture/planned-tasks.md): the secret of the trigger URL, never in a read but
+    // the key route's; triggers waiting for the next run, rendered at reception; how many the bounds dropped;
+    // the compare-and-swap counter of the two.
+    webhookKey: { type: 'string', readOnly: true },
+    pendingTriggers: {
+      type: 'array',
+      readOnly: true,
+      items: { type: 'object', additionalProperties: false, required: ['receivedAt', 'payload'], properties: { receivedAt: { type: 'string', format: 'date-time' }, payload: { type: 'string' } } }
+    },
+    droppedTriggers: { type: 'integer', readOnly: true },
+    triggerSeq: { type: 'integer', readOnly: true },
     createdBy: actor,
     updatedBy: actor,
     createdAt: { type: 'string', format: 'date-time', readOnly: true },

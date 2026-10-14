@@ -59,7 +59,8 @@ export const executeTaskRun = async (run: ConversationRun, task: AutonomousAgent
 export type StartedTaskRun = { run: ConversationRun } | { refused: string }
 
 /**
- * Start a run of a task now — its slot came due (`schedule`), or an admin asked (`manual`).
+ * Start a run of a task now — its slot came due (`schedule`), an admin asked (`manual`), or its trigger URL
+ * was called (`webhook`).
  *
  * Returns the run as soon as it is recorded; the turn itself is not awaited, the run is how a caller
  * follows it. Refused, with the reason, when the agent cannot run at all: nothing is recorded then, as
@@ -69,7 +70,7 @@ export type StartedTaskRun = { run: ConversationRun } | { refused: string }
  */
 export const startTaskRun = async (
   task: AutonomousAgentTask,
-  trigger: 'schedule' | 'manual',
+  trigger: 'schedule' | 'manual' | 'webhook',
   opts: { scheduledFor?: string, by?: { userId: string, userName?: string } } = {}
 ): Promise<StartedTaskRun> => {
   const agent = await mongo.autonomousAgents.findOne(

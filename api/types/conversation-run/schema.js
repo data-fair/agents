@@ -42,9 +42,10 @@ export default {
     },
     // 'user': the person wrote. 'wake': the person ACTED on a handover (wait_for_user_action), and the
     // turn continues from what they did — no message of theirs, so no moderation.
-    // 'schedule' and 'manual' are the triggers of a TASK run: its slot came due, or an admin ran it now.
+    // 'schedule', 'manual' and 'webhook' are the triggers of a TASK run: its slot came due, an admin ran it
+    // now, or its trigger URL was called.
     // 'approval': a person decided on a pending approval, and the turn continues from the decision.
-    trigger: { type: 'string', enum: ['user', 'wake', 'approval', 'schedule', 'manual'] },
+    trigger: { type: 'string', enum: ['user', 'wake', 'approval', 'schedule', 'manual', 'webhook'] },
     triggeredBy: {
       type: 'object',
       additionalProperties: false,

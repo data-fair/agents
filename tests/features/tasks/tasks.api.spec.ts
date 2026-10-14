@@ -95,4 +95,23 @@ test.describe('Planned tasks', () => {
     assert.equal(edited.title, 'renamed')
     assert.equal(edited.nextRunAt, task.nextRunAt)
   })
+
+  test('a task with no schedule is accepted, has no next run', async () => {
+    const agent = await createAgent()
+    const task = (await admin.post(tasks(agent.id), { title: 'On demand', prompt: 'hello', scheduling: [] })).data
+    assert.deepEqual(task.scheduling, [])
+    assert.equal(task.nextRunAt, undefined)
+  })
+
+  test('emptying the schedule removes its next run, but keeps a pending trigger\'s slot', async () => {
+    const agent = await createAgent()
+    const task = (await admin.post(tasks(agent.id), { title: 'T', prompt: 'hello', scheduling: [daily] })).data
+    const emptied = (await admin.put(`${tasks(agent.id)}/${task.id}`, { title: 'T', prompt: 'hello', scheduling: [] })).data
+    assert.equal(emptied.nextRunAt, undefined)
+    await admin.post('/api/test-env/task-pending-trigger', { taskId: task.id, nextRunAt: '2030-01-01T00:00:00.000Z' })
+    const edited = (await admin.put(`${tasks(agent.id)}/${task.id}`, { title: 'T2', prompt: 'hello', scheduling: [daily] })).data
+    assert.ok(edited.nextRunAt)
+    const reEmptied = (await admin.put(`${tasks(agent.id)}/${task.id}`, { title: 'T2', prompt: 'hello', scheduling: [] })).data
+    assert.equal(reEmptied.nextRunAt, edited.nextRunAt)
+  })
 })

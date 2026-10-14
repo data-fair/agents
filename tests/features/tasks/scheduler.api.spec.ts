@@ -116,4 +116,18 @@ test.describe('The scheduler', () => {
     assert.equal((await runsOf(off.id, offTask.id)).length, 0)
     assert.equal((await admin.get(`${base(off.id)}/${offTask.id}`)).data.nextRunAt, '2026-01-15T11:00:00.000Z')
   })
+
+  test('a task with no schedule whose trigger slot came due runs once, with trigger webhook, and is left without a next run', async () => {
+    const agent = await createAgent()
+    const task = (await admin.post(base(agent.id), { title: 'On demand', prompt: 'hello', scheduling: [] })).data
+    await admin.post('/api/test-env/task-pending-trigger', { taskId: task.id, nextRunAt: '2026-01-01T00:00:00.000Z' })
+    assert.equal((await pass('2026-01-01T00:00:01.000Z')).fired, 1)
+    await settle(agent.id, task.id)
+    const runs = await runsOf(agent.id, task.id)
+    assert.equal(runs.length, 1)
+    assert.equal(runs[0].trigger, 'webhook')
+    const after = (await admin.get(`${base(agent.id)}/${task.id}`)).data
+    assert.equal(after.nextRunAt, undefined)
+    assert.equal(after.pausedReason, undefined)
+  })
 })
