@@ -7,14 +7,15 @@
  */
 import { tool, jsonSchema, type Tool } from 'ai'
 import { experimental_createCodeModeTool as createCodeModeTool, experimental_setMaxWorkers as setMaxWorkers } from '@ai-sdk/code-mode'
-import { CODE_MODE_POLICY, SCRIPT_ARGUMENT_DESCRIPTION, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
+import { CODE_MODE_POLICY, SCRIPT_ARGUMENT_DESCRIPTION, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
 
 /** The process-wide worker pool's size (config.codeModeMaxWorkers): set once, at startup. */
 export const configureCodeMode = (maxWorkers: number) => { setMaxWorkers(maxWorkers) }
 
 export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: Partial<CodeModePolicy> } = {}): Tool => {
   const policy = { ...CODE_MODE_POLICY, ...opts.policy }
-  const inner = createCodeModeTool(tools, { executionPolicy: policy })
+  // The source limit is the model's: what wrapScript adds (the console, papaparse) is checked here, not counted there.
+  const inner = createCodeModeTool(tools, { executionPolicy: { ...policy, maxSourceBytes: policy.maxSourceBytes + WRAPPER_BYTES } })
   return tool({
     description: describeScriptTool(inner.description),
     // The package's own input, `{ js }`, with our description of it (SCRIPT_ARGUMENT_DESCRIPTION).
@@ -25,8 +26,10 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
       additionalProperties: false
     }),
     execute: async (input: { js: string }, options) => {
+      const js = String(input?.js ?? '')
+      if (Buffer.byteLength(js) > policy.maxSourceBytes) throw new Error(scriptErrorMessage({ name: 'CodeModeSourceTooLargeError' }, policy))
       try {
-        return renderScriptResult(await inner.execute!({ js: wrapScript(String(input?.js ?? '')) }, options))
+        return renderScriptResult(await inner.execute!({ js: wrapScript(js) }, options))
       } catch (err) {
         // An abort is ours, not the script's: the loop must recognise it.
         if (options?.abortSignal?.aborted) throw err

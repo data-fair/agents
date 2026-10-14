@@ -78,7 +78,7 @@ The policy (`CODE_MODE_POLICY`, `api/src/code-mode/operations.ts`):
 | CPU | 10 s | `run`'s own default (`cpuTimeoutMs`), which the package does not expose. Guest CPU only, so a busy loop dies at 10 s while a script waiting on tools does not. |
 | `memoryLimitBytes` | 64 MiB | QuickJS heap. Text and JSON need no more; it is the unit the pool is sized in. |
 | `maxStackSizeBytes` | 2 MiB | the package's default |
-| `maxSourceBytes` | 64 KiB | a script is a few dozen lines; anything longer is data that belongs in a file |
+| `maxSourceBytes` | 64 KiB | a script is a few dozen lines; anything longer is data that belongs in a file. The model's own source: checked before wrapping, so the console prelude and papaparse do not count (`WRAPPER_BYTES`) |
 | `maxResultBytes` | 1 MiB | the model reads 20,000 characters of it anyway; a larger result is told to go to `write_file` |
 | `maxConsoleOutputBytes` | 64 KiB | the model reads 5,000 characters of it |
 | `maxToolInputBytes`, `maxToolOutputBytes` | 16 MiB | at least the 10 MB a script may read or write as a file, plus JSON escaping |
@@ -251,6 +251,43 @@ Nested calls are not entries of the run's `calls` telemetry, which records model
 - An abort is passed through untouched: it is the turn's, not the script's, and the loop must recognise it.
 
 The failure reaches the model as the `code_mode` call's `output-error`, enveloped like any thrown failure.
+
+## One library: papaparse, for CSV
+
+A script gets one library, papaparse (`Papa`, exact-pinned 5.7.0), and the rule is that it stays the only one
+unless another has a case as strong.
+
+**Why CSV deserves one.** CSV is data-fair's own export format, and the format the others converge to: data-fair
+parses spreadsheets, GeoJSON and the rest, and its exports come out as CSV or JSON, with CSV the smaller and the
+more readable for a person and a model alike. JSON needs no library. CSV does: splitting on lines and commas, what a
+model writes by default, breaks on quoted fields — data-fair exports quote any field with a comma or a line break.
+
+**Why papaparse** (measured in `run`, 2026-10-14, on a 52 MB data-fair-like CSV):
+
+| Parser | Downloads/week | Gzip | Inside QuickJS |
+|---|---|---|---|
+| papaparse | 17M | 7.4 KB | 9.4 MB/s as rows, 5.2 MB/s as objects |
+| csv-parser (data-fair's reader) | 3M | - | does not run: needs Node streams |
+| csv-parse (used in data-fair once) | 21M | 14 KB | runs only as its browser build, at 0.38 MB/s (`Buffer` polyfilled) |
+| d3-dsv | 24M | 1.7 KB | `csvParseRows` 8 MB/s; `csvParse` refused (`new Function`) |
+
+papaparse is also the one a model knows best by name (`Papa.parse`, `Papa.unparse`), so the description names it and
+its two calls, nothing more.
+
+**Why loading is explicit and costly on purpose.** A library is source added to every script that uses it, inside a
+sandbox that interprets it. So it is loaded only by a script that names `Papa`, declared below the script (a
+hoisted function) so line numbers stay the model's, and it does not count toward the script's 64 KiB. Each further
+library would need the same argument. Considered and declined:
+
+- **Dates.** QuickJS has neither `Intl` nor `Temporal`, and `toLocaleString` silently ignores a time zone. dayjs
+  fails on the sandbox's frozen intrinsics, luxon needs `Intl`, and date-fns's time-zone package needs `Intl` too.
+  UTC arithmetic on `Date` works and covers comparing dates; time-zone work would be a host function, when a case asks.
+- **Dataframes.** pandas is what full sandboxes preinstall (Anthropic's and Gemini's code execution), and it is
+  Python. The JavaScript ones do not run here (arquero needs `TextDecoder`, danfo.js pulls in TensorFlow.js,
+  data-forge depends on dayjs). Array methods over papaparse's rows are the idiom.
+- **A Node `fs` lookalike.** No module provides one over a custom store inside QuickJS (memfs needs Node built-ins,
+  ZenFS exceeds `run`'s source limit), no light code mode offers one, and the file tools a script shares with the
+  model are what it is told about. Bulk data goes through data-fair, not through the sandbox (see the transfer budget).
 
 ## Console and result
 

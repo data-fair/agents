@@ -7,6 +7,8 @@
  * this module holds what is ours around it: the limits, the console prelude, how a result and a failure
  * read to the model, and which tools a script may call.
  */
+import { readFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import { truncatedToolResultText } from '../conversations/compaction-policy.ts'
 
@@ -60,8 +62,25 @@ export const SCRIPT_LOG_CHARS = 5_000
  * This prelude shadows `console` inside the script and returns `{ value, logs }`. All on the script's FIRST
  * line, so a syntax error or a stack names the line the model wrote.
  */
-const PRELUDE = 'const __agentLogs = []; const __agentShow = (v) => { if (typeof v === "string") return v; try { return String(JSON.stringify(v)) } catch (e) { return String(v) } }; const __agentLog = (...values) => { __agentLogs.push(values.map(__agentShow).join(" ")) }; const console = { log: __agentLog, info: __agentLog, warn: __agentLog, error: __agentLog, debug: __agentLog }; return { value: await (async () => {'
-export const wrapScript = (js: string): string => `${PRELUDE}${js}\n})(), logs: __agentLogs }`
+const PRELUDE = 'const __agentLogs = []; const __agentShow = (v) => { if (typeof v === "string") return v; try { return String(JSON.stringify(v)) } catch (e) { return String(v) } }; const __agentLog = (...values) => { __agentLogs.push(values.map(__agentShow).join(" ")) }; const console = { log: __agentLog, info: __agentLog, warn: __agentLog, error: __agentLog, debug: __agentLog }; '
+const SCRIPT_START = 'return { value: await (async () => {'
+
+/**
+ * THE ONE LIBRARY a script gets: papaparse, as `Papa`, for CSV — data-fair's own export format, and the one other
+ * formats converge to once data-fair has parsed them, so a script reading one must not hand-split quoted fields.
+ * It is the only one on purpose: every library is source added to the scripts that use it, so another needs a case
+ * as strong (docs/architecture/code-mode.md, "One library"). Exact-pinned; loaded only by a script naming `Papa`,
+ * as a function declared BELOW the script (hoisted), so the script's line numbers stay the model's.
+ */
+export const PAPAPARSE_VERSION = '5.7.0'
+const PAPAPARSE = readFileSync(createRequire(import.meta.url).resolve('papaparse/papaparse.min.js'), 'utf8')
+const usesPapa = (js: string) => /\bPapa\b/.test(js)
+/** What wrapScript adds to a script at most, beyond the model's own source: the policy's source limit is the model's. */
+export const WRAPPER_BYTES = Buffer.byteLength(PRELUDE + SCRIPT_START) + Buffer.byteLength(PAPAPARSE) + 1024
+
+export const wrapScript = (js: string): string => usesPapa(js)
+  ? `${PRELUDE}const Papa = __agentPapa(); ${SCRIPT_START}${js}\n})(), logs: __agentLogs }\nfunction __agentPapa () { const module = { exports: {} }; const exports = module.exports; ${PAPAPARSE}\nreturn module.exports }`
+  : `${PRELUDE}${SCRIPT_START}${js}\n})(), logs: __agentLogs }`
 
 /** What the model reads: the value (JSON unless a string), cut like any large result, then the console. */
 export const renderScriptResult = (output: unknown): string => {
@@ -114,6 +133,7 @@ export const describeScriptTool = (packageDescription: string): string => {
     'What a tool returns, when its signature says `unknown`: an MCP tool returns its structured result as an object when it has one, otherwise its text as a string (JSON.parse it if it is JSON). A tool whose result carries files returns { text, files: [{ file_path, mimeType, size, sha256, etag?, lastModified? }] }. read_file returns the whole text of the file.',
     'Check what you got before writing or importing it: a parse that yields nothing should throw, not write an empty file.',
     `Everything a script passes to and gets from its tools counts toward ${transferLimit}; a larger file belongs in a tool that takes the file itself.`,
+    `For CSV, \`Papa\` is papaparse ${PAPAPARSE_VERSION}: Papa.parse(text, { header: true, skipEmptyLines: true }).data and Papa.unparse(rows). Use it rather than splitting lines and commas yourself, which breaks on quoted fields.`,
     'Tools that need approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents can only be called directly.'
   ].join('\n\n')
 }

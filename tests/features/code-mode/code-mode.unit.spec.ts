@@ -59,6 +59,28 @@ test.describe('code_mode engine', () => {
     assert.equal(lines[1], 'second')
   })
 
+  test('Papa is papaparse, for CSV: quoted fields, header rows and unparse', async () => {
+    const out = await run(createScriptTool({}), [
+      'const rows = Papa.parse(\'id,label\\n1,"a, b"\\n2,"say ""hi"""\\n\', { header: true, skipEmptyLines: true }).data',
+      'return { rows, csv: Papa.unparse(rows.filter(r => r.id === "2")) }'
+    ].join('\n'))
+    assert.deepEqual(JSON.parse(out), { rows: [{ id: '1', label: 'a, b' }, { id: '2', label: 'say "hi"' }], csv: 'id,label\r\n2,"say ""hi"""' })
+  })
+
+  test('papaparse is loaded only by a script that names Papa, below the script so its lines stay the model\'s', async () => {
+    assert.doesNotMatch(wrapScript('return 1'), /Papa Parse/)
+    const lines = wrapScript('Papa.parse("a")\nsecond').split('\n')
+    assert.ok(lines[0].endsWith('Papa.parse("a")'))
+    assert.equal(lines[1], 'second')
+    assert.equal(await run(createScriptTool({}), 'const rows = Papa.parse("a,b").data\nreturn rows[0].length'), '2')
+  })
+
+  test('the 64 KiB a script may be is the model\'s own, papaparse not counted', async () => {
+    const filler = `// ${'x'.repeat(60 * 1024)}\n`
+    assert.equal(await run(createScriptTool({}), `${filler}return Papa.parse("a,b").data[0].length`), '2')
+    await assert.rejects(run(createScriptTool({}), `// ${'x'.repeat(65 * 1024)}\nreturn 1`), /longer than 64 KiB/)
+  })
+
   test('a tool error thrown as CodeModeToolError keeps its message', async () => {
     const failing = tool({ description: 'fails', inputSchema: jsonSchema<Record<string, never>>({ type: 'object', properties: {} }), execute: async (): Promise<string> => { throw new CodeModeToolError('dataset not found') } })
     const t = createScriptTool({ failing })
