@@ -50,4 +50,6 @@ const describeRule = (rule: ScheduleRule, locale: 'en' | 'fr'): string => {
 
 /** One phrase per rule, joined: read by the agent about its own schedule and by the UI. */
 export const describeScheduling = (rules: ScheduleRule[], locale: 'en' | 'fr'): string =>
-  rules.map(rule => describeRule(rule, locale)).join('; ')
+  rules.length
+    ? rules.map(rule => describeRule(rule, locale)).join('; ')
+    : locale === 'fr' ? 'sans planification : exécutée par webhook ou à la demande' : 'no schedule: runs by webhook or when run now'

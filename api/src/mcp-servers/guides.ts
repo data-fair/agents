@@ -62,7 +62,7 @@ const attributeSafe = (value: string): string => value.replace(/[^a-zA-Z0-9._/:-
  * bodies, memory — because the skill envelope is the one shape the model is told to follow, so content
  * forging it inside any of the others would wear that authority.
  */
-export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions']
+export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions', 'webhook-payload']
 
 const defuseTag = (text: string, tag: string): string => text.split(`</${tag}`).join(`<\\/${tag}`).split(`<${tag}`).join(`<\\${tag}`)
 
