@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { autonomousAgentEditDraft } from '../../../ui/src/utils/autonomous-agent-draft.ts'
+import { autonomousAgentEditDraft, pruneHiddenSelections } from '../../../ui/src/utils/autonomous-agent-draft.ts'
 
 test.describe('autonomousAgentEditDraft', () => {
   const stored = {
@@ -79,5 +79,24 @@ test.describe('autonomousAgentEditDraft', () => {
   test('gives vjsf an array to add to when the agent has no MCP server', () => {
     const { mcpServers, ...none } = stored
     assert.deepEqual(autonomousAgentEditDraft(none).mcpServers, [])
+  })
+})
+
+test.describe('pruneHiddenSelections', () => {
+  // A reference keeps only the selection its server takes: the other field is hidden by the form, so a value
+  // left there after switching servers could neither be seen nor fixed, and the save would refuse it.
+  test('drops a toolFilter on a profiled server and profiles on an unprofiled one', () => {
+    const refs = [
+      { serverId: 'datafair', toolFilter: ['echo'], profiles: ['read'] },
+      { serverId: 'weather', profiles: ['read'], toolFilter: ['forecast'] }
+    ]
+    assert.deepEqual(pruneHiddenSelections(refs, ['datafair']), [
+      { serverId: 'datafair', profiles: ['read'] },
+      { serverId: 'weather', toolFilter: ['forecast'] }
+    ])
+  })
+  test('returns the same array when nothing is hidden, so a watcher does not loop', () => {
+    const refs = [{ serverId: 'datafair', profiles: ['read'] }, { serverId: 'weather' }]
+    assert.equal(pruneHiddenSelections(refs, ['datafair']), refs)
   })
 })

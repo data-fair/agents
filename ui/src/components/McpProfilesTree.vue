@@ -21,6 +21,14 @@
       class="d-none"
     />
     <v-alert
+      v-else-if="data?.roleError"
+      type="warning"
+      variant="tonal"
+      density="compact"
+      class="mb-2"
+      :text="t('roleError', { error: data.roleError })"
+    />
+    <v-alert
       v-else-if="!role && data"
       type="info"
       variant="tonal"
@@ -78,12 +86,14 @@ en:
   notOffered: "not offered: the agent's identity is {role} in the account"
   noRole: The choice will be narrowed to the role of the agent's identity once it is set.
   unreadable: The profiles of this server could not be read.
+  roleError: "Every profile is offered: the role of the agent's identity could not be read ({error})."
 fr:
   title: Profils
   includedBy: "inclus par {name}"
   notOffered: "non proposé : l'identité de l'agent est {role} dans le compte"
   noRole: Le choix sera restreint au rôle de l'identité de l'agent une fois celle-ci définie.
   unreadable: Les profils de ce serveur n'ont pas pu être lus.
+  roleError: "Tous les profils sont proposés : le rôle de l'identité de l'agent n'a pas pu être lu ({error})."
 </i18n>
 
 <script lang="ts" setup>
@@ -101,7 +111,7 @@ const { t } = useI18n()
 const open = reactive<Record<string, boolean | undefined>>({})
 
 // useFetch is auto-imported, as in MonitoringGlobalSection.vue; no server selected yet, nothing to fetch
-const fetched = useFetch<{ profiles: McpProfile[], role?: string, offered: string[] }>(
+const fetched = useFetch<{ profiles: McpProfile[], role?: string, roleError?: string, offered: string[] }>(
   () => props.serverId ? `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/mcp-servers/${props.serverId}/profiles` : null,
   { query: computed(() => props.agentId ? { agentId: props.agentId } : {}) }
 )

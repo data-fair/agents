@@ -262,10 +262,17 @@ export const describeServerProfiles = async (serverId: string, autonomousAgent?:
     throw httpError(502, err.message)
   }
   let role: string | undefined
+  let roleError: string | undefined
   if (autonomousAgent?.nhi?.clientId) {
-    // From the session a turn would use: the NHI token route guarantees exactly one organization.
-    const claims = decodeSessionClaims(await getAutonomousAgentSession(autonomousAgent))
-    role = claims.organizations?.[0]?.role
+    // From the session a turn would use: the NHI token route guarantees exactly one organization. A failed
+    // exchange does not fail the route: the form showing this tree is also where that identity is repaired,
+    // so the offer stays unfiltered and the reason is returned beside it.
+    try {
+      const claims = decodeSessionClaims(await getAutonomousAgentSession(autonomousAgent))
+      role = claims.organizations?.[0]?.role
+    } catch (err: any) {
+      roleError = err.message
+    }
   }
-  return { profiles, ...(role ? { role } : {}), offered: offeredRoots(profiles, role) }
+  return { profiles, ...(role ? { role } : {}), ...(roleError ? { roleError } : {}), offered: offeredRoots(profiles, role) }
 }

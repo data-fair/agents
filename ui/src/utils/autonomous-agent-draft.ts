@@ -34,3 +34,23 @@ export function autonomousAgentEditDraft (autonomousAgent: Record<string, any>):
   else delete draft.nhi
   return draft
 }
+
+type McpServerRef = { serverId: string, profiles?: string[], toolFilter?: string[] }
+
+/**
+ * Each reference keeps only the selection its server takes: profiles on a profiled server, a toolFilter on
+ * another. The form hides the other field, so a value left there after switching servers could neither be
+ * seen nor fixed, and the save would refuse it. The same array comes back when nothing changes, so a
+ * watcher applying it does not loop.
+ */
+export function pruneHiddenSelections<R extends McpServerRef> (refs: R[], profiledServers: string[]): R[] {
+  let changed = false
+  const pruned = refs.map(ref => {
+    const hidden = profiledServers.includes(ref.serverId) ? 'toolFilter' : 'profiles'
+    if (!(hidden in ref)) return ref
+    changed = true
+    const { [hidden]: _, ...kept } = ref
+    return kept as R
+  })
+  return changed ? pruned : refs
+}

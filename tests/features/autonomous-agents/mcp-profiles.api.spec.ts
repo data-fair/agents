@@ -129,6 +129,22 @@ test.describe('profiles route', () => {
     assert.equal(res.data.role, 'contrib')
     assert.deepEqual(res.data.offered, ['catalog', 'read', 'write'])
   })
+  test('an identity whose session cannot be had still gets the vocabulary, every root and the reason', async () => {
+    // the form must stay usable to repair that very identity
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-broken',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'no-such-nhi',
+      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
+      issuer,
+      autonomousAgent: body([{ serverId: 'dev-profiled-mcp', profiles: ['read'] }])
+    })
+    const res = await admin.get(`${base}/mcp-servers/dev-profiled-mcp/profiles`, { params: { agentId: 'test-broken' } })
+    assert.equal(res.status, 200)
+    assert.equal(res.data.role, undefined)
+    assert.deepEqual(res.data.offered, ['catalog', 'read', 'write'])
+    assert.ok(res.data.roleError)
+  })
   test('an unprofiled server is a 400', async () => {
     assert.equal((await admin.get(`${base}/mcp-servers/dev-public-mcp/profiles`, { validateStatus: () => true })).status, 400)
   })

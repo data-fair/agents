@@ -40,4 +40,21 @@ test.describe('profile tree', () => {
     await expect(page.getByText('Only these tools').first()).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('mcp-profiles-tree')).toHaveCount(0)
   })
+
+  test('switching a reference to a profiled server drops its hidden tool filter, so the save goes through', async ({ page, goToWithAuth }) => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', { title: 'Switch', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp', toolFilter: ['echo'] }], enabled: true })
+    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
+    const item = page.getByRole('listitem').filter({ hasText: 'dev-public-mcp' })
+    await expect(item).toBeVisible({ timeout: 20000 })
+    // vjsf's list: hovering an item shows its actions menu, whose Edit entry makes the item editable
+    await item.hover()
+    await item.locator('.vjsf-list-item-actions-wrapper button').last().click()
+    await page.getByText('Edit', { exact: true }).click()
+    await page.getByRole('combobox', { name: 'Server' }).click()
+    await page.getByRole('option', { name: 'Dev Profiled MCP' }).click()
+    await expect(page.getByTestId('mcp-profiles-tree')).toBeVisible({ timeout: 20000 })
+    await page.getByRole('checkbox', { name: 'Catalog' }).check()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(async () => (await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)).data.mcpServers).toEqual([{ serverId: 'dev-profiled-mcp', profiles: ['catalog'] }])
+  })
 })

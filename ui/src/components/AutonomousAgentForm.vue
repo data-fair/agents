@@ -42,12 +42,13 @@ fr:
 
 <script lang="ts" setup>
 // The agent form, shared by the create dialog and the agent page so both are the same form.
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { DEFAULT_APPROVALS } from '@agents/shared/approval-policy'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
 import McpProfilesTree from '~/components/McpProfilesTree.vue'
 import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
+import { pruneHiddenSelections } from '~/utils/autonomous-agent-draft'
 import { $apiPath, $sdUrl } from '~/context'
 
 const props = defineProps<{
@@ -82,6 +83,15 @@ const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled && (
 // (the profiles and toolFilter layouts read context.profiledServers).
 const catalogFetch = useFetch<{ results: { id: string, profiled: boolean }[] }>(() => `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/mcp-servers`)
 const profiledServers = computed(() => catalogFetch.data.value?.results.filter(s => s.profiled).map(s => s.id) ?? [])
+// A reference keeps only the selection its server takes (pruneHiddenSelections): switching a reference's server
+// would otherwise leave a hidden toolFilter or profiles the save refuses. Only once the catalog is known: before,
+// every server would look unprofiled and every profiles selection would be dropped.
+watch([() => draft.value?.mcpServers, profiledServers], ([refs]) => {
+  if (!catalogFetch.data.value || !Array.isArray(refs)) return
+  const pruned = pruneHiddenSelections(refs, profiledServers.value)
+  if (pruned !== refs) draft.value = { ...draft.value, mcpServers: pruned }
+}, { deep: true, immediate: true })
+
 // A reference's profiles node has the dataPath /mcpServers/<i>/profiles: the server is that reference's.
 const serverIdOf = (dataPath: string): string | undefined => draft.value?.mcpServers?.[Number(dataPath.split('/')[2])]?.serverId
 
