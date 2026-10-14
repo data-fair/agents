@@ -609,6 +609,23 @@ export const modelTools = (set: ToolSet, callPath: (sourced: SourcedTool) => Too
  * role 'admin' means no per-profile quota applies: the account credit cap and the per-run
  * budget are the real bounds, which is what the spec specifies for autonomous runs.
  */
+/**
+ * Who WROTE the message a chat turn judges: the identity moderation keys on — its categories, its
+ * events, its strikes.
+ *
+ * Not the billing identity for a configured agent: that one is the agent, with role 'admin' so no
+ * per-profile quota applies, and moderating on it exempted every instructor (a partner's, an outsider's)
+ * and struck the agent everyone shares instead of the person. The personal assistant already bills as
+ * the person.
+ */
+export const speakerIdentityFor = (
+  autonomousAgent: { id: string },
+  run: { owner: AccountKeys, triggeredBy?: { userId?: string, userName?: string }, triggeredByRole?: EffectiveRole },
+  billing: UsageIdentity
+): UsageIdentity => isPersonalAgentId(autonomousAgent.id)
+  ? billing
+  : personUsageIdentity({ id: run.triggeredBy?.userId, name: run.triggeredBy?.userName }, run.triggeredByRole ?? 'user', run.owner)
+
 export const usageIdentityFor = (
   autonomousAgent: { id: string, title: string },
   run: { owner: AccountKeys, triggeredBy?: { userId?: string, userName?: string }, triggeredByRole?: EffectiveRole }

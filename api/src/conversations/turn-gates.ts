@@ -95,7 +95,10 @@ export const checkQuotas = async (
 export const moderateTurn = async (
   run: ConversationRun,
   settings: Awaited<ReturnType<typeof getSettings>>,
+  // Who pays for the classifier call.
   identity: UsageIdentity,
+  // Who wrote the message: judged, recorded and struck (see speakerIdentityFor).
+  speaker: UsageIdentity,
   // Called when the verdict is a block that lands AFTER the gate failed open: the turn is running by
   // then, so refusing it means stopping it (the executor aborts it with the 'late-block' StopCause).
   onLateBlock?: () => void
@@ -107,10 +110,10 @@ export const moderateTurn = async (
   // looks for it.
   // A standing cooldown refuses WITHOUT calling the classifier, let alone the model: someone who has
   // just been blocked five times should not be able to keep spending the account's moderator budget.
-  if (identity.isUntrusted && identity.usageUserId && await isStrikeCooldownActive(run.owner, identity.usageUserId)) {
+  if (speaker.isUntrusted && speaker.usageUserId && await isStrikeCooldownActive(run.owner, speaker.usageUserId)) {
     // Recorded as its own action, distinct from a block: an admin reading the events needs to see
     // that this one cost no classifier call, rather than it looking like a sixth verdict.
-    recordStrikeRefusal(run.owner, identity, 'assistant')
+    recordStrikeRefusal(run.owner, speaker, 'assistant')
     return refuse(MODERATION_REFUSAL, 'completed', { kind: 'moderation' })
   }
 
@@ -131,6 +134,7 @@ export const moderateTurn = async (
     settings,
     owner: run.owner,
     identity,
+    speaker,
     message,
     context: buildModerationContext(recent),
     modelRole: 'assistant',

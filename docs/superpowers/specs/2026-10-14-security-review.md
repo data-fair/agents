@@ -66,7 +66,7 @@ needs a redesign; most fixes are a few lines.
 - **M6 Compaction recap moves tool-derived text into an unlabelled `role:'user'` message**
   (`compaction-prompt.ts:24,39`). Long chats lose the envelope. Fix: summarizer keeps tool facts
   attributed, never restates tool-found instructions as user goals; recap carries the data note.
-- **M7 Configured agents are moderated as `admin`.** `usageIdentityFor` returns role `admin`
+- **M7 ✅ Configured agents are moderated as `admin`.** *Moderation now keys on the person who wrote (`speakerIdentityFor`): role, events, strikes; billing stays the agent's.* `usageIdentityFor` returns role `admin`
   (`conversations/operations.ts:625-635`), and moderation keys on it, so partner/external instructors
   are never moderated nor struck. Fix: bill as the agent, moderate on `run.triggeredByRole`.
 - **M8 Host frames bypass moderation and size caps server-side.** `host-state`, `host-events`, wake
