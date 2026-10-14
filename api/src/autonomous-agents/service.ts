@@ -6,7 +6,7 @@ import mongo from '#mongo'
 import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated, assertAccountRole } from '@data-fair/lib-express'
 import type { Request } from 'express'
-import { listMcpServerCatalog, unknownMcpServerIds, personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
+import { listMcpServerCatalog, personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { getAutonomousAgentSession, agentSiteCredentials, forgetAccountSites, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
@@ -105,11 +105,6 @@ export const reqAgent = async (req: Request, access: 'instruct' | 'admin' | 'wri
 }
 
 /** 400 naming every unknown server id, rather than storing a reference that can never resolve. */
-export const assertKnownMcpServers = (mcpServers?: { serverId: string }[]) => {
-  const unknown = unknownMcpServerIds(config.mcpServers ?? [], mcpServers ?? [])
-  if (unknown.length) throw httpError(400, `unknown MCP server(s): ${unknown.join(', ')}`)
-}
-
 /**
  * Obtain a session for this autonomous agent and report WHICH identity it got, without
  * ever returning the cookie. Diagnostic surface for admins, and the end-to-end proof

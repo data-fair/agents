@@ -86,6 +86,14 @@ export default {
               }
             }
           },
+          profiles: {
+            type: 'array',
+            title: 'Profiles',
+            'x-i18n-title': { en: 'Profiles', fr: 'Profils' },
+            description: 'What this server lets the agent do, by profile.',
+            'x-i18n-description': { en: 'What this server lets the agent do, by profile.', fr: 'Ce que ce serveur permet à l\'agent, par profil.' },
+            items: { type: 'string' }
+          },
           toolFilter: {
             type: 'array',
             title: 'Only these tools',

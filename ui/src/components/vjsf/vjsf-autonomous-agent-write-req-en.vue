@@ -34,8 +34,8 @@ import equal from "ajv/dist/runtime/equal.js";
 import ucs2length from "ajv/dist/runtime/ucs2length.js";
 
 const export0 = validate22;
-const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items"};
-const schema29 = {"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}};
+const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items"};
+const schema29 = {"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items","errorMessage":{}};
 
 function validate22(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export0" */;
@@ -49,7 +49,7 @@ if(evaluated0.dynamicItems){
 evaluated0.items = undefined;
 }
 if(typeof data !== "string"){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema29.type,parentSchema:schema29,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema29.type,parentSchema:schema29,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -74,9 +74,8 @@ return errors === 0;
 validate22.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
 const export1 = validate24;
-const schema30 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items"};
-const schema31 = {"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"toolFilter":{"type":"array","title":"Only these tools","description":"Leave empty to expose every tool this server offers.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"required information"}}};
-const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
+const schema30 = {"$id":"export1","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items"};
+const schema31 = {"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}};
 
 function validate24(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
 /*# sourceURL="export1" */;
@@ -89,9 +88,50 @@ evaluated0.props = undefined;
 if(evaluated0.dynamicItems){
 evaluated0.items = undefined;
 }
+if(typeof data !== "string"){
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema31.type,parentSchema:schema31,data};
+if(vErrors === null){
+vErrors = [err0];
+}
+else {
+vErrors.push(err0);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs0 = [];
+for(const err1 of vErrors){
+if(!err1.emUsed){
+emErrs0.push(err1);
+}
+}
+vErrors = emErrs0;
+errors = emErrs0.length;
+}
+validate24.errors = vErrors;
+return errors === 0;
+}
+validate24.evaluated = {"dynamicProps":false,"dynamicItems":false};
+
+const export2 = validate25;
+const schema32 = {"$id":"export2","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items"};
+const schema33 = {"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"profiles":{"type":"array","title":"Profiles","description":"What this server lets the agent do, by profile.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles","errorMessage":{}},"toolFilter":{"type":"array","title":"Only these tools","description":"Leave empty to expose every tool this server offers.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"required information"}}};
+const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
+
+function validate25(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export2" */;
+let vErrors = null;
+let errors = 0;
+const evaluated0 = validate25.evaluated;
+if(evaluated0.dynamicProps){
+evaluated0.props = undefined;
+}
+if(evaluated0.dynamicItems){
+evaluated0.items = undefined;
+}
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.serverId === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "serverId"},message:"must have required property '"+"serverId"+"'",schema:schema31.required,parentSchema:schema31,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "serverId"},message:"must have required property '"+"serverId"+"'",schema:schema33.required,parentSchema:schema33,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -101,8 +141,8 @@ vErrors.push(err0);
 errors++;
 }
 for(const key0 in data){
-if(!((key0 === "serverId") || (key0 === "toolFilter"))){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema31,data};
+if(!(((key0 === "serverId") || (key0 === "profiles")) || (key0 === "toolFilter"))){
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema33,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -115,7 +155,7 @@ errors++;
 if(data.serverId !== undefined){
 let data0 = data.serverId;
 if(typeof data0 !== "string"){
-const err2 = {instancePath:instancePath+"/serverId",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema31.properties.serverId.type,parentSchema:schema31.properties.serverId,data:data0};
+const err2 = {instancePath:instancePath+"/serverId",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema33.properties.serverId.type,parentSchema:schema33.properties.serverId,data:data0};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -135,14 +175,14 @@ vErrors = emErrs0;
 errors = emErrs0.length;
 }
 }
-if(data.toolFilter !== undefined){
-let data1 = data.toolFilter;
+if(data.profiles !== undefined){
+let data1 = data.profiles;
 if(Array.isArray(data1)){
 const len0 = data1.length;
 for(let i0=0; i0<len0; i0++){
 let data2 = data1[i0];
 if(typeof data2 !== "string"){
-const err4 = {instancePath:instancePath+"/toolFilter/" + i0,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema31.properties.toolFilter.items.type,parentSchema:schema31.properties.toolFilter.items,data:data2};
+const err4 = {instancePath:instancePath+"/profiles/" + i0,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema33.properties.profiles.items.type,parentSchema:schema33.properties.profiles.items,data:data2};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -164,7 +204,7 @@ errors = emErrs1.length;
 }
 }
 else {
-const err6 = {instancePath:instancePath+"/toolFilter",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema31.properties.toolFilter.type,parentSchema:schema31.properties.toolFilter,data:data1};
+const err6 = {instancePath:instancePath+"/profiles",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema33.properties.profiles.type,parentSchema:schema33.properties.profiles,data:data1};
 if(vErrors === null){
 vErrors = [err6];
 }
@@ -184,9 +224,14 @@ vErrors = emErrs2;
 errors = emErrs2.length;
 }
 }
-}
-else {
-const err8 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema31.type,parentSchema:schema31,data};
+if(data.toolFilter !== undefined){
+let data3 = data.toolFilter;
+if(Array.isArray(data3)){
+const len1 = data3.length;
+for(let i1=0; i1<len1; i1++){
+let data4 = data3[i1];
+if(typeof data4 !== "string"){
+const err8 = {instancePath:instancePath+"/toolFilter/" + i1,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema33.properties.toolFilter.items.type,parentSchema:schema33.properties.toolFilter.items,data:data4};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -196,26 +241,19 @@ vErrors.push(err8);
 errors++;
 }
 if(errors > 0){
-const emErrors0 = {"required":{"serverId":[]}};
-const templates0 = {required:{}};
-let emPropParams0;
-let emParamsErrors0;
+const emErrs3 = [];
 for(const err9 of vErrors){
-if((((((err9.keyword !== "errorMessage") && (!err9.emUsed)) && (err9.instancePath === instancePath)) && (err9.keyword in emErrors0)) && (err9.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items") === 0)) && (/^\/[^\/]*$/.test(err9.schemaPath.slice(91)))){
-emPropParams0 = obj0[err9.keyword];
-emParamsErrors0 = emErrors0[err9.keyword][err9.params[emPropParams0]];
-if(emParamsErrors0){
-emParamsErrors0.push(err9);
-err9.emUsed = true;
+if(!err9.emUsed){
+emErrs3.push(err9);
+}
+}
+vErrors = emErrs3;
+errors = emErrs3.length;
 }
 }
 }
-for(const key1 in emErrors0){
-for(const keyProp0 in emErrors0[key1]){
-emParamsErrors0 = emErrors0[key1][keyProp0];
-if(emParamsErrors0.length){
-const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err10 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema31.errorMessage[key1][keyProp0],schema:schema31.errorMessage,parentSchema:schema31,data};
+else {
+const err10 = {instancePath:instancePath+"/toolFilter",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema33.properties.toolFilter.type,parentSchema:schema33.properties.toolFilter,data:data3};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -224,31 +262,82 @@ vErrors.push(err10);
 }
 errors++;
 }
-}
-}
-const emErrs3 = [];
+if(errors > 0){
+const emErrs4 = [];
 for(const err11 of vErrors){
 if(!err11.emUsed){
-emErrs3.push(err11);
+emErrs4.push(err11);
 }
 }
-vErrors = emErrs3;
-errors = emErrs3.length;
+vErrors = emErrs4;
+errors = emErrs4.length;
 }
-validate24.errors = vErrors;
+}
+}
+else {
+const err12 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema33.type,parentSchema:schema33,data};
+if(vErrors === null){
+vErrors = [err12];
+}
+else {
+vErrors.push(err12);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors0 = {"required":{"serverId":[]}};
+const templates0 = {required:{}};
+let emPropParams0;
+let emParamsErrors0;
+for(const err13 of vErrors){
+if((((((err13.keyword !== "errorMessage") && (!err13.emUsed)) && (err13.instancePath === instancePath)) && (err13.keyword in emErrors0)) && (err13.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items") === 0)) && (/^\/[^\/]*$/.test(err13.schemaPath.slice(91)))){
+emPropParams0 = obj0[err13.keyword];
+emParamsErrors0 = emErrors0[err13.keyword][err13.params[emPropParams0]];
+if(emParamsErrors0){
+emParamsErrors0.push(err13);
+err13.emUsed = true;
+}
+}
+}
+for(const key1 in emErrors0){
+for(const keyProp0 in emErrors0[key1]){
+emParamsErrors0 = emErrors0[key1][keyProp0];
+if(emParamsErrors0.length){
+const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
+const err14 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema33.errorMessage[key1][keyProp0],schema:schema33.errorMessage,parentSchema:schema33,data};
+if(vErrors === null){
+vErrors = [err14];
+}
+else {
+vErrors.push(err14);
+}
+errors++;
+}
+}
+}
+const emErrs5 = [];
+for(const err15 of vErrors){
+if(!err15.emUsed){
+emErrs5.push(err15);
+}
+}
+vErrors = emErrs5;
+errors = emErrs5.length;
+}
+validate25.errors = vErrors;
 return errors === 0;
 }
-validate24.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate25.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const export2 = validate25;
-const schema32 = {"$id":"export2","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/0"};
-const schema34 = {"title":"An organization member","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Member","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}/members","pure":true,"dataAlias":"value","ref":9},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":10}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
+const export3 = validate26;
+const schema34 = {"$id":"export3","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/0"};
+const schema36 = {"title":"An organization member","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Member","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}/members","pure":true,"dataAlias":"value","ref":9},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":10}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
 
-function validate25(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export2" */;
+function validate26(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export3" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate25.evaluated;
+const evaluated0 = validate26.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -257,7 +346,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.mode === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema34.required,parentSchema:schema34,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema36.required,parentSchema:schema36,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -267,7 +356,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.type === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema34.required,parentSchema:schema34,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema36.required,parentSchema:schema36,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -277,7 +366,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema34.required,parentSchema:schema34,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema36.required,parentSchema:schema36,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -288,7 +377,7 @@ errors++;
 }
 for(const key0 in data){
 if(!(((key0 === "mode") || (key0 === "type")) || (key0 === "id"))){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema34,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema36,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -301,7 +390,7 @@ errors++;
 if(data.mode !== undefined){
 let data0 = data.mode;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema34.properties.mode.type,parentSchema:schema34.properties.mode,data:data0};
+const err4 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema36.properties.mode.type,parentSchema:schema36.properties.mode,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -311,7 +400,7 @@ vErrors.push(err4);
 errors++;
 }
 if("member" !== data0){
-const err5 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema34.properties.mode,data:data0};
+const err5 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema36.properties.mode,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -334,7 +423,7 @@ errors = emErrs0.length;
 if(data.type !== undefined){
 let data1 = data.type;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema34.properties.type.type,parentSchema:schema34.properties.type,data:data1};
+const err7 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema36.properties.type.type,parentSchema:schema36.properties.type,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -344,7 +433,7 @@ vErrors.push(err7);
 errors++;
 }
 if("user" !== data1){
-const err8 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema34.properties.type,data:data1};
+const err8 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema36.properties.type,data:data1};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -367,7 +456,7 @@ errors = emErrs1.length;
 if(data.id !== undefined){
 let data2 = data.id;
 if(typeof data2 !== "string"){
-const err10 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema34.properties.id.type,parentSchema:schema34.properties.id,data:data2};
+const err10 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema36.properties.id.type,parentSchema:schema36.properties.id,data:data2};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -389,7 +478,7 @@ errors = emErrs2.length;
 }
 }
 else {
-const err12 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema34.type,parentSchema:schema34,data};
+const err12 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema36.type,parentSchema:schema36,data};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -418,7 +507,7 @@ for(const keyProp0 in emErrors0[key1]){
 emParamsErrors0 = emErrors0[key1][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err14 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema34.errorMessage[key1][keyProp0],schema:schema34.errorMessage,parentSchema:schema34,data};
+const err14 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema36.errorMessage[key1][keyProp0],schema:schema36.errorMessage,parentSchema:schema36,data};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -438,21 +527,21 @@ emErrs3.push(err15);
 vErrors = emErrs3;
 errors = emErrs3.length;
 }
-validate25.errors = vErrors;
+validate26.errors = vErrors;
 return errors === 0;
 }
-validate25.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate26.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const export3 = validate27;
-const schema35 = {"$id":"export3","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/1"};
-const schema36 = {"title":"An email","required":["mode","type","email"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type","errorMessage":{}},"email":{"type":"string","format":"email","title":"Email address","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1","errorMessage":{"required":{"mode":"required information","type":"required information","email":"required information"}}};
+const export4 = validate28;
+const schema37 = {"$id":"export4","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/1"};
+const schema38 = {"title":"An email","required":["mode","type","email"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type","errorMessage":{}},"email":{"type":"string","format":"email","title":"Email address","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1","errorMessage":{"required":{"mode":"required information","type":"required information","email":"required information"}}};
 const formats0 = /^[a-z0-9!#$%&'*+/=?^_`{|}~-]+(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]+)*@(?:[a-z0-9](?:[a-z0-9-]*[a-z0-9])?\.)+[a-z0-9](?:[a-z0-9-]*[a-z0-9])?$/i;
 
-function validate27(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export3" */;
+function validate28(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export4" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate27.evaluated;
+const evaluated0 = validate28.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -461,7 +550,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.mode === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema36.required,parentSchema:schema36,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema38.required,parentSchema:schema38,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -471,7 +560,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.type === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema36.required,parentSchema:schema36,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema38.required,parentSchema:schema38,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -481,7 +570,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.email === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/required",keyword:"required",params:{missingProperty: "email"},message:"must have required property '"+"email"+"'",schema:schema36.required,parentSchema:schema36,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/required",keyword:"required",params:{missingProperty: "email"},message:"must have required property '"+"email"+"'",schema:schema38.required,parentSchema:schema38,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -492,7 +581,7 @@ errors++;
 }
 for(const key0 in data){
 if(!(((key0 === "mode") || (key0 === "type")) || (key0 === "email"))){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema36,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema38,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -505,7 +594,7 @@ errors++;
 if(data.mode !== undefined){
 let data0 = data.mode;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema36.properties.mode.type,parentSchema:schema36.properties.mode,data:data0};
+const err4 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema38.properties.mode.type,parentSchema:schema38.properties.mode,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -515,7 +604,7 @@ vErrors.push(err4);
 errors++;
 }
 if("member" !== data0){
-const err5 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema36.properties.mode,data:data0};
+const err5 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema38.properties.mode,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -538,7 +627,7 @@ errors = emErrs0.length;
 if(data.type !== undefined){
 let data1 = data.type;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema36.properties.type.type,parentSchema:schema36.properties.type,data:data1};
+const err7 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema38.properties.type.type,parentSchema:schema38.properties.type,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -548,7 +637,7 @@ vErrors.push(err7);
 errors++;
 }
 if("user" !== data1){
-const err8 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema36.properties.type,data:data1};
+const err8 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema38.properties.type,data:data1};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -572,7 +661,7 @@ if(data.email !== undefined){
 let data2 = data.email;
 if(typeof data2 === "string"){
 if(!(formats0.test(data2))){
-const err10 = {instancePath:instancePath+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email/format",keyword:"format",params:{format: "email"},message:"must match format \""+"email"+"\"",schema:"email",parentSchema:schema36.properties.email,data:data2};
+const err10 = {instancePath:instancePath+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email/format",keyword:"format",params:{format: "email"},message:"must match format \""+"email"+"\"",schema:"email",parentSchema:schema38.properties.email,data:data2};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -583,7 +672,7 @@ errors++;
 }
 }
 else {
-const err11 = {instancePath:instancePath+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema36.properties.email.type,parentSchema:schema36.properties.email,data:data2};
+const err11 = {instancePath:instancePath+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema38.properties.email.type,parentSchema:schema38.properties.email,data:data2};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -605,7 +694,7 @@ errors = emErrs2.length;
 }
 }
 else {
-const err13 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema36.type,parentSchema:schema36,data};
+const err13 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema38.type,parentSchema:schema38,data};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -634,7 +723,7 @@ for(const keyProp0 in emErrors0[key1]){
 emParamsErrors0 = emErrors0[key1][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err15 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema36.errorMessage[key1][keyProp0],schema:schema36.errorMessage,parentSchema:schema36,data};
+const err15 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema38.errorMessage[key1][keyProp0],schema:schema38.errorMessage,parentSchema:schema38,data};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -654,20 +743,20 @@ emErrs3.push(err16);
 vErrors = emErrs3;
 errors = emErrs3.length;
 }
-validate27.errors = vErrors;
+validate28.errors = vErrors;
 return errors === 0;
 }
-validate27.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate28.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const export4 = validate28;
-const schema37 = {"$id":"export4","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items"};
-const schema38 = {"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}};
+const export5 = validate29;
+const schema39 = {"$id":"export5","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items"};
+const schema40 = {"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}};
 
-function validate28(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export4" */;
+function validate29(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export5" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate28.evaluated;
+const evaluated0 = validate29.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -675,7 +764,7 @@ if(evaluated0.dynamicItems){
 evaluated0.items = undefined;
 }
 if(typeof data !== "string"){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema38.type,parentSchema:schema38,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.type,parentSchema:schema40,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -694,21 +783,21 @@ emErrs0.push(err1);
 vErrors = emErrs0;
 errors = emErrs0.length;
 }
-validate28.errors = vErrors;
+validate29.errors = vErrors;
 return errors === 0;
 }
-validate28.evaluated = {"dynamicProps":false,"dynamicItems":false};
+validate29.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
-const export5 = validate29;
-const schema39 = {"$id":"export5","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/2"};
-const schema40 = {"title":"A partner organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type","errorMessage":{}},"department":{"type":"string","const":"*","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department","errorMessage":{}},"roles":{"type":"array","const":[],"items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles","errorMessage":{}},"id":{"type":"string","title":"Partner","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.partners","pure":true,"dataAlias":"body","ref":13},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":12}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
+const export6 = validate30;
+const schema41 = {"$id":"export6","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/2"};
+const schema42 = {"title":"A partner organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type","errorMessage":{}},"department":{"type":"string","const":"*","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department","errorMessage":{}},"roles":{"type":"array","const":[],"items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles","errorMessage":{}},"id":{"type":"string","title":"Partner","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.partners","pure":true,"dataAlias":"body","ref":13},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":12}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
 const func0 = equal;
 
-function validate29(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export5" */;
+function validate30(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export6" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate29.evaluated;
+const evaluated0 = validate30.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -717,7 +806,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.mode === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema40.required,parentSchema:schema40,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema42.required,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -727,7 +816,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.type === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema40.required,parentSchema:schema40,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema42.required,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -737,7 +826,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema40.required,parentSchema:schema40,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema42.required,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -748,7 +837,7 @@ errors++;
 }
 for(const key0 in data){
 if(!(((((key0 === "mode") || (key0 === "type")) || (key0 === "department")) || (key0 === "roles")) || (key0 === "id"))){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema40,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -761,7 +850,7 @@ errors++;
 if(data.mode !== undefined){
 let data0 = data.mode;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.mode.type,parentSchema:schema40.properties.mode,data:data0};
+const err4 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.mode.type,parentSchema:schema42.properties.mode,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -771,7 +860,7 @@ vErrors.push(err4);
 errors++;
 }
 if("member" !== data0){
-const err5 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema40.properties.mode,data:data0};
+const err5 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema42.properties.mode,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -794,7 +883,7 @@ errors = emErrs0.length;
 if(data.type !== undefined){
 let data1 = data.type;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.type.type,parentSchema:schema40.properties.type,data:data1};
+const err7 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.type.type,parentSchema:schema42.properties.type,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -804,7 +893,7 @@ vErrors.push(err7);
 errors++;
 }
 if("organization" !== data1){
-const err8 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant",schema:"organization",parentSchema:schema40.properties.type,data:data1};
+const err8 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant",schema:"organization",parentSchema:schema42.properties.type,data:data1};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -827,7 +916,7 @@ errors = emErrs1.length;
 if(data.department !== undefined){
 let data2 = data.department;
 if(typeof data2 !== "string"){
-const err10 = {instancePath:instancePath+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.department.type,parentSchema:schema40.properties.department,data:data2};
+const err10 = {instancePath:instancePath+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.department.type,parentSchema:schema42.properties.department,data:data2};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -837,7 +926,7 @@ vErrors.push(err10);
 errors++;
 }
 if("*" !== data2){
-const err11 = {instancePath:instancePath+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department/const",keyword:"const",params:{allowedValue: "*"},message:"must be equal to constant",schema:"*",parentSchema:schema40.properties.department,data:data2};
+const err11 = {instancePath:instancePath+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department/const",keyword:"const",params:{allowedValue: "*"},message:"must be equal to constant",schema:"*",parentSchema:schema42.properties.department,data:data2};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -859,8 +948,8 @@ errors = emErrs2.length;
 }
 if(data.roles !== undefined){
 let data3 = data.roles;
-if(!func0(data3, schema40.properties.roles.const)){
-const err13 = {instancePath:instancePath+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/const",keyword:"const",params:{allowedValue: schema40.properties.roles.const},message:"must be equal to constant",schema:schema40.properties.roles.const,parentSchema:schema40.properties.roles,data:data3};
+if(!func0(data3, schema42.properties.roles.const)){
+const err13 = {instancePath:instancePath+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/const",keyword:"const",params:{allowedValue: schema42.properties.roles.const},message:"must be equal to constant",schema:schema42.properties.roles.const,parentSchema:schema42.properties.roles,data:data3};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -874,7 +963,7 @@ const len0 = data3.length;
 for(let i0=0; i0<len0; i0++){
 let data4 = data3[i0];
 if(typeof data4 !== "string"){
-const err14 = {instancePath:instancePath+"/roles/" + i0,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.roles.items.type,parentSchema:schema40.properties.roles.items,data:data4};
+const err14 = {instancePath:instancePath+"/roles/" + i0,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.roles.items.type,parentSchema:schema42.properties.roles.items,data:data4};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -896,7 +985,7 @@ errors = emErrs3.length;
 }
 }
 else {
-const err16 = {instancePath:instancePath+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema40.properties.roles.type,parentSchema:schema40.properties.roles,data:data3};
+const err16 = {instancePath:instancePath+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema42.properties.roles.type,parentSchema:schema42.properties.roles,data:data3};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -919,7 +1008,7 @@ errors = emErrs4.length;
 if(data.id !== undefined){
 let data5 = data.id;
 if(typeof data5 !== "string"){
-const err18 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema40.properties.id.type,parentSchema:schema40.properties.id,data:data5};
+const err18 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.properties.id.type,parentSchema:schema42.properties.id,data:data5};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -941,7 +1030,7 @@ errors = emErrs5.length;
 }
 }
 else {
-const err20 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema40.type,parentSchema:schema40,data};
+const err20 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema42.type,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -970,7 +1059,7 @@ for(const keyProp0 in emErrors0[key1]){
 emParamsErrors0 = emErrors0[key1][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err22 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema40.errorMessage[key1][keyProp0],schema:schema40.errorMessage,parentSchema:schema40,data};
+const err22 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema42.errorMessage[key1][keyProp0],schema:schema42.errorMessage,parentSchema:schema42,data};
 if(vErrors === null){
 vErrors = [err22];
 }
@@ -990,20 +1079,20 @@ emErrs6.push(err23);
 vErrors = emErrs6;
 errors = emErrs6.length;
 }
-validate29.errors = vErrors;
+validate30.errors = vErrors;
 return errors === 0;
 }
-validate29.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate30.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const export6 = validate30;
-const schema41 = {"$id":"export6","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items"};
-const schema42 = {"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}};
+const export7 = validate31;
+const schema43 = {"$id":"export7","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items"};
+const schema44 = {"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}};
 
-function validate30(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export6" */;
+function validate31(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export7" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate30.evaluated;
+const evaluated0 = validate31.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -1011,7 +1100,7 @@ if(evaluated0.dynamicItems){
 evaluated0.items = undefined;
 }
 if(typeof data !== "string"){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema42.type,parentSchema:schema42,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.type,parentSchema:schema44,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -1030,20 +1119,20 @@ emErrs0.push(err1);
 vErrors = emErrs0;
 errors = emErrs0.length;
 }
-validate30.errors = vErrors;
+validate31.errors = vErrors;
 return errors === 0;
 }
-validate30.evaluated = {"dynamicProps":false,"dynamicItems":false};
+validate31.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
-const export7 = validate31;
-const schema43 = {"$id":"export7","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/3"};
-const schema44 = {"title":"A role or department of my organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id","errorMessage":{}},"department":{"type":"string","title":"Department","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","pure":true,"dataAlias":"body","ref":14},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department","errorMessage":{}},"roles":{"type":"array","title":"Roles","items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}},"layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.roles","pure":true,"dataAlias":"body","ref":15}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
+const export8 = validate32;
+const schema45 = {"$id":"export8","$ref":"https://github.com/data-fair/lib/access-ref#/oneOf/3"};
+const schema46 = {"title":"A role or department of my organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id","errorMessage":{}},"department":{"type":"string","title":"Department","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","pure":true,"dataAlias":"body","ref":14},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department","errorMessage":{}},"roles":{"type":"array","title":"Roles","items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}},"layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.roles","pure":true,"dataAlias":"body","ref":15}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}};
 
-function validate31(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export7" */;
+function validate32(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export8" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate31.evaluated;
+const evaluated0 = validate32.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -1052,7 +1141,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.mode === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema44.required,parentSchema:schema44,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema46.required,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -1062,7 +1151,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.type === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema44.required,parentSchema:schema44,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema46.required,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -1072,7 +1161,7 @@ vErrors.push(err1);
 errors++;
 }
 if(data.id === undefined){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema44.required,parentSchema:schema44,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema46.required,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -1083,7 +1172,7 @@ errors++;
 }
 for(const key0 in data){
 if(!(((((key0 === "mode") || (key0 === "type")) || (key0 === "id")) || (key0 === "department")) || (key0 === "roles"))){
-const err3 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema44,data};
+const err3 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -1096,7 +1185,7 @@ errors++;
 if(data.mode !== undefined){
 let data0 = data.mode;
 if(typeof data0 !== "string"){
-const err4 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.mode.type,parentSchema:schema44.properties.mode,data:data0};
+const err4 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.mode.type,parentSchema:schema46.properties.mode,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -1106,7 +1195,7 @@ vErrors.push(err4);
 errors++;
 }
 if("internal" !== data0){
-const err5 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode/const",keyword:"const",params:{allowedValue: "internal"},message:"must be equal to constant",schema:"internal",parentSchema:schema44.properties.mode,data:data0};
+const err5 = {instancePath:instancePath+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode/const",keyword:"const",params:{allowedValue: "internal"},message:"must be equal to constant",schema:"internal",parentSchema:schema46.properties.mode,data:data0};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -1129,7 +1218,7 @@ errors = emErrs0.length;
 if(data.type !== undefined){
 let data1 = data.type;
 if(typeof data1 !== "string"){
-const err7 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.type.type,parentSchema:schema44.properties.type,data:data1};
+const err7 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.type.type,parentSchema:schema46.properties.type,data:data1};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -1139,7 +1228,7 @@ vErrors.push(err7);
 errors++;
 }
 if("organization" !== data1){
-const err8 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant",schema:"organization",parentSchema:schema44.properties.type,data:data1};
+const err8 = {instancePath:instancePath+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant",schema:"organization",parentSchema:schema46.properties.type,data:data1};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -1162,7 +1251,7 @@ errors = emErrs1.length;
 if(data.id !== undefined){
 let data2 = data.id;
 if(typeof data2 !== "string"){
-const err10 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.id.type,parentSchema:schema44.properties.id,data:data2};
+const err10 = {instancePath:instancePath+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.id.type,parentSchema:schema46.properties.id,data:data2};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -1185,7 +1274,7 @@ errors = emErrs2.length;
 if(data.department !== undefined){
 let data3 = data.department;
 if(typeof data3 !== "string"){
-const err12 = {instancePath:instancePath+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.department.type,parentSchema:schema44.properties.department,data:data3};
+const err12 = {instancePath:instancePath+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.department.type,parentSchema:schema46.properties.department,data:data3};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -1212,7 +1301,7 @@ const len0 = data4.length;
 for(let i0=0; i0<len0; i0++){
 let data5 = data4[i0];
 if(typeof data5 !== "string"){
-const err14 = {instancePath:instancePath+"/roles/" + i0,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema44.properties.roles.items.type,parentSchema:schema44.properties.roles.items,data:data5};
+const err14 = {instancePath:instancePath+"/roles/" + i0,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema46.properties.roles.items.type,parentSchema:schema46.properties.roles.items,data:data5};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -1234,7 +1323,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err16 = {instancePath:instancePath+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema44.properties.roles.type,parentSchema:schema44.properties.roles,data:data4};
+const err16 = {instancePath:instancePath+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema46.properties.roles.type,parentSchema:schema46.properties.roles,data:data4};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -1256,7 +1345,7 @@ errors = emErrs5.length;
 }
 }
 else {
-const err18 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema44.type,parentSchema:schema44,data};
+const err18 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema46.type,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -1285,7 +1374,7 @@ for(const keyProp0 in emErrors0[key1]){
 emParamsErrors0 = emErrors0[key1][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err20 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema44.errorMessage[key1][keyProp0],schema:schema44.errorMessage,parentSchema:schema44,data};
+const err20 = {instancePath,schemaPath:"https://github.com/data-fair/lib/access-ref#/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema46.errorMessage[key1][keyProp0],schema:schema46.errorMessage,parentSchema:schema46,data};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -1305,20 +1394,20 @@ emErrs6.push(err21);
 vErrors = emErrs6;
 errors = emErrs6.length;
 }
-validate31.errors = vErrors;
+validate32.errors = vErrors;
 return errors === 0;
 }
-validate31.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate32.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const export8 = validate32;
-const schema45 = {"$id":"export8","$ref":"https://github.com/data-fair/lib/access-ref#"};
+const export9 = validate33;
+const schema47 = {"$id":"export9","$ref":"https://github.com/data-fair/lib/access-ref#"};
 const schema28 = {"$id":"https://github.com/data-fair/lib/access-ref","x-exports":["types","validate"],"title":"Access Ref","type":"object","discriminator":{"propertyName":"mode"},"oneOfLayout":{"emptyData":true},"oneOf":[{"title":"An organization member","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/type","errorMessage":{}},"id":{"type":"string","title":"Member","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}/members","pure":true,"dataAlias":"value","ref":9},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":10}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/0","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}},{"title":"An email","required":["mode","type","email"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/mode","errorMessage":{}},"type":{"type":"string","const":"user","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/type","errorMessage":{}},"email":{"type":"string","format":"email","title":"Email address","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1/properties/email","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/1","errorMessage":{"required":{"mode":"required information","type":"required information","email":"required information"}}},{"title":"A partner organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/type","errorMessage":{}},"department":{"type":"string","const":"*","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/department","errorMessage":{}},"roles":{"type":"array","const":[],"items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles","errorMessage":{}},"id":{"type":"string","title":"Partner","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.partners","pure":true,"dataAlias":"body","ref":13},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemIcon":{"type":"js-eval","expr":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`","pure":true,"dataAlias":"item","ref":12}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/id","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/2","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}},{"title":"A role or department of my organization","layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/mode","errorMessage":{}},"type":{"type":"string","const":"organization","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/type","errorMessage":{}},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/id","errorMessage":{}},"department":{"type":"string","title":"Department","layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","pure":true,"dataAlias":"body","ref":14},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/department","errorMessage":{}},"roles":{"type":"array","title":"Roles","items":{"type":"string","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items","errorMessage":{}},"layout":{"getItems":{"url":{"type":"js-tpl","expr":"/simple-directory/api/organizations/${context.owner.id}","pure":true,"dataAlias":"value","ref":11},"itemsResults":{"type":"js-eval","expr":"data.roles","pure":true,"dataAlias":"body","ref":15}}},"__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles","errorMessage":{}}},"type":"object","__pointer":"https://github.com/data-fair/lib/access-ref#/oneOf/3","errorMessage":{"required":{"mode":"required information","type":"required information","id":"required information"}}}],"__pointer":"https://github.com/data-fair/lib/access-ref","errorMessage":{"oneOf":"chose one"}};
 
-function validate32(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export8" */;
+function validate33(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export9" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate32.evaluated;
+const evaluated0 = validate33.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -2349,22 +2438,22 @@ emErrs22.push(err83);
 vErrors = emErrs22;
 errors = emErrs22.length;
 }
-validate32.errors = vErrors;
+validate33.errors = vErrors;
 evaluated0.props = props0;
 return errors === 0;
 }
-validate32.evaluated = {"dynamicProps":true,"dynamicItems":false};
+validate33.evaluated = {"dynamicProps":true,"dynamicItems":false};
 
-const export9 = validate33;
-const schema47 = {"$id":"export9","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items"};
-const schema48 = {"type":"string","minLength":1,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items","errorMessage":{}};
+const export10 = validate34;
+const schema49 = {"$id":"export10","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items"};
+const schema50 = {"type":"string","minLength":1,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items","errorMessage":{}};
 const func2 = ucs2length.default;
 
-function validate33(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export9" */;
+function validate34(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export10" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate33.evaluated;
+const evaluated0 = validate34.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -2373,7 +2462,7 @@ evaluated0.items = undefined;
 }
 if(typeof data === "string"){
 if(func2(data) < 1){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema48,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -2384,7 +2473,7 @@ errors++;
 }
 }
 else {
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema48.type,parentSchema:schema48,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema50.type,parentSchema:schema50,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -2403,20 +2492,20 @@ emErrs0.push(err2);
 vErrors = emErrs0;
 errors = emErrs0.length;
 }
-validate33.errors = vErrors;
+validate34.errors = vErrors;
 return errors === 0;
 }
-validate33.evaluated = {"dynamicProps":false,"dynamicItems":false};
+validate34.evaluated = {"dynamicProps":false,"dynamicItems":false};
 
-const export10 = validate34;
-const schema49 = {"$id":"export10","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items"};
-const schema50 = {"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items","errorMessage":{"required":{"url":"required information"}}};
+const export11 = validate35;
+const schema51 = {"$id":"export11","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items"};
+const schema52 = {"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items","errorMessage":{"required":{"url":"required information"}}};
 
-function validate34(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export10" */;
+function validate35(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export11" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate34.evaluated;
+const evaluated0 = validate35.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -2425,7 +2514,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.url === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'",schema:schema50.required,parentSchema:schema50,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'",schema:schema52.required,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -2436,7 +2525,7 @@ errors++;
 }
 for(const key0 in data){
 if(!(key0 === "url")){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema50,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -2450,7 +2539,7 @@ if(data.url !== undefined){
 let data0 = data.url;
 if(typeof data0 === "string"){
 if(func2(data0) < 1){
-const err2 = {instancePath:instancePath+"/url",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema50.properties.url,data:data0};
+const err2 = {instancePath:instancePath+"/url",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema52.properties.url,data:data0};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -2461,7 +2550,7 @@ errors++;
 }
 }
 else {
-const err3 = {instancePath:instancePath+"/url",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema50.properties.url.type,parentSchema:schema50.properties.url,data:data0};
+const err3 = {instancePath:instancePath+"/url",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema52.properties.url.type,parentSchema:schema52.properties.url,data:data0};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -2483,7 +2572,7 @@ errors = emErrs0.length;
 }
 }
 else {
-const err5 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema50.type,parentSchema:schema50,data};
+const err5 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema52.type,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -2512,7 +2601,7 @@ for(const keyProp0 in emErrors0[key1]){
 emParamsErrors0 = emErrors0[key1][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err7 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema50.errorMessage[key1][keyProp0],schema:schema50.errorMessage,parentSchema:schema50,data};
+const err7 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema52.errorMessage[key1][keyProp0],schema:schema52.errorMessage,parentSchema:schema52,data};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -2532,14 +2621,14 @@ emErrs1.push(err8);
 vErrors = emErrs1;
 errors = emErrs1.length;
 }
-validate34.errors = vErrors;
+validate35.errors = vErrors;
 return errors === 0;
 }
-validate34.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate35.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
-const export11 = validate35;
-const schema51 = {"$id":"export11","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Autonomous agent","x-exports":["validate","types","vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"How it should work: procedures, constraints, what to do when unsure.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructions","errorMessage":{}},"mcpServers":{"type":"array","default":[],"title":"MCP servers","description":"Picked from the servers configured for this deployment.","layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"toolFilter":{"type":"array","title":"Only these tools","description":"Leave empty to expose every tool this server offers.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"required information"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers","errorMessage":{}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Non-human identity","properties":{"clientId":{"type":"string","minLength":1,"title":"Client id","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId","errorMessage":{}},"siteUrl":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/siteUrl","errorMessage":{}},"issuer":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/issuer","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi","errorMessage":{"required":{"clientId":"required information"}}},"instructors":{"type":"array","default":[],"title":"Who may instruct","description":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","items":{"$ref":"https://github.com/data-fair/lib/access-ref","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors","errorMessage":{}},"approvals":{"type":"object","additionalProperties":false,"title":"Approvals","description":"What happens when this autonomous agent calls a tool, by the kind of action the tool declares. \"Approve\" stops the turn until the person in the chat approves the call; a scheduled task never gets such a tool. Tools that declare nothing count as writing.","properties":{"readOnly":{"type":"string","title":"Reading","default":"allow","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/readOnly","errorMessage":{"oneOf":"chose one"}},"write":{"type":"string","title":"Writing","default":"allow","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/write","errorMessage":{"oneOf":"chose one"}},"destructive":{"type":"string","title":"Destructive","default":"approve","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/destructive","errorMessage":{"oneOf":"chose one"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals","errorMessage":{}},"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/memory/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/memory","errorMessage":{"required":{"enabled":"required information"}}},"web":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Web access","description":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","properties":{"enabled":{"type":"boolean","default":false,"title":"Read web pages","description":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/enabled","errorMessage":{}},"allowedUrls":{"type":"array","maxItems":100,"default":[],"title":"Allowed URLs","description":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","layout":{"if":"parent.data?.enabled"},"items":{"type":"string","minLength":1,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web","errorMessage":{"required":{"enabled":"required information"}}},"externalMcpServers":{"type":"array","maxItems":50,"default":[],"title":"External MCP servers","description":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","layout":{"itemTitle":"item?.url || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items","errorMessage":{"required":{"url":"required information"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers","errorMessage":{}},"enabled":{"type":"boolean","default":true,"title":"Enabled","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#","errorMessage":{"required":{"title":"required information","persona":"required information","mcpServers":"required information","enabled":"required information"}}};
+const export12 = validate36;
+const schema53 = {"$id":"export12","$ref":"https://github.com/data-fair/agents/autonomous-agent/write-req#"};
+const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Autonomous agent","x-exports":["validate","types","vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"How it should work: procedures, constraints, what to do when unsure.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructions","errorMessage":{}},"mcpServers":{"type":"array","default":[],"title":"MCP servers","description":"Picked from the servers configured for this deployment.","layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","layout":{"comp":"autocomplete","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":5},"itemTitle":{"type":"js-eval","expr":"item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"item.id","pure":true,"dataAlias":"item","ref":4}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId","errorMessage":{}},"profiles":{"type":"array","title":"Profiles","description":"What this server lets the agent do, by profile.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles","errorMessage":{}},"toolFilter":{"type":"array","title":"Only these tools","description":"Leave empty to expose every tool this server offers.","items":{"type":"string","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items","errorMessage":{"required":{"serverId":"required information"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers","errorMessage":{}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Non-human identity","properties":{"clientId":{"type":"string","minLength":1,"title":"Client id","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/clientId","errorMessage":{}},"siteUrl":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/siteUrl","errorMessage":{}},"issuer":{"type":"string","readOnly":true,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi/properties/issuer","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/nhi","errorMessage":{"required":{"clientId":"required information"}}},"instructors":{"type":"array","default":[],"title":"Who may instruct","description":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","items":{"$ref":"https://github.com/data-fair/lib/access-ref","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors/items","errorMessage":{"oneOf":"chose one"}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/instructors","errorMessage":{}},"approvals":{"type":"object","additionalProperties":false,"title":"Approvals","description":"What happens when this autonomous agent calls a tool, by the kind of action the tool declares. \"Approve\" stops the turn until the person in the chat approves the call; a scheduled task never gets such a tool. Tools that declare nothing count as writing.","properties":{"readOnly":{"type":"string","title":"Reading","default":"allow","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/readOnly","errorMessage":{"oneOf":"chose one"}},"write":{"type":"string","title":"Writing","default":"allow","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/write","errorMessage":{"oneOf":"chose one"}},"destructive":{"type":"string","title":"Destructive","default":"approve","oneOf":[{"const":"allow","title":"Allow"},{"const":"approve","title":"Approve each call"},{"const":"deny","title":"Never offer"}],"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals/properties/destructive","errorMessage":{"oneOf":"chose one"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/approvals","errorMessage":{}},"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/memory/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/memory","errorMessage":{"required":{"enabled":"required information"}}},"web":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Web access","description":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","properties":{"enabled":{"type":"boolean","default":false,"title":"Read web pages","description":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/enabled","errorMessage":{}},"allowedUrls":{"type":"array","maxItems":100,"default":[],"title":"Allowed URLs","description":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","layout":{"if":"parent.data?.enabled"},"items":{"type":"string","minLength":1,"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items","errorMessage":{}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web","errorMessage":{"required":{"enabled":"required information"}}},"externalMcpServers":{"type":"array","maxItems":50,"default":[],"title":"External MCP servers","description":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","layout":{"itemTitle":"item?.url || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items/properties/url","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items","errorMessage":{"required":{"url":"required information"}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers","errorMessage":{}},"enabled":{"type":"boolean","default":true,"title":"Enabled","__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/write-req#","errorMessage":{"required":{"title":"required information","persona":"required information","mcpServers":"required information","enabled":"required information"}}};
 const func1 = Object.prototype.hasOwnProperty;
 
 function validate23(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -2693,7 +2782,7 @@ vErrors.push(err11);
 errors++;
 }
 for(const key1 in data4){
-if(!((key1 === "serverId") || (key1 === "toolFilter"))){
+if(!(((key1 === "serverId") || (key1 === "profiles")) || (key1 === "toolFilter"))){
 const err12 = {instancePath:instancePath+"/mcpServers/" + i0,schemaPath:"#/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.mcpServers.items,data:data4};
 if(vErrors === null){
 vErrors = [err12];
@@ -2727,14 +2816,14 @@ vErrors = emErrs3;
 errors = emErrs3.length;
 }
 }
-if(data4.toolFilter !== undefined){
-let data6 = data4.toolFilter;
+if(data4.profiles !== undefined){
+let data6 = data4.profiles;
 if(Array.isArray(data6)){
 const len1 = data6.length;
 for(let i1=0; i1<len1; i1++){
 let data7 = data6[i1];
 if(typeof data7 !== "string"){
-const err15 = {instancePath:instancePath+"/mcpServers/" + i0+"/toolFilter/" + i1,schemaPath:"#/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.mcpServers.items.properties.toolFilter.items.type,parentSchema:schema27.properties.mcpServers.items.properties.toolFilter.items,data:data7};
+const err15 = {instancePath:instancePath+"/mcpServers/" + i0+"/profiles/" + i1,schemaPath:"#/properties/mcpServers/items/properties/profiles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.mcpServers.items.properties.profiles.items.type,parentSchema:schema27.properties.mcpServers.items.properties.profiles.items,data:data7};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -2756,7 +2845,7 @@ errors = emErrs4.length;
 }
 }
 else {
-const err17 = {instancePath:instancePath+"/mcpServers/" + i0+"/toolFilter",schemaPath:"#/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.mcpServers.items.properties.toolFilter.type,parentSchema:schema27.properties.mcpServers.items.properties.toolFilter,data:data6};
+const err17 = {instancePath:instancePath+"/mcpServers/" + i0+"/profiles",schemaPath:"#/properties/mcpServers/items/properties/profiles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.mcpServers.items.properties.profiles.type,parentSchema:schema27.properties.mcpServers.items.properties.profiles,data:data6};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -2776,9 +2865,14 @@ vErrors = emErrs5;
 errors = emErrs5.length;
 }
 }
-}
-else {
-const err19 = {instancePath:instancePath+"/mcpServers/" + i0,schemaPath:"#/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.mcpServers.items.type,parentSchema:schema27.properties.mcpServers.items,data:data4};
+if(data4.toolFilter !== undefined){
+let data8 = data4.toolFilter;
+if(Array.isArray(data8)){
+const len2 = data8.length;
+for(let i2=0; i2<len2; i2++){
+let data9 = data8[i2];
+if(typeof data9 !== "string"){
+const err19 = {instancePath:instancePath+"/mcpServers/" + i0+"/toolFilter/" + i2,schemaPath:"#/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.mcpServers.items.properties.toolFilter.items.type,parentSchema:schema27.properties.mcpServers.items.properties.toolFilter.items,data:data9};
 if(vErrors === null){
 vErrors = [err19];
 }
@@ -2788,40 +2882,10 @@ vErrors.push(err19);
 errors++;
 }
 if(errors > 0){
-const emErrors0 = {"required":{"serverId":[]}};
-const templates0 = {required:{}};
-let emPropParams0;
-let emParamsErrors0;
-for(const err20 of vErrors){
-if((((((err20.keyword !== "errorMessage") && (!err20.emUsed)) && (err20.instancePath === instancePath+"/mcpServers/" + i0)) && (err20.keyword in emErrors0)) && (err20.schemaPath.indexOf("#/properties/mcpServers/items") === 0)) && (/^\/[^\/]*$/.test(err20.schemaPath.slice(29)))){
-emPropParams0 = obj0[err20.keyword];
-emParamsErrors0 = emErrors0[err20.keyword][err20.params[emPropParams0]];
-if(emParamsErrors0){
-emParamsErrors0.push(err20);
-err20.emUsed = true;
-}
-}
-}
-for(const key2 in emErrors0){
-for(const keyProp0 in emErrors0[key2]){
-emParamsErrors0 = emErrors0[key2][keyProp0];
-if(emParamsErrors0.length){
-const tmpl0 = templates0[key2] && templates0[key2][keyProp0];
-const err21 = {instancePath:instancePath+"/mcpServers/" + i0,schemaPath:"#/properties/mcpServers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.properties.mcpServers.items.errorMessage[key2][keyProp0],schema:schema27.properties.mcpServers.items.errorMessage,parentSchema:schema27.properties.mcpServers.items,data:data4};
-if(vErrors === null){
-vErrors = [err21];
-}
-else {
-vErrors.push(err21);
-}
-errors++;
-}
-}
-}
 const emErrs6 = [];
-for(const err22 of vErrors){
-if(!err22.emUsed){
-emErrs6.push(err22);
+for(const err20 of vErrors){
+if(!err20.emUsed){
+emErrs6.push(err20);
 }
 }
 vErrors = emErrs6;
@@ -2830,7 +2894,29 @@ errors = emErrs6.length;
 }
 }
 else {
-const err23 = {instancePath:instancePath+"/mcpServers",schemaPath:"#/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.mcpServers.type,parentSchema:schema27.properties.mcpServers,data:data3};
+const err21 = {instancePath:instancePath+"/mcpServers/" + i0+"/toolFilter",schemaPath:"#/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.mcpServers.items.properties.toolFilter.type,parentSchema:schema27.properties.mcpServers.items.properties.toolFilter,data:data8};
+if(vErrors === null){
+vErrors = [err21];
+}
+else {
+vErrors.push(err21);
+}
+errors++;
+}
+if(errors > 0){
+const emErrs7 = [];
+for(const err22 of vErrors){
+if(!err22.emUsed){
+emErrs7.push(err22);
+}
+}
+vErrors = emErrs7;
+errors = emErrs7.length;
+}
+}
+}
+else {
+const err23 = {instancePath:instancePath+"/mcpServers/" + i0,schemaPath:"#/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.mcpServers.items.type,parentSchema:schema27.properties.mcpServers.items,data:data4};
 if(vErrors === null){
 vErrors = [err23];
 }
@@ -2840,21 +2926,26 @@ vErrors.push(err23);
 errors++;
 }
 if(errors > 0){
-const emErrs7 = [];
+const emErrors0 = {"required":{"serverId":[]}};
+const templates0 = {required:{}};
+let emPropParams0;
+let emParamsErrors0;
 for(const err24 of vErrors){
-if(!err24.emUsed){
-emErrs7.push(err24);
+if((((((err24.keyword !== "errorMessage") && (!err24.emUsed)) && (err24.instancePath === instancePath+"/mcpServers/" + i0)) && (err24.keyword in emErrors0)) && (err24.schemaPath.indexOf("#/properties/mcpServers/items") === 0)) && (/^\/[^\/]*$/.test(err24.schemaPath.slice(29)))){
+emPropParams0 = obj0[err24.keyword];
+emParamsErrors0 = emErrors0[err24.keyword][err24.params[emPropParams0]];
+if(emParamsErrors0){
+emParamsErrors0.push(err24);
+err24.emUsed = true;
 }
 }
-vErrors = emErrs7;
-errors = emErrs7.length;
 }
-}
-if(data.nhi !== undefined){
-let data8 = data.nhi;
-if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
-if(data8.clientId === undefined){
-const err25 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/required",keyword:"required",params:{missingProperty: "clientId"},message:"must have required property '"+"clientId"+"'",schema:schema27.properties.nhi.required,parentSchema:schema27.properties.nhi,data:data8};
+for(const key2 in emErrors0){
+for(const keyProp0 in emErrors0[key2]){
+emParamsErrors0 = emErrors0[key2][keyProp0];
+if(emParamsErrors0.length){
+const tmpl0 = templates0[key2] && templates0[key2][keyProp0];
+const err25 = {instancePath:instancePath+"/mcpServers/" + i0,schemaPath:"#/properties/mcpServers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.properties.mcpServers.items.errorMessage[key2][keyProp0],schema:schema27.properties.mcpServers.items.errorMessage,parentSchema:schema27.properties.mcpServers.items,data:data4};
 if(vErrors === null){
 vErrors = [err25];
 }
@@ -2863,23 +2954,21 @@ vErrors.push(err25);
 }
 errors++;
 }
-for(const key3 in data8){
-if(!(((key3 === "clientId") || (key3 === "siteUrl")) || (key3 === "issuer"))){
-const err26 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.nhi,data:data8};
-if(vErrors === null){
-vErrors = [err26];
+}
+}
+const emErrs8 = [];
+for(const err26 of vErrors){
+if(!err26.emUsed){
+emErrs8.push(err26);
+}
+}
+vErrors = emErrs8;
+errors = emErrs8.length;
+}
+}
 }
 else {
-vErrors.push(err26);
-}
-errors++;
-}
-}
-if(data8.clientId !== undefined){
-let data9 = data8.clientId;
-if(typeof data9 === "string"){
-if(func2(data9) < 1){
-const err27 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"#/properties/nhi/properties/clientId/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema27.properties.nhi.properties.clientId,data:data9};
+const err27 = {instancePath:instancePath+"/mcpServers",schemaPath:"#/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.mcpServers.type,parentSchema:schema27.properties.mcpServers,data:data3};
 if(vErrors === null){
 vErrors = [err27];
 }
@@ -2888,32 +2977,33 @@ vErrors.push(err27);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs9 = [];
+for(const err28 of vErrors){
+if(!err28.emUsed){
+emErrs9.push(err28);
 }
-else {
-const err28 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"#/properties/nhi/properties/clientId/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.clientId.type,parentSchema:schema27.properties.nhi.properties.clientId,data:data9};
+}
+vErrors = emErrs9;
+errors = emErrs9.length;
+}
+}
+if(data.nhi !== undefined){
+let data10 = data.nhi;
+if(data10 && typeof data10 == "object" && !Array.isArray(data10)){
+if(data10.clientId === undefined){
+const err29 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/required",keyword:"required",params:{missingProperty: "clientId"},message:"must have required property '"+"clientId"+"'",schema:schema27.properties.nhi.required,parentSchema:schema27.properties.nhi,data:data10};
 if(vErrors === null){
-vErrors = [err28];
+vErrors = [err29];
 }
 else {
-vErrors.push(err28);
+vErrors.push(err29);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs8 = [];
-for(const err29 of vErrors){
-if(!err29.emUsed){
-emErrs8.push(err29);
-}
-}
-vErrors = emErrs8;
-errors = emErrs8.length;
-}
-}
-if(data8.siteUrl !== undefined){
-let data10 = data8.siteUrl;
-if(typeof data10 !== "string"){
-const err30 = {instancePath:instancePath+"/nhi/siteUrl",schemaPath:"#/properties/nhi/properties/siteUrl/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.siteUrl.type,parentSchema:schema27.properties.nhi.properties.siteUrl,data:data10};
+for(const key3 in data10){
+if(!(((key3 === "clientId") || (key3 === "siteUrl")) || (key3 === "issuer"))){
+const err30 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.nhi,data:data10};
 if(vErrors === null){
 vErrors = [err30];
 }
@@ -2922,21 +3012,23 @@ vErrors.push(err30);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs9 = [];
-for(const err31 of vErrors){
-if(!err31.emUsed){
-emErrs9.push(err31);
+}
+if(data10.clientId !== undefined){
+let data11 = data10.clientId;
+if(typeof data11 === "string"){
+if(func2(data11) < 1){
+const err31 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"#/properties/nhi/properties/clientId/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema27.properties.nhi.properties.clientId,data:data11};
+if(vErrors === null){
+vErrors = [err31];
+}
+else {
+vErrors.push(err31);
+}
+errors++;
 }
 }
-vErrors = emErrs9;
-errors = emErrs9.length;
-}
-}
-if(data8.issuer !== undefined){
-let data11 = data8.issuer;
-if(typeof data11 !== "string"){
-const err32 = {instancePath:instancePath+"/nhi/issuer",schemaPath:"#/properties/nhi/properties/issuer/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.issuer.type,parentSchema:schema27.properties.nhi.properties.issuer,data:data11};
+else {
+const err32 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"#/properties/nhi/properties/clientId/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.clientId.type,parentSchema:schema27.properties.nhi.properties.clientId,data:data11};
 if(vErrors === null){
 vErrors = [err32];
 }
@@ -2956,9 +3048,10 @@ vErrors = emErrs10;
 errors = emErrs10.length;
 }
 }
-}
-else {
-const err34 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.nhi.type,parentSchema:schema27.properties.nhi,data:data8};
+if(data10.siteUrl !== undefined){
+let data12 = data10.siteUrl;
+if(typeof data12 !== "string"){
+const err34 = {instancePath:instancePath+"/nhi/siteUrl",schemaPath:"#/properties/nhi/properties/siteUrl/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.siteUrl.type,parentSchema:schema27.properties.nhi.properties.siteUrl,data:data12};
 if(vErrors === null){
 vErrors = [err34];
 }
@@ -2968,26 +3061,20 @@ vErrors.push(err34);
 errors++;
 }
 if(errors > 0){
-const emErrors1 = {"required":{"clientId":[]}};
-const templates1 = {required:{}};
-let emPropParams1;
-let emParamsErrors1;
+const emErrs11 = [];
 for(const err35 of vErrors){
-if((((((err35.keyword !== "errorMessage") && (!err35.emUsed)) && (err35.instancePath === instancePath+"/nhi")) && (err35.keyword in emErrors1)) && (err35.schemaPath.indexOf("#/properties/nhi") === 0)) && (/^\/[^\/]*$/.test(err35.schemaPath.slice(16)))){
-emPropParams1 = obj0[err35.keyword];
-emParamsErrors1 = emErrors1[err35.keyword][err35.params[emPropParams1]];
-if(emParamsErrors1){
-emParamsErrors1.push(err35);
-err35.emUsed = true;
+if(!err35.emUsed){
+emErrs11.push(err35);
 }
 }
+vErrors = emErrs11;
+errors = emErrs11.length;
 }
-for(const key4 in emErrors1){
-for(const keyProp1 in emErrors1[key4]){
-emParamsErrors1 = emErrors1[key4][keyProp1];
-if(emParamsErrors1.length){
-const tmpl1 = templates1[key4] && templates1[key4][keyProp1];
-const err36 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.nhi.errorMessage[key4][keyProp1],schema:schema27.properties.nhi.errorMessage,parentSchema:schema27.properties.nhi,data:data8};
+}
+if(data10.issuer !== undefined){
+let data13 = data10.issuer;
+if(typeof data13 !== "string"){
+const err36 = {instancePath:instancePath+"/nhi/issuer",schemaPath:"#/properties/nhi/properties/issuer/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.nhi.properties.issuer.type,parentSchema:schema27.properties.nhi.properties.issuer,data:data13};
 if(vErrors === null){
 vErrors = [err36];
 }
@@ -2996,26 +3083,20 @@ vErrors.push(err36);
 }
 errors++;
 }
-}
-}
-const emErrs11 = [];
+if(errors > 0){
+const emErrs12 = [];
 for(const err37 of vErrors){
 if(!err37.emUsed){
-emErrs11.push(err37);
+emErrs12.push(err37);
 }
 }
-vErrors = emErrs11;
-errors = emErrs11.length;
+vErrors = emErrs12;
+errors = emErrs12.length;
 }
 }
-if(data.instructors !== undefined){
-let data12 = data.instructors;
-if(Array.isArray(data12)){
-const len2 = data12.length;
-for(let i2=0; i2<len2; i2++){
-let data13 = data12[i2];
-if(!(data13 && typeof data13 == "object" && !Array.isArray(data13))){
-const err38 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data13};
+}
+else {
+const err38 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.nhi.type,parentSchema:schema27.properties.nhi,data:data10};
 if(vErrors === null){
 vErrors = [err38];
 }
@@ -3024,23 +3105,27 @@ vErrors.push(err38);
 }
 errors++;
 }
-const _errs33 = errors;
-let valid10 = false;
-let passing0 = null;
-const _errs34 = errors;
-if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
-if(data13.mode === undefined){
-const err39 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema28.oneOf[0].required,parentSchema:schema28.oneOf[0],data:data13};
-if(vErrors === null){
-vErrors = [err39];
+if(errors > 0){
+const emErrors1 = {"required":{"clientId":[]}};
+const templates1 = {required:{}};
+let emPropParams1;
+let emParamsErrors1;
+for(const err39 of vErrors){
+if((((((err39.keyword !== "errorMessage") && (!err39.emUsed)) && (err39.instancePath === instancePath+"/nhi")) && (err39.keyword in emErrors1)) && (err39.schemaPath.indexOf("#/properties/nhi") === 0)) && (/^\/[^\/]*$/.test(err39.schemaPath.slice(16)))){
+emPropParams1 = obj0[err39.keyword];
+emParamsErrors1 = emErrors1[err39.keyword][err39.params[emPropParams1]];
+if(emParamsErrors1){
+emParamsErrors1.push(err39);
+err39.emUsed = true;
 }
-else {
-vErrors.push(err39);
 }
-errors++;
 }
-if(data13.type === undefined){
-const err40 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.oneOf[0].required,parentSchema:schema28.oneOf[0],data:data13};
+for(const key4 in emErrors1){
+for(const keyProp1 in emErrors1[key4]){
+emParamsErrors1 = emErrors1[key4][keyProp1];
+if(emParamsErrors1.length){
+const tmpl1 = templates1[key4] && templates1[key4][keyProp1];
+const err40 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.nhi.errorMessage[key4][keyProp1],schema:schema27.properties.nhi.errorMessage,parentSchema:schema27.properties.nhi,data:data10};
 if(vErrors === null){
 vErrors = [err40];
 }
@@ -3049,19 +3134,26 @@ vErrors.push(err40);
 }
 errors++;
 }
-if(data13.id === undefined){
-const err41 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.oneOf[0].required,parentSchema:schema28.oneOf[0],data:data13};
-if(vErrors === null){
-vErrors = [err41];
 }
-else {
-vErrors.push(err41);
 }
-errors++;
+const emErrs13 = [];
+for(const err41 of vErrors){
+if(!err41.emUsed){
+emErrs13.push(err41);
 }
-for(const key5 in data13){
-if(!(((key5 === "mode") || (key5 === "type")) || (key5 === "id"))){
-const err42 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties",schema:false,parentSchema:schema28.oneOf[0],data:data13};
+}
+vErrors = emErrs13;
+errors = emErrs13.length;
+}
+}
+if(data.instructors !== undefined){
+let data14 = data.instructors;
+if(Array.isArray(data14)){
+const len3 = data14.length;
+for(let i3=0; i3<len3; i3++){
+let data15 = data14[i3];
+if(!(data15 && typeof data15 == "object" && !Array.isArray(data15))){
+const err42 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.type,parentSchema:schema28,data:data15};
 if(vErrors === null){
 vErrors = [err42];
 }
@@ -3070,11 +3162,13 @@ vErrors.push(err42);
 }
 errors++;
 }
-}
-if(data13.mode !== undefined){
-let data14 = data13.mode;
-if(typeof data14 !== "string"){
-const err43 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[0].properties.mode.type,parentSchema:schema28.oneOf[0].properties.mode,data:data14};
+const _errs37 = errors;
+let valid12 = false;
+let passing0 = null;
+const _errs38 = errors;
+if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
+if(data15.mode === undefined){
+const err43 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema28.oneOf[0].required,parentSchema:schema28.oneOf[0],data:data15};
 if(vErrors === null){
 vErrors = [err43];
 }
@@ -3083,8 +3177,8 @@ vErrors.push(err43);
 }
 errors++;
 }
-if("member" !== data14){
-const err44 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema28.oneOf[0].properties.mode,data:data14};
+if(data15.type === undefined){
+const err44 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.oneOf[0].required,parentSchema:schema28.oneOf[0],data:data15};
 if(vErrors === null){
 vErrors = [err44];
 }
@@ -3093,21 +3187,19 @@ vErrors.push(err44);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs12 = [];
-for(const err45 of vErrors){
-if(!err45.emUsed){
-emErrs12.push(err45);
+if(data15.id === undefined){
+const err45 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.oneOf[0].required,parentSchema:schema28.oneOf[0],data:data15};
+if(vErrors === null){
+vErrors = [err45];
 }
+else {
+vErrors.push(err45);
 }
-vErrors = emErrs12;
-errors = emErrs12.length;
+errors++;
 }
-}
-if(data13.type !== undefined){
-let data15 = data13.type;
-if(typeof data15 !== "string"){
-const err46 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[0].properties.type.type,parentSchema:schema28.oneOf[0].properties.type,data:data15};
+for(const key5 in data15){
+if(!(((key5 === "mode") || (key5 === "type")) || (key5 === "id"))){
+const err46 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties",schema:false,parentSchema:schema28.oneOf[0],data:data15};
 if(vErrors === null){
 vErrors = [err46];
 }
@@ -3116,8 +3208,11 @@ vErrors.push(err46);
 }
 errors++;
 }
-if("user" !== data15){
-const err47 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema28.oneOf[0].properties.type,data:data15};
+}
+if(data15.mode !== undefined){
+let data16 = data15.mode;
+if(typeof data16 !== "string"){
+const err47 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[0].properties.mode.type,parentSchema:schema28.oneOf[0].properties.mode,data:data16};
 if(vErrors === null){
 vErrors = [err47];
 }
@@ -3126,43 +3221,41 @@ vErrors.push(err47);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs13 = [];
-for(const err48 of vErrors){
-if(!err48.emUsed){
-emErrs13.push(err48);
-}
-}
-vErrors = emErrs13;
-errors = emErrs13.length;
-}
-}
-if(data13.id !== undefined){
-let data16 = data13.id;
-if(typeof data16 !== "string"){
-const err49 = {instancePath:instancePath+"/instructors/" + i2+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[0].properties.id.type,parentSchema:schema28.oneOf[0].properties.id,data:data16};
+if("member" !== data16){
+const err48 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema28.oneOf[0].properties.mode,data:data16};
 if(vErrors === null){
-vErrors = [err49];
+vErrors = [err48];
 }
 else {
-vErrors.push(err49);
+vErrors.push(err48);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs14 = [];
-for(const err50 of vErrors){
-if(!err50.emUsed){
-emErrs14.push(err50);
+for(const err49 of vErrors){
+if(!err49.emUsed){
+emErrs14.push(err49);
 }
 }
 vErrors = emErrs14;
 errors = emErrs14.length;
 }
 }
+if(data15.type !== undefined){
+let data17 = data15.type;
+if(typeof data17 !== "string"){
+const err50 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[0].properties.type.type,parentSchema:schema28.oneOf[0].properties.type,data:data17};
+if(vErrors === null){
+vErrors = [err50];
 }
 else {
-const err51 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.oneOf[0].type,parentSchema:schema28.oneOf[0],data:data13};
+vErrors.push(err50);
+}
+errors++;
+}
+if("user" !== data17){
+const err51 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema28.oneOf[0].properties.type,data:data17};
 if(vErrors === null){
 vErrors = [err51];
 }
@@ -3172,26 +3265,20 @@ vErrors.push(err51);
 errors++;
 }
 if(errors > 0){
-const emErrors2 = {"required":{"mode":[],"type":[],"id":[]}};
-const templates2 = {required:{}};
-let emPropParams2;
-let emParamsErrors2;
+const emErrs15 = [];
 for(const err52 of vErrors){
-if((((((err52.keyword !== "errorMessage") && (!err52.emUsed)) && (err52.instancePath === instancePath+"/instructors/" + i2)) && (err52.keyword in emErrors2)) && (err52.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref/oneOf/0") === 0)) && (/^\/[^\/]*$/.test(err52.schemaPath.slice(51)))){
-emPropParams2 = obj0[err52.keyword];
-emParamsErrors2 = emErrors2[err52.keyword][err52.params[emPropParams2]];
-if(emParamsErrors2){
-emParamsErrors2.push(err52);
-err52.emUsed = true;
+if(!err52.emUsed){
+emErrs15.push(err52);
 }
 }
+vErrors = emErrs15;
+errors = emErrs15.length;
 }
-for(const key6 in emErrors2){
-for(const keyProp2 in emErrors2[key6]){
-emParamsErrors2 = emErrors2[key6][keyProp2];
-if(emParamsErrors2.length){
-const tmpl2 = templates2[key6] && templates2[key6][keyProp2];
-const err53 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema28.oneOf[0].errorMessage[key6][keyProp2],schema:schema28.oneOf[0].errorMessage,parentSchema:schema28.oneOf[0],data:data13};
+}
+if(data15.id !== undefined){
+let data18 = data15.id;
+if(typeof data18 !== "string"){
+const err53 = {instancePath:instancePath+"/instructors/" + i3+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[0].properties.id.type,parentSchema:schema28.oneOf[0].properties.id,data:data18};
 if(vErrors === null){
 vErrors = [err53];
 }
@@ -3200,27 +3287,20 @@ vErrors.push(err53);
 }
 errors++;
 }
-}
-}
-const emErrs15 = [];
+if(errors > 0){
+const emErrs16 = [];
 for(const err54 of vErrors){
 if(!err54.emUsed){
-emErrs15.push(err54);
+emErrs16.push(err54);
 }
 }
-vErrors = emErrs15;
-errors = emErrs15.length;
+vErrors = emErrs16;
+errors = emErrs16.length;
 }
-var _valid0 = _errs34 === errors;
-if(_valid0){
-valid10 = true;
-passing0 = 0;
-var props0 = true;
 }
-const _errs43 = errors;
-if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
-if(data13.mode === undefined){
-const err55 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema28.oneOf[1].required,parentSchema:schema28.oneOf[1],data:data13};
+}
+else {
+const err55 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.oneOf[0].type,parentSchema:schema28.oneOf[0],data:data15};
 if(vErrors === null){
 vErrors = [err55];
 }
@@ -3229,18 +3309,27 @@ vErrors.push(err55);
 }
 errors++;
 }
-if(data13.type === undefined){
-const err56 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.oneOf[1].required,parentSchema:schema28.oneOf[1],data:data13};
-if(vErrors === null){
-vErrors = [err56];
+if(errors > 0){
+const emErrors2 = {"required":{"mode":[],"type":[],"id":[]}};
+const templates2 = {required:{}};
+let emPropParams2;
+let emParamsErrors2;
+for(const err56 of vErrors){
+if((((((err56.keyword !== "errorMessage") && (!err56.emUsed)) && (err56.instancePath === instancePath+"/instructors/" + i3)) && (err56.keyword in emErrors2)) && (err56.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref/oneOf/0") === 0)) && (/^\/[^\/]*$/.test(err56.schemaPath.slice(51)))){
+emPropParams2 = obj0[err56.keyword];
+emParamsErrors2 = emErrors2[err56.keyword][err56.params[emPropParams2]];
+if(emParamsErrors2){
+emParamsErrors2.push(err56);
+err56.emUsed = true;
 }
-else {
-vErrors.push(err56);
 }
-errors++;
 }
-if(data13.email === undefined){
-const err57 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "email"},message:"must have required property '"+"email"+"'",schema:schema28.oneOf[1].required,parentSchema:schema28.oneOf[1],data:data13};
+for(const key6 in emErrors2){
+for(const keyProp2 in emErrors2[key6]){
+emParamsErrors2 = emErrors2[key6][keyProp2];
+if(emParamsErrors2.length){
+const tmpl2 = templates2[key6] && templates2[key6][keyProp2];
+const err57 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema28.oneOf[0].errorMessage[key6][keyProp2],schema:schema28.oneOf[0].errorMessage,parentSchema:schema28.oneOf[0],data:data15};
 if(vErrors === null){
 vErrors = [err57];
 }
@@ -3249,22 +3338,27 @@ vErrors.push(err57);
 }
 errors++;
 }
-for(const key7 in data13){
-if(!(((key7 === "mode") || (key7 === "type")) || (key7 === "email"))){
-const err58 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties",schema:false,parentSchema:schema28.oneOf[1],data:data13};
-if(vErrors === null){
-vErrors = [err58];
-}
-else {
-vErrors.push(err58);
-}
-errors++;
 }
 }
-if(data13.mode !== undefined){
-let data17 = data13.mode;
-if(typeof data17 !== "string"){
-const err59 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[1].properties.mode.type,parentSchema:schema28.oneOf[1].properties.mode,data:data17};
+const emErrs17 = [];
+for(const err58 of vErrors){
+if(!err58.emUsed){
+emErrs17.push(err58);
+}
+}
+vErrors = emErrs17;
+errors = emErrs17.length;
+}
+var _valid0 = _errs38 === errors;
+if(_valid0){
+valid12 = true;
+passing0 = 0;
+var props0 = true;
+}
+const _errs47 = errors;
+if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
+if(data15.mode === undefined){
+const err59 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema28.oneOf[1].required,parentSchema:schema28.oneOf[1],data:data15};
 if(vErrors === null){
 vErrors = [err59];
 }
@@ -3273,8 +3367,8 @@ vErrors.push(err59);
 }
 errors++;
 }
-if("member" !== data17){
-const err60 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema28.oneOf[1].properties.mode,data:data17};
+if(data15.type === undefined){
+const err60 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.oneOf[1].required,parentSchema:schema28.oneOf[1],data:data15};
 if(vErrors === null){
 vErrors = [err60];
 }
@@ -3283,21 +3377,19 @@ vErrors.push(err60);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs16 = [];
-for(const err61 of vErrors){
-if(!err61.emUsed){
-emErrs16.push(err61);
+if(data15.email === undefined){
+const err61 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "email"},message:"must have required property '"+"email"+"'",schema:schema28.oneOf[1].required,parentSchema:schema28.oneOf[1],data:data15};
+if(vErrors === null){
+vErrors = [err61];
 }
+else {
+vErrors.push(err61);
 }
-vErrors = emErrs16;
-errors = emErrs16.length;
+errors++;
 }
-}
-if(data13.type !== undefined){
-let data18 = data13.type;
-if(typeof data18 !== "string"){
-const err62 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[1].properties.type.type,parentSchema:schema28.oneOf[1].properties.type,data:data18};
+for(const key7 in data15){
+if(!(((key7 === "mode") || (key7 === "type")) || (key7 === "email"))){
+const err62 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties",schema:false,parentSchema:schema28.oneOf[1],data:data15};
 if(vErrors === null){
 vErrors = [err62];
 }
@@ -3306,8 +3398,11 @@ vErrors.push(err62);
 }
 errors++;
 }
-if("user" !== data18){
-const err63 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema28.oneOf[1].properties.type,data:data18};
+}
+if(data15.mode !== undefined){
+let data19 = data15.mode;
+if(typeof data19 !== "string"){
+const err63 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[1].properties.mode.type,parentSchema:schema28.oneOf[1].properties.mode,data:data19};
 if(vErrors === null){
 vErrors = [err63];
 }
@@ -3316,33 +3411,31 @@ vErrors.push(err63);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs17 = [];
-for(const err64 of vErrors){
-if(!err64.emUsed){
-emErrs17.push(err64);
-}
-}
-vErrors = emErrs17;
-errors = emErrs17.length;
-}
-}
-if(data13.email !== undefined){
-let data19 = data13.email;
-if(typeof data19 === "string"){
-if(!(formats0.test(data19))){
-const err65 = {instancePath:instancePath+"/instructors/" + i2+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/email/format",keyword:"format",params:{format: "email"},message:"must match format \""+"email"+"\"",schema:"email",parentSchema:schema28.oneOf[1].properties.email,data:data19};
+if("member" !== data19){
+const err64 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema28.oneOf[1].properties.mode,data:data19};
 if(vErrors === null){
-vErrors = [err65];
+vErrors = [err64];
 }
 else {
-vErrors.push(err65);
+vErrors.push(err64);
 }
 errors++;
 }
+if(errors > 0){
+const emErrs18 = [];
+for(const err65 of vErrors){
+if(!err65.emUsed){
+emErrs18.push(err65);
 }
-else {
-const err66 = {instancePath:instancePath+"/instructors/" + i2+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/email/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[1].properties.email.type,parentSchema:schema28.oneOf[1].properties.email,data:data19};
+}
+vErrors = emErrs18;
+errors = emErrs18.length;
+}
+}
+if(data15.type !== undefined){
+let data20 = data15.type;
+if(typeof data20 !== "string"){
+const err66 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[1].properties.type.type,parentSchema:schema28.oneOf[1].properties.type,data:data20};
 if(vErrors === null){
 vErrors = [err66];
 }
@@ -3351,49 +3444,43 @@ vErrors.push(err66);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs18 = [];
-for(const err67 of vErrors){
-if(!err67.emUsed){
-emErrs18.push(err67);
-}
-}
-vErrors = emErrs18;
-errors = emErrs18.length;
-}
-}
-}
-else {
-const err68 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.oneOf[1].type,parentSchema:schema28.oneOf[1],data:data13};
+if("user" !== data20){
+const err67 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant",schema:"user",parentSchema:schema28.oneOf[1].properties.type,data:data20};
 if(vErrors === null){
-vErrors = [err68];
+vErrors = [err67];
 }
 else {
-vErrors.push(err68);
+vErrors.push(err67);
 }
 errors++;
 }
 if(errors > 0){
-const emErrors3 = {"required":{"mode":[],"type":[],"email":[]}};
-const templates3 = {required:{}};
-let emPropParams3;
-let emParamsErrors3;
-for(const err69 of vErrors){
-if((((((err69.keyword !== "errorMessage") && (!err69.emUsed)) && (err69.instancePath === instancePath+"/instructors/" + i2)) && (err69.keyword in emErrors3)) && (err69.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref/oneOf/1") === 0)) && (/^\/[^\/]*$/.test(err69.schemaPath.slice(51)))){
-emPropParams3 = obj0[err69.keyword];
-emParamsErrors3 = emErrors3[err69.keyword][err69.params[emPropParams3]];
-if(emParamsErrors3){
-emParamsErrors3.push(err69);
-err69.emUsed = true;
+const emErrs19 = [];
+for(const err68 of vErrors){
+if(!err68.emUsed){
+emErrs19.push(err68);
 }
 }
+vErrors = emErrs19;
+errors = emErrs19.length;
 }
-for(const key8 in emErrors3){
-for(const keyProp3 in emErrors3[key8]){
-emParamsErrors3 = emErrors3[key8][keyProp3];
-if(emParamsErrors3.length){
-const tmpl3 = templates3[key8] && templates3[key8][keyProp3];
-const err70 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema28.oneOf[1].errorMessage[key8][keyProp3],schema:schema28.oneOf[1].errorMessage,parentSchema:schema28.oneOf[1],data:data13};
+}
+if(data15.email !== undefined){
+let data21 = data15.email;
+if(typeof data21 === "string"){
+if(!(formats0.test(data21))){
+const err69 = {instancePath:instancePath+"/instructors/" + i3+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/email/format",keyword:"format",params:{format: "email"},message:"must match format \""+"email"+"\"",schema:"email",parentSchema:schema28.oneOf[1].properties.email,data:data21};
+if(vErrors === null){
+vErrors = [err69];
+}
+else {
+vErrors.push(err69);
+}
+errors++;
+}
+}
+else {
+const err70 = {instancePath:instancePath+"/instructors/" + i3+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/email/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[1].properties.email.type,parentSchema:schema28.oneOf[1].properties.email,data:data21};
 if(vErrors === null){
 vErrors = [err70];
 }
@@ -3402,34 +3489,20 @@ vErrors.push(err70);
 }
 errors++;
 }
-}
-}
-const emErrs19 = [];
+if(errors > 0){
+const emErrs20 = [];
 for(const err71 of vErrors){
 if(!err71.emUsed){
-emErrs19.push(err71);
+emErrs20.push(err71);
 }
 }
-vErrors = emErrs19;
-errors = emErrs19.length;
+vErrors = emErrs20;
+errors = emErrs20.length;
 }
-var _valid0 = _errs43 === errors;
-if(_valid0 && valid10){
-valid10 = false;
-passing0 = [passing0, 1];
+}
 }
 else {
-if(_valid0){
-valid10 = true;
-passing0 = 1;
-if(props0 !== true){
-props0 = true;
-}
-}
-const _errs52 = errors;
-if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
-if(data13.mode === undefined){
-const err72 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema28.oneOf[2].required,parentSchema:schema28.oneOf[2],data:data13};
+const err72 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.oneOf[1].type,parentSchema:schema28.oneOf[1],data:data15};
 if(vErrors === null){
 vErrors = [err72];
 }
@@ -3438,18 +3511,27 @@ vErrors.push(err72);
 }
 errors++;
 }
-if(data13.type === undefined){
-const err73 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.oneOf[2].required,parentSchema:schema28.oneOf[2],data:data13};
-if(vErrors === null){
-vErrors = [err73];
+if(errors > 0){
+const emErrors3 = {"required":{"mode":[],"type":[],"email":[]}};
+const templates3 = {required:{}};
+let emPropParams3;
+let emParamsErrors3;
+for(const err73 of vErrors){
+if((((((err73.keyword !== "errorMessage") && (!err73.emUsed)) && (err73.instancePath === instancePath+"/instructors/" + i3)) && (err73.keyword in emErrors3)) && (err73.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref/oneOf/1") === 0)) && (/^\/[^\/]*$/.test(err73.schemaPath.slice(51)))){
+emPropParams3 = obj0[err73.keyword];
+emParamsErrors3 = emErrors3[err73.keyword][err73.params[emPropParams3]];
+if(emParamsErrors3){
+emParamsErrors3.push(err73);
+err73.emUsed = true;
 }
-else {
-vErrors.push(err73);
 }
-errors++;
 }
-if(data13.id === undefined){
-const err74 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.oneOf[2].required,parentSchema:schema28.oneOf[2],data:data13};
+for(const key8 in emErrors3){
+for(const keyProp3 in emErrors3[key8]){
+emParamsErrors3 = emErrors3[key8][keyProp3];
+if(emParamsErrors3.length){
+const tmpl3 = templates3[key8] && templates3[key8][keyProp3];
+const err74 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema28.oneOf[1].errorMessage[key8][keyProp3],schema:schema28.oneOf[1].errorMessage,parentSchema:schema28.oneOf[1],data:data15};
 if(vErrors === null){
 vErrors = [err74];
 }
@@ -3458,22 +3540,34 @@ vErrors.push(err74);
 }
 errors++;
 }
-for(const key9 in data13){
-if(!(((((key9 === "mode") || (key9 === "type")) || (key9 === "department")) || (key9 === "roles")) || (key9 === "id"))){
-const err75 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties",schema:false,parentSchema:schema28.oneOf[2],data:data13};
-if(vErrors === null){
-vErrors = [err75];
+}
+}
+const emErrs21 = [];
+for(const err75 of vErrors){
+if(!err75.emUsed){
+emErrs21.push(err75);
+}
+}
+vErrors = emErrs21;
+errors = emErrs21.length;
+}
+var _valid0 = _errs47 === errors;
+if(_valid0 && valid12){
+valid12 = false;
+passing0 = [passing0, 1];
 }
 else {
-vErrors.push(err75);
+if(_valid0){
+valid12 = true;
+passing0 = 1;
+if(props0 !== true){
+props0 = true;
 }
-errors++;
 }
-}
-if(data13.mode !== undefined){
-let data20 = data13.mode;
-if(typeof data20 !== "string"){
-const err76 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.mode.type,parentSchema:schema28.oneOf[2].properties.mode,data:data20};
+const _errs56 = errors;
+if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
+if(data15.mode === undefined){
+const err76 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema28.oneOf[2].required,parentSchema:schema28.oneOf[2],data:data15};
 if(vErrors === null){
 vErrors = [err76];
 }
@@ -3482,8 +3576,8 @@ vErrors.push(err76);
 }
 errors++;
 }
-if("member" !== data20){
-const err77 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema28.oneOf[2].properties.mode,data:data20};
+if(data15.type === undefined){
+const err77 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.oneOf[2].required,parentSchema:schema28.oneOf[2],data:data15};
 if(vErrors === null){
 vErrors = [err77];
 }
@@ -3492,21 +3586,19 @@ vErrors.push(err77);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs20 = [];
-for(const err78 of vErrors){
-if(!err78.emUsed){
-emErrs20.push(err78);
+if(data15.id === undefined){
+const err78 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.oneOf[2].required,parentSchema:schema28.oneOf[2],data:data15};
+if(vErrors === null){
+vErrors = [err78];
 }
+else {
+vErrors.push(err78);
 }
-vErrors = emErrs20;
-errors = emErrs20.length;
+errors++;
 }
-}
-if(data13.type !== undefined){
-let data21 = data13.type;
-if(typeof data21 !== "string"){
-const err79 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.type.type,parentSchema:schema28.oneOf[2].properties.type,data:data21};
+for(const key9 in data15){
+if(!(((((key9 === "mode") || (key9 === "type")) || (key9 === "department")) || (key9 === "roles")) || (key9 === "id"))){
+const err79 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties",schema:false,parentSchema:schema28.oneOf[2],data:data15};
 if(vErrors === null){
 vErrors = [err79];
 }
@@ -3515,8 +3607,11 @@ vErrors.push(err79);
 }
 errors++;
 }
-if("organization" !== data21){
-const err80 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant",schema:"organization",parentSchema:schema28.oneOf[2].properties.type,data:data21};
+}
+if(data15.mode !== undefined){
+let data22 = data15.mode;
+if(typeof data22 !== "string"){
+const err80 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.mode.type,parentSchema:schema28.oneOf[2].properties.mode,data:data22};
 if(vErrors === null){
 vErrors = [err80];
 }
@@ -3525,31 +3620,31 @@ vErrors.push(err80);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs21 = [];
-for(const err81 of vErrors){
-if(!err81.emUsed){
-emErrs21.push(err81);
-}
-}
-vErrors = emErrs21;
-errors = emErrs21.length;
-}
-}
-if(data13.department !== undefined){
-let data22 = data13.department;
-if(typeof data22 !== "string"){
-const err82 = {instancePath:instancePath+"/instructors/" + i2+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.department.type,parentSchema:schema28.oneOf[2].properties.department,data:data22};
+if("member" !== data22){
+const err81 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant",schema:"member",parentSchema:schema28.oneOf[2].properties.mode,data:data22};
 if(vErrors === null){
-vErrors = [err82];
+vErrors = [err81];
 }
 else {
-vErrors.push(err82);
+vErrors.push(err81);
 }
 errors++;
 }
-if("*" !== data22){
-const err83 = {instancePath:instancePath+"/instructors/" + i2+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/department/const",keyword:"const",params:{allowedValue: "*"},message:"must be equal to constant",schema:"*",parentSchema:schema28.oneOf[2].properties.department,data:data22};
+if(errors > 0){
+const emErrs22 = [];
+for(const err82 of vErrors){
+if(!err82.emUsed){
+emErrs22.push(err82);
+}
+}
+vErrors = emErrs22;
+errors = emErrs22.length;
+}
+}
+if(data15.type !== undefined){
+let data23 = data15.type;
+if(typeof data23 !== "string"){
+const err83 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.type.type,parentSchema:schema28.oneOf[2].properties.type,data:data23};
 if(vErrors === null){
 vErrors = [err83];
 }
@@ -3558,35 +3653,31 @@ vErrors.push(err83);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs22 = [];
-for(const err84 of vErrors){
-if(!err84.emUsed){
-emErrs22.push(err84);
-}
-}
-vErrors = emErrs22;
-errors = emErrs22.length;
-}
-}
-if(data13.roles !== undefined){
-let data23 = data13.roles;
-if(!func0(data23, schema28.oneOf[2].properties.roles.const)){
-const err85 = {instancePath:instancePath+"/instructors/" + i2+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/const",keyword:"const",params:{allowedValue: schema28.oneOf[2].properties.roles.const},message:"must be equal to constant",schema:schema28.oneOf[2].properties.roles.const,parentSchema:schema28.oneOf[2].properties.roles,data:data23};
+if("organization" !== data23){
+const err84 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant",schema:"organization",parentSchema:schema28.oneOf[2].properties.type,data:data23};
 if(vErrors === null){
-vErrors = [err85];
+vErrors = [err84];
 }
 else {
-vErrors.push(err85);
+vErrors.push(err84);
 }
 errors++;
 }
-if(Array.isArray(data23)){
-const len3 = data23.length;
-for(let i3=0; i3<len3; i3++){
-let data24 = data23[i3];
+if(errors > 0){
+const emErrs23 = [];
+for(const err85 of vErrors){
+if(!err85.emUsed){
+emErrs23.push(err85);
+}
+}
+vErrors = emErrs23;
+errors = emErrs23.length;
+}
+}
+if(data15.department !== undefined){
+let data24 = data15.department;
 if(typeof data24 !== "string"){
-const err86 = {instancePath:instancePath+"/instructors/" + i2+"/roles/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.roles.items.type,parentSchema:schema28.oneOf[2].properties.roles.items,data:data24};
+const err86 = {instancePath:instancePath+"/instructors/" + i3+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.department.type,parentSchema:schema28.oneOf[2].properties.department,data:data24};
 if(vErrors === null){
 vErrors = [err86];
 }
@@ -3595,43 +3686,45 @@ vErrors.push(err86);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs23 = [];
-for(const err87 of vErrors){
-if(!err87.emUsed){
-emErrs23.push(err87);
-}
-}
-vErrors = emErrs23;
-errors = emErrs23.length;
-}
-}
-}
-else {
-const err88 = {instancePath:instancePath+"/instructors/" + i2+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema28.oneOf[2].properties.roles.type,parentSchema:schema28.oneOf[2].properties.roles,data:data23};
+if("*" !== data24){
+const err87 = {instancePath:instancePath+"/instructors/" + i3+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/department/const",keyword:"const",params:{allowedValue: "*"},message:"must be equal to constant",schema:"*",parentSchema:schema28.oneOf[2].properties.department,data:data24};
 if(vErrors === null){
-vErrors = [err88];
+vErrors = [err87];
 }
 else {
-vErrors.push(err88);
+vErrors.push(err87);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs24 = [];
-for(const err89 of vErrors){
-if(!err89.emUsed){
-emErrs24.push(err89);
+for(const err88 of vErrors){
+if(!err88.emUsed){
+emErrs24.push(err88);
 }
 }
 vErrors = emErrs24;
 errors = emErrs24.length;
 }
 }
-if(data13.id !== undefined){
-let data25 = data13.id;
-if(typeof data25 !== "string"){
-const err90 = {instancePath:instancePath+"/instructors/" + i2+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.id.type,parentSchema:schema28.oneOf[2].properties.id,data:data25};
+if(data15.roles !== undefined){
+let data25 = data15.roles;
+if(!func0(data25, schema28.oneOf[2].properties.roles.const)){
+const err89 = {instancePath:instancePath+"/instructors/" + i3+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/const",keyword:"const",params:{allowedValue: schema28.oneOf[2].properties.roles.const},message:"must be equal to constant",schema:schema28.oneOf[2].properties.roles.const,parentSchema:schema28.oneOf[2].properties.roles,data:data25};
+if(vErrors === null){
+vErrors = [err89];
+}
+else {
+vErrors.push(err89);
+}
+errors++;
+}
+if(Array.isArray(data25)){
+const len4 = data25.length;
+for(let i4=0; i4<len4; i4++){
+let data26 = data25[i4];
+if(typeof data26 !== "string"){
+const err90 = {instancePath:instancePath+"/instructors/" + i3+"/roles/" + i4,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.roles.items.type,parentSchema:schema28.oneOf[2].properties.roles.items,data:data26};
 if(vErrors === null){
 vErrors = [err90];
 }
@@ -3653,7 +3746,7 @@ errors = emErrs25.length;
 }
 }
 else {
-const err92 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.oneOf[2].type,parentSchema:schema28.oneOf[2],data:data13};
+const err92 = {instancePath:instancePath+"/instructors/" + i3+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema28.oneOf[2].properties.roles.type,parentSchema:schema28.oneOf[2].properties.roles,data:data25};
 if(vErrors === null){
 vErrors = [err92];
 }
@@ -3663,26 +3756,20 @@ vErrors.push(err92);
 errors++;
 }
 if(errors > 0){
-const emErrors4 = {"required":{"mode":[],"type":[],"id":[]}};
-const templates4 = {required:{}};
-let emPropParams4;
-let emParamsErrors4;
+const emErrs26 = [];
 for(const err93 of vErrors){
-if((((((err93.keyword !== "errorMessage") && (!err93.emUsed)) && (err93.instancePath === instancePath+"/instructors/" + i2)) && (err93.keyword in emErrors4)) && (err93.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref/oneOf/2") === 0)) && (/^\/[^\/]*$/.test(err93.schemaPath.slice(51)))){
-emPropParams4 = obj0[err93.keyword];
-emParamsErrors4 = emErrors4[err93.keyword][err93.params[emPropParams4]];
-if(emParamsErrors4){
-emParamsErrors4.push(err93);
-err93.emUsed = true;
+if(!err93.emUsed){
+emErrs26.push(err93);
 }
 }
+vErrors = emErrs26;
+errors = emErrs26.length;
 }
-for(const key10 in emErrors4){
-for(const keyProp4 in emErrors4[key10]){
-emParamsErrors4 = emErrors4[key10][keyProp4];
-if(emParamsErrors4.length){
-const tmpl4 = templates4[key10] && templates4[key10][keyProp4];
-const err94 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors4},message:tmpl4 ? tmpl4() : schema28.oneOf[2].errorMessage[key10][keyProp4],schema:schema28.oneOf[2].errorMessage,parentSchema:schema28.oneOf[2],data:data13};
+}
+if(data15.id !== undefined){
+let data27 = data15.id;
+if(typeof data27 !== "string"){
+const err94 = {instancePath:instancePath+"/instructors/" + i3+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[2].properties.id.type,parentSchema:schema28.oneOf[2].properties.id,data:data27};
 if(vErrors === null){
 vErrors = [err94];
 }
@@ -3691,34 +3778,20 @@ vErrors.push(err94);
 }
 errors++;
 }
-}
-}
-const emErrs26 = [];
+if(errors > 0){
+const emErrs27 = [];
 for(const err95 of vErrors){
 if(!err95.emUsed){
-emErrs26.push(err95);
+emErrs27.push(err95);
 }
 }
-vErrors = emErrs26;
-errors = emErrs26.length;
+vErrors = emErrs27;
+errors = emErrs27.length;
 }
-var _valid0 = _errs52 === errors;
-if(_valid0 && valid10){
-valid10 = false;
-passing0 = [passing0, 2];
+}
 }
 else {
-if(_valid0){
-valid10 = true;
-passing0 = 2;
-if(props0 !== true){
-props0 = true;
-}
-}
-const _errs67 = errors;
-if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
-if(data13.mode === undefined){
-const err96 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema28.oneOf[3].required,parentSchema:schema28.oneOf[3],data:data13};
+const err96 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.oneOf[2].type,parentSchema:schema28.oneOf[2],data:data15};
 if(vErrors === null){
 vErrors = [err96];
 }
@@ -3727,18 +3800,27 @@ vErrors.push(err96);
 }
 errors++;
 }
-if(data13.type === undefined){
-const err97 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.oneOf[3].required,parentSchema:schema28.oneOf[3],data:data13};
-if(vErrors === null){
-vErrors = [err97];
+if(errors > 0){
+const emErrors4 = {"required":{"mode":[],"type":[],"id":[]}};
+const templates4 = {required:{}};
+let emPropParams4;
+let emParamsErrors4;
+for(const err97 of vErrors){
+if((((((err97.keyword !== "errorMessage") && (!err97.emUsed)) && (err97.instancePath === instancePath+"/instructors/" + i3)) && (err97.keyword in emErrors4)) && (err97.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref/oneOf/2") === 0)) && (/^\/[^\/]*$/.test(err97.schemaPath.slice(51)))){
+emPropParams4 = obj0[err97.keyword];
+emParamsErrors4 = emErrors4[err97.keyword][err97.params[emPropParams4]];
+if(emParamsErrors4){
+emParamsErrors4.push(err97);
+err97.emUsed = true;
 }
-else {
-vErrors.push(err97);
 }
-errors++;
 }
-if(data13.id === undefined){
-const err98 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.oneOf[3].required,parentSchema:schema28.oneOf[3],data:data13};
+for(const key10 in emErrors4){
+for(const keyProp4 in emErrors4[key10]){
+emParamsErrors4 = emErrors4[key10][keyProp4];
+if(emParamsErrors4.length){
+const tmpl4 = templates4[key10] && templates4[key10][keyProp4];
+const err98 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors4},message:tmpl4 ? tmpl4() : schema28.oneOf[2].errorMessage[key10][keyProp4],schema:schema28.oneOf[2].errorMessage,parentSchema:schema28.oneOf[2],data:data15};
 if(vErrors === null){
 vErrors = [err98];
 }
@@ -3747,22 +3829,34 @@ vErrors.push(err98);
 }
 errors++;
 }
-for(const key11 in data13){
-if(!(((((key11 === "mode") || (key11 === "type")) || (key11 === "id")) || (key11 === "department")) || (key11 === "roles"))){
-const err99 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key11},message:"must NOT have additional properties",schema:false,parentSchema:schema28.oneOf[3],data:data13};
-if(vErrors === null){
-vErrors = [err99];
+}
+}
+const emErrs28 = [];
+for(const err99 of vErrors){
+if(!err99.emUsed){
+emErrs28.push(err99);
+}
+}
+vErrors = emErrs28;
+errors = emErrs28.length;
+}
+var _valid0 = _errs56 === errors;
+if(_valid0 && valid12){
+valid12 = false;
+passing0 = [passing0, 2];
 }
 else {
-vErrors.push(err99);
+if(_valid0){
+valid12 = true;
+passing0 = 2;
+if(props0 !== true){
+props0 = true;
 }
-errors++;
 }
-}
-if(data13.mode !== undefined){
-let data26 = data13.mode;
-if(typeof data26 !== "string"){
-const err100 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.mode.type,parentSchema:schema28.oneOf[3].properties.mode,data:data26};
+const _errs71 = errors;
+if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
+if(data15.mode === undefined){
+const err100 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'",schema:schema28.oneOf[3].required,parentSchema:schema28.oneOf[3],data:data15};
 if(vErrors === null){
 vErrors = [err100];
 }
@@ -3771,8 +3865,8 @@ vErrors.push(err100);
 }
 errors++;
 }
-if("internal" !== data26){
-const err101 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/mode/const",keyword:"const",params:{allowedValue: "internal"},message:"must be equal to constant",schema:"internal",parentSchema:schema28.oneOf[3].properties.mode,data:data26};
+if(data15.type === undefined){
+const err101 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'",schema:schema28.oneOf[3].required,parentSchema:schema28.oneOf[3],data:data15};
 if(vErrors === null){
 vErrors = [err101];
 }
@@ -3781,21 +3875,19 @@ vErrors.push(err101);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs27 = [];
-for(const err102 of vErrors){
-if(!err102.emUsed){
-emErrs27.push(err102);
+if(data15.id === undefined){
+const err102 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema28.oneOf[3].required,parentSchema:schema28.oneOf[3],data:data15};
+if(vErrors === null){
+vErrors = [err102];
 }
+else {
+vErrors.push(err102);
 }
-vErrors = emErrs27;
-errors = emErrs27.length;
+errors++;
 }
-}
-if(data13.type !== undefined){
-let data27 = data13.type;
-if(typeof data27 !== "string"){
-const err103 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.type.type,parentSchema:schema28.oneOf[3].properties.type,data:data27};
+for(const key11 in data15){
+if(!(((((key11 === "mode") || (key11 === "type")) || (key11 === "id")) || (key11 === "department")) || (key11 === "roles"))){
+const err103 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key11},message:"must NOT have additional properties",schema:false,parentSchema:schema28.oneOf[3],data:data15};
 if(vErrors === null){
 vErrors = [err103];
 }
@@ -3804,8 +3896,11 @@ vErrors.push(err103);
 }
 errors++;
 }
-if("organization" !== data27){
-const err104 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant",schema:"organization",parentSchema:schema28.oneOf[3].properties.type,data:data27};
+}
+if(data15.mode !== undefined){
+let data28 = data15.mode;
+if(typeof data28 !== "string"){
+const err104 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.mode.type,parentSchema:schema28.oneOf[3].properties.mode,data:data28};
 if(vErrors === null){
 vErrors = [err104];
 }
@@ -3814,44 +3909,41 @@ vErrors.push(err104);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs28 = [];
-for(const err105 of vErrors){
-if(!err105.emUsed){
-emErrs28.push(err105);
-}
-}
-vErrors = emErrs28;
-errors = emErrs28.length;
-}
-}
-if(data13.id !== undefined){
-let data28 = data13.id;
-if(typeof data28 !== "string"){
-const err106 = {instancePath:instancePath+"/instructors/" + i2+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.id.type,parentSchema:schema28.oneOf[3].properties.id,data:data28};
+if("internal" !== data28){
+const err105 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/mode/const",keyword:"const",params:{allowedValue: "internal"},message:"must be equal to constant",schema:"internal",parentSchema:schema28.oneOf[3].properties.mode,data:data28};
 if(vErrors === null){
-vErrors = [err106];
+vErrors = [err105];
 }
 else {
-vErrors.push(err106);
+vErrors.push(err105);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs29 = [];
-for(const err107 of vErrors){
-if(!err107.emUsed){
-emErrs29.push(err107);
+for(const err106 of vErrors){
+if(!err106.emUsed){
+emErrs29.push(err106);
 }
 }
 vErrors = emErrs29;
 errors = emErrs29.length;
 }
 }
-if(data13.department !== undefined){
-let data29 = data13.department;
+if(data15.type !== undefined){
+let data29 = data15.type;
 if(typeof data29 !== "string"){
-const err108 = {instancePath:instancePath+"/instructors/" + i2+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.department.type,parentSchema:schema28.oneOf[3].properties.department,data:data29};
+const err107 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.type.type,parentSchema:schema28.oneOf[3].properties.type,data:data29};
+if(vErrors === null){
+vErrors = [err107];
+}
+else {
+vErrors.push(err107);
+}
+errors++;
+}
+if("organization" !== data29){
+const err108 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant",schema:"organization",parentSchema:schema28.oneOf[3].properties.type,data:data29};
 if(vErrors === null){
 vErrors = [err108];
 }
@@ -3871,14 +3963,10 @@ vErrors = emErrs30;
 errors = emErrs30.length;
 }
 }
-if(data13.roles !== undefined){
-let data30 = data13.roles;
-if(Array.isArray(data30)){
-const len4 = data30.length;
-for(let i4=0; i4<len4; i4++){
-let data31 = data30[i4];
-if(typeof data31 !== "string"){
-const err110 = {instancePath:instancePath+"/instructors/" + i2+"/roles/" + i4,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.roles.items.type,parentSchema:schema28.oneOf[3].properties.roles.items,data:data31};
+if(data15.id !== undefined){
+let data30 = data15.id;
+if(typeof data30 !== "string"){
+const err110 = {instancePath:instancePath+"/instructors/" + i3+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.id.type,parentSchema:schema28.oneOf[3].properties.id,data:data30};
 if(vErrors === null){
 vErrors = [err110];
 }
@@ -3898,9 +3986,10 @@ vErrors = emErrs31;
 errors = emErrs31.length;
 }
 }
-}
-else {
-const err112 = {instancePath:instancePath+"/instructors/" + i2+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema28.oneOf[3].properties.roles.type,parentSchema:schema28.oneOf[3].properties.roles,data:data30};
+if(data15.department !== undefined){
+let data31 = data15.department;
+if(typeof data31 !== "string"){
+const err112 = {instancePath:instancePath+"/instructors/" + i3+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.department.type,parentSchema:schema28.oneOf[3].properties.department,data:data31};
 if(vErrors === null){
 vErrors = [err112];
 }
@@ -3920,9 +4009,14 @@ vErrors = emErrs32;
 errors = emErrs32.length;
 }
 }
-}
-else {
-const err114 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.oneOf[3].type,parentSchema:schema28.oneOf[3],data:data13};
+if(data15.roles !== undefined){
+let data32 = data15.roles;
+if(Array.isArray(data32)){
+const len5 = data32.length;
+for(let i5=0; i5<len5; i5++){
+let data33 = data32[i5];
+if(typeof data33 !== "string"){
+const err114 = {instancePath:instancePath+"/instructors/" + i3+"/roles/" + i5,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema28.oneOf[3].properties.roles.items.type,parentSchema:schema28.oneOf[3].properties.roles.items,data:data33};
 if(vErrors === null){
 vErrors = [err114];
 }
@@ -3932,26 +4026,19 @@ vErrors.push(err114);
 errors++;
 }
 if(errors > 0){
-const emErrors5 = {"required":{"mode":[],"type":[],"id":[]}};
-const templates5 = {required:{}};
-let emPropParams5;
-let emParamsErrors5;
+const emErrs33 = [];
 for(const err115 of vErrors){
-if((((((err115.keyword !== "errorMessage") && (!err115.emUsed)) && (err115.instancePath === instancePath+"/instructors/" + i2)) && (err115.keyword in emErrors5)) && (err115.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref/oneOf/3") === 0)) && (/^\/[^\/]*$/.test(err115.schemaPath.slice(51)))){
-emPropParams5 = obj0[err115.keyword];
-emParamsErrors5 = emErrors5[err115.keyword][err115.params[emPropParams5]];
-if(emParamsErrors5){
-emParamsErrors5.push(err115);
-err115.emUsed = true;
+if(!err115.emUsed){
+emErrs33.push(err115);
+}
+}
+vErrors = emErrs33;
+errors = emErrs33.length;
 }
 }
 }
-for(const key12 in emErrors5){
-for(const keyProp5 in emErrors5[key12]){
-emParamsErrors5 = emErrors5[key12][keyProp5];
-if(emParamsErrors5.length){
-const tmpl5 = templates5[key12] && templates5[key12][keyProp5];
-const err116 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors5},message:tmpl5 ? tmpl5() : schema28.oneOf[3].errorMessage[key12][keyProp5],schema:schema28.oneOf[3].errorMessage,parentSchema:schema28.oneOf[3],data:data13};
+else {
+const err116 = {instancePath:instancePath+"/instructors/" + i3+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema28.oneOf[3].properties.roles.type,parentSchema:schema28.oneOf[3].properties.roles,data:data32};
 if(vErrors === null){
 vErrors = [err116];
 }
@@ -3960,35 +4047,20 @@ vErrors.push(err116);
 }
 errors++;
 }
-}
-}
-const emErrs33 = [];
+if(errors > 0){
+const emErrs34 = [];
 for(const err117 of vErrors){
 if(!err117.emUsed){
-emErrs33.push(err117);
+emErrs34.push(err117);
 }
 }
-vErrors = emErrs33;
-errors = emErrs33.length;
+vErrors = emErrs34;
+errors = emErrs34.length;
 }
-var _valid0 = _errs67 === errors;
-if(_valid0 && valid10){
-valid10 = false;
-passing0 = [passing0, 3];
+}
 }
 else {
-if(_valid0){
-valid10 = true;
-passing0 = 3;
-if(props0 !== true){
-props0 = true;
-}
-}
-}
-}
-}
-if(!valid10){
-const err118 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf",schema:schema28.oneOf,parentSchema:schema28,data:data13};
+const err118 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema28.oneOf[3].type,parentSchema:schema28.oneOf[3],data:data15};
 if(vErrors === null){
 vErrors = [err118];
 }
@@ -3997,29 +4069,27 @@ vErrors.push(err118);
 }
 errors++;
 }
-else {
-errors = _errs33;
-if(vErrors !== null){
-if(_errs33){
-vErrors.length = _errs33;
-}
-else {
-vErrors = null;
-}
-}
-}
 if(errors > 0){
-const emErrors6 = {"oneOf":[]};
-const templates6 = {};
+const emErrors5 = {"required":{"mode":[],"type":[],"id":[]}};
+const templates5 = {required:{}};
+let emPropParams5;
+let emParamsErrors5;
 for(const err119 of vErrors){
-if((((((err119.keyword !== "errorMessage") && (!err119.emUsed)) && (err119.instancePath === instancePath+"/instructors/" + i2)) && (err119.keyword in emErrors6)) && (err119.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref") === 0)) && (/^\/[^\/]*$/.test(err119.schemaPath.slice(43)))){
-emErrors6[err119.keyword].push(err119);
+if((((((err119.keyword !== "errorMessage") && (!err119.emUsed)) && (err119.instancePath === instancePath+"/instructors/" + i3)) && (err119.keyword in emErrors5)) && (err119.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref/oneOf/3") === 0)) && (/^\/[^\/]*$/.test(err119.schemaPath.slice(51)))){
+emPropParams5 = obj0[err119.keyword];
+emParamsErrors5 = emErrors5[err119.keyword][err119.params[emPropParams5]];
+if(emParamsErrors5){
+emParamsErrors5.push(err119);
 err119.emUsed = true;
 }
 }
-for(const key13 in emErrors6){
-if(emErrors6[key13].length){
-const err120 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/errorMessage",keyword:"errorMessage",params:{errors: emErrors6[key13]},message:key13 in templates6 ? templates6[key13]() : schema28.errorMessage[key13],schema:schema28.errorMessage,parentSchema:schema28,data:data13};
+}
+for(const key12 in emErrors5){
+for(const keyProp5 in emErrors5[key12]){
+emParamsErrors5 = emErrors5[key12][keyProp5];
+if(emParamsErrors5.length){
+const tmpl5 = templates5[key12] && templates5[key12][keyProp5];
+const err120 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors5},message:tmpl5 ? tmpl5() : schema28.oneOf[3].errorMessage[key12][keyProp5],schema:schema28.oneOf[3].errorMessage,parentSchema:schema28.oneOf[3],data:data15};
 if(vErrors === null){
 vErrors = [err120];
 }
@@ -4029,74 +4099,95 @@ vErrors.push(err120);
 errors++;
 }
 }
-const emErrs34 = [];
-for(const err121 of vErrors){
-if(!err121.emUsed){
-emErrs34.push(err121);
-}
-}
-vErrors = emErrs34;
-errors = emErrs34.length;
-}
-if(errors > 0){
-const emErrors7 = {"oneOf":[]};
-const templates7 = {};
-for(const err122 of vErrors){
-if((((((err122.keyword !== "errorMessage") && (!err122.emUsed)) && (err122.instancePath === instancePath+"/instructors/" + i2)) && (err122.keyword in emErrors7)) && (err122.schemaPath.indexOf("#/properties/instructors/items") === 0)) && (/^\/[^\/]*$/.test(err122.schemaPath.slice(30)))){
-emErrors7[err122.keyword].push(err122);
-err122.emUsed = true;
-}
-}
-for(const key14 in emErrors7){
-if(emErrors7[key14].length){
-const err123 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"#/properties/instructors/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors7[key14]},message:key14 in templates7 ? templates7[key14]() : schema27.properties.instructors.items.errorMessage[key14],schema:schema27.properties.instructors.items.errorMessage,parentSchema:schema27.properties.instructors.items,data:data13};
-if(vErrors === null){
-vErrors = [err123];
-}
-else {
-vErrors.push(err123);
-}
-errors++;
-}
 }
 const emErrs35 = [];
-for(const err124 of vErrors){
-if(!err124.emUsed){
-emErrs35.push(err124);
+for(const err121 of vErrors){
+if(!err121.emUsed){
+emErrs35.push(err121);
 }
 }
 vErrors = emErrs35;
 errors = emErrs35.length;
 }
-}
+var _valid0 = _errs71 === errors;
+if(_valid0 && valid12){
+valid12 = false;
+passing0 = [passing0, 3];
 }
 else {
-const err125 = {instancePath:instancePath+"/instructors",schemaPath:"#/properties/instructors/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.instructors.type,parentSchema:schema27.properties.instructors,data:data12};
+if(_valid0){
+valid12 = true;
+passing0 = 3;
+if(props0 !== true){
+props0 = true;
+}
+}
+}
+}
+}
+if(!valid12){
+const err122 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf",schema:schema28.oneOf,parentSchema:schema28,data:data15};
 if(vErrors === null){
-vErrors = [err125];
+vErrors = [err122];
 }
 else {
-vErrors.push(err125);
+vErrors.push(err122);
 }
 errors++;
 }
+else {
+errors = _errs37;
+if(vErrors !== null){
+if(_errs37){
+vErrors.length = _errs37;
+}
+else {
+vErrors = null;
+}
+}
+}
 if(errors > 0){
+const emErrors6 = {"oneOf":[]};
+const templates6 = {};
+for(const err123 of vErrors){
+if((((((err123.keyword !== "errorMessage") && (!err123.emUsed)) && (err123.instancePath === instancePath+"/instructors/" + i3)) && (err123.keyword in emErrors6)) && (err123.schemaPath.indexOf("https://github.com/data-fair/lib/access-ref") === 0)) && (/^\/[^\/]*$/.test(err123.schemaPath.slice(43)))){
+emErrors6[err123.keyword].push(err123);
+err123.emUsed = true;
+}
+}
+for(const key13 in emErrors6){
+if(emErrors6[key13].length){
+const err124 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/errorMessage",keyword:"errorMessage",params:{errors: emErrors6[key13]},message:key13 in templates6 ? templates6[key13]() : schema28.errorMessage[key13],schema:schema28.errorMessage,parentSchema:schema28,data:data15};
+if(vErrors === null){
+vErrors = [err124];
+}
+else {
+vErrors.push(err124);
+}
+errors++;
+}
+}
 const emErrs36 = [];
-for(const err126 of vErrors){
-if(!err126.emUsed){
-emErrs36.push(err126);
+for(const err125 of vErrors){
+if(!err125.emUsed){
+emErrs36.push(err125);
 }
 }
 vErrors = emErrs36;
 errors = emErrs36.length;
 }
+if(errors > 0){
+const emErrors7 = {"oneOf":[]};
+const templates7 = {};
+for(const err126 of vErrors){
+if((((((err126.keyword !== "errorMessage") && (!err126.emUsed)) && (err126.instancePath === instancePath+"/instructors/" + i3)) && (err126.keyword in emErrors7)) && (err126.schemaPath.indexOf("#/properties/instructors/items") === 0)) && (/^\/[^\/]*$/.test(err126.schemaPath.slice(30)))){
+emErrors7[err126.keyword].push(err126);
+err126.emUsed = true;
 }
-if(data.approvals !== undefined){
-let data32 = data.approvals;
-if(data32 && typeof data32 == "object" && !Array.isArray(data32)){
-for(const key15 in data32){
-if(!(((key15 === "readOnly") || (key15 === "write")) || (key15 === "destructive"))){
-const err127 = {instancePath:instancePath+"/approvals",schemaPath:"#/properties/approvals/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key15},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.approvals,data:data32};
+}
+for(const key14 in emErrors7){
+if(emErrors7[key14].length){
+const err127 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"#/properties/instructors/items/errorMessage",keyword:"errorMessage",params:{errors: emErrors7[key14]},message:key14 in templates7 ? templates7[key14]() : schema27.properties.instructors.items.errorMessage[key14],schema:schema27.properties.instructors.items.errorMessage,parentSchema:schema27.properties.instructors.items,data:data15};
 if(vErrors === null){
 vErrors = [err127];
 }
@@ -4106,24 +4197,19 @@ vErrors.push(err127);
 errors++;
 }
 }
-if(data32.readOnly !== undefined){
-let data33 = data32.readOnly;
-if(typeof data33 !== "string"){
-const err128 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.approvals.properties.readOnly.type,parentSchema:schema27.properties.approvals.properties.readOnly,data:data33};
-if(vErrors === null){
-vErrors = [err128];
+const emErrs37 = [];
+for(const err128 of vErrors){
+if(!err128.emUsed){
+emErrs37.push(err128);
+}
+}
+vErrors = emErrs37;
+errors = emErrs37.length;
+}
+}
 }
 else {
-vErrors.push(err128);
-}
-errors++;
-}
-const _errs87 = errors;
-let valid20 = false;
-let passing1 = null;
-const _errs88 = errors;
-if("allow" !== data33){
-const err129 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/oneOf/0/const",keyword:"const",params:{allowedValue: "allow"},message:"must be equal to constant",schema:"allow",parentSchema:schema27.properties.approvals.properties.readOnly.oneOf[0],data:data33};
+const err129 = {instancePath:instancePath+"/instructors",schemaPath:"#/properties/instructors/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.instructors.type,parentSchema:schema27.properties.instructors,data:data14};
 if(vErrors === null){
 vErrors = [err129];
 }
@@ -4132,35 +4218,23 @@ vErrors.push(err129);
 }
 errors++;
 }
-var _valid1 = _errs88 === errors;
-if(_valid1){
-valid20 = true;
-passing1 = 0;
+if(errors > 0){
+const emErrs38 = [];
+for(const err130 of vErrors){
+if(!err130.emUsed){
+emErrs38.push(err130);
 }
-const _errs89 = errors;
-if("approve" !== data33){
-const err130 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/oneOf/1/const",keyword:"const",params:{allowedValue: "approve"},message:"must be equal to constant",schema:"approve",parentSchema:schema27.properties.approvals.properties.readOnly.oneOf[1],data:data33};
-if(vErrors === null){
-vErrors = [err130];
 }
-else {
-vErrors.push(err130);
+vErrors = emErrs38;
+errors = emErrs38.length;
 }
-errors++;
 }
-var _valid1 = _errs89 === errors;
-if(_valid1 && valid20){
-valid20 = false;
-passing1 = [passing1, 1];
-}
-else {
-if(_valid1){
-valid20 = true;
-passing1 = 1;
-}
-const _errs90 = errors;
-if("deny" !== data33){
-const err131 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/oneOf/2/const",keyword:"const",params:{allowedValue: "deny"},message:"must be equal to constant",schema:"deny",parentSchema:schema27.properties.approvals.properties.readOnly.oneOf[2],data:data33};
+if(data.approvals !== undefined){
+let data34 = data.approvals;
+if(data34 && typeof data34 == "object" && !Array.isArray(data34)){
+for(const key15 in data34){
+if(!(((key15 === "readOnly") || (key15 === "write")) || (key15 === "destructive"))){
+const err131 = {instancePath:instancePath+"/approvals",schemaPath:"#/properties/approvals/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key15},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.approvals,data:data34};
 if(vErrors === null){
 vErrors = [err131];
 }
@@ -4169,20 +4243,11 @@ vErrors.push(err131);
 }
 errors++;
 }
-var _valid1 = _errs90 === errors;
-if(_valid1 && valid20){
-valid20 = false;
-passing1 = [passing1, 2];
 }
-else {
-if(_valid1){
-valid20 = true;
-passing1 = 2;
-}
-}
-}
-if(!valid20){
-const err132 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf",schema:schema27.properties.approvals.properties.readOnly.oneOf,parentSchema:schema27.properties.approvals.properties.readOnly,data:data33};
+if(data34.readOnly !== undefined){
+let data35 = data34.readOnly;
+if(typeof data35 !== "string"){
+const err132 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.approvals.properties.readOnly.type,parentSchema:schema27.properties.approvals.properties.readOnly,data:data35};
 if(vErrors === null){
 vErrors = [err132];
 }
@@ -4191,11 +4256,84 @@ vErrors.push(err132);
 }
 errors++;
 }
+const _errs91 = errors;
+let valid22 = false;
+let passing1 = null;
+const _errs92 = errors;
+if("allow" !== data35){
+const err133 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/oneOf/0/const",keyword:"const",params:{allowedValue: "allow"},message:"must be equal to constant",schema:"allow",parentSchema:schema27.properties.approvals.properties.readOnly.oneOf[0],data:data35};
+if(vErrors === null){
+vErrors = [err133];
+}
 else {
-errors = _errs87;
+vErrors.push(err133);
+}
+errors++;
+}
+var _valid1 = _errs92 === errors;
+if(_valid1){
+valid22 = true;
+passing1 = 0;
+}
+const _errs93 = errors;
+if("approve" !== data35){
+const err134 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/oneOf/1/const",keyword:"const",params:{allowedValue: "approve"},message:"must be equal to constant",schema:"approve",parentSchema:schema27.properties.approvals.properties.readOnly.oneOf[1],data:data35};
+if(vErrors === null){
+vErrors = [err134];
+}
+else {
+vErrors.push(err134);
+}
+errors++;
+}
+var _valid1 = _errs93 === errors;
+if(_valid1 && valid22){
+valid22 = false;
+passing1 = [passing1, 1];
+}
+else {
+if(_valid1){
+valid22 = true;
+passing1 = 1;
+}
+const _errs94 = errors;
+if("deny" !== data35){
+const err135 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/oneOf/2/const",keyword:"const",params:{allowedValue: "deny"},message:"must be equal to constant",schema:"deny",parentSchema:schema27.properties.approvals.properties.readOnly.oneOf[2],data:data35};
+if(vErrors === null){
+vErrors = [err135];
+}
+else {
+vErrors.push(err135);
+}
+errors++;
+}
+var _valid1 = _errs94 === errors;
+if(_valid1 && valid22){
+valid22 = false;
+passing1 = [passing1, 2];
+}
+else {
+if(_valid1){
+valid22 = true;
+passing1 = 2;
+}
+}
+}
+if(!valid22){
+const err136 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf",schema:schema27.properties.approvals.properties.readOnly.oneOf,parentSchema:schema27.properties.approvals.properties.readOnly,data:data35};
+if(vErrors === null){
+vErrors = [err136];
+}
+else {
+vErrors.push(err136);
+}
+errors++;
+}
+else {
+errors = _errs91;
 if(vErrors !== null){
-if(_errs87){
-vErrors.length = _errs87;
+if(_errs91){
+vErrors.length = _errs91;
 }
 else {
 vErrors = null;
@@ -4205,68 +4343,15 @@ vErrors = null;
 if(errors > 0){
 const emErrors8 = {"oneOf":[]};
 const templates8 = {};
-for(const err133 of vErrors){
-if((((((err133.keyword !== "errorMessage") && (!err133.emUsed)) && (err133.instancePath === instancePath+"/approvals/readOnly")) && (err133.keyword in emErrors8)) && (err133.schemaPath.indexOf("#/properties/approvals/properties/readOnly") === 0)) && (/^\/[^\/]*$/.test(err133.schemaPath.slice(42)))){
-emErrors8[err133.keyword].push(err133);
-err133.emUsed = true;
+for(const err137 of vErrors){
+if((((((err137.keyword !== "errorMessage") && (!err137.emUsed)) && (err137.instancePath === instancePath+"/approvals/readOnly")) && (err137.keyword in emErrors8)) && (err137.schemaPath.indexOf("#/properties/approvals/properties/readOnly") === 0)) && (/^\/[^\/]*$/.test(err137.schemaPath.slice(42)))){
+emErrors8[err137.keyword].push(err137);
+err137.emUsed = true;
 }
 }
 for(const key16 in emErrors8){
 if(emErrors8[key16].length){
-const err134 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/errorMessage",keyword:"errorMessage",params:{errors: emErrors8[key16]},message:key16 in templates8 ? templates8[key16]() : schema27.properties.approvals.properties.readOnly.errorMessage[key16],schema:schema27.properties.approvals.properties.readOnly.errorMessage,parentSchema:schema27.properties.approvals.properties.readOnly,data:data33};
-if(vErrors === null){
-vErrors = [err134];
-}
-else {
-vErrors.push(err134);
-}
-errors++;
-}
-}
-const emErrs37 = [];
-for(const err135 of vErrors){
-if(!err135.emUsed){
-emErrs37.push(err135);
-}
-}
-vErrors = emErrs37;
-errors = emErrs37.length;
-}
-}
-if(data32.write !== undefined){
-let data34 = data32.write;
-if(typeof data34 !== "string"){
-const err136 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.approvals.properties.write.type,parentSchema:schema27.properties.approvals.properties.write,data:data34};
-if(vErrors === null){
-vErrors = [err136];
-}
-else {
-vErrors.push(err136);
-}
-errors++;
-}
-const _errs93 = errors;
-let valid21 = false;
-let passing2 = null;
-const _errs94 = errors;
-if("allow" !== data34){
-const err137 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/oneOf/0/const",keyword:"const",params:{allowedValue: "allow"},message:"must be equal to constant",schema:"allow",parentSchema:schema27.properties.approvals.properties.write.oneOf[0],data:data34};
-if(vErrors === null){
-vErrors = [err137];
-}
-else {
-vErrors.push(err137);
-}
-errors++;
-}
-var _valid2 = _errs94 === errors;
-if(_valid2){
-valid21 = true;
-passing2 = 0;
-}
-const _errs95 = errors;
-if("approve" !== data34){
-const err138 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/oneOf/1/const",keyword:"const",params:{allowedValue: "approve"},message:"must be equal to constant",schema:"approve",parentSchema:schema27.properties.approvals.properties.write.oneOf[1],data:data34};
+const err138 = {instancePath:instancePath+"/approvals/readOnly",schemaPath:"#/properties/approvals/properties/readOnly/errorMessage",keyword:"errorMessage",params:{errors: emErrors8[key16]},message:key16 in templates8 ? templates8[key16]() : schema27.properties.approvals.properties.readOnly.errorMessage[key16],schema:schema27.properties.approvals.properties.readOnly.errorMessage,parentSchema:schema27.properties.approvals.properties.readOnly,data:data35};
 if(vErrors === null){
 vErrors = [err138];
 }
@@ -4275,41 +4360,21 @@ vErrors.push(err138);
 }
 errors++;
 }
-var _valid2 = _errs95 === errors;
-if(_valid2 && valid21){
-valid21 = false;
-passing2 = [passing2, 1];
 }
-else {
-if(_valid2){
-valid21 = true;
-passing2 = 1;
-}
-const _errs96 = errors;
-if("deny" !== data34){
-const err139 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/oneOf/2/const",keyword:"const",params:{allowedValue: "deny"},message:"must be equal to constant",schema:"deny",parentSchema:schema27.properties.approvals.properties.write.oneOf[2],data:data34};
-if(vErrors === null){
-vErrors = [err139];
-}
-else {
-vErrors.push(err139);
-}
-errors++;
-}
-var _valid2 = _errs96 === errors;
-if(_valid2 && valid21){
-valid21 = false;
-passing2 = [passing2, 2];
-}
-else {
-if(_valid2){
-valid21 = true;
-passing2 = 2;
+const emErrs39 = [];
+for(const err139 of vErrors){
+if(!err139.emUsed){
+emErrs39.push(err139);
 }
 }
+vErrors = emErrs39;
+errors = emErrs39.length;
 }
-if(!valid21){
-const err140 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/oneOf",keyword:"oneOf",params:{passingSchemas: passing2},message:"must match exactly one schema in oneOf",schema:schema27.properties.approvals.properties.write.oneOf,parentSchema:schema27.properties.approvals.properties.write,data:data34};
+}
+if(data34.write !== undefined){
+let data36 = data34.write;
+if(typeof data36 !== "string"){
+const err140 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.approvals.properties.write.type,parentSchema:schema27.properties.approvals.properties.write,data:data36};
 if(vErrors === null){
 vErrors = [err140];
 }
@@ -4318,11 +4383,84 @@ vErrors.push(err140);
 }
 errors++;
 }
+const _errs97 = errors;
+let valid23 = false;
+let passing2 = null;
+const _errs98 = errors;
+if("allow" !== data36){
+const err141 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/oneOf/0/const",keyword:"const",params:{allowedValue: "allow"},message:"must be equal to constant",schema:"allow",parentSchema:schema27.properties.approvals.properties.write.oneOf[0],data:data36};
+if(vErrors === null){
+vErrors = [err141];
+}
 else {
-errors = _errs93;
+vErrors.push(err141);
+}
+errors++;
+}
+var _valid2 = _errs98 === errors;
+if(_valid2){
+valid23 = true;
+passing2 = 0;
+}
+const _errs99 = errors;
+if("approve" !== data36){
+const err142 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/oneOf/1/const",keyword:"const",params:{allowedValue: "approve"},message:"must be equal to constant",schema:"approve",parentSchema:schema27.properties.approvals.properties.write.oneOf[1],data:data36};
+if(vErrors === null){
+vErrors = [err142];
+}
+else {
+vErrors.push(err142);
+}
+errors++;
+}
+var _valid2 = _errs99 === errors;
+if(_valid2 && valid23){
+valid23 = false;
+passing2 = [passing2, 1];
+}
+else {
+if(_valid2){
+valid23 = true;
+passing2 = 1;
+}
+const _errs100 = errors;
+if("deny" !== data36){
+const err143 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/oneOf/2/const",keyword:"const",params:{allowedValue: "deny"},message:"must be equal to constant",schema:"deny",parentSchema:schema27.properties.approvals.properties.write.oneOf[2],data:data36};
+if(vErrors === null){
+vErrors = [err143];
+}
+else {
+vErrors.push(err143);
+}
+errors++;
+}
+var _valid2 = _errs100 === errors;
+if(_valid2 && valid23){
+valid23 = false;
+passing2 = [passing2, 2];
+}
+else {
+if(_valid2){
+valid23 = true;
+passing2 = 2;
+}
+}
+}
+if(!valid23){
+const err144 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/oneOf",keyword:"oneOf",params:{passingSchemas: passing2},message:"must match exactly one schema in oneOf",schema:schema27.properties.approvals.properties.write.oneOf,parentSchema:schema27.properties.approvals.properties.write,data:data36};
+if(vErrors === null){
+vErrors = [err144];
+}
+else {
+vErrors.push(err144);
+}
+errors++;
+}
+else {
+errors = _errs97;
 if(vErrors !== null){
-if(_errs93){
-vErrors.length = _errs93;
+if(_errs97){
+vErrors.length = _errs97;
 }
 else {
 vErrors = null;
@@ -4332,68 +4470,15 @@ vErrors = null;
 if(errors > 0){
 const emErrors9 = {"oneOf":[]};
 const templates9 = {};
-for(const err141 of vErrors){
-if((((((err141.keyword !== "errorMessage") && (!err141.emUsed)) && (err141.instancePath === instancePath+"/approvals/write")) && (err141.keyword in emErrors9)) && (err141.schemaPath.indexOf("#/properties/approvals/properties/write") === 0)) && (/^\/[^\/]*$/.test(err141.schemaPath.slice(39)))){
-emErrors9[err141.keyword].push(err141);
-err141.emUsed = true;
+for(const err145 of vErrors){
+if((((((err145.keyword !== "errorMessage") && (!err145.emUsed)) && (err145.instancePath === instancePath+"/approvals/write")) && (err145.keyword in emErrors9)) && (err145.schemaPath.indexOf("#/properties/approvals/properties/write") === 0)) && (/^\/[^\/]*$/.test(err145.schemaPath.slice(39)))){
+emErrors9[err145.keyword].push(err145);
+err145.emUsed = true;
 }
 }
 for(const key17 in emErrors9){
 if(emErrors9[key17].length){
-const err142 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/errorMessage",keyword:"errorMessage",params:{errors: emErrors9[key17]},message:key17 in templates9 ? templates9[key17]() : schema27.properties.approvals.properties.write.errorMessage[key17],schema:schema27.properties.approvals.properties.write.errorMessage,parentSchema:schema27.properties.approvals.properties.write,data:data34};
-if(vErrors === null){
-vErrors = [err142];
-}
-else {
-vErrors.push(err142);
-}
-errors++;
-}
-}
-const emErrs38 = [];
-for(const err143 of vErrors){
-if(!err143.emUsed){
-emErrs38.push(err143);
-}
-}
-vErrors = emErrs38;
-errors = emErrs38.length;
-}
-}
-if(data32.destructive !== undefined){
-let data35 = data32.destructive;
-if(typeof data35 !== "string"){
-const err144 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.approvals.properties.destructive.type,parentSchema:schema27.properties.approvals.properties.destructive,data:data35};
-if(vErrors === null){
-vErrors = [err144];
-}
-else {
-vErrors.push(err144);
-}
-errors++;
-}
-const _errs99 = errors;
-let valid22 = false;
-let passing3 = null;
-const _errs100 = errors;
-if("allow" !== data35){
-const err145 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/oneOf/0/const",keyword:"const",params:{allowedValue: "allow"},message:"must be equal to constant",schema:"allow",parentSchema:schema27.properties.approvals.properties.destructive.oneOf[0],data:data35};
-if(vErrors === null){
-vErrors = [err145];
-}
-else {
-vErrors.push(err145);
-}
-errors++;
-}
-var _valid3 = _errs100 === errors;
-if(_valid3){
-valid22 = true;
-passing3 = 0;
-}
-const _errs101 = errors;
-if("approve" !== data35){
-const err146 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/oneOf/1/const",keyword:"const",params:{allowedValue: "approve"},message:"must be equal to constant",schema:"approve",parentSchema:schema27.properties.approvals.properties.destructive.oneOf[1],data:data35};
+const err146 = {instancePath:instancePath+"/approvals/write",schemaPath:"#/properties/approvals/properties/write/errorMessage",keyword:"errorMessage",params:{errors: emErrors9[key17]},message:key17 in templates9 ? templates9[key17]() : schema27.properties.approvals.properties.write.errorMessage[key17],schema:schema27.properties.approvals.properties.write.errorMessage,parentSchema:schema27.properties.approvals.properties.write,data:data36};
 if(vErrors === null){
 vErrors = [err146];
 }
@@ -4402,41 +4487,21 @@ vErrors.push(err146);
 }
 errors++;
 }
-var _valid3 = _errs101 === errors;
-if(_valid3 && valid22){
-valid22 = false;
-passing3 = [passing3, 1];
 }
-else {
-if(_valid3){
-valid22 = true;
-passing3 = 1;
-}
-const _errs102 = errors;
-if("deny" !== data35){
-const err147 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/oneOf/2/const",keyword:"const",params:{allowedValue: "deny"},message:"must be equal to constant",schema:"deny",parentSchema:schema27.properties.approvals.properties.destructive.oneOf[2],data:data35};
-if(vErrors === null){
-vErrors = [err147];
-}
-else {
-vErrors.push(err147);
-}
-errors++;
-}
-var _valid3 = _errs102 === errors;
-if(_valid3 && valid22){
-valid22 = false;
-passing3 = [passing3, 2];
-}
-else {
-if(_valid3){
-valid22 = true;
-passing3 = 2;
+const emErrs40 = [];
+for(const err147 of vErrors){
+if(!err147.emUsed){
+emErrs40.push(err147);
 }
 }
+vErrors = emErrs40;
+errors = emErrs40.length;
 }
-if(!valid22){
-const err148 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/oneOf",keyword:"oneOf",params:{passingSchemas: passing3},message:"must match exactly one schema in oneOf",schema:schema27.properties.approvals.properties.destructive.oneOf,parentSchema:schema27.properties.approvals.properties.destructive,data:data35};
+}
+if(data34.destructive !== undefined){
+let data37 = data34.destructive;
+if(typeof data37 !== "string"){
+const err148 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.approvals.properties.destructive.type,parentSchema:schema27.properties.approvals.properties.destructive,data:data37};
 if(vErrors === null){
 vErrors = [err148];
 }
@@ -4445,11 +4510,84 @@ vErrors.push(err148);
 }
 errors++;
 }
+const _errs103 = errors;
+let valid24 = false;
+let passing3 = null;
+const _errs104 = errors;
+if("allow" !== data37){
+const err149 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/oneOf/0/const",keyword:"const",params:{allowedValue: "allow"},message:"must be equal to constant",schema:"allow",parentSchema:schema27.properties.approvals.properties.destructive.oneOf[0],data:data37};
+if(vErrors === null){
+vErrors = [err149];
+}
 else {
-errors = _errs99;
+vErrors.push(err149);
+}
+errors++;
+}
+var _valid3 = _errs104 === errors;
+if(_valid3){
+valid24 = true;
+passing3 = 0;
+}
+const _errs105 = errors;
+if("approve" !== data37){
+const err150 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/oneOf/1/const",keyword:"const",params:{allowedValue: "approve"},message:"must be equal to constant",schema:"approve",parentSchema:schema27.properties.approvals.properties.destructive.oneOf[1],data:data37};
+if(vErrors === null){
+vErrors = [err150];
+}
+else {
+vErrors.push(err150);
+}
+errors++;
+}
+var _valid3 = _errs105 === errors;
+if(_valid3 && valid24){
+valid24 = false;
+passing3 = [passing3, 1];
+}
+else {
+if(_valid3){
+valid24 = true;
+passing3 = 1;
+}
+const _errs106 = errors;
+if("deny" !== data37){
+const err151 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/oneOf/2/const",keyword:"const",params:{allowedValue: "deny"},message:"must be equal to constant",schema:"deny",parentSchema:schema27.properties.approvals.properties.destructive.oneOf[2],data:data37};
+if(vErrors === null){
+vErrors = [err151];
+}
+else {
+vErrors.push(err151);
+}
+errors++;
+}
+var _valid3 = _errs106 === errors;
+if(_valid3 && valid24){
+valid24 = false;
+passing3 = [passing3, 2];
+}
+else {
+if(_valid3){
+valid24 = true;
+passing3 = 2;
+}
+}
+}
+if(!valid24){
+const err152 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/oneOf",keyword:"oneOf",params:{passingSchemas: passing3},message:"must match exactly one schema in oneOf",schema:schema27.properties.approvals.properties.destructive.oneOf,parentSchema:schema27.properties.approvals.properties.destructive,data:data37};
+if(vErrors === null){
+vErrors = [err152];
+}
+else {
+vErrors.push(err152);
+}
+errors++;
+}
+else {
+errors = _errs103;
 if(vErrors !== null){
-if(_errs99){
-vErrors.length = _errs99;
+if(_errs103){
+vErrors.length = _errs103;
 }
 else {
 vErrors = null;
@@ -4459,61 +4597,15 @@ vErrors = null;
 if(errors > 0){
 const emErrors10 = {"oneOf":[]};
 const templates10 = {};
-for(const err149 of vErrors){
-if((((((err149.keyword !== "errorMessage") && (!err149.emUsed)) && (err149.instancePath === instancePath+"/approvals/destructive")) && (err149.keyword in emErrors10)) && (err149.schemaPath.indexOf("#/properties/approvals/properties/destructive") === 0)) && (/^\/[^\/]*$/.test(err149.schemaPath.slice(45)))){
-emErrors10[err149.keyword].push(err149);
-err149.emUsed = true;
+for(const err153 of vErrors){
+if((((((err153.keyword !== "errorMessage") && (!err153.emUsed)) && (err153.instancePath === instancePath+"/approvals/destructive")) && (err153.keyword in emErrors10)) && (err153.schemaPath.indexOf("#/properties/approvals/properties/destructive") === 0)) && (/^\/[^\/]*$/.test(err153.schemaPath.slice(45)))){
+emErrors10[err153.keyword].push(err153);
+err153.emUsed = true;
 }
 }
 for(const key18 in emErrors10){
 if(emErrors10[key18].length){
-const err150 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/errorMessage",keyword:"errorMessage",params:{errors: emErrors10[key18]},message:key18 in templates10 ? templates10[key18]() : schema27.properties.approvals.properties.destructive.errorMessage[key18],schema:schema27.properties.approvals.properties.destructive.errorMessage,parentSchema:schema27.properties.approvals.properties.destructive,data:data35};
-if(vErrors === null){
-vErrors = [err150];
-}
-else {
-vErrors.push(err150);
-}
-errors++;
-}
-}
-const emErrs39 = [];
-for(const err151 of vErrors){
-if(!err151.emUsed){
-emErrs39.push(err151);
-}
-}
-vErrors = emErrs39;
-errors = emErrs39.length;
-}
-}
-}
-else {
-const err152 = {instancePath:instancePath+"/approvals",schemaPath:"#/properties/approvals/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.approvals.type,parentSchema:schema27.properties.approvals,data:data32};
-if(vErrors === null){
-vErrors = [err152];
-}
-else {
-vErrors.push(err152);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs40 = [];
-for(const err153 of vErrors){
-if(!err153.emUsed){
-emErrs40.push(err153);
-}
-}
-vErrors = emErrs40;
-errors = emErrs40.length;
-}
-}
-if(data.memory !== undefined){
-let data36 = data.memory;
-if(data36 && typeof data36 == "object" && !Array.isArray(data36)){
-if(data36.enabled === undefined){
-const err154 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.memory.required,parentSchema:schema27.properties.memory,data:data36};
+const err154 = {instancePath:instancePath+"/approvals/destructive",schemaPath:"#/properties/approvals/properties/destructive/errorMessage",keyword:"errorMessage",params:{errors: emErrors10[key18]},message:key18 in templates10 ? templates10[key18]() : schema27.properties.approvals.properties.destructive.errorMessage[key18],schema:schema27.properties.approvals.properties.destructive.errorMessage,parentSchema:schema27.properties.approvals.properties.destructive,data:data37};
 if(vErrors === null){
 vErrors = [err154];
 }
@@ -4522,22 +4614,20 @@ vErrors.push(err154);
 }
 errors++;
 }
-for(const key19 in data36){
-if(!(key19 === "enabled")){
-const err155 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key19},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.memory,data:data36};
-if(vErrors === null){
-vErrors = [err155];
+}
+const emErrs41 = [];
+for(const err155 of vErrors){
+if(!err155.emUsed){
+emErrs41.push(err155);
+}
+}
+vErrors = emErrs41;
+errors = emErrs41.length;
+}
+}
 }
 else {
-vErrors.push(err155);
-}
-errors++;
-}
-}
-if(data36.enabled !== undefined){
-let data37 = data36.enabled;
-if(typeof data37 !== "boolean"){
-const err156 = {instancePath:instancePath+"/memory/enabled",schemaPath:"#/properties/memory/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.memory.properties.enabled.type,parentSchema:schema27.properties.memory.properties.enabled,data:data37};
+const err156 = {instancePath:instancePath+"/approvals",schemaPath:"#/properties/approvals/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.approvals.type,parentSchema:schema27.properties.approvals,data:data34};
 if(vErrors === null){
 vErrors = [err156];
 }
@@ -4547,19 +4637,21 @@ vErrors.push(err156);
 errors++;
 }
 if(errors > 0){
-const emErrs41 = [];
+const emErrs42 = [];
 for(const err157 of vErrors){
 if(!err157.emUsed){
-emErrs41.push(err157);
+emErrs42.push(err157);
 }
 }
-vErrors = emErrs41;
-errors = emErrs41.length;
+vErrors = emErrs42;
+errors = emErrs42.length;
 }
 }
-}
-else {
-const err158 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.memory.type,parentSchema:schema27.properties.memory,data:data36};
+if(data.memory !== undefined){
+let data38 = data.memory;
+if(data38 && typeof data38 == "object" && !Array.isArray(data38)){
+if(data38.enabled === undefined){
+const err158 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.memory.required,parentSchema:schema27.properties.memory,data:data38};
 if(vErrors === null){
 vErrors = [err158];
 }
@@ -4568,27 +4660,22 @@ vErrors.push(err158);
 }
 errors++;
 }
-if(errors > 0){
-const emErrors11 = {"required":{"enabled":[]}};
-const templates11 = {required:{}};
-let emPropParams6;
-let emParamsErrors6;
-for(const err159 of vErrors){
-if((((((err159.keyword !== "errorMessage") && (!err159.emUsed)) && (err159.instancePath === instancePath+"/memory")) && (err159.keyword in emErrors11)) && (err159.schemaPath.indexOf("#/properties/memory") === 0)) && (/^\/[^\/]*$/.test(err159.schemaPath.slice(19)))){
-emPropParams6 = obj0[err159.keyword];
-emParamsErrors6 = emErrors11[err159.keyword][err159.params[emPropParams6]];
-if(emParamsErrors6){
-emParamsErrors6.push(err159);
-err159.emUsed = true;
+for(const key19 in data38){
+if(!(key19 === "enabled")){
+const err159 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key19},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.memory,data:data38};
+if(vErrors === null){
+vErrors = [err159];
+}
+else {
+vErrors.push(err159);
+}
+errors++;
 }
 }
-}
-for(const key20 in emErrors11){
-for(const keyProp6 in emErrors11[key20]){
-emParamsErrors6 = emErrors11[key20][keyProp6];
-if(emParamsErrors6.length){
-const tmpl6 = templates11[key20] && templates11[key20][keyProp6];
-const err160 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors6},message:tmpl6 ? tmpl6() : schema27.properties.memory.errorMessage[key20][keyProp6],schema:schema27.properties.memory.errorMessage,parentSchema:schema27.properties.memory,data:data36};
+if(data38.enabled !== undefined){
+let data39 = data38.enabled;
+if(typeof data39 !== "boolean"){
+const err160 = {instancePath:instancePath+"/memory/enabled",schemaPath:"#/properties/memory/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.memory.properties.enabled.type,parentSchema:schema27.properties.memory.properties.enabled,data:data39};
 if(vErrors === null){
 vErrors = [err160];
 }
@@ -4597,23 +4684,20 @@ vErrors.push(err160);
 }
 errors++;
 }
-}
-}
-const emErrs42 = [];
+if(errors > 0){
+const emErrs43 = [];
 for(const err161 of vErrors){
 if(!err161.emUsed){
-emErrs42.push(err161);
+emErrs43.push(err161);
 }
 }
-vErrors = emErrs42;
-errors = emErrs42.length;
+vErrors = emErrs43;
+errors = emErrs43.length;
 }
 }
-if(data.web !== undefined){
-let data38 = data.web;
-if(data38 && typeof data38 == "object" && !Array.isArray(data38)){
-if(data38.enabled === undefined){
-const err162 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.web.required,parentSchema:schema27.properties.web,data:data38};
+}
+else {
+const err162 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.memory.type,parentSchema:schema27.properties.memory,data:data38};
 if(vErrors === null){
 vErrors = [err162];
 }
@@ -4622,22 +4706,27 @@ vErrors.push(err162);
 }
 errors++;
 }
-for(const key21 in data38){
-if(!((key21 === "enabled") || (key21 === "allowedUrls"))){
-const err163 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key21},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.web,data:data38};
-if(vErrors === null){
-vErrors = [err163];
+if(errors > 0){
+const emErrors11 = {"required":{"enabled":[]}};
+const templates11 = {required:{}};
+let emPropParams6;
+let emParamsErrors6;
+for(const err163 of vErrors){
+if((((((err163.keyword !== "errorMessage") && (!err163.emUsed)) && (err163.instancePath === instancePath+"/memory")) && (err163.keyword in emErrors11)) && (err163.schemaPath.indexOf("#/properties/memory") === 0)) && (/^\/[^\/]*$/.test(err163.schemaPath.slice(19)))){
+emPropParams6 = obj0[err163.keyword];
+emParamsErrors6 = emErrors11[err163.keyword][err163.params[emPropParams6]];
+if(emParamsErrors6){
+emParamsErrors6.push(err163);
+err163.emUsed = true;
 }
-else {
-vErrors.push(err163);
-}
-errors++;
 }
 }
-if(data38.enabled !== undefined){
-let data39 = data38.enabled;
-if(typeof data39 !== "boolean"){
-const err164 = {instancePath:instancePath+"/web/enabled",schemaPath:"#/properties/web/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.web.properties.enabled.type,parentSchema:schema27.properties.web.properties.enabled,data:data39};
+for(const key20 in emErrors11){
+for(const keyProp6 in emErrors11[key20]){
+emParamsErrors6 = emErrors11[key20][keyProp6];
+if(emParamsErrors6.length){
+const tmpl6 = templates11[key20] && templates11[key20][keyProp6];
+const err164 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors6},message:tmpl6 ? tmpl6() : schema27.properties.memory.errorMessage[key20][keyProp6],schema:schema27.properties.memory.errorMessage,parentSchema:schema27.properties.memory,data:data38};
 if(vErrors === null){
 vErrors = [err164];
 }
@@ -4646,22 +4735,23 @@ vErrors.push(err164);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs43 = [];
+}
+}
+const emErrs44 = [];
 for(const err165 of vErrors){
 if(!err165.emUsed){
-emErrs43.push(err165);
+emErrs44.push(err165);
 }
 }
-vErrors = emErrs43;
-errors = emErrs43.length;
+vErrors = emErrs44;
+errors = emErrs44.length;
 }
 }
-if(data38.allowedUrls !== undefined){
-let data40 = data38.allowedUrls;
-if(Array.isArray(data40)){
-if(data40.length > 100){
-const err166 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items",schema:100,parentSchema:schema27.properties.web.properties.allowedUrls,data:data40};
+if(data.web !== undefined){
+let data40 = data.web;
+if(data40 && typeof data40 == "object" && !Array.isArray(data40)){
+if(data40.enabled === undefined){
+const err166 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'",schema:schema27.properties.web.required,parentSchema:schema27.properties.web,data:data40};
 if(vErrors === null){
 vErrors = [err166];
 }
@@ -4670,12 +4760,9 @@ vErrors.push(err166);
 }
 errors++;
 }
-const len5 = data40.length;
-for(let i5=0; i5<len5; i5++){
-let data41 = data40[i5];
-if(typeof data41 === "string"){
-if(func2(data41) < 1){
-const err167 = {instancePath:instancePath+"/web/allowedUrls/" + i5,schemaPath:"#/properties/web/properties/allowedUrls/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema27.properties.web.properties.allowedUrls.items,data:data41};
+for(const key21 in data40){
+if(!((key21 === "enabled") || (key21 === "allowedUrls"))){
+const err167 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key21},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.web,data:data40};
 if(vErrors === null){
 vErrors = [err167];
 }
@@ -4685,8 +4772,10 @@ vErrors.push(err167);
 errors++;
 }
 }
-else {
-const err168 = {instancePath:instancePath+"/web/allowedUrls/" + i5,schemaPath:"#/properties/web/properties/allowedUrls/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.web.properties.allowedUrls.items.type,parentSchema:schema27.properties.web.properties.allowedUrls.items,data:data41};
+if(data40.enabled !== undefined){
+let data41 = data40.enabled;
+if(typeof data41 !== "boolean"){
+const err168 = {instancePath:instancePath+"/web/enabled",schemaPath:"#/properties/web/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.web.properties.enabled.type,parentSchema:schema27.properties.web.properties.enabled,data:data41};
 if(vErrors === null){
 vErrors = [err168];
 }
@@ -4696,19 +4785,21 @@ vErrors.push(err168);
 errors++;
 }
 if(errors > 0){
-const emErrs44 = [];
+const emErrs45 = [];
 for(const err169 of vErrors){
 if(!err169.emUsed){
-emErrs44.push(err169);
+emErrs45.push(err169);
 }
 }
-vErrors = emErrs44;
-errors = emErrs44.length;
+vErrors = emErrs45;
+errors = emErrs45.length;
 }
 }
-}
-else {
-const err170 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.web.properties.allowedUrls.type,parentSchema:schema27.properties.web.properties.allowedUrls,data:data40};
+if(data40.allowedUrls !== undefined){
+let data42 = data40.allowedUrls;
+if(Array.isArray(data42)){
+if(data42.length > 100){
+const err170 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items",schema:100,parentSchema:schema27.properties.web.properties.allowedUrls,data:data42};
 if(vErrors === null){
 vErrors = [err170];
 }
@@ -4717,20 +4808,23 @@ vErrors.push(err170);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs45 = [];
-for(const err171 of vErrors){
-if(!err171.emUsed){
-emErrs45.push(err171);
+const len6 = data42.length;
+for(let i6=0; i6<len6; i6++){
+let data43 = data42[i6];
+if(typeof data43 === "string"){
+if(func2(data43) < 1){
+const err171 = {instancePath:instancePath+"/web/allowedUrls/" + i6,schemaPath:"#/properties/web/properties/allowedUrls/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema27.properties.web.properties.allowedUrls.items,data:data43};
+if(vErrors === null){
+vErrors = [err171];
 }
+else {
+vErrors.push(err171);
 }
-vErrors = emErrs45;
-errors = emErrs45.length;
-}
+errors++;
 }
 }
 else {
-const err172 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.web.type,parentSchema:schema27.properties.web,data:data38};
+const err172 = {instancePath:instancePath+"/web/allowedUrls/" + i6,schemaPath:"#/properties/web/properties/allowedUrls/items/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.web.properties.allowedUrls.items.type,parentSchema:schema27.properties.web.properties.allowedUrls.items,data:data43};
 if(vErrors === null){
 vErrors = [err172];
 }
@@ -4740,26 +4834,19 @@ vErrors.push(err172);
 errors++;
 }
 if(errors > 0){
-const emErrors12 = {"required":{"enabled":[]}};
-const templates12 = {required:{}};
-let emPropParams7;
-let emParamsErrors7;
+const emErrs46 = [];
 for(const err173 of vErrors){
-if((((((err173.keyword !== "errorMessage") && (!err173.emUsed)) && (err173.instancePath === instancePath+"/web")) && (err173.keyword in emErrors12)) && (err173.schemaPath.indexOf("#/properties/web") === 0)) && (/^\/[^\/]*$/.test(err173.schemaPath.slice(16)))){
-emPropParams7 = obj0[err173.keyword];
-emParamsErrors7 = emErrors12[err173.keyword][err173.params[emPropParams7]];
-if(emParamsErrors7){
-emParamsErrors7.push(err173);
-err173.emUsed = true;
+if(!err173.emUsed){
+emErrs46.push(err173);
+}
+}
+vErrors = emErrs46;
+errors = emErrs46.length;
 }
 }
 }
-for(const key22 in emErrors12){
-for(const keyProp7 in emErrors12[key22]){
-emParamsErrors7 = emErrors12[key22][keyProp7];
-if(emParamsErrors7.length){
-const tmpl7 = templates12[key22] && templates12[key22][keyProp7];
-const err174 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors7},message:tmpl7 ? tmpl7() : schema27.properties.web.errorMessage[key22][keyProp7],schema:schema27.properties.web.errorMessage,parentSchema:schema27.properties.web,data:data38};
+else {
+const err174 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.web.properties.allowedUrls.type,parentSchema:schema27.properties.web.properties.allowedUrls,data:data42};
 if(vErrors === null){
 vErrors = [err174];
 }
@@ -4768,23 +4855,20 @@ vErrors.push(err174);
 }
 errors++;
 }
-}
-}
-const emErrs46 = [];
+if(errors > 0){
+const emErrs47 = [];
 for(const err175 of vErrors){
 if(!err175.emUsed){
-emErrs46.push(err175);
+emErrs47.push(err175);
 }
 }
-vErrors = emErrs46;
-errors = emErrs46.length;
+vErrors = emErrs47;
+errors = emErrs47.length;
 }
 }
-if(data.externalMcpServers !== undefined){
-let data42 = data.externalMcpServers;
-if(Array.isArray(data42)){
-if(data42.length > 50){
-const err176 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/maxItems",keyword:"maxItems",params:{limit: 50},message:"must NOT have more than 50 items",schema:50,parentSchema:schema27.properties.externalMcpServers,data:data42};
+}
+else {
+const err176 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.web.type,parentSchema:schema27.properties.web,data:data40};
 if(vErrors === null){
 vErrors = [err176];
 }
@@ -4793,23 +4877,27 @@ vErrors.push(err176);
 }
 errors++;
 }
-const len6 = data42.length;
-for(let i6=0; i6<len6; i6++){
-let data43 = data42[i6];
-if(data43 && typeof data43 == "object" && !Array.isArray(data43)){
-if(data43.url === undefined){
-const err177 = {instancePath:instancePath+"/externalMcpServers/" + i6,schemaPath:"#/properties/externalMcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'",schema:schema27.properties.externalMcpServers.items.required,parentSchema:schema27.properties.externalMcpServers.items,data:data43};
-if(vErrors === null){
-vErrors = [err177];
+if(errors > 0){
+const emErrors12 = {"required":{"enabled":[]}};
+const templates12 = {required:{}};
+let emPropParams7;
+let emParamsErrors7;
+for(const err177 of vErrors){
+if((((((err177.keyword !== "errorMessage") && (!err177.emUsed)) && (err177.instancePath === instancePath+"/web")) && (err177.keyword in emErrors12)) && (err177.schemaPath.indexOf("#/properties/web") === 0)) && (/^\/[^\/]*$/.test(err177.schemaPath.slice(16)))){
+emPropParams7 = obj0[err177.keyword];
+emParamsErrors7 = emErrors12[err177.keyword][err177.params[emPropParams7]];
+if(emParamsErrors7){
+emParamsErrors7.push(err177);
+err177.emUsed = true;
 }
-else {
-vErrors.push(err177);
 }
-errors++;
 }
-for(const key23 in data43){
-if(!(key23 === "url")){
-const err178 = {instancePath:instancePath+"/externalMcpServers/" + i6,schemaPath:"#/properties/externalMcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key23},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.externalMcpServers.items,data:data43};
+for(const key22 in emErrors12){
+for(const keyProp7 in emErrors12[key22]){
+emParamsErrors7 = emErrors12[key22][keyProp7];
+if(emParamsErrors7.length){
+const tmpl7 = templates12[key22] && templates12[key22][keyProp7];
+const err178 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors7},message:tmpl7 ? tmpl7() : schema27.properties.web.errorMessage[key22][keyProp7],schema:schema27.properties.web.errorMessage,parentSchema:schema27.properties.web,data:data40};
 if(vErrors === null){
 vErrors = [err178];
 }
@@ -4819,22 +4907,22 @@ vErrors.push(err178);
 errors++;
 }
 }
-if(data43.url !== undefined){
-let data44 = data43.url;
-if(typeof data44 === "string"){
-if(func2(data44) < 1){
-const err179 = {instancePath:instancePath+"/externalMcpServers/" + i6+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema27.properties.externalMcpServers.items.properties.url,data:data44};
-if(vErrors === null){
-vErrors = [err179];
 }
-else {
-vErrors.push(err179);
-}
-errors++;
+const emErrs48 = [];
+for(const err179 of vErrors){
+if(!err179.emUsed){
+emErrs48.push(err179);
 }
 }
-else {
-const err180 = {instancePath:instancePath+"/externalMcpServers/" + i6+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.externalMcpServers.items.properties.url.type,parentSchema:schema27.properties.externalMcpServers.items.properties.url,data:data44};
+vErrors = emErrs48;
+errors = emErrs48.length;
+}
+}
+if(data.externalMcpServers !== undefined){
+let data44 = data.externalMcpServers;
+if(Array.isArray(data44)){
+if(data44.length > 50){
+const err180 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/maxItems",keyword:"maxItems",params:{limit: 50},message:"must NOT have more than 50 items",schema:50,parentSchema:schema27.properties.externalMcpServers,data:data44};
 if(vErrors === null){
 vErrors = [err180];
 }
@@ -4843,20 +4931,23 @@ vErrors.push(err180);
 }
 errors++;
 }
-if(errors > 0){
-const emErrs47 = [];
-for(const err181 of vErrors){
-if(!err181.emUsed){
-emErrs47.push(err181);
-}
-}
-vErrors = emErrs47;
-errors = emErrs47.length;
-}
-}
+const len7 = data44.length;
+for(let i7=0; i7<len7; i7++){
+let data45 = data44[i7];
+if(data45 && typeof data45 == "object" && !Array.isArray(data45)){
+if(data45.url === undefined){
+const err181 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'",schema:schema27.properties.externalMcpServers.items.required,parentSchema:schema27.properties.externalMcpServers.items,data:data45};
+if(vErrors === null){
+vErrors = [err181];
 }
 else {
-const err182 = {instancePath:instancePath+"/externalMcpServers/" + i6,schemaPath:"#/properties/externalMcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.externalMcpServers.items.type,parentSchema:schema27.properties.externalMcpServers.items,data:data43};
+vErrors.push(err181);
+}
+errors++;
+}
+for(const key23 in data45){
+if(!(key23 === "url")){
+const err182 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key23},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.externalMcpServers.items,data:data45};
 if(vErrors === null){
 vErrors = [err182];
 }
@@ -4865,27 +4956,23 @@ vErrors.push(err182);
 }
 errors++;
 }
-if(errors > 0){
-const emErrors13 = {"required":{"url":[]}};
-const templates13 = {required:{}};
-let emPropParams8;
-let emParamsErrors8;
-for(const err183 of vErrors){
-if((((((err183.keyword !== "errorMessage") && (!err183.emUsed)) && (err183.instancePath === instancePath+"/externalMcpServers/" + i6)) && (err183.keyword in emErrors13)) && (err183.schemaPath.indexOf("#/properties/externalMcpServers/items") === 0)) && (/^\/[^\/]*$/.test(err183.schemaPath.slice(37)))){
-emPropParams8 = obj0[err183.keyword];
-emParamsErrors8 = emErrors13[err183.keyword][err183.params[emPropParams8]];
-if(emParamsErrors8){
-emParamsErrors8.push(err183);
-err183.emUsed = true;
+}
+if(data45.url !== undefined){
+let data46 = data45.url;
+if(typeof data46 === "string"){
+if(func2(data46) < 1){
+const err183 = {instancePath:instancePath+"/externalMcpServers/" + i7+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters",schema:1,parentSchema:schema27.properties.externalMcpServers.items.properties.url,data:data46};
+if(vErrors === null){
+vErrors = [err183];
+}
+else {
+vErrors.push(err183);
+}
+errors++;
 }
 }
-}
-for(const key24 in emErrors13){
-for(const keyProp8 in emErrors13[key24]){
-emParamsErrors8 = emErrors13[key24][keyProp8];
-if(emParamsErrors8.length){
-const tmpl8 = templates13[key24] && templates13[key24][keyProp8];
-const err184 = {instancePath:instancePath+"/externalMcpServers/" + i6,schemaPath:"#/properties/externalMcpServers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema27.properties.externalMcpServers.items.errorMessage[key24][keyProp8],schema:schema27.properties.externalMcpServers.items.errorMessage,parentSchema:schema27.properties.externalMcpServers.items,data:data43};
+else {
+const err184 = {instancePath:instancePath+"/externalMcpServers/" + i7+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.externalMcpServers.items.properties.url.type,parentSchema:schema27.properties.externalMcpServers.items.properties.url,data:data46};
 if(vErrors === null){
 vErrors = [err184];
 }
@@ -4894,21 +4981,20 @@ vErrors.push(err184);
 }
 errors++;
 }
-}
-}
-const emErrs48 = [];
+if(errors > 0){
+const emErrs49 = [];
 for(const err185 of vErrors){
 if(!err185.emUsed){
-emErrs48.push(err185);
+emErrs49.push(err185);
 }
 }
-vErrors = emErrs48;
-errors = emErrs48.length;
+vErrors = emErrs49;
+errors = emErrs49.length;
 }
 }
 }
 else {
-const err186 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.externalMcpServers.type,parentSchema:schema27.properties.externalMcpServers,data:data42};
+const err186 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.externalMcpServers.items.type,parentSchema:schema27.properties.externalMcpServers.items,data:data45};
 if(vErrors === null){
 vErrors = [err186];
 }
@@ -4918,20 +5004,26 @@ vErrors.push(err186);
 errors++;
 }
 if(errors > 0){
-const emErrs49 = [];
+const emErrors13 = {"required":{"url":[]}};
+const templates13 = {required:{}};
+let emPropParams8;
+let emParamsErrors8;
 for(const err187 of vErrors){
-if(!err187.emUsed){
-emErrs49.push(err187);
+if((((((err187.keyword !== "errorMessage") && (!err187.emUsed)) && (err187.instancePath === instancePath+"/externalMcpServers/" + i7)) && (err187.keyword in emErrors13)) && (err187.schemaPath.indexOf("#/properties/externalMcpServers/items") === 0)) && (/^\/[^\/]*$/.test(err187.schemaPath.slice(37)))){
+emPropParams8 = obj0[err187.keyword];
+emParamsErrors8 = emErrors13[err187.keyword][err187.params[emPropParams8]];
+if(emParamsErrors8){
+emParamsErrors8.push(err187);
+err187.emUsed = true;
 }
 }
-vErrors = emErrs49;
-errors = emErrs49.length;
 }
-}
-if(data.enabled !== undefined){
-let data45 = data.enabled;
-if(typeof data45 !== "boolean"){
-const err188 = {instancePath:instancePath+"/enabled",schemaPath:"#/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.enabled.type,parentSchema:schema27.properties.enabled,data:data45};
+for(const key24 in emErrors13){
+for(const keyProp8 in emErrors13[key24]){
+emParamsErrors8 = emErrors13[key24][keyProp8];
+if(emParamsErrors8.length){
+const tmpl8 = templates13[key24] && templates13[key24][keyProp8];
+const err188 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors8},message:tmpl8 ? tmpl8() : schema27.properties.externalMcpServers.items.errorMessage[key24][keyProp8],schema:schema27.properties.externalMcpServers.items.errorMessage,parentSchema:schema27.properties.externalMcpServers.items,data:data45};
 if(vErrors === null){
 vErrors = [err188];
 }
@@ -4940,7 +5032,8 @@ vErrors.push(err188);
 }
 errors++;
 }
-if(errors > 0){
+}
+}
 const emErrs50 = [];
 for(const err189 of vErrors){
 if(!err189.emUsed){
@@ -4953,7 +5046,7 @@ errors = emErrs50.length;
 }
 }
 else {
-const err190 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+const err190 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/type",keyword:"type",params:{type: "array"},message:"must be array",schema:schema27.properties.externalMcpServers.type,parentSchema:schema27.properties.externalMcpServers,data:data44};
 if(vErrors === null){
 vErrors = [err190];
 }
@@ -4963,26 +5056,20 @@ vErrors.push(err190);
 errors++;
 }
 if(errors > 0){
-const emErrors14 = {"required":{"title":[],"persona":[],"mcpServers":[],"enabled":[]}};
-const templates14 = {required:{}};
-let emPropParams9;
-let emParamsErrors9;
+const emErrs51 = [];
 for(const err191 of vErrors){
-if((((((err191.keyword !== "errorMessage") && (!err191.emUsed)) && (err191.instancePath === instancePath)) && (err191.keyword in emErrors14)) && (err191.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err191.schemaPath.slice(1)))){
-emPropParams9 = obj0[err191.keyword];
-emParamsErrors9 = emErrors14[err191.keyword][err191.params[emPropParams9]];
-if(emParamsErrors9){
-emParamsErrors9.push(err191);
-err191.emUsed = true;
+if(!err191.emUsed){
+emErrs51.push(err191);
 }
 }
+vErrors = emErrs51;
+errors = emErrs51.length;
 }
-for(const key25 in emErrors14){
-for(const keyProp9 in emErrors14[key25]){
-emParamsErrors9 = emErrors14[key25][keyProp9];
-if(emParamsErrors9.length){
-const tmpl9 = templates14[key25] && templates14[key25][keyProp9];
-const err192 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors9},message:tmpl9 ? tmpl9() : schema27.errorMessage[key25][keyProp9],schema:schema27.errorMessage,parentSchema:schema27,data};
+}
+if(data.enabled !== undefined){
+let data47 = data.enabled;
+if(typeof data47 !== "boolean"){
+const err192 = {instancePath:instancePath+"/enabled",schemaPath:"#/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean",schema:schema27.properties.enabled.type,parentSchema:schema27.properties.enabled,data:data47};
 if(vErrors === null){
 vErrors = [err192];
 }
@@ -4991,16 +5078,67 @@ vErrors.push(err192);
 }
 errors++;
 }
-}
-}
-const emErrs51 = [];
+if(errors > 0){
+const emErrs52 = [];
 for(const err193 of vErrors){
 if(!err193.emUsed){
-emErrs51.push(err193);
+emErrs52.push(err193);
 }
 }
-vErrors = emErrs51;
-errors = emErrs51.length;
+vErrors = emErrs52;
+errors = emErrs52.length;
+}
+}
+}
+else {
+const err194 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err194];
+}
+else {
+vErrors.push(err194);
+}
+errors++;
+}
+if(errors > 0){
+const emErrors14 = {"required":{"title":[],"persona":[],"mcpServers":[],"enabled":[]}};
+const templates14 = {required:{}};
+let emPropParams9;
+let emParamsErrors9;
+for(const err195 of vErrors){
+if((((((err195.keyword !== "errorMessage") && (!err195.emUsed)) && (err195.instancePath === instancePath)) && (err195.keyword in emErrors14)) && (err195.schemaPath.indexOf("#") === 0)) && (/^\/[^\/]*$/.test(err195.schemaPath.slice(1)))){
+emPropParams9 = obj0[err195.keyword];
+emParamsErrors9 = emErrors14[err195.keyword][err195.params[emPropParams9]];
+if(emParamsErrors9){
+emParamsErrors9.push(err195);
+err195.emUsed = true;
+}
+}
+}
+for(const key25 in emErrors14){
+for(const keyProp9 in emErrors14[key25]){
+emParamsErrors9 = emErrors14[key25][keyProp9];
+if(emParamsErrors9.length){
+const tmpl9 = templates14[key25] && templates14[key25][keyProp9];
+const err196 = {instancePath,schemaPath:"#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors9},message:tmpl9 ? tmpl9() : schema27.errorMessage[key25][keyProp9],schema:schema27.errorMessage,parentSchema:schema27,data};
+if(vErrors === null){
+vErrors = [err196];
+}
+else {
+vErrors.push(err196);
+}
+errors++;
+}
+}
+}
+const emErrs53 = [];
+for(const err197 of vErrors){
+if(!err197.emUsed){
+emErrs53.push(err197);
+}
+}
+vErrors = emErrs53;
+errors = emErrs53.length;
 }
 validate23.errors = vErrors;
 return errors === 0;
@@ -5008,11 +5146,11 @@ return errors === 0;
 validate23.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 
 
-function validate35(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
-/*# sourceURL="export11" */;
+function validate36(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
+/*# sourceURL="export12" */;
 let vErrors = null;
 let errors = 0;
-const evaluated0 = validate35.evaluated;
+const evaluated0 = validate36.evaluated;
 if(evaluated0.dynamicProps){
 evaluated0.props = undefined;
 }
@@ -5023,10 +5161,10 @@ if(!(validate23(data, {instancePath,parentData,parentDataProperty,rootData,dynam
 vErrors = vErrors === null ? validate23.errors : vErrors.concat(validate23.errors);
 errors = vErrors.length;
 }
-validate35.errors = vErrors;
+validate36.errors = vErrors;
 return errors === 0;
 }
-validate35.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
+validate36.evaluated = {"props":true,"dynamicProps":false,"dynamicItems":false};
 function expression0(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
 return (layout.defaultData)
@@ -5100,6 +5238,13 @@ const compiledLayout = {
       title: "",
       root: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items",
       refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items",
+      discriminatorValue: undefined
+    },
+
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items": {
+      title: "",
+      root: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items",
+      refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items",
       discriminatorValue: undefined
     },
 
@@ -5273,13 +5418,20 @@ const compiledLayout = {
       pointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items",
       refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items",
       pure: true,
-      propertyKeys: ["serverId", "toolFilter"],
+
+      propertyKeys: [
+        "serverId",
+        "profiles",
+        "toolFilter"
+      ],
+
       roPropertyKeys: [],
       nullable: false,
       required: true,
 
       children: [
         "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId",
+        "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles",
         "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter"
       ]
     },
@@ -5289,6 +5441,34 @@ const compiledLayout = {
       key: "serverId",
       pointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId",
       refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/serverId",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: true
+    },
+
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles": {
+      title: "Profiles",
+      key: "profiles",
+      pointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles",
+      refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles",
+      pure: true,
+      propertyKeys: [],
+      roPropertyKeys: [],
+      nullable: false,
+      required: false,
+
+      childrenTrees: [
+        "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items"
+      ]
+    },
+
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items": {
+      title: undefined,
+      key: "",
+      pointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items",
+      refPointer: "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -6048,6 +6228,8 @@ const compiledLayout = {
       children: [{
         key: "serverId"
       }, {
+        key: "profiles"
+      }, {
         key: "toolFilter"
       }],
 
@@ -6111,6 +6293,19 @@ const compiledLayout = {
       },
 
       label: "Server"
+    },
+
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles": {
+      comp: "combobox",
+      multiple: true,
+      label: "Profiles",
+      help: "<p>What this server lets the agent do, by profile.</p>"
+    },
+
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items": {
+      comp: "text-field",
+      label: "",
+      nullable: true
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter": {
@@ -6925,18 +7120,19 @@ const compiledLayout = {
   },
 
   validates: {
-    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items": export0,
-    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items": export1,
-    "https://github.com/data-fair/lib/access-ref#/oneOf/0": export2,
-    "https://github.com/data-fair/lib/access-ref#/oneOf/1": export3,
-    "https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items": export4,
-    "https://github.com/data-fair/lib/access-ref#/oneOf/2": export5,
-    "https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items": export6,
-    "https://github.com/data-fair/lib/access-ref#/oneOf/3": export7,
-    "https://github.com/data-fair/lib/access-ref#": export8,
-    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items": export9,
-    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items": export10,
-    "https://github.com/data-fair/agents/autonomous-agent/write-req#": export11
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/profiles/items": export0,
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items/properties/toolFilter/items": export1,
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/mcpServers/items": export2,
+    "https://github.com/data-fair/lib/access-ref#/oneOf/0": export3,
+    "https://github.com/data-fair/lib/access-ref#/oneOf/1": export4,
+    "https://github.com/data-fair/lib/access-ref#/oneOf/2/properties/roles/items": export5,
+    "https://github.com/data-fair/lib/access-ref#/oneOf/2": export6,
+    "https://github.com/data-fair/lib/access-ref#/oneOf/3/properties/roles/items": export7,
+    "https://github.com/data-fair/lib/access-ref#/oneOf/3": export8,
+    "https://github.com/data-fair/lib/access-ref#": export9,
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/web/properties/allowedUrls/items": export10,
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#/properties/externalMcpServers/items": export11,
+    "https://github.com/data-fair/agents/autonomous-agent/write-req#": export12
   },
 
   validationErrors: {},

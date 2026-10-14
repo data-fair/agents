@@ -12,7 +12,8 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getAccountRole } from '@data-fair/lib-common-types/session/index.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-import { reqAgent, reqAgentOwner, getMcpServerCatalog, assertKnownMcpServers, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
+import { reqAgent, reqAgentOwner, getMcpServerCatalog, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
+import { assertMcpServerRefs } from '../mcp-servers/profiles.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { buildNhi, type StoredNhi } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/live-runs.ts'
@@ -94,7 +95,7 @@ router.post('/:type/:id', async (req, res, next) => {
   try {
     const { session, owner } = reqAgentOwner(req, 'write')
     const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
-    assertKnownMcpServers(body.mcpServers)
+    await assertMcpServerRefs(body.mcpServers)
 
     const { nhi, writable } = rebuildNhi(body, req)
 
@@ -161,7 +162,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
   try {
     const { owner, agent: existing } = await reqAgent(req, 'write')
     const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
-    assertKnownMcpServers(body.mcpServers)
+    await assertMcpServerRefs(body.mcpServers)
 
     // Keeps the captured site of an unchanged identity (see buildNhi): an admin saving from another of
     // the organization's hosts does not move the agent's home.

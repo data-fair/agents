@@ -13,6 +13,10 @@ export type Persona = string;
 export type Instructions = string;
 export type Server = string;
 /**
+ * What this server lets the agent do, by profile.
+ */
+export type Profiles = string[];
+/**
  * Leave empty to expose every tool this server offers.
  */
 export type OnlyTheseTools = string[];
@@ -21,6 +25,7 @@ export type OnlyTheseTools = string[];
  */
 export type MCPServers = {
   serverId: Server;
+  profiles?: Profiles;
   toolFilter?: OnlyTheseTools;
 }[];
 export type ClientId = string;

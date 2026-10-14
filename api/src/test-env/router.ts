@@ -16,6 +16,7 @@ import { httpError, reqSessionAuthenticated, type AccountKeys } from '@data-fair
 import mongo from '#mongo'
 import { getModelsForOwner } from '../models/router.ts'
 import { clearToolListings } from '../mcp-servers/client.ts'
+import { clearProfileVocabularies } from '../mcp-servers/profiles.ts'
 import { invalidateSettings } from '../settings/service.ts'
 import { executeMemoryCommand } from '../memory/service.ts'
 import { agentStoreId, MemoryCommandError, MemoryConflictError, type MemoryAuthor } from '../memory/operations.ts'
@@ -72,6 +73,7 @@ export const createTestEnvRouter = () => {
   router.delete('/', async (req, res) => {
     getModelsForOwner.clear()
     clearToolListings()
+    clearProfileVocabularies()
     invalidateSettings()
     await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
