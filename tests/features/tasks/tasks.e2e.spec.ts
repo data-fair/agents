@@ -213,4 +213,17 @@ test.describe('Agent page, Tasks tab', () => {
     await expect(url).not.toHaveText(before!)
     expect(await url.textContent()).toContain((await admin.get(`${tasksUrl(agentId)}/${task.id}/webhook-key`)).data)
   })
+
+  test('an admin opens a task\'s notifications: the events subscription page, for its four topics', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    const task = await createTask(agentId)
+    await openTasks(page, goToWithAuth, agentId)
+    await taskItem(page, 'Morning digest').getByRole('button', { name: 'Notifications' }).click()
+    const frame = page.locator('d-frame')
+    await expect(frame).toHaveAttribute('src', /\/events\/embed\/subscribe\?/)
+    const src = new URL(String(await frame.getAttribute('src')), 'http://x')
+    expect(src.searchParams.get('key')?.split(',')).toEqual(['done', 'needs-attention', 'failed', 'paused'].map(kind => `agents:task-${kind}:${task.id}`))
+    expect(src.searchParams.get('sender')?.split(',')).toEqual(Array(4).fill('organization:test1'))
+    expect(src.searchParams.get('register')).toBe('false')
+  })
 })

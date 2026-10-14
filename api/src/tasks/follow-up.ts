@@ -33,14 +33,17 @@ export const afterTaskRun = async (run: ConversationRun, task?: Pick<AutonomousA
   // A timeout is an `error`; an abort is an admin's act, not a failure.
   const failed = run.status === 'error' || run.status === 'interrupted'
   const needsAttention = run.outcome?.status === 'needs-attention'
-  // Most runs notify nothing, and then read nothing more.
-  if (!failed && !needsAttention) return
+  // A run that did its task (outcome `done`, or none reported) notifies its subscribers; `nothing-to-do` does
+  // not, so a frequent check that finds nothing pings nobody.
+  const done = run.status === 'done' && (!run.outcome || run.outcome.status === 'done')
+  if (!failed && !needsAttention && !done) return
 
   // The link in a notification needs the deployment's public URL, which only the agent's enrolment records.
   const agent = await mongo.autonomousAgents.findOne({ id: run.agentId }, { projection: { _id: 0, 'nhi.siteUrl': 1 } })
   const siteUrl = agent?.nhi?.siteUrl
 
   if (needsAttention) pushTaskEvent(taskEvent('needs-attention', current, run, { siteUrl }))
+  if (done) pushTaskEvent(taskEvent('done', current, run, { siteUrl }))
   if (!failed) return
 
   // THE PAUSE FIRST, the notifications after it: a notification is best-effort (pushTaskEvent never

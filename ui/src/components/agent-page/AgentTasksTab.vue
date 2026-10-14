@@ -91,6 +91,26 @@
         :text="t('runNow')"
         @click="runNow(task)"
       />
+      <!-- Who hears of a task's runs is who subscribed to its topics in the events service, as for data-fair
+           processings: the subscription page of the events service, embedded, for this task's four topics. -->
+      <v-menu
+        max-width="500"
+        :close-on-content-click="false"
+      >
+        <template #activator="{ props: activatorProps }">
+          <v-btn
+            v-bind="activatorProps"
+            variant="text"
+            :prepend-icon="mdiBell"
+            :text="t('notifications')"
+          />
+        </template>
+        <v-card :title="t('notifications')">
+          <v-card-text class="pa-0">
+            <d-frame :src="eventsSubscribeUrl(task)" />
+          </v-card-text>
+        </v-card>
+      </v-menu>
       <v-btn
         variant="text"
         :prepend-icon="mdiWebhook"
@@ -265,6 +285,11 @@ en:
   confirmRegenerate: The current URL will stop working at once.
   confirm: Confirm
   close: Close
+  notifications: Notifications
+  notifDone: "The task \"{title}\" is done"
+  notifNeedsAttention: "The task \"{title}\" needs attention"
+  notifFailed: "The task \"{title}\" failed"
+  notifPaused: "The task \"{title}\" was paused"
 fr:
   newTask: Nouvelle tâche
   editTask: Modifier la tâche
@@ -292,18 +317,24 @@ fr:
   confirmRegenerate: L'URL actuelle cessera immédiatement de fonctionner.
   confirm: Confirmer
   close: Fermer
+  notifications: Notifications
+  notifDone: "La tâche « {title} » est terminée"
+  notifNeedsAttention: "La tâche « {title} » demande votre attention"
+  notifFailed: "La tâche « {title} » a échoué"
+  notifPaused: "La tâche « {title} » a été mise en pause"
 </i18n>
 
 <script lang="ts" setup>
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { mdiContentCopy, mdiDelete, mdiPencil, mdiPlay, mdiPlus, mdiRefresh, mdiWebhook } from '@mdi/js'
+import { mdiBell, mdiContentCopy, mdiDelete, mdiPencil, mdiPlay, mdiPlus, mdiRefresh, mdiWebhook } from '@mdi/js'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { describeScheduling } from '@agents/shared/task-schedule'
 import VjsfTaskWriteReq from '~/components/vjsf/vjsf-task-write-req.vue'
 import { apiErrorMessage } from '~/utils/api-error'
-import { $apiPath, $fetch } from '~/context'
+import { $apiPath, $fetch, $sitePath } from '~/context'
+import '@data-fair/frame/lib/d-frame.js'
 
 const props = defineProps<{
   agent: any
@@ -367,6 +398,24 @@ const remove = async (task: any) => {
   } finally {
     busy[task.id] = undefined
   }
+}
+
+// ---- notifications ----
+// The topics are the ones taskEvent pushes (api/src/tasks/operations.ts), the subscribe page and its parameters
+// those of data-fair processings' notifications menu.
+const NOTIFICATION_KINDS = { done: 'notifDone', 'needs-attention': 'notifNeedsAttention', failed: 'notifFailed', paused: 'notifPaused' } as const
+const eventsSubscribeUrl = (task: any) => {
+  const sender = `${props.accountType}:${props.accountId}`
+  // The subscribe page splits its lists on commas: a comma in a task title would shift every later title.
+  const topics = Object.entries(NOTIFICATION_KINDS).map(([kind, title]) => ({ key: `agents:task-${kind}:${task.id}`, title: t(title, { title: task.title }).replace(/,/g, ' ') }))
+  const params = new URLSearchParams({
+    key: topics.map(topic => topic.key).join(','),
+    title: topics.map(topic => topic.title).join(','),
+    'url-template': window.location.href,
+    register: 'false',
+    sender: topics.map(() => sender).join(',')
+  })
+  return `${$sitePath}/events/embed/subscribe?${params}`
 }
 
 // ---- the trigger URL ----

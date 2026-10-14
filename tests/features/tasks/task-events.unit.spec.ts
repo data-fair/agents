@@ -9,7 +9,7 @@ const task = { id: 'task-1', title: 'Weekly check', owner: { type: 'organization
 const run = { id: 'run-1', agentId: 'agent-1', status: 'error' as const, error: 'mock stream error', outcome: { status: 'needs-attention' as const, summary: 'two datasets are stale' } }
 
 test.describe('taskEvent', () => {
-  for (const kind of ['failed', 'needs-attention', 'paused'] as const) {
+  for (const kind of ['done', 'failed', 'needs-attention', 'paused'] as const) {
     test(`a ${kind} event is private, sent by the owner, about the task`, () => {
       const event = taskEvent(kind, task, run)
       assert.equal(event.topic.key, `agents:task-${kind}:task-1`)
@@ -25,6 +25,17 @@ test.describe('taskEvent', () => {
     assert.equal(taskEvent('failed', task, run).title, 'La tâche planifiée « Weekly check » a échoué.')
     assert.equal(taskEvent('needs-attention', task, run).title, 'La tâche planifiée « Weekly check » demande votre attention : two datasets are stale')
     assert.equal(taskEvent('paused', task, run, { failures: 5 }).title, 'La tâche planifiée « Weekly check » a été mise en pause après 5 exécutions en échec consécutives.')
+  })
+
+  test('a done event carries the agent\'s summary, or its final answer when it reported none, and links to the run', () => {
+    const done = { id: 'run-1', agentId: 'agent-1', status: 'done' as const, outcome: { status: 'done' as const, summary: 'all good' } }
+    const event = taskEvent('done', task, done, { siteUrl: 'https://example.org' })
+    assert.equal(event.title, 'La tâche planifiée « Weekly check » est terminée : all good')
+    assert.equal(event.body, 'all good')
+    assert.equal(event.url, 'https://example.org/agents/organization/test1/agents/agent-1?tab=history&run=run-1')
+    const bare = { id: 'run-2', agentId: 'agent-1', status: 'done' as const, parts: [{ type: 'text', text: 'three datasets updated' }] as any }
+    assert.equal(taskEvent('done', task, bare).title, 'La tâche planifiée « Weekly check » est terminée.')
+    assert.equal(taskEvent('done', task, bare).body, 'three datasets updated')
   })
 
   test('a long summary is truncated in the title, and kept whole in the body', () => {

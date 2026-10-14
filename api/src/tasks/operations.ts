@@ -82,7 +82,7 @@ export const validateTaskOutcome = (input: unknown): TaskOutcome => {
 const TITLE_SUMMARY_MAX = 150
 const truncate = (text: string, max: number) => text.length > max ? `${text.slice(0, max - 1).trimEnd()}…` : text
 
-export type TaskEventKind = 'failed' | 'needs-attention' | 'paused'
+export type TaskEventKind = 'done' | 'failed' | 'needs-attention' | 'paused'
 
 /** An event as pushed to the events service, which stamps the date itself. */
 export type TaskEvent = Omit<Event, 'date'> & { topic: { key: string } }
@@ -91,7 +91,8 @@ export type TaskEvent = Omit<Event, 'date'> & { topic: { key: string } }
  * The notification one task run pushes, by kind. Keyed per task (processings' `<service>:<kind>:<id>`
  * shape), so an admin can subscribe to one task or, by prefix, to all of them. In French, like data-fair
  * processings' notifications. The body is what the reader needs to act on it: the run's error, or the
- * agent's own summary.
+ * agent's own summary (for `done`, its final answer when it reported none). `done` is pushed for every run
+ * that did its task, like processings' `finish-ok`: who hears of it is who subscribed to the topic.
  *
  * `failures` is the streak that paused the task, for the `paused` title. `siteUrl` is the deployment's
  * public URL (the agent's enrolment records it): with it the event links to the agent's page, on the run
@@ -106,12 +107,15 @@ export const taskEvent = (
   const subject = `La tâche planifiée « ${task.title} »`
   const error = run.error ?? (partsText((run.parts ?? []) as MessagePart[]).trim() || undefined)
   const summary = run.outcome?.summary
-  const title = kind === 'needs-attention'
-    ? (summary ? `${subject} demande votre attention : ${truncate(summary, TITLE_SUMMARY_MAX)}` : `${subject} demande votre attention.`)
-    : kind === 'paused'
-      ? `${subject} a été mise en pause après ${opts.failures ?? 'plusieurs'} exécutions en échec consécutives.`
-      : `${subject} a échoué.`
-  const body = kind === 'needs-attention' ? summary : error
+  const title = kind === 'done'
+    ? (summary ? `${subject} est terminée : ${truncate(summary, TITLE_SUMMARY_MAX)}` : `${subject} est terminée.`)
+    : kind === 'needs-attention'
+      ? (summary ? `${subject} demande votre attention : ${truncate(summary, TITLE_SUMMARY_MAX)}` : `${subject} demande votre attention.`)
+      : kind === 'paused'
+        ? `${subject} a été mise en pause après ${opts.failures ?? 'plusieurs'} exécutions en échec consécutives.`
+        : `${subject} a échoué.`
+  // done: the agent's summary, or its final answer when it reported no outcome (`error` is that text then).
+  const body = kind === 'needs-attention' ? summary : kind === 'done' ? summary ?? error : error
   const page = opts.siteUrl && `${opts.siteUrl.replace(/\/+$/, '')}/agents/${task.owner.type}/${task.owner.id}/agents/${run.agentId}`
   const url = page && (kind === 'paused' ? `${page}?tab=tasks` : `${page}?tab=history&run=${run.id}`)
   return {

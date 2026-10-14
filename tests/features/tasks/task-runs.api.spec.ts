@@ -219,6 +219,25 @@ test.describe('Task runs', () => {
     assert.equal(paused.nextRunAt, undefined)
   })
 
+  test('a done run notifies its subscribers, with the summary or the final answer; nothing-to-do notifies nobody', async () => {
+    const agent = await createAgent()
+    const reported = await createTask(agent.id, 'call tool report_outcome {"status":"done","summary":"all good"}')
+    await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, reported.id))
+    const done = (await events()).find(e => e.topic.key === `agents:task-done:${reported.id}`)
+    assert.ok(done, JSON.stringify(await events()))
+    assert.equal(done.body, 'all good')
+
+    const bare = await createTask(agent.id, 'hello')
+    await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, bare.id))
+    const answered = (await events()).find(e => e.topic.key === `agents:task-done:${bare.id}`)
+    assert.ok(answered?.body, 'a run that reported no outcome notifies done with its final answer')
+
+    await admin.delete('/api/test-env/pushed-events')
+    const quiet = await createTask(agent.id, 'call tool report_outcome {"status":"nothing-to-do","summary":"nothing new"}')
+    await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, quiet.id))
+    assert.deepEqual(await events(), [])
+  })
+
   test('a resumed task is not re-paused by its first new failure', async () => {
     const agent = await createAgent()
     const failing = await createTask(agent.id, 'stream error')
