@@ -68,6 +68,7 @@ export const renderConfiguration = (view: ConfigurationView): string => {
   const tools = [
     ...Object.entries(catalog.tools).map(([name, { server, annotations }]) => `${name} (server ${server}): ${toolStatus(annotations, agent.approvals, surface)}`),
     ...catalog.filteredOut.map(({ name, server }) => `${name} (server ${server}): not selected for you by an administrator`),
+    ...(catalog.profiled ?? []).map(({ server, profiles }) => `server ${server}: profiles ${profiles.join(', ')}, chosen by an administrator`),
     ...(catalog.needsFiles ?? []).map(({ name, server }) => `${name} (server ${server}): not usable: it takes a file, and this deployment has no file store`),
     ...catalog.skippedServers.map(({ id, reason }) => `server ${id}: server unreachable: ${reason}`)
   ]

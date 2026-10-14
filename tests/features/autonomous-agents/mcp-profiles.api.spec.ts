@@ -54,3 +54,60 @@ test.describe('profile selection at save', () => {
     assert.equal(res.status, 400)
   })
 })
+
+const issuer = `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`
+const seedAgent = async (id: string, profiles: string[]) => {
+  await admin.post('/api/test-env/autonomous-agent', {
+    id,
+    owner: { type: 'organization', id: 'test1' },
+    clientId: 'test-autonomous-agent-nhi',
+    siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
+    issuer,
+    autonomousAgent: body([{ serverId: 'dev-profiled-mcp', profiles }])
+  })
+}
+
+test.describe('profile selection at run time', () => {
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.afterAll(async () => { await fixture.close() })
+  test.beforeEach(async () => { await clean(); fixture.withdrawProfile(undefined) })
+
+  test('a turn lists exactly the selected profiles\' tools, and the diagnostic says which', async () => {
+    await seedAgent('test-fixture', ['read'])
+    const res = await admin.get(`${base}/test-fixture/tools`)
+    assert.deepEqual(res.data.results.map((t: any) => t.name).sort(), ['closure_stats', 'list_road_closures'])
+    assert.deepEqual(res.data.profiles, [{ server: 'dev-profiled-mcp', profiles: ['read'] }])
+  })
+  test('equal selections in another order give the same tools; a different selection does not', async () => {
+    await seedAgent('test-fixture', ['write', 'catalog'])
+    const first = (await admin.get(`${base}/test-fixture/tools`)).data.results.map((t: any) => t.name).sort()
+    await seedAgent('test-fixture', ['catalog', 'write'])
+    const second = (await admin.get(`${base}/test-fixture/tools`)).data.results.map((t: any) => t.name).sort()
+    assert.deepEqual(first, second)
+    assert.deepEqual(first, ['closure_stats', 'echo', 'import_table', 'list_road_closures'])
+    await seedAgent('test-fixture', ['catalog'])
+    assert.deepEqual((await admin.get(`${base}/test-fixture/tools`)).data.results.map((t: any) => t.name), ['echo'])
+  })
+  test('a withdrawn profile fails by name', async () => {
+    await seedAgent('test-fixture', ['read'])
+    fixture.withdrawProfile('read')
+    const res = await admin.get(`${base}/test-fixture/tools`, { validateStatus: () => true })
+    assert.equal(res.status, 502)
+    assert.match(String(res.data), /MCP server "dev-profiled-mcp" failed: .*unknown profile: read/)
+  })
+  test('a profiled reference without profiles never lists every tool', async () => {
+    // written past the save check, as a document from before profiles would be
+    await seedAgent('test-fixture', ['read'])
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-autonomous-agent-nhi',
+      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
+      issuer,
+      autonomousAgent: body([{ serverId: 'dev-profiled-mcp' }])
+    })
+    const res = await admin.get(`${base}/test-fixture/tools`, { validateStatus: () => true })
+    assert.equal(res.status, 400)
+    assert.match(String(res.data), /MCP server "dev-profiled-mcp" declares profiles and this agent selects none/)
+  })
+})

@@ -163,7 +163,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // The personal assistant takes the WHOLE catalog, so an unreachable entry is an availability event rather
   // than a misconfiguration: it is skipped and reported instead of failing the turn. A configured
   // agent's selection is deliberate, so for it a failure still throws.
-  const { tools: listedTools, skippedServers, filteredOut, needsFiles, guides: catalogGuides, readSkill: readCatalogSkill, close: closeTools } =
+  const { tools: listedTools, skippedServers, filteredOut, profiled, needsFiles, guides: catalogGuides, readSkill: readCatalogSkill, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sites, {
       onServerError: isPersonalAgentId(autonomousAgent.id) ? 'skip' : 'throw',
       files: !!files
@@ -209,7 +209,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       session,
       ...(files ? { files } : {}),
       ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
-      catalog: { tools: catalog, filteredOut, skippedServers, needsFiles },
+      catalog: { tools: catalog, filteredOut, profiled, skippedServers, needsFiles },
       guides: { list: guides, read: readSkill }
     })
     // An UNATTENDED turn (a planned task's run) is offered no tool needing approval, from any source.

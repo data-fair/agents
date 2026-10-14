@@ -14,6 +14,7 @@ import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer, type McpServerRef } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
+import { withProfiles } from '@agents/shared/mcp-profiles'
 import { toolDescription } from '@agents/shared/tool-description'
 import type { ToolSet } from '../conversations/operations.ts'
 import { boundGuide, visibleSkills, type ServerGuide, type GuideSkill } from './guides.ts'
@@ -63,8 +64,8 @@ export interface ListedMcpTool {
 
 /**
  * The tool set for one autonomous agent: every tool of every catalog entry it
- * references, narrowed by that reference's optional toolFilter, as executable AI SDK
- * tools.
+ * references, narrowed by that reference's optional toolFilter (or composed for its profiles on a
+ * profiled server), as executable AI SDK tools.
  */
 export interface OpenAutonomousAgentTools {
   /**
@@ -77,6 +78,8 @@ export interface OpenAutonomousAgentTools {
   skippedServers: SkippedServer[]
   /** Tools a server listed that the reference's toolFilter excluded: what the agent reads about itself. */
   filteredOut: { name: string, server: string }[]
+  /** Profiled servers and the profiles this agent selected on each, sorted: what it reads about itself. */
+  profiled: { server: string, profiles: string[] }[]
   /** Tools that take a file, left out because files are off this turn. */
   needsFiles: { name: string, server: string }[]
   /** What each listed server says about its tools — instructions and skills — in reference order (./guides.ts). */
@@ -142,8 +145,20 @@ const listServer = (server: GlobalMcpServer, siteUrl: string | undefined, sites:
 }
 
 /**
+ * The server a reference connects to. A profiled entry (profilesUrl) is reached with the reference's profiles on
+ * its url, so what the agent gets is exactly what the server composes for them; the id stays the entry's
+ * (provenance, approvals) while the url, part of the listing and connection keys, keeps two selections apart.
+ * A profiled reference without profiles fails: falling back to every tool would make the widest set the default.
+ */
+export const effectiveServer = (server: GlobalMcpServer, ref: McpServerRef): GlobalMcpServer => {
+  if (!server.profilesUrl) return server
+  if (!ref.profiles?.length) throw httpError(400, `MCP server "${server.id}" declares profiles and this agent selects none`)
+  return { ...server, url: withProfiles(server.url, ref.profiles) }
+}
+
+/**
  * The executable tool set for one autonomous agent: every tool of every catalog entry it references,
- * narrowed by that reference's optional toolFilter.
+ * narrowed by that reference's optional toolFilter, or composed for its profiles on a profiled server.
  *
  * WHO it acts as, and WHERE, is injected (`SiteCredentials`; see performTurn in conversations/executor.ts)
  * rather than derived from the agent. That is the one seam a personal assistant needs: it has no
@@ -165,6 +180,7 @@ export const openAutonomousAgentTools = async (
   const tools: ToolSet = {}
   const skippedServers: SkippedServer[] = []
   const filteredOut: { name: string, server: string }[] = []
+  const profiled: { server: string, profiles: string[] }[] = []
 
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
@@ -196,8 +212,17 @@ export const openAutonomousAgentTools = async (
 
   // Listed together: a turn waits for its slowest server, not for the sum of them.
   const listed = await Promise.all(refs.map(async ref => {
-    const server = catalog.find(s => s.id === ref.serverId)
-    if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
+    const entry = catalog.find(s => s.id === ref.serverId)
+    if (!entry) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
+    let server: GlobalMcpServer
+    try {
+      server = effectiveServer(entry, ref)
+    } catch (err: any) {
+      if (opts?.onServerError !== 'skip') throw err
+      skippedServers.push({ id: entry.id, reason: err.message })
+      return undefined
+    }
+    if (entry.profilesUrl) profiled.push({ server: entry.id, profiles: [...new Set(ref.profiles!)].sort() })
     try {
       return { ref, server, listing: await listServer(server, server.auth === 'nhi-session' ? home : undefined, sites, opts?.fresh) }
     } catch (err: any) {
@@ -301,7 +326,7 @@ export const openAutonomousAgentTools = async (
     return await readServerSkill(client, entry.listing.skills, uri)
   }
 
-  return { tools, skippedServers, filteredOut, needsFiles, guides, readSkill, close }
+  return { tools, skippedServers, filteredOut, profiled, needsFiles, guides, readSkill, close }
 }
 
 export interface McpToolDescriptor {
@@ -320,13 +345,14 @@ export interface McpToolDescriptor {
 export const listAutonomousAgentToolDescriptors = async (
   autonomousAgent: AutonomousAgentForTools,
   sites: SiteCredentials
-): Promise<McpToolDescriptor[]> => {
-  const { tools, close } = await openAutonomousAgentTools(autonomousAgent, sites, { fresh: true })
+): Promise<{ descriptors: McpToolDescriptor[], profiled: { server: string, profiles: string[] }[] }> => {
+  const { tools, profiled, close } = await openAutonomousAgentTools(autonomousAgent, sites, { fresh: true })
   await close()
-  return Object.entries(tools).map(([name, { tool, server, annotations }]) => ({
+  const descriptors = Object.entries(tools).map(([name, { tool, server, annotations }]) => ({
     name,
     description: toolDescription(tool),
     server: server!,
     ...(annotations ? { annotations } : {})
   }))
+  return { descriptors, profiled }
 }

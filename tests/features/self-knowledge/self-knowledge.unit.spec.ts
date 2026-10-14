@@ -239,3 +239,9 @@ test.describe('earlier work', () => {
     assert.match(READ_CONVERSATION_DESCRIPTION, /from that line ONWARD, as many lines as fit a page/)
   })
 })
+
+test('a profiled server is described by its profiles', () => {
+  const base = view('chat')
+  const text = renderConfiguration({ ...base, catalog: { ...base.catalog, profiled: [{ server: 'datafair', profiles: ['read', 'write_portals'] }] } })
+  assert.match(text, /server datafair: profiles read, write_portals, chosen by an administrator/)
+})

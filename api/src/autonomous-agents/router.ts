@@ -153,8 +153,8 @@ router.get('/:type/:id/:agentId/tools', async (req, res, next) => {
   try {
     const { agent: autonomousAgent } = await reqAgent(req, 'admin')
 
-    const { results, skipped } = await describeAutonomousAgentTools(autonomousAgent)
-    res.json({ results, count: results.length, skipped })
+    const { results, skipped, profiles } = await describeAutonomousAgentTools(autonomousAgent)
+    res.json({ results, count: results.length, skipped, profiles })
   } catch (err) { next(err) }
 })
 

@@ -218,13 +218,14 @@ export function callHeaders (server: GlobalMcpServer, siteUrl: string | undefine
 
 /** A cached tool listing's key. What a site-bound server lists may depend on the site and on who asks, so both are in it. */
 export function listingKey (server: GlobalMcpServer, siteUrl: string | undefined, listingIdentity: string): string {
-  if (server.auth !== 'nhi-session') return server.id
-  return `${server.id}\0${siteUrl ?? ''}\0${listingIdentity}`
+  // the url too: a profiled server's carries the selection, and two selections never share a listing
+  if (server.auth !== 'nhi-session') return `${server.id}\0${server.url}`
+  return `${server.id}\0${server.url}\0${siteUrl ?? ''}\0${listingIdentity}`
 }
 
 /** One open connection of a turn per server, and per site for a site-bound one: the site is fixed at connect (its session is not). */
 export function connectionKey (server: GlobalMcpServer, siteUrl: string | undefined): string {
-  return server.auth === 'nhi-session' ? `${server.id}\0${siteUrl ?? ''}` : server.id
+  return server.auth === 'nhi-session' ? `${server.id}\0${server.url}\0${siteUrl ?? ''}` : `${server.id}\0${server.url}`
 }
 
 /** The argument a site-bound tool takes to act on another site of the agent's organization. */
