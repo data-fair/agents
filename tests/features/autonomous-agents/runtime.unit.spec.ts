@@ -166,6 +166,14 @@ test.describe('compactionSystemPrompt', () => {
     // re-summarizing a summary compounds loss
     assert.match(compactionSystemPrompt(2), /merge/i)
   })
+
+  test('keeps what tools returned attributed to them, and never turns it into the user\'s wishes', () => {
+    // A recap is a user turn with no envelope: a tool result restated as "the user wants…" would come
+    // back as an instruction once the result itself is gone.
+    const prompt = compactionSystemPrompt(0)
+    assert.match(prompt, /attribut\w+ to the tool/i)
+    assert.match(prompt, /never (record|restate) .*as (the user's|a user) (goal|request|instruction)/i)
+  })
 })
 
 test.describe('recapMessage', () => {
@@ -177,6 +185,12 @@ test.describe('recapMessage', () => {
     const content = recapMessage('the story so far').content as string
     assert.match(content, /recap/i)
     assert.match(content, /the story so far/)
+  })
+
+  test('says what tools returned in it is data, as the envelope it replaces did', () => {
+    const content = recapMessage('the story so far').content as string
+    assert.match(content, /tool.*data.*never.*instruction/i)
+    assert.ok(content.indexOf('the story so far') > content.search(/never.*instruction/i), 'the note comes before the recap')
   })
 })
 
