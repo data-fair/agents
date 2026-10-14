@@ -17,6 +17,8 @@ import { deleteMemoryStore } from '../memory/service.ts'
 import { deleteConversationFiles } from '../files/service.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { canInstruct } from './operations.ts'
+import { fetchProfiles } from '../mcp-servers/profiles.ts'
+import { offeredRoots, type McpProfile } from '@agents/shared/mcp-profiles'
 
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
 // it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
@@ -242,4 +244,28 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
   // and nothing could reach that store once the agent is gone.
   const late = await deleteMemoryStore(agentStoreId(agentId))
   return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: agentRuns.deletedCount + runs.deletedCount, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }
+}
+
+/**
+ * What the form's profile tree needs for one profiled server: the vocabulary, the role of the agent's identity
+ * in the owner organization, and the roots that role is offered (docs/superpowers/specs/2026-10-14-mcp-profile-selection-design.md §3).
+ * No agent, or one not enrolled yet: no role, every root offered.
+ */
+export const describeServerProfiles = async (serverId: string, autonomousAgent?: EnrolledAutonomousAgent & { owner: AccountKeys }) => {
+  const server = (config.mcpServers ?? []).find(s => s.id === serverId)
+  if (!server) throw httpError(400, `unknown MCP server "${serverId}"`)
+  if (!server.profilesUrl) throw httpError(400, `MCP server "${serverId}" declares no profiles`)
+  let profiles: McpProfile[]
+  try {
+    profiles = await fetchProfiles(server)
+  } catch (err: any) {
+    throw httpError(502, err.message)
+  }
+  let role: string | undefined
+  if (autonomousAgent?.nhi?.clientId) {
+    // From the session a turn would use: the NHI token route guarantees exactly one organization.
+    const claims = decodeSessionClaims(await getAutonomousAgentSession(autonomousAgent))
+    role = claims.organizations?.[0]?.role
+  }
+  return { profiles, ...(role ? { role } : {}), offered: offeredRoots(profiles, role) }
 }

@@ -12,7 +12,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getAccountRole } from '@data-fair/lib-common-types/session/index.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-import { reqAgent, reqAgentOwner, getMcpServerCatalog, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
+import { reqAgent, reqAgentOwner, getMcpServerCatalog, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, describeServerProfiles, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
 import { assertMcpServerRefs } from '../mcp-servers/profiles.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { buildNhi, type StoredNhi } from './operations.ts'
@@ -77,6 +77,17 @@ router.get('/:type/:id/mcp-servers', async (req, res, next) => {
     reqAgentOwner(req, 'admin')
     const results = getMcpServerCatalog()
     res.json({ results, count: results.length })
+  } catch (err) { next(err) }
+})
+
+// Also before `/:agentId`. The profile tree of a profiled server; with `agentId`, narrowed to that agent's identity.
+router.get('/:type/:id/mcp-servers/:serverId/profiles', async (req, res, next) => {
+  try {
+    const { owner } = reqAgentOwner(req, 'admin')
+    const agentId = typeof req.query.agentId === 'string' ? req.query.agentId : undefined
+    const agent = agentId ? await mongo.autonomousAgents.findOne({ 'owner.type': owner.type, 'owner.id': owner.id, id: agentId }, { projection: { _id: 0 } }) : undefined
+    if (agentId && !agent) throw httpError(404, `unknown autonomous agent "${agentId}"`)
+    res.json(await describeServerProfiles(req.params.serverId, agent ?? undefined))
   } catch (err) { next(err) }
 })
 

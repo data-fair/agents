@@ -111,3 +111,30 @@ test.describe('profile selection at run time', () => {
     assert.match(String(res.data), /MCP server "dev-profiled-mcp" declares profiles and this agent selects none/)
   })
 })
+
+test.describe('profiles route', () => {
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.afterAll(async () => { await fixture.close() })
+  test.beforeEach(async () => { await clean() })
+
+  test('without an agent: the vocabulary and every root offered', async () => {
+    const res = await admin.get(`${base}/mcp-servers/dev-profiled-mcp/profiles`)
+    assert.deepEqual(res.data.profiles.map((p: any) => p.name), ['catalog', 'read', 'write', 'read_roads', 'write_roads'])
+    assert.equal(res.data.role, undefined)
+    assert.deepEqual(res.data.offered, ['catalog', 'read', 'write'])
+  })
+  test('for an enrolled agent: its identity\'s role narrows the roots (contrib: no manage)', async () => {
+    await seedAgent('test-fixture', ['read'])
+    const res = await admin.get(`${base}/mcp-servers/dev-profiled-mcp/profiles`, { params: { agentId: 'test-fixture' } })
+    assert.equal(res.data.role, 'contrib')
+    assert.deepEqual(res.data.offered, ['catalog', 'read', 'write'])
+  })
+  test('an unprofiled server is a 400', async () => {
+    assert.equal((await admin.get(`${base}/mcp-servers/dev-public-mcp/profiles`, { validateStatus: () => true })).status, 400)
+  })
+  test('the listing says which servers are profiled', async () => {
+    const res = await admin.get(`${base}/mcp-servers`)
+    assert.equal(res.data.results.find((s: any) => s.id === 'dev-profiled-mcp').profiled, true)
+    assert.equal(res.data.results.find((s: any) => s.id === 'dev-public-mcp').profiled, false)
+  })
+})
