@@ -192,6 +192,8 @@ test.describe('the trace of a script', () => {
     assert.doesNotMatch(readFile, /offset|limit/)
     assert.match(description, /read_file: \(input: \{[^}]*\}\) => Promise<string>/)
     assert.match(description, /whole text of one of your text files/)
+    assert.match(description, /\/\*\* Read the whole text[^/]*Papa\.parse/)
+    assert.match(description, /\/\*\* Create or overwrite[^/]*Papa\.unparse/)
     assert.doesNotMatch(description, /a page of lines at a time|at most 1 MB/)
     assert.match(description, /write_file: \(input: \{[^}]*content: string[^}]*\}\) => Promise<\{[^}]*file_path: string[^}]*mimeType: string[^}]*size: number/)
     assert.match(description, /ls: \(input: \{\s*\}\) => Promise<(Array<\{|\{)[^}]*expiresAt: string/)

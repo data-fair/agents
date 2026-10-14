@@ -125,16 +125,33 @@ export const scriptErrorMessage = (err: unknown, policy: CodeModePolicy = CODE_M
 /** The `js` argument's description: the package's promises "call examples", which describeScriptTool drops. */
 export const SCRIPT_ARGUMENT_DESCRIPTION = 'The script: JavaScript calling the global `tools` API whose signatures this tool\'s description lists. TypeScript syntax is stripped, not checked.'
 
+/**
+ * `Papa` in the API a script is written against: declared in TypeScript right after the tools, where a script's
+ * author reads its API, rather than as a sentence in the prose — where scripts hand-rolled CSV parsers beside it.
+ */
+const PAPA_DECLARATION = [
+  '```ts',
+  `/** papaparse ${PAPAPARSE_VERSION}, preloaded: read and write CSV with it, never by splitting lines and commas (quoted fields break that). */`,
+  'declare const Papa: {',
+  '  /** rows as objects keyed by the header with { header: true }; check errors */',
+  '  parse(text: string, config?: { header?: boolean; skipEmptyLines?: boolean | "greedy"; delimiter?: string }): { data: any[]; errors: { message: string; row?: number }[]; meta: { fields?: string[]; delimiter: string } };',
+  '  /** objects (keys as the header) or arrays of values, to CSV text */',
+  '  unparse(data: object[] | unknown[][], config?: { columns?: string[]; newline?: string }): string;',
+  '};',
+  '```'
+].join('\n')
+
 export const describeScriptTool = (packageDescription: string): string => {
   const head = packageDescription.split('\nTool call examples:')[0].trimEnd()
   return [
     head,
+    PAPA_DECLARATION,
     'console.log output is returned after the result. A tool failure is an exception carrying the tool\'s message.',
     'What a tool returns: an MCP tool returns its structured result as an object when it has one, otherwise its text as a string (JSON.parse it if it is JSON). A tool whose result carries files returns { text, files: [{ file_path, mimeType, size, sha256, etag?, lastModified? }] }, where `text` only describes the files: read their content with read_file(files[0].file_path). read_file returns the whole text of the file.',
     'Check what you got before writing or importing it: a parse that yields nothing should throw, not write an empty file.',
     'Have the script read its data itself (call the tool, read_file the path it returned), never paste in what an earlier call showed you: the script must work on what is there when it runs.',
     `Everything a script passes to and gets from its tools counts toward ${transferLimit}; a larger file belongs in a tool that takes the file itself.`,
-    `For CSV, \`Papa\` is papaparse ${PAPAPARSE_VERSION}: Papa.parse(text, { header: true, skipEmptyLines: true }).data and Papa.unparse(rows). Use it rather than splitting lines and commas yourself, which breaks on quoted fields.`,
+    'Dates: a script\'s local time zone is the server\'s, not the task\'s. Work in UTC: a date-only string ("2026-10-21") is UTC midnight, so compare YYYY-MM-DD strings, or give every date-time a trailing Z; new Date("2026-10-14T00:00:00") without Z is the server\'s local midnight.',
     'Tools that need approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents can only be called directly.'
   ].join('\n\n')
 }

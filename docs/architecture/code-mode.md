@@ -280,8 +280,16 @@ model writes by default, breaks on quoted fields — data-fair exports quote any
 | csv-parse (used in data-fair once) | 21M | 14 KB | runs only as its browser build, at 0.38 MB/s (`Buffer` polyfilled) |
 | d3-dsv | 24M | 1.7 KB | `csvParseRows` 8 MB/s; `csvParse` refused (`new Function`) |
 
-papaparse is also the one a model knows best by name (`Papa.parse`, `Papa.unparse`), so the description names it and
-its two calls, nothing more.
+papaparse is also the one a model knows best by name (`Papa.parse`, `Papa.unparse`). **Where it is announced
+matters**: as one sentence in the prose after the signatures, two scripts in three still hand-rolled a CSV parser
+(simulation, 2026-10-14). It is now declared in TypeScript right after the tools (`declare const Papa`, its two
+calls and their options), the API block a script's author reads, and `read_file` and `write_file` name it in their
+own descriptions, at the point of use.
+
+**Dates.** A script's local time zone is the server's (QuickJS takes the host's: Paris on a developer's machine, UTC
+in the image, which sets no `TZ`), never the task's. Scripts built "today at midnight" without a `Z` and compared it
+with date-only strings, which are UTC: a cutoff a day early. The description says to work in UTC — compare
+`YYYY-MM-DD` strings, or give every date-time a `Z`.
 
 **Why loading is explicit and costly on purpose.** A library is source added to every script that uses it, inside a
 sandbox that interprets it. So it is loaded only by a script that names `Papa`, declared below the script (a

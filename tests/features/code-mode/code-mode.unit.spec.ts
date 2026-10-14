@@ -81,6 +81,23 @@ test.describe('code_mode engine', () => {
     await assert.rejects(run(createScriptTool({}), `// ${'x'.repeat(65 * 1024)}\nreturn 1`), /longer than 64 KiB/)
   })
 
+  test('Papa is declared in TypeScript right after the tools, as part of the API a script is written against', async () => {
+    const description = String(createScriptTool({ echo }).description)
+    const tools = description.indexOf('declare const tools')
+    const papa = description.indexOf('declare const Papa')
+    assert.ok(tools !== -1 && papa > tools, 'declared after the tools')
+    assert.ok(papa < description.indexOf('console.log output'), 'before the prose')
+    assert.match(description, /parse\(text: string, config\?: \{[^}]*header\?: boolean/)
+    assert.match(description, /unparse\(/)
+    assert.equal((description.match(/papaparse/g) ?? []).length, 1, 'introduced once')
+  })
+
+  test('the description says to work in UTC: a script\'s local time zone is the server\'s', () => {
+    const description = describeScriptTool('Head')
+    assert.match(description, /local time zone is the server's/)
+    assert.match(description, /YYYY-MM-DD/)
+  })
+
   test('a tool error thrown as CodeModeToolError keeps its message', async () => {
     const failing = tool({ description: 'fails', inputSchema: jsonSchema<Record<string, never>>({ type: 'object', properties: {} }), execute: async (): Promise<string> => { throw new CodeModeToolError('dataset not found') } })
     const t = createScriptTool({ failing })

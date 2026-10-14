@@ -114,12 +114,12 @@ export const FILE_CODE_SIGNATURES = {
     codeOutputSchema: { type: 'array', items: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'expiresAt'], properties: { ...FILE_RECORD_SCHEMA.properties, expiresAt: { type: 'string' } } } }
   },
   read_file: {
-    codeDescription: `Read the whole text of one of your text files (up to ${formatBytes(READ_MAX_BYTES)}), as a string: no line numbers, no pages. A binary file cannot be read: pass its path to a tool that takes a file.`,
+    codeDescription: `Read the whole text of one of your text files (up to ${formatBytes(READ_MAX_BYTES)}), as a string: no line numbers, no pages. Parse a CSV with Papa.parse(text, { header: true, skipEmptyLines: true }). A binary file cannot be read: pass its path to a tool that takes a file.`,
     codeInputSchema: { type: 'object', required: ['file_path'], properties: { file_path: PATH_ARGUMENT } },
     codeOutputSchema: { type: 'string' }
   },
   write_file: {
-    codeDescription: `Create or overwrite one of your text files (up to ${formatBytes(READ_MAX_BYTES)}): CSV, JSON, Markdown or plain text, typed by its extension. Answers its record, with the content's sha256.`,
+    codeDescription: `Create or overwrite one of your text files (up to ${formatBytes(READ_MAX_BYTES)}): CSV, JSON, Markdown or plain text, typed by its extension; make CSV content with Papa.unparse(rows). Answers its record, with the content's sha256.`,
     codeInputSchema: { type: 'object', required: ['file_path', 'content'], properties: { file_path: { type: 'string', description: 'A path with one name and an extension, e.g. "/clean.csv"' }, content: { type: 'string', description: 'The whole content of the file' } } },
     codeOutputSchema: { ...FILE_RECORD_SCHEMA, required: [...FILE_RECORD_SCHEMA.required, 'sha256'], properties: { ...FILE_RECORD_SCHEMA.properties, sha256: { type: 'string' } } }
   }
