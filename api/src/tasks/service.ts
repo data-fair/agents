@@ -12,10 +12,13 @@ import type { AutonomousAgentTask } from '#types/autonomous-agent-task/index.ts'
 import type { PlannedTask as TaskWriteReq } from '#doc/autonomous-agents/task-write-req/index.ts'
 import { minGapSeconds, nextRunAfter, toCron, type Scheduling } from './operations.ts'
 import { DEFAULT_TIME_ZONE } from '@agents/shared/task-schedule'
+import { newWebhookKey } from './webhook-triggers.ts'
 
 export type TaskActor = { userId: string, userName?: string, conversationId?: string }
 
-const projection = { _id: 0 } as const
+// The trigger key and the pending triggers stay out of every read: the key route is the only way to the key,
+// and a new read path built on these functions cannot leak it by default.
+const projection = { _id: 0, webhookKey: 0, pendingTriggers: 0, droppedTriggers: 0, triggerSeq: 0 } as const
 
 export const listTasks = async (owner: AccountKeys, agentId: string) => {
   return await mongo.autonomousAgentTasks
@@ -84,7 +87,7 @@ export const createTask = async (owner: AccountKeys, agent: { id: string }, body
     createdAt: now.toISOString(),
     updatedAt: now.toISOString()
   }
-  await mongo.autonomousAgentTasks.insertOne({ ...task })
+  await mongo.autonomousAgentTasks.insertOne({ ...task, webhookKey: newWebhookKey() })
   eventsLog.info('agents.task.create', `planned task ${task.id} created for agent ${agent.id} of ${owner.type}/${owner.id}`, log)
   return task
 }
@@ -95,6 +98,8 @@ export const updateTask = async (owner: AccountKeys, agent: { id: string }, task
   const enabled = body.enabled ?? existing.enabled
   const reEnabled = enabled && (!existing.enabled || !!existing.pausedReason)
   const scheduleChanged = scheduleKey(existing.scheduling as Scheduling[]) !== scheduleKey(body.scheduling as Scheduling[])
+  // Outside the read projection, so read on its own.
+  const pending = (await mongo.autonomousAgentTasks.findOne({ id: taskId, agentId: agent.id }, { projection: { _id: 0, pendingTriggers: 1 } }))?.pendingTriggers
   // Validated only when the schedule itself is being set: raising the minimum interval must not block
   // editing the prompt of a task that already exists.
   const nextRunAt = scheduleChanged || reEnabled || !existing.nextRunAt ? assertSchedule(body.scheduling as Scheduling[], now) : undefined
@@ -113,7 +118,7 @@ export const updateTask = async (owner: AccountKeys, agent: { id: string }, task
     $unset.nextRunAt = ''
   } else if (nextRunAt) {
     $set.nextRunAt = nextRunAt.toISOString()
-  } else if (scheduleChanged && !(body.scheduling as Scheduling[]).length && !existing.pendingTriggers?.length) {
+  } else if (scheduleChanged && !(body.scheduling as Scheduling[]).length && !pending?.length) {
     // Emptied: no slot of its own any more. A pending trigger's slot stays, so its payloads still run.
     $unset.nextRunAt = ''
   }

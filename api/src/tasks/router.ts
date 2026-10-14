@@ -20,6 +20,7 @@ import { runAsMessages } from './run-messages.ts'
 import { startTaskRun, isTaskRunning, PREVIOUS_RUN_STILL_RUNNING } from './execution.ts'
 import { abortRun } from '../conversations/live-runs.ts'
 import { assertAcceptingTurns } from '../conversations/shutdown.ts'
+import { readWebhookKey, regenerateWebhookKey } from './webhook-triggers.ts'
 
 const router = Router()
 export default router
@@ -153,6 +154,21 @@ router.post('/:type/:id/:agentId/tasks/:taskId/run', async (req, res, next) => {
     if (started.run.status === 'skipped') throw httpError(409, started.run.error ?? PREVIOUS_RUN_STILL_RUNNING)
     eventsLog.info('agents.task.run', `planned task ${task.id} of agent ${agent.id} of ${owner.type}/${owner.id} run now as ${started.run.id}`, { req })
     res.status(202).json({ runId: started.run.id })
+  } catch (err) { next(err) }
+})
+
+// The trigger URL's key: an admin reads it to build the URL, and regenerates it to revoke the old one.
+router.get('/:type/:id/:agentId/tasks/:taskId/webhook-key', async (req, res, next) => {
+  try {
+    const { owner, agent } = await reqAgent(req, 'write')
+    res.type('text/plain').send(await readWebhookKey(owner, agent.id, req.params.taskId))
+  } catch (err) { next(err) }
+})
+
+router.delete('/:type/:id/:agentId/tasks/:taskId/webhook-key', async (req, res, next) => {
+  try {
+    const { owner, agent } = await reqAgent(req, 'write')
+    res.type('text/plain').send(await regenerateWebhookKey(owner, agent.id, req.params.taskId, { req }))
   } catch (err) { next(err) }
 })
 
