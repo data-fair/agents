@@ -464,13 +464,14 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   if (modelId === 'mock-moderator') return processMockModeratorPrompt(lastMessage)
   // Memory consolidation seam (tests/features/memory/consolidation.api.spec.ts). A consolidation's user
   // message carries the conversations since the last pass; a line `remember: <fact>` in them makes the
-  // model record that fact in MEMORY.md once, then finish. Deterministic stand-in for a model that judges
+  // model record that fact in MEMORY.md once, with who said it, then finish. Deterministic stand-in for a model that judges
   // what is durable. Before every other seam, so a directive quoted in a transcript (`stall`…) cannot
   // trigger one.
   if (lastMessage.includes('<conversations-since-last-pass>')) {
     const last = Array.isArray(options.prompt) ? options.prompt[options.prompt.length - 1] : undefined
     if (last?.role === 'tool') return { type: 'text', text: 'DONE' }
-    const facts = [...lastMessage.matchAll(/remember: ([^\n]+)/g)].map(m => m[1].trim())
+    // Each fact keeps the speaker its line names, as the prompt asks a real model to.
+    const facts = [...lastMessage.matchAll(/\] ([^\n]*?): remember: ([^\n]+)/g)].map(m => `${m[2].trim()} (said by ${m[1]})`)
     if (!facts.length) return { type: 'text', text: 'DONE' }
     return {
       // `consolidate slowly` in a message holds the call back, so a test can act while it is in flight.

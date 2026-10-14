@@ -111,7 +111,7 @@ const consolidationMemoryTool = (agent: AutonomousAgent, author: MemoryAuthor, a
  */
 const conversationsSince = async (agentId: string, since: string, now: Date): Promise<{ until: string, conversations: ConsolidationConversation[] }> => {
   const active = await mongo.conversations
-    .find({ agentId, anonymous: { $ne: true }, lastMessageAt: { $gt: since } }, { projection: { _id: 0, id: 1, title: 1 } })
+    .find({ agentId, anonymous: { $ne: true }, lastMessageAt: { $gt: since } }, { projection: { _id: 0, id: 1, title: 1, userId: 1, userName: 1 } })
     .sort({ lastMessageAt: -1 }).limit(MAX_CONVERSATIONS).toArray()
   const writing = active.length
     ? await mongo.messages.findOne({ conversationId: { $in: active.map(c => c.id) }, pending: true, createdAt: { $gt: since } }, { projection: { _id: 0, createdAt: 1 }, sort: { createdAt: 1 } })
@@ -122,7 +122,18 @@ const conversationsSince = async (agentId: string, since: string, now: Date): Pr
     const messages = await mongo.messages
       .find({ conversationId: conversation.id, createdAt: { $gt: since, $lte: until } }, { projection: { _id: 0, role: 1, createdAt: 1, parts: 1 } })
       .sort({ seq: 1 }).toArray()
-    if (messages.length) conversations.push({ id: conversation.id, ...(conversation.title ? { title: conversation.title } : {}), messages: messages as ConsolidationConversation['messages'] })
+    if (!messages.length) continue
+    // The role the person's latest turn of the window ran with: what they were to the organization when
+    // they said it, not what they are at the pass.
+    const run = await mongo.runs.findOne(
+      { conversationId: conversation.id, triggeredByRole: { $exists: true }, startedAt: { $lte: until } },
+      { projection: { _id: 0, triggeredByRole: 1 }, sort: { startedAt: -1 } })
+    conversations.push({
+      id: conversation.id,
+      ...(conversation.title ? { title: conversation.title } : {}),
+      person: { name: conversation.userName || conversation.userId, ...(run?.triggeredByRole ? { role: run.triggeredByRole } : {}) },
+      messages: messages as ConsolidationConversation['messages']
+    })
   }
   return { until, conversations }
 }
