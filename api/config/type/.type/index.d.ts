@@ -11,6 +11,10 @@ export type CompactionPercent = number;
  */
 export type TurnCreditBudget = number;
 /**
+ * How many chat turns one person — or one anonymous visitor's address — may have running at once. A further prompt is refused (429) until one ends. Quotas are re-checked between steps, so this bounds how far turns started together can overshoot one.
+ */
+export type TurnsAtOncePerCaller = number;
+/**
  * Wall-clock ceiling for one chat turn, so a hanging model or MCP server cannot hold a conversation's lock. A planned task run has its own, taskTimeoutSeconds.
  */
 export type TurnTimeoutSeconds = number;
@@ -176,6 +180,7 @@ export type ApiConfig = {
   has?: unknown;
   compactionPercent: CompactionPercent;
   turnCredits: TurnCreditBudget;
+  liveTurnsPerCaller: TurnsAtOncePerCaller;
   turnTimeoutSeconds: TurnTimeoutSeconds;
   /**
    * Wall-clock ceiling of one planned task's run. Longer than a chat turn's: nobody waits on it, and code mode and files make long runs the normal case.

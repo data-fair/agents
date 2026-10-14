@@ -29,7 +29,7 @@ import { createScriptTool } from '../code-mode/tool.ts'
 import { codeFacingTools, createCodeTrace } from '../code-mode/code-tools.ts'
 import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS } from '../code-mode/operations.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
-import { checkAccountCreditCap } from '../usage/enforce.ts'
+import { enforceQuotas } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement } from './parts-recorder.ts'
 import { tokenCountsOf } from '../usage/operations.ts'
@@ -121,14 +121,18 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // only way to see that cache reads were priced at the cached rate.
   const creditBreakdown = { input: 0, cachedInput: 0, output: 0 }
   /**
-   * After a step was billed: the ACCOUNT cap (when `readAccount`), then the per-run budget. The account
-   * cap first, so that when one step crosses both, the reader is told the one an admin can act on.
+   * After a step was billed: the quotas (when `readQuotas`), then the per-run budget. The quotas first, so
+   * that when one step crosses both, the reader is told the one an admin can act on.
+   *
+   * ALL the quotas the turn's gate checked, not only the account cap: other runs spend the same shared
+   * budgets meanwhile, and a person (or an anonymous visitor with many sockets) could otherwise start many
+   * turns on a nearly spent quota, each running on to its own per-run budget.
    */
-  const checkCeilings = async (readAccount: boolean) => {
-    const accountCap = readAccount ? await checkAccountCreditCap(run.owner) : undefined
-    if (accountCap) {
+  const checkCeilings = async (readQuotas: boolean) => {
+    const quota = readQuotas ? await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity) : undefined
+    if (quota) {
       budgetExceeded = true
-      stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
+      stopDetail = `${quota.reason} (${quota.scope}, ${quota.period} limit ${quota.limit}, used ${quota.usage}). Resets at ${quota.resetsAt}.`
     } else if (credits + (continuation?.credits ?? 0) >= config.turnCredits) {
       budgetExceeded = true
     }

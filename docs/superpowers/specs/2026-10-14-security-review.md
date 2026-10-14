@@ -76,7 +76,7 @@ needs a redesign; most fixes are a few lines.
   moderate folded blocks for untrusted roles.
 
 **Availability & spend**
-- **M9 Quota checked once per turn, no concurrency limit.** Mid-run only the account cap and
+- **M9 ✅ Quota checked once per turn, no concurrency limit.** *Every quota re-checked between steps (`checkCeilings` → `enforceQuotas`), `LIVE_TURNS_PER_CALLER` (5) running chat turns per person / anonymous address, summary output capped at 1024 tokens. Budget not clamped to the remaining quota: the per-step check bounds the overshoot to about one step.* Mid-run only the account cap and
   `turnCredits` are re-read (`model-loop.ts:109`). 50 parallel anonymous sockets × 500 credits each.
   Same race on `POST /api/summary` (no output cap). Fix: re-run per-user/pool checks in
   `checkCeilings`; cap live runs per `usageUserId`; clamp budget to remaining quota.

@@ -316,7 +316,7 @@ test.describe('A turn over the agent session', () => {
     const session = await open(await cookieOf(orgAdmin))
     // 400: a malformed frame, refused with the field that was wrong.
     session.send({ type: 'prompt', content: '   ' })
-    assert.deepEqual(await session.next(), { type: 'error', status: 400, message: 'content must be a non-blank string' })
+    assert.deepEqual(await session.next(), { type: 'error', status: 400, message: 'content must be a non-blank string of at most 200000 characters' })
     // 404: a conversation that does not exist.
     session.send({ type: 'hello', conversationId: 'no-such-conversation', tools: [] })
     assert.equal((await session.next()).type, 'attached')

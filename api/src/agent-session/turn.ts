@@ -25,6 +25,7 @@ import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
 import { wrapHiddenContext } from '@agents/shared/hidden-context'
 import { getEffectiveRole } from '../auth.ts'
+import config from '#config'
 
 const debug = Debug('agents:agent-session-turn')
 
@@ -86,6 +87,18 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
 
   const content = request.content.trim()
   if (!content) throw httpError(400, 'content is required')
+
+  // A bounded number of turns running at once per caller — a person, or an anonymous visitor's address
+  // (many sockets, one thread each). Quotas are re-checked between steps, so this bounds how far turns
+  // started together on a nearly spent quota can overshoot it. This conversation's own run does not
+  // count: speaking stops it just below.
+  const running = await mongo.runs.countDocuments({
+    kind: 'conversation',
+    status: 'running',
+    'triggeredBy.userId': person.userId,
+    conversationId: { $ne: conversation.id }
+  })
+  if (running >= config.liveTurnsPerCaller) throw httpError(429, `you already have ${running} answers in progress: wait for one to finish, or stop it`)
 
   // Speaking takes the turn back: the conversation's running turns are stopped — a live one, and one
   // still waiting for the conversation's lock, which may be an earlier prompt's that had not started
