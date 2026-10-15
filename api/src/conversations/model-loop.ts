@@ -27,7 +27,7 @@ import { denyGoneApprovedTools, TOOL_NO_LONGER_AVAILABLE } from './approved-call
 import { browserToolSet, rawBrowserToolSet } from '../agent-session/browser-tools.ts'
 import { createScriptTool } from '../code-mode/tool.ts'
 import { codeFacingTools, createCodeTrace } from '../code-mode/code-tools.ts'
-import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS } from '../code-mode/operations.ts'
+import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeModeOfferedTo } from '../code-mode/operations.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
@@ -285,22 +285,24 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
     // page tools that appeared mid-turn included, a worker's reserved tools excluded (the partition ran above).
     // A page tool shadows a catalog tool of the same name for the model ({ ...fixedTools, ...page } above), so
-    // it does for a script too.
-    const page = session ? Object.fromEntries(Object.entries(rawBrowserToolSet(session, undefined, { drainEvents: false })).filter(([name]) => mayBePageTool(name))) : {}
-    const scriptTool = createScriptTool(codeFacingTools({
-      names: Object.keys(mainTools),
-      fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page))),
-      page,
-      callPath,
-      trace: codeTrace
-    }))
-    const runScript = scriptTool.execute!
-    mainTools[CODE_MODE_TOOL_NAME] = modelTools({
-      [CODE_MODE_TOOL_NAME]: {
-        tool: { ...scriptTool, execute: async (input: any, options: any) => { try { return await runScript(input, options) } finally { codeTrace.finish(options.toolCallId) } } },
-        ...CODE_MODE_SOURCE
-      }
-    })[CODE_MODE_TOOL_NAME]
+    // it does for a script too. Not offered to an anonymous visitor nor an outsider (codeModeOfferedTo).
+    if (codeModeOfferedTo(run.triggeredByRole)) {
+      const page = session ? Object.fromEntries(Object.entries(rawBrowserToolSet(session, undefined, { drainEvents: false })).filter(([name]) => mayBePageTool(name))) : {}
+      const scriptTool = createScriptTool(codeFacingTools({
+        names: Object.keys(mainTools),
+        fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page))),
+        page,
+        callPath,
+        trace: codeTrace
+      }))
+      const runScript = scriptTool.execute!
+      mainTools[CODE_MODE_TOOL_NAME] = modelTools({
+        [CODE_MODE_TOOL_NAME]: {
+          tool: { ...scriptTool, execute: async (input: any, options: any) => { try { return await runScript(input, options) } finally { codeTrace.finish(options.toolCallId) } } },
+          ...CODE_MODE_SOURCE
+        }
+      })[CODE_MODE_TOOL_NAME]
+    }
     for (const name of Object.keys(liveTools)) if (!(name in mainTools)) delete liveTools[name]
     Object.assign(liveTools, mainTools)
   }

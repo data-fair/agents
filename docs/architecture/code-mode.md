@@ -1,7 +1,9 @@
 # Code mode
 
 One tool, `code_mode`, offered to **every agent** on every surface (chats and planned task runs, the
-personal assistant included) with no setting. The model writes one JavaScript script; the script returns a
+personal assistant included) with no setting, except in a turn started by an anonymous visitor or someone
+outside the account (`codeModeOfferedTo`): scripts share a small per-process worker pool across tenants, a
+few that only wait could hold it for everyone, and orchestration is not what a visitor needs. The model writes one JavaScript script; the script returns a
 value, and that value is the call's result.
 
 - **Plain scripting**: a script that calls no tool transforms text and JSON (count, filter, reshape,

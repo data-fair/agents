@@ -11,8 +11,17 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import { truncatedToolResultText } from '../conversations/compaction-policy.ts'
+import { isUntrustedRole } from '../usage/operations.ts'
 
 export const CODE_MODE_TOOL_NAME = 'code_mode'
+
+/**
+ * Whether a turn started by someone with this role is offered code_mode. Not to an anonymous visitor nor
+ * to someone outside the account: scripts run on a small worker pool every tenant of the process shares
+ * (./tool.ts), a few scripts that only wait could hold it for everyone, and orchestrating tools is not
+ * what a visitor needs. A task run has no person and keeps it.
+ */
+export const codeModeOfferedTo = (role: string | undefined): boolean => !role || !isUntrustedRole(role)
 /** The source a stored code_mode call names, and the server its result's envelope attributes it to. */
 export const CODE_MODE_SERVER_ID = 'code-mode'
 /** A script may call writing tools; what it can do is what those tools can do (each keeps its own annotations). */

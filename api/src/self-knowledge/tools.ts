@@ -14,6 +14,7 @@ import { renderConfiguration, renderRunRow, exportPage, SELF_KNOWLEDGE_TOOL_NAME
 import { buildConversationExport } from '../review/operations.ts'
 import { runAsMessages } from '../tasks/run-messages.ts'
 import type { ScheduleRule } from '@agents/shared/task-schedule'
+import { codeModeOfferedTo } from '../code-mode/operations.ts'
 
 const LIST_RUNS_DEFAULT = 10
 
@@ -41,6 +42,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
           agent: { title: agent.title, persona: agent.persona, instructions: agent.instructions, approvals: agent.approvals, memoryEnabled: memoryEnabledFor(agent) },
           surface,
           files: !!ctx.files,
+          codeMode: codeModeOfferedTo(run.triggeredByRole),
           catalog: ctx.catalog ?? { tools: {}, filteredOut: [], skippedServers: [] },
           serviceTools: serviceToolNames().filter(name => !own.has(name)),
           notConnected: (config.mcpServers ?? []).filter(server => !referenced.has(server.id))

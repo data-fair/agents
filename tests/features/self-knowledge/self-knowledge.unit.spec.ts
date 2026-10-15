@@ -14,6 +14,7 @@ const unusedTool = {} as Tool
 
 const view = (surface: 'chat' | 'task'): ConfigurationView => ({
   files: true,
+  codeMode: true,
   agent: { title: 'Roads', persona: 'You watch the roads.', instructions: 'Answer in French.', approvals: { write: 'deny' }, memoryEnabled: false },
   surface,
   catalog: {
@@ -213,6 +214,10 @@ test.describe('renderConfiguration — files', () => {
   })
   test('files off: said plainly', () => {
     assert.match(renderConfiguration({ ...view('chat'), files: false }), /## Files\nOff: this deployment has no file store/)
+  })
+  test('code mode off for an outsider: said plainly', () => {
+    assert.match(renderConfiguration({ ...view('chat'), codeMode: false }), /## Code mode\nOff for this conversation: code_mode is not offered to someone outside the organization/)
+    assert.match(renderConfiguration(view('chat')), /## Code mode\nOn:/)
   })
 })
 
