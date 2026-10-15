@@ -12,6 +12,7 @@
 import type { AgentMemory } from '#types'
 import { isAuditedAgentId } from '@agents/shared/agent-audit'
 import type { MessagePart } from '@agents/shared/message-parts'
+import { ENVELOPE_TAGS } from '../mcp-servers/guides.ts'
 
 export const CORE_PATH = 'MEMORY.md'
 /** The core document is shown in full, never as an index line, so a description would serve nobody: it gets this one. */
@@ -275,8 +276,8 @@ const neutraliseTags = (text: string, vocabulary: string) => text
   .replace(new RegExp(`<(${vocabulary})`, 'gi'), '<\\$1')
 
 // With the envelopes the model is taught to read (api/src/mcp-servers/guides.ts, ENVELOPE_TAGS): a note must
-// not be able to forge a loaded skill or server instructions either.
-const BLOCK_TAGS = 'agent-memory|core|index|tool-result|skill|server-instructions|webhook-payload'
+// not be able to forge a loaded skill, server instructions or what the page sends either.
+const BLOCK_TAGS = ['agent-memory', 'core', 'index', ...ENVELOPE_TAGS].join('|')
 /** Defuses every opening or closing tag of the block's vocabulary, whatever its case. */
 const neutraliseBlockTags = (text: string) => neutraliseTags(text, BLOCK_TAGS)
 

@@ -58,15 +58,17 @@ export function visibleSkills (skills: GuideSkill[], kept: (toolName: string) =>
 const attributeSafe = (value: string): string => value.replace(/[^a-zA-Z0-9._/:-]/g, '') || 'unknown'
 /**
  * Every envelope whose shape the model is taught to read: a tool result (data), server instructions and a
- * loaded skill (guidance). Defused TOGETHER in every untrusted payload — tool results, server text, skill
- * bodies, memory — because the skill envelope is the one shape the model is told to follow, so content
- * forging it inside any of the others would wear that authority.
+ * loaded skill (guidance), and what the person's page sends (host events and state, hidden context).
+ * Defused TOGETHER in every untrusted payload — tool results, server text, skill bodies, memory — because
+ * the skill envelope is the one shape the model is told to follow, and a page block speaks for the page:
+ * content forging either inside any of the others would wear that authority.
  */
-export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions', 'webhook-payload']
+export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions', 'webhook-payload', 'host-events', 'host-state', 'hidden-context']
 
-// In any letter case: a model reads `</TOOL-RESULT>` as the tag too. The text's own case is kept.
+// In any letter case, with spaces around the slash, and behind a fullwidth or small `<`: a model reads all
+// of them as the tag. Rewritten to one escaped form; the text's own case of the name is kept.
 const defuseTag = (text: string, tag: string): string =>
-  text.replace(new RegExp(`<(/?)(${tag})`, 'gi'), (_, slash: string, name: string) => `<\\${slash}${name}`)
+  text.replace(new RegExp(`[<\\uFF1C\\uFE64]\\s*(/?)\\s*(${tag})`, 'gi'), (_, slash: string, name: string) => `<\\${slash}${name}`)
 
 /** Escape both delimiters of every envelope tag, so a payload can neither close its envelope nor forge another. */
 export const defuseEnvelopes = (text: string): string => ENVELOPE_TAGS.reduce(defuseTag, text)
