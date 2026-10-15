@@ -12,7 +12,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getAccountRole } from '@data-fair/lib-common-types/session/index.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-import { reqAgent, reqAgentOwner, getMcpServerCatalog, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, describeServerProfiles, forgetAccountSites, deleteAutonomousAgentData } from './service.ts'
+import { reqAgent, reqAgentOwner, getMcpServerCatalog, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, describeServerProfiles, forgetAgentSessions, deleteAutonomousAgentData } from './service.ts'
 import { assertMcpServerRefs } from '../mcp-servers/profiles.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { buildNhi, type StoredNhi } from './operations.ts'
@@ -189,8 +189,8 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     // feed the signed audience and the exchange path, so an unverified change breaks the agent at
     // its first tool call. buildNhi only changes them on a new clientId or a missing capture, but
     // the comparison stays field-by-field so that invariant is not what this relies on. An unchanged
-    // enrolment is deliberately NOT re-verified — the exchange is rate-limited per client_id and
-    // consumes a point even on success.
+    // enrolment is deliberately NOT re-verified: exchanges spend a rate-limit budget every agent of
+    // the service shares (nhi/session-broker.ts), and an edit of the persona needs none.
     const enrolmentChanged = !!updated.nhi?.clientId && (
       updated.nhi.clientId !== existing.nhi?.clientId ||
       updated.nhi.siteUrl !== existing.nhi?.siteUrl ||
@@ -198,14 +198,16 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     )
     if (enrolmentChanged) await assertEnrolmentWorks(updated)
     await mongo.autonomousAgents.updateOne({ id: existing.id, 'owner.type': owner.type, 'owner.id': owner.id }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) })
+    // Any save starts the agent's identity afresh: an admin saving after fixing its NHI in simple-directory gets
+    // a new exchange at once, not the rejection back-off nor a session obtained before (nhi/session-broker.ts).
+    forgetAgentSessions(existing.id)
 
     // The kill switch has to act NOW, not at the next turn. It was only read at the start of a turn, so
     // disabling an agent left whatever it was already doing running to completion — tool calls included.
-    // The cached NHI session is dropped at the same time, or a turn already inside the loop could keep
-    // acting as the agent with credentials obtained before it was disabled.
+    // Its cached NHI sessions were dropped just above, or a turn already inside the loop could keep acting
+    // as the agent with credentials obtained before it was disabled.
     if (updated.enabled === false && existing.enabled !== false) {
       const stopped = await abortRunsOfAgent(existing.id)
-      forgetAccountSites(existing.id)
       if (stopped) {
         eventsLog.info('agents.autonomous-agent.disable-stopped-runs', `disabling autonomous agent ${existing.id} stopped ${stopped} live run(s)`, { req })
       }
@@ -225,7 +227,7 @@ router.delete('/:type/:id/:agentId', async (req, res, next) => {
     // Stop before deleting: a turn still in flight would otherwise keep calling tools as an agent that
     // no longer exists, and would write messages into a conversation on its way out.
     await abortRunsOfAgent(req.params.agentId)
-    forgetAccountSites(req.params.agentId)
+    forgetAgentSessions(req.params.agentId)
     // CASCADE. Every read path resolves through the agent, so its conversations, messages and runs
     // left behind would be orphaned data an admin cannot see, cannot export and
     // cannot erase, which is not a defensible state for a store that now holds whole tool results.

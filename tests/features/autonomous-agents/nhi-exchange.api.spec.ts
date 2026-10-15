@@ -72,6 +72,43 @@ test.describe('NHI exchange', () => {
     )
   })
 
+  /**
+   * simple-directory's exchange budget (5 a minute per caller IP and per client id, failures kept) is shared by
+   * every agent of the service: a session is reused until it nears its expiry, a save starts afresh, and a
+   * rejected identity is not asked again for a while (api/src/nhi/session-broker.ts).
+   */
+  test('a session is reused across requests until a save, and a rejected identity is not asked again at once', async () => {
+    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    const fixture = (clientId: string) => admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId,
+      siteUrl,
+      issuer,
+      autonomousAgent: { title: 'Identity probe', persona: 'You probe identity.', mcpServers: [], enabled: true }
+    })
+    const sessionRoute = '/api/autonomous-agents/organization/test1/test-fixture/session'
+    await fixture('test-autonomous-agent-nhi')
+    const first = (await admin.get(sessionRoute)).data
+    await new Promise(resolve => setTimeout(resolve, 2100))
+    const second = (await admin.get(sessionRoute)).data
+    assert.ok(second.expiresIn <= first.expiresIn - 2, `the same session, older: ${first.expiresIn} then ${second.expiresIn}`)
+    // A save that keeps the identity still starts afresh: an admin may have just fixed the NHI.
+    await admin.put(throughNginx('/api/autonomous-agents/organization/test1/test-fixture'), {
+      title: 'Identity probe', persona: 'You probe identity.', mcpServers: [], enabled: true, nhi: { clientId: 'test-autonomous-agent-nhi' }
+    })
+    const third = (await admin.get(sessionRoute)).data
+    assert.ok(third.expiresIn > second.expiresIn, `a new session after the save: ${second.expiresIn} then ${third.expiresIn}`)
+
+    await clean()
+    await fixture('nhi-doesnotexist')
+    const refusal = async () => await admin.get(sessionRoute).then(() => '', (err: any) => JSON.stringify(err.data))
+    const rejected = await refusal()
+    assert.match(rejected, /nhi token exchange failed/)
+    assert.doesNotMatch(rejected, /not asked again/)
+    assert.match(await refusal(), /nhi token exchange failed.*not asked again before/, 'answered here, simple-directory not called')
+  })
+
   test('a client-supplied nhi.siteUrl / nhi.issuer is discarded, not trusted', async () => {
     // Restored: it was dropped along with the skipped test it sat beside, although it never depended
     // on that skip and was passing. `readOnly` is only a form hint — ajv does not enforce it, and

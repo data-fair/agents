@@ -7,7 +7,7 @@ import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated, assertAccountRole } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { listMcpServerCatalog, personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
-import { getAutonomousAgentSession, agentSiteCredentials, forgetAccountSites, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
+import { getAutonomousAgentSession, agentSiteCredentials, forgetAgentSessions, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
 import { listExternalToolDescriptors } from '../mcp-servers/external.ts'
@@ -23,7 +23,7 @@ import { offeredRoots, type McpProfile } from '@agents/shared/mcp-profiles'
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
 // it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
 // below does for a changed one.
-export { forgetAccountSites }
+export { forgetAgentSessions }
 
 export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers ?? [])
 
@@ -145,12 +145,13 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
  * Perform a real exchange so a misconfigured enrolment fails at configuration time
  * rather than inside the first run — the lesson nhi-proxy's `enroll` encodes.
  *
- * Called only when clientId/siteUrl/issuer CHANGED: the exchange is rate-limited per
- * client_id and consumes a point on success too, so re-verifying an unchanged enrolment
- * on every edit would spend that budget for nothing.
+ * Called only when clientId/siteUrl/issuer CHANGED: exchanges spend a rate-limit budget every
+ * agent of the service shares (nhi/session-broker.ts), so re-verifying an unchanged enrolment
+ * on every edit would spend it for nothing. Forgets the agent's sessions first, so the check is
+ * a real exchange, not a reused session nor a remembered rejection.
  */
 export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAgent) => {
-  forgetAccountSites(autonomousAgent.id)
+  forgetAgentSessions(autonomousAgent.id)
   try {
     await getAutonomousAgentSession(autonomousAgent)
   } catch (err: any) {

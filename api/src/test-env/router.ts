@@ -25,7 +25,7 @@ import { runSchedulerPass } from '../tasks/scheduler.ts'
 import { recoverOwnerlessRuns } from '../conversations/executor.ts'
 import { recoverOwnerlessTaskRuns } from '../tasks/execution.ts'
 import { purgeExpiredArchives, requireConversation, assertOwnsConversation } from '../conversations/service.ts'
-import { forgetAccountSites } from '../nhi/service.ts'
+import { forgetAgentSessions } from '../nhi/service.ts'
 import { listScopeFiles, signScopeFileUrl, sweepFiles, removeTestOwnersFiles } from '../files/service.ts'
 import { isValidScope } from '../files/operations.ts'
 import { liveAgentSessions } from '../agent-session/service.ts'
@@ -84,7 +84,7 @@ export const createTestEnvRouter = () => {
     // not enough: a later spec re-creating the same id would be served the cookie obtained for the
     // previous one, silently skipping the exchange it means to test.
     for (const agent of await mongo.db.collection('autonomous-agents').find({ 'owner.id': /^test/ }, { projection: { id: 1 } }).toArray()) {
-      forgetAccountSites(agent.id as string)
+      forgetAgentSessions(agent.id as string)
     }
     await mongo.db.collection('autonomous-agent-tasks').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('autonomous-agents').deleteMany({ 'owner.id': /^test/ })
@@ -162,7 +162,7 @@ export const createTestEnvRouter = () => {
     // the cache keyed on the id alone would then serve that stale cookie for ~240s — so the test
     // whose whole point is to perform a real exchange would silently not perform one, and would keep
     // passing with the issuer or the audience broken. Same reason assertEnrolmentWorks clears first.
-    forgetAccountSites(doc.id)
+    forgetAgentSessions(doc.id)
     res.json(doc)
   })
   /**

@@ -1,0 +1,109 @@
+/**
+ * How the service spends simple-directory's exchange budget.
+ *
+ * simple-directory counts every NHI exchange against `authRateLimit` (5 attempts a minute) per caller IP AND per
+ * client id; a success gives its point back when it ends, a failure keeps it. Every agent's exchange comes
+ * from this service, under one address, so all agents of all organizations share that IP budget: exchanges in
+ * flight and recent failures alike. Hence, per process:
+ *
+ * - a session is REUSED, across turns, until it needs renewing (`sessionNeedsRenewal`): it lives no longer than
+ *   before, it is only asked for less often — at most once per agent and site every few minutes, rather than
+ *   once per turn and site;
+ * - concurrent asks for one session share one exchange, and at most `maxInFlight` exchanges run at once, the
+ *   rest queued: planned tasks on the same schedule, or one admin page's parallel reads, no longer go over the
+ *   budget together;
+ * - an identity simple-directory REJECTED (400/401/403: the NHI deleted, its client id changed, the agent left
+ *   its organization) is not asked again for `rejectionMs`: the failure is answered from here, with its reason;
+ * - a 429 waits and retries instead of failing the turn.
+ *
+ * `forget` (the agent saved or deleted) drops an agent's sessions and its back-off. Pure of config and
+ * mongo, so it is unit tested with a fake exchange (tests/features/autonomous-agents/nhi-session-broker.unit.spec.ts).
+ */
+
+import { sessionNeedsRenewal } from './operations.ts'
+
+export interface SessionKey { agentId: string, clientId: string, site: string }
+
+export interface SessionBrokerOptions {
+  maxInFlight?: number
+  rejectionMs?: number
+  /** Retries of an exchange answered 429, waiting `retryDelayMs` × the attempt number before each. */
+  maxRetries?: number
+  retryDelayMs?: number
+  now?: () => number
+  wait?: (ms: number) => Promise<void>
+}
+
+/** simple-directory's status for a failed exchange (sanitizeExchangeError); absent when it never answered. */
+const statusOf = (err: unknown) => (err as { exchangeStatus?: unknown } | undefined)?.exchangeStatus
+const isRejection = (err: unknown) => [400, 401, 403].includes(statusOf(err) as number)
+
+export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
+  const maxInFlight = opts.maxInFlight ?? 2
+  const rejectionMs = opts.rejectionMs ?? 5 * 60_000
+  const maxRetries = opts.maxRetries ?? 3
+  const retryDelayMs = opts.retryDelayMs ?? 2_000
+  const now = opts.now ?? Date.now
+  const wait = opts.wait ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms).unref()))
+
+  const sessions = new Map<string, { cookie: Promise<string>, obtainedAt: number }>()
+  const rejections = new Map<string, { until: number, message: string, status: unknown }>()
+
+  // The gate: a slot per exchange in flight, waiters served in order.
+  let inFlight = 0
+  const waiting: (() => void)[] = []
+  const gated = async <T>(fn: () => Promise<T>): Promise<T> => {
+    if (inFlight >= maxInFlight) await new Promise<void>(resolve => waiting.push(resolve))
+    else inFlight++
+    try {
+      return await fn()
+    } finally {
+      const next = waiting.shift()
+      if (next) next()
+      else inFlight--
+    }
+  }
+
+  const sessionId = (key: SessionKey) => `${key.agentId}\n${key.clientId}\n${key.site}`
+  const identityId = (key: SessionKey) => `${key.agentId}\n${key.clientId}`
+
+  const exchangeWithRetries = async (exchange: () => Promise<string>): Promise<string> => {
+    for (let attempt = 0; ; attempt++) {
+      try {
+        return await gated(exchange)
+      } catch (err) {
+        // Waited for outside the gate: a slot is not held while nothing is asked.
+        if (statusOf(err) !== 429 || attempt >= maxRetries) throw err
+        await wait(retryDelayMs * (attempt + 1))
+      }
+    }
+  }
+
+  return {
+    session (key: SessionKey, exchange: () => Promise<string>): Promise<string> {
+      const rejection = rejections.get(identityId(key))
+      if (rejection && now() < rejection.until) {
+        return Promise.reject(Object.assign(
+          new Error(`${rejection.message} (not asked again before ${new Date(rejection.until).toISOString()})`),
+          { exchangeStatus: rejection.status }
+        ))
+      }
+      const id = sessionId(key)
+      const held = sessions.get(id)
+      if (held && !sessionNeedsRenewal(held.obtainedAt, now())) return held.cookie
+      // Timed from BEFORE the exchange, so the renewal point errs early.
+      const entry = { cookie: exchangeWithRetries(exchange), obtainedAt: now() }
+      sessions.set(id, entry)
+      entry.cookie.catch(err => {
+        if (sessions.get(id) === entry) sessions.delete(id)
+        if (isRejection(err)) rejections.set(identityId(key), { until: now() + rejectionMs, message: err instanceof Error ? err.message : String(err), status: statusOf(err) })
+      })
+      return entry.cookie
+    },
+
+    forget (agentId: string) {
+      for (const id of [...sessions.keys()]) if (id.startsWith(`${agentId}\n`)) sessions.delete(id)
+      for (const id of [...rejections.keys()]) if (id.startsWith(`${agentId}\n`)) rejections.delete(id)
+    }
+  }
+}

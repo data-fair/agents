@@ -246,6 +246,15 @@ test.describe('sanitizeExchangeError', () => {
     assert.equal(JSON.stringify(sanitized, Object.getOwnPropertyNames(sanitized)).includes('SECRET_ASSERTION'), false)
   })
 
+  test('keeps simple-directory\'s status: the session broker tells a rejection from a 429 or an outage by it', () => {
+    assert.equal((sanitizeExchangeError(fake()) as any).exchangeStatus, 401)
+    // lib-node's interceptor rejects with the response's fields copied onto the error itself
+    assert.equal((sanitizeExchangeError(Object.assign(new Error('429 - too many'), { status: 429 })) as any).exchangeStatus, 429)
+    assert.equal((sanitizeExchangeError(new Error('connect ECONNREFUSED')) as any).exchangeStatus, undefined)
+    // never as `status`, which would become this service's own answer to its caller
+    assert.equal((sanitizeExchangeError(fake()) as any).status, undefined)
+  })
+
   test('tolerates a non-error rejection', () => {
     assert.match(sanitizeExchangeError('boom').message, /unknown error/)
   })

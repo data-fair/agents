@@ -10,8 +10,9 @@ import { SignJWT, importJWK } from 'jose'
 // The private instance: simple-directory is reached at a configured address (privateDirectoryUrl), which the
 // default instance's SSRF guard refuses as non public.
 import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS, sessionNeedsRenewal } from './operations.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
+import { createSessionBroker } from './session-broker.ts'
 
 import type { SiteCredentials } from '../mcp-servers/operations.ts'
 
@@ -105,7 +106,8 @@ const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent, site
     // lib-node's axios interceptor attaches the request body (which carries the
     // assertion) to the rejected error — see sanitizeExchangeError. Never let the raw
     // error escape this call.
-    throw new Error(`${sanitizeExchangeError(err).message} (site ${site})`)
+    const sanitized = sanitizeExchangeError(err)
+    throw Object.assign(new Error(`${sanitized.message} (site ${site})`), 'exchangeStatus' in sanitized ? { exchangeStatus: sanitized.exchangeStatus } : {})
   }
   const setCookies: string[] = res.headers['set-cookie'] ?? []
   // keep only name=value, dropping attributes (Path, HttpOnly, …) — a Cookie request
@@ -122,14 +124,15 @@ const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent, site
  * the exchange on a site outside the agent's organization — with the same 401 as any bad assertion —
  * so callers only ask for an account site (see listAccountSites).
  */
+// The process's exchanges: reused while valid, bounded in flight, a rejected identity backed off (./session-broker.ts).
+const broker = createSessionBroker()
+
 export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl?: string): Promise<string> => {
-  const { siteUrl: enrolledSite } = requireEnrolment(autonomousAgent)
+  const { clientId, siteUrl: enrolledSite } = requireEnrolment(autonomousAgent)
   const site = siteOrigin(siteUrl ?? enrolledSite)
-  // Never reused across turns: a turn exchanges once per site it acts on, and again when a session it
-  // holds nears its expiry (see agentSiteCredentials). Lengthening the TTL would cut exchanges, at the
-  // cost of a longer-lived credential handed to every `nhi-session` MCP server; if the exchange rate
-  // limit ever binds, that is the lever.
-  return await exchangeForSession(autonomousAgent, site)
+  // Reused across turns until it nears its expiry, rather than exchanged per turn: simple-directory's exchange
+  // budget is shared by every agent of the service. The session lives no longer for it (ASSERTION_TTL_SECONDS).
+  return await broker.session({ agentId: autonomousAgent.id, clientId, site }, () => exchangeForSession(autonomousAgent, site))
 }
 
 /** How long the list of an agent's account sites is reused: a site is created far less often than a turn starts. */
@@ -151,9 +154,13 @@ export const listAccountSites = memoize(async (autonomousAgent: EnrolledAutonomo
   return accountSiteOrigins(siteUrl, hosts)
 }, { promise: true, maxAge: ACCOUNT_SITES_TTL_MS, max: 1000, normalizer: ([autonomousAgent]) => autonomousAgent.id })
 
-/** Forget what is known of this agent's account sites, when its enrolment changes or it is deleted. */
-export const forgetAccountSites = (agentId: string) => {
+/**
+ * Forget what is known of this agent's identity — its account sites, its sessions, a rejection being backed
+ * off — when it is saved or deleted: a changed enrolment is tried at once, with nothing of the old one reused.
+ */
+export const forgetAgentSessions = (agentId: string) => {
   listAccountSites.delete({ id: agentId } as Parameters<typeof listAccountSites>[0])
+  broker.forget(agentId)
 }
 
 /**
@@ -186,9 +193,6 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     account = [enrolled]
     listingFailed = true
   }
-  // One exchange per site for the turn these credentials serve, renewed when it nears its expiry: a turn
-  // may outlast a session. Timed from BEFORE the exchange, so the renewal point errs early.
-  const cookies = new Map<string, { cookie: Promise<string>, obtainedAt: number }>()
   return {
     homeSite: home,
     portals: listingFailed ? [] : account.filter(site => site !== home),
@@ -196,12 +200,8 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     cookieFor: site => {
       const origin = siteOrigin(site)
       if (!account.includes(origin)) return Promise.resolve(undefined)
-      const held = cookies.get(origin)
-      if (held && !sessionNeedsRenewal(held.obtainedAt, Date.now())) return held.cookie
-      const entry = { cookie: getAutonomousAgentSession(autonomousAgent, origin), obtainedAt: Date.now() }
-      cookies.set(origin, entry)
-      entry.cookie.catch(() => { if (cookies.get(origin) === entry) cookies.delete(origin) })
-      return entry.cookie
+      // Renewed by the broker when it nears its expiry: a turn may outlast a session.
+      return getAutonomousAgentSession(autonomousAgent, origin)
     },
     listingIdentity: `agent:${autonomousAgent.id}`
   }

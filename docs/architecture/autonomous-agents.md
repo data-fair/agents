@@ -166,14 +166,14 @@ client id changes, and kept by later saves, so editing an agent from another of 
 sites does not move it.
 
 - The subject is `autonomous-agent:<agent id>`, which is what binds one NHI to one agent.
-- Sessions are short-lived and non-refreshable, exchanged **per turn and per site**, and exchanged
-  again within a turn when one nears its expiry. A session lives the assertion TTL
+- Sessions are short-lived and non-refreshable, exchanged **per agent and per site**, reused across
+  turns until one nears its expiry, then exchanged again. A session lives the assertion TTL
   (`ASSERTION_TTL_SECONDS`, 300 s — simple-directory caps a session at its assertion's expiry; longer
   than nhi-proxy's 120 s because the cookie never leaves this process). A site's session is renewed
   `SESSION_RENEW_MARGIN_SECONDS` (60 s) before it would expire (`sessionNeedsRenewal`), and the MCP
   transport reads the current one on every request rather than fixing it when it connects
   (`connectMcpServer`), so a turn may run longer than a session lives: the TTL bounds a credential,
-  not a turn. A session is never reused across turns. simple-directory's sessions are host-only, so one is exchanged for each site the agent acts
+  not a turn. simple-directory's sessions are host-only, so one is exchanged for each site the agent acts
   on, and only for its *account sites* (the enrolment site plus the organization's sites, listed by simple-directory as the
   agent and cached for a minute — `listAccountSites`, `agentSiteCredentials` in `api/src/nhi/service.ts`).
   Elsewhere the agent is anonymous. An agent that references no `nhi-session` catalog entry never
@@ -190,6 +190,17 @@ sites does not move it.
   address is a fixed `127.0.0.1`, which is why `allowedIps`/`ipBinding` must never be set on an agent's
   NHI (see [Configuration](./configuration.md#verifying-an-autonomous-agents-identity-and-tools)). It returns the session as cookies, not
   a bearer token, because `@data-fair/lib-express` reads sessions from cookies only.
+- **Exchanges spend a budget all agents share** (`api/src/nhi/session-broker.ts`). simple-directory counts
+  each exchange against `authRateLimit` (5 a minute) per caller IP and per client id, gives a success its
+  point back when it ends and keeps a failure's; every exchange of this service declares the same address,
+  so the in-flight exchanges and the recent failures of all agents of all organizations share one budget.
+  So, per process: a session is reused across turns rather than exchanged per turn (it lives no longer for
+  it); concurrent asks for one session share one exchange, and at most 2 run at once, the rest queued (planned
+  tasks on the same schedule, the admin page's parallel reads); an identity simple-directory rejected
+  (400/401/403: the NHI deleted, its client id changed, the agent out of its organization) is not asked again
+  for 5 minutes, the failure answered here with its reason; a 429 waits and retries (3 times) rather than
+  failing the turn. Saving, disabling or deleting the agent drops its sessions and its back-off. The
+  limit is per process: N replicas run up to 2N at once.
 - **The ceiling is simple-directory's, not ours.** An NHI belongs to exactly one organization, can
   never be an admin nor an impersonation target, so an org admin cannot give an agent reach beyond their
   organization. The signing key and catalog `apiKey`s come from the environment, and assertions and
