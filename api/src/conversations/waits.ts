@@ -18,7 +18,7 @@ import mongo from '#mongo'
 import type { Conversation } from '#types'
 import type { MessagePart } from '@agents/shared/message-parts'
 import Debug from 'debug'
-import { formatHostEvents, LOCATION_KEY } from '../agent-session/host-events.ts'
+import { formatWaitAnswer, LOCATION_KEY } from '../agent-session/host-events.ts'
 import { updateMessage, createRun, rejectPendingApprovals, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED } from './service.ts'
 import { startRun } from './executor.ts'
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
@@ -96,7 +96,7 @@ export const wakeIfAnswered = async (conversationId: string, session: AgentSessi
   // never run if approved later. Before the wait is settled, whose write replaces the message's parts
   // and would otherwise race a decision landing meanwhile.
   await rejectPendingApprovals(conversationId, PENDING_APPROVAL_ACTED, APPROVED_STEP_ACTED)
-  const wait = await settlePendingWait(conversationId, () => formatHostEvents(events))
+  const wait = await settlePendingWait(conversationId, () => formatWaitAnswer(events))
   if (!wait) {
     // Another settler won (the person wrote at the same moment): the events are still owed.
     session.hostEvents.restorePending(events)

@@ -2,9 +2,10 @@
 
 Primitives for judged browser simulations of an [agents](https://github.com/data-fair/agents)
 chat: drive a real conversation with a simulated user in a real browser, capture
-what happened, and hand the transcript to a judge. It does not own cases, login,
-settings seeding, or the turn loop — those stay in the host repo, which knows
-its own routes, fixtures and account setup. It also ships a small Claude Code
+what happened, and hand the transcript to a judge. It owns the turn loop
+(`runSimulation`) and the agents side of the setup; cases, login and the host's
+own seeding stay in the host repo, which knows its own routes, fixtures and
+account setup. It also ships a small Claude Code
 bridge (a dev tool, not a simulation primitive) that exposes the Claude Agent
 SDK as an OpenAI-compatible provider, so a dev workspace can drive the assistant
 under test on a Claude subscription instead of a metered API key.
@@ -60,7 +61,67 @@ The command prints the package version it copied from so drift is at least
 detectable; without `--force` it skips a file that already exists rather than
 overwriting local edits.
 
+## Running cases in a data-fair host
+
+What data-fair, portals and catalogs share: the turn loop and its validity
+guards (`runSimulation`), the bridge settings of the simulation owner
+(`seedAgentsSettings`), the chat drawer helpers (`CHAT_FRAME`, `ensureChatOpen`),
+the Playwright config (`defineSimConfig`) and the report script (`reportCli`).
+
+```ts
+// playwright.sim.config.ts
+import 'dotenv/config'
+import { defineSimConfig } from '@data-fair/lib-agents-sim'
+
+export default defineSimConfig({ baseURL: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}` })
+```
+
+```ts
+// simulations/simulate.sim.spec.ts
+import { test } from '@playwright/test'
+import { runSimulation, seedAgentsSettings, selectCases, simCaseNames } from '@data-fair/lib-agents-sim'
+import { cases } from './cases/index.ts'
+
+for (const simCase of selectCases(cases, simCaseNames())) {
+  test(`simulation: ${simCase.name}`, async ({ page }) => {
+    await runSimulation(page, simCase, {
+      agentsUrl: `${ROOT}/agents`,
+      locale: 'fr',
+      // inside the run: a failure here is recorded as an invalid run
+      setup: async ({ assistantModel, toolsModel }) => {
+        await seedYourData()
+        await seedAgentsSettings(superadminAxios, `${ROOT}/agents`, OWNER, assistantModel, toolsModel)
+        await turnOnYourChat()
+        await loginAndGoTo(page, simCase.route)
+      },
+      perceptionRoots: [{ label: 'page', root: page, frames: true, cap: 16000 }],
+      // the run's conversations, read back through the review export (see "The conversation export")
+      fetchExports: since => fetchYourExports(OWNER, yourUserId, since)
+    })
+  })
+}
+```
+
+```ts
+// simulations/report.ts
+import { reportCli } from '@data-fair/lib-agents-sim'
+import { cases } from './cases/index.ts'
+
+reportCli(cases)
+```
+
+`runSimulation` reads `SIM_ASSISTANT_MODEL` (default `sonnet`), `SIM_TOOLS_MODEL`
+(default `haiku`, the background roles), `SIM_USER_MODEL` and `SIM_SUB_AGENTS=0`,
+and checks the bridge (`BRIDGE_URL`, or `BRIDGE_PORT`) before `setup`. It writes a
+pessimistic sidecar first, gives the review consent the export needs, hands a
+`wait_for_user_action` over to the person, accepts dialogs (and says so in
+`consoleErrors`), reads the run back with `fetchExports`, and records a run that
+ended in error (a provider failure, `runErrors`), a cold Vite dev server, an empty
+transcript or no exported conversation as an invalid run, then throws.
+
 ## Minimal runner example
+
+To write your own loop instead:
 
 A host repo owns the Playwright test that drives one case end to end. For a
 chat embedded in an iframe (the common case for a host application), pass
@@ -153,9 +214,11 @@ returns.
 
 ### Give the persona eyes
 
-`createPagePerception(roots, opts?)` gives the simulated user a
-`look`/`click`/`type` MCP tool set over the real Playwright page(s), so it can
-check what is actually on screen instead of guessing. Pass one root per
+`createPagePerception(roots, opts?)` gives the simulated user an MCP tool set
+over the real Playwright page(s), so it can check what is actually on screen
+instead of guessing: `look` (the accessibility outline), `screenshot` (the
+screen as an image, for colours and layout), `click`, `type`, `press` (a key,
+in a named field or wherever the focus is) and `switch_tab`. Pass one root per
 visible surface — a chat embedded in an iframe has both the host page and the
 frame:
 
@@ -168,6 +231,16 @@ const perception = createPagePerception(
   { offLimits: [strings.input, strings.send, strings.stop, strings.reset] }
 )
 ```
+
+**Iframes.** A root's outline stops at its iframes unless the root sets
+`frames: true`: it then sees and acts inside them, nested ones included (acting
+needs a `Page` root). Use it instead of adding a root per frame — but not on top
+of one, or the frame's content is listed twice.
+
+**Tabs.** A link that opens a new tab (`target="_blank"`) takes the persona
+there, as it would a person: `look`, `click`, `type`, `press` and `screenshot`
+work on that tab, tab 1 being your roots, until `switch_tab` returns. It needs a
+`Page` among the roots, whose browser context is watched for new pages.
 
 **Pass `offLimits`.** It is the second argument's only option, and it is not
 optional in practice: it is the list of accessible names — typically the
@@ -189,8 +262,9 @@ perception.setTurn(i + 1)
 const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
 ```
 
-Every `look`/`click`/`type` call is recorded into `perception.observations` as
-`{ turn, tool, args, result }`; put that array into the transcript's
+Every tool call is recorded into `perception.observations` as
+`{ turn, tool, args, result }` (a screenshot as a line saying it was taken, not
+the image); put that array into the transcript's
 `observations` field so the judge can check a visual claim against what was
 actually seen. **Without `perception`, the persona cannot see the page at
 all** — do not write a case or a judge prompt that expects it to notice or
@@ -234,13 +308,19 @@ List the threads with `GET /api/review/:type/:id`, keep the person's own
 `{ conversationId, agentId, jsonl }`. `parseConversationExport` and
 `recordedToolCalls` are exported for a host that wants its own counts.
 
-**Breaking change in 0.10.0.** `captureGateway` and `Transcript.gateway` are gone,
+**Breaking change in 0.12.0.** `captureGateway` and `Transcript.gateway` are gone,
 and so is `agentToolCalls`. They captured the browser's requests to the model
 gateway, which the agents service no longer makes: its loop runs server-side for
 every chat, so the capture recorded nothing while the run still read valid.
 `Transcript.exports` replaces both, and `RunMetrics` is now derived from the
 exports (`requestsByRole`, `toolCalls`, `failedToolCalls`, `credits`, …); its
-model-side counts are `null` when no export was read, never `0`.
+model-side counts are `null` when no export was read, never `0`. For the same
+reason `runSimulation` takes a `fetchExports` option, `captureGatewayErrors` and
+its helpers are gone (`runErrors` reads a provider failure from the exports), and
+`passActions` / `withSilentPasses` are gone: the persona places each of its page
+actions in the conversation where it made them (`Observation.at`). `bridgeSettings`
+follows the agents settings: no `evaluator` role, and `reviewPersonalAssistant: true`
+instead of `storeTraces: false`.
 
 ### Where the evidence goes
 

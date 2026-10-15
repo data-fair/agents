@@ -17,9 +17,25 @@ declare global {
   const DEFAULT_FLAGS: typeof import('../src/utils/agent-flags').DEFAULT_FLAGS
   const EffectScope: typeof import('vue').EffectScope
   const FLAGS_COOKIE: typeof import('../src/utils/agent-flags').FLAGS_COOKIE
+  const HOST_EVENTS_CLOSE: typeof import('../src/composables/host-events').HOST_EVENTS_CLOSE
+  const HOST_EVENTS_OPEN: typeof import('../src/composables/host-events').HOST_EVENTS_OPEN
+  const HOST_STATE_CLOSE: typeof import('../src/composables/host-events').HOST_STATE_CLOSE
+  const HOST_STATE_OPEN: typeof import('../src/composables/host-events').HOST_STATE_OPEN
+  const HostEventStore: typeof import('../src/composables/host-events').HostEventStore
+  const LOCATION_KEY: typeof import('../src/composables/host-events').LOCATION_KEY
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
+  const NOT_BEFORE_MARGIN_MS: typeof import('../src/utils/anonymous-token').NOT_BEFORE_MARGIN_MS
+  const PENDING_MAX: typeof import('../src/composables/host-events').PENDING_MAX
+  const RECENT_MAX: typeof import('../src/composables/host-events').RECENT_MAX
+  const SAME_GESTURE_MS: typeof import('../src/composables/host-events').SAME_GESTURE_MS
+  const STATE_MAX_KEYS: typeof import('../src/composables/host-events').STATE_MAX_KEYS
+  const WAIT_DEFAULT_SECONDS: typeof import('../src/composables/host-events').WAIT_DEFAULT_SECONDS
+  const WAIT_MAX_SECONDS: typeof import('../src/composables/host-events').WAIT_MAX_SECONDS
+  const WAIT_TOOL_NAME: typeof import('../src/composables/host-events').WAIT_TOOL_NAME
   const apiErrorMessage: typeof import('../src/utils/api-error').apiErrorMessage
+  const appendHostEvents: typeof import('../src/composables/host-events').appendHostEvents
   const appendStreamingCaret: typeof import('../src/utils/markdown').appendStreamingCaret
+  const applyStreamPart: typeof import('../src/composables/agent-stream-parts').applyStreamPart
   const autonomousAgentEditDraft: typeof import('../src/utils/autonomous-agent-draft').autonomousAgentEditDraft
   const autonomousAgentMessageToChat: typeof import('../src/utils/autonomous-agent-chat-message').autonomousAgentMessageToChat
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
@@ -32,6 +48,7 @@ declare global {
   const createApp: typeof import('vue').createApp
   const createRouter: typeof import('vue-router').createRouter
   const createToolTitleMemo: typeof import('../src/composables/tool-titles').createToolTitleMemo
+  const createWaitTool: typeof import('../src/composables/host-events').createWaitTool
   const createWebHistory: typeof import('vue-router').createWebHistory
   const customRef: typeof import('vue').customRef
   const defineAsyncComponent: typeof import('vue').defineAsyncComponent
@@ -53,12 +70,15 @@ declare global {
   const formatBreakdownValue: typeof import('../src/utils/usage-breakdown').formatBreakdownValue
   const formatBytes: typeof import('@data-fair/lib-vue/format/bytes.js').formatBytes
   const formatCredits: typeof import('../src/utils/credits').formatCredits
+  const formatHostEvents: typeof import('../src/composables/host-events').formatHostEvents
+  const formatHostState: typeof import('../src/composables/host-events').formatHostState
   const formatMermaidFix: typeof import('../src/utils/mermaid-fix').formatMermaidFix
   const getAnonymousToken: typeof import('../src/composables/use-anonymous-token').getAnonymousToken
   const getCurrentInstance: typeof import('vue').getCurrentInstance
   const getCurrentScope: typeof import('vue').getCurrentScope
   const getCurrentWatcher: typeof import('vue').getCurrentWatcher
   const h: typeof import('vue').h
+  const hasHostState: typeof import('../src/composables/host-events').hasHostState
   const inject: typeof import('vue').inject
   const injectHead: typeof import('@unhead/vue').injectHead
   const isProxy: typeof import('vue').isProxy
@@ -68,6 +88,7 @@ declare global {
   const isShallow: typeof import('vue').isShallow
   const looksLikeIncompleteTable: typeof import('../src/utils/markdown').looksLikeIncompleteTable
   const markRaw: typeof import('vue').markRaw
+  const msUntilValid: typeof import('../src/utils/anonymous-token').msUntilValid
   const nextTick: typeof import('vue').nextTick
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount
@@ -95,14 +116,17 @@ declare global {
   const renderMermaidIn: typeof import('../src/utils/mermaid').renderMermaidIn
   const renderStreamingMarkdown: typeof import('../src/utils/markdown').renderStreamingMarkdown
   const repairInline: typeof import('../src/utils/markdown').repairInline
+  const repairWaitInput: typeof import('../src/composables/agent-stream-parts').repairWaitInput
   const resetAnonymousToken: typeof import('../src/composables/use-anonymous-token').resetAnonymousToken
   const resolveComponent: typeof import('vue').resolveComponent
+  const resolvesWait: typeof import('../src/composables/host-events').resolvesWait
   const rewriteSimpleDirectoryUrl: typeof import('../src/utils/simple-directory-url').rewriteSimpleDirectoryUrl
   const runStatusLabel: typeof import('../src/utils/run-statuses').runStatusLabel
   const runStatuses: typeof import('../src/utils/run-statuses').runStatuses
   const sanitizeEvent: typeof import('../src/composables/use-host-events').sanitizeEvent
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags').serializeFlagsCookie
   const setBreadcrumbs: typeof import('../src/utils/breadcrumbs').setBreadcrumbs
+  const settleWaitInvocations: typeof import('../src/composables/agent-stream-parts').settleWaitInvocations
   const shallowReactive: typeof import('vue').shallowReactive
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
@@ -116,6 +140,7 @@ declare global {
   const toValue: typeof import('vue').toValue
   const triggerRef: typeof import('vue').triggerRef
   const unref: typeof import('vue').unref
+  const useAgentChat: typeof import('../src/composables/use-agent-chat').useAgentChat
   const useAgentSession: typeof import('../src/composables/use-agent-session').useAgentSession
   const useAsyncAction: typeof import('@data-fair/lib-vue/async-action.js').useAsyncAction
   const useAttrs: typeof import('vue').useAttrs
@@ -177,9 +202,6 @@ declare global {
   export type { AgentOption, ConversationSummary } from '../src/utils/chat-agents'
   import('../src/utils/chat-agents')
   // @ts-ignore
-  export type { ChatMessage } from '../src/utils/chat-message'
-  import('../src/utils/chat-message')
-  // @ts-ignore
   export type { MermaidAutoFixState } from '../src/utils/mermaid-fix'
   import('../src/utils/mermaid-fix')
   // @ts-ignore
@@ -188,6 +210,15 @@ declare global {
   // @ts-ignore
   export type { UsageDimension, UsageEntry } from '../src/utils/usage-breakdown'
   import('../src/utils/usage-breakdown')
+  // @ts-ignore
+  export type { WaitInput, StreamMessage, StreamPart, ActivityPhase, StreamScope } from '../src/composables/agent-stream-parts'
+  import('../src/composables/agent-stream-parts')
+  // @ts-ignore
+  export type { HostEventStore, WaitOutcome, HostStateSnapshot } from '../src/composables/host-events'
+  import('../src/composables/host-events')
+  // @ts-ignore
+  export type { ChatMessage, ToolInfo, SubAgentInfo, DebugToolsPartition, UseAgentChatOptions } from '../src/composables/use-agent-chat'
+  import('../src/composables/use-agent-chat')
   // @ts-ignore
   export type { HelloTarget, AgentSessionClientOptions } from '../src/composables/use-agent-session'
   import('../src/composables/use-agent-session')
@@ -216,9 +247,25 @@ declare module 'vue' {
     readonly DEFAULT_FLAGS: UnwrapRef<typeof import('../src/utils/agent-flags')['DEFAULT_FLAGS']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
     readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
+    readonly HOST_EVENTS_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_EVENTS_CLOSE']>
+    readonly HOST_EVENTS_OPEN: UnwrapRef<typeof import('../src/composables/host-events')['HOST_EVENTS_OPEN']>
+    readonly HOST_STATE_CLOSE: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_CLOSE']>
+    readonly HOST_STATE_OPEN: UnwrapRef<typeof import('../src/composables/host-events')['HOST_STATE_OPEN']>
+    readonly HostEventStore: UnwrapRef<typeof import('../src/composables/host-events')['HostEventStore']>
+    readonly LOCATION_KEY: UnwrapRef<typeof import('../src/composables/host-events')['LOCATION_KEY']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
+    readonly NOT_BEFORE_MARGIN_MS: UnwrapRef<typeof import('../src/utils/anonymous-token')['NOT_BEFORE_MARGIN_MS']>
+    readonly PENDING_MAX: UnwrapRef<typeof import('../src/composables/host-events')['PENDING_MAX']>
+    readonly RECENT_MAX: UnwrapRef<typeof import('../src/composables/host-events')['RECENT_MAX']>
+    readonly SAME_GESTURE_MS: UnwrapRef<typeof import('../src/composables/host-events')['SAME_GESTURE_MS']>
+    readonly STATE_MAX_KEYS: UnwrapRef<typeof import('../src/composables/host-events')['STATE_MAX_KEYS']>
+    readonly WAIT_DEFAULT_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_DEFAULT_SECONDS']>
+    readonly WAIT_MAX_SECONDS: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_MAX_SECONDS']>
+    readonly WAIT_TOOL_NAME: UnwrapRef<typeof import('../src/composables/host-events')['WAIT_TOOL_NAME']>
     readonly apiErrorMessage: UnwrapRef<typeof import('../src/utils/api-error')['apiErrorMessage']>
+    readonly appendHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['appendHostEvents']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
+    readonly applyStreamPart: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['applyStreamPart']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
     readonly autonomousAgentMessageToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessageToChat']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
@@ -230,6 +277,7 @@ declare module 'vue' {
     readonly computedDeepDiff: UnwrapRef<typeof import('@data-fair/lib-vue/deep-diff.js')['computedDeepDiff']>
     readonly createApp: UnwrapRef<typeof import('vue')['createApp']>
     readonly createToolTitleMemo: UnwrapRef<typeof import('../src/composables/tool-titles')['createToolTitleMemo']>
+    readonly createWaitTool: UnwrapRef<typeof import('../src/composables/host-events')['createWaitTool']>
     readonly customRef: UnwrapRef<typeof import('vue')['customRef']>
     readonly defineAsyncComponent: UnwrapRef<typeof import('vue')['defineAsyncComponent']>
     readonly defineComponent: UnwrapRef<typeof import('vue')['defineComponent']>
@@ -238,12 +286,15 @@ declare module 'vue' {
     readonly formatBreakdownValue: UnwrapRef<typeof import('../src/utils/usage-breakdown')['formatBreakdownValue']>
     readonly formatBytes: UnwrapRef<typeof import('@data-fair/lib-vue/format/bytes.js')['formatBytes']>
     readonly formatCredits: UnwrapRef<typeof import('../src/utils/credits')['formatCredits']>
+    readonly formatHostEvents: UnwrapRef<typeof import('../src/composables/host-events')['formatHostEvents']>
+    readonly formatHostState: UnwrapRef<typeof import('../src/composables/host-events')['formatHostState']>
     readonly formatMermaidFix: UnwrapRef<typeof import('../src/utils/mermaid-fix')['formatMermaidFix']>
     readonly getAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['getAnonymousToken']>
     readonly getCurrentInstance: UnwrapRef<typeof import('vue')['getCurrentInstance']>
     readonly getCurrentScope: UnwrapRef<typeof import('vue')['getCurrentScope']>
     readonly getCurrentWatcher: UnwrapRef<typeof import('vue')['getCurrentWatcher']>
     readonly h: UnwrapRef<typeof import('vue')['h']>
+    readonly hasHostState: UnwrapRef<typeof import('../src/composables/host-events')['hasHostState']>
     readonly inject: UnwrapRef<typeof import('vue')['inject']>
     readonly injectHead: UnwrapRef<typeof import('@unhead/vue')['injectHead']>
     readonly isProxy: UnwrapRef<typeof import('vue')['isProxy']>
@@ -253,6 +304,7 @@ declare module 'vue' {
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
+    readonly msUntilValid: UnwrapRef<typeof import('../src/utils/anonymous-token')['msUntilValid']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
     readonly onBeforeMount: UnwrapRef<typeof import('vue')['onBeforeMount']>
@@ -279,14 +331,17 @@ declare module 'vue' {
     readonly renderMermaidIn: UnwrapRef<typeof import('../src/utils/mermaid')['renderMermaidIn']>
     readonly renderStreamingMarkdown: UnwrapRef<typeof import('../src/utils/markdown')['renderStreamingMarkdown']>
     readonly repairInline: UnwrapRef<typeof import('../src/utils/markdown')['repairInline']>
+    readonly repairWaitInput: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['repairWaitInput']>
     readonly resetAnonymousToken: UnwrapRef<typeof import('../src/composables/use-anonymous-token')['resetAnonymousToken']>
     readonly resolveComponent: UnwrapRef<typeof import('vue')['resolveComponent']>
+    readonly resolvesWait: UnwrapRef<typeof import('../src/composables/host-events')['resolvesWait']>
     readonly rewriteSimpleDirectoryUrl: UnwrapRef<typeof import('../src/utils/simple-directory-url')['rewriteSimpleDirectoryUrl']>
     readonly runStatusLabel: UnwrapRef<typeof import('../src/utils/run-statuses')['runStatusLabel']>
     readonly runStatuses: UnwrapRef<typeof import('../src/utils/run-statuses')['runStatuses']>
     readonly sanitizeEvent: UnwrapRef<typeof import('../src/composables/use-host-events')['sanitizeEvent']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
+    readonly settleWaitInvocations: UnwrapRef<typeof import('../src/composables/agent-stream-parts')['settleWaitInvocations']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
@@ -300,6 +355,7 @@ declare module 'vue' {
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
+    readonly useAgentChat: UnwrapRef<typeof import('../src/composables/use-agent-chat')['useAgentChat']>
     readonly useAgentSession: UnwrapRef<typeof import('../src/composables/use-agent-session')['useAgentSession']>
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>
     readonly useAttrs: UnwrapRef<typeof import('vue')['useAttrs']>

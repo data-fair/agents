@@ -9,7 +9,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { createAgentSession } from '../../../api/src/agent-session/session.ts'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
-import { formatHostState } from '../../../api/src/agent-session/host-events.ts'
+import { formatHostState, formatWaitAnswer, HostEventStore } from '../../../api/src/agent-session/host-events.ts'
 import { parseClientMessage } from '@agents/shared/agent-session-protocol'
 
 const sessionWith = () => createAgentSession({ send: () => {} })
@@ -92,6 +92,16 @@ test.describe('wait_for_user_action, server-side', () => {
     session.handle(parse({ type: 'abort' }) as any)
     session.handle(parse({ type: 'abort', dismissWait: true }) as any)
     assert.deepEqual(aborts, [false, true])
+  })
+
+  test('a wait is answered with what happened in the order it happened', () => {
+    // A judged portal run: the answer listed « draft-validated » first, then the older « unpublished
+    // changes » state, which reads as the current state once the validation is past.
+    const store = new HostEventStore()
+    store.push({ name: 'draft', key: 'draft', detail: 'unpublished changes', at: 1000 })
+    store.push({ name: 'draft-validated', detail: '{"page":"x"}', at: 2000 })
+    const answer = formatWaitAnswer(store.takeWaitAnswer()!)
+    assert.ok(answer.indexOf('unpublished changes') < answer.indexOf('draft-validated'), answer)
   })
 
   test('the tool is named what the model is told it is named', () => {

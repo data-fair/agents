@@ -5,6 +5,8 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import type { SimulationCase, RunSidecar } from './types.ts'
+import { selectCases, simCaseNames } from './cases.ts'
+import { evidenceDir } from './transcript.ts'
 
 type Verdict = {
   case: string
@@ -94,4 +96,15 @@ export function reportCases (cases: SimulationCase[], evidenceDir: string): numb
 
   console.log(failures === 0 ? '\nall cases satisfied' : `\n${failures} case(s) need attention`)
   return failures
+}
+
+/**
+ * A host's `simulate:report` script. argv wins, then SIM_CASES, so a report after
+ * a filtered `SIM_CASES=… npm run simulate` reports on the cases that actually ran
+ * instead of failing on the ones that deliberately did not.
+ */
+export function reportCli (cases: SimulationCase[], argv = process.argv.slice(2)) {
+  // exitCode, not process.exit(): stdout is async when piped (it is, under npm
+  // run) and process.exit discards pending writes, truncating the report.
+  process.exitCode = reportCases(selectCases(cases, argv.length ? argv : simCaseNames()), evidenceDir) === 0 ? 0 : 1
 }

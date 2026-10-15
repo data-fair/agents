@@ -238,6 +238,15 @@ export function formatHostEvents (events: AgentEvent[]): string {
   ].join('\n')
 }
 
+/**
+ * A pending wait's answer, as the settled call reads: the person's action and its followers in the order
+ * they happened. Followers are older states as often as consequences, and listed after the action that
+ * answered, a judged run's stale « unpublished changes » read as the state that followed « draft-validated ».
+ */
+export function formatWaitAnswer (events: AgentEvent[]): string {
+  return formatHostEvents([...events].sort((a, b) => a.at - b.at))
+}
+
 export function hasHostState (snapshot: HostStateSnapshot): boolean {
   return snapshot.state.length > 0 || snapshot.recent.length > 0
 }

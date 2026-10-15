@@ -229,7 +229,7 @@ test.describe('Host events', () => {
     await open(page, goToWithAuth)
     await reachConfirmation(page)
     await send(page, 'wait for me')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for: you to click Create', { timeout: 15000 })
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
     await expect(page.getByRole('button', { name: /Stop|Arrêter/ })).toBeVisible()
     await page.getByRole('button', { name: 'Leave page' }).click()
     await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })

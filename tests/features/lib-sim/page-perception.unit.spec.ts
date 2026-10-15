@@ -17,12 +17,14 @@ const fakeRoot = (snapshot: string, log: string[] = []) => ({
 })
 
 test.describe('the tool set', () => {
-  test('exposes exactly look, click and type', () => {
+  test('exposes exactly the tools a person has', () => {
     // This is the guard on the design's core exclusion. Any new tool must be a
     // deliberate edit here, and evaluate/raw-selector/DOM access must never be
     // added. This exact assertion already catches any addition or rename.
+    // press, screenshot and switch_tab were added deliberately: keys, colours and tabs
+    // are things a person has, and judged runs failed for want of each.
     const p = createPagePerception([{ label: 'page', root: fakeRoot('- button "Send"') as any }])
-    assert.deepEqual(p.toolNames.sort(), ['click', 'look', 'type'])
+    assert.deepEqual(p.toolNames.sort(), ['click', 'look', 'press', 'screenshot', 'switch_tab', 'type'])
   })
 
   test('names the mcp server so allowedTools can be derived', () => {

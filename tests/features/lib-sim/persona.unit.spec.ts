@@ -89,6 +89,27 @@ test.describe('persona prompting', () => {
     assert.ok(!p.includes('assistant: you opened'), 'the boundary is not put in the assistant\'s mouth')
   })
 
+  test('tells keys and tab switches apart, and leaves screenshots out like looks', () => {
+    const p = personaPrompt([{ role: 'assistant', text: 'Validez.' }], 3, [
+      { turn: 1, tool: 'press', args: { key: 'Enter', name: 'Recherche' }, result: 'pressed Enter in "Recherche"' },
+      { turn: 1, tool: 'press', args: { key: 'Escape' }, result: 'pressed Escape' },
+      { turn: 1, tool: 'switch_tab', args: { tab: 2 }, result: 'now on tab 2' },
+      { turn: 1, tool: 'screenshot', args: {}, result: 'screenshot of tab 2' }
+    ])
+    assert.ok(p.includes('pressed Enter in "Recherche"'))
+    // a result that only repeats the action is not shown twice
+    assert.ok(p.includes('(you, on the page: pressed Escape)'))
+    assert.ok(p.includes('switched to tab 2'))
+    assert.ok(!p.includes('screenshot'), 'a screenshot is a look, not an action')
+  })
+
+  test('the perception instructions name keys, images and tabs', () => {
+    const p = personaSystemPrompt(c, true)
+    assert.match(p, /press/)
+    assert.match(p, /screenshot/)
+    assert.match(p, /tab/)
+  })
+
   test('warns the persona when it is nearly out of turns', () => {
     assert.ok(personaPrompt([{ role: 'assistant', text: 'x' }], 1).includes('last'))
   })
@@ -97,6 +118,14 @@ test.describe('persona prompting', () => {
     const p = personaSystemPrompt(cases[0], true)
     assert.ok(p.includes('look'), 'the persona must be told it can look')
     assert.ok(/never claim you cannot see/i.test(p))
+  })
+
+  test('the perception instructions say what an unhelpful click result means', () => {
+    // judged runs: a click that hit plain text was reported as the product failing, and a
+    // list said to hold more options was called incomplete without looking further
+    const p = personaSystemPrompt(cases[0], true)
+    assert.match(p, /not a button or a link/)
+    assert.match(p, /holds more options/)
   })
 
   test('a blind persona keeps its original prompt', () => {
@@ -147,6 +176,7 @@ test.describe('nextUserMessage MCP wiring', () => {
     setTurn: () => {},
     toolNames: ['look', 'click', 'type'],
     call: async () => '',
+    callContent: async () => [],
     offLimits: []
   }
 

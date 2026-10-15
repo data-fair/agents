@@ -69,11 +69,17 @@ let neutralCwd: string | undefined
 // genuinely lost persona long before it could wander for minutes.
 export const PERSONA_MAX_TURNS = 25
 
-export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click and type
-on the page. Before you say anything about what is or is not on the screen, look.
+export const PERCEPTION_INSTRUCTIONS = `You can look at the screen yourself with the look tool, and you can click, type and press
+keys (press) on the page. When colours or appearance matter, take a screenshot to see the screen as
+an image. A link may open a new browser tab: you are then looking at it, and switch_tab takes you back.
+Before you say anything about what is or is not on the screen, look.
 Never claim you cannot see something you have not looked for.
 Your tools are the only way you act on the page: never say you did something (reload, scroll, save…)
-that the conversation does not show you doing on the page.`
+that the conversation does not show you doing on the page.
+When a click says it hit text that is "not a button or a link", you have not found the control yet:
+look again for it rather than saying the page did nothing.
+When the screen says a list holds more options than it shows, click the option you want by its name
+before saying it is not there.`
 
 // Appended only when the caller actually configured createPagePerception's
 // offLimits — otherwise nothing refuses the composer and this sentence would be
@@ -165,14 +171,20 @@ export type PersonaQuery = (typeof import('@anthropic-ai/claude-agent-sdk'))['qu
  * result repeated the action, so it is only shown when it says something else.
  */
 const actionLine = (o: Observation) => {
-  const args = (o.args ?? {}) as { name?: unknown, text?: unknown }
-  const what = o.tool === 'click' ? `clicked "${args.name}"` : o.tool === 'type' ? `typed "${args.text}" into "${args.name}"` : o.tool
+  const args = (o.args ?? {}) as { name?: unknown, text?: unknown, key?: unknown, tab?: unknown }
+  const what = o.tool === 'click'
+    ? `clicked "${args.name}"`
+    : o.tool === 'type'
+      ? `typed "${args.text}" into "${args.name}"`
+      : o.tool === 'press'
+        ? (args.name ? `pressed ${args.key} in "${args.name}"` : `pressed ${args.key}`)
+        : o.tool === 'switch_tab' ? `switched to tab ${args.tab}` : o.tool
   return `(you, on the page: ${what}${o.result === what ? '' : ` → ${o.result.slice(0, 120)}`})`
 }
 
 export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number, observations: Observation[] = []): string {
   if (conversation.length === 0) return 'Write your first message to the assistant.'
-  const acts = observations.filter(o => o.tool !== 'look').slice(-10)
+  const acts = observations.filter(o => o.tool !== 'look' && o.tool !== 'screenshot').slice(-10)
   // An action with no position (a caller that does not stamp it) goes after the last entry.
   const actsAt = (index: number) => acts.filter(o => (o.at ?? conversation.length) === index).map(actionLine)
   const transcript = conversation.flatMap((m, index) => [

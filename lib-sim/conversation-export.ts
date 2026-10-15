@@ -91,3 +91,12 @@ export function recordedToolCalls (parsed: ParsedExport): RecordedToolCall[] {
   }
   return calls
 }
+
+/**
+ * Why runs ended in error, from their own record. A provider failure does not throw: the turn
+ * "completes" and the error lands in the transcript as if the assistant had said it. Never the
+ * product's fault, so a run carrying one is not judgeable.
+ */
+export function runErrors (exports: ParsedExport[]): string[] {
+  return exports.flatMap(exported => exported.runs.filter(run => run.status === 'error').map(run => run.error ?? run.stopReason ?? 'run ended in error'))
+}
