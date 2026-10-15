@@ -103,7 +103,7 @@ needs a redesign; most fixes are a few lines.
 - **M13 ✅ External MCP responses are unbounded** *10 MB per response, 15 s headers, 60 s body silence.* (`mcp-servers/external.ts:41-45`): a hostile or
   compromised admin-approved server OOMs the process. Fix: counting `TransformStream`, undici
   body/headers timeouts as `files/download.ts` does.
-- **M14 NHI exchanges share one rate-limit bucket.** *Open: needs simple-directory.* Every exchange declares `x-forwarded-for:
+- **M14 ✅ NHI exchanges share one rate-limit bucket.** *simple-directory now counts only failures (#169, consume then refund, so in-flight attempts still count). Here (`nhi/session-broker.ts`): sessions reused across turns until renewal, single-flight, at most 2 exchanges in flight per process, a rejected identity backed off 5 min, 429 retried; any save forgets. The shared 127.0.0.1 IP key remains.* Every exchange declares `x-forwarded-for:
   127.0.0.1` (`nhi/operations.ts:127`); simple-directory counts failures per IP (5/60 s). One org
   saving a bogus `clientId` five times a minute, or one agent with a deleted NHI, 429s every agent of
   every org. Fix: per-agent circuit breaker here; skip the IP bucket for internal callers in
@@ -228,7 +228,7 @@ string is a sink, as Anthropic's Cowork incident showed — the admin approval c
    Origin check and pseudo-session refusal at upgrade.
 5. **M1, M2, M7** (role computation), **M11** (frame/payload caps), **M9** (live-run cap per identity).
 6. ✅ **M3, M5, M6** (cross-interlocutor and memory provenance) — design-level, worth a short spec.
-7. ✅ **M13, M15, M12b** and the cheap Lows (2026-10-15). Open: **M14** (simple-directory), M8 (moderation rework), M10 /64, approval UX, retention, cipher, file storage cap, webhook key.
+7. ✅ **M13, M15, M12b** and the cheap Lows (2026-10-15). Then M14 (2026-10-15). Open: M8 (moderation rework), M10 /64, approval UX, retention, cipher, file storage cap, webhook key.
 
 Sources for the state-of-the-art claims: OWASP Top 10 for LLM Apps 2025 and Agentic Top 10 2026;
 OWASP NHI Top 10; Meta "Agents Rule of Two" (2025-10-31); Willison "lethal trifecta"; Beurer-Kellner
