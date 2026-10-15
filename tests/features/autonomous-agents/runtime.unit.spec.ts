@@ -37,6 +37,12 @@ test.describe('publicErrorDetail', () => {
     assert.equal(publicErrorDetail(Object.assign(new Error('the service is restarting'), { status: 503 })), 'the service is restarting')
   })
 
+  test('an error that states its public part says that part, and keeps its detail for the run', () => {
+    // Which server failed is what an admin needs to fix it; the network error under it may name an address.
+    const err = Object.assign(new Error('MCP server "roads" failed: connect ECONNREFUSED 10.0.3.12:4000'), { status: 502, publicMessage: 'MCP server "roads" failed' })
+    assert.equal(publicErrorDetail(err), 'MCP server "roads" failed')
+  })
+
   test('anything else says only that it failed', () => {
     assert.equal(publicErrorDetail(new Error('connect ECONNREFUSED 10.0.3.12:4000')), INTERNAL_ERROR_DETAIL)
     assert.equal(publicErrorDetail(Object.assign(new Error('upstream body: {"key":"sk-…"}'), { status: 500 })), INTERNAL_ERROR_DETAIL)

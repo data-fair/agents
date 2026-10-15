@@ -65,14 +65,23 @@ export function runStopReasonMessage (stopReason: RunStopReason, detail?: string
 export const INTERNAL_ERROR_DETAIL = 'an internal error, recorded for the administrators'
 
 /**
+ * An error whose first part is written for the reader, and whose detail (an upstream's own message, which
+ * may name an internal address) stays on the run: publicErrorDetail shows `publicMessage`.
+ */
+export const withPublicMessage = <E extends Error>(err: E, publicMessage: string): E & { publicMessage: string } =>
+  Object.assign(err, { publicMessage })
+
+/**
  * What of an error may reach the person, the transcript, the socket and the model.
  *
- * A refusal this service throws on purpose (`httpError`, 4xx, or 503 while it restarts) is written for
- * the person and keeps its words. Anything else — a provider's response body, an internal hostname or
+ * An error that states its public part (`withPublicMessage`) says that part. A refusal this service throws
+ * on purpose (`httpError`, 4xx, or 503 while it restarts) is written for the person and keeps its words. Anything else — a provider's response body, an internal hostname or
  * address, a database error — went to anonymous visitors and was replayed to the model on the next
  * turn; it now stays on the run (`error`), where administrators read it.
  */
 export function publicErrorDetail (err: unknown): string {
+  const publicMessage = (err as { publicMessage?: unknown } | undefined)?.publicMessage
+  if (typeof publicMessage === 'string' && publicMessage) return publicMessage
   const status = (err as { status?: unknown } | undefined)?.status
   const message = err instanceof Error ? err.message : undefined
   const deliberate = typeof status === 'number' && ((status >= 400 && status < 500) || status === 503)
@@ -382,7 +391,8 @@ export async function storedTurnsToModelMessages (
   // a silent gap in the context is the failure mode that has to stay impossible.
   const validation = await safeValidateUIMessages({ messages: turns })
   if (!validation.success) {
-    throw new Error(`stored conversation cannot be replayed, a message does not match the message model: ${validation.error.message}`)
+    const reason = 'stored conversation cannot be replayed, a message does not match the message model'
+    throw withPublicMessage(new Error(`${reason}: ${validation.error.message}`), reason)
   }
   const messages: ModelMessage[] = []
   const seqs: number[] = []

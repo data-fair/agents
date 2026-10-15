@@ -16,7 +16,7 @@ import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortal
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { withProfiles } from '@agents/shared/mcp-profiles'
 import { toolDescription } from '@agents/shared/tool-description'
-import type { ToolSet } from '../conversations/operations.ts'
+import { withPublicMessage, type ToolSet } from '../conversations/operations.ts'
 import { boundGuide, visibleSkills, type ServerGuide, type GuideSkill } from './guides.ts'
 import { MCP_CLIENT_CAPABILITIES, listServerSkills, readServerSkill } from './skills-client.ts'
 
@@ -206,7 +206,8 @@ export const openAutonomousAgentTools = async (
       return (await connection).client
     } catch (err: any) {
       // Named, like a listing failure: "fetch failed" alone does not say which of several servers.
-      throw new Error(`MCP server "${server.id}" failed: ${err.message}`)
+      // Its name is for the reader (publicErrorDetail); the network error under it stays on the run.
+      throw withPublicMessage(new Error(`MCP server "${server.id}" failed: ${err.message}`), `MCP server "${server.id}" failed`)
     }
   }
 
@@ -227,7 +228,7 @@ export const openAutonomousAgentTools = async (
       return { ref, server, listing: await listServer(server, server.auth === 'nhi-session' ? home : undefined, sites, opts?.fresh) }
     } catch (err: any) {
       // THROW or SKIP — see forEachListedTool, whose rule this is.
-      if (opts?.onServerError !== 'skip') throw httpError(502, `MCP server "${server.id}" failed: ${err.message}`)
+      if (opts?.onServerError !== 'skip') throw withPublicMessage(httpError(502, `MCP server "${server.id}" failed: ${err.message}`), `MCP server "${server.id}" failed`)
       debug('skipping server=%s %s', server.id, err.message)
       skippedServers.push({ id: server.id, reason: err.message })
       return undefined

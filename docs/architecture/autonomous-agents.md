@@ -101,7 +101,8 @@ quota or credit cap, a moderation block — is still a message saying so. The qu
 beyond the moderation classifier (see [Moderation](./moderation.md)).
 
 What the message says is not always what happened. A deliberate refusal (an `httpError`, 4xx, or 503)
-keeps its words; any other failure — a provider's response body, an internal address, a database
+keeps its words; an error that states its public part (`withPublicMessage`: which catalog server failed,
+that the stored history cannot be replayed) says that part; any other failure — a provider's response body, an internal address, a database
 error — is recorded whole on the run (`error`, read by administrators) and the message, the socket's
 `turn-end` and `error` frames and so the model's next turn say only "an internal error, recorded for the
 administrators" (`publicErrorDetail`). A quota's stop names a shared budget's numbers only to an admin,

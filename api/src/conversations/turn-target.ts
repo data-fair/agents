@@ -352,7 +352,7 @@ export const conversationTarget = (
       // is not known here — except for a signature that failed verification, which the SDK checks
       // before executing anything (a secret rotated between the request and the decision).
       const approvedCalls: ApprovedCallsEnd = InvalidToolApprovalSignatureError.isInstance(cause)
-        ? { ran: 'no', detail: `the approval could not be verified (${detail})` }
+        ? { ran: 'no', detail: 'the approval could not be verified (its signature did not match)' }
         : { ran: 'unknown', detail }
       // The message, then the run (finishRun) — the message write CAUGHT inside it, so whatever failed
       // it still lets the run close.
