@@ -2,9 +2,10 @@
  * E2E tests for hang protection in the chat.
  *
  * A turn must never freeze with no feedback. What this can prove from a browser, against the mock
- * provider's "stall" seam (a 30s silence before any output), is the half the person experiences: the
- * muted activity line names what is happening instead of leaving a mute spinner, and the turn
- * recovers on its own rather than staying stuck.
+ * provider's "slow hello" seam (a 2s silence before any output), is the half the person experiences:
+ * the muted activity line names what is happening instead of leaving a mute spinner, and the turn
+ * ends on its own rather than staying stuck. It used the 30s "stall" seam until that was noticed to
+ * prove nothing more for 30 more seconds: no ceiling fires either way (see below).
  *
  * WHAT IT NO LONGER PROVES, and why. It used to shorten the watchdog with
  * `sessionStorage['agent-chat-idle-timeout']` and then assert the timeout error. That knob belonged to
@@ -50,15 +51,10 @@ test.describe('Chat hang protection', () => {
   })
 
   test('A stalled stream shows a thinking indicator and the turn recovers instead of hanging', async ({ page, goToWithAuth }) => {
-    // The seam's silence is 30s — deliberately long, because the api tests use it to hold a run open
-    // while they abort or disable it (tests/features/autonomous-agents/runtime.api.spec.ts), so it
-    // cannot be shortened for this one. Hence the raised ceiling: this test costs ~35s and is the only
-    // one in the project that does.
-    test.setTimeout(75_000)
     await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
     const frame = await waitForChatFrame(page)
 
-    await frame.getByPlaceholder('Type your message...').fill('stall')
+    await frame.getByPlaceholder('Type your message...').fill('slow hello')
     await frame.getByRole('button', { name: 'Send' }).click()
 
     // While the stream is silent, the discreet activity line names the phase — the thing that makes a
@@ -67,9 +63,8 @@ test.describe('Chat hang protection', () => {
     await expect(activity).toBeVisible({ timeout: 5000 })
     await expect(activity).toContainText('Thinking')
 
-    // And the turn ends by itself. The seam stalls 30s and then answers, so this is the honest
-    // statement of "not hung": the composer comes back and the answer arrives, with no error alert.
-    await expect(frame.getByText('too late')).toBeVisible({ timeout: 45000 })
+    // And the turn ends by itself: the composer comes back and the answer arrives, with no error alert.
+    await expect(frame.getByText('world')).toBeVisible({ timeout: 10000 })
     await expect(frame.getByPlaceholder('Type your message...')).toBeEnabled()
     await expect(frame.locator('.v-alert')).toHaveCount(0)
   })

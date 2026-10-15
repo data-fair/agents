@@ -71,15 +71,17 @@ export const test = base.extend<{
             }
             await page.waitForURL(url)
             // Simple-directory keeps a server-side session reference per user and drops
-            // the old one when a newer login supersedes it, so every entry cached before
-            // this login is now stale. Replaying a stale entry is silently destructive:
-            // the app's first keepalive gets a 401, simple-directory clears the id_token
-            // cookies, and every later request in that test is anonymous — which shows
-            // up much later, and far from here, as "You do not have permission to use
-            // this model". Keeping only the most recent login makes the cache always
-            // hold a session the server still recognises; runs of tests reusing the same
-            // user still hit it.
-            cookieCache.clear()
+            // the old one when a newer login supersedes it, so every entry cached for this
+            // user before this login — adminMode and org variants included — is now stale.
+            // Replaying a stale entry is silently destructive: the app's first keepalive
+            // gets a 401, simple-directory clears the id_token cookies, and every later
+            // request in that test is anonymous — which shows up much later, and far from
+            // here, as "You do not have permission to use this model". Other users' entries
+            // stay: clearing the whole cache made every spec alternating users log in
+            // through the form again at each switch.
+            for (const key of [...cookieCache.keys()]) {
+              if (key === user || key.startsWith(user + ':')) cookieCache.delete(key)
+            }
             cookieCache.set(cacheKey, (await context.cookies()).filter(c => SESSION_COOKIE.test(c.name)))
           }
         })

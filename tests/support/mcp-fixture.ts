@@ -455,6 +455,8 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     delaySkillsList: (ms: number) => { skillsDelay = ms },
     lastInitializeCapabilities: () => initializeCapabilities,
     withdrawProfile: (name: string | undefined) => { withdrawn = name },
-    close: async () => { await new Promise<void>(resolve => server.close(() => resolve())) }
+    // closeAllConnections: the agents API keeps its sockets to this server alive, and close() alone
+    // waits for the CLIENT to drop them — undici's 4s idle timeout, paid after every spec using the fixture.
+    close: async () => { await new Promise<void>(resolve => { server.close(() => resolve()); server.closeAllConnections() }) }
   }
 }

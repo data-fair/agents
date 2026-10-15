@@ -13,7 +13,16 @@ interface MockPromptResult {
   delayMs?: number
   /** When set, emit these reasoning ("thinking") tokens before the answer */
   reasoning?: string
+  /** Characters per text-delta, one delta every 10ms (default STREAM_CHUNK) */
+  chunk?: number
 }
+
+/**
+ * Text streams in deltas of this many characters, one every 10ms. Not one per character: answers
+ * echoing a prompt block run to hundreds of characters, and a character every 10ms made every such
+ * turn cost seconds across the suite. The seams that need many deltas ('long answer') ask for 1.
+ */
+const STREAM_CHUNK = 8
 
 /**
  * Minimal stand-in token estimator: ~4 characters per token, rounded up. The
@@ -505,11 +514,11 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // Reasoning seam: emit reasoning tokens before the answer (exercises the loop's
   // reasoning capture and its streaming to the page).
   if (directive === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
-  // Streaming seam: the mock emits one text-delta per CHARACTER every 10ms, so a long string is
-  // all that is needed to produce a few hundred deltas — enough for a consumer to prove it
-  // throttles rather than forwarding one event per token.
+  // Streaming seam: one text-delta per CHARACTER every 10ms, so a long string is all that is needed
+  // to produce a few hundred deltas — enough for a consumer to prove it throttles rather than
+  // forwarding one event per token, and for a turn to be reliably caught mid-stream.
   if (directive === 'long answer') {
-    return { type: 'text', text: 'This is a deliberately long answer used to exercise streaming throughput. '.repeat(6) }
+    return { type: 'text', text: 'This is a deliberately long answer used to exercise streaming throughput. '.repeat(6), chunk: 1 }
   }
   // Loop-guard close-out seams (exercise the sub-agent loop → close-out path).
   // A task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
@@ -607,10 +616,11 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
             controller.enqueue({ type: 'reasoning-end', id: 'mock-reason' })
           }
           let i = 0
+          const chunk = result.chunk ?? STREAM_CHUNK
           const pushChar = () => {
             if (i < result.text!.length) {
-              controller.enqueue({ type: 'text-delta', id: 'mock-id', delta: result.text![i] })
-              i++
+              controller.enqueue({ type: 'text-delta', id: 'mock-id', delta: result.text!.slice(i, i + chunk) })
+              i += chunk
               timer = setTimeout(pushChar, 10)
             } else {
               controller.enqueue({ type: 'text-end', id: 'mock-id' })
