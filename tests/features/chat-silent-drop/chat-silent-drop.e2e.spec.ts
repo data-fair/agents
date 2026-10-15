@@ -81,7 +81,9 @@ test.describe('Chat silent-drop protection', () => {
     await frame.getByPlaceholder('Type your message...').fill('stream error')
     await frame.getByRole('button', { name: 'Send' }).click()
 
-    // The in-band error chunk must reach the user as an error alert, not nothing.
-    await expect(frame.locator('.v-alert')).toContainText('mock stream error', { timeout: 10000 })
+    // The in-band error chunk must reach the user as an error alert, not nothing — in words of the service:
+    // the provider's own message stays on the run, for administrators (publicErrorDetail).
+    await expect(frame.locator('.v-alert')).toContainText('internal error, recorded for the administrators', { timeout: 10000 })
+    await expect(frame.locator('.v-alert')).not.toContainText('mock stream error')
   })
 })
