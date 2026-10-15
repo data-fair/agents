@@ -7,7 +7,9 @@ import config from '#config'
 import { httpError, reqSiteUrl, type AccountKeys } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { SignJWT, importJWK } from 'jose'
-import axios from '@data-fair/lib-node/axios.js'
+// The private instance: simple-directory is reached at a configured address (privateDirectoryUrl), which the
+// default instance's SSRF guard refuses as non public.
+import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
 import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS, sessionNeedsRenewal } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
 

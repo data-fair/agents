@@ -126,7 +126,7 @@ A deployment left at `0` with no `SECRET_LIMITS` configured cannot receive allow
 
 ### `SECRET_LIMITS`
 
-Plain string, unset by default. Shared secret the external `customers` billing service presents as `?key=` on the `/api/v1/limits` endpoints (see [Limits contract](#limits-contract)). When unset, the `?key=` bypass is disabled entirely — `limitsKeyMatches()` (`api/src/limits/operations.ts`) fails **closed** (an unset secret can never match, including against an unset query param), so no secret means the endpoints fall back to normal session auth rather than opening up.
+Plain string, unset by default. Shared secret the external `customers` billing service presents as `?key=` on the `/api/v1/limits` endpoints (see [Limits contract](#limits-contract)). Compared in constant time by lib-express's `secretKeyMatches`, as data-fair's own limits router does. When unset, the `?key=` bypass is disabled entirely — it fails **closed** (an unset secret can never match, including against an unset query param), so no secret means the endpoints fall back to normal session auth rather than opening up.
 
 ```
 SECRET_LIMITS=a-long-random-shared-secret

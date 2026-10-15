@@ -80,6 +80,13 @@ test.describe('web addresses', () => {
     }
   })
 
+  test('IPv6 forms that carry an IPv4 address are not public: NAT64, 6to4, Teredo, IPv4-compatible', () => {
+    // On an IPv6-only cluster with DNS64, 64:ff9b::7f00:1 IS 127.0.0.1.
+    for (const address of ['64:ff9b::7f00:1', '2002:7f00:1::', '2001:0:4136:e378:8000:63bf:3fff:fdd2', '::127.0.0.1']) {
+      assert.ok(!isPublicAddress(address, none), address)
+    }
+  })
+
   test('declared public IPs are exceptions', () => {
     const list = ipList(['127.0.0.1', '10.1.0.0/16'])
     assert.ok(isPublicAddress('127.0.0.1', list))

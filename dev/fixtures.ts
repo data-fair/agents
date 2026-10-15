@@ -18,6 +18,7 @@
  * quota enforcement reads: a seeded member's daily quota starts partly consumed.
  */
 import { axiosBuilder } from '@data-fair/lib-node/axios.js'
+import { privateHttpAgent, privateHttpsAgent } from '@data-fair/lib-node/http-agents.js'
 import { axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 import { pathToFileURL } from 'node:url'
 import { encodeBreakdownKey } from '../api/src/usage/operations.ts'
@@ -382,7 +383,8 @@ interface UsageFixture {
 }
 
 export async function seedConsumption (): Promise<void> {
-  const ax = axiosBuilder({ baseURL })
+  // The private agents: the dev services are on localhost, which lib-node's default agents refuse (SSRF guard).
+  const ax = axiosBuilder({ baseURL, httpAgent: privateHttpAgent, httpsAgent: privateHttpsAgent })
 
   const postUsage = (fixture: UsageFixture) => ax.post('/api/test-env/usage', {
     ...fixture,
@@ -447,7 +449,7 @@ async function main () {
     password: 'passwd',
     adminMode,
     ...(person.org ? { org: person.org } : {}),
-    axiosOpts: { baseURL, headers: proxyHeaders },
+    axiosOpts: { baseURL, headers: proxyHeaders, httpAgent: privateHttpAgent, httpsAgent: privateHttpsAgent },
     directoryUrl
   })
   // adminMode so the settings PUT (which requires admin mode) is accepted; albanm is a global admin.

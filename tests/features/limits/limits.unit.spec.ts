@@ -1,6 +1,6 @@
 /**
- * stateless unit tests for limitsKeyMatches: the shared-secret predicate
- * that gates the /api/v1/limits routes. This pins the dangerous branch that
+ * stateless unit tests for the shared-secret predicate that gates the /api/v1/limits routes:
+ * lib-express's secretKeyMatches (constant time), as data-fair's limits router uses it. This pins the dangerous branch that
  * cannot be exercised through the running dev server, where SECRET_LIMITS is
  * always set: an unconfigured secret must never authenticate anyone, even a
  * keyless request.
@@ -8,7 +8,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { limitsKeyMatches } from '../../../api/src/limits/operations.ts'
+import { secretKeyMatches as limitsKeyMatches } from '@data-fair/lib-express'
 
 test.describe('limitsKeyMatches', () => {
   test('matches when the query key equals the configured secret', () => {
@@ -35,5 +35,8 @@ test.describe('limitsKeyMatches', () => {
 
   test('never matches when no secret is configured, whatever the query key', () => {
     assert.equal(limitsKeyMatches('anything', undefined), false)
+  })
+  test('a repeated query parameter (an array) never matches', () => {
+    assert.equal(limitsKeyMatches(['secretlimits', 'x'], 'secretlimits'), false)
   })
 })
