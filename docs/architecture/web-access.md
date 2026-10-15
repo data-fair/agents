@@ -19,12 +19,12 @@ The logic is one module, `api/src/web/`, which knows nothing of the agent loop; 
 `allowedUrls` are **URL prefixes**: `https://github.com/data-fair` allows that organization's repositories and nothing else on GitHub, `https://www.data.gouv.fr/` the whole site. Matching (`urlAllowed`, `api/src/web/operations.ts`):
 
 - at a boundary: the prefix ends with `/`, `?`, `&` or `=`, or the URL continues with `/` or `?` — so `github.com/data-fair` does not allow `github.com/data-fair-evil`, and `https://data.gouv.fr` does not allow `data.gouv.fr.evil.com`;
-- on the parsed URL, so dot segments (encoded ones included) are resolved before comparing;
+- on the parsed URL, so dot segments (encoded ones included) are resolved before comparing; a segment that would step out once a backend decodes or strips it (`..%2f`, `%2e%2e%5c`, `..;`, a path parameter to Tomcat) is refused;
 - http and https alike; no implicit subdomain.
 
 Entries are normalized when the agent is saved (`https://` assumed, lowercase host; no wildcard, IP address or credentials — a 400 otherwise), so what an admin reads back is what is enforced. Every **redirect hop** is checked, not only the URL asked for.
 
-A site's own metadata — `robots.txt`, its sitemaps, its OpenSearch description — sits at its root, outside a prefix narrower than the whole site. It is readable on any host that has an allowed URL (`UrlScope` `'site'`), and what it lists is filtered by the prefixes before it reaches the agent.
+A site's own metadata — `robots.txt`, its sitemaps, its OpenSearch description — sits at its root, outside a prefix narrower than the whole site. It is readable on any host (name and port: another port is another service) that has an allowed URL (`UrlScope` `'site'`), and what it lists is filtered by the prefixes before it reaches the agent.
 
 ## The tools
 

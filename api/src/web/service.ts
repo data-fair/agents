@@ -208,7 +208,7 @@ export const listSitePages = async (input: ListSitePagesInput, ctx: WebContext):
     const robots = await clientOf(ctx).get(`${origin}/robots.txt`, ctx.allowedUrls, 'site')
     if (robots.status < 400) roots = robotsSitemaps(decode(robots))
   } catch {}
-  roots = roots.filter(loc => { try { return hostAllowed(new URL(loc).hostname, ctx.allowedUrls) } catch { return false } })
+  roots = roots.filter(loc => { try { return hostAllowed(new URL(loc).host, ctx.allowedUrls) } catch { return false } })
   if (!roots.length) roots = [`${origin}/sitemap.xml`]
 
   const sitemaps: SitemapEntry[] = []

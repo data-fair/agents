@@ -50,9 +50,22 @@ test.describe('web allowlist', () => {
     assert.ok(!urlAllowed(new URL('https://data.gouv.fr.evil.test/'), ['https://data.gouv.fr']), 'not a host boundary')
   })
 
+  test('no way out of a prefix through a segment a backend would decode or strip', () => {
+    // A server that decodes %2f, or reads `;` as a path parameter (`..;` is `..` to Tomcat), would serve
+    // what these name from OUTSIDE the allowed prefix.
+    const allowed = ['https://github.com/data-fair/']
+    for (const url of ['https://github.com/data-fair/..%2fother', 'https://github.com/data-fair/..%5cother', 'https://github.com/data-fair/..;/other', 'https://github.com/data-fair/%2e%2e%2fother', 'https://github.com/data-fair/x/..%2F..%2Fother']) {
+      assert.ok(!urlAllowed(new URL(url), allowed), url)
+    }
+    assert.ok(urlAllowed(new URL('https://github.com/data-fair/a%2Fb'), allowed), 'an encoded slash alone is an ordinary name')
+    assert.ok(urlAllowed(new URL('https://github.com/data-fair/v1..2'), allowed))
+  })
+
   test('a site metadata file is allowed on any host with an allowed URL', () => {
     assert.ok(hostAllowed('github.com', ['https://github.com/data-fair']))
     assert.ok(!hostAllowed('api.github.com', ['https://github.com/data-fair']))
+    assert.throws(() => checkUrl('https://github.com:8443/robots.txt', ['https://github.com/data-fair'], 'site'), /not under/, 'another port is another service')
+    assert.equal(checkUrl('https://a.test:8443/robots.txt', ['https://a.test:8443/x'], 'site').host, 'a.test:8443')
     assert.equal(checkUrl('https://github.com/robots.txt', ['https://github.com/data-fair'], 'site').href, 'https://github.com/robots.txt')
     assert.throws(() => checkUrl('https://github.com/robots.txt', ['https://github.com/data-fair']), /not under this agent's allowed URLs/)
   })
