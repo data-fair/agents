@@ -27,11 +27,11 @@ const debug = Debug('agents:mcp-client')
  * rather than fixed when it connects: `cookie` is asked each time, so a session renewed during a long turn
  * (agentSiteCredentials) reaches the calls already holding this connection.
  */
-export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, cookie: () => Promise<string | undefined> = async () => undefined) => {
+export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, cookie: () => Promise<string | undefined> = async () => undefined, clientIp?: string) => {
   const transport = new StreamableHTTPClientTransport(new URL(server.url), {
     fetch: async (url, init) => {
       const headers = new Headers(init?.headers)
-      for (const [name, value] of Object.entries(callHeaders(server, siteUrl, await cookie()))) headers.set(name, value)
+      for (const [name, value] of Object.entries(callHeaders(server, siteUrl, await cookie(), clientIp))) headers.set(name, value)
       return await fetch(url, { ...init, headers })
     }
   })
@@ -120,7 +120,8 @@ export const TOOL_LISTING_TTL_MS = 60_000
  * session exchange.
  */
 const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials): Promise<ServerListing> => {
-  const { client, close } = await connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites))
+  // the listing is shared across turns: it carries the IP of the turn that lists (tools/list costs the stack nothing)
+  const { client, close } = await connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites), sites.clientIp)
   try {
     const tools = (await client.listTools()).tools as ListedMcpTool[]
     // What the server says about its own tools comes with the same connection, so a cached listing
@@ -199,7 +200,7 @@ export const openAutonomousAgentTools = async (
     if (!connection) {
       // The promise is stored before connecting, so two concurrent first calls to the same site share one
       // connection (and one exchange: cookieFor shares it too) instead of each connecting.
-      connection = connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites))
+      connection = connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites), sites.clientIp)
       connections.set(key, connection)
       // A failed connect is forgotten, so the next call retries rather than replaying the failure.
       connection.catch(() => { if (connections.get(key) === connection) connections.delete(key) })

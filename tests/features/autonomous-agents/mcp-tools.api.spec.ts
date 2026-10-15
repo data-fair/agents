@@ -5,6 +5,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { turnOverSocket } from '../../../dev/socket-turn.ts'
+import { isIP } from 'node:net'
 
 const admin = await superAdmin
 const issuer = `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`
@@ -86,6 +88,24 @@ test.describe('Autonomous agent tools', () => {
     // and nothing that could mint another one
     assert.equal(JSON.stringify(res.data).includes('id_token'), false)
     assert.equal(cookie.includes('assertion'), false)
+    // the diagnostic is no chat turn: there is no person, so no client IP is forwarded
+    assert.equal(fixture.lastHeaders()['x-forwarded-for'], undefined)
+  })
+
+  test('a chat turn forwards the person\'s IP to a site-bound server', async () => {
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-autonomous-agent-nhi',
+      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
+      issuer,
+      autonomousAgent: agentBody({ mcpServers: [{ serverId: 'dev-session-mcp' }] })
+    })
+    const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+    await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami {}')
+    // the socket came through the dev nginx, which sets X-Forwarded-For to the test client's address
+    const forwarded = String(fixture.lastHeaders()['x-forwarded-for'] ?? '')
+    assert.ok(isIP(forwarded), `expected the person's IP at the MCP server, got: ${forwarded}`)
   })
 
   test('a session server with no enrolled identity is refused rather than called anonymously', async () => {

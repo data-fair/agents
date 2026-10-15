@@ -31,6 +31,16 @@ test.describe('callHeaders', () => {
   test('an apiKey entry gets its header only', () => {
     assert.deepEqual(callHeaders(server({ auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'secret' }), portal, cookie), { 'x-api-key': 'secret' })
   })
+  test('a site-bound call forwards the person\'s IP when there is one', () => {
+    assert.equal(callHeaders(server({ auth: 'nhi-session' }), portal, cookie, '203.0.113.7')['x-forwarded-for'], '203.0.113.7')
+  })
+  test('and none on a task run, which acts for no address', () => {
+    assert.equal(callHeaders(server({ auth: 'nhi-session' }), portal, cookie, undefined)['x-forwarded-for'], undefined)
+  })
+  test('a third-party server never receives it', () => {
+    assert.equal(callHeaders(server({ auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'secret' }), portal, undefined, '203.0.113.7')['x-forwarded-for'], undefined)
+    assert.equal(callHeaders(server({ auth: 'none' }), portal, undefined, '203.0.113.7')['x-forwarded-for'], undefined)
+  })
 })
 
 test.describe('personSiteCredentials', () => {

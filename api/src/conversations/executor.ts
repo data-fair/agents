@@ -157,8 +157,8 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // socket only (see docs/architecture/overview.md, Hosts).
   const socketSite = session?.siteUrl()
   const sites: SiteCredentials = autonomousAgent.nhi
-    ? await agentSiteCredentials(autonomousAgent, target.conversationSiteUrl ?? socketSite)
-    : personSiteCredentials(socketSite, session?.sessionCookie())
+    ? await agentSiteCredentials(autonomousAgent, target.conversationSiteUrl ?? socketSite, session?.clientIp())
+    : personSiteCredentials(socketSite, session?.sessionCookie(), session?.clientIp())
   const homeHost = sites.homeSite ? new URL(sites.homeSite).host : undefined
   const anonymousOn = sites.home === 'anonymous' ? homeHost : undefined
   const unconfirmedOn = sites.home === 'unconfirmed' ? homeHost : undefined

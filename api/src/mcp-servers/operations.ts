@@ -165,6 +165,8 @@ export function unknownMcpServerIds (servers: GlobalMcpServer[], refs: { serverI
 export interface SiteCredentials {
   /** The site a call acts on when it names no portal; undefined: no site (calls carry no x-forwarded-host and no cookie). */
   homeSite?: string
+  /** The IP of the person a chat turn acts for, forwarded to site-bound servers; undefined on a task run (nobody's address). */
+  clientIp?: string
   /** Other account sites a call may name with `portal`, as origins. */
   portals: string[]
   /**
@@ -186,9 +188,10 @@ export interface SiteCredentials {
  * The personal assistant acts as the person, through the cookie of their socket — which is valid on
  * the site they opened it on, and nowhere else: sessions are host-only.
  */
-export function personSiteCredentials (socketSite: string | undefined, cookie: string | undefined): SiteCredentials {
+export function personSiteCredentials (socketSite: string | undefined, cookie: string | undefined, clientIp?: string): SiteCredentials {
   return {
     homeSite: socketSite,
+    clientIp,
     portals: [],
     home: 'account',
     cookieFor: async site => site === socketSite ? cookie : undefined,
@@ -204,10 +207,15 @@ export function personSiteCredentials (socketSite: string | undefined, cookie: s
  * A cookie rather than a bearer token: @data-fair/lib-express reads sessions from the id_token /
  * id_token_sign cookies only and parses no Authorization header.
  */
-export function callHeaders (server: GlobalMcpServer, siteUrl: string | undefined, cookieHeader: string | undefined): Record<string, string> {
+export function callHeaders (server: GlobalMcpServer, siteUrl: string | undefined, cookieHeader: string | undefined, clientIp?: string): Record<string, string> {
   if (server.auth === 'nhi-session') {
     if (!siteUrl) return {}
-    return { ...forwardedSiteHeaders(siteUrl), ...(cookieHeader ? { cookie: cookieHeader } : {}) }
+    return {
+      ...forwardedSiteHeaders(siteUrl),
+      ...(cookieHeader ? { cookie: cookieHeader } : {}),
+      // whoever the call is for, so the stack limits that person as if they called it directly
+      ...(clientIp ? { 'x-forwarded-for': clientIp } : {})
+    }
   }
   if (server.auth === 'apiKey') {
     if (!server.apiKeyHeader || !server.apiKey) throw new Error(`MCP server "${server.id}" is missing its apiKey configuration`)

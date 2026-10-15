@@ -51,7 +51,7 @@
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.269",
     "@commitlint/config-conventional": "^19.2.2",
-    "@data-fair/lib-express": "^1.29.0",
+    "@data-fair/lib-express": "^1.30.0",
     "@data-fair/lib-node": "^2.8.1",
     "@koumoul/vjsf-compiler": "^1.2.3",
     "@playwright/test": "^1.58.2",

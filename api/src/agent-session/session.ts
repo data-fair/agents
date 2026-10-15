@@ -34,6 +34,12 @@ export interface AgentSessionOptions {
    */
   siteUrl?: string
   /**
+   * The IP of the person behind this socket, from its upgrade request (lib-express reqIp): forwarded to
+   * the stack's servers so they limit that person as if they called directly. Undefined for a socket
+   * that did not come through the reverse proxy.
+   */
+  clientIp?: string
+  /**
    * Whether this account offers personal-assistant review at all — advertised to the client on `attached`.
    *
    * It is what makes the chat show its consent sheet, so without it nobody can ever answer and the server-side consent gate
@@ -78,6 +84,8 @@ export interface AgentSession {
   sessionCookie: () => string | undefined
   /** The site this socket was opened through, see AgentSessionOptions. */
   siteUrl: () => string | undefined
+  /** The IP of the person behind this socket, see AgentSessionOptions. */
+  clientIp: () => string | undefined
   /**
    * Whether this person agreed to admin review of their conversations, as the browser last said (`hello`,
    * `review-consent`). It exists because the chat's privacy model has two layers: the conversation is
@@ -186,6 +194,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
     attached: () => attached,
     sessionCookie: () => options.sessionCookie,
     siteUrl: () => options.siteUrl,
+    clientIp: () => options.clientIp,
     reviewConsent: () => reviewConsent,
     // Not a rebind: what the page reported before its first message belongs to the thread that message
     // starts, so nothing pending is dropped.

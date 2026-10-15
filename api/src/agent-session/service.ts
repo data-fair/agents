@@ -7,6 +7,7 @@
  */
 
 import type { Server, IncomingMessage } from 'node:http'
+import { reqIp } from '@data-fair/lib-express/req-origin.js'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { session as expressSession, httpError, type AccountKeys } from '@data-fair/lib-express'
 import eventsLog from '@data-fair/lib-express/events-log.js'
@@ -100,6 +101,9 @@ export const startAgentSessions = (server: Server) => {
       // Read from the same upgrade request, for the same reason: where the person is, and so where the
       // turn acts and the only site their cookie may be sent to.
       siteUrl: siteOriginFromHeaders(req.headers),
+      // Read from the upgrade request, like the cookie: the person's address, forwarded to the stack so
+      // it limits them as if they called directly. Optional: a socket opened in-cluster has none.
+      clientIp: reqIp(req, { optional: true }),
       reviewOffered: reviewOffered === true,
       anonymous: !sessionState?.user,
       onAttach: async conversationId => {

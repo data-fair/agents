@@ -231,6 +231,10 @@ which yields that site's session or nothing. `callHeaders` then sends the site's
 when there is one, its cookie; without a cookie the call is anonymous. The agent's credentials come from
 `agentSiteCredentials` (`nhi/service.ts`), the personal assistant's from `personSiteCredentials` (its
 socket's cookie, valid on its socket's site only, no portals).
+A chat turn also forwards the person's IP (`x-forwarded-for`, `SiteCredentials.clientIp`, read from the
+socket's upgrade request with lib-express `reqIp`), so the stack limits them as if they called it directly; a
+planned task's run forwards none and is limited by the agent's identity (data-fair
+`docs/architecture/agent-rate-limiting.md`).
 
 When the agent has portals, each site-bound tool's input schema gains an optional `portal` argument
 (an enum of the portal hosts) unless the tool declares its own; `splitPortalArgument` removes it before

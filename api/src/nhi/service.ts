@@ -171,7 +171,7 @@ export const forgetAgentSessions = (agentId: string) => {
  * When the account cannot be listed (`home: 'unconfirmed'` off the enrolment site), it degrades to the enrolment site alone: no portal is
  * offered, and a chat on another site runs anonymously for that turn without claiming that site is foreign.
  */
-export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys, mcpServers?: { serverId: string }[] }, socketSite?: string): Promise<SiteCredentials> => {
+export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys, mcpServers?: { serverId: string }[] }, socketSite?: string, clientIp?: string): Promise<SiteCredentials> => {
   const { siteUrl } = requireEnrolment(autonomousAgent)
   const enrolled = siteOrigin(siteUrl)
   const home = socketSite ? siteOrigin(socketSite) : enrolled
@@ -180,7 +180,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   // exchange it does not use: a turn on public tools stays as fast as before sites existed.
   const catalog = config.mcpServers ?? []
   if (autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
-    return { homeSite: home, portals: [], home: 'account', cookieFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
+    return { homeSite: home, clientIp, portals: [], home: 'account', cookieFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
   }
   let account: string[]
   let listingFailed = false
@@ -195,6 +195,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   }
   return {
     homeSite: home,
+    clientIp,
     portals: listingFailed ? [] : account.filter(site => site !== home),
     home: account.includes(home) ? 'account' : listingFailed ? 'unconfirmed' : 'anonymous',
     cookieFor: site => {
