@@ -257,7 +257,10 @@ and `https` is expected in production.
   characters, 64 in all), so they collide neither with catalog tools nor with each other; the recorded
   server is the host.
 - **Bounds.** Connecting and listing a server share a 15 s timeout, so a slow one does not delay every
-  turn. A run makes at most 50 external calls across all of them.
+  turn. A run makes at most 50 external calls across all of them. One response carries at most 10 MB
+  (`EXTERNAL_RESPONSE_MAX_BYTES`, the web readers' cap), its headers come within 15 s and its body is
+  never silent for more than 60 s (the MCP client's own request timeout): the client reads a reply whole,
+  so an endless one used to fill the process's memory.
 - **Failures are skipped and reported** (`skippedServers`), never fatal: the organization chose the
   server, not the operator, and it lives outside the platform. Connections are opened per turn and closed
   with it, along with the egress dispatcher. An `isError` result is rethrown as for a catalog tool.

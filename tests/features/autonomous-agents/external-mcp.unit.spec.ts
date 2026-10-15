@@ -109,6 +109,29 @@ test.describe('openExternalMcpTools', () => {
       await new Promise(resolve => hanging.close(resolve))
     }
   })
+
+  test('a server answering without end is cut off at the size cap and skipped, naming it', async () => {
+    // A hostile or broken server's reply used to be read whole into memory: one could take the process down.
+    let sent = 0
+    const flooding = http.createServer((_req, res) => {
+      res.writeHead(200, { 'content-type': 'application/json' })
+      const chunk = Buffer.alloc(64 * 1024, 0x20)
+      const write = () => { while (sent < 200 * 1024 * 1024 && res.write(chunk)) sent += chunk.length; if (sent < 200 * 1024 * 1024) res.once('drain', write); else res.end() }
+      write()
+    })
+    await new Promise<void>(resolve => flooding.listen(0, '127.0.0.1', resolve))
+    const floodingUrl = `http://localhost:${(flooding.address() as any).port}/mcp`
+    try {
+      const opened = await openExternalMcpTools([{ url: floodingUrl }], { publicIps: ['127.0.0.1', '::1'], timeoutMs: 10_000 })
+      assert.deepEqual(Object.keys(opened.tools), [])
+      assert.match(opened.skippedServers[0].reason, /larger than/i)
+      assert.ok(sent < 50 * 1024 * 1024, `stopped reading early, ${sent} bytes sent`)
+      await opened.close()
+    } finally {
+      flooding.closeAllConnections()
+      await new Promise(resolve => flooding.close(resolve))
+    }
+  })
 })
 
 test.describe('createRequestMcpAccessTool', () => {
