@@ -12,7 +12,7 @@ import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import { withCallPath, describeFileArguments, type CallPathContext } from '../files/call-path.ts'
-import { buildSystemPrompt, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
+import { buildSystemPrompt, workerInstructions, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
 import type { TurnTarget, TurnResult } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
 import { setRunSystemPrompt } from './service.ts'
@@ -26,7 +26,7 @@ import { toolDescription } from '@agents/shared/tool-description'
 import { denyGoneApprovedTools, TOOL_NO_LONGER_AVAILABLE } from './approved-calls.ts'
 import { browserToolSet, rawBrowserToolSet } from '../agent-session/browser-tools.ts'
 import { createScriptTool } from '../code-mode/tool.ts'
-import { codeFacingTools, createCodeTrace } from '../code-mode/code-tools.ts'
+import { codeFacingTools, createCodeTrace, type TurnCalls } from '../code-mode/code-tools.ts'
 import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeModeOfferedTo } from '../code-mode/operations.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
@@ -204,7 +204,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // model's tools, and read_skill envelopes its own result.
     const own = workerGuides(guides ?? [], Object.keys(workerTools), tools)
     const block = renderGuidesBlock(own)
-    const config = block ? { ...workerConfig, prompt: [workerConfig.prompt, block].join('\n\n') } : workerConfig
+    const config = { ...workerConfig, prompt: workerInstructions(workerConfig.prompt, block) }
     const ownTools = block && guidesRead
       ? { ...workerTools, [READ_SKILL_TOOL_NAME]: createReadSkillTool({ guides: own, read: guidesRead }) }
       : workerTools
@@ -275,6 +275,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const pageToolNames = () => (session?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
   const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath))
   const liveTools: Record<string, Tool> = {}
+  // The tool calls this turn's scripts have made, across the steps that rebuild the map (CODE_MODE_TURN_CALLS).
+  const scriptCalls: TurnCalls = { count: 0 }
   const assembleTools = async () => {
     // The service's own tools are never page tools, even when a page registers one by that name
     // (./service-tool-names.ts): the page's would answer under the service's name.
@@ -293,7 +295,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page))),
         page,
         callPath,
-        trace: codeTrace
+        trace: codeTrace,
+        turnCalls: scriptCalls
       }))
       const runScript = scriptTool.execute!
       mainTools[CODE_MODE_TOOL_NAME] = modelTools({
