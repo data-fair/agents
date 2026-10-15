@@ -660,11 +660,14 @@ test.describe('Autonomous agent model loop', () => {
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
       title: agent.title, persona: agent.persona, mcpServers: [], enabled: false
     })
-    // enabled is the kill switch; if it does not stop a turn it stops nothing at all.
-    const { run, assistant } = await runTurn(conversationId, 'hello')
-    assert.equal(run.status, 'error')
-    assert.notEqual(partsText(assistant.parts), 'world')
-    assert.match(partsText(assistant.parts), /disabled/i)
+    // enabled is the kill switch; if it does not stop a turn it stops nothing at all. A prompt on the
+    // existing thread is refused at the door, as every prompt re-checks who may talk to the agent; the
+    // executor's own refusal is for the runs no prompt starts (approval-gate.api.spec.ts).
+    await assert.rejects(startTurnOverSocket(orgAdmin, conversationId, 'hello'), (err: any) => {
+      assert.equal(err.status, 403)
+      assert.match(err.data, /disabled/i)
+      return true
+    })
     // The rule the picker and the history apply: a thread is not started with an agent they would hide.
     await assert.rejects(turnOverSocket(orgAdmin, { agentId: agent.id }, 'hello'), { status: 403 })
   })
@@ -714,6 +717,10 @@ test.describe('Autonomous agent model loop', () => {
     assert.ok(assistant, 'failure is a message, not a silence')
     assert.equal(assistant.pending, false)
     assert.ok(partsText(assistant.parts).length > 0)
+    // The provider's words stay on the run, for administrators; the transcript, which the person reads
+    // and the model is replayed, says only that it failed.
+    assert.ok(!partsText(assistant.parts).includes(run.error), 'the internal error is not in the transcript')
+    assert.match(partsText(assistant.parts), /internal error, recorded for the administrators/)
   })
 })
 

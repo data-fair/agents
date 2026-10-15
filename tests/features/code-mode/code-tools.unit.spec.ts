@@ -73,6 +73,20 @@ test.describe('code-facing tools', () => {
     assert.equal(await createScriptTool(tools).execute!({ js: 'try { await tools.set_display({}) } catch (e) { return e.message }' }, { toolCallId: 'cm4', messages: [], context: {} }), 'the page is gone')
   })
 
+  test('the scripts of one turn share a bound on their tool calls, across steps', async () => {
+    // One script makes at most 100 calls, but a turn could run one per step: ~10,000 calls a turn.
+    let made = 0
+    const turnCalls = { count: 0, max: 3 }
+    const page = { set_display: plain(async () => { made++; return 'ok' }) }
+    // The map is rebuilt every step; the counter is the turn's.
+    const step = () => createScriptTool(codeFacingTools({ names: ['set_display'], fixed: {}, page, callPath: {}, trace: trace(), turnCalls }))
+    const js = 'const out = []; for (let i = 0; i < 2; i++) { try { out.push(await tools.set_display({})) } catch (e) { out.push(e.message) } } return out.join("|")'
+    assert.equal(await step().execute!({ js }, { toolCallId: 'cmA', messages: [], context: {} }), 'ok|ok')
+    const second = String(await step().execute!({ js }, { toolCallId: 'cmB', messages: [], context: {} }))
+    assert.match(second, /^ok\|.*3 tool calls/)
+    assert.equal(made, 3)
+  })
+
   test('only the named, callable tools are in the map', () => {
     const tools = codeFacingTools({
       names: ['a', 'gated'],

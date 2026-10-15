@@ -4,7 +4,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
+import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
@@ -12,6 +12,8 @@ import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../suppor
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+// Not a member of user/test-standalone1: 'external' there.
+const outsider = await axiosAuth('test1-user1')
 const offered = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 const trace = (message: any) => message.parts.find((p: any) => p.type === 'data-subagent' && p.data?.name === 'code_mode')?.data
 const script = (js: string) => `call tool code_mode ${JSON.stringify({ js })}`
@@ -69,6 +71,16 @@ test.describe('code_mode', () => {
     const { run } = await turnOverSocket(orgAdmin, { agentId: 'portal-assistant' }, 'hello')
     assert.ok(offered(run).includes('code_mode'), offered(run).join())
     assert.ok(!offered(run).includes('read_file'))
+  })
+
+  test('someone outside the account is not offered code_mode', async () => {
+    // Scripts run on a small per-process worker pool shared by every tenant: an orchestration tool, which a
+    // visitor or an outsider does not need, and which a few waiting scripts could hold for everyone.
+    await putMockSettings(admin, 'user/test-standalone1', { quotas: { ...defaultQuotas, external: { unlimited: true, monthlyLimit: 0 }, untrusted: { unlimited: true, monthlyLimit: 0 } } })
+    const { run } = await turnOverSocket(outsider, { agentId: 'portal-assistant' }, 'hello', { owner: 'user/test-standalone1' })
+    assert.equal(run.triggeredByRole, 'external')
+    assert.ok(offered(run).length, 'the turn ran and offered tools')
+    assert.ok(!offered(run).includes('code_mode'), offered(run).join())
   })
 
   test('get_my_configuration reports code mode', async () => {

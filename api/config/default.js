@@ -57,6 +57,7 @@ export default {
   // with a 30k-token context blows immediately, so every multi-tool turn would have ended
   // at 'budget' on step one. This is a ceiling for a runaway, not a per-turn allowance.
   turnCredits: 500,
+  liveTurnsPerCaller: 5,
   // Wall-clock ceiling for one chat turn. A model or MCP server that hangs must not hold a
   // conversation's lock until the lock's own TTL expires. A planned task's run uses
   // taskTimeoutSeconds instead (below).

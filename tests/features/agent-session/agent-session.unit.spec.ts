@@ -8,7 +8,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { parseClientMessage, parseServerMessageForClient, isAgentSessionPath } from '@agents/shared/agent-session-protocol'
+import { parseClientMessage, parseServerMessageForClient, isAgentSessionPath, isSupersededFrame, CLIENT_FRAME_LIMITS, TOOLS_MESSAGE } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, BROWSER_CALL_TIMEOUT_MS, DELTA_FLUSH_MS } from '../../../api/src/agent-session/session.ts'
 import type { ServerMessage } from '@agents/shared/agent-session-protocol'
 
@@ -107,12 +107,13 @@ test.describe('parseClientMessage', () => {
   test('a refusal names the field that was wrong', () => {
     // The schema's custom messages: what the client is told, so a malformed frame is debuggable.
     const reason = (value: unknown) => (parse(value) as { reason: string }).reason
-    assert.equal(reason({ type: 'hello', tools: [{ name: 'select row' }] }), 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}')
-    assert.equal(reason({ type: 'hello', tools: [{ name: 'x' }, { name: 'x' }] }), 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}')
+    assert.match(TOOLS_MESSAGE, /^tools must be an array of at most \d+ \{ name, description\?, inputSchema\? \} with unique names matching/)
+    assert.equal(reason({ type: 'hello', tools: [{ name: 'select row' }] }), TOOLS_MESSAGE)
+    assert.equal(reason({ type: 'hello', tools: [{ name: 'x' }, { name: 'x' }] }), TOOLS_MESSAGE)
     assert.equal(reason({ type: 'hello', tools: [], account: null }), 'account must be { type: "user" | "organization", id } when present')
-    assert.equal(reason({ type: 'prompt', content: '   ' }), 'content must be a non-blank string')
+    assert.match(reason({ type: 'prompt', content: '   ' }), /^content must be a non-blank string/)
     assert.equal(reason({ type: 'tool-result', callId: 'c' }), 'a tool-result carries exactly one of result or error')
-    const eventReason = 'each event needs a non-empty name and a numeric at, and detail and key must be strings when present'
+    const eventReason = `at most ${CLIENT_FRAME_LIMITS.events} events, each with a non-empty name and a numeric at; detail (at most ${CLIENT_FRAME_LIMITS.eventDetail} characters) and key must be strings when present`
     assert.equal(reason({ type: 'host-events', events: [{ name: '', at: 1 }] }), eventReason)
     assert.equal(reason({ type: 'host-events', events: [{ name: 'saved', at: 1, detail: 3 }] }), eventReason)
     assert.equal(reason({ type: 'host-events', events: [{ name: 'saved', at: 1, key: {} }] }), eventReason)
@@ -151,6 +152,59 @@ test.describe('parseClientMessage', () => {
     // A falsy result is still a result — `undefined` is the only absence.
     assert.equal(parse({ type: 'tool-result', callId: 'c', result: null }).type, 'tool-result')
     assert.equal(parse({ type: 'tool-result', callId: 'c', result: false }).type, 'tool-result')
+  })
+})
+
+test.describe('parseClientMessage — bounded', () => {
+  // A browser-facing surface states its sizes: without them one frame could carry a 100 MiB prompt
+  // (ws's default payload cap) or thousands of tools, all of it folded into a model call.
+  const long = (n: number) => 'x'.repeat(n)
+
+  test('a prompt, its hidden context and its title have a size', () => {
+    assert.equal(parse({ type: 'prompt', content: long(CLIENT_FRAME_LIMITS.prompt) }).type, 'prompt')
+    assert.equal(parse({ type: 'prompt', content: long(CLIENT_FRAME_LIMITS.prompt + 1) }).type, 'invalid')
+    assert.equal(parse({ type: 'prompt', content: 'go', hiddenContext: long(CLIENT_FRAME_LIMITS.hiddenContext + 1) }).type, 'invalid')
+    assert.equal(parse({ type: 'prompt', content: 'go', title: long(CLIENT_FRAME_LIMITS.title + 1) }).type, 'invalid')
+  })
+
+  test('a page declares a bounded number of tools, each with a bounded description', () => {
+    const many = Array.from({ length: CLIENT_FRAME_LIMITS.tools + 1 }, (_, i) => ({ name: `t${i}` }))
+    assert.equal(parse({ type: 'hello', tools: many }).type, 'invalid')
+    assert.equal(parse({ type: 'tools-changed', tools: many }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [{ name: 't', description: long(CLIENT_FRAME_LIMITS.toolDescription + 1) }] }).type, 'invalid')
+  })
+
+  test('host events come in bounded batches of bounded events', () => {
+    const event = { name: 'clicked', at: 1 }
+    assert.equal(parse({ type: 'host-events', events: Array(CLIENT_FRAME_LIMITS.events + 1).fill(event) }).type, 'invalid')
+    assert.equal(parse({ type: 'host-events', events: [{ ...event, detail: long(CLIENT_FRAME_LIMITS.eventDetail + 1) }] }).type, 'invalid')
+    assert.equal(parse({ type: 'host-events', events: [{ ...event, detail: long(CLIENT_FRAME_LIMITS.eventDetail) }] }).type, 'host-events')
+  })
+
+  test('identifiers and a tool error are short strings', () => {
+    assert.equal(parse({ type: 'hello', tools: [], conversationId: long(CLIENT_FRAME_LIMITS.id + 1) }).type, 'invalid')
+    assert.equal(parse({ type: 'approval', approvalId: long(CLIENT_FRAME_LIMITS.id + 1), approved: true }).type, 'invalid')
+    assert.equal(parse({ type: 'tool-result', callId: 'c', error: long(CLIENT_FRAME_LIMITS.toolError + 1) }).type, 'invalid')
+  })
+})
+
+test.describe('isSupersededFrame — what a backlogged socket may skip', () => {
+  // A frame the next one replaces whole can be skipped when the browser is not reading fast enough;
+  // one that says something nothing later repeats cannot.
+  test('an in-progress message or sub-agent transcript and a delta are superseded by the final message', () => {
+    assert.equal(isSupersededFrame({ type: 'message', seq: 2, role: 'assistant', parts: [], pending: true }), true)
+    assert.equal(isSupersededFrame({ type: 'subagent', parentToolCallId: 'c', name: 'n', parts: [], pending: true }), true)
+    assert.equal(isSupersededFrame({ type: 'delta', kind: 'text', text: 'hi' }), true)
+  })
+
+  test('a final message, a call to the page, an activity, the turn end and an error are never skipped', () => {
+    // An activity is not repeated: a 'waiting' or 'approval' line sent as a turn ends would be lost.
+    assert.equal(isSupersededFrame({ type: 'activity', activity: null }), false)
+    assert.equal(isSupersededFrame({ type: 'message', seq: 2, role: 'assistant', parts: [], pending: false }), false)
+    assert.equal(isSupersededFrame({ type: 'subagent', parentToolCallId: 'c', name: 'n', parts: [], pending: false }), false)
+    assert.equal(isSupersededFrame({ type: 'tool-call', callId: 'c', name: 'n', input: {} }), false)
+    assert.equal(isSupersededFrame({ type: 'turn-end', stopReason: 'completed' }), false)
+    assert.equal(isSupersededFrame({ type: 'error', status: 403, message: 'no' }), false)
   })
 })
 

@@ -124,7 +124,7 @@
               >
                 <template #append>
                   <v-btn
-                    v-if="version.author.conversationId"
+                    v-if="canConfigure && version.author.conversationId"
                     variant="text"
                     size="small"
                     :to="`/${accountType}/${accountId}/review/${version.author.conversationId}`"

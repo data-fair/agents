@@ -126,19 +126,20 @@ A deployment left at `0` with no `SECRET_LIMITS` configured cannot receive allow
 
 ### `SECRET_LIMITS`
 
-Plain string, unset by default. Shared secret the external `customers` billing service presents as `?key=` on the `/api/v1/limits` endpoints (see [Limits contract](#limits-contract)). When unset, the `?key=` bypass is disabled entirely — `limitsKeyMatches()` (`api/src/limits/operations.ts`) fails **closed** (an unset secret can never match, including against an unset query param), so no secret means the endpoints fall back to normal session auth rather than opening up.
+Plain string, unset by default. Shared secret the external `customers` billing service presents as `?key=` on the `/api/v1/limits` endpoints (see [Limits contract](#limits-contract)). Compared in constant time by lib-express's `secretKeyMatches`, as data-fair's own limits router does. When unset, the `?key=` bypass is disabled entirely — it fails **closed** (an unset secret can never match, including against an unset query param), so no secret means the endpoints fall back to normal session auth rather than opening up.
 
 ```
 SECRET_LIMITS=a-long-random-shared-secret
 ```
 
-### Turn bounds: `TURN_CREDITS`, `TURN_TIMEOUT_SECONDS`, `TASK_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`, `CODE_MODE_MAX_WORKERS`
+### Turn bounds: `TURN_CREDITS`, `LIVE_TURNS_PER_CALLER`, `TURN_TIMEOUT_SECONDS`, `TASK_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`, `CODE_MODE_MAX_WORKERS`
 
 JSON-parsed numbers, global rather than per account. They bound **every** turn of the server loop (`api/src/conversations/executor.ts`, the loop in `model-loop.ts`), the in-page chat's personal assistant as much as an autonomous agent.
 
 | Variable | Default | Effect |
 | --- | --- | --- |
 | `TURN_CREDITS` | `500` | per-run credit ceiling; the turn stops with stop reason `budget` once crossed. A runaway ceiling, not a per-turn allowance — the account credit cap still applies on top. |
+| `LIVE_TURNS_PER_CALLER` | `5` | chat turns one person, or one anonymous visitor's address, may have running at once; a further prompt is refused (429) until one ends. |
 | `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one chat turn, so a hung model or MCP server cannot hold the conversation's lock. Independent of the NHI session lifetime: a longer turn renews its sessions. |
 | `TASK_TIMEOUT_SECONDS` | `1800` | the same ceiling for a planned task's run, which nobody waits on (see [planned tasks](./planned-tasks.md#the-turn)). A deploy still stops a run after `SHUTDOWN_GRACE_SECONDS`. |
 | `SHUTDOWN_GRACE_SECONDS` | `90` | on SIGTERM, how long running turns get to finish before being stopped as "the server restarted" (see [autonomous agents](./autonomous-agents.md#recovery)). The pod's `terminationGracePeriodSeconds` must exceed it by about 15 s. |
@@ -321,6 +322,10 @@ Doc shape (`api/types/limits/schema.js`):
 1. **Account credit cap** — `checkAccountCreditCap(owner)`: `getCreditInfo(owner)` against `ai_credits.limit`/`ai_credits.consumption`. `limit >= 0 && consumption >= limit` short-circuits, even if the caller's own per-profile quota is unlimited. A turn refused here is a stored refusal message (with a `data-refusal` part the chat localizes); the summary endpoint answers 429. The same check is re-run between steps of a long turn, since other runs can exhaust the shared cap meanwhile.
 2. **Untrusted pool** — combined `anonymous` + `external` usage against `quotas.untrusted`, only for untrusted callers.
 3. **Per-profile / per-user quota** — `quotas[role]` (`admin`/`contrib`/`user`/`external`/`anonymous`), only when usage is tracked per-user.
+
+**While a turn runs**, every quota above is checked again after each step that called tools (`checkCeilings`, `api/src/conversations/model-loop.ts`), not only the account cap: other runs spend the same budgets meanwhile. And one caller — a person, or an anonymous visitor's address — may have at most `LIVE_TURNS_PER_CALLER` (default 5) chat turns running at once; a further prompt is refused with 429 until one ends. Together they bound how far turns started at the same moment on a nearly spent quota can overshoot it: about one step each. The public summary endpoint caps its output at 1024 tokens for the same reason.
+
+The role is the stack's (`getEffectiveRole`, `api/src/auth.ts`, over lib-common-types' `getAccountRole`): the active account must match the owner, **department included**. Accounts here are organization roots, so a person whose active account is a department of the organization counts as `external` — a department role grants nothing implicitly on the root, an admin of a department included. Giving departments something (a quota of their own, a department wildcard) is a later extension of the quotas and of their settings UI, not an implicit rule.
 
 See [Quotas & usage](./quotas-usage.md) for the full flow and the daily/weekly = monthly/2/4 derivation, unchanged by this refactor.
 

@@ -135,6 +135,17 @@ test.describe('Agent session socket', () => {
     assert.match(answer.message, /unknown message type "subscribe"/)
   })
 
+  test('a frame over the payload cap closes the socket rather than being read', async () => {
+    // ws accepts 100 MiB frames by default, all of it parsed on the main thread.
+    const ws = new WebSocket(`ws://localhost:${process.env.NGINX_PORT}/agents/api/agent-session`, {
+      headers: { cookie: await cookieOf(orgAdmin) }
+    })
+    await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject) })
+    const closed = new Promise<number>(resolve => ws.once('close', code => resolve(code)))
+    ws.send(JSON.stringify({ type: 'prompt', content: 'x'.repeat(4 * 1024 * 1024) }))
+    assert.equal(await closed, 1009, 'message too big')
+  })
+
   test('an upgrade on any other path is refused, not left hanging', async () => {
     // This service owns every upgrade on the HTTP server (`noServer` plus its own `upgrade` handler), so
     // one it does not serve has to be answered by it too — or the client waits until it gives up.

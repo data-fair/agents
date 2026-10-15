@@ -7,7 +7,7 @@
  */
 import { tool, jsonSchema, type Tool } from 'ai'
 import { experimental_createCodeModeTool as createCodeModeTool, experimental_setMaxWorkers as setMaxWorkers } from '@ai-sdk/code-mode'
-import { CODE_MODE_POLICY, MAX_BRACKET_DEPTH, SCRIPT_ARGUMENT_DESCRIPTION, bracketDepth, bracketDepthMessage, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
+import { CODE_MODE_POLICY, withoutPrototypeKeys, MAX_BRACKET_DEPTH, SCRIPT_ARGUMENT_DESCRIPTION, bracketDepth, bracketDepthMessage, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
 
 /** The process-wide worker pool's size (config.codeModeMaxWorkers): set once, at startup. */
 export const configureCodeMode = (maxWorkers: number) => { setMaxWorkers(maxWorkers) }
@@ -15,7 +15,11 @@ export const configureCodeMode = (maxWorkers: number) => { setMaxWorkers(maxWork
 export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: Partial<CodeModePolicy> } = {}): Tool => {
   const policy = { ...CODE_MODE_POLICY, ...opts.policy }
   // The source limit is the model's: what wrapScript adds (the console, papaparse) is checked here, not counted there.
-  const inner = createCodeModeTool(tools, { executionPolicy: { ...policy, maxSourceBytes: policy.maxSourceBytes + WRAPPER_BYTES } })
+  // Every tool gets its input as the script built it, minus the keys that pollute a prototype.
+  const cleaned = Object.fromEntries(Object.entries(tools).map(([name, t]) => [name, t.execute
+    ? { ...t, execute: (input: unknown, options: any) => t.execute!(withoutPrototypeKeys(input), options) }
+    : t])) as Record<string, Tool>
+  const inner = createCodeModeTool(cleaned, { executionPolicy: { ...policy, maxSourceBytes: policy.maxSourceBytes + WRAPPER_BYTES } })
   return tool({
     description: describeScriptTool(inner.description),
     // The package's own input, `{ js }`, with our description of it (SCRIPT_ARGUMENT_DESCRIPTION).

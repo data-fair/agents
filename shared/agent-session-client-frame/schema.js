@@ -9,7 +9,10 @@
 // The generated validator (.type/validate.js, ajv standalone) is ESM-only and imports ajv's runtime and
 // @data-fair/lib-validation, hence those dependencies of the shared workspace: import it, never require it.
 
-const TOOLS_MESSAGE = 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}'
+import { CLIENT_FRAME_LIMITS as L, TOOLS_MESSAGE } from './limits.js'
+
+/** @param {string} name */
+const ID_MESSAGE = (name) => `${name} must be a string of at most ${L.id} characters when present`
 
 // Inline rather than $ref'd: an `errorMessage` does not reach the errors of a referenced schema.
 const browserToolDescriptor = {
@@ -22,7 +25,7 @@ const browserToolDescriptor = {
     // A model-facing tool identifier and a key of the correlation table: deliberately narrow, for
     // the same reason the MCP tool names are sanitised before they reach a prompt.
     name: { type: 'string', pattern: '^[a-zA-Z0-9_-]{1,64}$' },
-    description: { type: 'string' },
+    description: { type: 'string', maxLength: L.toolDescription },
     // JSON Schema, passed to the model as-is. Unvalidated here: the model's provider is the judge.
     inputSchema: {}
   }
@@ -30,6 +33,7 @@ const browserToolDescriptor = {
 
 const tools = {
   type: 'array',
+  maxItems: L.tools,
   items: browserToolDescriptor,
   errorMessage: TOOLS_MESSAGE
 }
@@ -41,10 +45,10 @@ const hostEventFrame = {
   additionalProperties: false,
   required: ['name', 'at'],
   properties: {
-    name: { type: 'string', minLength: 1 },
-    detail: { type: 'string' },
+    name: { type: 'string', minLength: 1, maxLength: L.eventName },
+    detail: { type: 'string', maxLength: L.eventDetail },
     // Present on state-like events: a later event with the same key supersedes this one.
-    key: { type: 'string' },
+    key: { type: 'string', maxLength: L.eventName },
     at: { type: 'number' }
   }
 }
@@ -73,8 +77,8 @@ export default {
       errorMessage: { required: { tools: TOOLS_MESSAGE } },
       properties: {
         type: { const: 'hello' },
-        conversationId: { type: 'string', errorMessage: 'conversationId must be a string when present' },
-        agentId: { type: 'string', errorMessage: 'agentId must be a string when present' },
+        conversationId: { type: 'string', maxLength: L.id, errorMessage: ID_MESSAGE('conversationId') },
+        agentId: { type: 'string', maxLength: L.id, errorMessage: ID_MESSAGE('agentId') },
         account: {
           type: 'object',
           additionalProperties: false,
@@ -82,12 +86,12 @@ export default {
           errorMessage: 'account must be { type: "user" | "organization", id } when present',
           properties: {
             type: { type: 'string', enum: ['user', 'organization'] },
-            id: { type: 'string', minLength: 1 }
+            id: { type: 'string', minLength: 1, maxLength: L.id }
           }
         },
         // simple-directory's anonymous action token, required for an anonymous visitor's new thread:
         // a browser cannot set headers on a websocket upgrade.
-        anonymousToken: { type: 'string', errorMessage: 'anonymousToken must be a string when present' },
+        anonymousToken: { type: 'string', maxLength: L.token, errorMessage: `anonymousToken must be a string of at most ${L.token} characters when present` },
         // The person's answer to the consent sheet, as the browser holds it. Strictly boolean: a
         // truthy string would make "no" read as consent.
         reviewConsent: { type: 'boolean', errorMessage: 'reviewConsent must be a boolean when present' },
@@ -117,9 +121,9 @@ export default {
       properties: {
         type: { const: 'prompt' },
         // Non-blank: a provider rejects a whitespace-only text block anyway.
-        content: { type: 'string', pattern: '\\S', errorMessage: 'content must be a non-blank string' },
-        hiddenContext: { type: 'string', errorMessage: 'hiddenContext must be a string when present' },
-        title: { type: 'string', errorMessage: 'title must be a string when present' }
+        content: { type: 'string', pattern: '\\S', maxLength: L.prompt, errorMessage: `content must be a non-blank string of at most ${L.prompt} characters` },
+        hiddenContext: { type: 'string', maxLength: L.hiddenContext, errorMessage: `hiddenContext must be a string of at most ${L.hiddenContext} characters when present` },
+        title: { type: 'string', maxLength: L.title, errorMessage: `title must be a string of at most ${L.title} characters when present` }
       }
     },
     {
@@ -131,9 +135,10 @@ export default {
       errorMessage: { required: { callId: 'callId must be a non-empty string' } },
       properties: {
         type: { const: 'tool-result' },
-        callId: { type: 'string', minLength: 1, errorMessage: 'callId must be a non-empty string' },
+        callId: { type: 'string', minLength: 1, maxLength: L.id, errorMessage: 'callId must be a non-empty string' },
+        // Bounded by the socket's payload cap (service.ts), like any frame.
         result: {},
-        error: { type: 'string', errorMessage: 'error must be a string' }
+        error: { type: 'string', maxLength: L.toolError, errorMessage: `error must be a string of at most ${L.toolError} characters` }
       },
       // Exactly one: both would leave "did it work?" to a tie-break.
       allOf: [{
@@ -175,7 +180,13 @@ export default {
       errorMessage: { required: { state: 'state must be an object of keyed facts' } },
       properties: {
         type: { const: 'host-state' },
-        state: { type: 'object', errorMessage: 'state must be an object of keyed facts' }
+        state: {
+          type: 'object',
+          maxProperties: L.stateKeys,
+          propertyNames: { maxLength: L.eventName },
+          additionalProperties: { type: ['string', 'null'], maxLength: L.stateValue },
+          errorMessage: `state must be an object of at most ${L.stateKeys} keyed facts, each a string of at most ${L.stateValue} characters or null`
+        }
       }
     },
     {
@@ -189,9 +200,10 @@ export default {
         type: { const: 'host-events' },
         events: {
           type: 'array',
+          maxItems: L.events,
           items: hostEventFrame,
           // These reach the model's context as prose, and `at` orders the coalescing.
-          errorMessage: { type: 'events must be an array', _: 'each event needs a non-empty name and a numeric at, and detail and key must be strings when present' }
+          errorMessage: { type: 'events must be an array', _: `at most ${L.events} events, each with a non-empty name and a numeric at; detail (at most ${L.eventDetail} characters) and key must be strings when present` }
         }
       }
     },
@@ -209,7 +221,7 @@ export default {
       },
       properties: {
         type: { const: 'approval' },
-        approvalId: { type: 'string', minLength: 1, errorMessage: 'approvalId must be a non-empty string' },
+        approvalId: { type: 'string', minLength: 1, maxLength: L.id, errorMessage: 'approvalId must be a non-empty string' },
         // Strictly boolean: a truthy string must not read as an approval.
         approved: { type: 'boolean', errorMessage: 'approved must be a boolean' },
         reason: { type: 'string', maxLength: 1000, errorMessage: 'reason must be a string of at most 1000 characters' }

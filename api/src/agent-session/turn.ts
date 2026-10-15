@@ -13,6 +13,7 @@ import {
   requireConversationById,
   setReviewConsent,
   rejectPendingApprovals,
+  assertMayStartConversation,
   type TurnCaller
 } from '../conversations/service.ts'
 import { startRun } from '../conversations/executor.ts'
@@ -24,6 +25,7 @@ import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
 import { wrapHiddenContext } from '@agents/shared/hidden-context'
 import { getEffectiveRole } from '../auth.ts'
+import config from '#config'
 
 const debug = Debug('agents:agent-session-turn')
 
@@ -57,13 +59,18 @@ export interface SessionTurnRequest {
 /**
  * Append the prompt and run the turn. Returns the run id.
  *
- * Throws an http error (400 empty), so the caller can report the reason to the browser.
+ * Throws an http error (403 no longer allowed, 400 empty), so the caller can report the reason to the browser.
  */
 export const startSessionTurn = async (request: SessionTurnRequest): Promise<string> => {
   // Before anything is stored or stopped: the person's message is refused whole, and sent again lands on
   // a healthy instance (the socket is closed once this one's turns have drained).
   assertAcceptingTurns()
   const { conversation, caller } = request
+  // May this caller still talk to this agent here: the check a new thread passed, run again on EVERY
+  // prompt. A thread lends its agent's identity, tools and the account's credits, so an instructor removed
+  // from the agent's list, or an agent disabled since, must not keep driving it from a thread opened
+  // before — as an approval already re-checks (../conversations/approvals.ts).
+  await assertMayStartConversation(conversation.owner, conversation.agentId, caller)
   const person = caller.kind === 'person'
     ? { userId: caller.session.user.id, userName: caller.session.user.name }
     : { userId: caller.usageUserId, userName: 'Anonymous' }
@@ -80,6 +87,18 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
 
   const content = request.content.trim()
   if (!content) throw httpError(400, 'content is required')
+
+  // A bounded number of turns running at once per caller — a person, or an anonymous visitor's address
+  // (many sockets, one thread each). Quotas are re-checked between steps, so this bounds how far turns
+  // started together on a nearly spent quota can overshoot it. This conversation's own run does not
+  // count: speaking stops it just below.
+  const running = await mongo.runs.countDocuments({
+    kind: 'conversation',
+    status: 'running',
+    'triggeredBy.userId': person.userId,
+    conversationId: { $ne: conversation.id }
+  })
+  if (running >= config.liveTurnsPerCaller) throw httpError(429, `you already have ${running} answers in progress: wait for one to finish, or stop it`)
 
   // Speaking takes the turn back: the conversation's running turns are stopped — a live one, and one
   // still waiting for the conversation's lock, which may be an earlier prompt's that had not started

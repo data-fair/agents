@@ -20,6 +20,10 @@ interface SummaryRequest {
 // specific instructions frame them into `content`.
 const SUMMARY_SYSTEM_PROMPT = 'Summarize the following content concisely:'
 
+// A summary is short; the cap bounds what one call can spend past a quota checked before it, as the
+// public endpoint takes concurrent calls.
+const SUMMARY_MAX_OUTPUT_TOKENS = 1024
+
 router.post('/:type/:id', async (req, res, next) => {
   try {
     const sessionState = reqSession(req)
@@ -63,6 +67,7 @@ router.post('/:type/:id', async (req, res, next) => {
     const { text, usage } = await generateText({
       model,
       instructions: SUMMARY_SYSTEM_PROMPT,
+      maxOutputTokens: SUMMARY_MAX_OUTPUT_TOKENS,
       messages: [{ role: 'user' as const, content: body.content }]
     })
     await chargeModelCall({

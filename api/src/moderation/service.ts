@@ -109,7 +109,10 @@ export interface ModerationRun {
 export function startModeration (params: {
   settings: Settings
   owner: AccountKeys
+  /** Who pays for the classifier call. */
   identity: UsageIdentity
+  /** Who wrote the message, when not the payer (a configured agent's instructor): its events and strikes. */
+  speaker?: UsageIdentity
   message: string
   context: string
   modelRole: string
@@ -123,13 +126,14 @@ export function startModeration (params: {
   run?: ConversationRun
 }): ModerationRun {
   const { settings, owner, identity, modelRole } = params
+  const speaker = params.speaker ?? identity
   const startedAt = Date.now()
   const message = truncateForModeration(params.message)
   const moderationInput = formatModerationInput(params.context, message)
   const eventBase = {
     owner: { type: owner.type, id: owner.id },
-    role: identity.role,
-    userId: identity.usageUserId ?? '',
+    role: speaker.role,
+    userId: speaker.usageUserId ?? '',
     modelRole
   }
 
@@ -150,7 +154,7 @@ export function startModeration (params: {
     // Strikes accrue for untrusted callers only — they drive the cooldown
     // lockout, which must never apply to trusted (org-member) callers even when
     // their category is moderated. Their messages are still blocked one by one.
-    if (identity.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
+    if (speaker.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
   }
 
   const verdictPromise: Promise<ModerationVerdict> = (async () => {

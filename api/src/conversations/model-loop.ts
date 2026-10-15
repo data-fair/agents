@@ -12,7 +12,7 @@ import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import { withCallPath, describeFileArguments, type CallPathContext } from '../files/call-path.ts'
-import { buildSystemPrompt, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
+import { buildSystemPrompt, workerInstructions, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
 import type { TurnTarget, TurnResult } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
 import { setRunSystemPrompt } from './service.ts'
@@ -26,13 +26,13 @@ import { toolDescription } from '@agents/shared/tool-description'
 import { denyGoneApprovedTools, TOOL_NO_LONGER_AVAILABLE } from './approved-calls.ts'
 import { browserToolSet, rawBrowserToolSet } from '../agent-session/browser-tools.ts'
 import { createScriptTool } from '../code-mode/tool.ts'
-import { codeFacingTools, createCodeTrace } from '../code-mode/code-tools.ts'
-import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS } from '../code-mode/operations.ts'
+import { codeFacingTools, createCodeTrace, type TurnCalls } from '../code-mode/code-tools.ts'
+import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeModeOfferedTo } from '../code-mode/operations.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
-import { checkAccountCreditCap } from '../usage/enforce.ts'
+import { enforceQuotas } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement } from './parts-recorder.ts'
-import { tokenCountsOf } from '../usage/operations.ts'
+import { tokenCountsOf, quotaStopText } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { mayBePageTool } from './service-tool-names.ts'
 import { createStepContext } from './step-context.ts'
@@ -121,14 +121,19 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // only way to see that cache reads were priced at the cached rate.
   const creditBreakdown = { input: 0, cachedInput: 0, output: 0 }
   /**
-   * After a step was billed: the ACCOUNT cap (when `readAccount`), then the per-run budget. The account
-   * cap first, so that when one step crosses both, the reader is told the one an admin can act on.
+   * After a step was billed: the quotas (when `readQuotas`), then the per-run budget. The quotas first, so
+   * that when one step crosses both, the reader is told the one an admin can act on.
+   *
+   * ALL the quotas the turn's gate checked, not only the account cap: other runs spend the same shared
+   * budgets meanwhile, and a person (or an anonymous visitor with many sockets) could otherwise start many
+   * turns on a nearly spent quota, each running on to its own per-run budget.
    */
-  const checkCeilings = async (readAccount: boolean) => {
-    const accountCap = readAccount ? await checkAccountCreditCap(run.owner) : undefined
-    if (accountCap) {
+  const checkCeilings = async (readQuotas: boolean) => {
+    const quota = readQuotas ? await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity) : undefined
+    if (quota) {
       budgetExceeded = true
-      stopDetail = `${accountCap.reason} (${accountCap.scope}, ${accountCap.period} limit ${accountCap.limit}, used ${accountCap.usage}). Resets at ${accountCap.resetsAt}.`
+      // Through the gate's own formatter: a shared budget's numbers only to an admin.
+      stopDetail = quotaStopText(quota, identity.role === 'admin')
     } else if (credits + (continuation?.credits ?? 0) >= config.turnCredits) {
       budgetExceeded = true
     }
@@ -199,7 +204,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // model's tools, and read_skill envelopes its own result.
     const own = workerGuides(guides ?? [], Object.keys(workerTools), tools)
     const block = renderGuidesBlock(own)
-    const config = block ? { ...workerConfig, prompt: [workerConfig.prompt, block].join('\n\n') } : workerConfig
+    const config = { ...workerConfig, prompt: workerInstructions(workerConfig.prompt, block) }
     const ownTools = block && guidesRead
       ? { ...workerTools, [READ_SKILL_TOOL_NAME]: createReadSkillTool({ guides: own, read: guidesRead }) }
       : workerTools
@@ -270,6 +275,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const pageToolNames = () => (session?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
   const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath))
   const liveTools: Record<string, Tool> = {}
+  // The tool calls this turn's scripts have made, across the steps that rebuild the map (CODE_MODE_TURN_CALLS).
+  const scriptCalls: TurnCalls = { count: 0 }
   const assembleTools = async () => {
     // The service's own tools are never page tools, even when a page registers one by that name
     // (./service-tool-names.ts): the page's would answer under the service's name.
@@ -280,22 +287,25 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
     // page tools that appeared mid-turn included, a worker's reserved tools excluded (the partition ran above).
     // A page tool shadows a catalog tool of the same name for the model ({ ...fixedTools, ...page } above), so
-    // it does for a script too.
-    const page = session ? Object.fromEntries(Object.entries(rawBrowserToolSet(session, undefined, { drainEvents: false })).filter(([name]) => mayBePageTool(name))) : {}
-    const scriptTool = createScriptTool(codeFacingTools({
-      names: Object.keys(mainTools),
-      fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page))),
-      page,
-      callPath,
-      trace: codeTrace
-    }))
-    const runScript = scriptTool.execute!
-    mainTools[CODE_MODE_TOOL_NAME] = modelTools({
-      [CODE_MODE_TOOL_NAME]: {
-        tool: { ...scriptTool, execute: async (input: any, options: any) => { try { return await runScript(input, options) } finally { codeTrace.finish(options.toolCallId) } } },
-        ...CODE_MODE_SOURCE
-      }
-    })[CODE_MODE_TOOL_NAME]
+    // it does for a script too. Not offered to an anonymous visitor nor an outsider (codeModeOfferedTo).
+    if (codeModeOfferedTo(run.triggeredByRole)) {
+      const page = session ? Object.fromEntries(Object.entries(rawBrowserToolSet(session, undefined, { drainEvents: false })).filter(([name]) => mayBePageTool(name))) : {}
+      const scriptTool = createScriptTool(codeFacingTools({
+        names: Object.keys(mainTools),
+        fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page))),
+        page,
+        callPath,
+        trace: codeTrace,
+        turnCalls: scriptCalls
+      }))
+      const runScript = scriptTool.execute!
+      mainTools[CODE_MODE_TOOL_NAME] = modelTools({
+        [CODE_MODE_TOOL_NAME]: {
+          tool: { ...scriptTool, execute: async (input: any, options: any) => { try { return await runScript(input, options) } finally { codeTrace.finish(options.toolCallId) } } },
+          ...CODE_MODE_SOURCE
+        }
+      })[CODE_MODE_TOOL_NAME]
+    }
     for (const name of Object.keys(liveTools)) if (!(name in mainTools)) delete liveTools[name]
     Object.assign(liveTools, mainTools)
   }

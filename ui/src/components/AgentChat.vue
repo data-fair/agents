@@ -28,7 +28,23 @@
       variant="tonal"
       density="compact"
       class="mx-2 mb-2 text-caption"
-      :text="t('auditedNotice')"
+    >
+      {{ t('auditedNotice') }}
+      <!-- What it remembers is what it may repeat: instructors read it, admins change it on the agent's page. -->
+      <a
+        v-if="signedIn"
+        href="#"
+        data-testid="agent-chat-memory"
+        @click.prevent="memoryDialog = true"
+      >{{ t('seeMemory') }}</a>
+    </v-alert>
+    <agent-memory-dialog
+      v-if="audited && signedIn"
+      v-model="memoryDialog"
+      :agent="memoryAgent"
+      :account-type="accountType"
+      :account-id="accountId"
+      :can-configure="false"
     />
 
     <agent-chat-messages
@@ -115,7 +131,8 @@
 
 <i18n lang="yaml">
 fr:
-  auditedNotice: Les conversations avec cet agent ne sont pas privées. Les administrateurs de l'organisation peuvent les consulter, et l'agent peut se souvenir de ce qui est dit ici lors de ses conversations suivantes.
+  auditedNotice: Les conversations avec cet agent ne sont pas privées. Les administrateurs de l'organisation peuvent les consulter, et l'agent peut se souvenir de ce qui est dit ici et le répéter aux autres personnes avec qui il échange.
+  seeMemory: Voir ce dont il se souvient
   defaultTitle: Assistant
   welcome: Comment puis-je vous aider ?
   moderationRefusal: "Ce message a été refusé par la modération de contenu — il semble sortir du cadre de ce que cet assistant peut faire. Reformulez votre demande si vous pensez qu'il s'agit d'une erreur."
@@ -127,7 +144,8 @@ fr:
   quotaShared: "Le quota IA partagé par les visiteurs est épuisé. Il sera réinitialisé le {date}."
   quotaAccount: "Le budget IA de ce compte est épuisé jusqu'au {date}."
 en:
-  auditedNotice: Conversations with this agent are not private. Administrators of the organization can review them, and the agent may remember what is said here in its later conversations.
+  auditedNotice: Conversations with this agent are not private. Administrators of the organization can review them, and the agent may remember what is said here and repeat it to the other people it talks with.
+  seeMemory: See what it remembers
   defaultTitle: Assistant
   welcome: How can I help you?
   moderationRefusal: "This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake."
@@ -158,6 +176,7 @@ import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
 import AgentChatInput from './agent-chat/AgentChatInput.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
 import ReviewConsentSheet from './agent-chat/ReviewConsentSheet.vue'
+import AgentMemoryDialog from './AgentMemoryDialog.vue'
 import { readFlags, writeFlags } from '~/utils/agent-flags'
 import { canSendNow } from '~/composables/chat-send'
 import type { AgentOption, ConversationSummary } from '~/utils/chat-agents'
@@ -298,6 +317,11 @@ const chat = useSessionChat({
 })
 
 const audited = computed(() => isAuditedAgentId(chat.activeAgentId.value))
+const memoryDialog = ref(false)
+const memoryAgent = computed(() => {
+  const id = chat.activeAgentId.value
+  return id ? { id, title: agents.value.find(agent => agent.id === id)?.title ?? chatTitle.value } : null
+})
 // Where an approval card reads the task a planning call would change. The personal assistant has no tasks.
 const agentPath = computed(() => isPersonalAgentId(chat.activeAgentId.value)
   ? undefined

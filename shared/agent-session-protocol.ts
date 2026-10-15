@@ -21,15 +21,15 @@ import { validate } from './agent-session-client-frame/index.ts'
 import type { AgentSessionClientFrame, BrowserToolDescriptor, HostEventFrame } from './agent-session-client-frame/index.ts'
 import type { AgentSessionServerFrame } from './agent-session-server-frame/index.ts'
 import serverFrameSchema from './agent-session-server-frame/schema.js'
+import { CLIENT_FRAME_LIMITS, TOOLS_MESSAGE } from './agent-session-client-frame/limits.js'
 
 export type { BrowserToolDescriptor, HostEventFrame }
+export { CLIENT_FRAME_LIMITS, TOOLS_MESSAGE }
 export type ClientMessage = AgentSessionClientFrame
 export type ServerMessage = AgentSessionServerFrame
 
 /** Why a client message was rejected. The client is told, because a silent drop is undebuggable. */
 export interface InvalidMessage { type: 'invalid', reason: string }
-
-const TOOLS_REASON = 'tools must be an array of { name, description?, inputSchema? } with unique names matching [a-zA-Z0-9_-]{1,64}'
 
 /**
  * Parse one client frame, strictly: the schema's validator, whose `errorMessage`s name the field that
@@ -49,7 +49,7 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
   // The one rule a schema cannot state. A page registering the same name twice would make the
   // correlation table ambiguous and give the model two tools it cannot tell apart.
   if ('tools' in parsed && new Set(parsed.tools.map(tool => tool.name)).size !== parsed.tools.length) {
-    return { type: 'invalid', reason: TOOLS_REASON }
+    return { type: 'invalid', reason: TOOLS_MESSAGE }
   }
   return parsed
 }
@@ -75,6 +75,19 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
   }
   const type = (parsed as { type?: unknown } | null)?.type
   return typeof type === 'string' && SERVER_FRAME_TYPES.has(type) ? parsed as ServerMessage : undefined
+}
+
+/**
+ * Whether a frame is replaced whole by a later one of the same turn, so a socket whose browser is not
+ * reading fast enough may skip it: an in-progress message or sub-agent transcript (every one carries
+ * all its parts, and the final one is never skipped) and a text delta (the final message carries the
+ * text). Anything else says something nothing later repeats — a call to the page, an activity, the
+ * turn's end, an error — and is always sent.
+ */
+export function isSupersededFrame (message: ServerMessage): boolean {
+  if (message.type === 'delta') return true
+  if (message.type === 'message' || message.type === 'subagent') return message.pending === true
+  return false
 }
 
 /**

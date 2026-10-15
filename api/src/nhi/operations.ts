@@ -155,7 +155,13 @@ export { autonomousAgentSubject } from '@agents/shared/autonomous-agent-identity
  */
 export function sanitizeExchangeError (err: unknown): Error {
   const message = typeof (err as any)?.message === 'string' ? (err as any).message : 'unknown error'
-  return new Error(`nhi token exchange failed: ${message}`)
+  // simple-directory's status survives (a number, nothing of the request): the session broker tells a rejected
+  // identity from a 429 or an outage by it. As `exchangeStatus`, not `status`: it is simple-directory's answer to
+  // this service, and as `status` it would become this service's answer to its own caller (a 401 to an admin
+  // reads as "you are not signed in").
+  const status = (err as any)?.status ?? (err as any)?.response?.status
+  const sanitized = new Error(`nhi token exchange failed: ${message}`)
+  return typeof status === 'number' ? Object.assign(sanitized, { exchangeStatus: status }) : sanitized
 }
 
 /**

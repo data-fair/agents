@@ -102,7 +102,7 @@ export interface TurnFailure {
   status: 'error' | 'aborted' | 'done'
   /** The error recorded on the run; absent for a late moderation block. */
   error?: string
-  /** What the throw said, for the notice. */
+  /** What the throw may say to the person, the transcript and the model (publicErrorDetail). */
   detail: string
   /** Why the turn was stopped, when it was: absent for a turn that failed on its own. */
   stopCause?: StopCause
@@ -157,8 +157,7 @@ const sendConversationCost = async (conversationId: string, known?: number) => {
  * `fail`, and a watcher is told the turn ended.
  */
 export const closeConversationRunBare = async (run: ConversationTurnRun, failure: TurnFailure) => {
-  const { status, stopReason, error } = failure
-  const detail = error ?? ''
+  const { status, stopReason, error, detail } = failure
   const finished = await finishRun(run, { status, stopReason, ...(error !== undefined ? { error } : {}) })
     .catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
   await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
@@ -353,7 +352,7 @@ export const conversationTarget = (
       // is not known here — except for a signature that failed verification, which the SDK checks
       // before executing anything (a secret rotated between the request and the decision).
       const approvedCalls: ApprovedCallsEnd = InvalidToolApprovalSignatureError.isInstance(cause)
-        ? { ran: 'no', detail: `the approval could not be verified (${detail})` }
+        ? { ran: 'no', detail: 'the approval could not be verified (its signature did not match)' }
         : { ran: 'unknown', detail }
       // The message, then the run (finishRun) — the message write CAUGHT inside it, so whatever failed
       // it still lets the run close.

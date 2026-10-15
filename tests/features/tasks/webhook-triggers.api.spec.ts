@@ -25,8 +25,9 @@ const createAgent = async () => {
 const createTask = async (agentId: string, prompt = 'hello', scheduling: any[] = [daily]) =>
   (await admin.post(base(agentId), { title: 'Hook', prompt, scheduling })).data
 const keyOf = async (agentId: string, taskId: string) => (await admin.get(`${base(agentId)}/${taskId}/webhook-key`)).data as string
+// The key travels in the x-webhook-key header only: a query string lands in access logs.
 const trigger = (agentId: string, taskId: string, key: string | undefined, body?: any, headers: Record<string, string> = {}) =>
-  anonymous.post(`${base(agentId)}/${taskId}/_trigger${key ? `?key=${key}` : ''}`, body, { headers })
+  anonymous.post(`${base(agentId)}/${taskId}/_trigger`, body, { headers: { ...(key ? { 'x-webhook-key': key } : {}), ...headers } })
 
 test.describe('Webhook triggers', () => {
   test.beforeEach(async () => {
@@ -70,10 +71,17 @@ test.describe('Webhook triggers', () => {
     assert.ok(prompt.endsWith('\n\nhello'))
   })
 
-  test('the key is accepted in the x-webhook-key header', async () => {
+  test('the key is refused in the query string, where access logs would keep it', async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id)
-    const res = await trigger(agent.id, task.id, undefined, 'dataset updated', { 'content-type': 'text/plain', 'x-webhook-key': await keyOf(agent.id, task.id) })
+    const res = await anonymous.post(`${base(agent.id)}/${task.id}/_trigger?key=${await keyOf(agent.id, task.id)}`, 'x', { headers: { 'content-type': 'text/plain' } })
+    assert.equal(res.status, 403)
+  })
+
+  test('a text body reaches the run as data', async () => {
+    const agent = await createAgent()
+    const task = await createTask(agent.id)
+    const res = await trigger(agent.id, task.id, await keyOf(agent.id, task.id), 'dataset updated', { 'content-type': 'text/plain' })
     assert.equal(res.status, 202)
     const run = await awaitAgentRun(orgAdmin, agent.id, res.data.runId)
     assert.match(run.messages[0].parts[0].text, /\ndataset updated\n<\/webhook-payload>/)
@@ -101,6 +109,20 @@ test.describe('Webhook triggers', () => {
     await admin.put(`${base(agent.id)}/${task.id}`, { title: 'Hook', prompt: 'hello', scheduling: [daily], enabled: true })
     await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Hooked', persona: 'You answer briefly.', mcpServers: [], enabled: false })
     assert.equal((await trigger(agent.id, task.id, key)).status, 409)
+  })
+
+  test('an exhausted credit cap refuses every trigger but records one skipped run, not one per call', async () => {
+    // A caller retrying, or a noisy integration, would otherwise insert a run per call for as long as the cap lasts.
+    const agent = await createAgent()
+    const task = await createTask(agent.id)
+    const key = await keyOf(agent.id, task.id)
+    await orgAdmin.post('/api/v1/limits/organization/test1?key=secretlimits', {
+      name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 5, consumption: 5 }
+    })
+    for (let i = 0; i < 3; i++) assert.equal((await trigger(agent.id, task.id, key)).status, 409)
+    const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs`)).data.results
+    assert.equal(runs.length, 1)
+    assert.equal(runs[0].status, 'skipped')
   })
 
   test('triggers during a run merge: one follow-up run, after the minimum interval, carrying them all in order', async () => {

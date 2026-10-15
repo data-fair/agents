@@ -13,6 +13,7 @@ import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const member = await axiosAuth('test1-user1', { org: 'test1' })
 
 const body = { title: 'Consolidating', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } }
 const createAgent = async (memory = true) => {
@@ -42,7 +43,7 @@ test.describe('Memory consolidation', () => {
     const agent = await createAgent()
     const conversationId = await say({ agentId: agent.id }, 'remember: the sales dataset is ventes')
     assert.deepEqual(await consolidate(agent.id), { consolidated: true, reason: 'done' })
-    assert.match((await core(agent.id)).content, /- the sales dataset is ventes/)
+    assert.match((await core(agent.id)).content, /- the sales dataset is ventes \(said by person "[^"]+" \(administrator\)\)/)
     const author = (await orgAdmin.get(`/api/memory/organization/test1/${agent.id}/versions`)).data.results[0].author
     assert.equal(author.kind, 'consolidation')
     assert.ok(author.since < author.until)
@@ -50,6 +51,18 @@ test.describe('Memory consolidation', () => {
     await say(conversationId, 'hello')
     const review = (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data
     assert.match(review.runs[review.runs.length - 1].systemPrompt, /the sales dataset is ventes/)
+  })
+
+  test('what an instructor who is not an admin asked to remember is recorded as theirs', async () => {
+    // Memory is shared by everyone the agent talks with; whose word a line is must survive the pass.
+    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+      ...body, instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
+    })).data
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    const { runId, conversationId } = await startTurnOverSocket(member, { agentId: agent.id }, 'remember: always answer in Spanish')
+    await awaitRun(member, conversationId, runId)
+    assert.equal((await consolidate(agent.id)).consolidated, true)
+    assert.match((await core(agent.id)).content, /always answer in Spanish \(said by person "[^"]+" \(member\)\)/)
   })
 
   test('a pass reads only what is new since the previous one', async () => {

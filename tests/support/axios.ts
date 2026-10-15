@@ -1,4 +1,5 @@
 import { axiosBuilder } from '@data-fair/lib-node/axios.js'
+import { privateHttpAgent, privateHttpsAgent } from '@data-fair/lib-node/http-agents.js'
 import { axiosAuth as _axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 
 export const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
@@ -17,7 +18,8 @@ export const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
 // axios instances, and those clients have to set the header for themselves.
 export const proxyHeaders = { 'x-forwarded-for': '127.0.0.1' }
 
-const axiosOpts = { baseURL, headers: proxyHeaders }
+// The private agents: the test services are on localhost, which lib-node's default agents refuse (SSRF guard).
+const axiosOpts = { baseURL, headers: proxyHeaders, httpAgent: privateHttpAgent, httpsAgent: privateHttpsAgent }
 
 export const axios = (opts = {}) => axiosBuilder({ ...axiosOpts, ...opts })
 export const anonymousAx = axios()

@@ -1,7 +1,7 @@
-import { type AccountKeys, httpError } from '@data-fair/lib-express'
+import { type AccountKeys, type SessionState, getAccountRole, httpError } from '@data-fair/lib-express'
 
 interface SessionLike {
-  account: { type: string, id: string }
+  account: { type: string, id: string, department?: string }
   user: { id: string, adminMode?: unknown }
   accountRole?: string
 }
@@ -22,16 +22,18 @@ interface QuotasConfig {
 }
 
 /**
- * Determine the effective role for quota lookup.
- * - Different account → 'external'
- * - Same account → session.accountRole (defaults to 'user')
+ * Determine the effective role for quota lookup, and for the decisions only an admin makes.
+ *
+ * The stack's rule, lib-common-types' getAccountRole: a superadmin in admin mode is an admin of any
+ * account, a person the admin of their own, and otherwise the active account must MATCH the owner —
+ * department included. A department's role grants nothing implicitly on the organization's root
+ * account: an admin of one department used to count as the organization's admin here. Not a match →
+ * 'external'; matched with no role → 'user'.
  */
 export function getEffectiveRole (session: SessionLike, owner: AccountKeys): EffectiveRole {
-  // A superadmin in admin mode acts as an admin of any account, as @data-fair/lib's getAccountRole has it.
-  if (session.user.adminMode) return 'admin'
-  const isSameAccount = session.account.type === owner.type && session.account.id === owner.id
-  if (!isSameAccount) return 'external'
-  return (session.accountRole as EffectiveRole) ?? 'user'
+  const role = getAccountRole(session as SessionState, owner)
+  if (role === null) return 'external'
+  return (role as EffectiveRole | undefined) ?? 'user'
 }
 
 /**

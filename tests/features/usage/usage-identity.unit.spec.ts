@@ -13,7 +13,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { usageIdentityFor } from '../../../api/src/conversations/operations.ts'
+import { usageIdentityFor, speakerIdentityFor } from '../../../api/src/conversations/operations.ts'
 import { UNTRUSTED_POOL_ID } from '../../../api/src/usage/operations.ts'
 
 const standard = { id: 'portal-assistant', title: 'Assistant' }
@@ -114,5 +114,21 @@ test.describe('usageIdentityFor — a configured agent bills the AGENT', () => {
     const identity = usageIdentityFor(configured, { owner: personal, triggeredByRole: 'admin' })
     assert.equal(identity.trackPerUser, true)
     assert.equal(identity.usageUserId, 'autonomous-agent:support-triage')
+  })
+})
+
+test.describe('speakerIdentityFor — moderation judges the person who wrote', () => {
+  const run = { owner: org, triggeredBy: { userId: 'out1', userName: 'Outsider' }, triggeredByRole: 'external' as const }
+
+  test('a configured agent bills as itself, but its instructor is the speaker, with their own role', () => {
+    const speaker = speakerIdentityFor(configured, run, usageIdentityFor(configured, run))
+    assert.equal(speaker.role, 'external')
+    assert.equal(speaker.usageUserId, 'out1')
+    assert.equal(speaker.isUntrusted, true, 'an outsider can be struck')
+  })
+
+  test('the personal assistant already bills as the person, who is the speaker', () => {
+    const billing = usageIdentityFor(standard, run)
+    assert.equal(speakerIdentityFor(standard, run, billing), billing)
   })
 })

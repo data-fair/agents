@@ -70,7 +70,11 @@ Promise<{ status: 'started', runId: string } | { status: 'pending' }> => {
   if (cap) {
     const now = new Date().toISOString()
     const reason = `${cap.reason} (${cap.scope}, ${cap.period} limit ${cap.limit}, used ${cap.usage}). Resets at ${cap.resetsAt}.`
-    await createRun({ kind: 'task', taskId, agentId, owner: task.owner, trigger: 'webhook', startedAt: now, status: 'skipped', endedAt: now, error: reason })
+    // One skipped run says the task is held by the cap; a caller retrying, or a noisy integration, would
+    // otherwise insert one per call for as long as the cap lasts. Recorded again once another run came between.
+    const latest = await mongo.runs.findOne({ kind: 'task', taskId }, { projection: { _id: 0, status: 1, trigger: 1, error: 1 }, sort: { startedAt: -1 } })
+    const alreadySaid = latest?.status === 'skipped' && latest.trigger === 'webhook' && latest.error?.startsWith(cap.reason)
+    if (!alreadySaid) await createRun({ kind: 'task', taskId, agentId, owner: task.owner, trigger: 'webhook', startedAt: now, status: 'skipped', endedAt: now, error: reason })
     throw httpError(409, reason)
   }
 

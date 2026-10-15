@@ -23,6 +23,7 @@
     "defaultLimits",
     "compactionPercent",
     "turnCredits",
+    "liveTurnsPerCaller",
     "turnTimeoutSeconds",
     "shutdownGraceSeconds",
     "taskTimeoutSeconds",
@@ -247,6 +248,13 @@
       "description": "Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this.",
       "default": 5,
       "minimum": 0
+    },
+    "liveTurnsPerCaller": {
+      "type": "integer",
+      "title": "Turns at once per caller",
+      "description": "How many chat turns one person — or one anonymous visitor's address — may have running at once. A further prompt is refused (429) until one ends. Quotas are re-checked between steps, so this bounds how far turns started together can overshoot one.",
+      "default": 5,
+      "minimum": 1
     },
     "turnTimeoutSeconds": {
       "type": "number",

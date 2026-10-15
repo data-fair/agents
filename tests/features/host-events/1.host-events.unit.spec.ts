@@ -288,3 +288,17 @@ test.describe('the location key is one string on both sides of the channel', () 
     assert.equal(resolvesWait({ name: 'item-created', at: 1 }), true)
   })
 })
+
+test.describe('sanitizeEvent — what the chat forwards fits the socket', () => {
+  // A host posts on the tab's channel without going through lib-vue's serializeDetail: an event the
+  // server's frame schema would refuse must be fitted here, not lost with an error.
+  test('a long detail is truncated, a long name or key is not forwarded', async () => {
+    const { sanitizeEvent } = await import('../../../ui/src/composables/use-host-events.ts')
+    const { CLIENT_FRAME_LIMITS } = await import('../../../shared/agent-session-protocol.ts')
+    const detail = sanitizeEvent({ name: 'saved', at: 1, detail: 'x'.repeat(5000) })!.detail!
+    assert.equal(detail.length, CLIENT_FRAME_LIMITS.eventDetail)
+    assert.match(detail, /\[truncated\]$/)
+    assert.equal(sanitizeEvent({ name: 'n'.repeat(CLIENT_FRAME_LIMITS.eventName + 1), at: 1 }), null)
+    assert.equal(sanitizeEvent({ name: 'saved', at: 1, key: 'k'.repeat(CLIENT_FRAME_LIMITS.eventName + 1) })!.key, undefined)
+  })
+})

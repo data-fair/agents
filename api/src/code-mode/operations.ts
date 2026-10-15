@@ -11,8 +11,17 @@ import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import { truncatedToolResultText } from '../conversations/compaction-policy.ts'
+import { isUntrustedRole } from '../usage/operations.ts'
 
 export const CODE_MODE_TOOL_NAME = 'code_mode'
+
+/**
+ * Whether a turn started by someone with this role is offered code_mode. Not to an anonymous visitor nor
+ * to someone outside the account: scripts run on a small worker pool every tenant of the process shares
+ * (./tool.ts), a few scripts that only wait could hold it for everyone, and orchestrating tools is not
+ * what a visitor needs. A task run has no person and keeps it.
+ */
+export const codeModeOfferedTo = (role: string | undefined): boolean => !role || !isUntrustedRole(role)
 /** The source a stored code_mode call names, and the server its result's envelope attributes it to. */
 export const CODE_MODE_SERVER_ID = 'code-mode'
 /** A script may call writing tools; what it can do is what those tools can do (each keeps its own annotations). */
@@ -40,6 +49,13 @@ export const CODE_MODE_POLICY = {
 export type CodeModePolicy = typeof CODE_MODE_POLICY
 
 /**
+ * The most tool calls the scripts of one turn may make together. A script is bounded (maxBridgeRequests), but a
+ * turn could run one per step: about 10,000 calls into the catalog's servers in a turn. Three full scripts.
+ */
+export const CODE_MODE_TURN_CALLS = 3 * CODE_MODE_POLICY.maxBridgeRequests
+export const turnCallsExceededMessage = (max: number) => `This call was not made: this turn's scripts have made ${max} tool calls, the most one turn may make. Finish with what you have, or call the tools you still need directly.`
+
+/**
  * What one script may move through its tools, inputs and results together. `run` keeps every call's input and
  * result until the script ends — the record it replays a paused script from — and fails the script past 32 MiB
  * (`maxContinuationBytes`, which the package does not let us set) with a protocol error the model cannot act on.
@@ -59,10 +75,12 @@ export const SCRIPT_LOG_CHARS = 5_000
 /**
  * The console, captured. The package writes `console.*` to the worker's stdout — the SERVER's logs — and
  * returns only the value, so a script's own diagnostics would leak into logs and never reach the model.
- * This prelude shadows `console` inside the script and returns `{ value, logs }`. All on the script's FIRST
+ * This prelude shadows `console` inside the script, and overwrites the methods of `globalThis.console` too
+ * (a read-only global, but its methods are not): the shadow alone left it reaching the server's stdout. It
+ * returns `{ value, logs }`. All on the script's FIRST
  * line, so a syntax error or a stack names the line the model wrote.
  */
-const PRELUDE = 'const __agentLogs = []; const __agentShow = (v) => { if (typeof v === "string") return v; try { return String(JSON.stringify(v)) } catch (e) { return String(v) } }; const __agentLog = (...values) => { __agentLogs.push(values.map(__agentShow).join(" ")) }; const console = { log: __agentLog, info: __agentLog, warn: __agentLog, error: __agentLog, debug: __agentLog }; '
+const PRELUDE = 'const __agentLogs = []; const __agentShow = (v) => { if (typeof v === "string") return v; try { return String(JSON.stringify(v)) } catch (e) { return String(v) } }; const __agentLog = (...values) => { __agentLogs.push(values.map(__agentShow).join(" ")) }; const console = { log: __agentLog, info: __agentLog, warn: __agentLog, error: __agentLog, debug: __agentLog }; Object.assign(globalThis.console, console); '
 const SCRIPT_START = 'return { value: await (async () => {'
 
 /**
@@ -124,7 +142,10 @@ export const scriptErrorMessage = (err: unknown, policy: CodeModePolicy = CODE_M
     case 'RunCpuTimeoutError': return 'The script used more than 10 s of CPU time and was stopped. Do less work in one script: filter earlier, or split it.'
     // A nested call is aborted with the script, but one already sent may have completed on its server (docs/architecture/code-mode.md).
     case 'CodeModeTimeoutError': return `The script ran for more than ${policy.timeoutMs / 1000} s, tool calls included, and was stopped. A tool call it had already sent may still have completed: check before repeating a write.`
-    case 'CodeModeBridgeLimitError': return `The script made more than ${policy.maxBridgeRequests} tool calls, the most one script may make.`
+    // Two limits share the class; `run`'s details tell them apart. Either way the calls before it ran.
+    case 'CodeModeBridgeLimitError': return (err as { details?: { maxInFlightBridgeRequests?: number } }).details?.maxInFlightBridgeRequests !== undefined
+      ? `The script had more than ${policy.maxInFlightBridgeRequests} tool calls running at once, the most one script may, and was stopped. The calls it had started may have completed: check before repeating a write, and run at most ${policy.maxInFlightBridgeRequests} at once (Promise.all in batches).`
+      : `The script made more than ${policy.maxBridgeRequests} tool calls, the most one script may make, and was stopped. The calls before it ran: check before repeating a write.`
     case 'CodeModeDetachedBridgeRequestError': return 'The script started a tool call it did not wait for. await every tool call (or Promise.all them) before returning.'
     case 'CodeModeConcurrencyError': return 'Too many scripts are running on this server right now. Try again in a moment, or call the tools directly.'
     case 'CodeModeSourceTooLargeError': return `The script is longer than ${policy.maxSourceBytes / 1024} KiB. Write a shorter one.`
@@ -189,5 +210,22 @@ const DIRECT_ONLY = new Set([WAIT_TOOL_NAME, 'request_web_access', 'request_mcp_
  * through `run`'s signed continuations, upstream vercel/ai#18143. Never a sub-agent delegation: a model loop
  * inside a script (vercel/ai#18145), and its trace is keyed on the model's own call.
  */
+/**
+ * A script's tool input without the keys that pollute a prototype: `__proto__`, and a `constructor` carrying a
+ * `prototype` (what secure-json-parse removes). The bridge hands a tool the script's JSON, where `__proto__` is
+ * an ordinary own key, and a server that merges it into an object would have its prototype changed.
+ */
+export const withoutPrototypeKeys = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(withoutPrototypeKeys)
+  if (!value || typeof value !== 'object') return value
+  const out: Record<string, unknown> = {}
+  for (const [key, item] of Object.entries(value)) {
+    if (key === '__proto__') continue
+    if (key === 'constructor' && item && typeof item === 'object' && 'prototype' in item) continue
+    out[key] = withoutPrototypeKeys(item)
+  }
+  return out
+}
+
 export const codeCallable = (name: string, tool: { needsApproval?: unknown }): boolean =>
   !tool.needsApproval && !DIRECT_ONLY.has(name) && !name.startsWith('subagent_')

@@ -34,13 +34,39 @@ import { MCP_CLIENT_CAPABILITIES, SKILLS_LIST_TIMEOUT_MS, listServerSkills, read
 const debug = Debug('agents:mcp-external')
 
 /**
+ * The most one response of an external server may carry, in bytes: the web access cap. The MCP client
+ * reads a reply whole, so a hostile or broken server answering without end used to fill the process's
+ * memory, for every tenant.
+ */
+export const EXTERNAL_RESPONSE_MAX_BYTES = 10 * 1024 * 1024
+
+/** A body that errors, and stops being read, once it has carried more than `max` bytes. */
+const capped = (body: ReadableStream<Uint8Array>, max: number, url: string) => {
+  let seen = 0
+  return body.pipeThrough(new TransformStream<Uint8Array, Uint8Array>({
+    transform (chunk, controller) {
+      seen += chunk.byteLength
+      if (seen > max) controller.error(new Error(`the answer of ${new URL(url).host} is larger than ${max / 1024 / 1024} MB`))
+      else controller.enqueue(chunk)
+    }
+  }))
+}
+
+/**
  * A fetch that only reaches public addresses, follows no redirect and sends only what the transport sets.
+ * Bounded like a file download (files/download.ts): headers within 15 s, and no response over
+ * EXTERNAL_RESPONSE_MAX_BYTES. The body may stay silent 60 s, the MCP client's own request timeout: a
+ * tool call answered as a stream can be quiet while the server works.
  * Its dispatcher keeps connections alive, so the caller closes it with the turn: left open it would hold
  * sockets (and a server's shutdown) for as long as the keep-alive lasts.
  */
 const publicFetch = (publicIps: string[]) => {
-  const dispatcher = publicDispatcher(publicIps)
-  const fetchImpl = ((url: string | URL, init?: RequestInit) => undiciFetch(url, { ...(init as any), dispatcher, redirect: 'error' })) as unknown as typeof fetch
+  const dispatcher = publicDispatcher(publicIps, { headersTimeout: 15_000, bodyTimeout: 60_000 })
+  const fetchImpl = (async (url: string | URL, init?: RequestInit) => {
+    const res = await undiciFetch(url, { ...(init as any), dispatcher, redirect: 'error' })
+    if (!res.body) return res
+    return new Response(capped(res.body as ReadableStream<Uint8Array>, EXTERNAL_RESPONSE_MAX_BYTES, String(url)), { status: res.status, statusText: res.statusText, headers: res.headers as any })
+  }) as unknown as typeof fetch
   return { fetchImpl, closeDispatcher: () => dispatcher.close().catch(() => {}) }
 }
 

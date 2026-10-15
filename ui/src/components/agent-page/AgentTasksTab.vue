@@ -210,18 +210,38 @@
         <p class="mb-2">
           {{ t('triggerHelp') }}
         </p>
-        <code
-          class="d-block text-break"
-          data-testid="task-trigger-url"
-        >{{ triggerUrl }}</code>
+        <div class="d-flex align-center ga-2">
+          <code
+            class="flex-grow-1 text-break"
+            data-testid="task-trigger-url"
+          >{{ triggerUrl }}</code>
+          <v-btn
+            variant="text"
+            size="small"
+            :prepend-icon="mdiContentCopy"
+            :text="t('copyUrl')"
+            @click="copy(triggerUrl)"
+          />
+        </div>
+        <!-- The key travels in a header, never in the URL: a query string lands in every access log. -->
+        <p class="mt-4 mb-2">
+          {{ t('triggerKeyHelp') }} <code>x-webhook-key</code>
+        </p>
+        <div class="d-flex align-center ga-2">
+          <code
+            class="flex-grow-1 text-break"
+            data-testid="task-trigger-key"
+          >{{ triggerKey }}</code>
+          <v-btn
+            variant="text"
+            size="small"
+            :prepend-icon="mdiContentCopy"
+            :text="t('copyKey')"
+            @click="copy(triggerKey)"
+          />
+        </div>
       </v-card-text>
       <v-card-actions class="flex-wrap">
-        <v-btn
-          variant="text"
-          :prepend-icon="mdiContentCopy"
-          :text="t('copy')"
-          @click="copyTriggerUrl()"
-        />
         <v-menu max-width="400">
           <template #activator="{ props: activatorProps }">
             <v-btn
@@ -278,11 +298,13 @@ en:
   deleted: The task has been deleted
   failed: The task could not be saved
   triggerUrl: Trigger URL
-  triggerHelp: "A POST to this secret URL runs the task, with the request body given to the agent as data. Paste it into an events webhook subscription on a dataset topic to run the task when the dataset changes. Triggers closer than the minimum interval are merged into one run."
-  copy: Copy
+  triggerHelp: "A POST to this URL, with the secret key below, runs the task, with the request body given to the agent as data. Set them in an events webhook subscription on a dataset topic to run the task when the dataset changes. Triggers closer than the minimum interval are merged into one run."
+  triggerKeyHelp: "The secret key, sent in the header"
+  copyUrl: Copy the URL
+  copyKey: Copy the key
   copied: Copied
   regenerate: Regenerate
-  confirmRegenerate: The current URL will stop working at once.
+  confirmRegenerate: The current key will stop working at once.
   confirm: Confirm
   close: Close
   notifications: Notifications
@@ -310,11 +332,13 @@ fr:
   deleted: La tâche a été supprimée
   failed: La tâche n'a pas pu être enregistrée
   triggerUrl: URL de déclenchement
-  triggerHelp: "Une requête POST sur cette URL secrète exécute la tâche, et le corps de la requête est transmis à l'agent comme donnée. Collez-la dans un abonnement webhook du service d'événements sur un sujet de jeu de données pour exécuter la tâche quand le jeu de données change. Les déclenchements plus rapprochés que l'intervalle minimal sont regroupés en une seule exécution."
-  copy: Copier
+  triggerHelp: "Une requête POST sur cette URL, avec la clé secrète ci-dessous, exécute la tâche, et le corps de la requête est transmis à l'agent comme donnée. Renseignez-les dans un abonnement webhook du service d'événements sur un sujet de jeu de données pour exécuter la tâche quand le jeu de données change. Les déclenchements plus rapprochés que l'intervalle minimal sont regroupés en une seule exécution."
+  triggerKeyHelp: "La clé secrète, envoyée dans l'en-tête"
+  copyUrl: Copier l'URL
+  copyKey: Copier la clé
   copied: Copié
   regenerate: Régénérer
-  confirmRegenerate: L'URL actuelle cessera immédiatement de fonctionner.
+  confirmRegenerate: La clé actuelle cessera immédiatement de fonctionner.
   confirm: Confirmer
   close: Fermer
   notifications: Notifications
@@ -424,7 +448,7 @@ const triggerTask = ref<any>(null)
 const triggerKey = ref('')
 const keyUrl = (task: any) => `${tasksUrl.value}/${task.id}/webhook-key`
 const triggerUrl = computed(() => triggerTask.value
-  ? new URL(`${tasksUrl.value}/${triggerTask.value.id}/_trigger?key=${triggerKey.value}`, window.location.origin).href
+  ? new URL(`${tasksUrl.value}/${triggerTask.value.id}/_trigger`, window.location.origin).href
   : '')
 
 const openTrigger = async (task: any) => {
@@ -443,8 +467,8 @@ const regenerateKey = async () => {
     sendUiNotif({ type: 'error', msg: apiErrorMessage(error) ?? t('failed'), error: error as any })
   }
 }
-const copyTriggerUrl = async () => {
-  await navigator.clipboard.writeText(triggerUrl.value)
+const copy = async (text: string) => {
+  await navigator.clipboard.writeText(text)
   sendUiNotif({ type: 'success', msg: t('copied') })
 }
 

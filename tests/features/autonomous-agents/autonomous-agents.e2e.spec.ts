@@ -269,7 +269,7 @@ test.describe('Autonomous agent chat', () => {
     // The generic 'This turn failed and could not be completed.' is appended for EVERY stopReason
     // 'error' — a disabled agent, a missing enrolment, an exhausted quota, an empty completion. Only
     // the parenthetical detail runStopReasonMessage appends distinguishes the provider error this
-    // test claims to drive.
+    // test claims to drive: for an internal failure, the generic one (publicErrorDetail).
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('could not be completed', { timeout: 15000 })
     await expect(page.getByTestId('agent-chat-transcript')).toContainText(/\(.*error.*\)/i)
   })

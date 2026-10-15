@@ -11,21 +11,22 @@
  */
 
 import { Router } from 'express'
-import { type AccountKeys, assertAccountRole, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, assertAccountRole, reqAdminMode, reqSessionAuthenticated, secretKeyMatches } from '@data-fair/lib-express'
 import mongo from '#mongo'
 import config from '#config'
 import type { Limits } from '#types'
 import * as postReq from '#doc/limits/post-req/index.ts'
 import { getLimits } from './service.ts'
-import { limitsKeyMatches } from './operations.ts'
 
 const router = Router()
 export default router
 
 // Endpoint for the customers service to create/update limits
+// The customers service's `?key=`, as data-fair's limits router takes it: compared in constant time, and an
+// unconfigured secret matches nothing (lib-express secretKeyMatches).
 router.post('/:type/:id', async (req, res, next) => {
   try {
-    if (!limitsKeyMatches(req.query.key, config.secretKeys.limits)) reqAdminMode(req)
+    if (!secretKeyMatches(req.query.key, config.secretKeys.limits)) reqAdminMode(req)
     const { body } = postReq.returnValid({ body: req.body }, { name: 'req' })
     const existing = await mongo.limits.findOne({ type: req.params.type, id: req.params.id })
     // preserve any locally-tracked ai_credits sub-fields (e.g. consumption)
@@ -45,7 +46,7 @@ router.post('/:type/:id', async (req, res, next) => {
 router.get('/:type/:id', async (req, res, next) => {
   try {
     const owner = { type: req.params.type, id: req.params.id } as AccountKeys
-    if (!limitsKeyMatches(req.query.key, config.secretKeys.limits)) {
+    if (!secretKeyMatches(req.query.key, config.secretKeys.limits)) {
       const s = reqSessionAuthenticated(req)
       // allAccounts: true because membership must hold regardless of which
       // account the session currently has "switched" into (the customers
@@ -58,7 +59,7 @@ router.get('/:type/:id', async (req, res, next) => {
 
 router.get('/', async (req, res, next) => {
   try {
-    if (!limitsKeyMatches(req.query.key, config.secretKeys.limits)) reqAdminMode(req)
+    if (!secretKeyMatches(req.query.key, config.secretKeys.limits)) reqAdminMode(req)
     const filter: Record<string, any> = {}
     if (req.query.type) filter.type = req.query.type
     if (req.query.id) filter.id = req.query.id

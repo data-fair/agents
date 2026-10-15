@@ -48,6 +48,30 @@ test.describe('code_mode engine', () => {
     assert.equal(out, '1\n\nConsole output:\nrows: 2 {"ok":true}\ncareful')
   })
 
+  test('globalThis.console is the captured one too, never the server\'s stdout', async () => {
+    const out = await run(createScriptTool({}), 'globalThis.console.log("via global"); return 1')
+    assert.equal(out, '1\n\nConsole output:\nvia global')
+  })
+
+  test('a tool never receives __proto__ or constructor keys a script built', async () => {
+    let received: any
+    const spy = tool({
+      description: 'Records its input',
+      inputSchema: jsonSchema({ type: 'object' }),
+      execute: async (input: any) => { received = input; return 'ok' }
+    })
+    await run(createScriptTool({ spy }), 'await tools.spy(JSON.parse(\'{"a":1,"__proto__":{"polluted":true},"nested":{"constructor":{"prototype":{"x":1}},"b":2}}\')); return 1')
+    assert.deepEqual(Object.keys(received).sort(), ['a', 'nested'])
+    assert.deepEqual(Object.keys(received.nested), ['b'])
+    assert.equal(({} as any).polluted, undefined)
+  })
+
+  test('too many calls at once is said as such, not as too many calls', async () => {
+    const out = await run(createScriptTool({ slow }, { policy: { timeoutMs: 2000 } }), 'await Promise.all(Array.from({ length: 9 }, () => tools.slow({}))); return 1').catch((e: Error) => e.message)
+    assert.doesNotMatch(String(out), /more than 100 tool calls/)
+    assert.match(String(out), /at once/)
+  })
+
   test('console.log of a circular value or a BigInt does not fail the script', async () => {
     const out = await run(createScriptTool({}), 'const a = {}; a.self = a; console.log(a, 1n); return 1')
     assert.match(String(out), /^1\n\nConsole output:\n/)

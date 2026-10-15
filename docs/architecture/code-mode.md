@@ -1,7 +1,9 @@
 # Code mode
 
 One tool, `code_mode`, offered to **every agent** on every surface (chats and planned task runs, the
-personal assistant included) with no setting. The model writes one JavaScript script; the script returns a
+personal assistant included) with no setting, except in a turn started by an anonymous visitor or someone
+outside the account (`codeModeOfferedTo`): scripts share a small per-process worker pool across tenants, a
+few that only wait could hold it for everyone, and orchestration is not what a visitor needs. The model writes one JavaScript script; the script returns a
 value, and that value is the call's result.
 
 - **Plain scripting**: a script that calls no tool transforms text and JSON (count, filter, reshape,
@@ -244,7 +246,12 @@ note that its detail was dropped; the model's own calls and the script's result 
 
 - the step limit and the repeated-call guard see the `code_mode` call, not what it does — five identical
   scripts with identical results are a repeat like any other;
-- a script is bounded by its own policy (100 calls, 8 at once, 120 s, 10 s of CPU, above);
+- a script is bounded by its own policy (100 calls, 8 at once, 120 s, 10 s of CPU, above), and the scripts
+  of one turn together by `CODE_MODE_TURN_CALLS` (300 calls): one script per step would otherwise allow
+  about 10,000 calls into the catalog's servers in a turn. Past either limit the message says the calls
+  before it ran, so the model checks before repeating a write;
+- a script's tool input loses `__proto__` and a `constructor` carrying a `prototype` (`withoutPrototypeKeys`,
+  what secure-json-parse removes): the bridge hands a tool the script's JSON, where they are ordinary keys;
 - the per-tool caps inside `execute` count nested calls as they are: the web tools' 50 calls per run, the
   external MCP servers' 50;
 - the idle watchdog is paused while `code_mode` runs, as for any tool;
@@ -318,7 +325,9 @@ library would need the same argument. Considered and declined:
 
 The package writes `console.*` to the worker's stdout — the **server's** logs — and returns only the value,
 so a script's diagnostics would leak into the logs and never reach the model. A prelude (`wrapScript`)
-shadows `console` inside the script and returns `{ value, logs }`; it sits entirely on the script's first
+shadows `console` inside the script, overwrites the methods of `globalThis.console` (a read-only global
+whose methods are writable; without it `globalThis.console.log` still reached the server's stdout), and
+returns `{ value, logs }`; it sits entirely on the script's first
 line, so a syntax error or a stack names the line the model wrote. Values are logged as `JSON.stringify`
 would, falling back to `String` for a circular value or a BigInt.
 

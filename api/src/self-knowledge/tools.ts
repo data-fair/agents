@@ -16,6 +16,7 @@ import { runAsMessages } from '../tasks/run-messages.ts'
 import type { ScheduleRule } from '@agents/shared/task-schedule'
 import { notSelectedProfiles } from '@agents/shared/mcp-profiles'
 import { fetchProfiles } from '../mcp-servers/profiles.ts'
+import { codeModeOfferedTo } from '../code-mode/operations.ts'
 
 const LIST_RUNS_DEFAULT = 10
 
@@ -58,6 +59,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
           agent: { title: agent.title, persona: agent.persona, instructions: agent.instructions, approvals: agent.approvals, memoryEnabled: memoryEnabledFor(agent) },
           surface,
           files: !!ctx.files,
+          codeMode: codeModeOfferedTo(run.triggeredByRole),
           catalog: await withNotSelected(ctx.catalog ?? { tools: {}, filteredOut: [], skippedServers: [] }),
           serviceTools: serviceToolNames().filter(name => !own.has(name)),
           notConnected: (config.mcpServers ?? []).filter(server => !referenced.has(server.id))

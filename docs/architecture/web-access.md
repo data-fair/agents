@@ -19,12 +19,12 @@ The logic is one module, `api/src/web/`, which knows nothing of the agent loop; 
 `allowedUrls` are **URL prefixes**: `https://github.com/data-fair` allows that organization's repositories and nothing else on GitHub, `https://www.data.gouv.fr/` the whole site. Matching (`urlAllowed`, `api/src/web/operations.ts`):
 
 - at a boundary: the prefix ends with `/`, `?`, `&` or `=`, or the URL continues with `/` or `?` — so `github.com/data-fair` does not allow `github.com/data-fair-evil`, and `https://data.gouv.fr` does not allow `data.gouv.fr.evil.com`;
-- on the parsed URL, so dot segments (encoded ones included) are resolved before comparing;
+- on the parsed URL, so dot segments (encoded ones included) are resolved before comparing; a segment that would step out once a backend decodes or strips it (`..%2f`, `%2e%2e%5c`, `..;`, a path parameter to Tomcat) is refused;
 - http and https alike; no implicit subdomain.
 
 Entries are normalized when the agent is saved (`https://` assumed, lowercase host; no wildcard, IP address or credentials — a 400 otherwise), so what an admin reads back is what is enforced. Every **redirect hop** is checked, not only the URL asked for.
 
-A site's own metadata — `robots.txt`, its sitemaps, its OpenSearch description — sits at its root, outside a prefix narrower than the whole site. It is readable on any host that has an allowed URL (`UrlScope` `'site'`), and what it lists is filtered by the prefixes before it reaches the agent.
+A site's own metadata — `robots.txt`, its sitemaps, its OpenSearch description — sits at its root, outside a prefix narrower than the whole site. It is readable on any host (name and port: another port is another service) that has an allowed URL (`UrlScope` `'site'`), and what it lists is filtered by the prefixes before it reaches the agent.
 
 ## The tools
 
@@ -74,7 +74,7 @@ Read-only GET is not harmless either. An agent holding private data from its cat
 
 `api/src/web/client.ts`, one instance per process:
 
-- **Public addresses only**, checked at DNS resolution (`public-lookup.ts`), so it holds for redirects and against DNS rebinding; `SSRF_PUBLIC_IPS` declares exceptions (localhost in `npm run dev-api`), the same for the external MCP servers, as for lib-node. Same rules as `@data-fair/lib-node`'s `ssrf.ts` (2.14+), whose `publicLookup` should replace this file once the service upgrades lib-node — that upgrade also switches the check on for the lib-node axios instance the service uses to reach stack services, which then need its private instance. Environment proxies are ignored: they would resolve names out of reach of the check.
+- **Public addresses only**, checked at DNS resolution (`public-lookup.ts`), so it holds for redirects and against DNS rebinding; `SSRF_PUBLIC_IPS` declares exceptions (localhost in `npm run dev-api`), the same for the external MCP servers, as for lib-node. The rules are `@data-fair/lib-node`'s `ssrf.ts` (`checkAddress`: anything that is not plain unicast is refused, so NAT64, 6to4 and Teredo forms of a private IPv4 address too); `public-lookup.ts` only adapts them to undici and to an explicit exception list. Stack services (simple-directory, the model providers a superadmin configures) are reached with lib-node's `privateAxiosInstance`, since its default instance applies the same check. Environment proxies are ignored: they would resolve names out of reach of the check.
 - Everything goes through this one client, the cache and sitemap reading included. Both are written here rather than taken from a library: a library that brings its own HTTP client (sitemap parsers, undici's cache interceptor) would step around the address check. Downloads into an agent's files are the one exception: they stream to the store through `api/src/files/download.ts`, which reuses this module's address check (`publicDispatcher`) and URL checks but no cache.
 - 10 MB body cap (bodies are read as streams, so a declared binary type is refused before any of it is read), 15 s timeout, 5 redirects, an honest `User-Agent`.
 - **A shared cache**, safe to share because no credential is ever sent: every response is public by construction. Fresh for at least 10 minutes whatever the headers say (more when `max-age` says so): every agent of a deployment leaves from the same address and so shares each site's rate limit (60 requests an hour for GitHub's unauthenticated API), and this floor lets agents and repeated runs share fetches. Then revalidated with `ETag` / `Last-Modified`; `no-store` and 5xx are not kept; 64 MB, least recently used first. A cache hit keeps the body's `Buffer`, and the extraction is memoized on it, so it skips the worker too.

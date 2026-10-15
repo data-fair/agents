@@ -81,7 +81,19 @@ export const normalizeAllowedUrls = (inputs: string[]): string[] => {
  * "github.com/data-fair?tab=repositories", but not "github.com/data-fair-evil", and
  * "https://data.gouv.fr" does not allow "data.gouv.fr.evil.com".
  */
+/**
+ * A path segment that steps out of its parent once a backend decodes or strips it: `..%2f`, `%2e%2e%5c`,
+ * `..;` (a path parameter to Tomcat). The URL parser resolves plain and `%2e` dot segments itself; these it
+ * keeps as names, and a prefix match would let them out of the allowed prefix.
+ */
+const escapesPrefix = (pathname: string): boolean => pathname.split('/').some(segment => {
+  let decoded = segment
+  try { decoded = decodeURIComponent(segment) } catch {}
+  return /(^|[/\\])\.\.([/\\;]|$)/.test(decoded) || /^\.\.;/.test(segment)
+})
+
 export const urlAllowed = (url: URL, allowedUrls: string[]): boolean => {
+  if (escapesPrefix(url.pathname)) return false
   const target = withoutScheme(url.href)
   return allowedUrls.some(allowed => {
     const prefix = withoutScheme(allowed)
@@ -90,9 +102,12 @@ export const urlAllowed = (url: URL, allowedUrls: string[]): boolean => {
   })
 }
 
-/** Whether the host has any allowed URL: its robots.txt, sitemaps and search descriptions may then be read. */
+/**
+ * Whether the host has any allowed URL: its robots.txt, sitemaps and search descriptions may then be read.
+ * `host` with its port (URL.host): another port of the same name is another service.
+ */
 export const hostAllowed = (host: string, allowedUrls: string[]): boolean =>
-  allowedUrls.some(allowed => new URL(allowed).hostname === host)
+  allowedUrls.some(allowed => new URL(allowed).host === host)
 
 /**
  * `page`: a URL the agent reads, which must be under an allowed URL. `site`: one of a site's own
@@ -121,7 +136,7 @@ export const displayUrl = (raw: string): string => {
 
 export const checkUrl = (raw: string, allowedUrls: string[], scope: UrlScope = 'page'): URL => {
   const url = parseHttpUrl(raw)
-  const allowed = scope === 'site' ? hostAllowed(url.hostname, allowedUrls) : urlAllowed(url, allowedUrls)
+  const allowed = scope === 'site' ? hostAllowed(url.host, allowedUrls) : urlAllowed(url, allowedUrls)
   if (!allowed) {
     throw new Error(`"${displayUrl(url.href)}" is not under this agent's allowed URLs (${allowedUrls.join(', ') || 'none'})`)
   }

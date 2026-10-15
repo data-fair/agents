@@ -20,7 +20,7 @@ import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
 import type { ConversationRun } from '#types'
-import { runStopReasonMessage, type ToolSet, turnDeadlineSeconds, usageIdentityFor, withAppendedText, type RunStopReason, type ConversationTurnRun } from './operations.ts'
+import { runStopReasonMessage, publicErrorDetail, type ToolSet, turnDeadlineSeconds, usageIdentityFor, speakerIdentityFor, withAppendedText, type RunStopReason, type ConversationTurnRun } from './operations.ts'
 import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies } from '../moderation/operations.ts'
 import { conversationTarget, closeConversationRunBare, type TurnTarget, type TurnResult, type TurnFailure } from './turn-target.ts'
@@ -128,6 +128,8 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   // Read as a list, which is what extracting them bought. The identity is per agent — a configured
   // agent bills as itself, the personal assistant as the person using it (see usageIdentityFor).
   const identity = usageIdentityFor(autonomousAgent, run)
+  // Moderation judges the person who wrote, whoever the turn bills (see speakerIdentityFor).
+  const speaker = speakerIdentityFor(autonomousAgent, run, identity)
   for (const gate of [
     () => checkQuotas(run, settings, identity, autonomousAgent.id),
     // Moderation is a CHAT rule: it judges what a person wrote. A planned task's prompt is admin-authored
@@ -135,8 +137,8 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     // Within a chat, a wake or an approval continuation has no message of the person's either — they
     // acted on the page, or decided on a call — and moderating it would re-judge the message that started
     // the turn: a moderator call for nothing, and possibly a second strike for the same message.
-    () => target.surface === 'chat' && run.trigger !== 'wake' && run.trigger !== 'approval' && moderationApplies(settings, identity.role)
-      ? moderateTurn(run, settings, identity, () => liveRuns.get(run.id)?.controller.abort(new TurnStopped('late-block')))
+    () => target.surface === 'chat' && run.trigger !== 'wake' && run.trigger !== 'approval' && moderationApplies(settings, speaker.role)
+      ? moderateTurn(run, settings, identity, speaker, () => liveRuns.get(run.id)?.controller.abort(new TurnStopped('late-block')))
       : undefined
   ]) {
     const refusal = await gate()
@@ -299,17 +301,20 @@ export const driveTurn = async (
     const result = await Promise.race([performTurn(run, abortController.signal, target), deadline])
     await target.close(result)
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
+    const raw = err instanceof Error ? err.message : String(err)
     // An abort is not a failure of the turn: distinguish the clock from a caller pressing
     // stop, and from a genuine error, because a reader reacts differently to each.
     const stopCause: StopCause | undefined = abortController.signal.aborted ? stopCauseOf(abortController.signal.reason) : undefined
     // A late block is refused, not failed: declining WAS the answer, as for an on-time block (see turn-gates).
     const stopReason: RunStopReason = stopCause === 'late-block' ? 'completed' : stopCause === 'timeout' ? 'timeout' : stopCause ? 'aborted' : 'error'
     const status = stopCause === 'late-block' ? 'done' : stopCause && stopCause !== 'timeout' ? 'aborted' : 'error'
+    // The run keeps the whole error for administrators; the person, the transcript and the model are told
+    // only what publicErrorDetail lets through. An abort's reason is this service's own words.
+    const detail = stopCause ? raw : publicErrorDetail(err)
     const failure: TurnFailure = {
       stopReason,
       status,
-      ...(stopCause === 'late-block' ? {} : { error: detail }),
+      ...(stopCause === 'late-block' ? {} : { error: raw }),
       detail,
       ...(stopCause ? { stopCause } : {}),
       interrupt: stopCause ? interruptReason(stopCause) : 'ended',
