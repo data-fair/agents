@@ -72,7 +72,7 @@ needs a redesign; most fixes are a few lines.
 - **M7 ✅ Configured agents are moderated as `admin`.** *Moderation now keys on the person who wrote (`speakerIdentityFor`): role, events, strikes; billing stays the agent's.* `usageIdentityFor` returns role `admin`
   (`conversations/operations.ts:625-635`), and moderation keys on it, so partner/external instructors
   are never moderated nor struck. Fix: bill as the agent, moderate on `run.triggeredByRole`.
-- **M8 Host frames bypass moderation and size caps server-side.** `host-state`, `host-events`, wake
+- **M8 Host frames bypass moderation and size caps server-side.** *Caps done with M11. Moderation of page blocks deferred (owner, 2026-10-15): moderation and content classification get their own rework session.* `host-state`, `host-events`, wake
   turns and page-tool descriptors are folded in after the gates (`turn-target.ts:216`,
   `executor.ts:137`); the 1000-char cap and sentinel defusing exist only client-side in lib-vue.
   A raw socket sends unbounded, unmoderated text. Fix: caps in `shared/agent-session-client-frame`,
@@ -83,7 +83,7 @@ needs a redesign; most fixes are a few lines.
   `turnCredits` are re-read (`model-loop.ts:109`). 50 parallel anonymous sockets × 500 credits each.
   Same race on `POST /api/summary` (no output cap). Fix: re-run per-user/pool checks in
   `checkCeilings`; cap live runs per `usageUserId`; clamp budget to remaining quota.
-- **M10 Anonymous per-IP key is the leftmost `X-Forwarded-For`** (lib-express `reqIp`), hashed on
+- **M10 Anonymous per-IP key is the leftmost `X-Forwarded-For`** *Ingress checked (2026-10-15): ingress-nginx defaults with PROXY protocol (env-staging3 `ingress-load-balancer.yaml`) and haproxy L1 `set-header X-Forwarded-For %[src]` both OVERWRITE the header, as data-fair's `agent-rate-limiting.md` §2/§4 records; not spoofable unless the live controller ConfigMap enables `use-forwarded-headers`/`compute-full-forwarded-for` (unverified, not in the repos). Still open: IPv6 keyed on the full address (/64 rotation), stack-wide.* (lib-express `reqIp`), hashed on
   the full IPv6 address. Spoofable unless the production ingress overwrites XFF; one /64 = infinite
   keys. Fix: verify ingress, key IPv6 on /64, require a non-zero untrusted pool when anonymous is on.
   (Stack-wide: lib-express.)
@@ -93,24 +93,24 @@ needs a redesign; most fixes are a few lines.
   main-thread stringify**, 11 MB final trace; two such scripts exceed Mongo's 16 MB document.
   Fix: `maxPayload` ~1 MB, schema caps, drop non-final frames over a `bufferedAmount` threshold,
   delta frames, per-message trace budget (the already-open item).
-- **M12 Code-mode shared resources.** (a) [probe] ~2000 nested brackets crash Node's amaro TS
+- **M12 Code-mode shared resources.** *(a) ✅ item 1. (b) ✅ code_mode not offered to anonymous and external people (owner, 2026-10-15); per-run queueing not done.* (a) [probe] ~2000 nested brackets crash Node's amaro TS
   stripper (run on the **main thread** by `run`) and leave it broken for the process: every later
   script with a type annotation fails for all tenants until restart. Fix: reject nesting depth > ~256
   before execution; report upstream (amaro, vercel-labs/run). (b) [probe] 4 parallel
   `await new Promise(()=>{})` scripts hold the whole per-process pool (4 workers) for 120 s each,
   repeatable every step, anonymous included. Fix: per-run semaphore (queue, not refuse), consider no
   code mode for untrusted roles.
-- **M13 External MCP responses are unbounded** (`mcp-servers/external.ts:41-45`): a hostile or
+- **M13 ✅ External MCP responses are unbounded** *10 MB per response, 15 s headers, 60 s body silence.* (`mcp-servers/external.ts:41-45`): a hostile or
   compromised admin-approved server OOMs the process. Fix: counting `TransformStream`, undici
   body/headers timeouts as `files/download.ts` does.
-- **M14 NHI exchanges share one rate-limit bucket.** Every exchange declares `x-forwarded-for:
+- **M14 NHI exchanges share one rate-limit bucket.** *Open: needs simple-directory.* Every exchange declares `x-forwarded-for:
   127.0.0.1` (`nhi/operations.ts:127`); simple-directory counts failures per IP (5/60 s). One org
   saving a bogus `clientId` five times a minute, or one agent with a deleted NHI, 429s every agent of
   every org. Fix: per-agent circuit breaker here; skip the IP bucket for internal callers in
   simple-directory.
 
 **Information disclosure**
-- **M15 Raw internal errors reach the browser, the transcript and the model** (`executor.ts` catch,
+- **M15 ✅ Raw internal errors reach the browser, the transcript and the model** *`publicErrorDetail`: deliberate refusals and `withPublicMessage` parts shown, the rest generic, whole on `run.error`; quota stops through `quotaStopText`.* (`executor.ts` catch,
   `errorFrame` sends `err.message` on 500s): provider bodies, internal hostnames/IPs, Mongo errors,
   shown to anonymous visitors and replayed to the model. Mid-turn credit-cap stop prints the org's
   limit/usage to anyone (`model-loop.ts:113`) while the gate redacts it. Fix: generic text to clients,
@@ -118,33 +118,33 @@ needs a redesign; most fixes are a few lines.
 
 ## Low
 
-- **Egress**: NAT64/6to4/Teredo/IPv4-compatible IPv6 classified public (`web/public-lookup.ts:16`) —
+- **Egress** *✅ IPv6 forms (lib-node 2.15 `ssrf.ts` adopted), site scope by host:port, `..%2f`/`..;`, webhook skipped runs. Open: per-account file storage cap, webhook key in `?key=` and stored plaintext.*: NAT64/6to4/Teredo/IPv4-compatible IPv6 classified public (`web/public-lookup.ts:16`) —
   matters on IPv6-only clusters with DNS64; `site` scope ignores scheme and port
   (`web/operations.ts:93`); `..%2f` and `..;` accepted under a prefix (backend normalization
   mismatch); no per-account file storage cap (500 MB per scope × N conversations); webhook with
   exhausted credits inserts a `skipped` run per call, unbounded; webhook key in `?key=` (logs),
   stored plaintext.
-- **Code mode**: no per-turn nested-call cap on catalog tools (~10k calls/turn possible; per-run caps
+- **Code mode** *✅ all five (300 calls per turn, `withoutPrototypeKeys`, `globalThis.console` captured, in-flight message, worker data clause).*: no per-turn nested-call cap on catalog tools (~10k calls/turn possible; per-run caps
   exist only for web and external); script inputs bypass `secure-json-parse` so `__proto__` keys
   reach MCP servers; `globalThis.console` writes to server stdout (escaped, capped); a 9th parallel
   call is reported as "more than 100 calls" though earlier ones may have run (duplicate writes on
   retry); sub-agent worker system prompt is entirely page-supplied, unmoderated and lacks the
   "tool results are data" rule.
-- **Envelope**: `ENVELOPE_TAGS` lacks `host-events`, `host-state`, `hidden-context`, so a tool result
+- **Envelope** *✅*: `ENVELOPE_TAGS` lacks `host-events`, `host-state`, `hidden-context`, so a tool result
   can forge a host event; `</ tool-result>` and fullwidth `＜` not defused
   (`mcp-servers/guides.ts:65`). Probabilistic layer anyway, but cheap.
 - **Approval UX**: planning prompt in a 240 px scroll area, payload can sit below blank lines;
   `reason` is model-written. Collapse whitespace, highlight URLs/hosts, show diffs on `update_task`.
-- **Browser**: raw HTML and `'*': ['class']` let model output take any Vuetify class (full-screen
+- **Browser** *Accepted (owner, 2026-10-15): the shared lib-utils sanitizer is the stack's standard, same threat as elsewhere; a forged consent cookie needs script injection, which is the worse problem.*: raw HTML and `'*': ['class']` let model output take any Vuetify class (full-screen
   link overlay, fake approval card), on review pages too — escape raw HTML in `marked`; review-consent
   cookie `Path=/`, forgeable by any same-site page — keep consent server-side; foreign links open
   with no destination shown; `@data-fair/frame` `updateSrc` accepts `javascript:` (blocked here by
   CSP, fix upstream).
-- **Authz**: superadmin `adminMode` escape lets a superadmin bind to and prompt into any
+- **Authz** *Superadmin escape accepted (owner, 2026-10-15): a superadmin is near limitless by design.*: superadmin `adminMode` escape lets a superadmin bind to and prompt into any
   non-consented personal thread over the socket (review route correctly refuses);
   `DELETE /api/review/:type/:id?userId=` purges threads an admin cannot read, without aborting live
   runs; task `done` notifications carry the full answer to whoever the events service lets subscribe.
-- **Secrets**: `limits` key compared with `===`, accepted in the query string, no internal-only check;
+- **Secrets** *✅ limits key via lib-express `secretKeyMatches` (constant time; `?key=` kept, the stack's convention). Cipher items open.*: `limits` key compared with `===`, accepted in the query string, no internal-only check;
   cipher is AES-256-CBC without MAC, static scrypt salt, no `minLength` on `cipherPassword`;
   `securityKey` reused as the approval HMAC key; keeping `****` keeps the stored provider key even
   when `baseURL` changes. All superadmin/DB-level.
@@ -153,7 +153,7 @@ needs a redesign; most fixes are a few lines.
   GDPR erasure skips usage, moderation events, memory, task runs; `weekly:` usage records never
   cleaned; memory redaction still readable by the agent itself through `read_conversation` (the
   known gap, now with its real impact).
-- **Deployment**: `ADD /api api` ships `api/config/development.js` (dev NHI private key) and stray
+- **Deployment** *✅ `.dockerignore`.*: `ADD /api api` ships `api/config/development.js` (dev NHI private key) and stray
   files like the current untracked `api/probe.tmp.ts` — add both to `.dockerignore`. No
   `unhandledRejection` handler (no crash path found). `npm audit --omit=dev`: 1 critical
   (`proxy-addr`, unreachable: `trust proxy` unset) and the rest dev/UI-only or unreachable.
@@ -228,7 +228,7 @@ string is a sink, as Anthropic's Cowork incident showed — the admin approval c
    Origin check and pseudo-session refusal at upgrade.
 5. **M1, M2, M7** (role computation), **M11** (frame/payload caps), **M9** (live-run cap per identity).
 6. ✅ **M3, M5, M6** (cross-interlocutor and memory provenance) — design-level, worth a short spec.
-7. The Lows, opportunistically; **M14** needs simple-directory.
+7. ✅ **M13, M15, M12b** and the cheap Lows (2026-10-15). Open: **M14** (simple-directory), M8 (moderation rework), M10 /64, approval UX, retention, cipher, file storage cap, webhook key.
 
 Sources for the state-of-the-art claims: OWASP Top 10 for LLM Apps 2025 and Agentic Top 10 2026;
 OWASP NHI Top 10; Meta "Agents Rule of Two" (2025-10-31); Willison "lethal trifecta"; Beurer-Kellner
