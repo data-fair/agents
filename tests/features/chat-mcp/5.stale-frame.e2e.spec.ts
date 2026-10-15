@@ -29,7 +29,7 @@ test.describe('Tools from a frame that goes away', () => {
     await putMockSettings(admin, `user/${USER}`)
   })
 
-  test('removing the frame removes its sub-agent tool from the aggregate', async ({ page, goToWithAuth }) => {
+  test('removing the frame removes its sub-agent tool, and a turn after leaving still reaches the model', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-stale-frame', USER)
 
     // Discovery is asynchronous: wait until BOTH the live host sub-agent and the one
@@ -42,22 +42,13 @@ test.describe('Tools from a frame that goes away', () => {
 
     await expectNoPageTool(page, 'subagent_portals_config')
     await waitForPageTools(page, 'subagent_dataset_notes')
-  })
 
-  test('a turn after leaving the portal page still reaches the model', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-stale-frame', USER)
-
-    await waitForPageTools(page, 'subagent_portals_config')
-
-    await page.getByTestId('leave-portals').click()
     await page.getByPlaceholder('Type your message...').fill('hello')
     await page.getByRole('button', { name: 'Send' }).click()
 
     // Before the fix this waited out the 60s MCP request timeout and surfaced
     // "MCP error -32001: Request timed out". The mock's `world` IS the model being reached — it is the
-    // only thing that can produce it. This also counted browser requests to `/chat/completions`, which
-    // was the proof while the browser called the model through the gateway; the loop is server-side
-    // now, the browser never makes that request, and the count was 0 on every passing run.
+    // only thing that can produce it.
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
     await expect(page.locator('.v-alert')).toHaveCount(0)
   })

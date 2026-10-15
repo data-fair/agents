@@ -38,6 +38,12 @@ test.describe('Approval card', () => {
     // One name for the call: the label says what the card's heading and the chip say.
     await expect(page.getByTestId('approval-title')).toHaveText('Approve "Wipe everything"?')
     await expect(page.getByTestId('chat-activity')).toHaveText('Awaiting your approval: Wipe everything')
+    // A gated catalog call reads as plain language: its tool's description, and its (empty) arguments
+    // in words rather than raw JSON.
+    const card = page.getByTestId('approval-card')
+    await expect(card.getByTestId('approval-description')).toHaveText('Declares destructive annotations, and does nothing')
+    await expect(card).toContainText('no arguments')
+    expect(await card.innerText()).not.toContain('{')
 
     await page.reload()
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })

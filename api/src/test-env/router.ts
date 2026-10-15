@@ -382,8 +382,11 @@ export const createTestEnvRouter = () => {
     })
     res.send()
   })
+  // Paused as tasks/follow-up.ts pauses one, without the failed runs that take there: `reason` lets a test
+  // show the real wording ('paused after 5 consecutive failed runs').
   router.post('/pause-task', async (req, res) => {
-    await mongo.autonomousAgentTasks.updateOne({ id: req.body.taskId }, { $set: { pausedReason: 'paused by a test' }, $unset: { nextRunAt: '' } })
+    const pausedReason = typeof req.body.reason === 'string' ? req.body.reason : 'paused by a test'
+    await mongo.autonomousAgentTasks.updateOne({ id: req.body.taskId }, { $set: { pausedReason }, $unset: { nextRunAt: '' } })
     res.send()
   })
   router.post('/recover-ownerless-runs', async (req, res) => {

@@ -20,29 +20,12 @@
  * seam that does not exist yet.
  */
 
-import { expect, type Page } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
-
-function isChatFrameUrl (url: string): boolean {
-  try {
-    return new URL(url).pathname.endsWith('/_dev/chat')
-  } catch {
-    return false
-  }
-}
-
-async function waitForChatFrame (page: Page) {
-  await expect(async () => {
-    expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
-  }).toPass({ timeout: 10000 })
-  const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
-  await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
-  return frame
-}
 
 test.describe('Chat hang protection', () => {
   test.beforeEach(async () => {
@@ -51,21 +34,20 @@ test.describe('Chat hang protection', () => {
   })
 
   test('A stalled stream shows a thinking indicator and the turn recovers instead of hanging', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
-    const frame = await waitForChatFrame(page)
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
-    await frame.getByPlaceholder('Type your message...').fill('slow hello')
-    await frame.getByRole('button', { name: 'Send' }).click()
+    await page.getByPlaceholder('Type your message...').fill('slow hello')
+    await page.getByRole('button', { name: 'Send' }).click()
 
     // While the stream is silent, the discreet activity line names the phase — the thing that makes a
     // slow turn legible rather than frozen.
-    const activity = frame.getByTestId('chat-activity')
+    const activity = page.getByTestId('chat-activity')
     await expect(activity).toBeVisible({ timeout: 5000 })
     await expect(activity).toContainText('Thinking')
 
     // And the turn ends by itself: the composer comes back and the answer arrives, with no error alert.
-    await expect(frame.getByText('world')).toBeVisible({ timeout: 10000 })
-    await expect(frame.getByPlaceholder('Type your message...')).toBeEnabled()
-    await expect(frame.locator('.v-alert')).toHaveCount(0)
+    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
+    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled()
+    await expect(page.locator('.v-alert')).toHaveCount(0)
   })
 })

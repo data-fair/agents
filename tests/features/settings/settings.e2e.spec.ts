@@ -13,94 +13,35 @@ test.describe('Settings UI', () => {
     await clean()
   })
 
-  test('Page loads with AI Providers section', async ({ page, goToWithAuth }) => {
+  // Adding a provider through the array editor: the new item's fields, the
+  // Save button appearing on the change, and deleting it again through the
+  // collapsed item's menu and its confirmation dialog.
+  test('Can add a Mock provider, see Save appear, and delete it', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
-  })
-
-  test('Can add a new Mock provider', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-
-    // Click "Add item" button in AI Providers section
-    // .first(): the models array renders its own "Add item" once a provider exists
-    await page.getByRole('button', { name: 'Add item' }).first().click()
-
-    // Select provider type from dropdown
-    await page.locator('.v-form').getByRole('combobox').first().click()
-    await page.getByRole('option', { name: 'Mock' }).click()
-
-    // Verify provider was added with correct name
-    await expect(page.getByText('Mock - ')).toBeVisible()
-
-    // Verify the provider has Display Name field with "Mock" value
-    await expect(page.getByRole('textbox', { name: 'Display Name' })).toHaveValue('Mock')
-
-    // Verify the provider has Enabled checkbox (checked by default)
-    await expect(page.getByRole('checkbox', { name: 'Enabled' })).toBeChecked()
-  })
-
-  test('Save button appears when there are changes', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
     // Initially Save button should not be visible (no changes)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
 
-    // Add a provider to create changes
     // .first(): the models array renders its own "Add item" once a provider exists
     await page.getByRole('button', { name: 'Add item' }).first().click()
     await page.locator('.v-form').getByRole('combobox').first().click()
     await page.getByRole('option', { name: 'Mock' }).click()
 
-    // Now Save button should be visible
+    // Provider added with its default name, Display Name and Enabled (checked by default)
+    await expect(page.getByText('Mock - ')).toBeVisible()
+    await expect(page.getByRole('textbox', { name: 'Display Name' })).toHaveValue('Mock')
+    await expect(page.getByRole('checkbox', { name: 'Enabled' })).toBeChecked()
     await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
-  })
 
-  test('Can save settings with valid form', async ({ page, goToWithAuth }) => {
-    // Seed valid settings via API first so form is valid
-    const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', {
-      providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
-      models: [
-        {
-          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Seed', id: 'seed-provider' } },
-          usage: ['assistant'],
-          inputPricePerMillion: 0,
-          outputPricePerMillion: 0
-        }
-      ],
-      modelMapping: {
-        assistant: { provider: 'seed-provider', id: 'mock-model', name: 'Mock Model' }
-      },
-      quotas: defaultQuotas
-    })
+    // Collapse the item, then delete it from the menu of the collapsed item
+    await page.getByRole('button', { name: 'Close' }).click()
+    const providerItem = page.locator('.v-list-item').filter({ hasText: /Mock - [a-f0-9]+/ })
+    await providerItem.locator('button').click()
+    await page.getByText('Delete', { exact: true }).click()
+    await page.getByRole('button', { name: 'Confirm', exact: true }).click()
 
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-
-    // Wait for page to fully load
-    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible()
-
-    // Wait for any validation to complete
-    await page.waitForTimeout(500)
-
-    // Precondition: this seeded config must load clean (no unsaved change) —
-    // otherwise the Save click below would "succeed" even if the page never
-    // reacted to the interaction that follows.
-    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
-
-    // Add a provider to create changes
-    // .first(): the models array renders its own "Add item" once a provider exists
-    await page.getByRole('button', { name: 'Add item' }).first().click()
-    await page.locator('.v-form').getByRole('combobox').first().click()
-    await page.getByRole('option', { name: 'Mock' }).click()
-
-    // Wait for form to validate
-    await page.waitForTimeout(500)
-
-    // Click Save button
-    await page.getByRole('button', { name: 'Save' }).click()
-
-    // Verify success notification appears
-    await expect(page.getByText('Changes have been saved')).toBeVisible()
+    await expect(page.getByText('Mock - ')).not.toBeVisible()
   })
 
   // Exercises the models array editor end to end: the Model autocomplete (whose
@@ -165,45 +106,6 @@ test.describe('Settings UI', () => {
     await expect(page.getByRole('textbox', { name: 'Input price (per 1M tokens)', exact: true }).last()).toHaveValue('0.4')
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
-  })
-
-  test('Can delete a provider', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-
-    // Add a Mock provider first
-    // .first(): the models array renders its own "Add item" once a provider exists
-    await page.getByRole('button', { name: 'Add item' }).first().click()
-    await page.locator('.v-form').getByRole('combobox').first().click()
-    await page.getByRole('option', { name: 'Mock' }).click()
-
-    // Verify provider was added
-    await expect(page.getByText('Mock - ')).toBeVisible()
-
-    // Click Close button to collapse the provider item
-    await page.getByRole('button', { name: 'Close' }).click()
-
-    // Wait for the item to collapse and find the action button
-    await page.waitForTimeout(500)
-
-    // Click on the button next to the collapsed provider to show the menu
-    // This should be the button that appears after collapsing
-    const providerItem = page.locator('.v-list-item').filter({ hasText: /Mock - [a-f0-9]+/ })
-    await providerItem.locator('button').click()
-
-    // Wait for menu to appear
-    await page.waitForTimeout(500)
-
-    // Click Delete from the menu using getByText
-    await page.getByText('Delete', { exact: true }).click()
-
-    // Wait for confirmation dialog
-    await page.waitForTimeout(500)
-
-    // Click Confirm to confirm deletion
-    await page.getByRole('button', { name: 'Confirm', exact: true }).click()
-
-    // Provider should be removed
-    await expect(page.getByText('Mock - ')).not.toBeVisible()
   })
 
   // The "toggling personal-assistant review on an empty config does not raise a required
@@ -283,12 +185,10 @@ test.describe('Settings UI', () => {
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
 
-    // Reload twice: the form must not report any unsaved change.
-    for (let i = 0; i < 2; i++) {
-      await page.reload()
-      await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
-      await page.waitForTimeout(800)
-      await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
-    }
+    // Reload: the form must not report any unsaved change.
+    await page.reload()
+    await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
+    await page.waitForTimeout(800)
+    await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 })

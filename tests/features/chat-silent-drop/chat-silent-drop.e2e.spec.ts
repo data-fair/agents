@@ -12,32 +12,12 @@
  * "stream error", see api/src/models/mock-model.ts).
  */
 
-import { expect, type Page } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { axiosAuth, clean, superAdmin } from '../../support/axios.ts'
+import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
-// The PERSON, for reading their own thread: a superadmin is an `external` caller on someone else's
-// account and the conversation routes refuse that (see assertMayTalkTo), admin mode or not.
-const user = await axiosAuth('test-standalone1')
-
-function isChatFrameUrl (url: string): boolean {
-  try {
-    return new URL(url).pathname.endsWith('/_dev/chat')
-  } catch {
-    return false
-  }
-}
-
-async function waitForChatFrame (page: Page) {
-  await expect(async () => {
-    expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
-  }).toPass({ timeout: 10000 })
-  const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
-  await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
-  return frame
-}
 
 test.describe('Chat silent-drop protection', () => {
   test.beforeEach(async () => {
@@ -45,45 +25,30 @@ test.describe('Chat silent-drop protection', () => {
     await putMockSettings(admin, 'user/test-standalone1')
   })
 
-  test('An empty model completion shows a fallback instead of a blank turn', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
-    const frame = await waitForChatFrame(page)
+  test('An empty completion shows a fallback, and a mid-stream error an alert, instead of a silent turn', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
-    await frame.getByPlaceholder('Type your message...').fill('empty')
-    await frame.getByRole('button', { name: 'Send' }).click()
+    await page.getByPlaceholder('Type your message...').fill('empty')
+    await page.getByRole('button', { name: 'Send' }).click()
 
     // The model returned no text; the loop must surface a fallback assistant bubble. The wording is
     // the server's (EMPTY_COMPLETION_MESSAGE in api/src/conversations/executor.ts) — the browser copy
     // this used to match went with the in-browser loop.
-    await expect(frame.locator('.assistant-content').last())
+    await expect(page.locator('.assistant-content').last())
       .toContainText('I was not able to produce a response for this turn', { timeout: 10000 })
 
-    // AND it must be recorded as a FAULT, not as a normal answer. The old assertion read a devtools
-    // console warning emitted by the in-browser loop ("empty assistant response (treated as a bug)"),
-    // which no longer exists — the loop is server-side and warns to the operator's log, which a
-    // browser test cannot see. What a test can see is the decision itself: the run ends `error`, so
-    // the anomaly is in the data rather than only in a log line nobody greps.
-    await expect.poll(async () => {
-      // The person's own thread list, not the review list: review needs `reviewPersonalAssistant` plus consent,
-      // neither of which this scenario sets, and the run is readable without them.
-      const list = await user.get('/api/conversations/user/test-standalone1?agentId=portal-assistant').catch(() => null)
-      const conversationId = list?.data.results[0]?.id
-      if (!conversationId) return undefined
-      const runs = await user.get(`/api/conversations/user/test-standalone1/${conversationId}/runs`).catch(() => null)
-      return runs?.data.results[0]?.stopReason
-    }, { timeout: 15000 }).toBe('error')
-  })
+    // That the run is recorded as a fault rather than a normal answer is asserted server-side
+    // (autonomous-agents/runtime.api.spec.ts, "an empty completion does not render as a blank,
+    // successful turn"), on the same executor.
 
-  test('A mid-stream error is surfaced instead of silently dropping the turn', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
-    const frame = await waitForChatFrame(page)
-
-    await frame.getByPlaceholder('Type your message...').fill('stream error')
-    await frame.getByRole('button', { name: 'Send' }).click()
+    // The next turn fails mid-stream.
+    await page.getByPlaceholder('Type your message...').fill('stream error')
+    await page.getByRole('button', { name: 'Send' }).click()
 
     // The in-band error chunk must reach the user as an error alert, not nothing — in words of the service:
     // the provider's own message stays on the run, for administrators (publicErrorDetail).
-    await expect(frame.locator('.v-alert')).toContainText('internal error, recorded for the administrators', { timeout: 10000 })
-    await expect(frame.locator('.v-alert')).not.toContainText('mock stream error')
+    // Filtered: this host page has an alert of its own, and the empty turn above left one too.
+    await expect(page.locator('.v-alert').filter({ hasText: 'internal error, recorded for the administrators' })).toBeVisible({ timeout: 10000 })
+    await expect(page.getByText('mock stream error')).toHaveCount(0)
   })
 })

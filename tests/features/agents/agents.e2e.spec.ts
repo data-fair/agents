@@ -15,33 +15,8 @@ test.describe('Chat UI', () => {
     await putMockSettings(admin, 'user/test-standalone1')
   })
 
-  test('Page loads with input field', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
-    await expect(page.getByPlaceholder('Type your message...')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
-  })
-
-  test('Can send a message and receive response', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
-
-    // Wait for chat to be ready
-    const input = page.getByPlaceholder('Type your message...')
-    await expect(input).toBeEnabled({ timeout: 10000 })
-
-    // Type a message
-    await input.fill('hello')
-    await expect(input).toHaveValue('hello')
-
-    // Click send
-    await page.getByRole('button', { name: 'Send' }).click()
-
-    // Verify user message appears
-    await expect(page.getByText('hello', { exact: true })).toBeVisible()
-
-    // Wait for loading to complete and assistant response
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
-  })
-
+  // The plain hello → world exchange is covered by compaction.e2e.spec.ts (same user, same page,
+  // three of them); this file keeps what that one does not render.
   test('Renders markdown links without error', async ({ page, goToWithAuth }) => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))

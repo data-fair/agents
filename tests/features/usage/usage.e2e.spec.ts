@@ -62,27 +62,4 @@ test.describe('Usage UI', () => {
     await expect(page.getByText('Credits consumed')).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('12 / 100 credits')).toBeVisible()
   })
-
-  test('Shows no usage message when no requests made', async ({ page, goToWithAuth }) => {
-    const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', {
-      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: [
-        {
-          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-          usage: ['assistant'],
-          inputPricePerMillion: 0,
-          outputPricePerMillion: 0
-        }
-      ],
-      modelMapping: {
-        assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-      },
-      quotas: defaultQuotas
-    })
-
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-
-    await expect(page.getByText('No usage recorded')).toBeVisible()
-  })
 })

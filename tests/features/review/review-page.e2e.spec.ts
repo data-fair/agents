@@ -1,12 +1,13 @@
 /**
- * E2E test: navigate to /organization/test1/review/:id and assert the conversation renders.
+ * E2E test: from the activity page's stored conversations to the review page of one of them.
  *
  * Scenario:
  *   1. PUT settings with reviewPersonalAssistant: true and a mock provider/assistant model.
  *   2. Run a consented turn so the conversation is reviewable.
- *   3. Poll GET /api/review/conversation/:id until the conversation appears.
- *   4. Navigate to /agents/organization/test1/review/:id as superadmin.
- *   5. Assert the TraceView rendered (a user-message chip is visible).
+ *   3. Poll GET /api/review/organization/test1 until the conversation is listed.
+ *   4. Open /agents/organization/test1 as superadmin in adminMode, click the row in the
+ *      "Stored conversations" tab, land on /organization/test1/review/:id.
+ *   5. Assert the conversation, its telemetry and the JSONL download.
  */
 
 import { readFile } from 'node:fs/promises'
@@ -18,40 +19,42 @@ import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const admin = await superAdmin
 
-// Assigned per test by the turn that creates it: the server owns conversation ids.
-let convId = ''
-
 // External visitors unlimited, and the account offers review.
 const reviewSettings = { quotas: { external: { unlimited: true, monthlyLimit: 0 } }, reviewPersonalAssistant: true }
 
-async function waitForConversation (conversationId: string) {
-  // Reviewable means BOTH gates are satisfied: the org enabled review and the person consented. The
-  // by-conversation route answers 200 only then, so a 404 here is the consent write not having
-  // landed yet rather than the conversation being absent.
-  for (let i = 0; i < 60; i++) {
-    const res = await admin.get(`/api/review/conversation/${conversationId}`).catch(() => null)
-    if (res?.status === 200) return
-    await new Promise(resolve => setTimeout(resolve, 200))
-  }
-  throw new Error(`Timed out waiting for conversation ${conversationId}`)
-}
-
-test.describe('Review page (/organization/test1/review/:id)', () => {
+test.describe('Activity and review pages', () => {
   test.beforeEach(async () => {
     await clean()
     await putMockSettings(admin, 'organization/test1', reviewSettings)
+  })
 
+  test('a stored conversation is listed, opens on the review page, and downloads as JSONL', async ({ page, goToWithAuth }) => {
     // Run a real turn, which is what makes a conversation reviewable. Consent travels in the cookie
     // both boundaries read; the conversation id is the server's, not ours to choose.
     await setReviewConsent(admin, true)
-    convId = (await runTurn(admin, 'organization/test1', 'hello review page')).conversationId
+    const convId = (await runTurn(admin, 'organization/test1', 'hello review page')).conversationId
 
-    // Wait until the conversation is reviewable
-    await waitForConversation(convId)
-  })
+    // Reviewable means BOTH gates are satisfied: the org enabled review and the person consented. The
+    // list only shows it then, so its absence here is the consent write not having landed yet.
+    await expect.poll(async () => {
+      const res = await admin.get('/api/review/organization/test1?page=1&size=20').catch(() => null)
+      return res?.data.results?.some((r: any) => r.conversationId === convId)
+    }, { timeout: 12000 }).toBe(true)
 
-  test('renders the conversation for an admin', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/review/${convId}`, 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
+
+    // The stored conversations are a tab of the activity section
+    await page.locator('#activity').getByRole('tab', { name: 'Stored conversations' }).click({ timeout: 15000 })
+
+    // A real preview: the list reads the conversation's first user message. While review went
+    // through a copy of the exchange this came from a stored request body, and once the executor
+    // stopped putting messages there it silently became empty and the row fell back to the id.
+    const convRow = page.getByText('hello review page')
+    await expect(convRow).toBeVisible({ timeout: 10000 })
+
+    // Clicking the row navigates to the review page
+    await convRow.click()
+    await expect(page).toHaveURL(new RegExp(`/organization/test1/review/${convId}`), { timeout: 10000 })
 
     await expect(page.getByText('Conversation not found or access denied.', { exact: false })).toHaveCount(0)
 
@@ -64,29 +67,16 @@ test.describe('Review page (/organization/test1/review/:id)', () => {
     // ANSWER and not just the question matters — a reviewer seeing only one side of the exchange is
     // the failure the old chip assertion could not detect.
     await expect(page.getByText('what do you mean', { exact: false })).toBeVisible()
-  })
 
-  test('shows the telemetry the conversation cannot carry', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/review/${convId}`, 'superadmin', { adminMode: true })
-
-    // Per-call detail now lives on the run: which model answered, and what the turn cost.
+    // The telemetry the conversation cannot carry. Per-call detail lives on the run: which model
+    // answered, and what the turn cost.
     await expect(page.getByText('1 turns', { exact: false })).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('mock-model').first()).toBeVisible()
 
-    // The instructions are behind the detail toggle rather than always on screen.
-    await page.getByRole('button', { name: 'Show detail' }).click()
-    await expect(page.getByText('Instructions given to the model')).toBeVisible()
-    await expect(page.getByText('tool result', { exact: false }).first()).toBeVisible()
-  })
-
-  test('downloads the conversation as a JSONL file a coding agent can read', async ({ page, goToWithAuth }) => {
     // The whole replacement for the trace evaluator: one button, one file. Asserted through a real
     // browser download rather than by fetching the endpoint, because what can break here is the
     // link (a wrong URL, or a button rendered where the endpoint will 403) rather than the format,
     // which is pinned in tests/features/review/conversation-export.unit.spec.ts.
-    await goToWithAuth(`/agents/organization/test1/review/${convId}`, 'superadmin', { adminMode: true })
-    await expect(page.getByText('1 turns', { exact: false })).toBeVisible({ timeout: 15000 })
-
     const downloadPromise = page.waitForEvent('download')
     await page.getByRole('link', { name: 'Download' }).click()
     const download = await downloadPromise
@@ -102,5 +92,10 @@ test.describe('Review page (/organization/test1/review/:id)', () => {
     for (const entry of JSON.parse(lines[1]).records) {
       expect(JSON.parse(lines[entry.line - 1]).type).toBe(entry.record)
     }
+
+    // The instructions are behind the detail toggle rather than always on screen.
+    await page.getByRole('button', { name: 'Show detail' }).click()
+    await expect(page.getByText('Instructions given to the model')).toBeVisible()
+    await expect(page.getByText('tool result', { exact: false }).first()).toBeVisible()
   })
 })

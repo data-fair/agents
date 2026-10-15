@@ -12,34 +12,16 @@
  * worked would have passed just as happily with the old one still wired up beside it.
  */
 
-import { expect, type Page } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { findChatFrame, waitForChatFrame } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
 
 const MARKER = 'SYSPROMPT_E2E_MARKER you must always answer in pirate speak'
 const fabSelector = '.df-agent-chat-toggle'
-
-// The iframe URL carries an `?initConfig=<key>` param, so match on the pathname (which also avoids
-// matching the parent `/_dev/chat-drawer` frame).
-function isChatFrameUrl (url: string): boolean {
-  try {
-    return new URL(url).pathname.endsWith('/_dev/chat')
-  } catch {
-    return false
-  }
-}
-
-async function waitForChatFrame (page: Page) {
-  await expect(async () => {
-    expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
-  }).toPass({ timeout: 10000 })
-  const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
-  await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
-  return frame
-}
 
 test.describe('Naming an agent instead of handing it a prompt', () => {
   test.beforeEach(async () => {
@@ -69,10 +51,7 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
     // observable proof the id is used: opening the conversation is refused.
     await goToWithAuth('/agents/_dev/chat-drawer?agentId=no-such-agent', 'test-standalone1')
     await page.locator(fabSelector).dispatchEvent('click')
-    await expect(async () => {
-      expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
-    }).toPass({ timeout: 10000 })
-    const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
+    const frame = await findChatFrame(page)
     // The refusal in the transcript, not any alert: a named agent other than the personal one also
     // shows the standing audited notice, which matched alone before the refusal landed — passing
     // without the refusal — and alongside it after, a strict-mode violation.

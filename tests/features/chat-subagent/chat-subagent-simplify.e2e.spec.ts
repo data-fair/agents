@@ -11,6 +11,7 @@ import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { waitForPageTools } from '../../support/page-tools.ts'
+import { seedFlagsCookie } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
 
@@ -18,13 +19,6 @@ const openSettings = async (page: Page) => {
   await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
   await page.getByRole('tab', { name: /Settings|Paramètres/ }).click()
 }
-
-// Pin chip mode before boot. goToWithAuth reuses a cached browser context, so a
-// prior test that toggled/seeded the flag would otherwise leak its cookie here.
-const seedChipCookie = (page: Page) => page.addInitScript(() => {
-  const flags = { mermaid: false, simpleSubAgents: true }
-  document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
-})
 
 test.describe('Sub-agent simplify toggle', () => {
   test.beforeEach(async () => {
@@ -57,24 +51,9 @@ test.describe('Sub-agent simplify toggle', () => {
     await expect(page.getByLabel(/Simplify sub-agent display|Affichage simplifié des sous-agents/)).not.toBeChecked({ timeout: 5000 })
   })
 
-  test('Toggling does not reset the conversation', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-
-    await page.getByPlaceholder('Type your message...').fill('hello')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
-
-    // Toggle the flag; the prior exchange must remain (no reset).
-    await openSettings(page)
-    await page.getByLabel(/Simplify sub-agent display|Affichage simplifié des sous-agents/).click()
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
-
-    await expect(page.locator('.assistant-content').last()).toContainText('world')
-  })
-
-  test('Simple mode renders a chip; full mode renders a collapsed panel', async ({ page, goToWithAuth }) => {
+  test('Simple mode renders a chip; toggling mid-conversation keeps it; full mode renders a collapsed panel', async ({ page, goToWithAuth }) => {
     // Pin chip mode (a prior test may have toggled/persisted the flag off).
-    await seedChipCookie(page)
+    await seedFlagsCookie(page, { simpleSubAgents: true })
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForPageTools(page, 'subagent_data_analyst')
 
@@ -87,6 +66,8 @@ test.describe('Sub-agent simplify toggle', () => {
     await openSettings(page)
     await page.getByLabel(/Simplify sub-agent display|Affichage simplifié des sous-agents/).click()
     await page.getByRole('button', { name: /Close|Fermer/ }).click()
+    // Presentation-only: the prior exchange is still there (no reset).
+    await expect(page.locator('.agent-chat__user-bubble')).toHaveCount(1)
     await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
 
     await page.getByPlaceholder('Type your message...').fill('call tool subagent_data_analyst {"task":"hello"}')
@@ -96,5 +77,6 @@ test.describe('Sub-agent simplify toggle', () => {
     await expect(panel.getByTestId('subagent-panel-body')).toBeHidden()
     await panel.getByTestId('subagent-panel-header').click()
     await expect(panel.getByTestId('subagent-panel-body')).toBeVisible({ timeout: 5000 })
+    await expect(page.locator('.agent-chat__user-bubble')).toHaveCount(2)
   })
 })

@@ -4,31 +4,13 @@
  * visible, so there is no FAB/toggle, open/close, or unread badge to exercise.
  */
 
-import { expect, type Page } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { waitForChatFrame } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
-
-// The iframe URL carries an `?initConfig=<key>` param, so match on the pathname
-// (which also avoids matching the parent `/_dev/chat-block` frame).
-function isChatFrameUrl (url: string): boolean {
-  try {
-    return new URL(url).pathname.endsWith('/_dev/chat')
-  } catch {
-    return false
-  }
-}
-
-async function waitForChatFrame (page: Page) {
-  await expect(async () => {
-    expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
-  }).toPass({ timeout: 10000 })
-  const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
-  await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
-  return frame
-}
 
 test.describe('Chat Block Integration', () => {
   test.beforeEach(async () => {
@@ -36,7 +18,7 @@ test.describe('Chat Block Integration', () => {
     await putMockSettings(admin, 'user/test-standalone1')
   })
 
-  test('Block renders the chat iframe inline without any toggle', async ({ page, goToWithAuth }) => {
+  test('Block renders the chat iframe inline without any toggle, and the chat works inside it', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
 
     // The chat is rendered flat: the iframe is present and visible immediately,
@@ -45,10 +27,6 @@ test.describe('Chat Block Integration', () => {
     const dFrame = page.locator('d-frame')
     await expect(dFrame).toBeAttached()
     await expect(dFrame).toBeVisible()
-  })
-
-  test('Chat works inside the block iframe', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
 
     const frame = await waitForChatFrame(page)
 

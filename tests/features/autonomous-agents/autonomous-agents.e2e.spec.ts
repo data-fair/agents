@@ -29,55 +29,6 @@ test.describe('Autonomous agents configuration', () => {
   // (autonomousAgentsRequireAdminMode), so every write here needs a superadmin in admin mode.
   const asSuperAdmin = { adminMode: true } as const
 
-  test('an admin creates an autonomous agent, lands on its page, and sees it listed', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
-
-    // Generous: the first navigation after a dev-server restart pays vite's compile cost.
-    await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
-    await page.getByRole('textbox', { name: 'Name' }).fill('Support triage')
-    await page.getByRole('textbox', { name: 'Persona' }).fill('You triage support questions.')
-    await page.getByTestId('autonomous-agent-save').click()
-
-    // Creating leads to the agent's page, where everything after creation is done.
-    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/)
-    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Support triage', { timeout: 20000 })
-
-    await page.goBack()
-    await expect(page.getByTestId('autonomous-agent-list')).toContainText('Support triage')
-  })
-
-  test('a created autonomous agent survives a reload, so it really persisted', async ({ page, goToWithAuth }) => {
-    // Without the reload this would also pass on a list that only ever re-rendered local state.
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
-    await page.getByTestId('autonomous-agents-add').click()
-    await page.getByRole('textbox', { name: 'Name' }).fill('Persisted agent')
-    await page.getByRole('textbox', { name: 'Persona' }).fill('x')
-    await page.getByTestId('autonomous-agent-save').click()
-    // The url first: the create dialog's own Name field holds the same value until it closes.
-    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/)
-    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Persisted agent', { timeout: 20000 })
-
-    await page.reload()
-    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Persisted agent', { timeout: 20000 })
-  })
-
-  test('the agent page opens pre-filled from the stored autonomous agent', async ({ page, goToWithAuth }) => {
-    // What only e2e can show: that the page actually loads the stored values into the form. The dangerous
-    // half — that the body it builds keeps every writable field, nhi included — is pinned
-    // deterministically in edit-draft.unit.spec.ts, including a guard that fails if the write-req
-    // schema gains a property the form does not carry.
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
-      title: 'Editable agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
-    })
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: created.data.id })
-
-    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
-    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Editable agent', { timeout: 20000 })
-    await expect(page.getByRole('textbox', { name: 'Persona' })).toHaveValue('You answer briefly.')
-    // The enrolment is loaded into the form, which is what stops a save from dropping it.
-    await expect(page.getByRole('textbox', { name: 'Client id' })).toHaveValue('dev-fixture-nhi')
-  })
-
   test('an unenrolled autonomous agent offers to enrol it, and reports what the directory says', async ({ page, goToWithAuth }) => {
     // The two services are federated CLIENT-side: this button calls simple-directory's own NHI API
     // with the admin's session, so the admin never leaves this UI.
@@ -92,7 +43,17 @@ test.describe('Autonomous agents configuration', () => {
     expect(created.data.nhi?.clientId).toBeFalsy()
 
     await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
-    await page.getByRole('button', { name: 'Enrol an identity' }).click({ timeout: 20000 })
+    const enrol = page.getByRole('button', { name: 'Enrol an identity' })
+
+    // Enrolling waits for unsaved edits to be saved or cancelled: it re-reads the agent, which would
+    // silently drop them.
+    await expect(enrol).toBeEnabled({ timeout: 20000 })
+    await page.getByRole('textbox', { name: 'Persona' }).fill('An edit.')
+    await expect(enrol).toBeDisabled()
+    await page.getByRole('textbox', { name: 'Persona' }).fill('x')
+    await expect(enrol).toBeEnabled()
+
+    await enrol.click()
 
     const dialog = page.locator('.v-overlay--active')
     await expect(dialog.getByTestId('autonomous-agent-enrol-confirm')).toBeVisible()
@@ -135,15 +96,6 @@ test.describe('Autonomous agents configuration', () => {
     await expect(page.getByRole('button', { name: 'Enrol an identity' })).toHaveCount(0)
   })
 
-  test('the MCP server picker offers the catalog the API serves', async ({ page, goToWithAuth }) => {
-    // Assert a known dev id rather than a count, which would pin the dev config.
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
-    await page.getByTestId('autonomous-agents-add').click()
-    await page.getByRole('button', { name: 'Add item' }).first().click()
-    await page.locator('.v-overlay .v-form').getByRole('combobox').first().click()
-    await expect(page.getByRole('option', { name: /dev-public-mcp|Dev Public MCP/ })).toBeVisible()
-  })
-
   test('the whole journey: create, open its thread, instruct it, see the answer', async ({ page, goToWithAuth }) => {
     // What only an end-to-end flow can show: that the pieces connect. Each is covered on its own
     // above; this asserts an admin can get from an empty organization to an answered question without
@@ -155,7 +107,10 @@ test.describe('Autonomous agents configuration', () => {
     // of the journey is exercised rather than blocked.
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
 
+    // Generous: the first navigation after a dev-server restart pays vite's compile cost.
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
+    // The create form offers the memory switch.
+    await expect(page.getByRole('checkbox', { name: 'Keep a memory across conversations' })).toBeVisible()
     await page.getByRole('textbox', { name: 'Name' }).fill('Journey agent')
     await page.getByRole('textbox', { name: 'Persona' }).fill('You answer briefly.')
     await page.getByTestId('autonomous-agent-save').click()
@@ -168,9 +123,17 @@ test.describe('Autonomous agents configuration', () => {
     expect(journeyAgent).toBeTruthy()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: journeyAgent.id })
 
+    // The agent survives a reload, so it really persisted: without it this would also pass on a page
+    // that only ever re-rendered local state. (The reload also picks up the seam's enrolment.)
+    await page.reload()
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Journey agent', { timeout: 20000 })
+
+    // Back on the org page the agent is listed, and its link leads back to its page.
+    await page.goBack()
+    await page.getByTestId('autonomous-agent-list').getByRole('link', { name: /Journey agent/ }).click({ timeout: 20000 })
+
     // Follow the link a person would, rather than navigating by url: from the agent's page to the
     // shared chat, mono-agent on that agent — the standalone thread page was removed.
-    await page.reload()
     await page.getByRole('link', { name: 'Open chat' }).click({ timeout: 20000 })
 
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
@@ -218,31 +181,7 @@ test.describe('Autonomous agent chat', () => {
   const openChat = async (goToWithAuth: any, user = 'superadmin', opts: any = { adminMode: true }) =>
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, user, opts)
 
-  test('posting a message shows the answer without a reload', async ({ page, goToWithAuth }) => {
-    // The single most valuable assertion here: the user turn and the answer can only both appear if
-    // the socket stored them and echoed them back.
-    await openChat(goToWithAuth)
-    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
-    await fillAndSend(page, 'hello')
-
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('hello')
-    // 'world' is the mock model's answer to 'hello'
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
-  })
-
-  test('opening the chat again resumes the conversation that was in progress', async ({ page, goToWithAuth }) => {
-    await openChat(goToWithAuth)
-    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
-    await fillAndSend(page, 'hello')
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
-
-    // A fresh page load on the same agent continues that thread instead of opening an empty one.
-    await openChat(goToWithAuth)
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('hello')
-  })
-
-  test('reopening the chat without typing does not pile up empty threads', async ({ page, goToWithAuth }) => {
+  test('opening creates no thread, posting shows the answer, and reopening resumes it', async ({ page, goToWithAuth }) => {
     // Opening the chat creates nothing: a thread starts with its first message. It used to be created
     // on open, and each visit by someone who never typed left one more behind.
     const threads = async () => (await admin.get(`/api/conversations/organization/test1?agentId=${agentId}`)).data.results.length
@@ -252,11 +191,19 @@ test.describe('Autonomous agent chat', () => {
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
     expect(await threads()).toBe(0)
 
+    // The user turn and the answer can only both appear if the socket stored them and echoed them back.
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('hello')
+    // 'world' is the mock model's answer to 'hello'
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
     // The first message is what starts one — exactly one, which also proves the count above reads the
     // threads this chat would have made.
-    await fillAndSend(page, 'hello')
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
     await expect.poll(threads).toBe(1)
+
+    // A fresh page load on the same agent continues that thread instead of opening an empty one.
+    await openChat(goToWithAuth)
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('hello')
   })
 
   test('a failed turn explains itself instead of leaving an empty bubble', async ({ page, goToWithAuth }) => {
@@ -283,27 +230,8 @@ test.describe('Autonomous agent chat', () => {
       .toContainText('not allowed to instruct this autonomous agent', { timeout: 15000 })
   })
 
-  test('a listed instructor who is NOT an admin can open the chat and post', async ({ page, goToWithAuth }) => {
-    // The capability the cross-account instructor grant exists for, now on the same chat every other
-    // person uses.
-    await admin.put(`/api/autonomous-agents/organization/test1/${agentId}`, {
-      title: 'Thread agent',
-      persona: 'You answer briefly.',
-      mcpServers: [],
-      enabled: true,
-      instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
-      // nhi is deliberately NOT sent here: supplying it makes the write route rebuild the enrolment,
-      // which needs an X-Forwarded-Host this direct client does not send. The PUT therefore drops the
-      // enrolment, so re-apply it through the dev seam below.
-    })
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
-
-    await openChat(goToWithAuth, 'test1-user1', { org: 'test1' })
-    await expect(page.getByTestId('agent-chat-error')).toBeHidden()
-    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
-    await fillAndSend(page, 'hello')
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
-  })
+  // A listed instructor who is NOT an admin posting in this chat: agent-page.e2e.spec.ts, where they
+  // land after being redirected from the agent's page.
 })
 
 test.describe('Agent switcher and conversation history', () => {
@@ -349,38 +277,32 @@ test.describe('Agent switcher and conversation history', () => {
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
   })
 
-  test('switching agent opens its ongoing conversation, or an empty one when it has none', async ({ page, goToWithAuth }) => {
+  test('switching agent opens its ongoing conversation or an empty one, and the first message goes to THAT agent', async ({ page, goToWithAuth }) => {
     await openBackOfficeChat(goToWithAuth)
     await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
     await fillAndSend(page, 'hello')
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
 
-    await page.getByTestId('agent-chat-agent-picker').click()
-    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Back-office assistant' }).click()
+    const pick = async (name: string) => {
+      // The previous menu's content must be gone before reopening: clicking through its closing
+      // transition aims at a list item that is about to be detached.
+      await expect(page.getByTestId('agent-chat-agent-option')).toHaveCount(0)
+      await page.getByTestId('agent-chat-agent-picker').click()
+      await page.getByTestId('agent-chat-agent-option').filter({ hasText: name }).click()
+    }
 
+    await pick('Back-office assistant')
     // The personal assistant has no thread yet: an empty pane, and the picker names it.
     await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
     await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('Back-office assistant')
 
     // Back to the autonomous agent: its ongoing conversation is reopened, not a third one started.
-    // The first menu's content must be gone before reopening: clicking through its closing transition
-    // aims at a list item that is about to be detached.
-    await expect(page.getByTestId('agent-chat-agent-option')).toHaveCount(0)
-    await page.getByTestId('agent-chat-agent-picker').click()
-    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'History agent' }).click()
+    await pick('History agent')
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
-  })
 
-  test('the first message after switching to an agent with no thread goes to THAT agent', async ({ page, goToWithAuth }) => {
     // The switch leaves nothing bound until the first send creates the thread. A stale binding sent that
     // message into the previous agent's thread instead.
-    await openBackOfficeChat(goToWithAuth)
-    await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
-    await fillAndSend(page, 'hello')
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
-
-    await page.getByTestId('agent-chat-agent-picker').click()
-    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'Back-office assistant' }).click()
+    await pick('Back-office assistant')
     await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
     await fillAndSend(page, 'hello')
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })

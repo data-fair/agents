@@ -12,44 +12,22 @@
 
 import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
+import { seedFlagsCookie } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
-
-const mockSettings = {
-  providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: defaultQuotas
-}
-
-// Seed the `agent-chat-flags` cookie readFlags() consumes before the app boots.
-// Path '/' keeps it readable by the UI page (the app writes a gateway-scoped variant).
-const seedFlags = (page: Page, showReasoning: boolean) => page.addInitScript((show) => {
-  const flags = { mermaid: false, showReasoning: show }
-  document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
-}, showReasoning)
 
 const reasoningPanel = (page: Page) => page.locator('.agent-chat__reasoning-panel')
 
 test.describe('Reasoning display toggle (e2e)', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'user/test-standalone1', mockSettings)
+    await putMockSettings(admin, 'user/test-standalone1')
   })
 
   test('compact mode (default): the answer shows but no reasoning panel', async ({ page, goToWithAuth }) => {
-    await seedFlags(page, false)
+    await seedFlagsCookie(page, { showReasoning: false })
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
     await page.getByPlaceholder('Type your message...').fill('reason')
@@ -62,8 +40,8 @@ test.describe('Reasoning display toggle (e2e)', () => {
     await expect(reasoningPanel(page)).toHaveCount(0)
   })
 
-  test('full mode: enabling the switch reveals the captured reasoning, with no reset', async ({ page, goToWithAuth }) => {
-    await seedFlags(page, true)
+  test('full mode reveals the captured reasoning; switching it off hides the panel without resetting the conversation', async ({ page, goToWithAuth }) => {
+    await seedFlagsCookie(page, { showReasoning: true })
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 
     await page.getByPlaceholder('Type your message...').fill('reason')
@@ -75,15 +53,6 @@ test.describe('Reasoning display toggle (e2e)', () => {
     await expect(panel).toBeVisible({ timeout: 15000 })
     await panel.getByRole('button').first().click()
     await expect(page.getByText('Let me think about it.')).toBeVisible({ timeout: 5000 })
-  })
-
-  test('toggling the switch off hides the panel without resetting the conversation', async ({ page, goToWithAuth }) => {
-    await seedFlags(page, true)
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
-
-    await page.getByPlaceholder('Type your message...').fill('reason')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(reasoningPanel(page)).toBeVisible({ timeout: 15000 })
 
     // Turn the flag off from the Settings tab.
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()

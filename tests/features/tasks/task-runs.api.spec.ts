@@ -130,6 +130,24 @@ test.describe('Task runs', () => {
     await assert.rejects(admin.post(`${base(agent.id)}/${task.id}/run`), { status: 409 })
   })
 
+  // Run now is how an admin probes a task the scheduler will not run: a paused one, or one switched
+  // off. Only a disabled AGENT refuses it (above) — a guard on the task's own state would take the
+  // probe away.
+  test('run now is allowed on a paused task and on a task switched off', async () => {
+    const agent = await createAgent()
+    const paused = await createTask(agent.id, 'hello')
+    await admin.post('/api/test-env/pause-task', { taskId: paused.id, reason: 'paused after 5 consecutive failed runs' })
+    assert.ok((await admin.get(`${base(agent.id)}/${paused.id}`)).data.pausedReason)
+    const off = (await admin.post(base(agent.id), { title: 'Switched off', prompt: 'hello', scheduling: [daily], enabled: false })).data
+    for (const task of [paused, off]) {
+      const runId = await runNow(agent.id, task.id)
+      assert.ok(runId)
+      const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs`, { params: { taskId: task.id } })).data.results
+      assert.deepEqual(runs.map((r: any) => [r.id, r.trigger]), [[runId, 'manual']])
+      await awaitAgentRun(orgAdmin, agent.id, runId)
+    }
+  })
+
   test('an admin aborts a running task run', async () => {
     const agent = await createAgent()
     const runId = await runNow(agent.id, (await createTask(agent.id, 'stall')).id)

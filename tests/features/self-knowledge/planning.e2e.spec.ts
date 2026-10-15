@@ -7,7 +7,6 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
 const AGENTS = '/api/autonomous-agents/organization/test1'
@@ -33,12 +32,8 @@ const ask = async (page: any, text: string) => {
 }
 
 test.describe('Readable approval cards', () => {
-  let fixture: McpFixture
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
-  test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    fixture.resetInvokedTools()
     await putMockSettings(admin, 'organization/test1')
   })
 
@@ -71,9 +66,11 @@ test.describe('Readable approval cards', () => {
     await expect(page.getByTestId('tool-chip').first()).toHaveText('Approved: Plan a task', { timeout: 15000 })
   })
 
-  test('update_task shows the task before and after the change', async ({ page, goToWithAuth }) => {
+  // A disabled task, so the same card also shows that an update without "enabled" keeps it disabled
+  // in the After column.
+  test('update_task shows the task before and after the change, keeping a disabled task disabled', async ({ page, goToWithAuth }) => {
     const agent = await createAgent()
-    const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, digest)).data
+    const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, { ...digest, enabled: false })).data
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
     await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
 
@@ -84,16 +81,7 @@ test.describe('Readable approval cards', () => {
     // The Before column is the task as stored, read from the API by the administrator deciding.
     await expect(card).toContainText('Weekly digest')
     await expect(card).toContainText('Renamed digest')
-  })
-
-  test('update_task without "enabled" keeps a disabled task disabled in the After column', async ({ page, goToWithAuth }) => {
-    const agent = await createAgent()
-    const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, { ...digest, enabled: false })).data
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
-    await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
-
-    const states = page.getByTestId('approval-card').getByTestId('approval-task-state')
-    await expect(states).toHaveText(['disabled', 'disabled'], { timeout: 15000 })
+    await expect(card.getByTestId('approval-task-state')).toHaveText(['disabled', 'disabled'])
   })
 
   test('update_task on a paused task shows the pause, and that the change lifts it', async ({ page, goToWithAuth }) => {
@@ -119,19 +107,5 @@ test.describe('Readable approval cards', () => {
     await expect.poll(async () => (await admin.get(`${AGENTS}/${agent.id}/tasks/${task.id}`)).data.pausedReason, { timeout: 15000 }).toBeUndefined()
   })
 
-  test('a gated catalog call asks about its title, shows its description and "no arguments"', async ({ page, goToWithAuth }) => {
-    const agentId = (await admin.post(AGENTS, {
-      title: 'Gate probe', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
-    })).data.id
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
-    await ask(page, 'call tool wipe_everything {}')
-
-    const card = page.getByTestId('approval-card')
-    await expect(card).toBeVisible({ timeout: 15000 })
-    await expect(card.getByTestId('approval-title')).toHaveText('Approve "Wipe everything"?')
-    await expect(card.getByTestId('approval-description')).toHaveText('Declares destructive annotations, and does nothing')
-    await expect(card).toContainText('no arguments')
-    expect(await card.innerText()).not.toContain('{')
-  })
+  // A gated catalog call's card (its title, description and "no arguments"): approval-gate.e2e.spec.ts.
 })

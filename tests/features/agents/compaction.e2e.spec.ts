@@ -21,10 +21,12 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
+import { clean, superAdmin, axiosAuth, defaultQuotas } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
+import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const admin = await superAdmin
+const user = await axiosAuth('test-standalone1')
 
 const settingsData = {
   providers: [
@@ -56,55 +58,34 @@ const settingsData = {
   quotas: defaultQuotas
 }
 
-/** Poll the review list until the thread shows up, and return its id. */
-async function reviewableConversationId () {
-  for (let i = 0; i < 40; i++) {
-    const res = await admin.get('/api/review/user/test-standalone1?page=1&size=20').catch(() => null)
-    if (res?.data.results.length) return res.data.results[0].conversationId as string
-    await new Promise(resolve => setTimeout(resolve, 200))
-  }
-  throw new Error('no reviewable conversation appeared')
-}
-
 test.describe('History Compaction', () => {
   test.beforeEach(async () => {
     await clean()
   })
 
-  test('a compacted turn is recorded as a summarizer call and shows up in review', async ({ page, context, goToWithAuth }) => {
+  // The turns are seeded over the socket (the same door the chat uses): what this test is about is the
+  // review page rendering the summarizer call. That the call is recorded and billed on the run is
+  // runtime.api.spec.ts's ('a compaction is BILLED').
+  test('a compacted turn is recorded as a summarizer call and shows up in review', async ({ page, goToWithAuth }) => {
     await putSettings(admin, 'user/test-standalone1', { ...settingsData, reviewPersonalAssistant: true })
-    // Consent pre-set so the thread is reviewable and the consent sheet never overlays the composer.
-    await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
-
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
-    const input = page.getByPlaceholder('Type your message...')
-    await expect(input).toBeEnabled({ timeout: 10000 })
+    // Consent, so the thread is reviewable.
+    await setReviewConsent(user, true)
 
     // The first turn establishes a measured history; each further turn adds roughly the previous
     // exchange to the measured fill, so a few wordy ones cross the window. Fewer than this is
     // tuning the test to a knife edge — the budget is a share of 200 tokens, not 200.
-    await input.fill('hello')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
+    const { conversationId } = await runTurn(user, 'user/test-standalone1', 'hello')
     for (let i = 0; i < 4; i++) {
-      await input.fill(`question number ${i} with enough words in it to grow the history measurably`)
-      await page.getByRole('button', { name: 'Send' }).click()
-      await expect(page.locator('.assistant-content').last()).toContainText('what do you mean', { timeout: 15000 })
+      await runTurn(user, 'user/test-standalone1', `question number ${i} with enough words in it to grow the history measurably`, { conversationId })
     }
-
-    const conversationId = await reviewableConversationId()
 
     // Compaction really ran — asserted on the run telemetry, which is where the summarizer's own
     // call is recorded. A DOM-only assertion here would pass whether or not it happened.
-    let summarizerCalls: any[] = []
-    for (let i = 0; i < 20; i++) {
-      const res = await admin.get(`/api/review/user/test-standalone1/${conversationId}`)
-      summarizerCalls = res.data.runs.flatMap((run: any) => (run.calls ?? []).filter((call: any) => call.modelRole === 'summarizer'))
-      if (summarizerCalls.length) break
-      await new Promise(resolve => setTimeout(resolve, 200))
-    }
-    expect(summarizerCalls.length).toBeGreaterThan(0)
-    expect(summarizerCalls[0].model).toBe('mock-summarizer')
+    await expect.poll(async () => {
+      const res = await admin.get(`/api/review/user/test-standalone1/${conversationId}`).catch(() => null)
+      const calls = (res?.data.runs ?? []).flatMap((run: any) => (run.calls ?? []).filter((call: any) => call.modelRole === 'summarizer'))
+      return calls[0]?.model
+    }, { timeout: 10000 }).toBe('mock-summarizer')
 
     // And an admin can see it on the review page, in the per-call detail.
     await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')

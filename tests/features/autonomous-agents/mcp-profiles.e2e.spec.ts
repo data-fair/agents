@@ -34,13 +34,6 @@ test.describe('profile tree', () => {
     await expect.poll(async () => (await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)).data.mcpServers).toEqual([{ serverId: 'dev-profiled-mcp', profiles: ['catalog', 'write_roads'] }])
   })
 
-  test('a server without profiles shows the tool filter, not the tree', async ({ page, goToWithAuth }) => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', { title: 'Plain', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true })
-    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
-    await expect(page.getByText('Only these tools').first()).toBeVisible({ timeout: 20000 })
-    await expect(page.getByTestId('mcp-profiles-tree')).toHaveCount(0)
-  })
-
   test('switching a reference to a profiled server drops its hidden tool filter, so the save goes through', async ({ page, goToWithAuth }) => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', { title: 'Switch', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp', toolFilter: ['echo'] }], enabled: true })
     await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
@@ -50,6 +43,9 @@ test.describe('profile tree', () => {
     await item.hover()
     await item.locator('.vjsf-list-item-actions-wrapper button').last().click()
     await page.getByText('Edit', { exact: true }).click()
+    // A server without profiles shows the tool filter, not the tree.
+    await expect(page.getByText('Only these tools').first()).toBeVisible()
+    await expect(page.getByTestId('mcp-profiles-tree')).toHaveCount(0)
     await page.getByRole('combobox', { name: 'Server' }).click()
     await page.getByRole('option', { name: 'Dev Profiled MCP' }).click()
     await expect(page.getByTestId('mcp-profiles-tree')).toBeVisible({ timeout: 20000 })

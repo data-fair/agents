@@ -91,27 +91,19 @@ test.describe('Org admin config UI', () => {
   // conditionally hidden get pruned by vjsf on the first edit, which used to
   // raise a global "required information" error the moment an unrelated,
   // always-visible switch was toggled on an otherwise empty config.
-  test('Toggling personal-assistant review on an empty config does not raise a required error', async ({ page, goToWithAuth }) => {
+  // The same edit then checks that Cancel discards it after confirmation.
+  test('Toggling review on an empty config raises no required error, and Cancel discards it', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(500)
-
-    await openTab(page, 'Moderation and review')
-    await page.getByText('Review personal assistant conversations').click()
-    await page.waitForTimeout(500)
-
-    await expect(page.getByText('required information')).not.toBeVisible()
-    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
-  })
-
-  test('Cancel discards the unsaved changes after confirmation', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
-    await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(500)
 
     await openTab(page, 'Moderation and review')
     await page.getByText('Review personal assistant conversations').click()
     await expect(page.getByRole('checkbox', { name: 'Review personal assistant conversations' })).toBeChecked()
+    // the pruning (and the error it raised) happens once vjsf settles after the edit
+    await page.waitForTimeout(500)
+
+    await expect(page.getByText('required information')).not.toBeVisible()
+    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
 
     await page.getByRole('button', { name: 'Cancel' }).click()
     await page.getByRole('button', { name: 'Discard changes', exact: true }).click()
@@ -126,7 +118,6 @@ test.describe('Org admin config UI', () => {
   test('a personal account can save its own config', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/user/test-standalone1', 'test-standalone1')
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
-    await page.waitForTimeout(500)
     await expect(page.getByRole('cell', { name: 'Admins', exact: true })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'Contributors', exact: true })).not.toBeVisible()
 

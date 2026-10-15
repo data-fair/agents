@@ -20,27 +20,8 @@ import assert from 'node:assert/strict'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { createChatDriver } from '../../../lib-sim/chat-driver.ts'
-import { mockProvider, mockModelRef, putMockSettings } from '../../support/settings.ts'
+import { putMockSettings } from '../../support/settings.ts'
 import { waitForPageTools } from '../../support/page-tools.ts'
-
-// The dedicated mock summarizer is mapped explicitly so the compaction round-trip
-// (used by the compaction-dedupe test below) actually runs instead of failing for
-// want of a summarizer model.
-const summarizerModelRef = {
-  id: 'mock-summarizer',
-  name: 'Mock Summarizer',
-  provider: { type: 'mock', name: mockProvider.name, id: mockProvider.id }
-}
-
-const settingsOverrides = {
-  models: [
-    { model: mockModelRef, usage: ['assistant', 'tools', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
-    { model: summarizerModelRef, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
-  ],
-  modelMapping: {
-    summarizer: { provider: mockProvider.id, id: summarizerModelRef.id, name: summarizerModelRef.name }
-  }
-}
 
 const USER = 'test-standalone1'
 
@@ -48,7 +29,7 @@ test.describe('Host events', () => {
   test.beforeEach(async () => {
     await clean()
     const admin = await superAdmin
-    await putMockSettings(admin, `user/${USER}`, settingsOverrides)
+    await putMockSettings(admin, `user/${USER}`)
   })
 
   async function open (page: any, goToWithAuth: any) {
@@ -110,14 +91,19 @@ test.describe('Host events', () => {
     await expect(lastAnswer(page)).toContainText('"title":"Weekly groceries"')
   })
 
-  test('a wait resolves with the departure when the user leaves the page', async ({ page, goToWithAuth }) => {
+  test('the waiting label outlives the handover turn, and the wait resolves with the departure when the user leaves the page', async ({ page, goToWithAuth }) => {
+    // The label is what tells the person the move is theirs — and what drives the embedding host's
+    // waiting-user signal. The handover ENDS its turn, so the label has to stay up between turns, with
+    // Stop on screen to decline; and once the person acts, it goes.
     await open(page, goToWithAuth)
     await reachConfirmation(page)
     await send(page, 'wait for me')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
+    await expect(page.getByRole('button', { name: /Stop|Arrêter/ })).toBeVisible()
     await page.getByRole('button', { name: 'Leave page' }).click()
     await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
     await expect(lastAnswer(page)).toContainText('"path":"/elsewhere"')
+    await expect(page.getByTestId('chat-activity')).toHaveCount(0, { timeout: 15000 })
     await expect(page.getByPlaceholder('Type your message...')).toBeEditable()
   })
 
@@ -181,15 +167,20 @@ test.describe('Host events', () => {
     await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
   })
 
-  test('the person can speak during a wait, and their message takes the turn back', async ({ page, goToWithAuth }) => {
+  test('the person can speak during a wait, and their message takes the turn back with no empty-answer bubble', async ({ page, goToWithAuth }) => {
     // A pending wait is the assistant standing still by its own choice. Before
     // this, the composer refused input for the whole turn — minutes, at the wait's
     // default — so someone who wanted to say "actually, never mind" had no way to, short
     // of finding the Stop button. The wait is what made that reachable in normal
     // use: an ordinary turn is genuinely working and still refuses input.
+    //
+    // Here the wait follows a tool step. The AI SDK ends an aborted stream cleanly — an
+    // `abort` part, no throw — so the interrupted turn used to run its normal ending: its
+    // last finished step called a tool, which reads as an empty answer, and « I wasn't able to produce a
+    // response » landed right under the person's message. A real session got it on
+    // exactly this shape: open the add-line dialog, wait, "it's already open".
     await open(page, goToWithAuth)
-    await reachConfirmation(page)
-    await send(page, 'wait for me')
+    await send(page, 'select then wait')
     await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
 
     // Typing turns the Stop button back into Send: both gestures stay reachable,
@@ -198,42 +189,12 @@ test.describe('Host events', () => {
     await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
     await page.getByRole('button', { name: 'Send' }).click()
 
-    // The message is delivered and answered, rather than swallowed.
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
-    // And the wait it interrupted is gone, not still armed behind the new turn.
-    await expect(page.getByTestId('chat-activity')).toHaveCount(0)
-  })
-
-  test('speaking during a wait that follows a tool step leaves no empty-answer bubble', async ({ page, goToWithAuth }) => {
-    // The AI SDK ends an aborted stream cleanly — an `abort` part, no throw — so the
-    // interrupted turn used to run its normal ending: its last finished step called a
-    // tool, which reads as an empty answer, and « I wasn't able to produce a
-    // response » landed right under the person's message. A real session got it on
-    // exactly this shape: open the add-line dialog, wait, "it's already open".
-    await open(page, goToWithAuth)
-    await send(page, 'select then wait')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
-
-    await page.getByPlaceholder('Type your message...').fill('hello')
-    await page.getByRole('button', { name: 'Send' }).click()
-
+    // The message is delivered and answered, rather than swallowed…
     await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
+    // …the wait it interrupted is gone, not still armed behind the new turn…
     await expect(page.getByTestId('chat-activity')).toHaveCount(0)
+    // …and no fallback landed under the person's message.
     await expect(page.getByText("I wasn't able to produce a response")).toHaveCount(0)
-  })
-
-  test('the waiting label outlives the handover turn, and clears once the person acts', async ({ page, goToWithAuth }) => {
-    // The label is what tells the person the move is theirs — and what drives the embedding host's
-    // waiting-user signal. The handover ENDS its turn, so the label has to stay up between turns, with
-    // Stop on screen to decline; and once the person acts, it goes.
-    await open(page, goToWithAuth)
-    await reachConfirmation(page)
-    await send(page, 'wait for me')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
-    await expect(page.getByRole('button', { name: /Stop|Arrêter/ })).toBeVisible()
-    await page.getByRole('button', { name: 'Leave page' }).click()
-    await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
-    await expect(page.getByTestId('chat-activity')).toHaveCount(0, { timeout: 15000 })
   })
 
   test('a reload while waiting shows the wait, and the page can still answer it', async ({ page, goToWithAuth }) => {

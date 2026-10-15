@@ -27,20 +27,6 @@ test.describe('Simulation chat driver', () => {
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
   })
 
-  test('a turn stopped for approval is the person\'s move, and their decision\'s turn is waited for', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
-    const chat = createChatDriver(page)
-    await chat.prepare()
-    await chat.sendMessage('call tool wipe_everything {}')
-    // Not 'ended': the runner would otherwise type the person's next words over the continuation.
-    expect(await chat.waitForTurn()).toBe('approval')
-
-    // As the persona's `click` reaches it: a button, by its visible name.
-    await page.getByRole('button', { name: 'Approve' }).first().click()
-    expect(await chat.waitForTurn()).toBe('ended')
-    await expect.poll(() => fixture.invokedTools()).toEqual(['wipe_everything'])
-  })
-
   // The judged run that found this: the API restarted (a deploy, here a dev reload) while the person
   // read the answer to their approval, and their next message was queued behind a socket that never
   // opened again — Stop on screen for ten minutes, nothing on the server. The server closing the
@@ -56,8 +42,11 @@ test.describe('Simulation chat driver', () => {
     await chat.prepare()
     await chat.sendMessage('call tool wipe_everything {}')
     expect(await chat.waitForTurn()).toBe('approval')
+    // As the persona's `click` reaches it: a button, by its visible name. Not 'ended' above: the runner
+    // would otherwise type the person's next words over the continuation.
     await page.getByRole('button', { name: 'Approve' }).first().click()
     expect(await chat.waitForTurn()).toBe('ended')
+    await expect.poll(() => fixture.invokedTools()).toEqual(['wipe_everything'])
     const before = (await chat.readConversation()).length
 
     await sockets[sockets.length - 1].close()

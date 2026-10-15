@@ -64,10 +64,13 @@ test.describe('Agent page, History tab', () => {
 
   test('each state of a task run reads distinctly', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
-    await runTask(agentId, 'Reported digest', 'call tool report_outcome {"status":"needs-attention","summary":"Two datasets are stale"}')
-    await runTask(agentId, 'Silent digest', 'ignore the reminder')
-    await runTask(agentId, 'Broken digest', 'stream error')
-    const running = await runTask(agentId, 'Stalling digest', 'stall', false)
+    // Four tasks, each refused only while its OWN previous run is going: they run side by side.
+    const [, , , running] = await Promise.all([
+      runTask(agentId, 'Reported digest', 'call tool report_outcome {"status":"needs-attention","summary":"Two datasets are stale"}'),
+      runTask(agentId, 'Silent digest', 'ignore the reminder'),
+      runTask(agentId, 'Broken digest', 'stream error'),
+      runTask(agentId, 'Stalling digest', 'stall', false)
+    ])
     try {
       await skippedRun(agentId)
       await openHistory(page, goToWithAuth, agentId)
@@ -79,7 +82,9 @@ test.describe('Agent page, History tab', () => {
       await expect(reported).toContainText('Two datasets are stale')
       await expect(reported.getByTestId('agent-run-credits')).toBeVisible()
 
-      await expect(runItem(page, 'Silent digest')).toContainText('No outcome reported')
+      // A run whose model ignored the reminder: the list says only that it has no outcome, the open
+      // run that it ignored the reminder.
+      await expect(runItem(page, 'Silent digest').getByTestId('agent-run-no-outcome')).toHaveText('No outcome reported')
       await expect(runItem(page, 'Broken digest')).toContainText('Error')
       await expect(runItem(page, 'Broken digest').getByTestId('agent-run-error')).not.toBeEmpty()
 
@@ -92,6 +97,10 @@ test.describe('Agent page, History tab', () => {
       await expect(skipped).toContainText('Skipped')
       await expect(skipped).toContainText(/credit limit/i)
       await expect(skipped).not.toContainText('No outcome reported')
+
+      await runItem(page, 'Silent digest').click()
+      await expect(page.getByTestId('task-run-view').getByTestId('agent-run-no-outcome')).toHaveText('No outcome reported, even after a reminder')
+      await page.getByTestId('task-run-view').getByRole('button', { name: 'Back to history' }).click()
 
       // the status filter
       await page.getByRole('combobox').filter({ hasText: 'Status' }).click()
@@ -138,31 +147,15 @@ test.describe('Agent page, History tab', () => {
     await expect(view).toHaveCount(0)
   })
 
-  test('an open run whose model ignored the reminder says so; the list only that it has no outcome', async ({ page, goToWithAuth }) => {
-    const agentId = await createAgent()
-    await runTask(agentId, 'Silent digest', 'ignore the reminder')
-    await openHistory(page, goToWithAuth, agentId)
-    await expect(runItem(page, 'Silent digest').getByTestId('agent-run-no-outcome')).toHaveText('No outcome reported')
-    await runItem(page, 'Silent digest').click()
-    await expect(page.getByTestId('task-run-view').getByTestId('agent-run-no-outcome')).toHaveText('No outcome reported, even after a reminder')
-  })
-
-  test('a notification url opens directly on the run', async ({ page, goToWithAuth }) => {
-    const agentId = await createAgent()
-    const runId = await runTask(agentId, 'Linked digest', 'hello')
-    await openHistory(page, goToWithAuth, agentId, `&run=${runId}`)
-    const view = page.getByTestId('task-run-view')
-    await expect(view).toContainText('Linked digest', { timeout: 20000 })
-    await expect(view.locator('.assistant-content')).toContainText('world')
-  })
-
-  test('a running task run can be aborted from its view', async ({ page, goToWithAuth }) => {
+  // Opened as a notification url opens it: directly on the run.
+  test('a notification url opens directly on the run, and a running one can be aborted from its view', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     const runId = await runTask(agentId, 'Stalling digest', 'stall', false)
     try {
       await openHistory(page, goToWithAuth, agentId, `&run=${runId}`)
       const view = page.getByTestId('task-run-view')
-      await expect(view).toContainText('Running', { timeout: 20000 })
+      await expect(view).toContainText('Stalling digest', { timeout: 20000 })
+      await expect(view).toContainText('Running')
       await view.getByRole('button', { name: 'Abort' }).click()
       await expect(view).toContainText('Aborted', { timeout: 10000 })
       await expect(view.getByRole('button', { name: 'Abort' })).toHaveCount(0)

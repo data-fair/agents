@@ -156,6 +156,33 @@ test.describe('A delegation over the agent session', () => {
     assert.ok(stored.data.parts.filter((part: any) => part.type === 'dynamic-tool').length >= 2, 'with the worker own tool calls')
   })
 
+  test('a worker that loops is stopped by the repeated-call guard and closes out with what it gathered', async () => {
+    // Task "loop forever" makes the worker emit the SAME get_schema call on every step (the mock also
+    // ignores the reminder injected at REPEATED_CALL_NUDGE_AT), so the repeated-call guard stops it at
+    // REPEATED_CALL_LIMIT long before STEP_LIMIT would — that separation is the point: the step limit is
+    // generous so real work fits, the guard catches the runaway. It still finishes on 'tool-calls', so
+    // the harness then runs ONE no-tools close-out turn that synthesizes a best-effort answer from what
+    // it gathered — instead of discarding the run and reporting a bare truncation.
+    const socket = await open()
+    // runDelegation returning at all is the turn terminating rather than hanging.
+    const { conversation, asked } = await runDelegation(socket, 'call tool subagent_data_analyst {"task":"loop forever"}')
+
+    // The guard, not the step limit, is what stopped it: an unguarded run would have spun all the way
+    // to STEP_LIMIT (100) instead of REPEATED_CALL_LIMIT (5).
+    assert.equal(asked.filter(name => name === 'get_schema').length, 5)
+
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversation.id}/messages`)).data
+    const parts = messages.results.flatMap((message: any) => message.parts ?? [])
+    const delegation = parts.find((part: any) => part.type === 'dynamic-tool' && part.toolName === 'subagent_data_analyst')
+    const stored = parts.find((part: any) => part.type === 'data-subagent' && part.data?.parentToolCallId === delegation.toolCallId)
+    // The panel's transcript: five calls, then the recovered answer — it survived the step cap rather
+    // than being lost to a notice.
+    assert.equal(stored.data.parts.filter((part: any) => part.type === 'dynamic-tool').length, 5)
+    assert.match(JSON.stringify(stored.data.parts), /Closed-out best-effort summary from gathered data\./)
+    // And the lead was handed that answer.
+    assert.match(JSON.stringify(delegation.output ?? ''), /Closed-out best-effort summary from gathered data\./)
+  })
+
   test('a reserved tool is not reachable by the lead', async () => {
     // The partition's whole purpose: a lead that could call `query_data` itself would, and the context
     // reduction the pattern exists for would never happen.

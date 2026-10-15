@@ -22,7 +22,7 @@ test.describe('Live tool set (mid-turn refresh)', () => {
     await clean()
   })
 
-  test('a tool registered by a panel opened mid-turn is callable in the same turn', async ({ page, goToWithAuth }) => {
+  test('a tool registered by a panel opened mid-turn is callable in the same turn, and stops being offered once unmounted', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await putMockSettings(admin, 'user/test-standalone1')
 
@@ -45,26 +45,10 @@ test.describe('Live tool set (mid-turn refresh)', () => {
 
     // And the tool really ran against the newly mounted component.
     await expect(page.getByLabel('Display')).toHaveValue('Displayed by set_display')
-  })
 
-  test('a tool whose component unmounts stops being offered', async ({ page, goToWithAuth }) => {
     // The mirror case: reconciliation must remove as well as add, or the model keeps being
-    // offered tools that no longer have a component behind them.
-    const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
-
-    await goToWithAuth('/agents/_dev/chat-live-tools', 'test-standalone1')
-
-    // Discovery is asynchronous; sending before it lands would start the turn with an
-    // empty tool set and test nothing.
-    await waitForPageTools(page, 'open_panel')
-
-    await page.getByPlaceholder('Type your message...').fill('chain open_panel set_display')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last())
-      .toContainText('chained open_panel then set_display', { timeout: 15000 })
-
-    // Reload with the panel closed again: set_display must be gone from the aggregate.
+    // offered tools that no longer have a component behind them. Reload with the panel closed
+    // again: set_display must be gone from the aggregate.
     await page.reload()
     await waitForPageTools(page, 'open_panel')
     await expectNoPageTool(page, 'set_display')

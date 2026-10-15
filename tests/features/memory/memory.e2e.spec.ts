@@ -65,9 +65,5 @@ test.describe('Agent memory dialog', () => {
     await expect(page.getByText('Memory is turned off for this agent')).toBeVisible()
   })
 
-  test('the agent form offers the memory switch', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
-    await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
-    await expect(page.getByRole('checkbox', { name: 'Keep a memory across conversations' })).toBeVisible()
-  })
+  // The memory switch of the create form: autonomous-agents.e2e.spec.ts, on its journey test.
 })

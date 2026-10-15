@@ -14,13 +14,6 @@ test.describe('Audited chat notice', () => {
     await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: true })
   })
 
-  test('a configured agent chat shows the notice and no consent sheet', async ({ page, goToWithAuth }) => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Audited', persona: 'x', mcpServers: [], enabled: true })).data
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
-    await expect(page.getByTestId('agent-chat-audited-notice')).toBeVisible({ timeout: 20000 })
-    await expect(page.getByText('This assistant can store your conversation on the server')).toHaveCount(0)
-  })
-
   test('an instructor reads, from the notice, what the agent remembers, and cannot change it', async ({ page, goToWithAuth }) => {
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
       title: 'Audited',
@@ -41,10 +34,11 @@ test.describe('Audited chat notice', () => {
     await expect(page.getByTestId('memory-save')).toHaveCount(0)
   })
 
-  test('the debug dialog of an audited chat offers the review link and no consent toggle, whatever reviewPersonalAssistant says', async ({ page, goToWithAuth }) => {
+  test('an audited chat shows the notice, no consent sheet, and its debug dialog offers the review link and no consent toggle, whatever reviewPersonalAssistant says', async ({ page, goToWithAuth }) => {
     await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: false })
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Audited', persona: 'x', mcpServers: [], enabled: true })).data
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
+    await expect(page.getByTestId('agent-chat-audited-notice')).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('agent-chat-input')).toBeVisible({ timeout: 20000 })
     const input = page.getByPlaceholder('Type your message...')
     await expect(input).toBeEnabled({ timeout: 10000 })
@@ -52,6 +46,8 @@ test.describe('Audited chat notice', () => {
     await page.getByRole('button', { name: 'Send' }).click()
     // the turn itself fails (the agent is not enrolled); only that the conversation exists matters here
     await expect(page.locator('.assistant-content').last()).toBeVisible({ timeout: 20000 })
+    // The consent sheet would show after a first response: an audited chat never asks.
+    await expect(page.getByText('This assistant can store your conversation on the server')).toHaveCount(0)
     await page.getByRole('button', { name: /^Settings$|^Paramètres$/ }).click()
     await expect(page.getByRole('button', { name: 'Open review' })).toBeVisible()
     await page.getByRole('tab', { name: 'Settings' }).click()

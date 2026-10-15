@@ -4,24 +4,9 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
-
-const mockSettings = {
-  providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: defaultQuotas
-}
+import { clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
+import { seedFlagsCookie } from '../../support/chat-frame.ts'
 
 test.describe('Mermaid bounded auto-fix (e2e)', () => {
   test.beforeEach(async () => {
@@ -30,15 +15,10 @@ test.describe('Mermaid bounded auto-fix (e2e)', () => {
 
   test('a diagram that fails to render is fixed automatically', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', mockSettings)
+    await putMockSettings(admin, 'user/test-standalone1')
 
-    // Mermaid rendering is an opt-in flag persisted in the `agent-chat-flags`
-    // cookie that readFlags() consumes (see ui/src/utils/agent-flags.ts); seed it
-    // before mount. Path '/' keeps it visible to the UI page.
-    await page.addInitScript(() => {
-      const flags = { mermaid: true }
-      document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
-    })
+    // Mermaid rendering is an opt-in flag; seed it before mount.
+    await seedFlagsCookie(page, { mermaid: true })
 
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 

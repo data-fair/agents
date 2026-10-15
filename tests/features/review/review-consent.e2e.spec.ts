@@ -6,7 +6,6 @@
  *     assistant response.
  *   - Clicking Accept persists the cookie; after reload the sheet does not reappear.
  *   - When reviewPersonalAssistant is disabled, the sheet never appears.
- *   - The Settings tab in the debug dialog shows the consent toggle when storage is available.
  */
 
 import { expect } from '@playwright/test'
@@ -85,33 +84,7 @@ test.describe('Review consent sheet', () => {
     await expect(page.getByText('This assistant can store your conversation on the server so an administrator can review it.')).not.toBeVisible()
   })
 
-  test('Settings tab shows consent toggle when storage is available', async ({ page, context, goToWithAuth }) => {
-    // Pre-set the consent cookie so the bottom-sheet does not block interaction
-    await context.addCookies([{
-      name: 'agent-chat-trace-consent',
-      value: 'yes',
-      domain: 'localhost',
-      path: '/'
-    }])
-
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
-
-    // Send a message so the gateway sets reviewOffered
-    const input = page.getByPlaceholder('Type your message...')
-    await expect(input).toBeEnabled({ timeout: 10000 })
-    await input.fill('hello')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
-
-    // Open the debug dialog
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-
-    // Go to the Settings tab
-    await page.getByRole('tab', { name: /^Settings$|^Paramètres$/ }).click()
-
-    // The consent toggle should be visible
-    await expect(page.getByText('Store my conversations for review')).toBeVisible({ timeout: 5000 })
-  })
+  // The Settings tab's consent toggle: consented-review.e2e.spec.ts, in the same chat before it reviews.
 
   test('consent sheet does not appear when reviewPersonalAssistant is disabled', async ({ page, goToWithAuth }) => {
     await putSettings(admin, 'user/test-standalone1', settingsWithoutStorage)

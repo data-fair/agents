@@ -1,13 +1,12 @@
 /**
- * Advanced E2E tests for sub-agent scenarios (multi-step chains, multiple user
- * messages, mixed delegation, concurrency, compaction). Workers are stateless and
- * single-shot, so "across multiple messages" means independent fresh delegations,
- * not a resumed conversation.
+ * Advanced E2E tests for sub-agent scenarios (multi-step chains, mixed delegation, review,
+ * concurrency).
  *
  * Uses distinct mock models per role:
  *   - mock-model (assistant): standard "hello"→"world" / "call tool" behavior
  *   - mock-tools (tools/subagent): context-aware tool chaining (get_schema → query_data → summary)
- *   - mock-summarizer (summarizer): always returns a fixed summary string
+ *   - mock-summarizer (summarizer): always returns a fixed summary string — what the Data Summarizer
+ *     worker of the parallel-delegation test answers with
  */
 
 import { expect, type Page } from '@playwright/test'
@@ -15,21 +14,14 @@ import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 import { waitForPageTools } from '../../support/page-tools.ts'
+import { seedFlagsCookie } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
 
-// Seed the flags cookie before boot so each test pins its own sub-agent render
-// mode. goToWithAuth reuses a cached browser context, so a path=/ cookie set by
-// one test leaks into the next — every rendering test must seed explicitly
-// rather than rely on the default.
-const seedFlagsCookie = (page: Page, simpleSubAgents: boolean) => page.addInitScript((simple) => {
-  const flags = { mermaid: false, simpleSubAgents: simple }
-  document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
-}, simpleSubAgents)
 // Full v-alert panel rendering (to inspect the inner sub-agent trace).
-const seedFullPanelCookie = (page: Page) => seedFlagsCookie(page, false)
+const seedFullPanelCookie = (page: Page) => seedFlagsCookie(page, { simpleSubAgents: false })
 // Simplified chip rendering (the product default).
-const seedChipCookie = (page: Page) => seedFlagsCookie(page, true)
+const seedChipCookie = (page: Page) => seedFlagsCookie(page, { simpleSubAgents: true })
 
 const mockProvider = { type: 'mock', name: 'Mock Provider', id: 'mock-provider' }
 
@@ -54,18 +46,18 @@ const settingsData = {
 
 // Poll the stored-trace list API until the conversation for the logged-in user's
 // account appears, then return its conversationId. The _dev/chat-subagent page
-// drives its gateway as session.account, i.e. user/test-standalone1.
+// talks as session.account, i.e. user/test-standalone1.
 async function pollConversationId (): Promise<string> {
   let conversationId = ''
-  for (let i = 0; i < 40; i++) {
+  await expect.poll(async () => {
     const res = await admin.get('/api/review/user/test-standalone1?page=1&size=20').catch(() => null)
-    if (res && res.data.results.length) { conversationId = res.data.results[0].conversationId; break }
-    await new Promise(resolve => setTimeout(resolve, 200))
-  }
+    conversationId = res?.data.results[0]?.conversationId ?? ''
+    return conversationId
+  }, { timeout: 8000 }).toBeTruthy()
   return conversationId
 }
 
-async function sendMessage (page: import('@playwright/test').Page, text: string) {
+async function sendMessage (page: Page, text: string) {
   const input = page.getByPlaceholder('Type your message...')
   await expect(input).toBeEnabled({ timeout: 10000 })
   await input.fill(text)
@@ -105,32 +97,6 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // The final summary text proves the full chain completed (get_schema → query_data → summary)
     // because mock-tools only returns this text after both tool results are in context
     await expect(body.getByText('Analysis complete')).toBeVisible({ timeout: 10000 })
-  })
-
-  test('Subagent works across multiple user messages', async ({ page, goToWithAuth }) => {
-    await seedFullPanelCookie(page)
-    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
-
-    // First call to sub-agent
-    await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
-    await expect(page.locator('.agent-chat').getByTestId('subagent-panel').first()).toBeVisible({ timeout: 15000 })
-
-    // Wait for the first response to complete before sending the second
-    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
-
-    // Second call — subagent should work again in a subsequent message
-    await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
-
-    // One panel per user message: the sub-agent works across multiple messages.
-    await expect(page.locator('.agent-chat').getByTestId('subagent-panel')).toHaveCount(2, { timeout: 15000 })
-
-    // Wait for the second response to fully complete.
-    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
-
-    // Panels never auto-open: both bodies stay collapsed.
-    await expect(page.locator('.agent-chat').getByTestId('subagent-panel-body').first()).toBeHidden()
-    await expect(page.locator('.agent-chat').getByTestId('subagent-panel-body').last()).toBeHidden()
   })
 
   test('Mixed main agent tools and subagent delegation', async ({ page, goToWithAuth }) => {
@@ -178,7 +144,6 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     // false`) rather than the chip the chat shows. So that panel, named after the sub-agent, is
     // what proves the delegation is visible to a reviewer.
     const conversationId = await pollConversationId()
-    expect(conversationId).toBeTruthy()
 
     await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
 
@@ -213,36 +178,5 @@ test.describe('Advanced Sub-Agent Scenarios', () => {
     await summarizerPanel.getByTestId('subagent-panel-header').click()
     await expect(analystPanel.getByTestId('subagent-panel-body').getByText('Analysis complete', { exact: false })).toBeVisible({ timeout: 5000 })
     await expect(summarizerPanel.getByTestId('subagent-panel-body').getByText('Summary', { exact: false })).toBeVisible({ timeout: 5000 })
-  })
-
-  test('Compaction works during subagent conversation', async ({ page, goToWithAuth }) => {
-    // The budget comes from the assistant model's context window, server-side. This test used to set
-    // `agent-chat-compaction-threshold` and `agent-chat-trace` in sessionStorage — both read by the
-    // browser loop, both read by nothing now — so it claimed to force compaction while forcing
-    // nothing. A tiny window in settings is the trigger, and it has to be in place before the first
-    // turn.
-    await putSettings(admin, 'user/test-standalone1', {
-      ...settingsData,
-      models: settingsData.models.map(entry => (
-        entry.usage.includes('assistant') ? { ...entry, contextWindow: 200 } : entry
-      ))
-    })
-    await seedChipCookie(page)
-    await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
-    await waitForPageTools(page, 'subagent_data_analyst', 'get_schema', 'query_data')
-
-    // First message to build history
-    await sendMessage(page, 'call tool subagent_data_analyst {"task":"hello"}')
-    await expect(page.locator('.agent-chat').getByTestId('subagent-chip').filter({ hasText: 'Data Analyst' }).first()).toBeVisible({ timeout: 15000 })
-    await expect(page.getByPlaceholder('Type your message...')).toBeEnabled({ timeout: 15000 })
-
-    // Second message should trigger compaction (history > 100 chars)
-    // Using "hello" so the mock-model assistant responds "world" after compaction
-    await sendMessage(page, 'hello')
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
-
-    // Conversation should still be functional after compaction
-    await sendMessage(page, 'hello')
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
   })
 })

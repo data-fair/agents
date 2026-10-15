@@ -3,33 +3,15 @@
  * the agent chat drawer with a context-specific prompt via BroadcastChannel.
  */
 
-import { expect, type Page } from '@playwright/test'
+import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { waitForChatFrame } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
 
 const chatDrawerSelector = '.v-navigation-drawer:has(d-frame)'
-
-// The iframe URL carries an `?initConfig=<key>` param, so match on the pathname
-// (which also avoids matching the parent `/_dev/chat-action` frame).
-function isChatFrameUrl (url: string): boolean {
-  try {
-    return new URL(url).pathname.endsWith('/_dev/chat')
-  } catch {
-    return false
-  }
-}
-
-async function waitForChatFrame (page: Page) {
-  await expect(async () => {
-    expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
-  }).toPass({ timeout: 10000 })
-  const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
-  await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
-  return frame
-}
 
 test.describe('Agent Chat Action Button', () => {
   test.beforeEach(async () => {
@@ -37,7 +19,7 @@ test.describe('Agent Chat Action Button', () => {
     await putMockSettings(admin, 'user/test-standalone1')
   })
 
-  test('Clicking action button opens drawer with visible prompt', async ({ page, goToWithAuth }) => {
+  test('Clicking action buttons opens the drawer and appends their visible prompts, never the hidden context', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
 
     // Click the "Create a dataset" action button (opens the drawer via BroadcastChannel)
@@ -45,44 +27,19 @@ test.describe('Agent Chat Action Button', () => {
 
     // Wait for the chat frame to be ready inside the now-open drawer
     const frame = await waitForChatFrame(page)
-
-    // Drawer should be visible
-    const drawer = page.locator(chatDrawerSelector)
-    await expect(drawer).toBeVisible()
+    await expect(page.locator(chatDrawerSelector)).toBeVisible()
 
     // The visible (action) prompt renders as an accent-coloured user bubble,
     // distinct from ordinary typed messages (secondary).
     const userMessage = frame.locator('.v-card.bg-accent').first()
     await expect(userMessage).toContainText('Help me create a new dataset', { timeout: 10000 })
-  })
-
-  test('Hidden context is not visible in chat messages', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
-
-    await page.locator('.df-agent-chat-action').first().click()
-    const frame = await waitForChatFrame(page)
-
-    // Wait for the visible prompt to appear
-    await expect(frame.locator('.v-card').first()).toContainText('Help me create a new dataset', { timeout: 10000 })
 
     // The hidden context should NOT be visible anywhere in the chat
-    const chatContent = await frame.locator('.agent-chat').textContent()
-    expect(chatContent).not.toContain('Relevant tools to focus on')
-  })
-
-  test('Clicking a second action button appends to the conversation', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
-
-    // Click first action (opens the drawer)
-    await page.locator('.df-agent-chat-action').first().click()
-    const frame = await waitForChatFrame(page)
-    await expect(frame.locator('.v-card').first()).toContainText('Help me create a new dataset', { timeout: 10000 })
-
-    // Click second action
-    await page.locator('.df-agent-chat-action').nth(1).click()
-
-    // Both prompts should be present in the conversation
     const chatContent = frame.locator('.agent-chat')
+    expect(await chatContent.textContent()).not.toContain('Relevant tools to focus on')
+
+    // A second action appends to the conversation: both prompts are present.
+    await page.locator('.df-agent-chat-action').nth(1).click()
     await expect(chatContent).toContainText('Help me configure a data processing', { timeout: 10000 })
     await expect(chatContent).toContainText('Help me create a new dataset')
   })
