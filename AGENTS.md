@@ -143,7 +143,7 @@ This project has workspace packages whose compiled `.js` files are gitignored, s
 - `cd lib-vuetify && npm run build`
 - `cd lib-vue && npm run build`
 
-`lib-sim/` is needed for **`npm run simulate`**, not for e2e — nothing under `tests/` imports the built package (the unit specs import its `.ts` sources directly):
+`lib-sim/` is needed for **`npm run simulate`**, and for the specs importing `simulations/cases` (`tests/features/simulations/cases.unit.spec.ts`, `tests/features/lib-sim/cases.unit.spec.ts`, `tests/features/lib-sim/persona.unit.spec.ts`, `tests/features/simulations/exports.api.spec.ts`), which reach the built package through it — unbuilt, the whole run fails at collection with `Cannot find module …/lib-agents-sim/index.js`:
 - `cd lib-sim && npm run build`
 
 If e2e tests fail with "element(s) not found", check that `lib-vuetify` and `lib-vue` are built before investigating further.

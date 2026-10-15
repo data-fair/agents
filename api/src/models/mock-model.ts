@@ -20,7 +20,7 @@ interface MockPromptResult {
 /**
  * Text streams in deltas of this many characters, one every 10ms. Not one per character: answers
  * echoing a prompt block run to hundreds of characters, and a character every 10ms made every such
- * turn cost seconds across the suite. The seams that need many deltas ('long answer') ask for 1.
+ * turn cost seconds across the suite. The seam that needs many deltas ('slow long answer') asks for 1.
  */
 const STREAM_CHUNK = 8
 
@@ -514,12 +514,12 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   // Reasoning seam: emit reasoning tokens before the answer (exercises the loop's
   // reasoning capture and its streaming to the page).
   if (directive === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
-  // Streaming seam: one text-delta per CHARACTER every 10ms, so a long string is all that is needed
-  // to produce a few hundred deltas — enough for a consumer to prove it throttles rather than
-  // forwarding one event per token, and for a turn to be reliably caught mid-stream.
-  if (directive === 'long answer') {
-    return { type: 'text', text: 'This is a deliberately long answer used to exercise streaming throughput. '.repeat(6), chunk: 1 }
-  }
+  // Long-text seams: 'long answer' fills a small context window in a turn or two; 'slow long answer'
+  // streams the same text one CHARACTER per 10ms delta (~4.5s), long enough for a test to reliably
+  // catch the turn mid-stream (attach a second tab, stop it).
+  const longText = 'This is a deliberately long answer used to exercise streaming throughput. '.repeat(6)
+  if (directive === 'long answer') return { type: 'text', text: longText }
+  if (directive === 'slow long answer') return { type: 'text', text: longText, chunk: 1 }
   // Loop-guard close-out seams (exercise the sub-agent loop → close-out path).
   // A task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
   // step (ignoring prior tool results and the injected nudge), so a sub-agent's

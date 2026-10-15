@@ -43,7 +43,7 @@ test.describe('Attaching mid-turn', () => {
   test('a second tab gets the answer so far, then the rest live, then the end', async () => {
     const first = await open()
     first.send(newThreadHello(OWNER))
-    first.send({ type: 'prompt', content: 'long answer' })
+    first.send({ type: 'prompt', content: 'slow long answer' })
     // A good part of the answer in: the mock streams a character every 10ms.
     let streamed = ''
     await until(first, frame => {
@@ -87,7 +87,7 @@ test.describe('Attaching mid-turn', () => {
     // store instead would record the reply as nothing but the stop notice.
     const socket = await open()
     socket.send(newThreadHello(OWNER))
-    socket.send({ type: 'prompt', content: 'long answer' })
+    socket.send({ type: 'prompt', content: 'slow long answer' })
     let streamed = ''
     await until(socket, frame => {
       if (frame.type === 'delta' && frame.kind === 'text') streamed += frame.text

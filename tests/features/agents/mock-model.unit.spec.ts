@@ -58,7 +58,7 @@ test.describe('mock model token estimation (unit)', () => {
     process.on('uncaughtException', onCrash)
     try {
       const model = createMockLanguageModel('mock-model')
-      const prompt = [{ role: 'user', content: [{ type: 'text', text: 'long answer' }] }]
+      const prompt = [{ role: 'user', content: [{ type: 'text', text: 'slow long answer' }] }]
       const { stream } = await (model as any).doStream({ prompt })
       const reader = stream.getReader()
       await reader.read()

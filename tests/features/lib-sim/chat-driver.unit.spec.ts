@@ -170,7 +170,16 @@ test.describe('sendMessage: bounded, honest recovery from a wedged composer', ()
   test('a click the chat never took is an error, not a sent message', async () => {
     const { root } = fakeSendRoot({ neverTaken: true })
     const chat = createChatDriver(root as any)
-    await assert.rejects(() => chat.sendMessage('hello'), /never sent/)
+    // Time runs a minute per reading, so each attempt's deadline (SENT_TIMEOUT_MS) passes at its
+    // first poll instead of costing the real seconds twice over.
+    const realNow = Date.now
+    let readings = 0
+    Date.now = () => realNow() + 60_000 * readings++
+    try {
+      await assert.rejects(() => chat.sendMessage('hello'), /never sent/)
+    } finally {
+      Date.now = realNow
+    }
   })
 
   test('never forces through — no force option on the click/fill calls', () => {
