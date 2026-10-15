@@ -103,6 +103,20 @@ test.describe('Webhook triggers', () => {
     assert.equal((await trigger(agent.id, task.id, key)).status, 409)
   })
 
+  test('an exhausted credit cap refuses every trigger but records one skipped run, not one per call', async () => {
+    // A caller retrying, or a noisy integration, would otherwise insert a run per call for as long as the cap lasts.
+    const agent = await createAgent()
+    const task = await createTask(agent.id)
+    const key = await keyOf(agent.id, task.id)
+    await orgAdmin.post('/api/v1/limits/organization/test1?key=secretlimits', {
+      name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 5, consumption: 5 }
+    })
+    for (let i = 0; i < 3; i++) assert.equal((await trigger(agent.id, task.id, key)).status, 409)
+    const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs`)).data.results
+    assert.equal(runs.length, 1)
+    assert.equal(runs[0].status, 'skipped')
+  })
+
   test('triggers during a run merge: one follow-up run, after the minimum interval, carrying them all in order', async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id, 'slow hello')
