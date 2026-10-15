@@ -180,7 +180,8 @@ router.post('/:type/:id/:agentId/tasks/:taskId/_trigger', express.raw({ type: ()
     const parsedJson = !Buffer.isBuffer(req.body) && req.body !== undefined
     if (parsedJson && JSON.stringify(req.body).length > WEBHOOK_LIMITS.bodyBytes) throw httpError(413, 'the payload is larger than 64 KB')
     const empty = Number(req.headers['content-length'] ?? 0) === 0 && !req.headers['transfer-encoding']
-    const key = typeof req.query.key === 'string' ? req.query.key : req.get('x-webhook-key')
+    // The header only: a key in the query string lands in every access log on the way.
+    const key = req.get('x-webhook-key')
     const result = await acceptTrigger({
       owner: { type: req.params.type, id: req.params.id } as any,
       agentId: req.params.agentId,

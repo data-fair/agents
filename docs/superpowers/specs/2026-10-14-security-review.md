@@ -118,7 +118,7 @@ needs a redesign; most fixes are a few lines.
 
 ## Low
 
-- **Egress** *✅ IPv6 forms (lib-node 2.15 `ssrf.ts` adopted), site scope by host:port, `..%2f`/`..;`, webhook skipped runs. Open: per-account file storage cap, webhook key in `?key=` and stored plaintext.*: NAT64/6to4/Teredo/IPv4-compatible IPv6 classified public (`web/public-lookup.ts:16`) —
+- **Egress** *✅ IPv6 forms (lib-node 2.15 `ssrf.ts` adopted), site scope by host:port, `..%2f`/`..;`, webhook skipped runs. Webhook key header-only (owner, 2026-10-15: no existing webhooks). Open: per-account file storage cap, webhook key stored plaintext.*: NAT64/6to4/Teredo/IPv4-compatible IPv6 classified public (`web/public-lookup.ts:16`) —
   matters on IPv6-only clusters with DNS64; `site` scope ignores scheme and port
   (`web/operations.ts:93`); `..%2f` and `..;` accepted under a prefix (backend normalization
   mismatch); no per-account file storage cap (500 MB per scope × N conversations); webhook with

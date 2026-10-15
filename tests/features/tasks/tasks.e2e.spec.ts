@@ -204,14 +204,17 @@ test.describe('Agent page, Tasks tab', () => {
     const task = await createTask(agentId)
     await openTasks(page, goToWithAuth, agentId)
     await taskItem(page, 'Morning digest').getByRole('button', { name: 'Trigger URL' }).click()
+    // The URL carries no key: it is sent in the x-webhook-key header, out of access logs.
     const url = page.getByTestId('task-trigger-url')
-    await expect(url).toContainText(`/tasks/${task.id}/_trigger?key=`)
-    const before = await url.textContent()
-    expect(before).toContain((await admin.get(`${tasksUrl(agentId)}/${task.id}/webhook-key`)).data)
+    await expect(url).toHaveText(new RegExp(`/tasks/${task.id}/_trigger$`))
+    const key = page.getByTestId('task-trigger-key')
+    await expect(page.getByRole('dialog')).toContainText('x-webhook-key')
+    const before = await key.textContent()
+    expect(before).toBe((await admin.get(`${tasksUrl(agentId)}/${task.id}/webhook-key`)).data)
     await page.getByRole('dialog').getByRole('button', { name: 'Regenerate' }).click()
     await page.getByRole('button', { name: 'Confirm', exact: true }).click()
-    await expect(url).not.toHaveText(before!)
-    expect(await url.textContent()).toContain((await admin.get(`${tasksUrl(agentId)}/${task.id}/webhook-key`)).data)
+    await expect(key).not.toHaveText(before!)
+    expect(await key.textContent()).toBe((await admin.get(`${tasksUrl(agentId)}/${task.id}/webhook-key`)).data)
   })
 
   test('an admin opens a task\'s notifications: the events subscription page, for its four topics', async ({ page, goToWithAuth }) => {
