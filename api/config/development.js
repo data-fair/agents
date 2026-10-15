@@ -58,9 +58,6 @@ export default {
     const mcpServers = ['dev-review-mcp', 'dev-review-session-mcp', 'dev-public-mcp', 'dev-session-mcp'].map(serverId => ({ serverId }))
     return { portal: { mcpServers }, backOffice: { mcpServers } }
   })(),
-  // Dev-only keypair, generated for this plan and round-trip verified. NEVER reuse a
-  // committed key in a real deployment.
-  nhiSigningKey: { kty: 'EC', crv: 'P-256', x: 'iuGRxiUsSj4YmAvrp3XpXGnvttc6ruQIYakEVp-B4Ig', y: 'nF0kPlKpzNztlqKozkb9T4sHl_sCD1M6ngrpwEnTL-M', d: 'Hv71PS5oK6z6bqiRT-nq62cmgauiaCreaO-zmS30-6Q', kid: 'dev-1', alg: 'ES256' },
   // uncapped in dev/test: the production default of 0 would block every
   // account that has not been pushed a limit, which most specs never do
   defaultLimits: { credits: -1 },

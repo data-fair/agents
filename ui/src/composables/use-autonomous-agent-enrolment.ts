@@ -47,7 +47,6 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
    */
   const readIssuer = async (): Promise<string> => {
     const discovery = await $fetch<{ issuer: string }>(`${$apiPath}/nhi/.well-known/openid-configuration`)
-    if (!discovery?.issuer) throw new Error('this deployment serves no NHI issuer — is NHI_SIGNING_KEY configured?')
     return discovery.issuer
   }
 

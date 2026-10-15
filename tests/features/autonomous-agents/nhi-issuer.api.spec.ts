@@ -28,32 +28,8 @@ test.describe('NHI issuer endpoints', () => {
     assert.equal(key.crv, 'P-256')
     assert.equal(key.use, 'sig')
     assert.ok(key.kid, 'expected a kid so rotation can key on it')
-    assert.equal('d' in key, false)
-    // the dev private scalar must not appear anywhere in the response
-    assert.equal(JSON.stringify(res.data).includes('Hv71PS5oK6z6bqiRT-nq62cmgauiaCreaO-zmS30-6Q'), false)
+    assert.equal(res.data.keys.some((key: object) => 'd' in key), false)
   })
-
-  test('the published key actually verifies an assertion this service signs', async () => {
-    const { importJWK, SignJWT, jwtVerify, createLocalJWKSet } = await import('jose')
-    const jwks = (await nginxAx.get('/api/nhi/jwks')).data
-
-    // sign with the dev private key from api/config/development.js
-    const priv = { kty: 'EC', crv: 'P-256', x: 'iuGRxiUsSj4YmAvrp3XpXGnvttc6ruQIYakEVp-B4Ig', y: 'nF0kPlKpzNztlqKozkb9T4sHl_sCD1M6ngrpwEnTL-M', d: 'Hv71PS5oK6z6bqiRT-nq62cmgauiaCreaO-zmS30-6Q', kid: 'dev-1', alg: 'ES256' }
-    const jwt = await new SignJWT({})
-      .setProtectedHeader({ alg: 'ES256', kid: 'dev-1' })
-      .setIssuer(expectedIssuer)
-      .setSubject('autonomous-agent:probe')
-      .setAudience(`http://localhost:${process.env.NGINX_PORT}`)
-      .setIssuedAt()
-      .setExpirationTime('300s')
-      .sign(await importJWK(priv, 'ES256'))
-
-    // verifying against the PUBLISHED jwks proves the endpoint serves the matching half
-    const { payload } = await jwtVerify(jwt, createLocalJWKSet(jwks), {
-      issuer: expectedIssuer,
-      audience: `http://localhost:${process.env.NGINX_PORT}`,
-      subject: 'autonomous-agent:probe'
-    })
-    assert.equal(payload.sub, 'autonomous-agent:probe')
-  })
+  // That the published key verifies what this service signs is nhi-exchange.api.spec.ts's real exchange:
+  // simple-directory checks the assertion against this JWKS.
 })

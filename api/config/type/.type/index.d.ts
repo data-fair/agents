@@ -147,16 +147,6 @@ export type ApiConfig = {
      */
     publicUrl: string;
   };
-  nhiSigningKey?: {
-    kty: string;
-    crv: string;
-    x: string;
-    y: string;
-    d: string;
-    kid: string;
-    alg?: string;
-    [k: string]: unknown;
-  };
   defaultModels?: {
     assistant?: ModelRef;
     tools?: ModelRef;

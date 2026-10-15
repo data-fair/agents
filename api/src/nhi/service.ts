@@ -10,24 +10,55 @@ import { SignJWT, importJWK } from 'jose'
 // The private instance: simple-directory is reached at a configured address (privateDirectoryUrl), which the
 // default instance's SSRF guard refuses as non public.
 import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, type NhiPrivateJwk, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
+import mongo from '#mongo'
+import { cipher, decipher } from '../cipher/operations.ts'
+import { securityKey } from '../cipher/service.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
 import { createSessionBroker } from './session-broker.ts'
 
 import type { SiteCredentials } from '../mcp-servers/operations.ts'
 
-/** The whole NHI feature is off when no signing key is configured. */
-export const nhiEnabled = () => !!config.nhiSigningKey
+/**
+ * The signing keys live in mongo, the private halves ciphered with CIPHER_PASSWORD, as simple-directory
+ * keeps its own: generated on a fresh deployment, rotated every NHI_KEY_ROTATION_DAYS, never handled by
+ * an operator. Nothing outside this service needs them: simple-directory reads the public halves through
+ * discovery, so a lost key is only a new one.
+ */
+const NHI_KEYS_ID = 'nhi-signing-keys'
 
-// 501 rather than 404: the caller asked for a coherent capability this deployment has
-// not enabled. Composes off nhiEnabled() so there is a single encoding of "is this
-// configured" rather than two independent ones drifting apart.
-const requireNhi = (): NhiPrivateJwk => {
-  if (!nhiEnabled()) throw httpError(501, 'the autonomous agent non-human-identity feature is not configured on this deployment')
-  return config.nhiSigningKey as NhiPrivateJwk
+const storeKey = (key: NhiKey): StoredNhiKey => ({ kid: key.jwk.kid, jwk: cipher(JSON.stringify(key.jwk), securityKey), createdAt: key.createdAt })
+const loadKey = (stored: StoredNhiKey): NhiKey => ({ jwk: JSON.parse(decipher(stored.jwk, securityKey)), createdAt: stored.createdAt })
+
+/**
+ * Creates the first key, or the next one when due. Every instance runs it at boot and periodically; the
+ * writes are conditional on what was read, so instances racing each other write one key, not two.
+ */
+export const maintainNhiKeys = async (now = new Date()) => {
+  const doc = await mongo.secrets.findOne({ _id: NHI_KEYS_ID })
+  if (!doc) {
+    try {
+      await mongo.secrets.insertOne({ _id: NHI_KEYS_ID, keys: [storeKey(generateNhiKey(now))] })
+    } catch (err: any) {
+      if (err.code !== 11000) throw err
+    }
+  } else if (nhiKeysNeedRotation(doc.keys, now)) {
+    console.log('[nhi] rotating the signing key')
+    await mongo.secrets.updateOne(
+      { _id: NHI_KEYS_ID, 'keys.0.kid': doc.keys[0].kid },
+      { $set: { keys: rotateNhiKeys(doc.keys, storeKey(generateNhiKey(now))) } }
+    )
+  }
+  readNhiKeys.clear()
 }
 
-export const getNhiSigningKey = (): NhiPrivateJwk => requireNhi()
+// A minute is far inside the publication delay, so an instance that missed another's rotation still
+// publishes the new key long before anyone signs with it.
+const readNhiKeys = memoize(async (): Promise<NhiKey[]> => {
+  const doc = await mongo.secrets.findOne({ _id: NHI_KEYS_ID })
+  if (!doc) throw new Error('the NHI signing keys were not initialized')
+  return doc.keys.map(loadKey)
+}, { promise: true, maxAge: 60_000 })
 
 /**
  * Built from the request rather than config, so the `issuer` we echo is always exactly
@@ -35,12 +66,11 @@ export const getNhiSigningKey = (): NhiPrivateJwk => requireNhi()
  * different issuer, and a config value could drift from reality.
  */
 export const getNhiDiscovery = (req: Request): { issuer: string, jwks_uri: string } => {
-  requireNhi()
   const issuer = nhiIssuerUrl(reqSiteUrl(req))
   return { issuer, jwks_uri: `${issuer}/jwks` }
 }
 
-export const getNhiJwks = (): { keys: NhiPublicJwk[] } => ({ keys: [toPublicJwk(requireNhi())] })
+export const getNhiJwks = async (): Promise<{ keys: NhiPublicJwk[] }> => ({ keys: (await readNhiKeys()).map(key => toPublicJwk(key.jwk)) })
 
 /** The shape the exchange needs off an autonomous agent document. */
 export interface EnrolledAutonomousAgent {
@@ -63,7 +93,7 @@ const requireEnrolment = (autonomousAgent: EnrolledAutonomousAgent) => {
 }
 
 export const mintAssertion = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl: string): Promise<string> => {
-  const key = getNhiSigningKey()
+  const key = signingNhiKey(await readNhiKeys(), new Date()).jwk
   const { issuer } = requireEnrolment(autonomousAgent)
   const claims = buildAssertionClaims({
     issuer,

@@ -179,19 +179,6 @@
         "publicUrl": { "type": "string", "pattern": "^https?://", "description": "The agents API base URL as MCP servers reach it: what they configure as FILE_URL_PREFIXES." }
       }
     },
-    "nhiSigningKey": {
-      "type": "object",
-      "required": ["kty", "crv", "x", "y", "d", "kid"],
-      "properties": {
-        "kty": { "type": "string" },
-        "crv": { "type": "string" },
-        "x": { "type": "string" },
-        "y": { "type": "string" },
-        "d": { "type": "string" },
-        "kid": { "type": "string" },
-        "alg": { "type": "string" }
-      }
-    },
     "defaultModels": {
       "type": "object",
       "additionalProperties": false,

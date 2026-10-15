@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertNhiConfig, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -15,35 +15,44 @@ const key: NhiPrivateJwk = {
   alg: 'ES256'
 }
 
-test.describe('assertNhiConfig', () => {
-  test('accepts the feature being entirely off', () => {
-    assertNhiConfig(undefined)
+test.describe('NHI signing keys', () => {
+  const t0 = new Date('2026-01-01T00:00:00Z')
+  const later = (seconds: number) => new Date(t0.getTime() + seconds * 1000)
+  const DAY = 24 * 60 * 60
+
+  test('a generated key is a private ES256 JWK with a kid of its own', () => {
+    const { jwk, createdAt } = generateNhiKey(t0)
+    assert.equal(createdAt, t0)
+    assert.equal(jwk.kty, 'EC')
+    assert.equal(jwk.crv, 'P-256')
+    assert.equal(jwk.alg, 'ES256')
+    assert.ok(jwk.d && jwk.x && jwk.y)
+    assert.notEqual(generateNhiKey(t0).jwk.kid, jwk.kid)
   })
 
-  test('accepts a valid key', () => {
-    assertNhiConfig(key)
+  test('the only key of a fresh deployment signs at once', () => {
+    const first = generateNhiKey(t0)
+    assert.equal(signingNhiKey([first], t0), first)
   })
 
-  test('rejects a non-EC key', () => {
-    assert.throws(() => assertNhiConfig({ ...key, kty: 'RSA' }), /must be an EC/)
+  test('a key is due for rotation after NHI_KEY_ROTATION_DAYS', () => {
+    const keys = [generateNhiKey(t0)]
+    assert.equal(nhiKeysNeedRotation(keys, later(NHI_KEY_ROTATION_DAYS * DAY - 1)), false)
+    assert.equal(nhiKeysNeedRotation(keys, later(NHI_KEY_ROTATION_DAYS * DAY)), true)
   })
 
-  test('rejects a curve other than P-256', () => {
-    assert.throws(() => assertNhiConfig({ ...key, crv: 'P-384' }), /P-256/)
-  })
-
-  test('rejects a public key — signing needs the private half', () => {
-    const { d, ...pub } = key
-    assert.throws(() => assertNhiConfig(pub), /private/)
-  })
-
-  test('rejects a key with no kid — rotation depends on it', () => {
-    const { kid, ...noKid } = key
-    assert.throws(() => assertNhiConfig(noKid), /kid/)
-  })
-
-  test('rejects a non-object signing key', () => {
-    assert.throws(() => assertNhiConfig('not-a-jwk'), /must be a JSON object/)
+  test('a new key is published before it signs, and the one it replaces stays published', () => {
+    const old = generateNhiKey(t0)
+    const rotatedAt = later(NHI_KEY_ROTATION_DAYS * DAY)
+    const next = generateNhiKey(rotatedAt)
+    const keys = rotateNhiKeys([old], next)
+    assert.deepEqual(keys, [next, old])
+    const after = (seconds: number) => new Date(rotatedAt.getTime() + seconds * 1000)
+    assert.equal(signingNhiKey(keys, after(NHI_KEY_PUBLISH_AHEAD_SECONDS - 1)), old)
+    assert.equal(signingNhiKey(keys, after(NHI_KEY_PUBLISH_AHEAD_SECONDS)), next)
+    // nothing signs with a key older than the one replaced: it is dropped at the next rotation
+    const third = generateNhiKey(later(2 * NHI_KEY_ROTATION_DAYS * DAY))
+    assert.deepEqual(rotateNhiKeys(keys, third), [third, next])
   })
 })
 
