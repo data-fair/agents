@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCreditBreakdown, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCreditBreakdown, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, quotaStopText, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -285,6 +285,23 @@ test.describe('quotaErrorBody', () => {
       const shown = quotaErrorBody(violation(scope), true)
       assert.equal(shown.usage, 5)
       assert.equal(shown.limit, 4)
+    }
+  })
+})
+
+test.describe('quotaStopText', () => {
+  // The sentence a turn stopped by a quota ends on, at the gate or mid-turn: what quotaErrorBody
+  // discloses, never the shared budgets' numbers to someone who is not an admin.
+  const violation = (scope: string) => ({ allowed: false as const, reason: 'Daily cost quota exceeded', scope, period: 'daily' as const, usage: 5, limit: 4, resetsAt: 'R' })
+
+  test('a person reads their own numbers', () => {
+    assert.equal(quotaStopText(violation('user'), false), 'Daily cost quota exceeded (user, daily limit 4, used 5). Resets at R.')
+  })
+
+  test('a shared budget\'s numbers only to an admin', () => {
+    for (const scope of ['account', 'untrusted']) {
+      assert.equal(quotaStopText(violation(scope), false), `Daily cost quota exceeded (${scope}, daily). Resets at R.`)
+      assert.match(quotaStopText(violation(scope), true), /limit 4, used 5/)
     }
   })
 })

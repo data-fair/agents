@@ -124,6 +124,16 @@ export function quotaErrorBody (violation: QuotaExceeded, isAdmin: boolean) {
   }
 }
 
+/**
+ * The sentence a turn stopped by a quota ends on, at the gate or between steps: the fields
+ * `quotaErrorBody` discloses, so a shared budget's numbers only to an admin.
+ */
+export function quotaStopText (violation: QuotaExceeded, isAdmin: boolean): string {
+  const body = quotaErrorBody(violation, isAdmin)
+  const numbers = body.limit !== undefined ? `, ${body.period} limit ${body.limit}, used ${body.usage}` : `, ${body.period}`
+  return `${body.message} (${body.scope}${numbers}). Resets at ${body.resets_at}.`
+}
+
 export function checkQuota (usage: UsageInfo, limits: UsageLimits, scope: string): QuotaExceeded | null {
   const windows = quotaWindows(usage, limits)
   if (windows.unlimited) return null

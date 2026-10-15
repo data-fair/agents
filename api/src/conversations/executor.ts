@@ -20,7 +20,7 @@ import config from '#config'
 import locks from '@data-fair/lib-node/locks.js'
 import Debug from 'debug'
 import type { ConversationRun } from '#types'
-import { runStopReasonMessage, type ToolSet, turnDeadlineSeconds, usageIdentityFor, speakerIdentityFor, withAppendedText, type RunStopReason, type ConversationTurnRun } from './operations.ts'
+import { runStopReasonMessage, publicErrorDetail, type ToolSet, turnDeadlineSeconds, usageIdentityFor, speakerIdentityFor, withAppendedText, type RunStopReason, type ConversationTurnRun } from './operations.ts'
 import { checkQuotas, moderateTurn } from './turn-gates.ts'
 import { moderationApplies } from '../moderation/operations.ts'
 import { conversationTarget, closeConversationRunBare, type TurnTarget, type TurnResult, type TurnFailure } from './turn-target.ts'
@@ -301,17 +301,20 @@ export const driveTurn = async (
     const result = await Promise.race([performTurn(run, abortController.signal, target), deadline])
     await target.close(result)
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err)
+    const raw = err instanceof Error ? err.message : String(err)
     // An abort is not a failure of the turn: distinguish the clock from a caller pressing
     // stop, and from a genuine error, because a reader reacts differently to each.
     const stopCause: StopCause | undefined = abortController.signal.aborted ? stopCauseOf(abortController.signal.reason) : undefined
     // A late block is refused, not failed: declining WAS the answer, as for an on-time block (see turn-gates).
     const stopReason: RunStopReason = stopCause === 'late-block' ? 'completed' : stopCause === 'timeout' ? 'timeout' : stopCause ? 'aborted' : 'error'
     const status = stopCause === 'late-block' ? 'done' : stopCause && stopCause !== 'timeout' ? 'aborted' : 'error'
+    // The run keeps the whole error for administrators; the person, the transcript and the model are told
+    // only what publicErrorDetail lets through. An abort's reason is this service's own words.
+    const detail = stopCause ? raw : publicErrorDetail(err)
     const failure: TurnFailure = {
       stopReason,
       status,
-      ...(stopCause === 'late-block' ? {} : { error: detail }),
+      ...(stopCause === 'late-block' ? {} : { error: raw }),
       detail,
       ...(stopCause ? { stopCause } : {}),
       interrupt: stopCause ? interruptReason(stopCause) : 'ended',

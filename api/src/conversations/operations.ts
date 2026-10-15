@@ -61,6 +61,24 @@ export function runStopReasonMessage (stopReason: RunStopReason, detail?: string
   return detail ? `${base[stopReason]} (${detail})` : base[stopReason]
 }
 
+/** What a failure that is not a deliberate refusal says, wherever it is shown. */
+export const INTERNAL_ERROR_DETAIL = 'an internal error, recorded for the administrators'
+
+/**
+ * What of an error may reach the person, the transcript, the socket and the model.
+ *
+ * A refusal this service throws on purpose (`httpError`, 4xx, or 503 while it restarts) is written for
+ * the person and keeps its words. Anything else — a provider's response body, an internal hostname or
+ * address, a database error — went to anonymous visitors and was replayed to the model on the next
+ * turn; it now stays on the run (`error`), where administrators read it.
+ */
+export function publicErrorDetail (err: unknown): string {
+  const status = (err as { status?: unknown } | undefined)?.status
+  const message = err instanceof Error ? err.message : undefined
+  const deliberate = typeof status === 'number' && ((status >= 400 && status < 500) || status === 503)
+  return deliberate && message ? message : INTERNAL_ERROR_DETAIL
+}
+
 /** The system prompt's note on the task surface (see buildSystemPrompt). */
 export const TASK_SURFACE_NOTE = 'This is a scheduled execution of one of your planned tasks. Nobody is present: there is no one to ask, and no action can be approved. Do what the task asks with the tools you have, then end by calling report_outcome with what you found or did. Your earlier runs and what they reported are listed by list_my_runs (kind task) and read with read_conversation (runId): use them to compare and to say what changed, but do the task again — report only what this run read, never an earlier run\'s findings as current.'
 

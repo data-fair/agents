@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { runStopReasonMessage, buildSystemPrompt, wrapToolResult } from '../../../api/src/conversations/operations.ts'
+import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL } from '../../../api/src/conversations/operations.ts'
 import { compactionSystemPrompt, recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/conversations/loop-guards.ts'
 import { readFileSync } from 'node:fs'
@@ -26,6 +26,23 @@ test.describe('runStopReasonMessage', () => {
   test('does not leak an empty detail as a dangling separator', () => {
     // the bare-prefix wart in formatMcpToolResult is exactly this bug; do not repeat it
     assert.doesNotMatch(runStopReasonMessage('error', ''), /:\s*$/)
+  })
+})
+
+test.describe('publicErrorDetail', () => {
+  // What a failure may say to the person, the transcript and the model: a provider body, an internal
+  // hostname or a database error reached anonymous visitors and was replayed to the model.
+  test('a deliberate refusal keeps its own words', () => {
+    assert.equal(publicErrorDetail(Object.assign(new Error('this autonomous agent is disabled'), { status: 403 })), 'this autonomous agent is disabled')
+    assert.equal(publicErrorDetail(Object.assign(new Error('the service is restarting'), { status: 503 })), 'the service is restarting')
+  })
+
+  test('anything else says only that it failed', () => {
+    assert.equal(publicErrorDetail(new Error('connect ECONNREFUSED 10.0.3.12:4000')), INTERNAL_ERROR_DETAIL)
+    assert.equal(publicErrorDetail(Object.assign(new Error('upstream body: {"key":"sk-…"}'), { status: 500 })), INTERNAL_ERROR_DETAIL)
+    assert.equal(publicErrorDetail(Object.assign(new Error('Bad Gateway from litellm.internal'), { statusCode: 502 })), INTERNAL_ERROR_DETAIL)
+    assert.equal(publicErrorDetail('E11000 duplicate key'), INTERNAL_ERROR_DETAIL)
+    assert.equal(publicErrorDetail(Object.assign(new Error(''), { status: 404 })), INTERNAL_ERROR_DETAIL, 'an empty message says nothing either')
   })
 })
 

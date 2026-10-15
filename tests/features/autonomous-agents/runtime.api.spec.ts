@@ -717,6 +717,10 @@ test.describe('Autonomous agent model loop', () => {
     assert.ok(assistant, 'failure is a message, not a silence')
     assert.equal(assistant.pending, false)
     assert.ok(partsText(assistant.parts).length > 0)
+    // The provider's words stay on the run, for administrators; the transcript, which the person reads
+    // and the model is replayed, says only that it failed.
+    assert.ok(!partsText(assistant.parts).includes(run.error), 'the internal error is not in the transcript')
+    assert.match(partsText(assistant.parts), /internal error, recorded for the administrators/)
   })
 })
 

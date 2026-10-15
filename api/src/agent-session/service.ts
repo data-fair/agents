@@ -40,9 +40,13 @@ const debug = Debug('agents:agent-session')
 /**
  * The `error` frame for a refusal or a failure: the 4xx status an `httpError` carries (400 malformed,
  * 403 not allowed, 404 unknown, 409 conflict…), 503 while the service is restarting, 500 for anything else.
+ * A 500 says only `fallback`: its message is internal (a database error, an address) and is logged here.
  */
-const errorFrame = (err: any, fallback: string): ServerMessage =>
-  ({ type: 'error', status: (err?.status >= 400 && err?.status < 500) || err?.status === 503 ? err.status : 500, message: err?.message || fallback })
+const errorFrame = (err: any, fallback: string): ServerMessage => {
+  const status = (err?.status >= 400 && err?.status < 500) || err?.status === 503 ? err.status : 500
+  if (status === 500) console.error(`agent session: ${fallback}`, err)
+  return { type: 'error', status, message: status === 500 ? fallback : err?.message || fallback }
+}
 
 /**
  * The largest frame a browser may send, in bytes: ws accepts 100 MiB by default, all of it parsed on

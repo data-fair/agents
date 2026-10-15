@@ -100,6 +100,13 @@ quota or credit cap, a moderation block — is still a message saying so. The qu
 (`api/src/conversations/turn-gates.ts`) run before any model call, so a refused turn costs nothing
 beyond the moderation classifier (see [Moderation](./moderation.md)).
 
+What the message says is not always what happened. A deliberate refusal (an `httpError`, 4xx, or 503)
+keeps its words; any other failure — a provider's response body, an internal address, a database
+error — is recorded whole on the run (`error`, read by administrators) and the message, the socket's
+`turn-end` and `error` frames and so the model's next turn say only "an internal error, recorded for the
+administrators" (`publicErrorDetail`). A quota's stop names a shared budget's numbers only to an admin,
+mid-turn as at the gate (`quotaStopText`).
+
 Bounds on a turn, all enforced server-side: `STEP_LIMIT`, the repeated-call guard, a per-run credit
 budget, the account credit cap, the run's wall-clock deadline (`turnTimeoutSeconds`, 300 s, for a chat;
 `taskTimeoutSeconds`, 1800 s, for a planned task's run — see [planned tasks](./planned-tasks.md#the-turn)), and the idle watchdog (`STREAM_IDLE_TIMEOUT_MS`,

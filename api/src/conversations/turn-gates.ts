@@ -14,7 +14,7 @@ import mongo from '#mongo'
 import type { ConversationRun } from '#types'
 import type { UsageIdentity } from '../usage/operations.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
-import { quotaErrorBody } from '../usage/operations.ts'
+import { quotaStopText } from '../usage/operations.ts'
 import {
   extractLastUserMessage,
   buildModerationContext,
@@ -76,12 +76,10 @@ export const checkQuotas = async (
   // REDACTED like main's 429 body (#74), through the same function: the account and the untrusted
   // pool are budgets shared with everyone else, and an external or anonymous caller has no business
   // reading their numbers. The text named them for every caller until this port.
-  const body = quotaErrorBody(violation, identity.role === 'admin')
-  const numbers = body.limit !== undefined ? `, ${body.period} limit ${body.limit}, used ${body.usage}` : `, ${body.period}`
   return refuse(
-    `${lead}: ${body.message} (${body.scope}${numbers}). Resets at ${body.resets_at}.`,
+    `${lead}: ${quotaStopText(violation, identity.role === 'admin')}`,
     'error',
-    { kind: 'quota', scope: body.scope, period: body.period, resetsAt: body.resets_at }
+    { kind: 'quota', scope: violation.scope, period: violation.period, resetsAt: violation.resetsAt }
   )
 }
 

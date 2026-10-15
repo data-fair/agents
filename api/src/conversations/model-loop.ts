@@ -32,7 +32,7 @@ import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/h
 import { enforceQuotas } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement } from './parts-recorder.ts'
-import { tokenCountsOf } from '../usage/operations.ts'
+import { tokenCountsOf, quotaStopText } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { mayBePageTool } from './service-tool-names.ts'
 import { createStepContext } from './step-context.ts'
@@ -132,7 +132,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     const quota = readQuotas ? await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity) : undefined
     if (quota) {
       budgetExceeded = true
-      stopDetail = `${quota.reason} (${quota.scope}, ${quota.period} limit ${quota.limit}, used ${quota.usage}). Resets at ${quota.resetsAt}.`
+      // Through the gate's own formatter: a shared budget's numbers only to an admin.
+      stopDetail = quotaStopText(quota, identity.role === 'admin')
     } else if (credits + (continuation?.credits ?? 0) >= config.turnCredits) {
       budgetExceeded = true
     }
