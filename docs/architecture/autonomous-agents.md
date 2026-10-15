@@ -203,11 +203,13 @@ sites does not move it.
   limit is per process: N replicas run up to 2N at once.
 - **The ceiling is simple-directory's, not ours.** An NHI belongs to exactly one organization, can
   never be an admin nor an impersonation target, so an org admin cannot give an agent reach beyond their
-  organization. The signing key and catalog `apiKey`s come from the environment, and assertions and
+  organization. The catalog `apiKey`s come from the environment, the signing keys are ciphered in mongo, and assertions and
   cookies stay in the transport: no credential enters a prompt, a message or a run.
 - **One signing key covers every agent of the deployment** — a known trade, chosen over a keypair per
-  agent for operational simplicity: whoever holds it can mint an assertion for any subject, so it lives
-  in the secret store, never in Mongo.
+  agent for operational simplicity: whoever holds it can mint an assertion for any subject. It is
+  generated and rotated by the service itself, as simple-directory's own token keys are, and stored
+  ciphered with `CIPHER_PASSWORD`: a mongo dump alone does not give it (see
+  [Configuration](./configuration.md#no-signing-key-to-configure)).
 - `GET .../:agentId/tools` and `.../session` are the diagnostics: they connect as the agent and report
   what it can actually reach. Never a credential in the response.
 

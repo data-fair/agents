@@ -7,6 +7,7 @@
 
 import crypto from 'node:crypto'
 import { forwardedSiteHeaders } from '../sites/operations.ts'
+import type { CipheredContent } from '../cipher/operations.ts'
 
 /** The ES256 private key this deployment signs NHI assertions with. */
 export interface NhiPrivateJwk {
@@ -52,30 +53,49 @@ export function sessionNeedsRenewal (obtainedAt: number, now: number, ttlSeconds
   return now >= obtainedAt + (ttlSeconds - marginSeconds) * 1000
 }
 
+/** A signing key, newest first in the list this service keeps (see service.ts). */
+export interface NhiKey {
+  jwk: NhiPrivateJwk
+  createdAt: Date
+}
+
+/** A key as stored, its private half ciphered. */
+export interface StoredNhiKey { kid: string, jwk: CipheredContent, createdAt: Date }
+export interface NhiKeysDocument { _id: string, keys: StoredNhiKey[] }
+
+/** How long a key signs before the next one replaces it. */
+export const NHI_KEY_ROTATION_DAYS = 30
+
 /**
- * Fail-fast boot validation, mirroring assertGlobalAiConfig/assertGlobalMcpConfig.
- *
- * The whole NHI feature is optional: a deployment with no signing key simply does not
- * serve the issuer routes and refuses to mint assertions. The issuer identifier is no
- * longer config — it is captured per-request from the proxied request that enrols an
- * autonomous agent (reqSiteUrl) — so this only validates the key shape itself.
+ * How long a new key is published before it signs. simple-directory caches our JWKS (jose's
+ * createRemoteJWKSet: 10 minutes, and a refetch on an unknown kid at most every 30s), so a key used the
+ * moment it is created would be refused for a while; an hour ahead it is already known everywhere.
  */
-export function assertNhiConfig (signingKey: unknown): void {
-  if (signingKey === undefined || signingKey === null) return
+export const NHI_KEY_PUBLISH_AHEAD_SECONDS = 60 * 60
 
-  if (typeof signingKey !== 'object' || Array.isArray(signingKey)) {
-    throw new Error('invalid NHI config: NHI_SIGNING_KEY must be a JSON object (an ES256 private JWK)')
-  }
-  const key = signingKey as Partial<NhiPrivateJwk>
+export function generateNhiKey (now: Date): NhiKey {
+  const jwk = crypto.generateKeyPairSync('ec', { namedCurve: 'P-256' }).privateKey.export({ format: 'jwk' })
+  return { jwk: { ...jwk, alg: 'ES256', kid: crypto.randomUUID() } as NhiPrivateJwk, createdAt: now }
+}
 
-  if (key.kty !== 'EC') throw new Error('invalid NHI config: NHI_SIGNING_KEY must be an EC key (kty "EC")')
-  if (key.crv !== 'P-256') throw new Error('invalid NHI config: NHI_SIGNING_KEY must use curve P-256 (ES256)')
-  if (!key.d) throw new Error('invalid NHI config: NHI_SIGNING_KEY must be the private key (missing "d")')
-  if (!key.x || !key.y) throw new Error('invalid NHI config: NHI_SIGNING_KEY is missing its public coordinates')
-  // Rotation works by publishing a new kid alongside the old one and letting
-  // simple-directory's createRemoteJWKSet refetch on an unknown kid. Without a kid
-  // there is nothing for it to key on.
-  if (!key.kid) throw new Error('invalid NHI config: NHI_SIGNING_KEY must carry a "kid"')
+/**
+ * The key that signs at `now`: the newest one published long enough. The only key of a fresh deployment
+ * signs at once — no verifier can hold an older copy of a JWKS that never existed.
+ */
+export function signingNhiKey<K extends { createdAt: Date }> (keys: K[], now: Date): K {
+  return keys.find(key => now.getTime() - key.createdAt.getTime() >= NHI_KEY_PUBLISH_AHEAD_SECONDS * 1000) ?? keys[keys.length - 1]
+}
+
+export function nhiKeysNeedRotation (keys: { createdAt: Date }[], now: Date): boolean {
+  return now.getTime() - keys[0].createdAt.getTime() >= NHI_KEY_ROTATION_DAYS * 24 * 60 * 60 * 1000
+}
+
+/**
+ * The new key first, then the one that signs until it takes over. Older keys are dropped: past the
+ * publication delay nothing signs with them, and an assertion lives minutes (ASSERTION_TTL_SECONDS).
+ */
+export function rotateNhiKeys<K extends { createdAt: Date }> (keys: K[], newKey: K): K[] {
+  return [newKey, keys[0]]
 }
 
 /** The JWKS entry. Never returns the private scalar. */

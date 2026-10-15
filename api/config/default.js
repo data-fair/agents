@@ -33,7 +33,6 @@ export default {
   // feature is off: the issuer routes 404 and no assertion can be minted. The issuer
   // identifier is captured per-request from the proxied request that enrols an
   // autonomous agent (reqSiteUrl) rather than configured here.
-  nhiSigningKey: undefined,
   defaultModels: {},
   // Euros of inference cost per credit. 0.008 EUR lets a credit resell for about a
   // euro cent with an implicit 20% margin. It MUST match the credit cost in

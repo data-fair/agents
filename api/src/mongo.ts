@@ -10,6 +10,7 @@ import type { AgentMemory } from '#types/agent-memory/index.ts'
 import type { AgentMemoryVersion } from '#types/agent-memory-version/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
+import type { NhiKeysDocument } from './nhi/operations.ts'
 import { RETENTION_SECONDS } from './retention.ts'
 
 import mongoLib from '@data-fair/lib-node/mongo.js'
@@ -79,6 +80,11 @@ export class AgentsMongo {
 
   get agentMemoryVersions () {
     return mongoLib.db.collection<AgentMemoryVersion>('agent-memory-versions')
+  }
+
+  /** Keys this service generates for itself, addressed by _id (api/src/nhi/service.ts). */
+  get secrets () {
+    return mongoLib.db.collection<NhiKeysDocument>('secrets')
   }
 
   async connect () {

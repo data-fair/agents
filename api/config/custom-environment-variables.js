@@ -25,7 +25,6 @@ export default {
     pollSeconds: { __name: 'TASKS_POLL_SECONDS', __format: 'json' },
     maxConsecutiveFailures: { __name: 'TASKS_MAX_CONSECUTIVE_FAILURES', __format: 'json' }
   },
-  nhiSigningKey: { __name: 'NHI_SIGNING_KEY', __format: 'json' },
   defaultModels: { __name: 'DEFAULT_MODELS', __format: 'json' },
   eurosPerCredit: 'EUROS_PER_CREDIT',
   defaultLimits: { credits: 'DEFAULT_CREDITS' },

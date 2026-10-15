@@ -11,6 +11,7 @@ import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
 import { recoverOwnerlessRuns } from './conversations/executor.ts'
+import { maintainNhiKeys } from './nhi/service.ts'
 import { recoverOwnerlessTaskRuns } from './tasks/execution.ts'
 import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/service.ts'
 import { startAgentSessions } from './agent-session/service.ts'
@@ -103,6 +104,11 @@ export const start = async () => {
     }
   }
 
+  // The NHI signing keys: created on a fresh deployment before the issuer routes can be asked for them,
+  // then rotated when due (api/src/nhi/service.ts).
+  await maintainNhiKeys()
+  every(10 * 60 * 1000, 'nhi key rotation', () => maintainNhiKeys())
+
   // A restart cannot resume a run (the executor is in-process and non-resumable), so any
   // run still marked running belongs to a dead process. Mark it interrupted so a reader
   // sees an honest terminal state instead of a turn that appears to be thinking forever.
@@ -161,9 +167,6 @@ export const start = async () => {
   }
   if (config.defaultLimits?.credits === 0 && globalAiConfigured && !config.secretKeys?.limits) {
     console.log('[credits] DEFAULT_CREDITS is 0 (accounts start capped) but no SECRET_LIMITS is configured, so the customers service cannot push allowances: every account will be refused until an allowance is set manually via POST /api/v1/limits/:type/:id in admin mode. Set DEFAULT_CREDITS to -1 for an uncapped deployment, or configure SECRET_LIMITS.')
-  }
-  if (!config.nhiSigningKey) {
-    console.log('[nhi] No NHI_SIGNING_KEY configured: the autonomous agent non-human-identity feature is off. The issuer routes return 404 and no autonomous agent can obtain a session or reach an MCP server. Set NHI_SIGNING_KEY (an ES256 private JWK) to enable it.')
   }
 }
 
