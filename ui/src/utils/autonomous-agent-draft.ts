@@ -24,6 +24,7 @@ export function autonomousAgentEditDraft (autonomousAgent: Record<string, any>):
   // them, so a page merely opened reported an unsaved change. A schema walk would also add
   // web.allowedUrls, which vjsf leaves out while web access is off.
   draft.instructors = autonomousAgent.instructors ?? []
+  draft.role = autonomousAgent.role ?? 'user'
   draft.approvalLevel = autonomousAgent.approvalLevel ?? DEFAULT_APPROVAL_LEVEL
   draft.memory = autonomousAgent.memory ?? { enabled: false }
   draft.web = autonomousAgent.web ?? { enabled: false }

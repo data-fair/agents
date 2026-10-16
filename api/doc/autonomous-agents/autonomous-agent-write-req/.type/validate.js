@@ -7,7 +7,7 @@ import ucs2length from "ajv/dist/runtime/ucs2length.js";
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Autonomous agent","x-i18n-title":{"en":"Autonomous agent","fr":"Agent autonome"},"x-exports":["validate","types","vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Name","x-i18n-title":{"en":"Name","fr":"Nom"}},"persona":{"type":"string","layout":"textarea","title":"Persona","x-i18n-title":{"en":"Persona","fr":"Persona"},"description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","x-i18n-description":{"en":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","fr":"Qui est cet agent autonome : son rôle, son ton et son périmètre. Devient le prompt système."}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","x-i18n-title":{"en":"Instructions","fr":"Instructions"},"description":"How it should work: procedures, constraints, what to do when unsure.","x-i18n-description":{"en":"How it should work: procedures, constraints, what to do when unsure.","fr":"Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute."}},"mcpServers":{"type":"array","default":[],"title":"MCP servers","x-i18n-title":{"en":"MCP servers","fr":"Serveurs MCP"},"description":"Picked from the servers configured for this deployment.","x-i18n-description":{"en":"Picked from the servers configured for this deployment.","fr":"Choisis parmi les serveurs configurés pour ce déploiement."},"layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","x-i18n-title":{"en":"Server","fr":"Serveur"},"layout":{"comp":"autocomplete","getItems":{"url":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","itemsResults":"data.results","itemTitle":"item.name","itemKey":"item.id","itemValue":"item.id"}}},"profiles":{"type":"array","title":"Profiles","x-i18n-title":{"en":"Profiles","fr":"Profils"},"description":"What this server lets the agent do, by profile.","x-i18n-description":{"en":"What this server lets the agent do, by profile.","fr":"Ce que ce serveur permet à l'agent, par profil."},"layout":{"if":"context.profiledServers?.includes(parent.data?.serverId)","slots":{"component":{"name":"mcp-profiles"}}},"items":{"type":"string"}},"toolFilter":{"type":"array","layout":{"if":"!context.profiledServers?.includes(parent.data?.serverId)"},"title":"Only these tools","x-i18n-title":{"en":"Only these tools","fr":"Uniquement ces outils"},"description":"Leave empty to expose every tool this server offers.","x-i18n-description":{"en":"Leave empty to expose every tool this server offers.","fr":"Laissez vide pour exposer tous les outils proposés par ce serveur."},"items":{"type":"string"}}}}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Non-human identity","x-i18n-title":{"en":"Non-human identity","fr":"Identité non humaine"},"properties":{"clientId":{"type":"string","minLength":1,"title":"Client id","x-i18n-title":{"en":"Client id","fr":"Identifiant client"}},"siteUrl":{"type":"string","readOnly":true},"issuer":{"type":"string","readOnly":true}}},"instructors":{"type":"array","default":[],"title":"Who may instruct","x-i18n-title":{"en":"Who may instruct","fr":"Qui peut donner des instructions"},"description":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","x-i18n-description":{"en":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","fr":"Les administrateurs de l'organisation propriétaire sont toujours autorisés. Toute personne correspondant à une référence ci-dessous emprunte les permissions de cet agent autonome."},"items":{"$ref":"https://github.com/data-fair/lib/access-ref"}},"approvalLevel":{"type":"string","default":"destructive","layout":"radio","title":"Ask for approval for","x-i18n-title":{"en":"Ask for approval for","fr":"Demander une approbation pour"},"description":"A planned task has nobody to approve: tools that need approval are not offered to it.","x-i18n-description":{"en":"A planned task has nobody to approve: tools that need approval are not offered to it.","fr":"Une tâche planifiée n'a personne pour approuver : les outils soumis à approbation ne lui sont pas proposés."},"oneOf":[{"const":"write","title":"Every operation that makes changes","x-i18n-title":{"en":"Every operation that makes changes","fr":"Toutes les opérations qui effectuent des modifications"}},{"const":"destructive","title":"Only operations marked as particularly destructive","x-i18n-title":{"en":"Only operations marked as particularly destructive","fr":"Uniquement les opérations notées comme particulièrement destructives"}},{"const":"none","title":"None (the agent is fully autonomous in its tool calls)","x-i18n-title":{"en":"None (the agent is fully autonomous in its tool calls)","fr":"Aucune (l'agent est entièrement autonome dans ses appels d'outils)"}}]},"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","x-i18n-title":{"en":"Memory","fr":"Mémoire"},"properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","x-i18n-title":{"en":"Keep a memory across conversations","fr":"Conserver une mémoire entre les conversations"},"description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","x-i18n-description":{"en":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","fr":"L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et les remet en ordre une fois par jour à partir de ce qu'on lui a dit. Les administrateurs peuvent lire, modifier et restaurer cette mémoire. Les écritures en mémoire ne sont pas soumises aux réglages d'approbation : chaque modification est versionnée et peut être restaurée."}}}},"web":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Web access","x-i18n-title":{"en":"Web access","fr":"Accès au web"},"description":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","x-i18n-description":{"en":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","fr":"Les pages sous les URL autorisées sont lues par l'agent comme du texte, et un texte peut contenir des instructions : leurs auteurs peuvent de fait donner des instructions à cet agent, avec son identité et tous ses outils, et lui faire envoyer des informations à l'extérieur. N'activez cet accès que sur des agents aux capacités d'écriture et d'administration très restreintes."},"properties":{"enabled":{"type":"boolean","default":false,"title":"Read web pages","x-i18n-title":{"en":"Read web pages","fr":"Lire des pages web"},"description":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","x-i18n-description":{"en":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","fr":"L'agent peut lire les pages, flux et plans de site sous les URL autorisées, et demander à un administrateur de l'organisation, dans une conversation, d'en autoriser d'autres."}},"allowedUrls":{"type":"array","maxItems":100,"default":[],"title":"Allowed URLs","x-i18n-title":{"en":"Allowed URLs","fr":"URL autorisées"},"description":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","x-i18n-description":{"en":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","fr":"Une adresse peut être lue quand elle commence par l'une de celles-ci : « https://github.com/data-fair » n'autorise que les dépôts de cette organisation, « https://www.data.gouv.fr/ » tout le site. Le robots.txt, les plans de site et la description de recherche d'un site sont lisibles dès que l'une de ses adresses est autorisée."},"layout":{"if":"parent.data?.enabled"},"items":{"type":"string","minLength":1}}}},"externalMcpServers":{"type":"array","maxItems":50,"default":[],"title":"External MCP servers","x-i18n-title":{"en":"External MCP servers","fr":"Serveurs MCP externes"},"description":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","x-i18n-description":{"en":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","fr":"Serveurs MCP publics que l'agent utilise de façon anonyme — un autre portail de données, sur cette plateforme ou ailleurs. Leurs auteurs écrivent les descriptions que l'agent lit, et ce qu'il leur envoie quitte la plateforme : comme l'accès au web, cela leur permet de fait de donner des instructions à l'agent."},"layout":{"itemTitle":"item?.url || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","x-i18n-title":{"en":"URL","fr":"URL"}}}}},"enabled":{"type":"boolean","default":true,"title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"}}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Autonomous agent","x-i18n-title":{"en":"Autonomous agent","fr":"Agent autonome"},"x-exports":["validate","types","vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Name","x-i18n-title":{"en":"Name","fr":"Nom"}},"persona":{"type":"string","layout":"textarea","title":"Persona","x-i18n-title":{"en":"Persona","fr":"Persona"},"description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","x-i18n-description":{"en":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","fr":"Qui est cet agent autonome : son rôle, son ton et son périmètre. Devient le prompt système."}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","x-i18n-title":{"en":"Instructions","fr":"Instructions"},"description":"How it should work: procedures, constraints, what to do when unsure.","x-i18n-description":{"en":"How it should work: procedures, constraints, what to do when unsure.","fr":"Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute."}},"mcpServers":{"type":"array","default":[],"title":"MCP servers","x-i18n-title":{"en":"MCP servers","fr":"Serveurs MCP"},"description":"Picked from the servers configured for this deployment.","x-i18n-description":{"en":"Picked from the servers configured for this deployment.","fr":"Choisis parmi les serveurs configurés pour ce déploiement."},"layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","x-i18n-title":{"en":"Server","fr":"Serveur"},"layout":{"comp":"autocomplete","getItems":{"url":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","itemsResults":"data.results","itemTitle":"item.name","itemKey":"item.id","itemValue":"item.id"}}},"profiles":{"type":"array","title":"Profiles","x-i18n-title":{"en":"Profiles","fr":"Profils"},"description":"What this server lets the agent do, by profile.","x-i18n-description":{"en":"What this server lets the agent do, by profile.","fr":"Ce que ce serveur permet à l'agent, par profil."},"layout":{"if":"context.profiledServers?.includes(parent.data?.serverId)","slots":{"component":{"name":"mcp-profiles"}}},"items":{"type":"string"}},"toolFilter":{"type":"array","layout":{"if":"!context.profiledServers?.includes(parent.data?.serverId)"},"title":"Only these tools","x-i18n-title":{"en":"Only these tools","fr":"Uniquement ces outils"},"description":"Leave empty to expose every tool this server offers.","x-i18n-description":{"en":"Leave empty to expose every tool this server offers.","fr":"Laissez vide pour exposer tous les outils proposés par ce serveur."},"items":{"type":"string"}}}}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Non-human identity","x-i18n-title":{"en":"Non-human identity","fr":"Identité non humaine"},"properties":{"clientId":{"type":"string","minLength":1,"title":"Client id","x-i18n-title":{"en":"Client id","fr":"Identifiant client"}},"siteUrl":{"type":"string","readOnly":true},"issuer":{"type":"string","readOnly":true}}},"instructors":{"type":"array","default":[],"title":"Who may instruct","x-i18n-title":{"en":"Who may instruct","fr":"Qui peut donner des instructions"},"description":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","x-i18n-description":{"en":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","fr":"Les administrateurs de l'organisation propriétaire sont toujours autorisés. Toute personne correspondant à une référence ci-dessous emprunte les permissions de cet agent autonome."},"items":{"$ref":"https://github.com/data-fair/lib/access-ref"}},"role":{"type":"string","default":"user","title":"Role in the organization","x-i18n-title":{"en":"Role in the organization","fr":"Rôle dans l'organisation"},"description":"What the agent can do in the platform's services, like a member with this role.","x-i18n-description":{"en":"What the agent can do in the platform's services, like a member with this role.","fr":"Ce que l'agent peut faire dans les services de la plateforme, comme un membre ayant ce rôle."},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}/roles"}}},"approvalLevel":{"type":"string","default":"destructive","layout":"radio","title":"Ask for approval for","x-i18n-title":{"en":"Ask for approval for","fr":"Demander une approbation pour"},"description":"A planned task has nobody to approve: tools that need approval are not offered to it.","x-i18n-description":{"en":"A planned task has nobody to approve: tools that need approval are not offered to it.","fr":"Une tâche planifiée n'a personne pour approuver : les outils soumis à approbation ne lui sont pas proposés."},"oneOf":[{"const":"write","title":"Every operation that makes changes","x-i18n-title":{"en":"Every operation that makes changes","fr":"Toutes les opérations qui effectuent des modifications"}},{"const":"destructive","title":"Only operations marked as particularly destructive","x-i18n-title":{"en":"Only operations marked as particularly destructive","fr":"Uniquement les opérations notées comme particulièrement destructives"}},{"const":"none","title":"None (the agent is fully autonomous in its tool calls)","x-i18n-title":{"en":"None (the agent is fully autonomous in its tool calls)","fr":"Aucune (l'agent est entièrement autonome dans ses appels d'outils)"}}]},"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","x-i18n-title":{"en":"Memory","fr":"Mémoire"},"properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","x-i18n-title":{"en":"Keep a memory across conversations","fr":"Conserver une mémoire entre les conversations"},"description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","x-i18n-description":{"en":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","fr":"L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et les remet en ordre une fois par jour à partir de ce qu'on lui a dit. Les administrateurs peuvent lire, modifier et restaurer cette mémoire. Les écritures en mémoire ne sont pas soumises aux réglages d'approbation : chaque modification est versionnée et peut être restaurée."}}}},"web":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Web access","x-i18n-title":{"en":"Web access","fr":"Accès au web"},"description":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","x-i18n-description":{"en":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","fr":"Les pages sous les URL autorisées sont lues par l'agent comme du texte, et un texte peut contenir des instructions : leurs auteurs peuvent de fait donner des instructions à cet agent, avec son identité et tous ses outils, et lui faire envoyer des informations à l'extérieur. N'activez cet accès que sur des agents aux capacités d'écriture et d'administration très restreintes."},"properties":{"enabled":{"type":"boolean","default":false,"title":"Read web pages","x-i18n-title":{"en":"Read web pages","fr":"Lire des pages web"},"description":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","x-i18n-description":{"en":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","fr":"L'agent peut lire les pages, flux et plans de site sous les URL autorisées, et demander à un administrateur de l'organisation, dans une conversation, d'en autoriser d'autres."}},"allowedUrls":{"type":"array","maxItems":100,"default":[],"title":"Allowed URLs","x-i18n-title":{"en":"Allowed URLs","fr":"URL autorisées"},"description":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","x-i18n-description":{"en":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","fr":"Une adresse peut être lue quand elle commence par l'une de celles-ci : « https://github.com/data-fair » n'autorise que les dépôts de cette organisation, « https://www.data.gouv.fr/ » tout le site. Le robots.txt, les plans de site et la description de recherche d'un site sont lisibles dès que l'une de ses adresses est autorisée."},"layout":{"if":"parent.data?.enabled"},"items":{"type":"string","minLength":1}}}},"externalMcpServers":{"type":"array","maxItems":50,"default":[],"title":"External MCP servers","x-i18n-title":{"en":"External MCP servers","fr":"Serveurs MCP externes"},"description":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","x-i18n-description":{"en":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","fr":"Serveurs MCP publics que l'agent utilise de façon anonyme — un autre portail de données, sur cette plateforme ou ailleurs. Leurs auteurs écrivent les descriptions que l'agent lit, et ce qu'il leur envoie quitte la plateforme : comme l'accès au web, cela leur permet de fait de donner des instructions à l'agent."},"layout":{"itemTitle":"item?.url || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","x-i18n-title":{"en":"URL","fr":"URL"}}}}},"enabled":{"type":"boolean","default":true,"title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"}}}};
 const schema17 = {"$id":"https://github.com/data-fair/lib/access-ref","x-exports":["types","validate"],"title":"Access Ref","x-i18n-title":{"fr":"Référence d'accès","en":"Access Ref","es":"Referencia de acceso","it":"Riferimento di accesso","pt":"Referência de acesso","de":"Zugriffsreferenz"},"type":"object","discriminator":{"propertyName":"mode"},"oneOfLayout":{"emptyData":true},"oneOf":[{"title":"Un membre de l'organisation","x-i18n-title":{"fr":"Un membre de l'organisation","en":"An organization member","es":"Un miembro de la organización","it":"Un membro dell'organizzazione","pt":"Um membro da organização","de":"Ein Organisationsmitglied"},"layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member"},"type":{"type":"string","const":"user"},"id":{"type":"string","title":"Membre","x-i18n-title":{"fr":"Membre","en":"Member","es":"Miembro","it":"Membro","pt":"Membro","de":"Mitglied"},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}/members","itemsResults":"data.results","itemTitle":"item.name","itemValue":"item.id","itemIcon":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`"}}}}},{"title":"Un email","x-i18n-title":{"fr":"Un email","en":"An email","es":"Un correo electrónico","it":"Un'email","pt":"Um email","de":"Eine E-Mail"},"required":["mode","type","email"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member"},"type":{"type":"string","const":"user"},"email":{"type":"string","format":"email","title":"Adresse mail","x-i18n-title":{"fr":"Adresse mail","en":"Email address","es":"Dirección de correo","it":"Indirizzo email","pt":"Endereço de email","de":"E-Mail-Adresse"}}}},{"title":"Une organisation partenaire","x-i18n-title":{"fr":"Une organisation partenaire","en":"A partner organization","es":"Una organización asociada","it":"Un'organizzazione partner","pt":"Uma organização parceira","de":"Eine Partnerorganisation"},"layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member"},"type":{"type":"string","const":"organization"},"department":{"type":"string","const":"*"},"roles":{"type":"array","const":[],"items":{"type":"string"}},"id":{"type":"string","title":"Partenaire","x-i18n-title":{"fr":"Partenaire","en":"Partner","es":"Socio","it":"Partner","pt":"Parceiro","de":"Partner"},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}","itemsResults":"data.partners","itemTitle":"item.name","itemValue":"item.id","itemIcon":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`"}}}}},{"title":"Un role ou département de mon organisation","x-i18n-title":{"fr":"Un rôle ou département de mon organisation","en":"A role or department of my organization","es":"Un rol o departamento de mi organización","it":"Un ruolo o dipartimento della mia organizzazione","pt":"Um papel ou departamento da minha organização","de":"Eine Rolle oder Abteilung meiner Organisation"},"layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal"},"type":{"type":"string","const":"organization"},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"}},"department":{"type":"string","title":"Département","x-i18n-title":{"fr":"Département","en":"Department","es":"Departamento","it":"Dipartimento","pt":"Departamento","de":"Abteilung"},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}","itemsResults":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","itemTitle":"item.name","itemValue":"item.id"}}},"roles":{"type":"array","title":"Rôles","x-i18n-title":{"fr":"Rôles","en":"Roles","es":"Roles","it":"Ruoli","pt":"Funções","de":"Rollen"},"items":{"type":"string"},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}","itemsResults":"data.roles"}}}}}]};
 const func2 = Object.prototype.hasOwnProperty;
 const func3 = ucs2length.default;
@@ -931,10 +931,9 @@ vErrors.push(err71);
 errors++;
 }
 }
-if(data.approvalLevel !== undefined){
-let data34 = data.approvalLevel;
-if(typeof data34 !== "string"){
-const err72 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data.role !== undefined){
+if(typeof data.role !== "string"){
+const err72 = {instancePath:instancePath+"/role",schemaPath:"#/properties/role/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err72];
 }
@@ -943,12 +942,11 @@ vErrors.push(err72);
 }
 errors++;
 }
-const _errs84 = errors;
-let valid21 = false;
-let passing1 = null;
-const _errs85 = errors;
-if("write" !== data34){
-const err73 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/0/const",keyword:"const",params:{allowedValue: "write"},message:"must be equal to constant"};
+}
+if(data.approvalLevel !== undefined){
+let data35 = data.approvalLevel;
+if(typeof data35 !== "string"){
+const err73 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err73];
 }
@@ -957,14 +955,12 @@ vErrors.push(err73);
 }
 errors++;
 }
-var _valid1 = _errs85 === errors;
-if(_valid1){
-valid21 = true;
-passing1 = 0;
-}
 const _errs86 = errors;
-if("destructive" !== data34){
-const err74 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/1/const",keyword:"const",params:{allowedValue: "destructive"},message:"must be equal to constant"};
+let valid21 = false;
+let passing1 = null;
+const _errs87 = errors;
+if("write" !== data35){
+const err74 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/0/const",keyword:"const",params:{allowedValue: "write"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err74];
 }
@@ -973,7 +969,23 @@ vErrors.push(err74);
 }
 errors++;
 }
-var _valid1 = _errs86 === errors;
+var _valid1 = _errs87 === errors;
+if(_valid1){
+valid21 = true;
+passing1 = 0;
+}
+const _errs88 = errors;
+if("destructive" !== data35){
+const err75 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/1/const",keyword:"const",params:{allowedValue: "destructive"},message:"must be equal to constant"};
+if(vErrors === null){
+vErrors = [err75];
+}
+else {
+vErrors.push(err75);
+}
+errors++;
+}
+var _valid1 = _errs88 === errors;
 if(_valid1 && valid21){
 valid21 = false;
 passing1 = [passing1, 1];
@@ -983,18 +995,18 @@ if(_valid1){
 valid21 = true;
 passing1 = 1;
 }
-const _errs87 = errors;
-if("none" !== data34){
-const err75 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/2/const",keyword:"const",params:{allowedValue: "none"},message:"must be equal to constant"};
+const _errs89 = errors;
+if("none" !== data35){
+const err76 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/2/const",keyword:"const",params:{allowedValue: "none"},message:"must be equal to constant"};
 if(vErrors === null){
-vErrors = [err75];
+vErrors = [err76];
 }
 else {
-vErrors.push(err75);
+vErrors.push(err76);
 }
 errors++;
 }
-var _valid1 = _errs87 === errors;
+var _valid1 = _errs89 === errors;
 if(_valid1 && valid21){
 valid21 = false;
 passing1 = [passing1, 2];
@@ -1007,32 +1019,7 @@ passing1 = 2;
 }
 }
 if(!valid21){
-const err76 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf"};
-if(vErrors === null){
-vErrors = [err76];
-}
-else {
-vErrors.push(err76);
-}
-errors++;
-}
-else {
-errors = _errs84;
-if(vErrors !== null){
-if(_errs84){
-vErrors.length = _errs84;
-}
-else {
-vErrors = null;
-}
-}
-}
-}
-if(data.memory !== undefined){
-let data35 = data.memory;
-if(data35 && typeof data35 == "object" && !Array.isArray(data35)){
-if(data35.enabled === undefined){
-const err77 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
+const err77 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf"};
 if(vErrors === null){
 vErrors = [err77];
 }
@@ -1041,9 +1028,23 @@ vErrors.push(err77);
 }
 errors++;
 }
-for(const key7 in data35){
-if(!(key7 === "enabled")){
-const err78 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties"};
+else {
+errors = _errs86;
+if(vErrors !== null){
+if(_errs86){
+vErrors.length = _errs86;
+}
+else {
+vErrors = null;
+}
+}
+}
+}
+if(data.memory !== undefined){
+let data36 = data.memory;
+if(data36 && typeof data36 == "object" && !Array.isArray(data36)){
+if(data36.enabled === undefined){
+const err78 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
 if(vErrors === null){
 vErrors = [err78];
 }
@@ -1052,10 +1053,9 @@ vErrors.push(err78);
 }
 errors++;
 }
-}
-if(data35.enabled !== undefined){
-if(typeof data35.enabled !== "boolean"){
-const err79 = {instancePath:instancePath+"/memory/enabled",schemaPath:"#/properties/memory/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+for(const key7 in data36){
+if(!(key7 === "enabled")){
+const err79 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err79];
 }
@@ -1065,9 +1065,9 @@ vErrors.push(err79);
 errors++;
 }
 }
-}
-else {
-const err80 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data36.enabled !== undefined){
+if(typeof data36.enabled !== "boolean"){
+const err80 = {instancePath:instancePath+"/memory/enabled",schemaPath:"#/properties/memory/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err80];
 }
@@ -1077,11 +1077,9 @@ vErrors.push(err80);
 errors++;
 }
 }
-if(data.web !== undefined){
-let data37 = data.web;
-if(data37 && typeof data37 == "object" && !Array.isArray(data37)){
-if(data37.enabled === undefined){
-const err81 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
+}
+else {
+const err81 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err81];
 }
@@ -1090,9 +1088,12 @@ vErrors.push(err81);
 }
 errors++;
 }
-for(const key8 in data37){
-if(!((key8 === "enabled") || (key8 === "allowedUrls"))){
-const err82 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key8},message:"must NOT have additional properties"};
+}
+if(data.web !== undefined){
+let data38 = data.web;
+if(data38 && typeof data38 == "object" && !Array.isArray(data38)){
+if(data38.enabled === undefined){
+const err82 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
 if(vErrors === null){
 vErrors = [err82];
 }
@@ -1101,10 +1102,9 @@ vErrors.push(err82);
 }
 errors++;
 }
-}
-if(data37.enabled !== undefined){
-if(typeof data37.enabled !== "boolean"){
-const err83 = {instancePath:instancePath+"/web/enabled",schemaPath:"#/properties/web/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+for(const key8 in data38){
+if(!((key8 === "enabled") || (key8 === "allowedUrls"))){
+const err83 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key8},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err83];
 }
@@ -1114,11 +1114,9 @@ vErrors.push(err83);
 errors++;
 }
 }
-if(data37.allowedUrls !== undefined){
-let data39 = data37.allowedUrls;
-if(Array.isArray(data39)){
-if(data39.length > 100){
-const err84 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items"};
+if(data38.enabled !== undefined){
+if(typeof data38.enabled !== "boolean"){
+const err84 = {instancePath:instancePath+"/web/enabled",schemaPath:"#/properties/web/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err84];
 }
@@ -1127,12 +1125,12 @@ vErrors.push(err84);
 }
 errors++;
 }
-const len6 = data39.length;
-for(let i6=0; i6<len6; i6++){
-let data40 = data39[i6];
-if(typeof data40 === "string"){
-if(func3(data40) < 1){
-const err85 = {instancePath:instancePath+"/web/allowedUrls/" + i6,schemaPath:"#/properties/web/properties/allowedUrls/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
+}
+if(data38.allowedUrls !== undefined){
+let data40 = data38.allowedUrls;
+if(Array.isArray(data40)){
+if(data40.length > 100){
+const err85 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items"};
 if(vErrors === null){
 vErrors = [err85];
 }
@@ -1141,9 +1139,12 @@ vErrors.push(err85);
 }
 errors++;
 }
-}
-else {
-const err86 = {instancePath:instancePath+"/web/allowedUrls/" + i6,schemaPath:"#/properties/web/properties/allowedUrls/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const len6 = data40.length;
+for(let i6=0; i6<len6; i6++){
+let data41 = data40[i6];
+if(typeof data41 === "string"){
+if(func3(data41) < 1){
+const err86 = {instancePath:instancePath+"/web/allowedUrls/" + i6,schemaPath:"#/properties/web/properties/allowedUrls/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err86];
 }
@@ -1153,9 +1154,8 @@ vErrors.push(err86);
 errors++;
 }
 }
-}
 else {
-const err87 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err87 = {instancePath:instancePath+"/web/allowedUrls/" + i6,schemaPath:"#/properties/web/properties/allowedUrls/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err87];
 }
@@ -1167,7 +1167,7 @@ errors++;
 }
 }
 else {
-const err88 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err88 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err88];
 }
@@ -1177,11 +1177,9 @@ vErrors.push(err88);
 errors++;
 }
 }
-if(data.externalMcpServers !== undefined){
-let data41 = data.externalMcpServers;
-if(Array.isArray(data41)){
-if(data41.length > 50){
-const err89 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/maxItems",keyword:"maxItems",params:{limit: 50},message:"must NOT have more than 50 items"};
+}
+else {
+const err89 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err89];
 }
@@ -1190,12 +1188,12 @@ vErrors.push(err89);
 }
 errors++;
 }
-const len7 = data41.length;
-for(let i7=0; i7<len7; i7++){
-let data42 = data41[i7];
-if(data42 && typeof data42 == "object" && !Array.isArray(data42)){
-if(data42.url === undefined){
-const err90 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'"};
+}
+if(data.externalMcpServers !== undefined){
+let data42 = data.externalMcpServers;
+if(Array.isArray(data42)){
+if(data42.length > 50){
+const err90 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/maxItems",keyword:"maxItems",params:{limit: 50},message:"must NOT have more than 50 items"};
 if(vErrors === null){
 vErrors = [err90];
 }
@@ -1204,9 +1202,12 @@ vErrors.push(err90);
 }
 errors++;
 }
-for(const key9 in data42){
-if(!(key9 === "url")){
-const err91 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties"};
+const len7 = data42.length;
+for(let i7=0; i7<len7; i7++){
+let data43 = data42[i7];
+if(data43 && typeof data43 == "object" && !Array.isArray(data43)){
+if(data43.url === undefined){
+const err91 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'"};
 if(vErrors === null){
 vErrors = [err91];
 }
@@ -1215,12 +1216,9 @@ vErrors.push(err91);
 }
 errors++;
 }
-}
-if(data42.url !== undefined){
-let data43 = data42.url;
-if(typeof data43 === "string"){
-if(func3(data43) < 1){
-const err92 = {instancePath:instancePath+"/externalMcpServers/" + i7+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
+for(const key9 in data43){
+if(!(key9 === "url")){
+const err92 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err92];
 }
@@ -1230,8 +1228,11 @@ vErrors.push(err92);
 errors++;
 }
 }
-else {
-const err93 = {instancePath:instancePath+"/externalMcpServers/" + i7+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data43.url !== undefined){
+let data44 = data43.url;
+if(typeof data44 === "string"){
+if(func3(data44) < 1){
+const err93 = {instancePath:instancePath+"/externalMcpServers/" + i7+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err93];
 }
@@ -1241,9 +1242,8 @@ vErrors.push(err93);
 errors++;
 }
 }
-}
 else {
-const err94 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err94 = {instancePath:instancePath+"/externalMcpServers/" + i7+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err94];
 }
@@ -1255,7 +1255,7 @@ errors++;
 }
 }
 else {
-const err95 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err95 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err95];
 }
@@ -1265,9 +1265,9 @@ vErrors.push(err95);
 errors++;
 }
 }
-if(data.enabled !== undefined){
-if(typeof data.enabled !== "boolean"){
-const err96 = {instancePath:instancePath+"/enabled",schemaPath:"#/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+}
+else {
+const err96 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err96];
 }
@@ -1277,14 +1277,26 @@ vErrors.push(err96);
 errors++;
 }
 }
-}
-else {
-const err97 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data.enabled !== undefined){
+if(typeof data.enabled !== "boolean"){
+const err97 = {instancePath:instancePath+"/enabled",schemaPath:"#/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err97];
 }
 else {
 vErrors.push(err97);
+}
+errors++;
+}
+}
+}
+else {
+const err98 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err98];
+}
+else {
+vErrors.push(err98);
 }
 errors++;
 }

@@ -148,6 +148,23 @@ export default {
       // who may instruct is expressed the same way as every other permission list in the stack.
       items: { $ref: 'https://github.com/data-fair/lib/access-ref' }
     },
+    role: {
+      type: 'string',
+      default: 'user',
+      title: 'Role in the organization',
+      'x-i18n-title': { en: 'Role in the organization', fr: "Rôle dans l'organisation" },
+      description: "What the agent can do in the platform's services, like a member with this role.",
+      'x-i18n-description': {
+        en: "What the agent can do in the platform's services, like a member with this role.",
+        fr: "Ce que l'agent peut faire dans les services de la plateforme, comme un membre ayant ce rôle."
+      },
+      layout: {
+        getItems: {
+          // eslint-disable-next-line no-template-curly-in-string
+          url: '/simple-directory/api/organizations/${context.owner.id}/roles'
+        }
+      }
+    },
     approvalLevel: {
       type: 'string',
       default: 'destructive',

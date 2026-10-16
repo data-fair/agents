@@ -61,17 +61,6 @@
           data-testid="autonomous-agent-enrol-error"
           :text="enrolError"
         />
-        <v-select
-          v-model="reuseClientId"
-          :items="reusableNhis"
-          item-title="label"
-          item-value="id"
-          clearable
-          :label="t('reuseExisting')"
-          :hint="t('reuseHint')"
-          persistent-hint
-          data-testid="autonomous-agent-enrol-reuse"
-        />
       </v-card-text>
       <v-card-actions>
         <v-spacer />
@@ -85,7 +74,7 @@
           variant="flat"
           :loading="enrolling"
           data-testid="autonomous-agent-enrol-confirm"
-          :text="reuseClientId ? t('attach') : t('createIdentity')"
+          :text="t('createIdentity')"
           @click="confirmEnrol()"
         />
       </v-card-actions>
@@ -109,11 +98,8 @@ en:
   enrol: Enrol an identity
   saveFirst: Save or cancel your changes before enrolling an identity.
   enrolTitle: Enrol a non-human identity
-  enrolExplain: An autonomous agent acts under its own identity, registered in the directory. Creating one here binds it to this agent; you can also reuse an identity that already exists.
-  reuseExisting: Reuse an existing identity
-  reuseHint: Leave empty to create a new one for this autonomous agent.
+  enrolExplain: An autonomous agent acts under its own identity, registered in the directory. Creating one here binds it to this agent.
   createIdentity: Create and enrol
-  attach: Attach
 fr:
   saved: Les modifications ont été enregistrées
   memory: Mémoire
@@ -121,11 +107,8 @@ fr:
   enrol: Enregistrer une identité
   saveFirst: Enregistrez ou annulez vos modifications avant d'enregistrer une identité.
   enrolTitle: Enregistrer une identité non humaine
-  enrolExplain: Un agent autonome agit sous sa propre identité, enregistrée dans l'annuaire. En créer une ici la lie à cet agent ; vous pouvez aussi réutiliser une identité existante.
-  reuseExisting: Réutiliser une identité existante
-  reuseHint: Laissez vide pour en créer une nouvelle pour cet agent autonome.
+  enrolExplain: Un agent autonome agit sous sa propre identité, enregistrée dans l'annuaire. En créer une ici la lie à cet agent.
   createIdentity: Créer et enregistrer
-  attach: Rattacher
 </i18n>
 
 <script lang="ts" setup>
@@ -179,28 +162,17 @@ const save = useAsyncAction(async () => {
 const memoryDialog = ref(false)
 
 // ---- enrolment (federated with simple-directory, client-side) ----
-const { enrolling, error: enrolError, listNhis, enrol, attach } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
+const { enrolling, error: enrolError, enrol } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
 const enrolDialog = ref(false)
-const reuseClientId = ref<string | null>(null)
-const reusableNhis = ref<{ id: string, label: string }[]>([])
 
-const startEnrol = async () => {
-  reuseClientId.value = null
-  reusableNhis.value = []
+const startEnrol = () => {
   enrolError.value = null
   enrolDialog.value = true
-  try {
-    // Offered, not required: listing is mongo-only in simple-directory, so on a file-storage
-    // deployment this comes back empty and the admin simply creates a new identity.
-    const existing = await listNhis()
-    reusableNhis.value = existing.map(nhi => ({ id: nhi.id, label: `${nhi.name ?? nhi.id} — ${nhi.nhi?.subject ?? ''}` }))
-  } catch { /* leave the list empty; creating a new identity still works */ }
 }
 
 const confirmEnrol = async () => {
   try {
-    if (reuseClientId.value) await attach(props.agent, reuseClientId.value)
-    else await enrol(props.agent)
+    await enrol(props.agent)
     enrolDialog.value = false
     emit('changed')
   } catch {

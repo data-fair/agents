@@ -12,6 +12,26 @@ export function autonomousAgentSubject (agentId: string): string {
   return `autonomous-agent:${agentId}`
 }
 
+/** Readable in simple-directory's own identity list; the subject carries the agent id. */
+export function autonomousAgentNhiName (title: string): string {
+  return `${title} (autonomous agent)`
+}
+
+/**
+ * What to PATCH on the identity in simple-directory after the autonomous agent was saved: the changed
+ * fields only, or null when its name and role are as they were. An undefined role is the default, `user`.
+ */
+export function identityPatch (
+  saved: { title?: string, role?: string },
+  next: { title?: string, role?: string }
+): { name?: string, role?: string } | null {
+  const patch: { name?: string, role?: string } = {}
+  if (saved.title !== next.title && next.title !== undefined) patch.name = autonomousAgentNhiName(next.title)
+  const nextRole = next.role ?? 'user'
+  if ((saved.role ?? 'user') !== nextRole) patch.role = nextRole
+  return Object.keys(patch).length ? patch : null
+}
+
 /**
  * The NHI to register in simple-directory for one autonomous agent.
  *
@@ -27,8 +47,7 @@ export function autonomousAgentNhiBody (opts: {
   role?: string
 }) {
   return {
-    // Readable in simple-directory's own identity list; the subject below carries the agent id.
-    name: `${opts.title} (autonomous agent)`,
+    name: autonomousAgentNhiName(opts.title),
     // simple-directory validates this against the organization's roles, and an org with no custom
     // roles has only config.roles.defaults = ['admin', 'user'] — so 'contrib' would be rejected.
     // 'user' is also the least privilege an agent can hold.

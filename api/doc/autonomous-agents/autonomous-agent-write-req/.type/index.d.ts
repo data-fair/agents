@@ -45,6 +45,10 @@ export type Roles = string[];
  */
 export type WhoMayInstruct = AccessRef[];
 /**
+ * What the agent can do in the platform's services, like a member with this role.
+ */
+export type RoleInTheOrganization = string;
+/**
  * A planned task has nobody to approve: tools that need approval are not offered to it.
  */
 export type AskForApprovalFor = (
@@ -88,6 +92,7 @@ export type AutonomousAgent = {
   mcpServers: MCPServers;
   nhi?: NonHumanIdentity;
   instructors?: WhoMayInstruct;
+  role?: RoleInTheOrganization;
   approvalLevel?: AskForApprovalFor;
   memory?: Memory;
   web?: WebAccess;

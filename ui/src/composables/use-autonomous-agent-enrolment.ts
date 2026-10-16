@@ -29,12 +29,6 @@ import { enrolmentErrorMessage } from '~/utils/autonomous-agent-enrolment-error'
  */
 const $crossServiceFetch = ofetch.create({})
 
-export interface OrgNhi {
-  id: string
-  name?: string
-  nhi?: { subject?: string, provider?: { issuer?: string } }
-}
-
 export function useAutonomousAgentEnrolment (accountType: string, accountId: string) {
   const enrolling = ref(false)
   const error = ref<string | null>(null)
@@ -50,12 +44,6 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
     return discovery.issuer
   }
 
-  /** Identities already registered for this organization, so an admin can reuse one. */
-  const listNhis = async (): Promise<OrgNhi[]> => {
-    const res = await $crossServiceFetch<OrgNhi[] | { results?: OrgNhi[] }>(nhisUrl, { credentials: 'include' })
-    return Array.isArray(res) ? res : (res.results ?? [])
-  }
-
   /**
    * Register a new identity for this agent and attach it.
    *
@@ -63,14 +51,14 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
    * identity can be created. That is why this is an action on a saved agent rather than a field in
    * the creation form.
    */
-  const enrol = async (autonomousAgent: { id: string, title: string }, role?: string): Promise<void> => {
+  const enrol = async (autonomousAgent: { id: string, title: string, role?: string }): Promise<void> => {
     enrolling.value = true
     error.value = null
     try {
       const issuer = await readIssuer()
       const created = await $crossServiceFetch<{ id: string }>(nhisUrl, {
         method: 'POST',
-        body: autonomousAgentNhiBody({ agentId: autonomousAgent.id, title: autonomousAgent.title, issuer, role }),
+        body: autonomousAgentNhiBody({ agentId: autonomousAgent.id, title: autonomousAgent.title, issuer, role: autonomousAgent.role }),
         credentials: 'include'
       })
       await attach(autonomousAgent, created.id)
@@ -106,5 +94,15 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
     })
   }
 
-  return { enrolling, error, listNhis, enrol, attach, readIssuer }
+  /** Keep the identity in step with the autonomous agent: simple-directory accepts a name and a role. Throws; the caller formats the error. */
+  const syncIdentity = async (clientId: string, patch: { name?: string, role?: string }): Promise<void> => {
+    await $crossServiceFetch(`${nhisUrl}/${clientId}`, { method: 'PATCH', body: patch, credentials: 'include' })
+  }
+
+  /** Delete the identity from the directory. Throws; the caller formats the error. */
+  const removeIdentity = async (clientId: string): Promise<void> => {
+    await $crossServiceFetch(`${nhisUrl}/${clientId}`, { method: 'DELETE', credentials: 'include' })
+  }
+
+  return { enrolling, error, enrol, readIssuer, syncIdentity, removeIdentity }
 }

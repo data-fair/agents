@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { autonomousAgentNhiBody, autonomousAgentSubject } from '@agents/shared/autonomous-agent-identity'
+import { autonomousAgentNhiBody, autonomousAgentNhiName, autonomousAgentSubject, identityPatch } from '@agents/shared/autonomous-agent-identity'
 import { enrolmentErrorMessage } from '../../../ui/src/utils/autonomous-agent-enrolment-error.ts'
 import { buildNhi } from '../../../api/src/autonomous-agents/operations.ts'
 
@@ -118,5 +118,28 @@ test.describe('buildNhi', () => {
   })
   test('an existing identity missing its capture is captured now', () => {
     assert.deepEqual(buildNhi('nhi-1', { clientId: 'nhi-1' }, capture), { clientId: 'nhi-1', ...capture() })
+  })
+})
+
+test.describe('identityPatch', () => {
+  test('is null when neither the title nor the role changed', () => {
+    assert.equal(identityPatch({ title: 'A', role: 'user' }, { title: 'A', role: 'user' }), null)
+  })
+
+  test('a title change renames the identity', () => {
+    assert.deepEqual(identityPatch({ title: 'A', role: 'user' }, { title: 'B', role: 'user' }), { name: 'B (autonomous agent)' })
+  })
+
+  test('a role change carries the role only', () => {
+    assert.deepEqual(identityPatch({ title: 'A', role: 'user' }, { title: 'A', role: 'admin' }), { role: 'admin' })
+  })
+
+  test('an undefined role counts as user', () => {
+    assert.equal(identityPatch({ title: 'A' }, { title: 'A', role: 'user' }), null)
+  })
+
+  test('the registration body and the rename use the same name', () => {
+    const body = autonomousAgentNhiBody({ agentId: 'a', title: 'Support', issuer, role: undefined })
+    assert.equal(body.name, autonomousAgentNhiName('Support'))
   })
 })
