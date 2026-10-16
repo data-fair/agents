@@ -325,9 +325,17 @@ const reset = () => {
   draft.value = autonomousAgentEditDraft(props.agent)
   saved.value = autonomousAgentEditDraft(props.agent)
 }
-watch(() => props.agent, reset, { immediate: true })
 
 const hasDiff = computed(() => JSON.stringify(canonical(draft.value)) !== JSON.stringify(canonical(saved.value)))
+
+// The agent is re-read after a change made outside this form — the header's enabled switch saves on its
+// own. Unsaved edits survive it: the stored agent becomes the new baseline, and only `enabled` (on no tab)
+// is taken into the draft, so a later Save does not revert the switch.
+watch(() => props.agent, (agent) => {
+  if (!hasDiff.value) return reset()
+  saved.value = autonomousAgentEditDraft(agent)
+  draft.value = { ...draft.value, enabled: saved.value.enabled }
+}, { immediate: true })
 useLeaveGuard(hasDiff, { locale })
 defineExpose({ hasDiff })
 
@@ -492,6 +500,8 @@ const save = useAsyncAction(async () => {
       syncError.value = t('syncFailed', { field: t(`fields.${field}`), message: enrolmentErrorMessage(err) })
     }
   }
+  // Saved: the agent re-read next is a fresh start, not a change to keep unsaved edits over.
+  saved.value = body
   emit('changed')
 }, { success: t('saved') })
 </script>

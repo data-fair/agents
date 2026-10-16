@@ -22,6 +22,24 @@ const pageUrl = (agentId: string, query = '') => `/agents/organization/test1/age
 const getAgent = async (agentId: string) => (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).data
 // The Save of the configuration block, in its top bar rather than below the form.
 const saveButton = (page: Page) => page.locator('#autonomous-agent-configuration .v-card').getByRole('button', { name: 'Save' })
+const deleteFromHeader = async (page: Page) => {
+  await page.getByTestId('autonomous-agent-actions').click({ timeout: 20000 })
+  await page.getByTestId('autonomous-agent-delete').click()
+  await expect(page.getByRole('dialog')).toContainText('Delete the autonomous agent, its conversations, its tasks and its identity?')
+  await page.getByTestId('autonomous-agent-delete-confirm').click()
+}
+const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
+/** A task run, seeded and waited to its end as history.e2e.spec.ts does it. */
+const seedRun = async (agentId: string) => {
+  const base = `/api/autonomous-agents/organization/test1/${agentId}`
+  const task = (await admin.post(`${base}/tasks`, { title: 'Greeting', prompt: 'hello', scheduling: [daily] })).data
+  const runId = (await admin.post(`${base}/tasks/${task.id}/run`)).data.runId as string
+  for (let i = 0; i < 150; i++) {
+    if ((await admin.get(`${base}/runs/${runId}`)).data.status !== 'running') return runId
+    await new Promise(resolve => setTimeout(resolve, 100))
+  }
+  throw new Error('run never ended')
+}
 
 test.describe('Autonomous agent page', () => {
   test.beforeEach(async () => {
@@ -77,17 +95,73 @@ test.describe('Autonomous agent page', () => {
     await expect(page.getByRole('button', { name: 'Save' })).toBeHidden()
   })
 
-  test('?tab=tasks opens the Tasks tab', async ({ page, goToWithAuth }) => {
-    // What a notification url relies on.
+  test('activity deep links', async ({ page, goToWithAuth }) => {
+    // What a notification url relies on (api/src/tasks/operations.ts): `?tab=history&run=…` and `?tab=tasks`
+    // now select a tab of the Activity block, below the configuration.
     const agentId = await createAgent()
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+    const runId = await seedRun(agentId)
+
+    await goToWithAuth(pageUrl(agentId, `?tab=history&run=${runId}`), 'superadmin', asSuperAdmin)
+    const activity = page.locator('#autonomous-agent-activity')
+    await expect(activity.getByRole('tab', { name: 'History' })).toHaveAttribute('aria-selected', 'true', { timeout: 20000 })
+    await expect(page.getByTestId('task-run-view')).toContainText('Greeting', { timeout: 20000 })
+    // the configuration is still there, above
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
+
     await goToWithAuth(pageUrl(agentId, '?tab=tasks'), 'superadmin', asSuperAdmin)
-    await expect(page.getByRole('tab', { name: 'Tasks' })).toHaveAttribute('aria-selected', 'true', { timeout: 20000 })
-    await expect(page.getByRole('textbox', { name: 'Name' })).toBeHidden()
+    await expect(activity.getByRole('tab', { name: 'Scheduled tasks' })).toHaveAttribute('aria-selected', 'true', { timeout: 20000 })
 
     // and the query follows a tab change, so a reload or a shared link keeps it
-    await page.getByRole('tab', { name: 'Configuration' }).click()
-    await expect(page).toHaveURL(/tab=configuration/)
-    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
+    await activity.getByRole('tab', { name: 'History' }).click()
+    await expect(page).toHaveURL(/tab=history/)
+  })
+
+  test('header toggle keeps unsaved edits', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    const persona = page.getByRole('textbox', { name: 'Persona' })
+    await persona.fill('You answer at length.', { timeout: 20000 })
+
+    // The switch saves on its own, from the stored agent: the persona edit is not saved with it.
+    const enabled = page.getByTestId('autonomous-agent-enabled').getByRole('checkbox')
+    await expect(enabled).toBeChecked()
+    await enabled.click()
+    await expect.poll(async () => (await getAgent(agentId)).enabled, { timeout: 10000 }).toBe(false)
+    expect((await getAgent(agentId)).persona).toBe('You answer briefly.')
+    await expect(enabled).not.toBeChecked()
+
+    // ...and the re-read agent does not drop the unsaved edit.
+    await expect(persona).toHaveValue('You answer at length.')
+    await saveButton(page).click()
+    await expect(saveButton(page)).toBeHidden({ timeout: 10000 })
+    const saved = await getAgent(agentId)
+    expect(saved.persona).toBe('You answer at length.')
+    // the configuration's save does not revert the header's toggle
+    expect(saved.enabled).toBe(false)
+  })
+
+  test('deleting an autonomous agent', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await deleteFromHeader(page)
+    await expect(page).toHaveURL(/\/agents\/organization\/test1$/, { timeout: 20000 })
+    await expect(admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).rejects.toMatchObject({ status: 404 })
+  })
+
+  test('deleting an autonomous agent whose identity the directory refuses to delete', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    // The DELETE must actually reach the directory, which (file storage in dev) refuses it.
+    const removal = page.waitForRequest(req => req.method() === 'DELETE' &&
+      new URL(req.url()).pathname === '/simple-directory/api/organizations/test1/nhis/dev-fixture-nhi')
+    await deleteFromHeader(page)
+    await removal
+    await expect(page.locator('.v-snackbar').filter({ hasText: 'identity' })).toBeVisible({ timeout: 10000 })
+    // the agent itself is deleted all the same
+    await expect(page).toHaveURL(/\/agents\/organization\/test1$/, { timeout: 20000 })
+    await expect(admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).rejects.toMatchObject({ status: 404 })
   })
 
   test('a non-admin instructor is sent to the agent\'s chat, as the org page sends them, and can post', async ({ page, goToWithAuth }) => {
@@ -131,8 +205,8 @@ test.describe('Autonomous agent page', () => {
     expect(saved.approvalLevel).toBe('write')
     expect(saved.persona).toBe('You answer at length.')
 
-    // The kill switch is not part of the form, in any tab (the hidden ones included).
-    await expect(page.getByRole('checkbox', { name: 'Enabled', exact: true, includeHidden: true })).toHaveCount(0)
+    // The kill switch is not part of the form, in any tab (the hidden ones included): it is in the header.
+    await expect(page.locator('#autonomous-agent-configuration').getByRole('checkbox', { name: 'Enabled', exact: true, includeHidden: true })).toHaveCount(0)
     // The organization's own roles are offered (read from simple-directory), the default selected.
     const role = page.getByRole('combobox', { name: 'Role in the organization' })
     await expect(role).toHaveValue('user')
