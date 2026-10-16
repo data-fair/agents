@@ -48,9 +48,6 @@ export interface UseSessionChatOptions {
   agentId?: string
   /** Shown before anything has been said. Never sent anywhere. */
   initialMessages?: ChatMessage[]
-  /** Start in a new conversation rather than resuming the agent's latest one: the chat was opened to
-   * talk to that agent afresh (a page's request, see AgentChat.vue). */
-  startNew?: boolean
   /** The title a new conversation is stored with. Falls back to the date, which is what the history
    * list shows, so two threads of the same agent are distinguishable. */
   title?: string
@@ -423,7 +420,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     // A visitor's thread is created only for a browser that proves itself with an action token.
     if (options.anonymous) await refreshAnonymousToken()
     // Opening the chat of an agent resumes the thread this person was in the middle of, if any.
-    const latest = options.startNew ? undefined : await findLatestConversation(activeAgentId.value)
+    const latest = await findLatestConversation(activeAgentId.value)
     if (latest) {
       conversationId.value = latest.id
       agent.connect({ conversationId: latest.id })
@@ -499,8 +496,6 @@ export function useSessionChat (options: UseSessionChatOptions) {
     openConversation,
     /** Change agent: a new conversation with it (see switchAgent). */
     switchAgent,
-    /** A new conversation with an agent, even the current one: what a page opening the chat on an agent asks. */
-    newConversation,
     setActiveAgent,
 
     /** Report what is true on the page, for the model's context. */

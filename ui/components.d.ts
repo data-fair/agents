@@ -40,7 +40,6 @@ declare module 'vue' {
     MonitoringIndividualSection: typeof import('./src/components/MonitoringIndividualSection.vue')['default']
     MonitoringPlatformSection: typeof import('./src/components/MonitoringPlatformSection.vue')['default']
     MonitoringUserHistogram: typeof import('./src/components/MonitoringUserHistogram.vue')['default']
-    OpenChatButton: typeof import('./src/components/OpenChatButton.vue')['default']
     OrgConfigSection: typeof import('./src/components/OrgConfigSection.vue')['default']
     QuotasTable: typeof import('./src/components/QuotasTable.vue')['default']
     ReviewConsentSheet: typeof import('./src/components/agent-chat/ReviewConsentSheet.vue')['default']

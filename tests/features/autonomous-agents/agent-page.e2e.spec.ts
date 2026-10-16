@@ -281,6 +281,24 @@ test.describe('Autonomous agent page', () => {
     expect((await getAgent(agentId)).persona).toBe('You answer at length.')
   })
 
-  // Someone who is not an admin, and the page's Open chat: chat-drawer/open-on-agent.e2e.spec.ts.
+  test('a non-admin instructor is told to use the chat panel, and can post to the agent from the chat', async ({ page, goToWithAuth }) => {
+    // The capability the cross-account instructor grant exists for, on the same chat every other
+    // person uses (the server side: runtime.api.spec.ts).
+    const agentId = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    // An unenrolled agent refuses every turn; dev cannot complete a real enrolment.
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+    await goToWithAuth(pageUrl(agentId), 'test1-user1', { org: 'test1' })
+    await expect(page.getByTestId('chat-panel-notice')).toContainText('open the chat panel', { timeout: 20000 })
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveCount(0)
+
+    // The chat the panel loads, with this agent picked.
+    await page.goto(`/agents/organization/test1/chat?agentId=${agentId}&agents=1`)
+    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
+    await expect(page.getByTestId('agent-chat-error')).toBeHidden()
+    await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill('hello')
+    await page.getByTestId('agent-chat-send').click()
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+  })
+
   // Enrolling waits for unsaved edits: autonomous-agents.e2e.spec.ts, on its unenrolled-agent test.
 })

@@ -169,8 +169,7 @@ import { useSessionChat } from '~/composables/use-session-chat'
 import type { ChatMessage } from '~/utils/chat-message'
 import { formatMermaidFix, shouldAutoFixMermaid, MERMAID_AUTO_FIX_BUDGET } from '~/utils/mermaid-fix'
 import type { MermaidFailure } from '~/utils/mermaid'
-import { getTabChannelId, getAgentInitConfig, PENDING_ACTION_KEY } from '@data-fair/lib-vue-agents'
-import type { AgentActionStartSession } from '@data-fair/lib-vue-agents'
+import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
 import type { AgentChatMessage } from '@data-fair/lib-vuetify-agents/types.js'
 import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
@@ -210,22 +209,6 @@ const props = defineProps<{
 // several chats in one tab don't clobber each other. Takes precedence over props.
 const initConfigKey = new URLSearchParams(window.location.search).get('initConfig')
 const initConfig = initConfigKey ? getAgentInitConfig(initConfigKey) : undefined
-
-/**
- * A page's request to open this chat (useAgentChatLauncher, DfAgentChatAction), sent before this iframe
- * loaded — typically the very request that opened the panel. Read before the chat starts: an agent it
- * names is the one the chat starts on, in a new conversation, rather than one switched to after
- * resuming another's.
- */
-const pendingRequest = ((): Omit<AgentActionStartSession, 'channel' | 'type'> | undefined => {
-  const stored = sessionStorage.getItem(PENDING_ACTION_KEY)
-  if (!stored) return undefined
-  sessionStorage.removeItem(PENDING_ACTION_KEY)
-  try {
-    const data = JSON.parse(stored)
-    return data?.type === 'agent-start-session' ? data : undefined
-  } catch { return undefined /* malformed: ignored */ }
-})()
 
 const { t, locale } = useI18n()
 const session = useSession()
@@ -314,8 +297,7 @@ const chat = useSessionChat({
   // talked to the personal assistant whatever agent its host had named.
   // Unnamed (the page passes `''` without `?agentId=`), the office decides which personal assistant: the
   // host cannot, as the back office is a path on the main portal's domain.
-  agentId: pendingRequest?.agentId || props.agentId || initConfig?.agentId || (props.multiAgent ? BACK_OFFICE_ASSISTANT_ID : PORTAL_ASSISTANT_ID),
-  ...(pendingRequest?.agentId ? { startNew: true } : {}),
+  agentId: props.agentId || initConfig?.agentId || (props.multiAgent ? BACK_OFFICE_ASSISTANT_ID : PORTAL_ASSISTANT_ID),
   initialMessages: props.initialMessages,
   // The picker's own conversations are titled by the date; a host chat title would name every
   // thread of an agent identically, which is exactly what a history list cannot afford.
@@ -492,32 +474,32 @@ actionChannel.onmessage = (event: MessageEvent) => {
   if (!data || data.channel !== actionChannelId) return
 
   if (data.type === 'agent-start-session') {
-    sessionStorage.removeItem(PENDING_ACTION_KEY)
-    handleOpenRequest(data)
+    sessionStarted.value = true
+    if (welcomeTimeout) {
+      clearTimeout(welcomeTimeout)
+      welcomeTimeout = null
+    }
+    startActionSession(data.visiblePrompt, data.hiddenContext)
   } else if (data.type === 'agent-session-cleared') {
     handleSessionCleared()
   }
 }
 
-// The request that was waiting for this iframe: its agent is already the chat's (pendingRequest above).
-if (pendingRequest?.visiblePrompt) handleOpenRequest({ visiblePrompt: pendingRequest.visiblePrompt, hiddenContext: pendingRequest.hiddenContext })
-
-/**
- * A page asked for this chat: on an agent, in a new conversation; with a prompt, sent as the person's
- * first message. A request with neither only opens the panel, which the host did already.
- */
-async function handleOpenRequest (request: Omit<AgentActionStartSession, 'channel' | 'type'>) {
-  if (request.agentId) {
-    await chat.newConversation(request.agentId)
-    loadConversations()
-  }
-  if (!request.visiblePrompt) return
-  sessionStarted.value = true
-  if (welcomeTimeout) {
-    clearTimeout(welcomeTimeout)
-    welcomeTimeout = null
-  }
-  startActionSession(request.visiblePrompt, request.hiddenContext ?? '')
+// On mount, check for a pending action stored in sessionStorage
+// (handles case where the BroadcastChannel message was sent before this iframe loaded)
+const pendingAction = sessionStorage.getItem('df-agent-pending-action')
+if (pendingAction) {
+  try {
+    const data = JSON.parse(pendingAction)
+    if (data.type === 'agent-start-session' && data.visiblePrompt) {
+      sessionStarted.value = true
+      if (welcomeTimeout) {
+        clearTimeout(welcomeTimeout)
+        welcomeTimeout = null
+      }
+      startActionSession(data.visiblePrompt, data.hiddenContext)
+    }
+  } catch { /* ignore malformed data */ }
 }
 
 onUnmounted(() => {
@@ -525,6 +507,8 @@ onUnmounted(() => {
 })
 
 function startActionSession (visiblePrompt: string, hiddenContext: string) {
+  sessionStorage.removeItem('df-agent-pending-action')
+
   // Abort any in-flight response so sendMessage won't be silently dropped
   chat.abort()
 

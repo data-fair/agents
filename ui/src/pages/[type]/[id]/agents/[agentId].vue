@@ -33,9 +33,6 @@
           data-testid="autonomous-agent-enabled"
           @update:model-value="(value: boolean | null) => toggleEnabled(!!value)"
         />
-        <!-- In the back office's chat panel, on this agent in a new conversation. A disabled agent is still
-             openable — the turn refusal is the message an admin checking the kill switch needs to see. -->
-        <open-chat-button :agent-id="agentId" />
         <v-menu v-if="canConfigure">
           <template #activator="{ props: activatorProps }">
             <v-btn
@@ -130,7 +127,7 @@
   </v-container>
   <chat-panel-notice
     v-else
-    :agent-id="agentId"
+    agent
   />
 </template>
 
@@ -184,7 +181,6 @@ import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import AgentConfiguration from '~/components/agent-page/AgentConfiguration.vue'
 import ChatPanelNotice from '~/components/ChatPanelNotice.vue'
-import OpenChatButton from '~/components/OpenChatButton.vue'
 import AgentTasksTab from '~/components/agent-page/AgentTasksTab.vue'
 import AgentHistoryTab from '~/components/agent-page/AgentHistoryTab.vue'
 import AutonomousAgentStateChips from '~/components/AutonomousAgentStateChips.vue'
@@ -204,8 +200,8 @@ const accountType = route.params.type as string
 const accountId = route.params.id as string
 const agentId = route.params.agentId as string
 
-// An admin page, as the org page is: anyone else — an instructor among them — is pointed to the chat
-// panel, where they talk to the agent.
+// An admin page, as the org page is: anyone else — an instructor among them — is told to talk to the
+// agent from the chat panel.
 const isAdmin = computed(() =>
   !!session.state.user?.isAdmin ||
   getAccountRole(session.state, { type: accountType as 'user' | 'organization', id: accountId }) === 'admin'

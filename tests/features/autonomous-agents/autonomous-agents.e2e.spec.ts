@@ -210,8 +210,7 @@ test.describe('Autonomous agents configuration', () => {
     await page.goBack()
     await page.getByTestId('autonomous-agent-list').getByRole('link', { name: /Journey agent/ }).click({ timeout: 20000 })
 
-    // The chat on that agent, as a panel loads it (opening the panel from the page:
-    // chat-drawer/open-on-agent.e2e.spec.ts).
+    // The chat on that agent, as the panel loads it once the agent is picked.
     await page.goto(`/agents/organization/test1/chat?agentId=${journeyAgent.id}`)
 
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
@@ -308,8 +307,7 @@ test.describe('Autonomous agent chat', () => {
       .toContainText('not allowed to instruct this autonomous agent', { timeout: 15000 })
   })
 
-  // A listed instructor who is NOT an admin posting in this chat: chat-drawer/open-on-agent.e2e.spec.ts,
-  // from the notice the agent's page shows them.
+  // A listed instructor who is NOT an admin posting in this chat: agent-page.e2e.spec.ts.
 })
 
 test.describe('Agent switcher and conversation history', () => {
