@@ -23,6 +23,9 @@ export function autonomousAgentEditDraft (autonomousAgent: Record<string, any>):
   // page diffs the form against this draft, and an agent created through the API is stored without
   // them, so a page merely opened reported an unsaved change. A schema walk would also add
   // web.allowedUrls, which vjsf leaves out while web access is off.
+  // vjsf drops an empty string from its model, so a stored '' would read as a permanent unsaved change,
+  // and the leave guard then held every navigation away from the page.
+  if (draft.instructions === '') delete draft.instructions
   draft.instructors = autonomousAgent.instructors ?? []
   draft.role = autonomousAgent.role ?? 'user'
   draft.approvalLevel = autonomousAgent.approvalLevel ?? DEFAULT_APPROVAL_LEVEL

@@ -60,9 +60,9 @@ test.describe('Autonomous agents configuration', () => {
     expect(agent.persona).toBe(exampleFields('quality', 'en', 'Quality agent').persona)
     expect(agent.nhi?.clientId).toBeFalsy()
 
-    // delivered by the agent page rework
-    test.fixme(true, 'the enrol retry button arrives with the agent page rework')
-    await expect(page.getByTestId('autonomous-agent-enrol')).toBeVisible()
+    // the page offers to retry, in the configuration's bar
+    await expect(page.getByTestId('autonomous-agent-enrol')).toBeVisible({ timeout: 20000 })
+    await expect(page.getByTestId('autonomous-agent-enrol')).toHaveText('Create the identity')
   })
 
   test('creation enrols the identity when the directory accepts it', async ({ page, goToWithAuth }) => {
@@ -101,7 +101,7 @@ test.describe('Autonomous agents configuration', () => {
     expect(created.data.nhi?.clientId).toBeFalsy()
 
     await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
-    const enrol = page.getByRole('button', { name: 'Enrol an identity' })
+    const enrol = page.getByTestId('autonomous-agent-enrol')
 
     // Enrolling waits for unsaved edits to be saved or cancelled: it re-reads the agent, which would
     // silently drop them.
@@ -111,11 +111,6 @@ test.describe('Autonomous agents configuration', () => {
     await page.getByRole('textbox', { name: 'Persona' }).fill('x')
     await expect(enrol).toBeEnabled()
 
-    await enrol.click()
-
-    const dialog = page.locator('.v-overlay--active')
-    await expect(dialog.getByTestId('autonomous-agent-enrol-confirm')).toBeVisible()
-
     // The federation is the thing under test, so pin the request ACTUALLY reaching simple-directory.
     // Asserting only that some error is displayed passed while the call was being rewritten to
     // /agents/api/simple-directory/... by $fetch's baseURL and answered by our own /api 404 — the
@@ -123,12 +118,13 @@ test.describe('Autonomous agents configuration', () => {
     const nhiRequest = page.waitForRequest(req =>
       req.url().includes('/simple-directory/api/organizations/test1/nhis') && req.method() === 'POST',
     { timeout: 20000 })
-    await dialog.getByTestId('autonomous-agent-enrol-confirm').click()
+    // Direct: one click creates the identity, no dialog in between.
+    await enrol.click()
     const sent = await nhiRequest
     expect(new URL(sent.url()).pathname).toBe('/simple-directory/api/organizations/test1/nhis')
 
     // Whatever simple-directory answers, the admin is told — not left with a spinner that stops and
-    // a dialog that does nothing.
+    // a button that does nothing.
     await expect(page.getByTestId('autonomous-agent-enrol-error')).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-enrol-error')).not.toBeEmpty()
     // and specifically not our own catch-all, which is what the rewritten URL used to return
@@ -151,7 +147,7 @@ test.describe('Autonomous agents configuration', () => {
 
     await goToWithAuth('/agents/organization/test1/agents/test-fixture', 'superadmin', asSuperAdmin)
     await expect(page.getByText('Identity enrolled')).toBeVisible({ timeout: 20000 })
-    await expect(page.getByRole('button', { name: 'Enrol an identity' })).toHaveCount(0)
+    await expect(page.getByTestId('autonomous-agent-enrol')).toHaveCount(0)
   })
 
   test('the whole journey: create, open its thread, instruct it, see the answer', async ({ page, goToWithAuth }) => {

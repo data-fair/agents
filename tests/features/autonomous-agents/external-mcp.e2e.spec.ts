@@ -17,6 +17,7 @@ test.describe('External MCP servers in the agent form', () => {
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Interop', persona: 'x', mcpServers: [], enabled: true })).data
     await goToWithAuth(`/agents/organization/test1/agents/${agent.id}`, 'superadmin', { adminMode: true })
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Interop', { timeout: 20000 })
+    await page.getByTestId('autonomous-agent-config-tab-tools').click()
     await expect(page.getByText('External MCP servers')).toBeVisible()
     // vjsf array: its "Add item" next to the section, then the URL field
     await page.getByText('External MCP servers').locator('xpath=ancestor::*[.//button][1]').getByRole('button', { name: 'Add item' }).click()

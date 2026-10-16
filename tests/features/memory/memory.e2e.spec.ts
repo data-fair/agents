@@ -18,7 +18,7 @@ test.describe('Agent memory dialog', () => {
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
     await admin.put(`/api/memory/organization/test1/${agent.id}/document`, { description: 'Core facts', content: '- first fact' }, { params: { path: 'MEMORY.md' } })
 
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-memory').click({ timeout: 20000 })
     await page.getByTestId('memory-document-MEMORY.md').click()
     const editor = page.getByTestId('memory-content').locator('textarea:not([aria-hidden="true"])')
@@ -43,7 +43,7 @@ test.describe('Agent memory dialog', () => {
     const url = `/api/memory/organization/test1/${agent.id}/document`
     const created = (await admin.put(url, { description: 'Core facts', content: '- first fact' }, { params: { path: 'MEMORY.md' } })).data
 
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-memory').click({ timeout: 20000 })
     await page.getByTestId('memory-document-MEMORY.md').click()
     const editor = page.getByTestId('memory-content').locator('textarea:not([aria-hidden="true"])')
@@ -60,7 +60,7 @@ test.describe('Agent memory dialog', () => {
 
   test('the Memory button stays for an agent with memory off, and the dialog says so', async ({ page, goToWithAuth }) => {
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true })).data
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-memory').click({ timeout: 20000 })
     await expect(page.getByText('Memory is turned off for this agent')).toBeVisible()
   })

@@ -58,6 +58,7 @@ test.describe('autonomousAgentEditDraft', () => {
     const draft = autonomousAgentEditDraft(thin)
     assert.deepEqual(draft.instructors, [])
     assert.equal(draft.approvalLevel, 'destructive')
+    assert.equal(draft.role, 'user')
     assert.deepEqual(draft.memory, { enabled: false })
     // not allowedUrls: it is hidden while web access is off, and vjsf leaves it out
     assert.deepEqual(draft.web, { enabled: false })
@@ -74,6 +75,16 @@ test.describe('autonomousAgentEditDraft', () => {
     assert.equal(draft.approvalLevel, 'write')
     assert.deepEqual(draft.memory, { enabled: true })
     assert.deepEqual(draft.web, { enabled: true, allowedUrls: ['https://github.com/data-fair'] })
+  })
+
+  test('keeps a stored role over the default', () => {
+    assert.equal(autonomousAgentEditDraft({ ...stored, role: 'contrib' }).role, 'contrib')
+  })
+
+  test('treats empty instructions as absent, as the form does', () => {
+    // vjsf drops an empty string from its model: a draft keeping '' read as a permanent unsaved change, and
+    // the leave guard then swallowed every navigation away from the page.
+    assert.equal('instructions' in autonomousAgentEditDraft({ ...stored, instructions: '' }), false)
   })
 
   test('gives vjsf an array to add to when the agent has no MCP server', () => {

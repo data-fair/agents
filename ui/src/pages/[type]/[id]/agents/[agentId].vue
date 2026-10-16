@@ -44,7 +44,7 @@
       >
         <template #windows>
           <v-tabs-window-item value="configuration">
-            <agent-configuration-tab
+            <agent-configuration
               :agent="agent"
               :account-type="accountType"
               :account-id="accountId"
@@ -102,7 +102,7 @@ import { mdiChatOutline, mdiCogOutline, mdiHistory, mdiCalendarClock } from '@md
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
-import AgentConfigurationTab from '~/components/agent-page/AgentConfigurationTab.vue'
+import AgentConfiguration from '~/components/agent-page/AgentConfiguration.vue'
 import AgentTasksTab from '~/components/agent-page/AgentTasksTab.vue'
 import AgentHistoryTab from '~/components/agent-page/AgentHistoryTab.vue'
 import AutonomousAgentStateChips from '~/components/AutonomousAgentStateChips.vue'

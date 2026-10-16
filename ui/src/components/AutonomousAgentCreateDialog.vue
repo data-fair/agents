@@ -155,8 +155,8 @@ const create = async () => {
   let created: { id: string, title: string, role?: string }
   try {
     const name = title.value.trim()
-    // An empty instructions string is left out rather than stored: the agent page (still on the old form
-    // until its rework) stalls on a saved '' where it copes with an absent field.
+    // An empty instructions string is left out rather than stored, as the configuration form holds an
+    // empty field.
     const { instructions, ...fields } = exampleFields(example.value, locale.value === 'fr' ? 'fr' : 'en', name)
     created = await $fetch(`${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}`, {
       method: 'POST',

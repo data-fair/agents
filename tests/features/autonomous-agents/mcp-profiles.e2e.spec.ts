@@ -21,7 +21,7 @@ test.describe('profile tree', () => {
 
   test('checking write_roads shows read_roads as included, and saves only what was checked', async ({ page, goToWithAuth }) => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', { title: 'Tree', persona: 'x', mcpServers: [{ serverId: 'dev-profiled-mcp', profiles: ['catalog'] }], enabled: true })
-    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
+    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}?config=tools`, 'superadmin', asSuperAdmin)
     const tree = page.getByTestId('mcp-profiles-tree')
     await expect(tree).toBeVisible({ timeout: 20000 })
     await expect(page.getByRole('checkbox', { name: 'Catalog' })).toBeChecked()
@@ -36,7 +36,7 @@ test.describe('profile tree', () => {
 
   test('switching a reference to a profiled server drops its hidden tool filter, so the save goes through', async ({ page, goToWithAuth }) => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', { title: 'Switch', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp', toolFilter: ['echo'] }], enabled: true })
-    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
+    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}?config=tools`, 'superadmin', asSuperAdmin)
     const item = page.getByRole('listitem').filter({ hasText: 'dev-public-mcp' })
     await expect(item).toBeVisible({ timeout: 20000 })
     // vjsf's list: hovering an item shows its actions menu, whose Edit entry makes the item editable

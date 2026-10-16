@@ -7,9 +7,9 @@ export default {
   $id: 'https://github.com/data-fair/agents/autonomous-agent/write-req',
   title: 'Autonomous agent',
   'x-i18n-title': { en: 'Autonomous agent', fr: 'Agent autonome' },
-  'x-exports': ['validate', 'types', 'vjsf'],
-  'x-vjsf': { xI18n: true, pluginsImports: ['@koumoul/vjsf-markdown'] },
-  'x-vjsf-locales': ['en', 'fr'],
+  // the form is rendered per tab from slices of the agent schema (see ../autonomous-agent-form-part.js),
+  // this one validates the whole body
+  'x-exports': ['validate', 'types'],
   type: 'object',
   additionalProperties: false,
   required: ['title', 'persona', 'mcpServers', 'enabled'],

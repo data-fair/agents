@@ -168,7 +168,7 @@ export default {
     approvalLevel: {
       type: 'string',
       default: 'destructive',
-      layout: 'radio',
+      layout: 'radio-group',
       title: 'Ask for approval for',
       'x-i18n-title': { en: 'Ask for approval for', fr: 'Demander une approbation pour' },
       description: 'A planned task has nobody to approve: tools that need approval are not offered to it.',

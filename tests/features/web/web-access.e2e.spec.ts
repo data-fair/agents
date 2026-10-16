@@ -22,6 +22,8 @@ const createAgent = async (title: string, over: any = {}) => {
 const openPage = async (page: Page, goToWithAuth: any, agentId: string, title: string) => {
   await goToWithAuth(`/agents/organization/test1/agents/${agentId}`, 'superadmin', { adminMode: true })
   await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue(title, { timeout: 20000 })
+  // web access is in the Tools tab, beside the risk warning
+  await page.getByTestId('autonomous-agent-config-tab-tools').click()
 }
 
 test.describe('Web access configuration', () => {
@@ -44,6 +46,7 @@ test.describe('Web access configuration', () => {
     await expect(page.getByTestId('autonomous-agent-web-risk')).toBeVisible()
     // a warning, never a block: an edit can still be saved (checked last, so no navigation away follows
     // an unsaved change and meets the leave guard)
+    await page.getByTestId('autonomous-agent-config-tab-role').click()
     await page.getByRole('textbox', { name: 'Persona' }).fill('You answer at length.')
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })

@@ -2,10 +2,11 @@
  * stateful E2E tests of an autonomous agent's admin page: the one place an agent is edited.
  */
 
-import { expect } from '@playwright/test'
+import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { exampleFields } from '../../../ui/src/utils/autonomous-agent-examples.ts'
 
 const admin = await superAdmin
 const asSuperAdmin = { adminMode: true } as const
@@ -18,6 +19,9 @@ const createAgent = async (over: any = {}) => {
 }
 
 const pageUrl = (agentId: string, query = '') => `/agents/organization/test1/agents/${agentId}${query}`
+const getAgent = async (agentId: string) => (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).data
+// The Save of the configuration block, in its top bar rather than below the form.
+const saveButton = (page: Page) => page.locator('#autonomous-agent-configuration .v-card').getByRole('button', { name: 'Save' })
 
 test.describe('Autonomous agent page', () => {
   test.beforeEach(async () => {
@@ -46,10 +50,12 @@ test.describe('Autonomous agent page', () => {
     const persona = page.getByRole('textbox', { name: 'Persona' })
     await expect(persona).toHaveValue('You answer briefly.', { timeout: 20000 })
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
-    // The enrolment is loaded into the form, which is what stops a save from dropping it.
-    await expect(page.getByRole('textbox', { name: 'Client id' })).toHaveValue('dev-fixture-nhi')
+    // The client id is never shown: the enrolment travels in the draft, and the save below keeps it.
+    await expect(page.getByRole('textbox', { name: 'Client id' })).toHaveCount(0)
     // The stored approval level, not just the fields: a form that dropped them would reset them on save.
-    await expect(page.getByRole('combobox', { name: 'Ask for approval for' })).toHaveValue('Every operation that makes changes')
+    await page.getByTestId('autonomous-agent-config-tab-security').click()
+    await expect(page.getByRole('radio', { name: 'Every operation that makes changes' })).toBeChecked()
+    await page.getByTestId('autonomous-agent-config-tab-role').click()
     // A loaded agent is clean: the Save below is caused by the edit, not by a spurious diff.
     await expect(page.getByRole('button', { name: 'Save' })).toBeHidden()
 
@@ -104,6 +110,102 @@ test.describe('Autonomous agent page', () => {
   test('an unknown agent says so instead of leaving the page blank', async ({ page, goToWithAuth }) => {
     await goToWithAuth(pageUrl('no-such-agent'), 'superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-unavailable')).toContainText('does not exist', { timeout: 20000 })
+  })
+
+  test('configuration is split in tabs with save in the bar', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    for (const key of ['role', 'tools', 'security', 'memory']) {
+      await expect(page.getByTestId(`autonomous-agent-config-tab-${key}`)).toBeVisible({ timeout: 20000 })
+    }
+    await page.getByRole('textbox', { name: 'Persona' }).fill('You answer at length.')
+    await expect(saveButton(page)).toBeEnabled()
+
+    // One draft across the tabs: the persona edited in Role is saved with the level picked in Security.
+    await page.getByTestId('autonomous-agent-config-tab-security').click()
+    await expect(page).toHaveURL(/config=security/)
+    await page.getByRole('radio', { name: 'Every operation that makes changes' }).check()
+    await saveButton(page).click()
+    await expect(saveButton(page)).toBeHidden({ timeout: 10000 })
+    const saved = await getAgent(agentId)
+    expect(saved.approvalLevel).toBe('write')
+    expect(saved.persona).toBe('You answer at length.')
+
+    // The kill switch is not part of the form, in any tab (the hidden ones included).
+    await expect(page.getByRole('checkbox', { name: 'Enabled', exact: true, includeHidden: true })).toHaveCount(0)
+    // The organization's own roles are offered (read from simple-directory), the default selected.
+    const role = page.getByRole('combobox', { name: 'Role in the organization' })
+    await expect(role).toHaveValue('user')
+    await role.click({ force: true })
+    await expect(page.getByRole('option', { name: 'admin' })).toBeVisible()
+    await expect(page.getByRole('option', { name: 'user' })).toBeVisible()
+  })
+
+  test('example picker confirms over edits', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent({ approvalLevel: 'none' })
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    const persona = page.getByRole('textbox', { name: 'Persona' })
+    await persona.fill('My very own persona.', { timeout: 20000 })
+
+    await page.getByTestId('autonomous-agent-example').click()
+    await page.getByRole('option', { name: 'Data publication' }).click()
+    await page.getByTestId('autonomous-agent-example-confirm').click()
+    const example = exampleFields('publication', 'en', 'Page agent')
+    await expect(persona).toHaveValue(example.persona)
+    await expect(page.getByRole('textbox', { name: 'Instructions' })).toHaveValue(example.instructions)
+
+    await saveButton(page).click()
+    await expect(saveButton(page)).toBeHidden({ timeout: 10000 })
+    const saved = await getAgent(agentId)
+    expect(saved.persona).toBe(example.persona)
+    // the example replaces the text only: another tab is never loosened (or tightened) behind the admin's back
+    expect(saved.approvalLevel).toBe('none')
+
+    // Text that is exactly an example's is replaced without asking.
+    await page.getByTestId('autonomous-agent-example').click()
+    await page.getByRole('option', { name: 'Quality monitoring' }).click()
+    await expect(persona).toHaveValue(exampleFields('quality', 'en', 'Page agent').persona)
+    await expect(page.getByTestId('autonomous-agent-example-confirm')).toHaveCount(0)
+  })
+
+  test('identity sync failure is reported', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await page.getByRole('textbox', { name: 'Name' }).fill('Renamed agent', { timeout: 20000 })
+    // The PATCH must actually reach the directory, which (file storage in dev) refuses it.
+    const patch = page.waitForRequest(req => req.method() === 'PATCH' &&
+      new URL(req.url()).pathname === '/simple-directory/api/organizations/test1/nhis/dev-fixture-nhi')
+    await saveButton(page).click()
+    expect((await patch).postDataJSON()).toEqual({ name: 'Renamed agent (autonomous agent)' })
+
+    const alert = page.getByTestId('autonomous-agent-identity-sync-error')
+    await expect(alert).toBeVisible({ timeout: 10000 })
+    await expect(alert).toContainText('the new name')
+    // the agent itself is saved: the divergence is accepted, and said
+    const saved = await getAgent(agentId)
+    expect(saved.title).toBe('Renamed agent')
+    expect(saved.nhi?.clientId).toBe('dev-fixture-nhi')
+  })
+
+  test('an agent stored with empty instructions has a working page', async ({ page, goToWithAuth }) => {
+    // The blank example has no instructions: a stored '' once read as a permanent unsaved change, and the
+    // leave guard then made every link on the page inert.
+    const agentId = await createAgent({ instructions: '' })
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent', { timeout: 20000 })
+    await expect(saveButton(page)).toBeHidden()
+
+    await page.getByTestId('autonomous-agent-config-tab-tools').click()
+    await expect(page.getByText('External MCP servers')).toBeVisible()
+    await page.getByTestId('autonomous-agent-config-tab-role').click()
+    await page.getByRole('textbox', { name: 'Persona' }).fill('You answer at length.')
+    await saveButton(page).click()
+    await expect(saveButton(page)).toBeHidden({ timeout: 10000 })
+    expect((await getAgent(agentId)).persona).toBe('You answer at length.')
+
+    await page.getByRole('link', { name: 'Open chat' }).click()
+    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/chat\\?agentId=${agentId}`), { timeout: 20000 })
   })
 
   // Enrolling waits for unsaved edits: autonomous-agents.e2e.spec.ts, on its unenrolled-agent test.

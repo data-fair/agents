@@ -6,8 +6,7 @@ import { assertValid as assertValidGeneric } from '@data-fair/lib-validation'
 
 export const schemaExports = [
   "validate",
-  "types",
-  "vjsf"
+  "types"
 ]
 
 export { validate } from './validate.js'
