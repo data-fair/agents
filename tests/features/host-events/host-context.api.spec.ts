@@ -42,10 +42,10 @@ test.describe('Host context reaching the model', () => {
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
   /** A socket ready to start a fresh conversation, which its first prompt creates. */
-  const openSession = async () => {
+  const openSession = async (hello: Record<string, unknown> = {}) => {
     const socket = await openAgentSession(await cookieOf(user))
     sockets.push(socket)
-    socket.send(newThreadHello(OWNER))
+    socket.send(newThreadHello(OWNER, hello))
     await socket.next()
     // Per conversation: seqs restart at 1 for a fresh thread, so a tracker carried across tests
     // would reject every frame of the next one.
@@ -151,7 +151,7 @@ test.describe('Host context reaching the model', () => {
     // Neither is in the conversation: host blocks are folded in at call time and not stored, and the
     // stored turn records the calls made, never the tools offered. So the run's telemetry is the only
     // place a reader — the export, a simulation judge — can learn either.
-    const { socket } = await openSession()
+    const { socket } = await openSession({ tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }] })
     socket.send({ type: 'host-state', state: { page: 'the datasets list' } })
     await ask(socket, 'hello')
     const conversationId = socket.conversationId()
@@ -164,6 +164,10 @@ test.describe('Host context reaching the model', () => {
     assert.ok(call.hostBlockChars > 'the datasets list'.length, `host blocks measured, got ${call.hostBlockChars}`)
     assert.ok(call.toolNames.includes('wait_for_user_action'), `the offered tools, got ${JSON.stringify(call.toolNames)}`)
     assert.deepEqual(call.toolNames, [...call.toolNames].sort())
+    // And where each came from, which the names alone cannot say (shared/tool-source.ts).
+    assert.deepEqual(call.toolSources.select_row, { kind: 'page' })
+    assert.equal(call.toolSources.wait_for_user_action.kind, 'service')
+    assert.deepEqual(Object.keys(call.toolSources).sort(), call.toolNames)
   })
 
   test('nothing reported means nothing added to the turn', async () => {

@@ -110,6 +110,7 @@
       :host-context="hostContext"
       :page-tools="chat.tools.value"
       :conversation-id="chat.conversationId.value"
+      :agent-id="chat.activeAgentId.value"
       :is-admin="isAdmin"
       :audited="audited"
       :account-type="accountType"

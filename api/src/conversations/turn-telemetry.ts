@@ -9,6 +9,7 @@
 import type { ConversationRun } from '#types'
 import { appendRunCall } from './service.ts'
 import type { resolveRoleModel } from '../models/service.ts'
+import type { ToolSource } from '@agents/shared/tool-source'
 
 /**
  * Record one model call's telemetry on the run.
@@ -40,6 +41,7 @@ export const recordCall = (
     messageCount?: number
     historyUpToSeq?: number
     toolNames?: string[]
+    toolSources?: Record<string, ToolSource>
     hostBlockChars?: number
   }
 ) => {
@@ -66,6 +68,7 @@ export const recordCall = (
     ...(call.messageCount !== undefined ? { messageCount: call.messageCount } : {}),
     ...(call.historyUpToSeq !== undefined ? { historyUpToSeq: call.historyUpToSeq } : {}),
     ...(call.toolNames ? { toolNames: call.toolNames } : {}),
+    ...(call.toolSources ? { toolSources: call.toolSources } : {}),
     ...(call.hostBlockChars !== undefined ? { hostBlockChars: call.hostBlockChars } : {})
   }).catch(err => console.error('could not record run telemetry', err))
 }

@@ -45,6 +45,8 @@ test.describe('Chat Sub-Agent UI', () => {
         const offered = page.getByTestId('offered-tools')
         await expect(offered).toContainText('set_display', { timeout: 1500 })
         await expect(offered).toContainText('subagent_data_analyst', { timeout: 1500 })
+        // grouped by source: the page's own tool under the page's label
+        await expect(offered.getByTestId('tool-group').filter({ hasText: 'This page (WebMCP)' })).toContainText('set_display', { timeout: 1500 })
       } finally {
         await page.getByRole('button', { name: /Close|Fermer/ }).click()
       }

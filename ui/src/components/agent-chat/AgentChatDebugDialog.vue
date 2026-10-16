@@ -106,30 +106,77 @@
 
             <!--
               The server's own record of the last turn: what the model was actually offered, which no
-              page-side computation can claim to be. Names only, as stored on the run.
+              page-side computation can claim to be, grouped by where each tool came from.
             -->
             <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
-              {{ t('offeredTools') }} ({{ offeredTools.length }})
+              {{ t('offeredTools') }} ({{ offeredCount }})
             </div>
             <div
-              v-if="!offeredTools.length"
+              v-if="!offeredCount"
               class="text-center text-medium-emphasis pa-4"
               data-testid="offered-tools-empty"
             >
               {{ t('noTools') }}
             </div>
-            <ul
+            <div
               v-else
-              class="text-caption px-2"
+              class="px-2"
               data-testid="offered-tools"
             >
-              <li
-                v-for="name in offeredTools"
-                :key="name"
+              <div
+                v-for="group in offeredGroups"
+                :key="`${group.kind}-${group.server}`"
+                class="mb-2"
+                data-testid="tool-group"
               >
-                {{ name }}
-              </li>
-            </ul>
+                <v-chip
+                  v-if="group.kind"
+                  size="x-small"
+                  label
+                  :color="sourceColor(group.kind)"
+                  class="mb-1"
+                  data-testid="tool-group-source"
+                >
+                  {{ sourceLabel(group) }}
+                </v-chip>
+                <div class="text-caption">
+                  {{ group.names.join(', ') }}
+                </div>
+              </div>
+            </div>
+
+            <!-- Before the agent's first turn (a new conversation, an agent just switched to): what its MCP
+                 servers offer, asked of them now. Admins only, as the listing route is. -->
+            <template v-if="!offeredCount && agentToolGroups.length">
+              <div class="text-caption font-weight-bold mt-3 mb-1 px-2">
+                {{ t('agentTools') }} ({{ agentToolCount }})
+              </div>
+              <div class="text-caption text-medium-emphasis px-2 mb-1">
+                {{ t('agentToolsHint') }}
+              </div>
+              <div
+                class="px-2"
+                data-testid="agent-tools"
+              >
+                <div
+                  v-for="group in agentToolGroups"
+                  :key="`${group.kind}-${group.server}`"
+                  class="mb-2"
+                >
+                  <v-chip
+                    size="x-small"
+                    label
+                    :color="sourceColor(group.kind!)"
+                    class="mb-1"
+                  >
+                    {{ sourceLabel(group) }}
+                  </v-chip>
+                  <div class="text-caption">
+                    {{ group.names.join(', ') }}
+                  </div>
+                </div>
+              </div>
+            </template>
           </v-window-item>
 
           <v-window-item value="settings">
@@ -221,6 +268,13 @@ fr:
   offeredTools: Outils proposés au dernier tour
   inputSchema: Schéma d'entrée
   noTools: Aucun outil proposé lors du dernier tour
+  agentTools: Outils des serveurs MCP de cet agent
+  agentToolsHint: Ce que ses serveurs proposent maintenant. Les outils du service et ceux de la page s'y ajoutent à chaque tour.
+  sources:
+    catalog: MCP · {server}
+    external: MCP externe · {server}
+    page: Cette page (WebMCP)
+    service: Intégrés au service
   openReview: Ouvrir l'analyse
   settings: Paramètres
   consumption: Consommation
@@ -242,6 +296,13 @@ en:
   offeredTools: Tools offered on the last turn
   inputSchema: Input Schema
   noTools: No tools offered on the last turn
+  agentTools: Tools of this agent's MCP servers
+  agentToolsHint: What its servers offer now. The service's tools and this page's are added on each turn.
+  sources:
+    catalog: MCP · {server}
+    external: External MCP · {server}
+    page: This page (WebMCP)
+    service: Built into the service
   openReview: Open review
   settings: Settings
   consumption: Consumption
@@ -266,6 +327,9 @@ import type { SelfUsage } from '../../../../api/src/usage/operations'
 import AgentChatConsumption from './AgentChatConsumption.vue'
 import type { Tool } from 'ai'
 import { toolDescription } from '@agents/shared/tool-description'
+import type { ToolSource, ToolSourceKind } from '@agents/shared/tool-source'
+import { isPersonalAgentId } from '@agents/shared/agent-audit'
+import { groupTools, type ToolGroup } from '~/utils/tool-groups'
 import { $apiPath, $fetch } from '~/context'
 import { reviewOffered, consentRef, writeConsent } from '~/review/review-consent'
 
@@ -276,6 +340,8 @@ const props = defineProps<{
   pageTools: Record<string, Tool>
   /** Absent until the socket has attached: the server assigns it, so the client cannot know it earlier. */
   conversationId?: string
+  /** The chat's current agent: an admin is shown its MCP servers' tools before its first turn. */
+  agentId?: string
   isAdmin?: boolean
   /** A configured agent's chat: reviewable by the admins whatever the consent, so none is asked. */
   audited?: boolean
@@ -327,24 +393,44 @@ const pageToolList = computed(() => Object.entries(props.pageTools).map(([name, 
 
 /**
  * The tools the model was offered on the conversation's last turn, read from the run when the dialog
- * opens (cleared first, so another thread's list never lingers). Empty before a first turn, and for an
- * anonymous chat, which has no run to read.
+ * opens (cleared first, so another thread's list never lingers), with where each came from. Empty before
+ * a first turn, and for an anonymous chat, which has no run to read.
  */
-const offeredTools = ref<string[]>([])
+const offeredGroups = ref<ToolGroup[]>([])
+const offeredCount = computed(() => offeredGroups.value.reduce((count, group) => count + group.names.length, 0))
+/** An autonomous agent's MCP tools, listed by its servers now: what the dialog shows before a first turn. */
+const agentToolGroups = ref<ToolGroup[]>([])
+const agentToolCount = computed(() => agentToolGroups.value.reduce((count, group) => count + group.names.length, 0))
+
+type RunCall = { toolNames?: string[], toolSources?: Record<string, ToolSource> }
 watch(() => props.modelValue, async open => {
   if (!open) return
-  offeredTools.value = []
-  if (!props.conversationId) return
-  try {
-    const res = await $fetch<{ results: Array<{ calls?: Array<{ toolNames?: string[] }> }> }>(
-      `${$apiPath}/conversations/${props.accountType}/${props.accountId}/${props.conversationId}/runs`
-    )
-    const last = res.results.filter(run => run.calls?.some(call => call.toolNames)).pop()
-    offeredTools.value = [...new Set((last?.calls ?? []).flatMap(call => call.toolNames ?? []))].sort()
-  } catch {
-    offeredTools.value = []
+  offeredGroups.value = []
+  agentToolGroups.value = []
+  if (props.conversationId) {
+    try {
+      const res = await $fetch<{ results: Array<{ calls?: RunCall[] }> }>(
+        `${$apiPath}/conversations/${props.accountType}/${props.accountId}/${props.conversationId}/runs`
+      )
+      const calls = res.results.filter(run => run.calls?.some(call => call.toolNames)).pop()?.calls ?? []
+      const names = [...new Set(calls.flatMap(call => call.toolNames ?? []))]
+      const sources = Object.assign({}, ...calls.map(call => call.toolSources ?? {}))
+      // A run recorded before sources were has none: its tools are one list rather than mislabelled.
+      offeredGroups.value = groupTools(names, Object.keys(sources).length ? sources : undefined)
+    } catch { /* the empty state says it */ }
   }
+  if (offeredCount.value || !props.isAdmin || !props.agentId || isPersonalAgentId(props.agentId)) return
+  try {
+    const res = await $fetch<{ results: Array<{ name: string, server: string, kind: 'catalog' | 'external' }> }>(
+      `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${props.agentId}/tools`
+    )
+    agentToolGroups.value = groupTools(res.results.map(tool => tool.name),
+      Object.fromEntries(res.results.map(tool => [tool.name, { kind: tool.kind, server: tool.server }])))
+  } catch { /* a server that cannot be listed: its turns say so */ }
 })
+
+const sourceLabel = (group: ToolGroup) => t(`sources.${group.kind}`, { server: group.server ?? '' })
+const sourceColor = (kind: ToolSourceKind) => ({ catalog: 'primary', external: 'warning', page: 'accent', service: 'secondary' })[kind]
 
 // Show the consent toggle as soon as storage is advertised, OR if a prior
 // decision is already stored in the cookie — so a user who consented in a

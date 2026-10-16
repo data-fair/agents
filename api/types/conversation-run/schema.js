@@ -107,6 +107,20 @@ export default {
           // never the tools offered. The union over the turn's steps, since the page's tools are live
           // and may change between steps. Names only, sorted.
           toolNames: { type: 'array', items: { type: 'string' } },
+          // Where each of those tools came from (shared/tool-source.ts), by name: what the chat's inspection
+          // dialog groups them by. Absent on runs recorded before it existed.
+          toolSources: {
+            type: 'object',
+            additionalProperties: {
+              type: 'object',
+              additionalProperties: false,
+              required: ['kind'],
+              properties: {
+                kind: { type: 'string', enum: ['catalog', 'external', 'page', 'service'] },
+                server: { type: 'string' }
+              }
+            }
+          },
           // How much page state and page events this call carried (the host blocks folded into the
           // person's message at call time, which are not stored with it). The one measure of how
           // much a host page talks to the model.

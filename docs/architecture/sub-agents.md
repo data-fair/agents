@@ -86,7 +86,7 @@ This ensures the main agent cannot call tools that belong to a sub-agent, enforc
 
 The partition is **re-run mid-turn** when the page's tool names change (in the lead's `prepareStep`), because a component mounted during the turn may declare a sub-agent or a tool one reserves. The live tool map is mutated in place, which the AI SDK re-reads on every step. It is re-run only on a name change because each pass reads every sub-agent's config over the socket.
 
-The debug dialog does not partition anything in the browser. It lists the page's current tools as the chat has gathered them (name, title, description, input schema), and beside them the server's own record of what the last turn offered the model (the run's `calls[].toolNames`, so after the partition), read each time it opens.
+The debug dialog does not partition anything in the browser. It lists the page's current tools as the chat has gathered them (name, title, description, input schema), and beside them the server's own record of what the last turn offered the model (the run's `calls[].toolNames`, so after the partition), read each time it opens and grouped by where each tool came from (`calls[].toolSources`, `shared/tool-source.ts`: a catalog MCP server, an external one, the page's WebMCP tools, the service's own). Before an autonomous agent's first turn in the conversation, an admin sees instead what its MCP servers offer now (`GET /api/autonomous-agents/:type/:id/:agentId/tools`, whose results carry the same `kind`).
 
 ---
 

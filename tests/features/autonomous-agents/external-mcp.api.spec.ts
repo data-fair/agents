@@ -53,10 +53,15 @@ test.describe('External MCP servers', () => {
   test('the agent calls them anonymously', async () => {
     const agent = await createAgent()
     const name = externalToolName(externalUrl, 'echo')
-    const { assistant } = await turnOverSocket(orgAdmin, { agentId: agent.id }, `call tool ${name} {"value":"from afar"}`)
+    const { assistant, run } = await turnOverSocket(orgAdmin, { agentId: agent.id }, `call tool ${name} {"value":"from afar"}`)
     const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === name)
     assert.equal(part.state, 'output-available', JSON.stringify(part))
     assert.deepEqual(external.invokedTools(), ['echo'])
+    // Recorded as the external server's, and listed as such before any turn.
+    const call = run.calls.find((c: any) => c.toolSources?.[name])
+    assert.deepEqual(call?.toolSources[name], { kind: 'external', server: new URL(externalUrl).host })
+    const listed = (await admin.get(`${AGENTS}/${agent.id}/tools`)).data.results.find((t: any) => t.name === name)
+    assert.equal(listed.kind, 'external')
     assert.equal(external.lastHeaders().cookie, undefined)
     assert.equal(external.lastHeaders()['x-api-key'], undefined)
   })

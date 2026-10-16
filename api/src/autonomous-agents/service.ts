@@ -174,10 +174,12 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
   const sites: SiteCredentials = autonomousAgent.nhi
     ? await agentSiteCredentials(autonomousAgent)
     : personSiteCredentials(undefined, undefined)
-  const { descriptors: results, profiled: profiles } = await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
+  // `kind` as a turn records it (shared/tool-source.ts), so the chat's inspection dialog groups both alike.
+  const { descriptors, profiled: profiles } = await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
+  const results = descriptors.map(descriptor => ({ ...descriptor, kind: 'catalog' as const }))
   if (!autonomousAgent.externalMcpServers?.length) return { results, skipped: [] as SkippedServer[], profiles }
   const external = await listExternalToolDescriptors(autonomousAgent.externalMcpServers, { publicIps: envPublicIps() })
-  return { results: [...results, ...external.descriptors], skipped: external.skipped, profiles }
+  return { results: [...results, ...external.descriptors.map(descriptor => ({ ...descriptor, kind: 'external' as const }))], skipped: external.skipped, profiles }
 }
 
 /**

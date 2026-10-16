@@ -23,6 +23,7 @@ import { securityKey } from '../cipher/service.ts'
 import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import { WAIT_TOOL_NAME, type ChatActivity } from '@agents/shared/agent-activity'
 import { toolDescription } from '@agents/shared/tool-description'
+import type { ToolSource } from '@agents/shared/tool-source'
 import { denyGoneApprovedTools, TOOL_NO_LONGER_AVAILABLE } from './approved-calls.ts'
 import { browserToolSet, rawBrowserToolSet } from '../agent-session/browser-tools.ts'
 import { createScriptTool } from '../code-mode/tool.ts'
@@ -55,6 +56,8 @@ export interface ModelLoopContext {
   entry: ReturnType<typeof resolveRoleModel>['entry']
   /** The turn's fixed tools: the catalog's, then the service's. The page's are added live (see assembleTools). */
   tools: ToolSet
+  /** Which of `tools` come from an MCP server, catalog or external; the others are the service's. Recorded with the run. */
+  toolOrigins?: Record<string, 'catalog' | 'external'>
   settings: Awaited<ReturnType<typeof getSettings>>
   budget: number
   /** The agent's memory as of run start, when it has one; rendered into the system prompt. */
@@ -81,7 +84,7 @@ export interface ModelLoopContext {
 }
 
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead } = ctx
+  const { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target).
   const session = target.session
@@ -102,8 +105,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       ]
     : loaded.messages
 
-  // Every tool offered on any step of the turn, for its telemetry (see the run schema's `toolNames`).
-  const offeredTools = new Set<string>()
+  // Every tool offered on any step of the turn, with where it came from, for its telemetry (see the run
+  // schema's `toolNames` and `toolSources`).
+  const offeredTools = new Map<string, ToolSource>()
 
   // Credits spent so far this turn, accumulated per step so the budget can stop the loop
   // between steps rather than only reporting the overrun afterwards.
@@ -277,13 +281,19 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const liveTools: Record<string, Tool> = {}
   // The tool calls this turn's scripts have made, across the steps that rebuild the map (CODE_MODE_TURN_CALLS).
   const scriptCalls: TurnCalls = { count: 0 }
+  // The page's tools in the current set: a page tool shadows a catalog tool of the same name.
+  let pageNames = new Set<string>()
+  const sourceOf = (name: string): ToolSource => {
+    if (pageNames.has(name)) return { kind: 'page' }
+    const server = tools[name]?.server
+    return { kind: toolOrigins?.[name] ?? 'service', ...(server ? { server } : {}) }
+  }
   const assembleTools = async () => {
     // The service's own tools are never page tools, even when a page registers one by that name
     // (./service-tool-names.ts): the page's would answer under the service's name.
-    const mainTools = await partitionSubAgents(
-      { ...fixedTools, ...(session ? Object.fromEntries(Object.entries(browserToolSet(session)).filter(([name]) => mayBePageTool(name))) : {}) },
-      buildDelegation
-    )
+    const pageTools = session ? Object.fromEntries(Object.entries(browserToolSet(session)).filter(([name]) => mayBePageTool(name))) : {}
+    pageNames = new Set(Object.keys(pageTools))
+    const mainTools = await partitionSubAgents({ ...fixedTools, ...pageTools }, buildDelegation)
     // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
     // page tools that appeared mid-turn included, a worker's reserved tools excluded (the partition ran above).
     // A page tool shadows a catalog tool of the same name for the model ({ ...fixedTools, ...page } above), so
@@ -352,7 +362,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         await assembleTools()
         debug('tool set refreshed mid-turn: %d tool(s)', Object.keys(liveTools).length)
       }
-      for (const name of Object.keys(liveTools)) offeredTools.add(name)
+      for (const name of Object.keys(liveTools)) if (!offeredTools.has(name)) offeredTools.set(name, sourceOf(name))
       const guarded = loopGuardPrepareStep(options)
       return { ...guarded, messages: stepContext(guarded.messages) }
     },
@@ -647,7 +657,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     steps,
     messageCount: history.length,
     ...(target.messageSeq !== undefined ? { historyUpToSeq: target.messageSeq } : {}),
-    toolNames: [...offeredTools].sort(),
+    toolNames: [...offeredTools.keys()].sort(),
+    toolSources: Object.fromEntries(offeredTools),
     hostBlockChars
   })
   // The instructions, recorded ONCE per run rather than on every call: they do not change within a

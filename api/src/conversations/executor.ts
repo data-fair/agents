@@ -225,7 +225,15 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
           openLink: createLinkOpener({ sites, allowedUrls: autonomousAgent.web?.enabled ? autonomousAgent.web.allowedUrls ?? [] : [], publicIps: envPublicIps() })
         }
       : {}
-    const loop = { run, abortSignal, model, entry, tools, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead: readSkill }
+    // Which of the fixed tools are MCP servers', for the run's record (shared/tool-source.ts); the rest are the
+    // service's own. A service tool sharing a name wins the set above, so it is not counted as the server's.
+    const toolOrigins: Record<string, 'catalog' | 'external'> = {}
+    for (const name of Object.keys(tools)) {
+      if (name in service.tools) continue
+      if (external && name in external.tools) toolOrigins[name] = 'external'
+      else if (name in listedTools) toolOrigins[name] = 'catalog'
+    }
+    const loop = { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead: readSkill }
     const result = await runModelLoop(loop)
     // A PLANNED TASK'S RUN THAT DID NOT REPORT is reminded, once: a second pass of the same turn, offered only
     // report_outcome, whose record continues the first's. Only after a turn that finished — a turn cut short
