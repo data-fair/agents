@@ -57,21 +57,21 @@ test.describe('autonomousAgentEditDraft', () => {
     const { instructors, ...thin } = stored
     const draft = autonomousAgentEditDraft(thin)
     assert.deepEqual(draft.instructors, [])
-    assert.deepEqual(draft.approvals, { readOnly: 'allow', write: 'allow', destructive: 'approve' })
+    assert.equal(draft.approvalLevel, 'destructive')
     assert.deepEqual(draft.memory, { enabled: false })
     // not allowedUrls: it is hidden while web access is off, and vjsf leaves it out
     assert.deepEqual(draft.web, { enabled: false })
     assert.deepEqual(draft.externalMcpServers, [])
   })
 
-  test('keeps a stored value over its default, per approval level', () => {
+  test('keeps a stored value over its default, per setting', () => {
     const draft = autonomousAgentEditDraft({
       ...stored,
-      approvals: { write: 'approve' },
+      approvalLevel: 'write',
       memory: { enabled: true },
       web: { enabled: true, allowedUrls: ['https://github.com/data-fair'] }
     })
-    assert.deepEqual(draft.approvals, { readOnly: 'allow', write: 'approve', destructive: 'approve' })
+    assert.equal(draft.approvalLevel, 'write')
     assert.deepEqual(draft.memory, { enabled: true })
     assert.deepEqual(draft.web, { enabled: true, allowedUrls: ['https://github.com/data-fair'] })
   })

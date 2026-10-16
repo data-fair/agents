@@ -27,7 +27,7 @@ test.describe('Approving a call that sends a file', () => {
   })
 
   test('the card records path, type and size; the approved call sends that file', async () => {
-    const agent = await createFilesAgent({ approvals: { write: 'approve' } })
+    const agent = await createFilesAgent({ approvalLevel: 'write' })
     const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, `call tool write_file {"file_path":"/clean.csv","content":${JSON.stringify(CONTENT)}}`)
     const gated = await turnOverSocket(orgAdmin, conversationId, 'call tool import_table {"file":"/clean.csv","title":"Clean"}')
     assert.equal(gated.run.stopReason, 'awaiting-approval')

@@ -325,22 +325,29 @@ Service tools are added after the approval policy is applied, so they are outsid
 
 A tool call is classified from the MCP `annotations` its server declares (`api/src/conversations/approval-policy.ts`,
 `classifyTool`): `destructiveHint` wins and makes it **destructive**, `readOnlyHint` makes it **readOnly**, and
-an unannotated tool is a **write** — the safe reading of a tool that said nothing. Each agent carries
-`approvals`, one of `allow` / `approve` / `deny` per class; the defaults are `readOnly: 'allow'`,
-`write: 'allow'` and `destructive: 'approve'`: gating only what a server declares destructive keeps cards rare
-enough to be read rather than clicked through, and an admin raises `write` where it matters. It applies to
+an unannotated tool is a **write** — the safe reading of a tool that said nothing. Each autonomous agent carries
+one `approvalLevel` (`shared/approval-policy.ts`, `approvalPolicyFor`); a read is never gated:
+
+| level | readOnly | write | destructive |
+|---|---|---|---|
+| `write` | allow | approve | approve |
+| `destructive` (default) | allow | allow | approve |
+| `none` | allow | allow | allow |
+
+Gating only what a server declares destructive keeps cards rare enough to be read rather than clicked
+through, and an admin raises the level to `write` where it matters. It applies to
 **catalog tools** only: the service's own tools and page tools are exempt.
 
-The **personal assistant** has no `approvals` of its own but a fixed policy (`personalAssistantTools`): every
+The **personal assistant** has no level of its own but a fixed `write` (`personalAssistantTools`): every
 catalog call that is not read-only asks, a write as much as a destructive one. It acts as the person, so a change
 it makes is theirs; in the page the convention is that the assistant prepares and the person saves, and
 approving each change keeps that convention for tools that save on the server. Its cards are therefore
-expected to be rarer than a configured agent's would be with `write: 'approve'`: data-fair's MCP (openapi-mcp)
+expected to be rarer than a configured agent's would be at level `write`: data-fair's MCP (openapi-mcp)
 marks every GET read-only. An anonymous visitor is offered reads only, as nobody signed in can decide. The
 person deciding is the conversation's owner; for a configured agent the decider must also be allowed to
 instruct it (`canInstruct`), since approving borrows its identity.
 
-- `deny` **removes** the tool from the set the model sees, so it cannot be asked for.
+- No level removes a tool from the set the model sees; an unattended run drops the ones that need approval (below).
 - `approve` **stops the turn**: the call is stored in the AI SDK's `approval-requested` state and the run ends
   with `stopReason: 'awaiting-approval'`. Nothing is held in memory; the pending call is simply the latest step
   of the conversation. It is the shape of the [`wait_for_user_action` handover](./host-events.md#wait_for_user_action):
@@ -356,11 +363,7 @@ Why this shape:
   the decision simply starts a new run that replays it; nothing is held, so an approval can wait for
   days (there is no expiry) and both run invariants hold unchanged.
 - **An unannotated tool is a `write`**, not a fourth class: most hand-written MCP servers declare no
-  annotations, and reading silence as read-only would leave the common case ungated. `readOnly` is a
-  configurable class like the others, since a read can still return a lot of somebody's data.
-- **`deny` removes rather than refuses**, so the model never spends a step learning it cannot call a
-  tool, and it is per class where `toolFilter` (or a profile selection) is per name: "nothing destructive" keeps holding as the
-  catalog grows.
+  annotations, and reading silence as read-only would leave the common case ungated.
 - **The gate only subtracts.** Every call is still bounded by the identity it runs as: the gate can take a permission away, never grant one.
 
 **The decision** is `{ approved, reason? }`, over the chat socket only (frame `{ type: 'approval', approvalId, approved,
@@ -377,7 +380,7 @@ one by one and the model resumes once, after the last.
 
 The `approval` run **replays** the conversation and the AI SDK executes the approved call, **settled on its original
 part** — that is the double-execution guard: the call has exactly one part, and a part that holds a result is never
-run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call whose tool is gone on replay (removed, its class set to `deny` since the request, or filtered out of an unattended run) is denied by name and settled `output-error` on its own part ("this tool is no longer available"), never left open; a call whose class was relaxed to `allow` since the request runs, because the person approved it and the policy now requires less. Moderation is **skipped** on an
+run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call whose tool is gone on replay (removed, or filtered out of an unattended run) is denied by name and settled `output-error` on its own part ("this tool is no longer available"), never left open; a call whose level was relaxed since the request runs, because the person approved it and the policy now requires less. Moderation is **skipped** on an
 approval run: there is no new user text, and the decision is not something to classify.
 
 A run that does not reach the model must not leave an approved call without a result. `finishRun` settles them at the

@@ -1,6 +1,6 @@
 import AutonomousAgentSchema from '#types/autonomous-agent/schema.js'
 
-/** @param {'title' | 'persona' | 'instructions' | 'mcpServers' | 'nhi' | 'instructors' | 'approvals' | 'memory' | 'web' | 'externalMcpServers' | 'enabled'} key */
+/** @param {'title' | 'persona' | 'instructions' | 'mcpServers' | 'nhi' | 'instructors' | 'approvalLevel' | 'memory' | 'web' | 'externalMcpServers' | 'enabled'} key */
 const pick = (key) => JSON.parse(JSON.stringify(AutonomousAgentSchema.properties[key]))
 
 export default {
@@ -21,7 +21,7 @@ export default {
     mcpServers: pick('mcpServers'),
     nhi: pick('nhi'),
     instructors: pick('instructors'),
-    approvals: pick('approvals'),
+    approvalLevel: pick('approvalLevel'),
     memory: pick('memory'),
     web: pick('web'),
     externalMcpServers: pick('externalMcpServers'),

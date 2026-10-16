@@ -55,20 +55,16 @@ test.describe('The approval gate', () => {
     assert.deepEqual(fixture.invokedTools(), [], 'the tool must not have run')
   })
 
+  test('an approvals object is refused', async () => {
+    const agent = await createGatedAgent()
+    await assert.rejects(admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: {} }), { status: 400 })
+  })
+
   test('allow runs the call as before', async () => {
-    const agent = await createGatedAgent({ approvals: { destructive: 'allow' } })
+    const agent = await createGatedAgent({ approvalLevel: 'none' })
     const { run } = await turn({ agentId: agent.id }, 'call tool wipe_everything {}')
     assert.equal(run.stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
-  })
-
-  test('deny removes the tool from what the model is offered', async () => {
-    const agent = await createGatedAgent({ approvals: { write: 'deny' } })
-    const { run } = await turn({ agentId: agent.id }, 'call tool echo {"value":"x"}')
-    const offered = run.calls.flatMap((c: any) => c.toolNames ?? [])
-    assert.ok(!offered.includes('echo'), 'a denied write tool is never offered')
-    assert.ok(offered.includes('wipe_everything'), 'the destructive one, still on approve, is offered')
-    assert.deepEqual(fixture.invokedTools(), [])
   })
 
   const pendingApproval = async () => {
@@ -82,32 +78,6 @@ test.describe('The approval gate', () => {
     decideOverSocketToRun(orgAdmin, conversationId, approvalId, body)
   const messageAt = async (conversationId: string, seq: number) =>
     (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
-
-  test('speaking while an approved call runs stops that run and settles the call as unknown', async () => {
-    // Over the socket, writing takes the turn back (a live run is stopped), so a message can no longer land
-    // beside a running approval run and leave its call alone, as the HTTP route it replaces allowed. What
-    // must hold is that the call is not left dangling nor reported as not run: the tool was started, so
-    // its outcome is unknown, and it is never executed a second time.
-    const agent = await createGatedAgent({ approvals: { readOnly: 'approve' } })
-    const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool slow_lookup {}')
-    const approvalId = callPart(assistant, 'slow_lookup').approval.id
-    const { runId: continuation } = await decideRun(conversationId, approvalId, { approved: true })
-    await new Promise(resolve => setTimeout(resolve, 500)) // slow_lookup takes 2s
-    const { runId: answering } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
-    await awaitRun(orgAdmin, conversationId, continuation)
-    await awaitRun(orgAdmin, conversationId, answering)
-    // Both runs have ended and the 2s lookup has not completed: the run does not wait for an abandoned call.
-    assert.deepEqual(fixture.invokedTools(), [])
-    const part = callPart(await messageAt(conversationId, assistant.seq), 'slow_lookup')
-    assert.equal(part.state, 'output-error', JSON.stringify(part))
-    assert.equal(part.errorText, 'Approved, but its outcome is unknown: the turn ended before it reported (the person spoke).')
-    // The server records the call when its 2s lookup finishes. The run no longer waits for that (AI SDK 7
-    // aborts the in-flight call at once), so wait for the server to get there, and past it, to see the call
-    // was not run a second time.
-    for (let waited = 0; waited < 3000 && fixture.invokedTools().length === 0; waited += 50) await new Promise(resolve => setTimeout(resolve, 50))
-    await new Promise(resolve => setTimeout(resolve, 300))
-    assert.deepEqual(fixture.invokedTools(), ['slow_lookup'])
-  })
 
   test('approving runs the call exactly once, settled on its original message', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
@@ -187,26 +157,14 @@ test.describe('The approval gate', () => {
     assert.deepEqual(fixture.invokedTools(), [])
   })
 
-  test('a class relaxed to allow between the request and the decision runs the approved call exactly once', async () => {
+  test('the level relaxed to none between the request and the decision runs the approved call exactly once', async () => {
     const { agent, conv, approvalId, seq } = await pendingApproval()
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: { destructive: 'allow' } })
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvalLevel: 'none' })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await awaitRun(orgAdmin, conv.id, runId)
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
     assert.equal(callPart(await messageAt(conv.id, seq), 'wipe_everything').state, 'output-available')
-  })
-
-  test('a tool no longer offered when approved ends as an error on its own part', async () => {
-    const { agent, conv, approvalId, seq } = await pendingApproval()
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: { destructive: 'deny' } })
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
-    const { runId } = await decideRun(conv.id, approvalId, { approved: true })
-    await awaitRun(orgAdmin, conv.id, runId)
-    assert.deepEqual(fixture.invokedTools(), [])
-    const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
-    assert.equal(part.state, 'output-error')
-    assert.equal(part.errorText, 'this tool is no longer available')
   })
 
   const twoPending = async () => {
@@ -380,18 +338,6 @@ test.describe('The approval gate', () => {
     assert.match(part.errorText, /^Approved, but it did not run: the approval could not be verified \(.*signature.*\)\.$/)
     assert.deepEqual(fixture.invokedTools(), [])
     await noApprovedCallLeft(conv.id)
-  })
-
-  test('an approved call\'s result cut at the bound says so on its own part', async () => {
-    // Approval-run results are precisely the audited calls: a review must be able to tell one was cut.
-    const agent = await createGatedAgent({ approvals: { readOnly: 'approve' } })
-    const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool bulk {"chars":150000}')
-    const { runId } = await decideRun(conversationId, callPart(assistant, 'bulk').approval.id, { approved: true })
-    await awaitRun(orgAdmin, conversationId, runId)
-    const part = callPart(await messageAt(conversationId, assistant.seq), 'bulk')
-    assert.equal(part.state, 'output-available')
-    assert.ok(part.toolMetadata.truncated?.totalChars > 150000, 'the size it had before the cut')
-    assert.equal(part.toolMetadata.decision.userId, 'test1-admin1', 'beside the decision, not instead of it')
   })
 
   test('a message posted while the asking turn is still finishing still rejects its approval', async () => {

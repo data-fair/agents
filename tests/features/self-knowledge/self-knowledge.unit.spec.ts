@@ -16,7 +16,7 @@ const unusedTool = {} as Tool
 const view = (surface: 'chat' | 'task'): ConfigurationView => ({
   files: true,
   codeMode: true,
-  agent: { title: 'Roads', persona: 'You watch the roads.', instructions: 'Answer in French.', approvals: { write: 'deny' }, memoryEnabled: false },
+  agent: { title: 'Roads', persona: 'You watch the roads.', instructions: 'Answer in French.', approvalLevel: 'write', memoryEnabled: false },
   surface,
   catalog: {
     tools: {
@@ -47,7 +47,7 @@ test.describe('renderConfiguration', () => {
     const all = lines(text)
     assert.ok(all.includes('- lookup (server roads): usable'), text)
     assert.ok(all.includes('- wipe (server roads): needs the person\'s approval'), text)
-    assert.ok(all.includes('- edit (server roads): not usable: denied by policy'), text)
+    assert.ok(all.includes('- edit (server roads): needs the person\'s approval'), text)
     assert.ok(all.includes('- ignored (server roads): not selected for you by an administrator'), text)
     assert.ok(all.includes('- import (server roads): not usable: it takes a file, and this deployment has no file store'), text)
     assert.ok(all.includes('- server weather: server unreachable: fetch failed'), text)
@@ -70,10 +70,7 @@ test.describe('renderConfiguration', () => {
     assert.match(text, /You watch the roads\./)
     assert.match(text, /Answer in French\./)
     const all = lines(text)
-    // resolved: the unset classes show their defaults
-    assert.ok(all.includes('- read-only tools: allow'), text)
-    assert.ok(all.includes('- write tools: deny'), text)
-    assert.ok(all.includes('- destructive tools: approve'), text)
+    assert.ok(all.includes('approval level: write (read-only tools: allow, write tools: approve, destructive tools: approve)'), text)
     assert.ok(all.includes('- memory'), text)
     assert.ok(all.includes('- report_outcome'), text)
     assert.ok(all.includes('- t1: Morning check — every day at 08:00 (Europe/Paris) — next run: none — paused: paused after 3 consecutive failed runs'), text)

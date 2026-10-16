@@ -34,17 +34,17 @@
 <i18n lang="yaml">
 en:
   webRiskTitle: This agent reads the web and can write without approval
-  webRisk: "A page it reads can contain instructions, and the agent may follow them with its identity and all its tools. Prefer read-only tools for an agent with web access, or set Writing and Destructive approvals to \"Approve each call\" or \"Never offer\"."
+  webRisk: "A page it reads can contain instructions, and the agent may follow them with its identity and all its tools. Prefer read-only tools for an agent with web access, or set approval to \"Every operation that makes changes\"."
 fr:
   webRiskTitle: Cet agent lit le web et peut écrire sans approbation
-  webRisk: "Une page qu'il lit peut contenir des instructions, et l'agent peut les suivre avec son identité et tous ses outils. Préférez des outils en lecture seule pour un agent qui accède au web, ou réglez les approbations Écriture et Destruction sur « Approuver chaque appel » ou « Ne jamais proposer »."
+  webRisk: "Une page qu'il lit peut contenir des instructions, et l'agent peut les suivre avec son identité et tous ses outils. Préférez des outils en lecture seule pour un agent qui accède au web, ou réglez l'approbation sur « Toutes les opérations qui effectuent des modifications »."
 </i18n>
 
 <script lang="ts" setup>
 // The agent form, shared by the create dialog and the agent page so both are the same form.
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { DEFAULT_APPROVALS } from '@agents/shared/approval-policy'
+import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
 import VjsfAutonomousAgentWriteReq from '~/components/vjsf/vjsf-autonomous-agent-write-req.vue'
 import McpProfilesTree from '~/components/McpProfilesTree.vue'
 import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
@@ -63,10 +63,8 @@ const formRef = ref<any>(null)
 
 // Web access with writes still allowed without approval: what a page says could make the agent act. A
 // warning, never a block — the admin decides. An unset level is the default a turn applies.
-const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled && (
-  (draft.value.approvals?.write ?? DEFAULT_APPROVALS.write) === 'allow' ||
-  (draft.value.approvals?.destructive ?? DEFAULT_APPROVALS.destructive) === 'allow'
-))
+const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled &&
+  (draft.value.approvalLevel ?? DEFAULT_APPROVAL_LEVEL) !== 'write')
 
 /**
  * `context` is load-bearing, not decoration: the MCP server picker is an autocomplete whose

@@ -169,7 +169,7 @@ test.describe('Planning tools', () => {
   })
 
   test('a task run is offered none of the planning tools, even with every approval on allow', async () => {
-    const agent = await createAgent({ approvals: { readOnly: 'allow', write: 'allow', destructive: 'allow' } })
+    const agent = await createAgent({ approvalLevel: 'none' })
     // In a chat they are offered, which is what makes their absence below meaningful.
     const chat = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
     for (const name of PLANNING_TOOLS) assert.ok(offeredTools(chat.run).includes(name), name)

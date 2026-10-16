@@ -1,15 +1,15 @@
 /**
  * operations-style module: pure, no #mongo / #config.
  *
- * The approval policy of a configured autonomous agent: which of its catalog tools need a person's
- * approval before they run, which it may use freely, and which it never sees. Keyed on the class an MCP
+ * The approval level of a configured autonomous agent: which of its catalog tools need a person's
+ * approval before they run, and which it may use freely. Keyed on the class an MCP
  * tool declares through its annotations, so the rule keeps holding as the catalog grows — "never call
  * anything destructive without asking" is not expressible per tool name.
  */
 import type { ToolSet } from './operations.ts'
-import { DEFAULT_APPROVALS, type ApprovalClass, type ApprovalPolicy, type Approvals } from '@agents/shared/approval-policy'
+import { approvalPolicyFor, type ApprovalClass, type ApprovalLevel, type ApprovalPolicy } from '@agents/shared/approval-policy'
 
-export { DEFAULT_APPROVALS, type ApprovalClass, type ApprovalPolicy, type Approvals }
+export { approvalPolicyFor, type ApprovalClass, type ApprovalLevel, type ApprovalPolicy }
 
 /** `destructiveHint` wins over a contradictory `readOnlyHint`; no annotation at all is a write. */
 export const classifyTool = (annotations?: Record<string, unknown>): ApprovalClass => {
@@ -18,19 +18,15 @@ export const classifyTool = (annotations?: Record<string, unknown>): ApprovalCla
   return 'write'
 }
 
-export const resolveApproval = (cls: ApprovalClass, approvals?: Approvals): ApprovalPolicy =>
-  approvals?.[cls] ?? DEFAULT_APPROVALS[cls]
-
 /**
- * The tool set the model is offered under a policy: `deny` removes a tool (the model never spends a step
- * discovering it cannot use it), `approve` sets the AI SDK's `needsApproval` (the SDK then stops the turn
- * on a call instead of executing it), `allow` leaves the tool exactly as it was.
+ * The tool set the model is offered under a level: no tool is ever removed here. `approve` sets the AI
+ * SDK's `needsApproval` (the SDK then stops the turn on a call instead of executing it), `allow` leaves
+ * the tool exactly as it was.
  */
-export const applyApprovalPolicy = (tools: ToolSet, approvals?: Approvals): ToolSet => {
+export const applyApprovalPolicy = (tools: ToolSet, level?: ApprovalLevel): ToolSet => {
   const gated: ToolSet = {}
   for (const [name, sourced] of Object.entries(tools)) {
-    const policy = resolveApproval(classifyTool(sourced.annotations), approvals)
-    if (policy === 'deny') continue
+    const policy = approvalPolicyFor(classifyTool(sourced.annotations), level)
     gated[name] = policy === 'approve' ? { ...sourced, tool: { ...sourced.tool, needsApproval: true } } : sourced
   }
   return gated
@@ -43,7 +39,7 @@ export const applyApprovalPolicy = (tools: ToolSet, approvals?: Approvals): Tool
  * anonymous visitor is offered reads only, since nobody signed in is there to decide on a card.
  */
 export const personalAssistantTools = (tools: ToolSet, opts: { anonymous: boolean }): ToolSet => {
-  const gated = applyApprovalPolicy(tools, { write: 'approve', destructive: 'approve' })
+  const gated = applyApprovalPolicy(tools, 'write')
   return opts.anonymous ? unattended(gated) : gated
 }
 

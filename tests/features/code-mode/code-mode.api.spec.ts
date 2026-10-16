@@ -53,7 +53,7 @@ test.describe('code_mode', () => {
   })
 
   test('a gated tool and a sub-agent\'s reserved tool are not in a script\'s API', async () => {
-    const agent = await createFilesAgent({ approvals: { readOnly: 'allow', write: 'allow', destructive: 'approve' } })
+    const agent = await createFilesAgent()
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: agent.id }, script('try { await tools.wipe_everything({}) } catch (e) { return e.message }'))
     assert.match(outputOf(callPart(assistant, 'code_mode')), /Unknown tool: wipe_everything/)
     assert.deepEqual(fixture.invokedTools().filter((n: string) => n === 'wipe_everything'), [])

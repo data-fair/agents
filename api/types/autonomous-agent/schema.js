@@ -148,31 +148,22 @@ export default {
       // who may instruct is expressed the same way as every other permission list in the stack.
       items: { $ref: 'https://github.com/data-fair/lib/access-ref' }
     },
-    approvals: {
-      type: 'object',
-      additionalProperties: false,
-      title: 'Approvals',
-      'x-i18n-title': { en: 'Approvals', fr: 'Approbations' },
-      description: 'What happens when this autonomous agent calls a tool, by the kind of action the tool declares. "Approve" stops the turn until the person in the chat approves the call; a scheduled task never gets such a tool. Tools that declare nothing count as writing.',
+    approvalLevel: {
+      type: 'string',
+      default: 'destructive',
+      layout: 'radio',
+      title: 'Ask for approval for',
+      'x-i18n-title': { en: 'Ask for approval for', fr: 'Demander une approbation pour' },
+      description: 'A planned task has nobody to approve: tools that need approval are not offered to it.',
       'x-i18n-description': {
-        en: 'What happens when this autonomous agent calls a tool, by the kind of action the tool declares. "Approve" stops the turn until the person in the chat approves the call; a scheduled task never gets such a tool. Tools that declare nothing count as writing.',
-        fr: "Ce qui se passe quand cet agent autonome appelle un outil, selon le type d'action que l'outil déclare. « Approuver » arrête le tour jusqu'à ce que la personne dans la conversation approuve l'appel ; une tâche planifiée ne reçoit jamais un tel outil. Les outils qui ne déclarent rien comptent comme écrivant."
+        en: 'A planned task has nobody to approve: tools that need approval are not offered to it.',
+        fr: "Une tâche planifiée n'a personne pour approuver : les outils soumis à approbation ne lui sont pas proposés."
       },
-      properties: Object.fromEntries(/** @type {[string, { en: string, fr: string }, string][]} */([
-        ['readOnly', { en: 'Reading', fr: 'Lecture' }, 'allow'],
-        ['write', { en: 'Writing', fr: 'Écriture' }, 'allow'],
-        ['destructive', { en: 'Destructive', fr: 'Destruction' }, 'approve']
-      ]).map(([key, title, fallback]) => [key, {
-        type: 'string',
-        title: title.en,
-        'x-i18n-title': title,
-        default: fallback,
-        oneOf: [
-          { const: 'allow', title: 'Allow', 'x-i18n-title': { en: 'Allow', fr: 'Autoriser' } },
-          { const: 'approve', title: 'Approve each call', 'x-i18n-title': { en: 'Approve each call', fr: 'Approuver chaque appel' } },
-          { const: 'deny', title: 'Never offer', 'x-i18n-title': { en: 'Never offer', fr: 'Ne jamais proposer' } }
-        ]
-      }]))
+      oneOf: [
+        { const: 'write', title: 'Every operation that makes changes', 'x-i18n-title': { en: 'Every operation that makes changes', fr: 'Toutes les opérations qui effectuent des modifications' } },
+        { const: 'destructive', title: 'Only operations marked as particularly destructive', 'x-i18n-title': { en: 'Only operations marked as particularly destructive', fr: 'Uniquement les opérations notées comme particulièrement destructives' } },
+        { const: 'none', title: 'None (the agent is fully autonomous in its tool calls)', 'x-i18n-title': { en: 'None (the agent is fully autonomous in its tool calls)', fr: "Aucune (l'agent est entièrement autonome dans ses appels d'outils)" } }
+      ]
     },
     memory: {
       type: 'object',

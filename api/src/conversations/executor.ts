@@ -200,7 +200,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     // tools are the loop's own.
     const catalogTools = isPersonalAgentId(autonomousAgent.id)
       ? personalAssistantTools(catalog, { anonymous: run.triggeredByRole === 'anonymous' })
-      : applyApprovalPolicy(catalog, autonomousAgent.approvals)
+      : applyApprovalPolicy(catalog, autonomousAgent.approvalLevel)
 
     // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
     // happens to share a name cannot stand in for one, and recorded like a catalog call's source.

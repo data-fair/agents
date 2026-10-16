@@ -15,9 +15,9 @@ const t = () => tool({ description: 'x', inputSchema: jsonSchema({ type: 'object
 test.describe('unattended', () => {
   const tools = { read: { tool: t(), annotations: { readOnlyHint: true } }, write: { tool: t() }, wipe: { tool: t(), annotations: { destructiveHint: true } } }
   // What a task run is offered: the policy applied, as in a chat, then everything left needing approval dropped.
-  const withoutGatedTools = (set: typeof tools, approvals?: Parameters<typeof applyApprovalPolicy>[1]) => unattended(applyApprovalPolicy(set, approvals))
+  const withoutGatedTools = (set: typeof tools, level?: Parameters<typeof applyApprovalPolicy>[1]) => unattended(applyApprovalPolicy(set, level))
 
-  test('under the default approvals, a destructive tool is dropped and the others kept as they are', () => {
+  test('under the default approval level, a destructive tool is dropped and the others kept as they are', () => {
     const offered = withoutGatedTools(tools)
     assert.deepEqual(Object.keys(offered).sort(), ['read', 'write'])
     assert.equal(offered.read, tools.read)
@@ -25,18 +25,13 @@ test.describe('unattended', () => {
     assert.ok(Object.values(offered).every(offeredTool => !(offeredTool.tool as any).needsApproval))
   })
 
-  test('a denied class is dropped too, and an allowed destructive class is kept', () => {
-    const offered = withoutGatedTools(tools, { write: 'deny', destructive: 'allow' })
-    assert.deepEqual(Object.keys(offered).sort(), ['read', 'wipe'])
-  })
-
-  test('a class gated for approval is dropped, whatever the class', () => {
-    assert.deepEqual(Object.keys(withoutGatedTools(tools, { readOnly: 'approve' })).sort(), ['write'])
+  test('level none keeps every tool', () => {
+    assert.deepEqual(Object.keys(withoutGatedTools(tools, 'none')).sort(), ['read', 'wipe', 'write'])
   })
 
   test('an unannotated tool is a write: dropped when writes need approval', () => {
     // `write` carries no annotation at all, which is most hand-written servers' case.
-    assert.deepEqual(Object.keys(withoutGatedTools(tools, { write: 'approve' })).sort(), ['read'])
+    assert.deepEqual(Object.keys(withoutGatedTools(tools, 'write')).sort(), ['read'])
   })
 
   test('a tool that gates itself is dropped too: a service tool\'s own needsApproval', () => {

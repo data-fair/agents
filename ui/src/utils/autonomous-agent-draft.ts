@@ -7,7 +7,7 @@
  */
 
 import writeReqSchema from '../../../api/doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-import { DEFAULT_APPROVALS } from '@agents/shared/approval-policy'
+import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
 
 /** Every property the write-req schema accepts. */
 export const AUTONOMOUS_AGENT_WRITABLE_KEYS = Object.keys(writeReqSchema.properties)
@@ -24,7 +24,7 @@ export function autonomousAgentEditDraft (autonomousAgent: Record<string, any>):
   // them, so a page merely opened reported an unsaved change. A schema walk would also add
   // web.allowedUrls, which vjsf leaves out while web access is off.
   draft.instructors = autonomousAgent.instructors ?? []
-  draft.approvals = { ...DEFAULT_APPROVALS, ...autonomousAgent.approvals }
+  draft.approvalLevel = autonomousAgent.approvalLevel ?? DEFAULT_APPROVAL_LEVEL
   draft.memory = autonomousAgent.memory ?? { enabled: false }
   draft.web = autonomousAgent.web ?? { enabled: false }
   draft.externalMcpServers = autonomousAgent.externalMcpServers ?? []

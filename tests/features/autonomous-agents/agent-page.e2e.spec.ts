@@ -40,7 +40,7 @@ test.describe('Autonomous agent page', () => {
     // half — that the body it builds keeps every writable field, nhi included — is pinned
     // deterministically in edit-draft.unit.spec.ts, including a guard that fails if the write-req
     // schema gains a property the form does not carry.
-    const agentId = await createAgent({ approvals: { readOnly: 'allow', write: 'approve', destructive: 'deny' } })
+    const agentId = await createAgent({ approvalLevel: 'write' })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
     await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
     const persona = page.getByRole('textbox', { name: 'Persona' })
@@ -48,10 +48,8 @@ test.describe('Autonomous agent page', () => {
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
     // The enrolment is loaded into the form, which is what stops a save from dropping it.
     await expect(page.getByRole('textbox', { name: 'Client id' })).toHaveValue('dev-fixture-nhi')
-    // The stored approval levels, not just the fields: a form that dropped them would reset them on save.
-    await expect(page.getByText('Approvals', { exact: true })).toBeVisible()
-    await expect(page.getByRole('combobox').filter({ hasText: 'Writing' })).toContainText('Approve each call')
-    await expect(page.getByRole('combobox').filter({ hasText: 'Destructive' })).toContainText('Never offer')
+    // The stored approval level, not just the fields: a form that dropped them would reset them on save.
+    await expect(page.getByRole('combobox', { name: 'Ask for approval for' })).toHaveValue('Every operation that makes changes')
     // A loaded agent is clean: the Save below is caused by the edit, not by a spurious diff.
     await expect(page.getByRole('button', { name: 'Save' })).toBeHidden()
 
@@ -61,7 +59,7 @@ test.describe('Autonomous agent page', () => {
     const saved = (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).data
     expect(saved.persona).toBe('You answer at length.')
     expect(saved.nhi?.clientId).toBe('dev-fixture-nhi')
-    expect(saved.approvals).toMatchObject({ write: 'approve', destructive: 'deny' })
+    expect(saved.approvalLevel).toBe('write')
     // The saved agent is the new baseline, and a further edit is still noticed.
     await persona.fill('You answer in French.')
     await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()

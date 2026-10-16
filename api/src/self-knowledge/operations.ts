@@ -9,7 +9,8 @@
 import type { ConversationRun } from '#types'
 import { FILE_MAX_BYTES, SCOPE_MAX_BYTES, formatBytes } from '../files/operations.ts'
 import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
-import { classifyTool, resolveApproval, type ApprovalClass, type Approvals } from '../conversations/approval-policy.ts'
+import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
+import { classifyTool, approvalPolicyFor, type ApprovalClass, type ApprovalLevel } from '../conversations/approval-policy.ts'
 import type { TurnCatalog, TurnSurface } from '../conversations/service-tools.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 import type { McpProfile } from '@agents/shared/mcp-profiles'
@@ -35,7 +36,7 @@ export const SELF_KNOWLEDGE_SERVER_ID = 'agent-self'
 export const RUN_ROW_SUMMARY_CHARS = 300
 
 export interface ConfigurationView {
-  agent: { title: string, persona: string, instructions?: string, approvals?: Approvals, memoryEnabled: boolean }
+  agent: { title: string, persona: string, instructions?: string, approvalLevel?: ApprovalLevel, memoryEnabled: boolean }
   /** Whether this turn has files (a file store is configured). */
   files: boolean
   /** Whether this turn is offered code_mode (code-mode/operations.ts, codeModeOfferedTo). */
@@ -54,12 +55,11 @@ export interface ConfigurationView {
 const CLASS_LABELS: Record<ApprovalClass, string> = { readOnly: 'read-only tools', write: 'write tools', destructive: 'destructive tools' }
 
 /**
- * Why a catalog tool is or is not usable this turn, by the same rule the turn applies: `deny` removes it,
- * `approve` gates it in a chat and removes it on the task surface (unattended).
+ * Why a catalog tool is or is not usable this turn, by the same rule the turn applies: `approve` gates it
+ * in a chat and removes it on the task surface (unattended).
  */
-const toolStatus = (annotations: Record<string, unknown> | undefined, approvals: Approvals | undefined, surface: TurnSurface): string => {
-  const policy = resolveApproval(classifyTool(annotations), approvals)
-  if (policy === 'deny') return 'not usable: denied by policy'
+const toolStatus = (annotations: Record<string, unknown> | undefined, level: ApprovalLevel | undefined, surface: TurnSurface): string => {
+  const policy = approvalPolicyFor(classifyTool(annotations), level)
   if (policy === 'approve') return surface === 'task' ? 'not usable here: needs approval and nobody is present' : 'needs the person\'s approval'
   return 'usable'
 }
@@ -74,7 +74,7 @@ const bullets = (items: string[]) => items.length ? items.map(item => `- ${item}
 export const renderConfiguration = (view: ConfigurationView): string => {
   const { agent, surface, catalog } = view
   const tools = [
-    ...Object.entries(catalog.tools).map(([name, { server, annotations }]) => `${name} (server ${server}): ${toolStatus(annotations, agent.approvals, surface)}`),
+    ...Object.entries(catalog.tools).map(([name, { server, annotations }]) => `${name} (server ${server}): ${toolStatus(annotations, agent.approvalLevel, surface)}`),
     ...catalog.filteredOut.map(({ name, server }) => `${name} (server ${server}): not selected for you by an administrator`),
     ...(catalog.profiled ?? []).map(({ server, profiles, notSelected }) => `server ${server}: profiles ${profiles.join(', ')}, chosen by an administrator` +
       // What is out of reach and why, as SELF_KNOWLEDGE_NOTE promises: with « read » alone, a judged run could not
@@ -94,7 +94,7 @@ export const renderConfiguration = (view: ConfigurationView): string => {
     '## Instructions',
     agent.instructions || 'None.',
     '## Approval policy',
-    bullets((Object.keys(CLASS_LABELS) as ApprovalClass[]).map(cls => `${CLASS_LABELS[cls]}: ${resolveApproval(cls, agent.approvals)}`)),
+    `approval level: ${agent.approvalLevel ?? DEFAULT_APPROVAL_LEVEL} (${(Object.keys(CLASS_LABELS) as ApprovalClass[]).map(cls => `${CLASS_LABELS[cls]}: ${approvalPolicyFor(cls, agent.approvalLevel)}`).join(', ')})`,
     '## Tools',
     bullets(tools),
     '## Service tools offered this turn',

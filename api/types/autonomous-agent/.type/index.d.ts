@@ -40,18 +40,18 @@ export type Roles = string[];
  * Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.
  */
 export type WhoMayInstruct = AccessRef[];
-export type Reading = (Allow | ApproveEachCall | NeverOffer) & string;
-export type Allow = "allow";
-export type ApproveEachCall = "approve";
-export type NeverOffer = "deny";
-export type Writing = (Allow1 | ApproveEachCall1 | NeverOffer1) & string;
-export type Allow1 = "allow";
-export type ApproveEachCall1 = "approve";
-export type NeverOffer1 = "deny";
-export type Destructive = (Allow2 | ApproveEachCall2 | NeverOffer2) & string;
-export type Allow2 = "allow";
-export type ApproveEachCall2 = "approve";
-export type NeverOffer2 = "deny";
+/**
+ * A planned task has nobody to approve: tools that need approval are not offered to it.
+ */
+export type AskForApprovalFor = (
+  | EveryOperationThatMakesChanges
+  | OnlyOperationsMarkedAsParticularlyDestructive
+  | NoneTheAgentIsFullyAutonomousInItsToolCalls
+) &
+  string;
+export type EveryOperationThatMakesChanges = "write";
+export type OnlyOperationsMarkedAsParticularlyDestructive = "destructive";
+export type NoneTheAgentIsFullyAutonomousInItsToolCalls = "none";
 /**
  * The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.
  */
@@ -91,7 +91,7 @@ export type AutonomousAgent = {
   mcpServers: MCPServers;
   nhi?: NonHumanIdentity;
   instructors?: WhoMayInstruct;
-  approvals?: Approvals;
+  approvalLevel?: AskForApprovalFor;
   memory?: Memory;
   web?: WebAccess;
   externalMcpServers?: ExternalMCPServers;
@@ -137,14 +137,6 @@ export type UnRoleOuDepartementDeMonOrganisation = {
   id: string;
   department?: Departement;
   roles?: Roles;
-}
-/**
- * What happens when this autonomous agent calls a tool, by the kind of action the tool declares. "Approve" stops the turn until the person in the chat approves the call; a scheduled task never gets such a tool. Tools that declare nothing count as writing.
- */
-export type Approvals = {
-  readOnly?: Reading;
-  write?: Writing;
-  destructive?: Destructive;
 }
 export type Memory = {
   enabled: KeepAMemoryAcrossConversations;

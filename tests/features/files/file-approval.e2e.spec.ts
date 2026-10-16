@@ -19,7 +19,7 @@ test.describe('Approval card of a file upload', () => {
     await clean()
     fixture.resetInvokedTools()
     await putMockSettings(admin, 'organization/test1')
-    agentId = (await createFilesAgent({ approvals: { write: 'approve' } })).id
+    agentId = (await createFilesAgent({ approvalLevel: 'write' })).id
   })
 
   const ask = async (page: any, text: string) => {

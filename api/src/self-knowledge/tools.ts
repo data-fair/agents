@@ -56,7 +56,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
         const referenced = new Set((agent.mcpServers ?? []).map(ref => ref.serverId))
         const tasks = await listTasks(owner, agent.id)
         return renderConfiguration({
-          agent: { title: agent.title, persona: agent.persona, instructions: agent.instructions, approvals: agent.approvals, memoryEnabled: memoryEnabledFor(agent) },
+          agent: { title: agent.title, persona: agent.persona, instructions: agent.instructions, approvalLevel: agent.approvalLevel, memoryEnabled: memoryEnabledFor(agent) },
           surface,
           files: !!ctx.files,
           codeMode: codeModeOfferedTo(run.triggeredByRole),
