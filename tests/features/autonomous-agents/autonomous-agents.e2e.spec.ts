@@ -6,6 +6,7 @@ import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { axiosAuth, clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { exampleFields } from '../../../ui/src/utils/autonomous-agent-examples.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -28,6 +29,63 @@ test.describe('Autonomous agents configuration', () => {
   // Configuring an autonomous agent is behind the progressive rollout gate
   // (autonomousAgentsRequireAdminMode), so every write here needs a superadmin in admin mode.
   const asSuperAdmin = { adminMode: true } as const
+
+  test('creation asks only for a name, a role and an example', async ({ page, goToWithAuth }) => {
+    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
+    const dialog = page.locator('.v-overlay--active')
+    await expect(dialog.getByTestId('autonomous-agent-create-title')).toBeVisible()
+    await expect(dialog.getByTestId('autonomous-agent-create-role')).toBeVisible()
+    await expect(dialog.getByTestId('autonomous-agent-create-example-quality')).toBeVisible()
+    // nothing else: no persona, no MCP servers, no client id
+    await expect(dialog.getByRole('textbox')).toHaveCount(1)
+    await expect(dialog.getByText('Persona')).toHaveCount(0)
+    await expect(dialog.getByText('MCP')).toHaveCount(0)
+    await expect(dialog.getByText('Client id')).toHaveCount(0)
+  })
+
+  test('creation without directory lands on the page with a retry', async ({ page, goToWithAuth }) => {
+    // In dev, simple-directory is file-storage: the identity cannot be created, which is the path to pin.
+    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Quality agent')
+    await page.getByTestId('autonomous-agent-create-example-quality').click()
+    await page.getByTestId('autonomous-agent-save').click()
+    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/, { timeout: 20000 })
+
+    const listed = (await admin.get('/api/autonomous-agents/organization/test1')).data.results
+    const agent = listed.find((a: any) => a.title === 'Quality agent')
+    expect(agent.role).toBe('user')
+    expect(agent.approvalLevel).toBe('write')
+    expect(agent.persona).toBe(exampleFields('quality', 'en', 'Quality agent').persona)
+    expect(agent.nhi?.clientId).toBeFalsy()
+
+    // delivered by the agent page rework
+    test.fixme(true, 'the enrol retry button arrives with the agent page rework')
+    await expect(page.getByTestId('autonomous-agent-enrol')).toBeVisible()
+  })
+
+  test('creation enrols the identity when the directory accepts it', async ({ page, goToWithAuth }) => {
+    let nhiBody: any
+    await page.route('**/simple-directory/api/organizations/*/nhis', async route => {
+      if (route.request().method() !== 'POST') return route.continue()
+      nhiBody = route.request().postDataJSON()
+      await route.fulfill({ status: 201, json: { id: 'nhi-stub' } })
+    })
+    // the real PUT performs a token exchange that would fail against a stub identity
+    await page.route('**/api/autonomous-agents/organization/test1/*', async route => {
+      if (route.request().method() !== 'PUT') return route.continue()
+      const current = await (await route.fetch({ method: 'GET' })).json()
+      await route.fulfill({ status: 200, json: { ...current, ...route.request().postDataJSON() } })
+    })
+    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Enrolled by creation')
+    await page.getByTestId('autonomous-agent-save').click()
+    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/, { timeout: 20000 })
+    expect(nhiBody.role).toBe('user')
+    expect(nhiBody.name).toMatch(/ \(autonomous agent\)$/)
+  })
 
   test('an unenrolled autonomous agent offers to enrol it, and reports what the directory says', async ({ page, goToWithAuth }) => {
     // The two services are federated CLIENT-side: this button calls simple-directory's own NHI API
@@ -106,13 +164,9 @@ test.describe('Autonomous agents configuration', () => {
     // test above, which pins that failure being reported). The seam stands in for it here so the rest
     // of the journey is exercised rather than blocked.
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
-
     // Generous: the first navigation after a dev-server restart pays vite's compile cost.
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
-    // The create form offers the memory switch.
-    await expect(page.getByRole('checkbox', { name: 'Keep a memory across conversations' })).toBeVisible()
-    await page.getByRole('textbox', { name: 'Name' }).fill('Journey agent')
-    await page.getByRole('textbox', { name: 'Persona' }).fill('You answer briefly.')
+    await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Journey agent')
     await page.getByTestId('autonomous-agent-save').click()
     // The url first: the create dialog's own Name field holds the same value until it closes.
     await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/)

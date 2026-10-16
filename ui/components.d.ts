@@ -23,6 +23,7 @@ declare module 'vue' {
     AgentMemoryDialog: typeof import('./src/components/AgentMemoryDialog.vue')['default']
     AgentTasksTab: typeof import('./src/components/agent-page/AgentTasksTab.vue')['default']
     ApprovalCard: typeof import('./src/components/agent-chat/ApprovalCard.vue')['default']
+    AutonomousAgentCreateDialog: typeof import('./src/components/AutonomousAgentCreateDialog.vue')['default']
     AutonomousAgentForm: typeof import('./src/components/AutonomousAgentForm.vue')['default']
     AutonomousAgentsSection: typeof import('./src/components/AutonomousAgentsSection.vue')['default']
     AutonomousAgentStateChips: typeof import('./src/components/AutonomousAgentStateChips.vue')['default']
