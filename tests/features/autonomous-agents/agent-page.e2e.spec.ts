@@ -153,15 +153,43 @@ test.describe('Autonomous agent page', () => {
     const agentId = await createAgent()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
     await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
-    // The DELETE must actually reach the directory, which (file storage in dev) refuses it.
+    // The DELETE must actually reach the directory, which (file storage in dev) refuses it — and only
+    // after the agent's own DELETE.
+    const order: string[] = []
+    page.on('request', req => {
+      if (req.method() !== 'DELETE') return
+      const path = new URL(req.url()).pathname
+      if (path === '/simple-directory/api/organizations/test1/nhis/dev-fixture-nhi') order.push('identity')
+      else if (path.endsWith(`/api/autonomous-agents/organization/test1/${agentId}`)) order.push('agent')
+    })
     const removal = page.waitForRequest(req => req.method() === 'DELETE' &&
       new URL(req.url()).pathname === '/simple-directory/api/organizations/test1/nhis/dev-fixture-nhi')
     await deleteFromHeader(page)
     await removal
+    expect(order).toEqual(['agent', 'identity'])
     await expect(page.locator('.v-snackbar').filter({ hasText: 'identity' })).toBeVisible({ timeout: 10000 })
     // the agent itself is deleted all the same
     await expect(page).toHaveURL(/\/agents\/organization\/test1$/, { timeout: 20000 })
     await expect(admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).rejects.toMatchObject({ status: 404 })
+  })
+
+  test('a failing agent deletion leaves its identity alone', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+    const directoryDeletes: string[] = []
+    page.on('request', req => {
+      if (req.method() === 'DELETE' && req.url().includes('/simple-directory/')) directoryDeletes.push(req.url())
+    })
+    await page.route(`**/api/autonomous-agents/organization/test1/${agentId}`, async route => {
+      if (route.request().method() !== 'DELETE') return route.continue()
+      await route.fulfill({ status: 500, json: { message: 'boom' } })
+    })
+    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await deleteFromHeader(page)
+    await expect(page.locator('.v-snackbar').filter({ hasText: /boom|delete/i })).toBeVisible({ timeout: 10000 })
+    await expect(page).toHaveURL(new RegExp(`/agents/${agentId}`))
+    expect(directoryDeletes).toEqual([])
+    expect((await getAgent(agentId)).nhi?.clientId).toBe('dev-fixture-nhi')
   })
 
   test('a non-admin instructor is sent to the agent\'s chat, as the org page sends them, and can post', async ({ page, goToWithAuth }) => {

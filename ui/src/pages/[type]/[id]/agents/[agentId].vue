@@ -281,9 +281,11 @@ const deleted = ref(false)
 const remove = async () => {
   deleting.value = true
   try {
-    // The identity first, while the agent still says which one it is. A directory that refuses (read-only,
-    // or down) does not keep the agent alive: the admin is told, and can delete the identity there.
+    // The agent first: if that fails, the agent keeps its working identity and nothing is half-done. Its
+    // identity goes after, best effort: one whose subject names a deleted agent is inert (nothing signs
+    // for it), so a directory that refuses only leaves the admin a clean-up to do there.
     const clientId = agent.value.nhi?.clientId
+    await $fetch(agentUrl, { method: 'DELETE', credentials: 'include' })
     if (clientId) {
       try {
         await removeIdentity(clientId)
@@ -291,7 +293,6 @@ const remove = async () => {
         sendUiNotif({ type: 'warning', msg: t('identityNotDeleted', { reason: enrolmentErrorMessage(error) }) })
       }
     }
-    await $fetch(agentUrl, { method: 'DELETE', credentials: 'include' })
   } catch (error) {
     sendUiNotif({ type: 'error', msg: apiErrorMessage(error) ?? t('deleteFailed'), error: error as any })
     deleting.value = false

@@ -13,6 +13,8 @@
             v-model="title"
             :label="t('name')"
             :rules="[v => !!v?.trim() || t('required')]"
+            :maxlength="AUTONOMOUS_AGENT_TITLE_MAX"
+            counter
             data-testid="autonomous-agent-create-title"
             autofocus
           />
@@ -21,6 +23,7 @@
             :items="roles"
             :label="t('role')"
             :hint="t('roleHint')"
+            :rules="[v => !!v || t('required')]"
             persistent-hint
             class="mb-4"
             data-testid="autonomous-agent-create-role"
@@ -120,6 +123,8 @@ const router = useRouter()
 const { sendUiNotif } = useUiNotif()
 const { enrol } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
 
+// simple-directory caps an identity name at 150 characters and ours adds " (autonomous agent)" (19): keep in step with api/types/autonomous-agent/schema.js.
+const AUTONOMOUS_AGENT_TITLE_MAX = 131
 const DEFAULT_ROLES = ['admin', 'user']
 const formRef = ref<any>(null)
 const title = ref('')
@@ -138,7 +143,8 @@ const loadRoles = async () => {
     roles.value = DEFAULT_ROLES
     sendUiNotif({ type: 'warning', msg: t('rolesFailed') })
   }
-  if (!roles.value.includes(role.value)) role.value = roles.value[0]
+  // Least privilege: without a `user` role, the first non-admin one, else none (the admin must choose).
+  if (!roles.value.includes(role.value)) role.value = roles.value.find(r => r !== 'admin') ?? ''
 }
 
 watch(open, (isOpen) => {
@@ -150,6 +156,7 @@ watch(open, (isOpen) => {
 })
 
 const create = async () => {
+  if (saving.value) return
   if (!(await formRef.value?.validate())?.valid) return
   saving.value = true
   let created: { id: string, title: string, role?: string }
@@ -168,14 +175,18 @@ const create = async () => {
     saving.value = false
     return
   }
+  let enrolReason = ''
   try {
     await enrol(created)
   } catch (error) {
     // The agent exists; only its identity does not. Say so, and land on the page, where it can be retried.
-    sendUiNotif({ type: 'warning', msg: t('notEnrolled', { reason: enrolmentErrorMessage(error) }) })
+    const reason = enrolmentErrorMessage(error)
+    sendUiNotif({ type: 'warning', msg: t('notEnrolled', { reason }) })
+    enrolReason = reason
   }
   open.value = false
   saving.value = false
-  await router.push(`/${props.accountType}/${props.accountId}/agents/${created.id}`)
+  // The page shows the reason persistently beside its retry button (the notification above is transient).
+  await router.push({ path: `/${props.accountType}/${props.accountId}/agents/${created.id}`, state: enrolReason ? { enrolError: enrolReason } : {} })
 }
 </script>

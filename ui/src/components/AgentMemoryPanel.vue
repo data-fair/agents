@@ -214,7 +214,7 @@ import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 
 const props = defineProps<{
-  agent: { id: string, title: string } | null
+  agent: { id: string, title: string, memory?: { enabled?: boolean } } | null
   accountType: string
   accountId: string
   canConfigure: boolean
@@ -282,6 +282,9 @@ watch(() => props.agent?.id, () => {
   tab.value = 'documents'
   load().catch(report)
 }, { immediate: true })
+
+// The "turned off" notice follows the stored setting: saving it in the configuration must not leave it stale.
+watch(() => props.agent?.memory?.enabled, () => { load().catch(report) })
 
 const startNew = () => { selected.value = { isNew: true, path: '', description: '', content: '' } }
 

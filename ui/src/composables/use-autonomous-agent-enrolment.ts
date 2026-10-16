@@ -61,7 +61,15 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
         body: autonomousAgentNhiBody({ agentId: autonomousAgent.id, title: autonomousAgent.title, issuer, role: autonomousAgent.role }),
         credentials: 'include'
       })
-      await attach(autonomousAgent, created.id)
+      try {
+        await attach(autonomousAgent, created.id)
+      } catch (attachError) {
+        // The identity was created but could not be attached (the PUT performs a real exchange and can
+        // refuse): remove it, or each retry would leave another orphan in the directory. Best effort;
+        // the original error is the one worth showing.
+        await removeIdentity(created.id).catch(() => {})
+        throw attachError
+      }
     } catch (err: any) {
       // simple-directory's NHI management is mongo-only: on a file-storage deployment createUser
       // throws and this fails. Say so rather than leaving the button apparently inert.

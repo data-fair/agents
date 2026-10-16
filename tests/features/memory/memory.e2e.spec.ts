@@ -65,5 +65,15 @@ test.describe('Agent memory dialog', () => {
     await expect(page.getByText('Memory is turned off for this agent')).toBeVisible()
   })
 
+  test('enabling memory in the tab and saving removes the "turned off" notice without a reload', async ({ page, goToWithAuth }) => {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true })).data
+    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
+    await page.getByTestId('autonomous-agent-config-tab-memory').click({ timeout: 20000 })
+    await expect(page.getByText('Memory is turned off for this agent')).toBeVisible()
+    await page.getByRole('checkbox', { name: 'Keep a memory across conversations' }).check()
+    await page.locator('#autonomous-agent-configuration .v-card').getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByText('Memory is turned off for this agent')).toBeHidden({ timeout: 10000 })
+  })
+
   // The memory switch of the create form: autonomous-agents.e2e.spec.ts, on its journey test.
 })

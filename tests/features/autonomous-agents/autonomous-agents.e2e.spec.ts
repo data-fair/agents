@@ -63,6 +63,34 @@ test.describe('Autonomous agents configuration', () => {
     // the page offers to retry, in the configuration's bar
     await expect(page.getByTestId('autonomous-agent-enrol')).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-enrol')).toHaveText('Create the identity')
+    // and says why, persistently (the dialog's notification is gone by now)
+    await expect(page.getByTestId('autonomous-agent-enrol-error')).toBeVisible()
+    await expect(page.getByTestId('autonomous-agent-enrol-error')).not.toBeEmpty()
+  })
+
+  test('a refused attach deletes the identity it just created', async ({ page, goToWithAuth }) => {
+    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'Attach refused', persona: 'x', mcpServers: [], enabled: true
+    })
+    const directoryDeletes: string[] = []
+    await page.route('**/simple-directory/api/organizations/*/nhis**', async route => {
+      const req = route.request()
+      if (req.method() === 'POST') return route.fulfill({ status: 201, json: { id: 'nhi-stub' } })
+      if (req.method() === 'DELETE') {
+        directoryDeletes.push(new URL(req.url()).pathname)
+        return route.fulfill({ status: 204 })
+      }
+      return route.continue()
+    })
+    await page.route('**/api/autonomous-agents/organization/test1/*', async route => {
+      if (route.request().method() !== 'PUT') return route.continue()
+      await route.fulfill({ status: 400, json: { message: 'exchange refused' } })
+    })
+    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
+    await page.getByTestId('autonomous-agent-enrol').click({ timeout: 20000 })
+    await expect(page.getByTestId('autonomous-agent-enrol-error')).toBeVisible({ timeout: 20000 })
+    await expect(page.getByTestId('autonomous-agent-enrol-error')).toContainText('exchange refused')
+    await expect.poll(() => directoryDeletes).toEqual(['/simple-directory/api/organizations/test1/nhis/nhi-stub'])
   })
 
   test('creation enrols the identity when the directory accepts it', async ({ page, goToWithAuth }) => {

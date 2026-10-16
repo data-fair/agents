@@ -333,6 +333,7 @@ const hasDiff = computed(() => JSON.stringify(canonical(draft.value)) !== JSON.s
 // is taken into the draft, so a later Save does not revert the switch.
 watch(() => props.agent, (agent) => {
   if (!hasDiff.value) return reset()
+  // Keeping `nhi` from the stale draft is safe only because the enrol button is disabled while hasDiff.
   saved.value = autonomousAgentEditDraft(agent)
   draft.value = { ...draft.value, enabled: saved.value.enabled }
 }, { immediate: true })
@@ -470,6 +471,11 @@ const pickExample = (key: AutonomousAgentExampleKey | null) => {
 // ---- identity (federated with simple-directory, client-side) ----
 
 const { enrolling, error: enrolError, enrol, syncIdentity } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
+
+// Arriving from the creation dialog whose enrolment failed: its reason (a transient notification there) is
+// shown persistently, beside the retry button.
+const arrivedWith = (window.history.state as any)?.enrolError
+if (typeof arrivedWith === 'string' && arrivedWith) enrolError.value = arrivedWith
 
 const createIdentity = async () => {
   try {

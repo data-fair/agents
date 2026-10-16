@@ -28,6 +28,8 @@ export default {
     },
     title: {
       type: 'string',
+      // simple-directory caps an identity name at 150 characters and ours adds " (autonomous agent)" (19)
+      maxLength: 131,
       title: 'Name',
       'x-i18n-title': { en: 'Name', fr: 'Nom' }
     },

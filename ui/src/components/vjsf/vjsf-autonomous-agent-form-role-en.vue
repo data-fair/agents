@@ -18,10 +18,12 @@ import textareaNode from '@koumoul/vjsf/components/nodes/textarea.vue'
 
 
 import localizeErrors from "ajv-i18n/localize/en/index.js";
+import ucs2length from "ajv/dist/runtime/ucs2length.js";
 
 const export0 = validate22;
 const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/autonomous-agent/form-role#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/form-role","x-exports":["vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona"],"layout":{"title":null},"properties":{"title":{"type":"string","title":"Name","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"How it should work: procedures, constraints, what to do when unsure.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#","errorMessage":{"required":{"title":"required information","persona":"required information"}}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/form-role","x-exports":["vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona"],"layout":{"title":null},"properties":{"title":{"type":"string","maxLength":131,"title":"Name","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"How it should work: procedures, constraints, what to do when unsure.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#","errorMessage":{"required":{"title":"required information","persona":"required information"}}};
+const func1 = ucs2length.default;
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
 function validate22(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -70,8 +72,9 @@ errors++;
 }
 if(data.title !== undefined){
 let data0 = data.title;
-if(typeof data0 !== "string"){
-const err3 = {instancePath:instancePath+"/title",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.title.type,parentSchema:schema27.properties.title,data:data0};
+if(typeof data0 === "string"){
+if(func1(data0) > 131){
+const err3 = {instancePath:instancePath+"/title",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title/maxLength",keyword:"maxLength",params:{limit: 131},message:"must NOT have more than 131 characters",schema:131,parentSchema:schema27.properties.title,data:data0};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -80,11 +83,22 @@ vErrors.push(err3);
 }
 errors++;
 }
+}
+else {
+const err4 = {instancePath:instancePath+"/title",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.title.type,parentSchema:schema27.properties.title,data:data0};
+if(vErrors === null){
+vErrors = [err4];
+}
+else {
+vErrors.push(err4);
+}
+errors++;
+}
 if(errors > 0){
 const emErrs0 = [];
-for(const err4 of vErrors){
-if(!err4.emUsed){
-emErrs0.push(err4);
+for(const err5 of vErrors){
+if(!err5.emUsed){
+emErrs0.push(err5);
 }
 }
 vErrors = emErrs0;
@@ -94,20 +108,20 @@ errors = emErrs0.length;
 if(data.persona !== undefined){
 let data1 = data.persona;
 if(typeof data1 !== "string"){
-const err5 = {instancePath:instancePath+"/persona",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.persona.type,parentSchema:schema27.properties.persona,data:data1};
+const err6 = {instancePath:instancePath+"/persona",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.persona.type,parentSchema:schema27.properties.persona,data:data1};
 if(vErrors === null){
-vErrors = [err5];
+vErrors = [err6];
 }
 else {
-vErrors.push(err5);
+vErrors.push(err6);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs1 = [];
-for(const err6 of vErrors){
-if(!err6.emUsed){
-emErrs1.push(err6);
+for(const err7 of vErrors){
+if(!err7.emUsed){
+emErrs1.push(err7);
 }
 }
 vErrors = emErrs1;
@@ -117,20 +131,20 @@ errors = emErrs1.length;
 if(data.instructions !== undefined){
 let data2 = data.instructions;
 if(typeof data2 !== "string"){
-const err7 = {instancePath:instancePath+"/instructions",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.instructions.type,parentSchema:schema27.properties.instructions,data:data2};
+const err8 = {instancePath:instancePath+"/instructions",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.instructions.type,parentSchema:schema27.properties.instructions,data:data2};
 if(vErrors === null){
-vErrors = [err7];
+vErrors = [err8];
 }
 else {
-vErrors.push(err7);
+vErrors.push(err8);
 }
 errors++;
 }
 if(errors > 0){
 const emErrs2 = [];
-for(const err8 of vErrors){
-if(!err8.emUsed){
-emErrs2.push(err8);
+for(const err9 of vErrors){
+if(!err9.emUsed){
+emErrs2.push(err9);
 }
 }
 vErrors = emErrs2;
@@ -139,12 +153,12 @@ errors = emErrs2.length;
 }
 }
 else {
-const err9 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+const err10 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
 if(vErrors === null){
-vErrors = [err9];
+vErrors = [err10];
 }
 else {
-vErrors.push(err9);
+vErrors.push(err10);
 }
 errors++;
 }
@@ -153,13 +167,13 @@ const emErrors0 = {"required":{"title":[],"persona":[]}};
 const templates0 = {required:{}};
 let emPropParams0;
 let emParamsErrors0;
-for(const err10 of vErrors){
-if((((((err10.keyword !== "errorMessage") && (!err10.emUsed)) && (err10.instancePath === instancePath)) && (err10.keyword in emErrors0)) && (err10.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/form-role#") === 0)) && (/^\/[^\/]*$/.test(err10.schemaPath.slice(63)))){
-emPropParams0 = obj0[err10.keyword];
-emParamsErrors0 = emErrors0[err10.keyword][err10.params[emPropParams0]];
+for(const err11 of vErrors){
+if((((((err11.keyword !== "errorMessage") && (!err11.emUsed)) && (err11.instancePath === instancePath)) && (err11.keyword in emErrors0)) && (err11.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/form-role#") === 0)) && (/^\/[^\/]*$/.test(err11.schemaPath.slice(63)))){
+emPropParams0 = obj0[err11.keyword];
+emParamsErrors0 = emErrors0[err11.keyword][err11.params[emPropParams0]];
 if(emParamsErrors0){
-emParamsErrors0.push(err10);
-err10.emUsed = true;
+emParamsErrors0.push(err11);
+err11.emUsed = true;
 }
 }
 }
@@ -168,21 +182,21 @@ for(const keyProp0 in emErrors0[key1]){
 emParamsErrors0 = emErrors0[key1][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err11 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.errorMessage[key1][keyProp0],schema:schema27.errorMessage,parentSchema:schema27,data};
+const err12 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.errorMessage[key1][keyProp0],schema:schema27.errorMessage,parentSchema:schema27,data};
 if(vErrors === null){
-vErrors = [err11];
+vErrors = [err12];
 }
 else {
-vErrors.push(err11);
+vErrors.push(err12);
 }
 errors++;
 }
 }
 }
 const emErrs3 = [];
-for(const err12 of vErrors){
-if(!err12.emUsed){
-emErrs3.push(err12);
+for(const err13 of vErrors){
+if(!err13.emUsed){
+emErrs3.push(err13);
 }
 }
 vErrors = emErrs3;

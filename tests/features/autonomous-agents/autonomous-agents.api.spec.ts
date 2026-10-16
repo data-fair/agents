@@ -21,6 +21,13 @@ test.describe('Autonomous agents API', () => {
     await clean()
   })
 
+  test('a title longer than the directory accepts for an identity name is refused', async () => {
+    // simple-directory caps an NHI name at 150 characters and ours adds " (autonomous agent)"
+    await assert.rejects(admin.post('/api/autonomous-agents/organization/test1', { ...validAgent(), title: 'x'.repeat(132) }), { status: 400 })
+    const ok = await admin.post('/api/autonomous-agents/organization/test1', { ...validAgent(), title: 'x'.repeat(131) })
+    assert.equal(ok.status, 200)
+  })
+
   test('the MCP catalog lists the dev servers without credentials', async () => {
     const res = await admin.get('/api/autonomous-agents/organization/test1/mcp-servers')
     assert.equal(res.status, 200)

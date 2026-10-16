@@ -188,8 +188,11 @@ sites does not move it.
   and its page offers a "Create the identity" retry. There is no "reuse an existing identity" path:
   an agent's identity is always the one created for it, so its subject can never be shared.
   The identity then follows the agent from the same place. On save, a changed title or role is
-  PATCHed onto the NHI (`identityPatch`, `syncIdentity`), and deleting the agent removes the NHI
-  first (best effort, a warning if the directory refuses), then the agent. A refusal from
+  PATCHed onto the NHI (`identityPatch`, `syncIdentity`), and deleting the agent
+  removes the agent first, then its identity (best effort, a warning if the directory refuses): an
+  identity whose subject names a deleted agent is inert, nothing signs for it, whereas the other order
+  could leave a surviving agent with a dead identity. A failed enrolment (the PUT that attaches the
+  identity is refused) deletes the identity it just created, so retries leave no orphans. A refusal from
   simple-directory (for instance on file storage) is shown as a persistent alert and the stored
   value diverges from the identity's: accepted, because the directory is the authority on an
   identity and this service only verifies one. This server never manages an identity; it verifies
