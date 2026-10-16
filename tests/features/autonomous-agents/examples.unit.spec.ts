@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { DEFAULT_APPROVAL_LEVEL } from '../../../shared/approval-policy.ts'
-import { AUTONOMOUS_AGENT_EXAMPLE_KEYS, exampleFields, isPristineText } from '../../../ui/src/utils/autonomous-agent-examples.ts'
+import { AUTONOMOUS_AGENT_EXAMPLE_KEYS, exampleFields } from '../../../ui/src/utils/autonomous-agent-examples.ts'
 
 const locales = ['fr', 'en'] as const
 
@@ -37,23 +37,5 @@ test.describe('autonomous agent starting examples', () => {
       assert.ok(!exampleFields('publication', locale, 'My title').persona.includes('My title'))
       assert.ok(!exampleFields('quality', locale, 'My title').persona.includes('My title'))
     }
-  })
-
-  test('isPristineText is true when both are empty or equal an example', () => {
-    assert.equal(isPristineText('', '', 'en', 'T'), true)
-    assert.equal(isPristineText(undefined, undefined, 'fr', 'T'), true)
-    for (const key of AUTONOMOUS_AGENT_EXAMPLE_KEYS) {
-      for (const locale of locales) {
-        const f = exampleFields(key, locale, 'T')
-        assert.equal(isPristineText(f.persona, f.instructions, locale, 'T'), true, `${key} ${locale}`)
-      }
-    }
-  })
-
-  test('isPristineText is false after one character is appended', () => {
-    const f = exampleFields('publication', 'en', 'T')
-    assert.equal(isPristineText(f.persona + 'x', f.instructions, 'en', 'T'), false)
-    assert.equal(isPristineText(f.persona, f.instructions + 'x', 'en', 'T'), false)
-    assert.equal(isPristineText('x', '', 'en', 'T'), false)
   })
 })

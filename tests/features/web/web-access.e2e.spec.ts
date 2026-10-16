@@ -46,7 +46,7 @@ test.describe('Web access configuration', () => {
     await expect(page.getByTestId('autonomous-agent-web-risk')).toBeVisible()
     // a warning, never a block: an edit can still be saved (checked last, so no navigation away follows
     // an unsaved change and meets the leave guard)
-    await page.getByTestId('autonomous-agent-config-tab-role').click()
+    await page.getByTestId('autonomous-agent-config-tab-mission').click()
     await page.getByRole('textbox', { name: 'Persona' }).fill('You answer at length.')
     await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
   })

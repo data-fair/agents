@@ -17,12 +17,12 @@ import textfieldNode from '@koumoul/vjsf/components/nodes/text-field.vue'
 import textareaNode from '@koumoul/vjsf/components/nodes/textarea.vue'
 
 
-import localizeErrors from "ajv-i18n/localize/en/index.js";
+import localizeErrors from "ajv-i18n/localize/fr/index.js";
 import ucs2length from "ajv/dist/runtime/ucs2length.js";
 
 const export0 = validate22;
-const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/autonomous-agent/form-role#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/form-role","x-exports":["vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona"],"layout":{"title":null},"properties":{"title":{"type":"string","maxLength":131,"title":"Name","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"How it should work: procedures, constraints, what to do when unsure.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-role#","errorMessage":{"required":{"title":"required information","persona":"required information"}}};
+const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/autonomous-agent/form-mission#"};
+const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/form-mission","x-exports":["vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":["title","persona"],"layout":{"title":null},"properties":{"title":{"type":"string","maxLength":131,"title":"Nom","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/title","errorMessage":{}},"persona":{"type":"string","layout":"textarea","title":"Persona","description":"Qui est cet agent autonome : son rôle, son ton et son périmètre. Devient le prompt système.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/persona","errorMessage":{}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","description":"Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/instructions","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-mission#","errorMessage":{"required":{"title":"information obligatoire","persona":"information obligatoire"}}};
 const func1 = ucs2length.default;
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
@@ -39,7 +39,7 @@ evaluated0.items = undefined;
 }
 if(data && typeof data == "object" && !Array.isArray(data)){
 if(data.title === undefined){
-const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/required",keyword:"required",params:{missingProperty: "title"},message:"must have required property '"+"title"+"'",schema:schema27.required,parentSchema:schema27,data};
+const err0 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/required",keyword:"required",params:{missingProperty: "title"},message:"must have required property '"+"title"+"'",schema:schema27.required,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err0];
 }
@@ -49,7 +49,7 @@ vErrors.push(err0);
 errors++;
 }
 if(data.persona === undefined){
-const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/required",keyword:"required",params:{missingProperty: "persona"},message:"must have required property '"+"persona"+"'",schema:schema27.required,parentSchema:schema27,data};
+const err1 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/required",keyword:"required",params:{missingProperty: "persona"},message:"must have required property '"+"persona"+"'",schema:schema27.required,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -60,7 +60,7 @@ errors++;
 }
 for(const key0 in data){
 if(!(((key0 === "title") || (key0 === "persona")) || (key0 === "instructions"))){
-const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
+const err2 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties",schema:false,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -74,7 +74,7 @@ if(data.title !== undefined){
 let data0 = data.title;
 if(typeof data0 === "string"){
 if(func1(data0) > 131){
-const err3 = {instancePath:instancePath+"/title",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title/maxLength",keyword:"maxLength",params:{limit: 131},message:"must NOT have more than 131 characters",schema:131,parentSchema:schema27.properties.title,data:data0};
+const err3 = {instancePath:instancePath+"/title",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/title/maxLength",keyword:"maxLength",params:{limit: 131},message:"must NOT have more than 131 characters",schema:131,parentSchema:schema27.properties.title,data:data0};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -85,7 +85,7 @@ errors++;
 }
 }
 else {
-const err4 = {instancePath:instancePath+"/title",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.title.type,parentSchema:schema27.properties.title,data:data0};
+const err4 = {instancePath:instancePath+"/title",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/title/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.title.type,parentSchema:schema27.properties.title,data:data0};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -108,7 +108,7 @@ errors = emErrs0.length;
 if(data.persona !== undefined){
 let data1 = data.persona;
 if(typeof data1 !== "string"){
-const err6 = {instancePath:instancePath+"/persona",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.persona.type,parentSchema:schema27.properties.persona,data:data1};
+const err6 = {instancePath:instancePath+"/persona",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/persona/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.persona.type,parentSchema:schema27.properties.persona,data:data1};
 if(vErrors === null){
 vErrors = [err6];
 }
@@ -131,7 +131,7 @@ errors = emErrs1.length;
 if(data.instructions !== undefined){
 let data2 = data.instructions;
 if(typeof data2 !== "string"){
-const err8 = {instancePath:instancePath+"/instructions",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.instructions.type,parentSchema:schema27.properties.instructions,data:data2};
+const err8 = {instancePath:instancePath+"/instructions",schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/instructions/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.instructions.type,parentSchema:schema27.properties.instructions,data:data2};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -153,7 +153,7 @@ errors = emErrs2.length;
 }
 }
 else {
-const err10 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
+const err10 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -168,7 +168,7 @@ const templates0 = {required:{}};
 let emPropParams0;
 let emParamsErrors0;
 for(const err11 of vErrors){
-if((((((err11.keyword !== "errorMessage") && (!err11.emUsed)) && (err11.instancePath === instancePath)) && (err11.keyword in emErrors0)) && (err11.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/form-role#") === 0)) && (/^\/[^\/]*$/.test(err11.schemaPath.slice(63)))){
+if((((((err11.keyword !== "errorMessage") && (!err11.emUsed)) && (err11.instancePath === instancePath)) && (err11.keyword in emErrors0)) && (err11.schemaPath.indexOf("https://github.com/data-fair/agents/autonomous-agent/form-mission#") === 0)) && (/^\/[^\/]*$/.test(err11.schemaPath.slice(66)))){
 emPropParams0 = obj0[err11.keyword];
 emParamsErrors0 = emErrors0[err11.keyword][err11.params[emPropParams0]];
 if(emParamsErrors0){
@@ -182,7 +182,7 @@ for(const keyProp0 in emErrors0[key1]){
 emParamsErrors0 = emErrors0[key1][keyProp0];
 if(emParamsErrors0.length){
 const tmpl0 = templates0[key1] && templates0[key1][keyProp0];
-const err12 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-role#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.errorMessage[key1][keyProp0],schema:schema27.errorMessage,parentSchema:schema27,data};
+const err12 = {instancePath,schemaPath:"https://github.com/data-fair/agents/autonomous-agent/form-mission#/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors0},message:tmpl0 ? tmpl0() : schema27.errorMessage[key1][keyProp0],schema:schema27.errorMessage,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -211,23 +211,23 @@ function expression0(data,value,options,context,display,layout,readOnly,summary,
 return (layout.defaultData)
 }
 const compiledLayout = {
-  mainTree: "https://github.com/data-fair/agents/autonomous-agent/form-role#",
+  mainTree: "https://github.com/data-fair/agents/autonomous-agent/form-mission#",
 
   skeletonTrees: {
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#": {
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#": {
       title: "main",
-      root: "https://github.com/data-fair/agents/autonomous-agent/form-role#",
-      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#",
+      root: "https://github.com/data-fair/agents/autonomous-agent/form-mission#",
+      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#",
       discriminatorValue: undefined
     }
   },
 
   skeletonNodes: {
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#": {
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#": {
       title: undefined,
       key: "",
-      pointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#",
-      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#",
+      pointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#",
+      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#",
       pure: true,
 
       propertyKeys: [
@@ -241,17 +241,17 @@ const compiledLayout = {
       required: true,
 
       children: [
-        "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title",
-        "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona",
-        "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions"
+        "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/title",
+        "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/persona",
+        "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/instructions"
       ]
     },
 
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title": {
-      title: "Name",
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/title": {
+      title: "Nom",
       key: "title",
-      pointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title",
-      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title",
+      pointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/title",
+      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/title",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -259,11 +259,11 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona": {
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/persona": {
       title: "Persona",
       key: "persona",
-      pointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona",
-      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona",
+      pointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/persona",
+      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/persona",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -271,11 +271,11 @@ const compiledLayout = {
       required: true
     },
 
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions": {
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/instructions": {
       title: "Instructions",
       key: "instructions",
-      pointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions",
-      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions",
+      pointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/instructions",
+      refPointer: "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/instructions",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -285,7 +285,7 @@ const compiledLayout = {
   },
 
   normalizedLayouts: {
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#": {
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#": {
       title: null,
       comp: "section",
 
@@ -308,54 +308,54 @@ const compiledLayout = {
       }
     },
 
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/title": {
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/title": {
       comp: "text-field",
-      label: "Name"
+      label: "Nom"
     },
 
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/persona": {
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/persona": {
       comp: "textarea",
       label: "Persona",
-      help: "<p>Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.</p>"
+      help: "<p>Qui est cet agent autonome : son rôle, son ton et son périmètre. Devient le prompt système.</p>"
     },
 
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#/properties/instructions": {
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/instructions": {
       comp: "textarea",
       label: "Instructions",
-      help: "<p>How it should work: procedures, constraints, what to do when unsure.</p>"
+      help: "<p>Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute.</p>"
     }
   },
 
   validates: {
-    "https://github.com/data-fair/agents/autonomous-agent/form-role#": export0
+    "https://github.com/data-fair/agents/autonomous-agent/form-mission#": export0
   },
 
   validationErrors: {},
   expressions: [expression0],
-  locale: "en",
+  locale: "fr",
 
   messages: {
-    errorOneOf: "chose one",
-    errorRequired: "required information",
-    addItem: "Add item",
-    delete: "Delete",
-    edit: "Edit",
-    confirm: "Confirm",
-    close: "Close",
-    duplicate: "Duplicate",
-    insertAfter: "Insert after",
-    copy: "Copy",
-    paste: "Paste",
-    sort: "Sort",
-    up: "Move up",
-    down: "Move down",
-    showHelp: "Show a help message",
-    default: "default: ",
-    name: "name: ",
-    examples: "Examples: ",
-    deprecated: "Warning, this information is deprecated.",
-    keyboardDate: "MM/DD/YYYY",
-    keyboardDateTime: "MM/DD/YYYY HH:mm"
+    errorOneOf: "choisissez une valeur",
+    errorRequired: "information obligatoire",
+    addItem: "Ajouter un élément",
+    delete: "Supprimer",
+    edit: "Éditer",
+    confirm: "Confirmer",
+    close: "Fermer",
+    duplicate: "Dupliquer",
+    insertAfter: "Insérer après",
+    copy: "Copier",
+    paste: "Coller",
+    sort: "Trier",
+    up: "Décaler vers le haut",
+    down: "Décaler vers le bas",
+    showHelp: "Afficher un message d'aide",
+    default: "défaut : ",
+    name: "nom : ",
+    examples: "Exemples : ",
+    deprecated: "Attention, cette information est obsolète.",
+    keyboardDate: "JJ/MM/AAAA",
+    keyboardDateTime: "JJ/MM/AAAA HH:mm"
   },
 
   components: {

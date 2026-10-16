@@ -6,7 +6,6 @@ import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { exampleFields } from '../../../ui/src/utils/autonomous-agent-examples.ts'
 
 const admin = await superAdmin
 const asSuperAdmin = { adminMode: true } as const
@@ -73,7 +72,7 @@ test.describe('Autonomous agent page', () => {
     // The stored approval level, not just the fields: a form that dropped them would reset them on save.
     await page.getByTestId('autonomous-agent-config-tab-security').click()
     await expect(page.getByRole('radio', { name: 'Every operation that makes changes' })).toBeChecked()
-    await page.getByTestId('autonomous-agent-config-tab-role').click()
+    await page.getByTestId('autonomous-agent-config-tab-mission').click()
     // A loaded agent is clean: the Save below is caused by the edit, not by a spurious diff.
     await expect(page.getByRole('button', { name: 'Save' })).toBeHidden()
 
@@ -217,13 +216,13 @@ test.describe('Autonomous agent page', () => {
   test('configuration is split in tabs with save in the bar', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
-    for (const key of ['role', 'tools', 'security', 'memory']) {
+    for (const key of ['mission', 'tools', 'security', 'memory']) {
       await expect(page.getByTestId(`autonomous-agent-config-tab-${key}`)).toBeVisible({ timeout: 20000 })
     }
     await page.getByRole('textbox', { name: 'Persona' }).fill('You answer at length.')
     await expect(saveButton(page)).toBeEnabled()
 
-    // One draft across the tabs: the persona edited in Role is saved with the level picked in Security.
+    // One draft across the tabs: the persona edited in Mission is saved with the level picked in Security.
     await page.getByTestId('autonomous-agent-config-tab-security').click()
     await expect(page).toHaveURL(/config=security/)
     await page.getByRole('radio', { name: 'Every operation that makes changes' }).check()
@@ -243,31 +242,23 @@ test.describe('Autonomous agent page', () => {
     await expect(page.getByRole('option', { name: 'user' })).toBeVisible()
   })
 
-  test('example picker confirms over edits', async ({ page, goToWithAuth }) => {
+  test('the mission tab edits the persona and the instructions directly', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent({ approvalLevel: 'none' })
     await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-config-tab-mission')).toHaveText('Mission', { timeout: 20000 })
     const persona = page.getByRole('textbox', { name: 'Persona' })
-    await persona.fill('My very own persona.', { timeout: 20000 })
+    await expect(persona).toHaveValue('You answer briefly.')
+    // Examples are a starting point offered at creation only: once created, the agent's own text is edited.
+    await expect(page.getByTestId('autonomous-agent-example')).toHaveCount(0)
 
-    await page.getByTestId('autonomous-agent-example').click()
-    await page.getByRole('option', { name: 'Data publication' }).click()
-    await page.getByTestId('autonomous-agent-example-confirm').click()
-    const example = exampleFields('publication', 'en', 'Page agent')
-    await expect(persona).toHaveValue(example.persona)
-    await expect(page.getByRole('textbox', { name: 'Instructions' })).toHaveValue(example.instructions)
-
+    await persona.fill('My very own persona.')
+    await page.getByRole('textbox', { name: 'Instructions' }).fill('Check the datasets every morning.')
     await saveButton(page).click()
     await expect(saveButton(page)).toBeHidden({ timeout: 10000 })
     const saved = await getAgent(agentId)
-    expect(saved.persona).toBe(example.persona)
-    // the example replaces the text only: another tab is never loosened (or tightened) behind the admin's back
+    expect(saved.persona).toBe('My very own persona.')
+    expect(saved.instructions).toBe('Check the datasets every morning.')
     expect(saved.approvalLevel).toBe('none')
-
-    // Text that is exactly an example's is replaced without asking.
-    await page.getByTestId('autonomous-agent-example').click()
-    await page.getByRole('option', { name: 'Quality monitoring' }).click()
-    await expect(persona).toHaveValue(exampleFields('quality', 'en', 'Page agent').persona)
-    await expect(page.getByTestId('autonomous-agent-example-confirm')).toHaveCount(0)
   })
 
   test('identity sync failure is reported', async ({ page, goToWithAuth }) => {
@@ -300,7 +291,7 @@ test.describe('Autonomous agent page', () => {
 
     await page.getByTestId('autonomous-agent-config-tab-tools').click()
     await expect(page.getByText('External MCP servers')).toBeVisible()
-    await page.getByTestId('autonomous-agent-config-tab-role').click()
+    await page.getByTestId('autonomous-agent-config-tab-mission').click()
     await page.getByRole('textbox', { name: 'Persona' }).fill('You answer at length.')
     await saveButton(page).click()
     await expect(saveButton(page)).toBeHidden({ timeout: 10000 })

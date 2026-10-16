@@ -75,29 +75,15 @@
     <template #windows>
       <!-- eager: every tab's form stays mounted, so the validity of the tabs not shown still gates the save -->
       <v-tabs-window-item
-        value="role"
+        value="mission"
         eager
       >
-        <!-- Replaces the text only, never the approval level: another tab is not changed behind the admin's
-             back. Keeps no value: it is an action, not a field. -->
-        <v-select
-          :model-value="null"
-          :items="exampleItems"
-          :label="t('example')"
-          :hint="t('exampleHint')"
-          persistent-hint
-          density="comfortable"
-          class="mb-4"
-          style="max-width: 400px"
-          data-testid="autonomous-agent-example"
-          @update:model-value="pickExample"
-        />
-        <v-form v-model="tabValid.role">
-          <vjsf-autonomous-agent-form-role
-            :model-value="parts.role"
+        <v-form v-model="tabValid.mission">
+          <vjsf-autonomous-agent-form-mission
+            :model-value="parts.mission"
             :options="vjsfOptions"
             :locale="locale"
-            @update:model-value="(data: any) => onPartUpdate('role', data)"
+            @update:model-value="(data: any) => onPartUpdate('mission', data)"
           />
         </v-form>
       </v-tabs-window-item>
@@ -173,31 +159,6 @@
       </v-tabs-window-item>
     </template>
   </df-section-tabs>
-
-  <v-dialog
-    :model-value="!!pendingExample"
-    max-width="480"
-    @update:model-value="(open: boolean) => { if (!open) pendingExample = null }"
-  >
-    <v-card :title="t('exampleConfirmTitle')">
-      <v-card-text>{{ t('exampleConfirm') }}</v-card-text>
-      <v-card-actions>
-        <v-spacer />
-        <v-btn
-          variant="text"
-          :text="t('cancel')"
-          @click="pendingExample = null"
-        />
-        <v-btn
-          color="warning"
-          variant="flat"
-          data-testid="autonomous-agent-example-confirm"
-          :text="t('replace')"
-          @click="pendingExample && applyExample(pendingExample)"
-        />
-      </v-card-actions>
-    </v-card>
-  </v-dialog>
 </template>
 
 <i18n lang="yaml">
@@ -205,7 +166,7 @@ en:
   title: Configuration
   saved: Changes have been saved
   tabs:
-    role: Role
+    mission: Mission
     tools: Tools
     security: Security
     memory: Memory
@@ -217,23 +178,13 @@ en:
     name: name
     role: role
     both: name and role
-  example: Start from an example
-  exampleHint: Replaces the persona and the instructions.
-  examples:
-    publication: Data publication
-    quality: Quality monitoring
-    blank: Blank
-  exampleConfirmTitle: Replace the persona and the instructions?
-  exampleConfirm: They were edited, and the example replaces them. The other tabs are not changed.
-  cancel: Cancel
-  replace: Replace
   webRiskTitle: This agent reads the web and can write without approval
   webRisk: "A page it reads can contain instructions, and the agent may follow them with its identity and all its tools. Prefer read-only tools for an agent with web access, or set approval to \"Every operation that makes changes\"."
 fr:
   title: Configuration
   saved: Les modifications ont été enregistrées
   tabs:
-    role: Rôle
+    mission: Mission
     tools: Outils
     security: Sécurité
     memory: Mémoire
@@ -245,16 +196,6 @@ fr:
     name: nom
     role: rôle
     both: nom et rôle
-  example: Partir d'un exemple
-  exampleHint: Remplace le persona et les instructions.
-  examples:
-    publication: Publication de données
-    quality: Suivi de qualité
-    blank: Vierge
-  exampleConfirmTitle: Remplacer le persona et les instructions ?
-  exampleConfirm: Ils ont été modifiés, et l'exemple les remplace. Les autres onglets ne changent pas.
-  cancel: Annuler
-  replace: Remplacer
   webRiskTitle: Cet agent lit le web et peut écrire sans approbation
   webRisk: "Une page qu'il lit peut contenir des instructions, et l'agent peut les suivre avec son identité et tous ses outils. Préférez des outils en lecture seule pour un agent qui accède au web, ou réglez l'approbation sur « Toutes les opérations qui effectuent des modifications »."
 </i18n>
@@ -270,11 +211,11 @@ import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useLeaveGuard } from '@data-fair/lib-vue/leave-guard.js'
 import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
 import { identityPatch } from '@agents/shared/autonomous-agent-identity'
-import roleSlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-role/schema.js'
+import missionSlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-mission/schema.js'
 import toolsSlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-tools/schema.js'
 import securitySlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-security/schema.js'
 import memorySlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-memory/schema.js'
-import VjsfAutonomousAgentFormRole from '~/components/vjsf/vjsf-autonomous-agent-form-role.vue'
+import VjsfAutonomousAgentFormMission from '~/components/vjsf/vjsf-autonomous-agent-form-mission.vue'
 import VjsfAutonomousAgentFormTools from '~/components/vjsf/vjsf-autonomous-agent-form-tools.vue'
 import VjsfAutonomousAgentFormSecurity from '~/components/vjsf/vjsf-autonomous-agent-form-security.vue'
 import VjsfAutonomousAgentFormMemory from '~/components/vjsf/vjsf-autonomous-agent-form-memory.vue'
@@ -282,8 +223,6 @@ import AgentMemoryPanel from '~/components/AgentMemoryPanel.vue'
 import FormActions from '~/components/FormActions.vue'
 import McpProfilesTree from '~/components/McpProfilesTree.vue'
 import { autonomousAgentEditDraft, pruneHiddenSelections } from '~/utils/autonomous-agent-draft'
-import { AUTONOMOUS_AGENT_EXAMPLE_KEYS, exampleFields, isPristineText } from '~/utils/autonomous-agent-examples'
-import type { AutonomousAgentExampleKey } from '~/utils/autonomous-agent-examples'
 import { enrolmentErrorMessage } from '~/utils/autonomous-agent-enrolment-error'
 import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
 import { canonical } from '~/composables/use-settings-form'
@@ -306,9 +245,9 @@ const router = useRouter()
 
 // Each tab edits a slice of the agent schema (api/doc/autonomous-agents/autonomous-agent-form-part.js): the
 // fields of a tab are read from its slice, so they cannot drift.
-type TabKey = 'role' | 'tools' | 'security' | 'memory'
+type TabKey = 'mission' | 'tools' | 'security' | 'memory'
 const TAB_FIELDS: Record<TabKey, string[]> = {
-  role: Object.keys(roleSlice.properties),
+  mission: Object.keys(missionSlice.properties),
   tools: Object.keys(toolsSlice.properties),
   security: Object.keys(securitySlice.properties),
   memory: Object.keys(memorySlice.properties)
@@ -344,14 +283,14 @@ defineExpose({ hasDiff })
  * As in OrgConfigSection.vue: each slice is kept as the exact object its form emitted, since vjsf only
  * ignores a modelValue that is the very object it emitted last, and re-deriving the slices on every edit
  * would reset the forms' internal state. They are re-derived when the draft changes from outside (load,
- * save, cancel, an example picked, a pruned selection), and a slice whose content did not change keeps its
+ * save, cancel, a pruned selection), and a slice whose content did not change keeps its
  * object, so that form is left alone.
  */
 const pick = (source: Record<string, any>, keys: string[]) =>
   Object.fromEntries(keys.filter(key => source[key] !== undefined).map(key => [key, source[key]]))
 const sameContent = (a: any, b: any) => JSON.stringify(canonical(a)) === JSON.stringify(canonical(b))
 
-const parts = shallowRef<Record<TabKey, Record<string, any>>>({ role: {}, tools: {}, security: {}, memory: {} })
+const parts = shallowRef<Record<TabKey, Record<string, any>>>({ mission: {}, tools: {}, security: {}, memory: {} })
 let composed: Record<string, any> | null = null
 watch(draft, (value) => {
   if (toRaw(value) === composed) return
@@ -370,16 +309,16 @@ const onPartUpdate = (tab: TabKey, data: Record<string, any>) => {
 }
 
 // v-form reports null until validated: only an explicit false blocks the save
-const tabValid = ref<Record<TabKey, boolean | null>>({ role: null, tools: null, security: null, memory: null })
+const tabValid = ref<Record<TabKey, boolean | null>>({ mission: null, tools: null, security: null, memory: null })
 const valid = computed(() => tabKeys.every(key => tabValid.value[key] !== false))
 
 // The tab lives in the query, apart from the page's own `tab`, so a reload or a shared link keeps it.
 const tab = computed({
-  get: () => tabKeys.includes(route.query.config as TabKey) ? route.query.config as string : 'role',
+  get: () => tabKeys.includes(route.query.config as TabKey) ? route.query.config as string : 'mission',
   set: (value) => { router.replace({ query: { ...route.query, config: value } }) }
 })
 const TAB_ICONS: Record<TabKey, string> = {
-  role: mdiCardAccountDetailsOutline,
+  mission: mdiCardAccountDetailsOutline,
   tools: mdiToolboxOutline,
   security: mdiShieldLockOutline,
   memory: mdiBrain
@@ -445,28 +384,6 @@ const vjsfOptions = computed(() => ({
 // warning, never a block — the admin decides. Read from the shared draft: the level is on another tab.
 const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled &&
   (draft.value.approvalLevel ?? DEFAULT_APPROVAL_LEVEL) !== 'write')
-
-// ---- examples ----
-
-const exampleLocale = computed(() => locale.value === 'fr' ? 'fr' as const : 'en' as const)
-const exampleItems = computed(() => AUTONOMOUS_AGENT_EXAMPLE_KEYS.map(key => ({ value: key, title: t(`examples.${key}`) })))
-const pendingExample = ref<AutonomousAgentExampleKey | null>(null)
-
-const applyExample = (key: AutonomousAgentExampleKey) => {
-  const { persona, instructions } = exampleFields(key, exampleLocale.value, draft.value.title ?? '')
-  const next: Record<string, any> = { ...draft.value, persona }
-  // the blank example has no instructions: absent, as the form holds an empty field
-  if (instructions) next.instructions = instructions
-  else delete next.instructions
-  draft.value = next
-  pendingExample.value = null
-}
-
-const pickExample = (key: AutonomousAgentExampleKey | null) => {
-  if (!key) return
-  if (isPristineText(draft.value.persona, draft.value.instructions, exampleLocale.value, draft.value.title ?? '')) applyExample(key)
-  else pendingExample.value = key
-}
 
 // ---- identity (federated with simple-directory, client-side) ----
 

@@ -1,7 +1,7 @@
 /**
- * Starting points offered when creating an autonomous agent, and when picking one in its configuration.
- * Each is a persona and instructions (they become the agent's system prompt) plus the approval level that
- * suits it. Pure: no Vue, so the creation dialog and the configuration page share one copy.
+ * Starting points offered when creating an autonomous agent. Each is a persona and instructions (they become
+ * the agent's system prompt) plus the approval level that suits it. Only a starting point: once created, the
+ * agent's own text is simply edited. Pure: no Vue, so the e2e specs can read the expected text.
  */
 
 import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
@@ -72,15 +72,4 @@ export function exampleFields (key: AutonomousAgentExampleKey, locale: ExampleLo
   if (key === 'publication') return { ...publication[locale] }
   if (key === 'quality') return { ...quality[locale] }
   return { persona: blankPersona(locale, title), instructions: '', approvalLevel: DEFAULT_APPROVAL_LEVEL }
-}
-
-/** True when replacing the persona and instructions loses nothing: both empty, or exactly some example's. */
-export function isPristineText (persona: string | undefined, instructions: string | undefined, locale: ExampleLocale, title: string): boolean {
-  const p = persona ?? ''
-  const i = instructions ?? ''
-  if (!p && !i) return true
-  return AUTONOMOUS_AGENT_EXAMPLE_KEYS.some(key => {
-    const f = exampleFields(key, locale, title)
-    return f.persona === p && f.instructions === i
-  })
 }
