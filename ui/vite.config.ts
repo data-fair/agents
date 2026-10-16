@@ -32,12 +32,14 @@ export default defineConfig({
   // virtual auto-routes module (hence `entries`), and the vuetify components the vuetify plugin injects.
   optimizeDeps: {
     entries: ['index.html', 'src/**/*.vue', 'src/**/*.ts'],
-    include: [...commonjsDeps, 'easymde', ...vuetifyDeps]
+    include: [...commonjsDeps, 'ajv/dist/runtime/ucs2length', 'easymde', ...vuetifyDeps]
   },
   resolve: {
-    alias: {
-      '~': path.resolve(__dirname, 'src/')
-    }
+    alias: [
+      { find: '~', replacement: path.resolve(__dirname, 'src/') },
+      // The compiled vjsf forms import it with an interop only vite's dev mode satisfies: see the file.
+      { find: /^ajv\/dist\/runtime\/ucs2length\.js$/, replacement: path.resolve(__dirname, 'src/utils/ajv-ucs2length.ts') }
+    ]
   },
   html: {
     cspNonce: '{CSP_NONCE}'
