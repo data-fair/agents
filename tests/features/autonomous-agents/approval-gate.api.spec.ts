@@ -79,6 +79,32 @@ test.describe('The approval gate', () => {
   const messageAt = async (conversationId: string, seq: number) =>
     (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
+  test('speaking while an approved call runs stops that run and settles the call as unknown', async () => {
+    // Over the socket, writing takes the turn back (a live run is stopped), so a message can no longer land
+    // beside a running approval run and leave its call alone, as the HTTP route it replaces allowed. What
+    // must hold is that the call is not left dangling nor reported as not run: the tool was started, so
+    // its outcome is unknown, and it is never executed a second time.
+    const agent = await createGatedAgent({ approvalLevel: 'write' })
+    const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool slow_update {}')
+    const approvalId = callPart(assistant, 'slow_update').approval.id
+    const { runId: continuation } = await decideRun(conversationId, approvalId, { approved: true })
+    await new Promise(resolve => setTimeout(resolve, 500)) // slow_update takes 2s
+    const { runId: answering } = await startTurnOverSocket(orgAdmin, conversationId, 'hello')
+    await awaitRun(orgAdmin, conversationId, continuation)
+    await awaitRun(orgAdmin, conversationId, answering)
+    // Both runs have ended and the 2s lookup has not completed: the run does not wait for an abandoned call.
+    assert.deepEqual(fixture.invokedTools(), [])
+    const part = callPart(await messageAt(conversationId, assistant.seq), 'slow_update')
+    assert.equal(part.state, 'output-error', JSON.stringify(part))
+    assert.equal(part.errorText, 'Approved, but its outcome is unknown: the turn ended before it reported (the person spoke).')
+    // The server records the call when its 2s lookup finishes. The run no longer waits for that (AI SDK 7
+    // aborts the in-flight call at once), so wait for the server to get there, and past it, to see the call
+    // was not run a second time.
+    for (let waited = 0; waited < 3000 && fixture.invokedTools().length === 0; waited += 50) await new Promise(resolve => setTimeout(resolve, 50))
+    await new Promise(resolve => setTimeout(resolve, 300))
+    assert.deepEqual(fixture.invokedTools(), ['slow_update'])
+  })
+
   test('approving runs the call exactly once, settled on its original message', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
@@ -338,6 +364,18 @@ test.describe('The approval gate', () => {
     assert.match(part.errorText, /^Approved, but it did not run: the approval could not be verified \(.*signature.*\)\.$/)
     assert.deepEqual(fixture.invokedTools(), [])
     await noApprovedCallLeft(conv.id)
+  })
+
+  test('an approved call\'s result cut at the bound says so on its own part', async () => {
+    // Approval-run results are precisely the audited calls: a review must be able to tell one was cut.
+    const agent = await createGatedAgent({ approvalLevel: 'write' })
+    const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool bulk_update {"chars":150000}')
+    const { runId } = await decideRun(conversationId, callPart(assistant, 'bulk_update').approval.id, { approved: true })
+    await awaitRun(orgAdmin, conversationId, runId)
+    const part = callPart(await messageAt(conversationId, assistant.seq), 'bulk_update')
+    assert.equal(part.state, 'output-available')
+    assert.ok(part.toolMetadata.truncated?.totalChars > 150000, 'the size it had before the cut')
+    assert.equal(part.toolMetadata.decision.userId, 'test1-admin1', 'beside the decision, not instead of it')
   })
 
   test('a message posted while the asking turn is still finishing still rejects its approval', async () => {

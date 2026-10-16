@@ -56,7 +56,7 @@ by hand is exactly what the suite exercises: tools `echo`, `get_schema`, `ignore
 which returns `structuredContent` beside its text, as data-fair's MCP does: a `code_mode` script gets the
 object, the model the text. Only `list_road_closures`, `closure_stats` and the exports return data — the others are structural (a string reflector, a
 fixed empty schema, and a target for `toolFilter`), so they are the ones to use when you need to see an
-agent actually fetch something and quote it.
+agent actually fetch something and quote it. `slow_update` and `bulk_update` are the annotation-free (write) twins of `slow_lookup` and `bulk`, for specs that gate a slow or large call at approval level `write`.
 Under `/profiled/` the same server behaves as a *profiled* one (catalog entry `dev-profiled-mcp`): a
 vocabulary at `/profiled/profiles` mirroring data-fair's (`catalog`, `read`, `write` and their `_roads` cells)
 and a tool set composed per `profiles` query at `/profiled/mcp`, with a 400 on an unknown profile.

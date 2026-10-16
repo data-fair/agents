@@ -218,6 +218,15 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     }
   )
   mcp.registerTool(
+    'bulk_update',
+    // The write twin of `bulk` (no annotation: a write), so a test can gate a big result at level 'write'.
+    { description: 'Updates nothing and returns a result of the requested size', inputSchema: { chars: z.number() } },
+    async ({ chars }) => {
+      record('bulk_update')
+      return { content: [{ type: 'text', text: 'b'.repeat(Math.min(chars, 200_000)) }] }
+    }
+  )
+  mcp.registerTool(
     'explode',
     /**
      * A tool that FAILS, which nothing here could do before.
@@ -274,6 +283,16 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
       await new Promise(resolve => setTimeout(resolve, 2000))
       record('slow_lookup')
       return { content: [{ type: 'text', text: 'looked up slowly' }] }
+    }
+  )
+  mcp.registerTool(
+    'slow_update',
+    // The write twin of `slow_lookup` (no annotation: a write): a slow call a test can gate at level 'write'.
+    { description: 'Updates nothing, slowly', inputSchema: {} },
+    async () => {
+      await new Promise(resolve => setTimeout(resolve, 2000))
+      record('slow_update')
+      return { content: [{ type: 'text', text: 'updated slowly' }] }
     }
   )
   mcp.registerTool(
