@@ -179,12 +179,22 @@ sites does not move it.
   Elsewhere the agent is anonymous. An agent that references no `nhi-session` catalog entry never
   lists its account nor exchanges anything; if the listing fails, the turn degrades to the enrolment
   site alone. See [Hosts](./overview.md#hosts).
-- Enrolment is driven from the admin page, **client-side**: the browser calls simple-directory's NHI
+- Enrolment is driven from the admin UI, **client-side**: the browser calls simple-directory's NHI
   API with the admin's own session (`ui/src/composables/use-autonomous-agent-enrolment.ts`), taking
   the subject from `shared/autonomous-agent-identity.ts` and the issuer from this service's discovery
-  document, so neither is restated. This server never manages an identity; it verifies one, by a
-  **real exchange** whenever the enrolment changes, so a misconfiguration fails where an admin can see
-  it rather than inside the first run.
+  document, so neither is restated. It happens **at creation**: the dialog asks for the organization
+  role the identity gets (listed by simple-directory, default `user`), POSTs the agent, which stores
+  that `role`, then enrols the NHI from it. If enrolment fails the agent exists without an identity,
+  and its page offers a "Create the identity" retry. There is no "reuse an existing identity" path:
+  an agent's identity is always the one created for it, so its subject can never be shared.
+  The identity then follows the agent from the same place. On save, a changed title or role is
+  PATCHed onto the NHI (`identityPatch`, `syncIdentity`), and deleting the agent removes the NHI
+  first (best effort, a warning if the directory refuses), then the agent. A refusal from
+  simple-directory (for instance on file storage) is shown as a persistent alert and the stored
+  value diverges from the identity's: accepted, because the directory is the authority on an
+  identity and this service only verifies one. This server never manages an identity; it verifies
+  one, by a **real exchange** whenever the enrolment changes, so a misconfiguration fails where an
+  admin can see it rather than inside the first run.
 - The exchange is a server-to-server call to `privateDirectoryUrl` that declares the `x-forwarded-*`
   headers no proxy sets (`exchangeHeaders`): the host is the site and so the audience, and the client
   address is a fixed `127.0.0.1`, which is why `allowedIps`/`ipBinding` must never be set on an agent's

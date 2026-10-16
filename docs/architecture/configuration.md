@@ -207,13 +207,13 @@ The ES256 keys that sign the assertions an autonomous agent exchanges for its ow
 
 1. **Nothing to configure** on this service: the keys are its own (see above), and the issuer identifier is not configured, it is *captured* from the real proxied request that creates or saves the autonomous agent (`reqSiteUrl(req)`, see `api/src/nhi/operations.ts`), so it is always a url that demonstrably resolves here.
 2. **Confirm discovery resolves** by requesting `<the site's own public url>/agents/api/nhi/.well-known/openid-configuration` through the reverse proxy (not directly on the API port — the issuer is meaningless without the proxy's `x-forwarded-*` headers).
-3. **Create an autonomous agent** (`POST /api/autonomous-agents/organization/:id`) through the normal admin UI/API, referencing the MCP servers to verify.
+3. **Create an autonomous agent** (`POST /api/autonomous-agents/organization/:id`) through the admin UI, referencing the MCP servers to verify. Steps 4 and 5 are then **done by the creation dialog**, which enrols the NHI with the role chosen there; they remain as the manual fallback when enrolment fails (the agent page then offers a retry) or when the agent was created through the API.
 4. **Register the NHI in simple-directory**, with `provider.issuer` set to the `nhi.issuer` now stored on the autonomous agent (`GET /api/autonomous-agents/organization/:id/:agentId`) and `subject` set to `autonomous-agent:<agentId>` (`autonomousAgentSubject()`).
 5. **PUT the returned `nhi-…` id** onto the autonomous agent's `nhi.clientId`. The save performs a real exchange before accepting it (`assertEnrolmentWorks`), so a bad id, a wrong subject or an unreachable issuer is refused immediately at configuration time rather than surfacing later as a confusing failure inside a run.
 6. **`GET …/:agentId/session`** to see which identity the exchange actually obtained (user id, org, session TTL) without ever returning the session cookie itself.
 7. **`GET …/:agentId/tools`** to see the live tool list fetched as that identity — the deliverable this section documents.
 
-**simple-directory must run with `manageNhis` enabled** (`MANAGE_NHIS=true`) for step 4 to work at all; it is what exposes `POST /api/organizations/:id/nhis`.
+**simple-directory must run with `manageNhis` enabled** (`MANAGE_NHIS=true`) for step 4 (or the dialog's enrolment) to work at all; it is what exposes `POST /api/organizations/:id/nhis`.
 
 **`allowedIps` and `ipBinding` must not be set on an autonomous agent's NHI.** Both key off the address this service *declares* on the exchange (`DECLARED_CLIENT_IP`, a fixed `127.0.0.1` — see `api/src/nhi/operations.ts`) rather than any real client address, since the exchange is server-to-server and every autonomous agent on this deployment shares that one declared egress address. Binding either setting to a real pod/node IP breaks the exchange (a mismatched declared address) or the session it issues (a mismatched bound address on every subsequent call) — there is no real client IP here for either setting to usefully pin.
 
