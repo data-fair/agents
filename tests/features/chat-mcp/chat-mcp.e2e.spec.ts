@@ -54,6 +54,13 @@ test.describe('Chat MCP UI', () => {
     const chip = page.getByTestId('tool-chip').filter({ hasText: 'Data' })
     await expect(chip).toHaveCount(1, { timeout: 10000 })
     await expect(chip).toHaveClass(/text-success/)
+
+    // In the order it happened: the mock answers "done" after the call, so its text shows below the chip,
+    // not above it as when every call was gathered at the end of the turn.
+    const answer = page.locator('.assistant-content').filter({ hasText: 'done' })
+    await expect(answer).toHaveCount(1, { timeout: 10000 })
+    const chipFirst = await chip.evaluate((el, text) => !!(el.compareDocumentPosition(text) & Node.DOCUMENT_POSITION_FOLLOWING), await answer.elementHandle())
+    expect(chipFirst).toBe(true)
   })
 
   test('A turn runs on the server and streams into the page, and Reset clears it', async ({ page, goToWithAuth }) => {

@@ -71,136 +71,145 @@
                   </v-expansion-panel-text>
                 </v-expansion-panel>
               </v-expansion-panels>
-              <markdown-content
-                class="assistant-content markdown-content"
-                :content="message.content"
-                :streaming="isStreaming && index === messages.length - 1"
-                :mermaid="mermaidEnabled"
-                @mermaid-error="failures => emit('mermaid-error', { index, failures })"
-              />
-              <div
-                v-if="hasVisibleTools(message)"
-                class="mt-2"
+              <!-- In the order it happened: the calls a step made show between the text before and after them. -->
+              <template
+                v-for="(block, blockIndex) in messageBlocks[index]"
+                :key="blockIndex"
               >
-                <template
-                  v-for="invocation in message.toolInvocations"
-                  :key="invocation.toolCallId"
-                >
-                  <approval-card
-                    v-if="invocation.state === 'awaiting-approval' && invocation.approvalId"
-                    :tool-name="invocation.toolName"
-                    :tool-title="invocation.toolTitle"
-                    :description="invocation.description"
-                    :files="invocation.files"
-                    :input="invocation.input"
-                    :server-id="invocation.serverId"
-                    :agent-path="agentPath"
-                    :locked="!!invocation.approvalLocked"
-                    :failure="chatError"
-                    :readonly="readonly"
-                    @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
-                  />
-                  <v-chip
-                    v-else-if="simpleSubAgents || !isNestedWork(invocation.toolName)"
-                    size="small"
-                    :color="invocation.state === 'done' ? 'success' : invocation.state === 'denied' ? 'error' : 'warning'"
-                    variant="outlined"
-                    class="mr-1 mb-1"
-                    :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
-                  >
-                    {{ chipLabel(invocation) }}
-                  </v-chip>
-                </template>
-              </div>
-              <!-- Full sub-agent panels (when the simplify flag is off): each
-                   delegation is its own v-alert box, collapsed by default, with
-                   its live activity shown in the header even while collapsed. -->
-              <div
-                v-if="!simpleSubAgents && subAgentInvocations(message).length"
-                class="mt-2"
-              >
-                <div
-                  v-for="invocation in subAgentInvocations(message)"
-                  :key="invocation.toolCallId"
-                  class="agent-chat__subagent mb-2 px-3 py-2 border-sm rounded"
-                  :style="{ borderColor: `rgb(var(--v-theme-${invocation.state === 'done' ? 'success' : 'warning'}))` }"
-                  data-testid="subagent-panel"
-                >
+                <markdown-content
+                  v-if="block.type === 'text'"
+                  class="assistant-content markdown-content"
+                  :content="block.text"
+                  :streaming="isStreaming && index === messages.length - 1 && blockIndex === messageBlocks[index].length - 1"
+                  :mermaid="mermaidEnabled"
+                  @mermaid-error="failures => emit('mermaid-error', { index, failures })"
+                />
+                <template v-else>
                   <div
-                    class="d-flex align-center agent-chat__subagent-header"
-                    data-testid="subagent-panel-header"
-                    @click="toggleExpanded(invocation.toolCallId)"
+                    v-if="hasVisibleTools(block.invocations)"
+                    class="mt-2"
                   >
-                    <v-icon
-                      :icon="mdiSubdirectoryArrowRight"
-                      size="small"
-                      class="mr-2 flex-shrink-0"
-                      :color="invocation.state === 'done' ? 'success' : 'warning'"
-                    />
-                    <span class="text-body-medium font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
-                    <span
-                      v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolCallId)"
-                      class="d-flex align-center text-caption text-medium-emphasis font-italic ml-2"
-                      data-testid="subagent-activity"
+                    <template
+                      v-for="invocation in block.invocations"
+                      :key="invocation.toolCallId"
                     >
-                      <v-icon
-                        :icon="mdiLoading"
-                        size="x-small"
-                        class="agent-chat__spin mr-1"
+                      <approval-card
+                        v-if="invocation.state === 'awaiting-approval' && invocation.approvalId"
+                        :tool-name="invocation.toolName"
+                        :tool-title="invocation.toolTitle"
+                        :description="invocation.description"
+                        :files="invocation.files"
+                        :input="invocation.input"
+                        :server-id="invocation.serverId"
+                        :agent-path="agentPath"
+                        :locked="!!invocation.approvalLocked"
+                        :failure="chatError"
+                        :readonly="readonly"
+                        @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
                       />
-                      {{ subAgentActivityLabel(invocation.toolCallId) }}
-                    </span>
-                    <v-spacer />
-                    <v-icon
-                      :icon="expanded[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown"
-                      size="small"
-                    />
+                      <v-chip
+                        v-else-if="simpleSubAgents || !isNestedWork(invocation.toolName)"
+                        size="small"
+                        :color="invocation.state === 'done' ? 'success' : invocation.state === 'denied' ? 'error' : 'warning'"
+                        variant="outlined"
+                        class="mr-1 mb-1"
+                        :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
+                      >
+                        {{ chipLabel(invocation) }}
+                      </v-chip>
+                    </template>
                   </div>
-                  <v-expand-transition>
+                  <!-- Full sub-agent panels (when the simplify flag is off): each
+                       delegation is its own v-alert box, collapsed by default, with
+                       its live activity shown in the header even while collapsed. -->
+                  <div
+                    v-if="!simpleSubAgents && subAgentInvocations(block.invocations).length"
+                    class="mt-2"
+                  >
                     <div
-                      v-show="expanded[invocation.toolCallId]"
-                      data-testid="subagent-panel-body"
-                      class="mt-2"
+                      v-for="invocation in subAgentInvocations(block.invocations)"
+                      :key="invocation.toolCallId"
+                      class="agent-chat__subagent mb-2 px-3 py-2 border-sm rounded"
+                      :style="{ borderColor: `rgb(var(--v-theme-${invocation.state === 'done' ? 'success' : 'warning'}))` }"
+                      data-testid="subagent-panel"
                     >
-                      <div v-if="message.subAgentPanels?.[invocation.toolCallId]?.messages.length">
-                        <div
-                          v-for="(subMsg, subIdx) in message.subAgentPanels[invocation.toolCallId].messages"
-                          :key="subIdx"
-                          class="py-1"
+                      <div
+                        class="d-flex align-center agent-chat__subagent-header"
+                        data-testid="subagent-panel-header"
+                        @click="toggleExpanded(invocation.toolCallId)"
+                      >
+                        <v-icon
+                          :icon="mdiSubdirectoryArrowRight"
+                          size="small"
+                          class="mr-2 flex-shrink-0"
+                          :color="invocation.state === 'done' ? 'success' : 'warning'"
+                        />
+                        <span class="text-body-medium font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
+                        <span
+                          v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolCallId)"
+                          class="d-flex align-center text-caption text-medium-emphasis font-italic ml-2"
+                          data-testid="subagent-activity"
                         >
-                          <markdown-content
-                            class="text-body-medium markdown-content"
-                            :content="subMsg.content"
-                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentPanels[invocation.toolCallId].messages.length - 1 && invocation.state !== 'done'"
-                            :mermaid="mermaidEnabled"
+                          <v-icon
+                            :icon="mdiLoading"
+                            size="x-small"
+                            class="agent-chat__spin mr-1"
                           />
-                          <div
-                            v-if="subMsg.toolInvocations?.length"
-                            class="mt-1"
-                          >
-                            <v-chip
-                              v-for="subInv in subMsg.toolInvocations"
-                              :key="subInv.toolCallId"
-                              size="small"
-                              :color="subInv.state === 'done' ? 'success' : 'warning'"
-                              variant="outlined"
-                              class="mr-1 mb-1"
+                          {{ subAgentActivityLabel(invocation.toolCallId) }}
+                        </span>
+                        <v-spacer />
+                        <v-icon
+                          :icon="expanded[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown"
+                          size="small"
+                        />
+                      </div>
+                      <v-expand-transition>
+                        <div
+                          v-show="expanded[invocation.toolCallId]"
+                          data-testid="subagent-panel-body"
+                          class="mt-2"
+                        >
+                          <div v-if="message.subAgentPanels?.[invocation.toolCallId]?.messages.length">
+                            <div
+                              v-for="(subMsg, subIdx) in message.subAgentPanels[invocation.toolCallId].messages"
+                              :key="subIdx"
+                              class="py-1"
                             >
-                              {{ toolTitle(subInv.toolName) }}
-                            </v-chip>
+                              <markdown-content
+                                class="text-body-medium markdown-content"
+                                :content="subMsg.content"
+                                :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentPanels[invocation.toolCallId].messages.length - 1 && invocation.state !== 'done'"
+                                :mermaid="mermaidEnabled"
+                              />
+                              <div
+                                v-if="subMsg.toolInvocations?.length"
+                                class="mt-1"
+                              >
+                                <v-chip
+                                  v-for="subInv in subMsg.toolInvocations"
+                                  :key="subInv.toolCallId"
+                                  size="small"
+                                  :color="subInv.state === 'done' ? 'success' : 'warning'"
+                                  variant="outlined"
+                                  class="mr-1 mb-1"
+                                >
+                                  {{ toolTitle(subInv.toolName) }}
+                                </v-chip>
+                              </div>
+                            </div>
+                          </div>
+                          <div
+                            v-else-if="invocation.state === 'done'"
+                            class="text-body-medium text-medium-emphasis"
+                          >
+                            {{ invocation.toolName === 'code_mode' ? t('scriptDone') : t('subAgentDone') }}
                           </div>
                         </div>
-                      </div>
-                      <div
-                        v-else-if="invocation.state === 'done'"
-                        class="text-body-medium text-medium-emphasis"
-                      >
-                        {{ invocation.toolName === 'code_mode' ? t('scriptDone') : t('subAgentDone') }}
-                      </div>
+                      </v-expand-transition>
                     </div>
-                  </v-expand-transition>
-                </div>
-              </div>
+                  </div>
+                </template>
+              </template>
             </div>
           </div>
         </template>
@@ -367,8 +376,24 @@ const isActionPrompt = (message: ChatMessage) => {
   return message.role === 'user' && props.actionVisiblePrompt === message.content
 }
 
-const hasVisibleTools = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => props.simpleSubAgents || !isNestedWork(ti.toolName))
+type Invocation = NonNullable<ChatMessage['toolInvocations']>[number]
+type RenderedBlock = { type: 'text', text: string } | { type: 'tools', invocations: Invocation[] }
+/**
+ * Each message's blocks (ChatMessage.blocks), with each call resolved. Without blocks (a message not built
+ * from stored parts, like the welcome), the text and then the calls.
+ */
+const messageBlocks = computed<RenderedBlock[][]>(() => props.messages.map(message => {
+  const invocations = message.toolInvocations ?? []
+  if (!message.blocks?.length) {
+    return [{ type: 'text', text: message.content }, ...(invocations.length ? [{ type: 'tools' as const, invocations }] : [])]
+  }
+  return message.blocks.map(block => block.type === 'text'
+    ? block
+    : { type: 'tools', invocations: block.toolCallIds.map(id => invocations.find(i => i.toolCallId === id)).filter((i): i is Invocation => !!i) })
+}))
+
+const hasVisibleTools = (invocations: Invocation[]) =>
+  invocations.some(ti => props.simpleSubAgents || !isNestedWork(ti.toolName))
 
 const { t } = useI18n()
 
@@ -488,8 +513,7 @@ const expanded = reactive<Record<string, boolean>>({})
 const toggleExpanded = (toolCallId: string) => { expanded[toolCallId] = !expanded[toolCallId] }
 // A script's calls are shown like a worker's: in a panel under the call (api/src/code-mode/code-tools.ts).
 const isNestedWork = (toolName: string) => toolName.startsWith('subagent_') || toolName === 'code_mode'
-const subAgentInvocations = (message: ChatMessage) =>
-  message.toolInvocations?.filter(ti => isNestedWork(ti.toolName)) ?? []
+const subAgentInvocations = (invocations: Invocation[]) => invocations.filter(ti => isNestedWork(ti.toolName))
 
 const subAgentTitle = (toolName: string) => {
   if (toolName === 'code_mode') return t('scriptTitle')

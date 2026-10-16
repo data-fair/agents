@@ -31,9 +31,34 @@ export interface ChatMessage {
     /** Set on a gated call someone approved: its chip says so, as a denied one says it was declined. */
     approved?: true
   }>
+  /**
+   * The message in the order it happened: what the agent wrote, the calls a step made, what it wrote
+   * next… — rendered in this order, as the stored parts are. `content` and `toolInvocations` stay the
+   * flat views the other readers use (scrolling, the welcome check, a localized refusal). Absent, the
+   * renderer shows the text, then the calls.
+   */
+  blocks?: ChatMessageBlock[]
   // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
   // concurrent sub-agent calls under one assistant message render in separate panels
   // instead of clobbering one shared array. Workers are stateless (single-shot), so
   // there is no cross-call turn index — each delegation stands alone.
   subAgentPanels?: Record<string, { messages: ChatMessage[] }>
+}
+
+/** A run of text, or the tool calls made between two runs of text (named by their call ids). */
+export type ChatMessageBlock = { type: 'text', text: string } | { type: 'tools', toolCallIds: string[] }
+
+/**
+ * A streamed token, appended where the message is being written: to its last text, or as new text after
+ * the calls it last made.
+ */
+export function appendStreamedText (message: ChatMessage, text: string): ChatMessage {
+  const next: ChatMessage = { ...message, content: message.content + text }
+  if (message.blocks) {
+    const last = message.blocks[message.blocks.length - 1]
+    next.blocks = last?.type === 'text'
+      ? [...message.blocks.slice(0, -1), { type: 'text', text: last.text + text }]
+      : [...message.blocks, { type: 'text', text }]
+  }
+  return next
 }

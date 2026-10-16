@@ -9,7 +9,7 @@
  */
 
 import { isDynamicToolUIPart } from 'ai'
-import type { ChatMessage } from './chat-message.ts'
+import type { ChatMessage, ChatMessageBlock } from './chat-message.ts'
 
 // Named once in shared/, for both sides of the socket. This file used to declare it, and was the only
 // place that had it right — the server used an open bag and the wire used unknown[].
@@ -89,6 +89,19 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
           : (call.state === 'input-streaming' || call.state === 'input-available' || call.state === 'approval-responded') ? 'pending' : 'done'
     }))
   }
+  // The order the parts were written in, which the flat views above lose: a call made between two
+  // sentences shows between them, not after the whole answer. Consecutive calls (one step's) share a row.
+  const blocks: ChatMessageBlock[] = []
+  for (const part of parts) {
+    if (part.type === 'text') {
+      if (part.text) blocks.push({ type: 'text', text: part.text })
+    } else if (isDynamicToolUIPart(part)) {
+      const last = blocks[blocks.length - 1]
+      if (last?.type === 'tools') last.toolCallIds.push(part.toolCallId)
+      else blocks.push({ type: 'tools', toolCallIds: [part.toolCallId] })
+    }
+  }
+  chat.blocks = blocks
   // A worker's stored transcript, under the delegating call — the panel a reloaded thread or the review
   // page shows. Live, the chat gets the same thing from `subagent` frames, and those win.
   for (const part of parts as any[]) {

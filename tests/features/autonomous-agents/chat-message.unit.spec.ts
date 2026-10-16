@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { autonomousAgentMessageToChat, type StoredConversationMessage } from '../../../ui/src/utils/autonomous-agent-chat-message.ts'
+import { appendStreamedText } from '../../../ui/src/utils/chat-message.ts'
 
 const base: StoredConversationMessage = {
   seq: 1,
@@ -201,5 +202,44 @@ test.describe('a sub-agent transcript stored on the message', () => {
       } as any]
     })
     assert.deepEqual(chat.toolInvocations?.[0].files, { file: { path: '/clean.csv', mimeType: 'text/csv', size: 52 } })
+  })
+})
+
+test.describe('the order of a message', () => {
+  test('blocks keep the order of the parts: calls show between the text around them', () => {
+    const call = (id: string) => ({ type: 'dynamic-tool', toolCallId: id, toolName: 'echo', state: 'output-available', input: {}, output: 'ok' }) as any
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'step-start' } as any,
+        { type: 'text', text: 'Let me look.' },
+        call('c1'), call('c2'),
+        { type: 'step-start' } as any,
+        { type: 'text', text: 'Found it.' },
+        call('c3'),
+        { type: 'text', text: 'Done.' }
+      ]
+    })
+    assert.deepEqual(chat.blocks, [
+      { type: 'text', text: 'Let me look.' },
+      { type: 'tools', toolCallIds: ['c1', 'c2'] },
+      { type: 'text', text: 'Found it.' },
+      { type: 'tools', toolCallIds: ['c3'] },
+      { type: 'text', text: 'Done.' }
+    ])
+    // the flat views are unchanged
+    assert.equal(chat.content, 'Let me look.\n\nFound it.\n\nDone.')
+    assert.deepEqual(chat.toolInvocations?.map(i => i.toolCallId), ['c1', 'c2', 'c3'])
+  })
+
+  test('streamed text goes after the last calls, or onto the last text', () => {
+    const afterCalls = appendStreamedText({ role: 'assistant', content: 'A', blocks: [{ type: 'text', text: 'A' }, { type: 'tools', toolCallIds: ['c1'] }] }, 'B')
+    assert.deepEqual(afterCalls.blocks, [{ type: 'text', text: 'A' }, { type: 'tools', toolCallIds: ['c1'] }, { type: 'text', text: 'B' }])
+    assert.equal(afterCalls.content, 'AB')
+    const onText = appendStreamedText(afterCalls, 'C')
+    assert.deepEqual(onText.blocks?.at(-1), { type: 'text', text: 'BC' })
+    // a message without blocks only grows its content
+    assert.equal(appendStreamedText({ role: 'assistant', content: 'x' }, 'y').blocks, undefined)
   })
 })

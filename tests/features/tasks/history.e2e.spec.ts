@@ -124,7 +124,7 @@ test.describe('Agent page, History tab', () => {
     await expect(view).toContainText('Greeting')
     // the prompt as the user's turn, the mock's answer as the agent's, in the chat's own transcript
     await expect(view.locator('.agent-chat__user-bubble')).toHaveText('hello')
-    await expect(view.locator('.assistant-content')).toContainText('world')
+    await expect(view.locator('.assistant-content').filter({ hasText: 'world' })).toHaveCount(1)
     // read-only: nothing to type into
     await expect(view.getByRole('textbox')).toHaveCount(0)
     // the mock reports only when reminded: the header says so, the transcript having no place for it

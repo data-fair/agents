@@ -32,6 +32,7 @@ import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { useAgentSession } from '~/composables/use-agent-session'
 import { subscribeHostEvents } from '~/composables/use-host-events'
 import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-message'
+import { appendStreamedText } from '~/utils/chat-message'
 import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
 import { reviewOffered, consentRef } from '~/review/review-consent'
@@ -181,7 +182,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
         return
       }
       if (last && last.message.role === 'assistant') {
-        last.message = { ...last.message, content: last.message.content + text }
+        last.message = appendStreamedText(last.message, text)
       } else {
         // No seq yet: the first token can beat the first frame. Given seq -1 so the real frame, which
         // carries the true seq, lands as its own turn and this placeholder is dropped below.
@@ -210,7 +211,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
       const localized = refusal?.data ? options.formatRefusal?.(refusal.data) : undefined
       turn.message = frame.role === 'user'
         ? { ...chat, content: splitHiddenContext(chat.content).visible }
-        : localized ? { ...chat, content: localized } : chat
+        // the localized text replaces the stored one: no blocks, which would still show the English
+        : localized ? { ...chat, content: localized, blocks: undefined } : chat
     },
 
     onSubAgentActivity: (parentToolCallId, activity) => {
