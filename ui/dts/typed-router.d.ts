@@ -45,6 +45,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/_dev/back-office': RouteRecordInfo<
+      '/_dev/back-office',
+      '/_dev/back-office',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/_dev/chat': RouteRecordInfo<
       '/_dev/chat',
       '/_dev/chat',
@@ -237,6 +244,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/index.vue': {
       routes:
         | '/_dev/'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/_dev/back-office.vue': {
+      routes:
+        | '/_dev/back-office'
       views:
         | never
       pathParamNames:

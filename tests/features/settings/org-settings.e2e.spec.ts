@@ -134,8 +134,9 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
   })
 
-  test('a non-admin member is redirected to the chat', async ({ page, goToWithAuth }) => {
+  test('a non-admin member is pointed to the chat panel', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'test1-user1', { org: 'test1' })
-    await expect(page).toHaveURL(/\/organization\/test1\/chat/, { timeout: 15000 })
+    await expect(page.getByTestId('chat-panel-notice')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByRole('tab', { name: 'Model per role' })).toHaveCount(0)
   })
 })

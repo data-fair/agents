@@ -48,6 +48,9 @@ export interface UseSessionChatOptions {
   agentId?: string
   /** Shown before anything has been said. Never sent anywhere. */
   initialMessages?: ChatMessage[]
+  /** Start in a new conversation rather than resuming the agent's latest one: the chat was opened to
+   * talk to that agent afresh (a page's request, see AgentChat.vue). */
+  startNew?: boolean
   /** The title a new conversation is stored with. Falls back to the date, which is what the history
    * list shows, so two threads of the same agent are distinguishable. */
   title?: string
@@ -367,26 +370,19 @@ export function useSessionChat (options: UseSessionChatOptions) {
   }
 
   /**
-   * The agent picker's move: land on the agent's ongoing conversation, or on nothing yet.
+   * The agent picker's move: a new conversation with that agent, as picking a project or a GPT does
+   * elsewhere. The agent's earlier conversations are in the history.
    *
-   * Conversations never change agent. A thread's identity is the agent that answered in it, so
-   * re-running older turns under a new persona would misrepresent both; switching therefore opens the
-   * new agent's most recent thread, and an agent that has none starts fresh on the first message — its
-   * hello is what reports a revoked grant immediately.
+   * Conversations never change agent: a thread's identity is the agent that answered in it, so
+   * re-running older turns under a new persona would misrepresent both. Nothing is created until the
+   * first message, and the hello is what reports a revoked grant immediately.
    *
    * Re-selecting the current agent is a no-op — a new thread with it is what the dedicated control is
-   * for, and doing it here would create an empty conversation for a click that changed nothing.
+   * for, and doing it here would drop the conversation for a click that changed nothing.
    */
   const switchAgent = async (agentId: string) => {
     if (agentId === activeAgentId.value) return
-    clearThread()
-    activeAgentId.value = agentId
-    const latest = await findLatestConversation(agentId)
-    // Switched again (or opened a thread) while the lookup ran: binding this answer now would put the
-    // socket on the previous agent's thread under the picker's new selection.
-    if (activeAgentId.value !== agentId || conversationId.value) return
-    if (latest) openConversation(agentId, latest.id)
-    else await newConversation(agentId)
+    await newConversation(agentId)
   }
 
   /** Select the next conversation's agent: what the picker lands on when the agent the chat was opened
@@ -427,7 +423,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     // A visitor's thread is created only for a browser that proves itself with an action token.
     if (options.anonymous) await refreshAnonymousToken()
     // Opening the chat of an agent resumes the thread this person was in the middle of, if any.
-    const latest = await findLatestConversation(activeAgentId.value)
+    const latest = options.startNew ? undefined : await findLatestConversation(activeAgentId.value)
     if (latest) {
       conversationId.value = latest.id
       agent.connect({ conversationId: latest.id })
@@ -501,8 +497,10 @@ export function useSessionChat (options: UseSessionChatOptions) {
     activeAgentId: readonly(activeAgentId),
     /** Open an existing conversation from the history list. */
     openConversation,
-    /** Change agent: resume its latest thread, or start a fresh one (see switchAgent). */
+    /** Change agent: a new conversation with it (see switchAgent). */
     switchAgent,
+    /** A new conversation with an agent, even the current one: what a page opening the chat on an agent asks. */
+    newConversation,
     setActiveAgent,
 
     /** Report what is true on the page, for the model's context. */

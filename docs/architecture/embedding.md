@@ -178,7 +178,7 @@ Used for session lifecycle — any frame on the same origin can interact:
 | Message | Direction | Purpose |
 |---------|-----------|---------|
 | `agent-chat-ready` | Container → all | Announces drawer/menu/block presence |
-| `agent-start-session` | Action → container + iframe | Opens the container; the iframe starts a chat with `visiblePrompt` + `hiddenContext` |
+| `agent-start-session` | Page → container + iframe | Opens the container; the iframe starts a new conversation with `agentId` when named, and sends `visiblePrompt` + `hiddenContext` when given |
 | `agent-session-cleared` | Action → iframe | Signals that an action button was unmounted |
 | `agent-chat-ping` | Action → container | Discovery probe |
 | `agent-chat-pong` | Container → action | Presence response |
@@ -296,6 +296,10 @@ bc.postMessage({
 
 The container composable listens for `agent-start-session` and automatically opens. The `visiblePrompt` is shown to the user; `hiddenContext` is passed to the agent without displaying it: the iframe sends it as its own field of the `prompt` frame and the server does the `<hidden-context>` wrapping, so a client cannot place the sentinels itself.
 
+Every field but `channel` and `type` is optional. `agentId` puts the chat on that agent in a new conversation (the way picking a project or a GPT does elsewhere); without a `visiblePrompt` the chat only opens, ready for the person to write. Hosts released before `agentId` existed still open the container on it: the switch is the iframe's, which this service serves.
+
+`useAgentChatLauncher()` (lib-vue) wraps the discovery and the sending: `available` turns true once a container answers, and `open({ agentId?, visiblePrompt?, hiddenContext? })` broadcasts the request and stores it for an iframe not yet loaded. This service's own pages use it: the agent page's **Open chat** opens the back office's panel on that agent, and the admin pages show someone who is not an admin a notice with the same button. There is no full-page chat to send people to — the chat page is what the panel loads.
+
 To check if a drawer is available before sending:
 
 ```typescript
@@ -305,7 +309,7 @@ bc.postMessage({ channel: channelId, type: 'agent-chat-ping' })
 
 ### Inline action button
 
-`DfAgentChatAction` is a button a host app drops directly into a page (for example a contextual "ask the assistant" help action next to a creation or configuration form — this is how it is used in data-fair on creation/config pages). On mount it pings over BroadcastChannel for a live drawer and only shows itself once one answers (`agent-chat-pong` / `agent-chat-ready`). On click it broadcasts an `agent-start-session` message carrying a `visiblePrompt` (shown to the user) and a `hiddenContext` (page context passed to the agent silently), which opens the drawer and starts the conversation. It also stores the message in sessionStorage (`df-agent-pending-action`), which the iframe reads on mount, for when the iframe was not loaded yet to hear the broadcast. It is the declarative, in-page counterpart to the programmatic `agent-start-session` snippet above.
+`DfAgentChatAction` is a button a host app drops directly into a page (for example a contextual "ask the assistant" help action next to a creation or configuration form — this is how it is used in data-fair on creation/config pages). On mount it pings over BroadcastChannel for a live drawer and only shows itself once one answers (`agent-chat-pong` / `agent-chat-ready`). On click it broadcasts an `agent-start-session` message carrying a `visiblePrompt` (shown to the user), a `hiddenContext` (page context passed to the agent silently) and, with its `agentId` prop, the agent to ask, which opens the drawer and starts the conversation. It also stores the message in sessionStorage (`df-agent-pending-action`), which the iframe reads before its chat starts, for when the iframe was not loaded yet to hear the broadcast: a named agent is then the one the chat starts on. It is the declarative, in-page counterpart to the programmatic `agent-start-session` snippet above.
 
 ---
 
@@ -328,7 +332,7 @@ Both offices, for any signed-in person:
 - the **history** menu is fed by `GET /api/conversations/:type/:id` without an `agentId` — the caller's own threads across the agents they may still use, newest first (at most 50), each labelled with its agent. Selecting one rebinds the socket to it and the server replays its stored transcript. It is always the caller's own threads, a superadmin's included: reading other people's is the review page's job.
 - opening the chat **resumes** the agent's thread with the latest activity (`?agentId=…&size=1`) rather than starting another.
 
-Selecting a different agent resumes ITS latest thread; a conversation never changes agent, since its identity is the agent that answered in it. Both offices create a conversation on its first message (the socket's `hello` names the agent, the first prompt creates the thread), so opening the chat, switching to an agent with no thread or asking for a new conversation leaves nothing behind. The `hello` is also answered with a refusal when the person may not talk to that agent (a revoked grant), so the chat says so as it opens rather than at the first message.
+Selecting a different agent starts a new conversation with it, as picking a project or a GPT does elsewhere; its earlier threads are in the history. A conversation never changes agent, since its identity is the agent that answered in it. Both offices create a conversation on its first message (the socket's `hello` names the agent, the first prompt creates the thread), so opening the chat, switching agent or asking for a new conversation leaves nothing behind. The `hello` is also answered with a refusal when the person may not talk to that agent (a revoked grant), so the chat says so as it opens rather than at the first message.
 
 ---
 

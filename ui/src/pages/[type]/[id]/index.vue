@@ -63,6 +63,7 @@
       <df-toc :sections="sections" />
     </df-navigation-right>
   </v-container>
+  <chat-panel-notice v-else />
 </template>
 
 <i18n lang="yaml">
@@ -85,14 +86,15 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import { mdiAccountMultiple, mdiChartBar, mdiForum, mdiShieldCheckOutline } from '@mdi/js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import DfToc from '@data-fair/lib-vuetify/toc.vue'
+import ChatPanelNotice from '~/components/ChatPanelNotice.vue'
 import OrgConfigSection from '~/components/OrgConfigSection.vue'
 import AutonomousAgentsSection from '~/components/AutonomousAgentsSection.vue'
 import UsageCard from '~/components/UsageCard.vue'
@@ -104,7 +106,6 @@ import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()
 const route = useRoute('/[type]/[id]/')
-const router = useRouter()
 const session = useSession()
 const accountType = route.params.type as string
 const accountId = route.params.id as string
@@ -112,16 +113,12 @@ const accountId = route.params.id as string
 setBreadcrumbs([])
 
 // Every section of this page is admin-only (the settings, usage and traces
-// endpoints it consumes are all admin-gated), so a non-admin member is sent
-// back to the chat.
+// endpoints it consumes are all admin-gated), so a non-admin member is pointed
+// to the chat panel instead.
 const isAdmin = computed(() =>
   !!session.state.user?.isAdmin ||
   getAccountRole(session.state, { type: accountType as 'user' | 'organization', id: accountId }) === 'admin'
 )
-
-onMounted(() => {
-  if (!isAdmin.value) router.replace(`/${accountType}/${accountId}/chat`)
-})
 
 const activityTab = ref('usage')
 const activityTabs = computed(() => [

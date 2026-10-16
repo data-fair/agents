@@ -1,3 +1,5 @@
+import type { AgentActionStartSession } from '@data-fair/lib-vue-agents'
+
 export type AgentStatus = 'idle' | 'working' | 'waiting-user' | 'error'
 
 export interface AgentStatusMessage {
@@ -21,13 +23,8 @@ export interface AgentNavigateMessage {
 
 export type AgentChatMessage = AgentStatusMessage | AgentToolsChangedMessage | AgentUnreadMessage | AgentNavigateMessage
 
-/** BroadcastChannel message sent by action buttons */
-export interface AgentActionStartSession {
-  channel: string
-  type: 'agent-start-session'
-  visiblePrompt: string
-  hiddenContext: string
-}
+/** BroadcastChannel message that opens the chat panel (action buttons, useAgentChatLauncher): see lib-vue. */
+export type { AgentActionStartSession }
 
 /** BroadcastChannel message sent when action button is disposed */
 export interface AgentActionSessionCleared {

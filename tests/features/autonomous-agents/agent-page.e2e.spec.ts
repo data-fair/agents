@@ -191,23 +191,6 @@ test.describe('Autonomous agent page', () => {
     expect((await getAgent(agentId)).nhi?.clientId).toBe('dev-fixture-nhi')
   })
 
-  test('a non-admin instructor is sent to the agent\'s chat, as the org page sends them, and can post', async ({ page, goToWithAuth }) => {
-    // The capability the cross-account instructor grant exists for, on the same chat every other
-    // person uses (the server side: runtime.api.spec.ts).
-    const agentId = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
-    // An unenrolled agent refuses every turn; dev cannot complete a real enrolment.
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
-    await goToWithAuth(pageUrl(agentId), 'test1-user1', { org: 'test1' })
-    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/chat\\?agentId=${agentId}`), { timeout: 20000 })
-    await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
-    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveCount(0)
-    await expect(page.getByTestId('agent-chat-error')).toBeHidden()
-
-    await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill('hello')
-    await page.getByTestId('agent-chat-send').click()
-    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
-  })
-
   test('an unknown agent says so instead of leaving the page blank', async ({ page, goToWithAuth }) => {
     await goToWithAuth(pageUrl('no-such-agent'), 'superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-unavailable')).toContainText('does not exist', { timeout: 20000 })
@@ -296,10 +279,8 @@ test.describe('Autonomous agent page', () => {
     await saveButton(page).click()
     await expect(saveButton(page)).toBeHidden({ timeout: 10000 })
     expect((await getAgent(agentId)).persona).toBe('You answer at length.')
-
-    await page.getByRole('link', { name: 'Open chat' }).click()
-    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/chat\\?agentId=${agentId}`), { timeout: 20000 })
   })
 
+  // Someone who is not an admin, and the page's Open chat: chat-drawer/open-on-agent.e2e.spec.ts.
   // Enrolling waits for unsaved edits: autonomous-agents.e2e.spec.ts, on its unenrolled-agent test.
 })

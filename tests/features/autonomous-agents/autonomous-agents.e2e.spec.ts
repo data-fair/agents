@@ -210,9 +210,9 @@ test.describe('Autonomous agents configuration', () => {
     await page.goBack()
     await page.getByTestId('autonomous-agent-list').getByRole('link', { name: /Journey agent/ }).click({ timeout: 20000 })
 
-    // Follow the link a person would, rather than navigating by url: from the agent's page to the
-    // shared chat, mono-agent on that agent — the standalone thread page was removed.
-    await page.getByRole('link', { name: 'Open chat' }).click({ timeout: 20000 })
+    // The chat on that agent, as a panel loads it (opening the panel from the page:
+    // chat-drawer/open-on-agent.e2e.spec.ts).
+    await page.goto(`/agents/organization/test1/chat?agentId=${journeyAgent.id}`)
 
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
     // The chat names the agent it was opened on. Without this, a page pointed at an autonomous agent
@@ -308,8 +308,8 @@ test.describe('Autonomous agent chat', () => {
       .toContainText('not allowed to instruct this autonomous agent', { timeout: 15000 })
   })
 
-  // A listed instructor who is NOT an admin posting in this chat: agent-page.e2e.spec.ts, where they
-  // land after being redirected from the agent's page.
+  // A listed instructor who is NOT an admin posting in this chat: chat-drawer/open-on-agent.e2e.spec.ts,
+  // from the notice the agent's page shows them.
 })
 
 test.describe('Agent switcher and conversation history', () => {
@@ -355,7 +355,7 @@ test.describe('Agent switcher and conversation history', () => {
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
   })
 
-  test('switching agent opens its ongoing conversation or an empty one, and the first message goes to THAT agent', async ({ page, goToWithAuth }) => {
+  test('switching agent starts a new conversation with it, earlier ones are in the history, and the first message goes to THAT agent', async ({ page, goToWithAuth }) => {
     await openBackOfficeChat(goToWithAuth)
     await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
     await fillAndSend(page, 'hello')
@@ -370,12 +370,16 @@ test.describe('Agent switcher and conversation history', () => {
     }
 
     await pick('Back-office assistant')
-    // The personal assistant has no thread yet: an empty pane, and the picker names it.
     await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
     await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('Back-office assistant')
 
-    // Back to the autonomous agent: its ongoing conversation is reopened, not a third one started.
+    // Back to the autonomous agent: a new conversation, as picking a project or a GPT does elsewhere.
     await pick('History agent')
+    await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('History agent')
+    await expect(page.getByTestId('agent-chat-transcript')).toHaveCount(0)
+    // Its earlier conversation is one click away, in the history.
+    await page.getByTestId('agent-chat-history').click()
+    await page.getByTestId('agent-chat-conversation').filter({ hasText: 'History agent' }).click()
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
 
     // The switch leaves nothing bound until the first send creates the thread. A stale binding sent that

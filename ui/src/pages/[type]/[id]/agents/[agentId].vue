@@ -33,14 +33,9 @@
           data-testid="autonomous-agent-enabled"
           @update:model-value="(value: boolean | null) => toggleEnabled(!!value)"
         />
-        <!-- Mono-agent, exactly like a host embed. A disabled agent is still openable — the turn
-             refusal is the message an admin checking the kill switch needs to see. -->
-        <v-btn
-          :to="{ path: `/${accountType}/${accountId}/chat`, query: { agentId } }"
-          variant="text"
-          :prepend-icon="mdiChatOutline"
-          :text="t('openChat')"
-        />
+        <!-- In the back office's chat panel, on this agent in a new conversation. A disabled agent is still
+             openable — the turn refusal is the message an admin checking the kill switch needs to see. -->
+        <open-chat-button :agent-id="agentId" />
         <v-menu v-if="canConfigure">
           <template #activator="{ props: activatorProps }">
             <v-btn
@@ -133,6 +128,10 @@
       </v-dialog>
     </template>
   </v-container>
+  <chat-panel-notice
+    v-else
+    :agent-id="agentId"
+  />
 </template>
 
 <i18n lang="yaml">
@@ -141,7 +140,6 @@ en:
   activity: Activity
   tasks: Scheduled tasks
   history: History
-  openChat: Open chat
   enabled: Enabled
   enableFailed: The autonomous agent could not be switched on or off
   actions: Actions
@@ -160,7 +158,6 @@ fr:
   activity: Activité
   tasks: Tâches planifiées
   history: Historique
-  openChat: Ouvrir la conversation
   enabled: Activé
   enableFailed: L'agent autonome n'a pas pu être activé ou désactivé
   actions: Actions
@@ -177,15 +174,17 @@ fr:
 </i18n>
 
 <script lang="ts" setup>
-import { computed, nextTick, onMounted, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { mdiCalendarClock, mdiChatOutline, mdiDelete, mdiDotsVertical, mdiHistory } from '@mdi/js'
+import { mdiCalendarClock, mdiDelete, mdiDotsVertical, mdiHistory } from '@mdi/js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import AgentConfiguration from '~/components/agent-page/AgentConfiguration.vue'
+import ChatPanelNotice from '~/components/ChatPanelNotice.vue'
+import OpenChatButton from '~/components/OpenChatButton.vue'
 import AgentTasksTab from '~/components/agent-page/AgentTasksTab.vue'
 import AgentHistoryTab from '~/components/agent-page/AgentHistoryTab.vue'
 import AutonomousAgentStateChips from '~/components/AutonomousAgentStateChips.vue'
@@ -205,15 +204,12 @@ const accountType = route.params.type as string
 const accountId = route.params.id as string
 const agentId = route.params.agentId as string
 
-// An admin page, as the org page is: anyone else — an instructor among them — is sent to the agent's
-// chat, which is theirs.
+// An admin page, as the org page is: anyone else — an instructor among them — is pointed to the chat
+// panel, where they talk to the agent.
 const isAdmin = computed(() =>
   !!session.state.user?.isAdmin ||
   getAccountRole(session.state, { type: accountType as 'user' | 'organization', id: accountId }) === 'admin'
 )
-onMounted(() => {
-  if (!isAdmin.value) router.replace({ path: `/${accountType}/${accountId}/chat`, query: { agentId } })
-})
 
 /**
  * Who may configure, as the routes decide it: an org admin, and while the progressive rollout gate
