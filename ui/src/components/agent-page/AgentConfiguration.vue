@@ -159,15 +159,16 @@
             @update:model-value="(data: any) => onPartUpdate('memory', data)"
           />
         </v-form>
-        <!-- Memory is the agent's own and admin-only: it can hold what other instructors said. Offered even
-             with memory turned off: the store keeps its notes, and the way to inspect or clean a suspect one
-             is to switch memory off and then open it here. -->
-        <v-btn
-          variant="tonal"
-          class="mt-2"
-          data-testid="autonomous-agent-memory"
-          :text="t('openMemory')"
-          @click="memoryDialog = true"
+        <!-- Memory is the autonomous agent's own and admin-only: it can hold what other instructors said.
+             Shown even with memory turned off: the store keeps its notes, and the way to inspect or clean a
+             suspect one is to switch memory off and then open it here. It saves on its own (a versioned
+             store), so it is outside the draft and never counts in hasDiff. -->
+        <agent-memory-panel
+          class="mt-4"
+          :agent="agent"
+          :account-type="accountType"
+          :account-id="accountId"
+          :can-configure="true"
         />
       </v-tabs-window-item>
     </template>
@@ -197,14 +198,6 @@
       </v-card-actions>
     </v-card>
   </v-dialog>
-
-  <agent-memory-dialog
-    v-model="memoryDialog"
-    :agent="agent"
-    :account-type="accountType"
-    :account-id="accountId"
-    :can-configure="true"
-  />
 </template>
 
 <i18n lang="yaml">
@@ -234,7 +227,6 @@ en:
   exampleConfirm: They were edited, and the example replaces them. The other tabs are not changed.
   cancel: Cancel
   replace: Replace
-  openMemory: Read and edit the memory
   webRiskTitle: This agent reads the web and can write without approval
   webRisk: "A page it reads can contain instructions, and the agent may follow them with its identity and all its tools. Prefer read-only tools for an agent with web access, or set approval to \"Every operation that makes changes\"."
 fr:
@@ -263,7 +255,6 @@ fr:
   exampleConfirm: Ils ont été modifiés, et l'exemple les remplace. Les autres onglets ne changent pas.
   cancel: Annuler
   replace: Remplacer
-  openMemory: Lire et modifier la mémoire
   webRiskTitle: Cet agent lit le web et peut écrire sans approbation
   webRisk: "Une page qu'il lit peut contenir des instructions, et l'agent peut les suivre avec son identité et tous ses outils. Préférez des outils en lecture seule pour un agent qui accède au web, ou réglez l'approbation sur « Toutes les opérations qui effectuent des modifications »."
 </i18n>
@@ -287,7 +278,7 @@ import VjsfAutonomousAgentFormRole from '~/components/vjsf/vjsf-autonomous-agent
 import VjsfAutonomousAgentFormTools from '~/components/vjsf/vjsf-autonomous-agent-form-tools.vue'
 import VjsfAutonomousAgentFormSecurity from '~/components/vjsf/vjsf-autonomous-agent-form-security.vue'
 import VjsfAutonomousAgentFormMemory from '~/components/vjsf/vjsf-autonomous-agent-form-memory.vue'
-import AgentMemoryDialog from '~/components/AgentMemoryDialog.vue'
+import AgentMemoryPanel from '~/components/AgentMemoryPanel.vue'
 import FormActions from '~/components/FormActions.vue'
 import McpProfilesTree from '~/components/McpProfilesTree.vue'
 import { autonomousAgentEditDraft, pruneHiddenSelections } from '~/utils/autonomous-agent-draft'
@@ -503,6 +494,4 @@ const save = useAsyncAction(async () => {
   }
   emit('changed')
 }, { success: t('saved') })
-
-const memoryDialog = ref(false)
 </script>

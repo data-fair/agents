@@ -19,7 +19,7 @@ import localizeErrors from "ajv-i18n/localize/fr/index.js";
 
 const export0 = validate22;
 const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/autonomous-agent/form-memory#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/form-memory","x-exports":["vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":[],"layout":{"title":null},"properties":{"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Mémoire","properties":{"enabled":{"type":"boolean","default":false,"title":"Conserver une mémoire entre les conversations","description":"L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et les remet en ordre une fois par jour à partir de ce qu'on lui a dit. Les administrateurs peuvent lire, modifier et restaurer cette mémoire. Les écritures en mémoire ne sont pas soumises aux réglages d'approbation : chaque modification est versionnée et peut être restaurée.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory","errorMessage":{"required":{"enabled":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#","errorMessage":{}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/form-memory","x-exports":["vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":[],"layout":{"title":null},"properties":{"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Mémoire","properties":{"enabled":{"type":"boolean","default":false,"title":"Conserver une mémoire entre les conversations","description":"L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et les remet en ordre une fois par jour à partir de ce qu'on lui a dit. Les administrateurs peuvent lire, modifier et restaurer cette mémoire. Les écritures en mémoire ne sont pas soumises aux réglages d'approbation : chaque modification est versionnée et peut être restaurée.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory/properties/enabled","errorMessage":{}}},"layout":{"title":null},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory","errorMessage":{"required":{"enabled":"information obligatoire"}}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#","errorMessage":{}};
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
 function validate22(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -254,13 +254,12 @@ const compiledLayout = {
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory": {
+      title: null,
       comp: "section",
 
       children: [{
         key: "enabled"
-      }],
-
-      title: "Mémoire"
+      }]
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory/properties/enabled": {

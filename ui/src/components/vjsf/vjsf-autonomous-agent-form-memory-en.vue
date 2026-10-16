@@ -19,7 +19,7 @@ import localizeErrors from "ajv-i18n/localize/en/index.js";
 
 const export0 = validate22;
 const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/autonomous-agent/form-memory#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/form-memory","x-exports":["vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":[],"layout":{"title":null},"properties":{"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory/properties/enabled","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory","errorMessage":{"required":{"enabled":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#","errorMessage":{}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/form-memory","x-exports":["vjsf"],"x-vjsf":{"xI18n":true,"pluginsImports":["@koumoul/vjsf-markdown"]},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"required":[],"layout":{"title":null},"properties":{"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory/properties/enabled","errorMessage":{}}},"layout":{"title":null},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory","errorMessage":{"required":{"enabled":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/autonomous-agent/form-memory#","errorMessage":{}};
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
 function validate22(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -254,13 +254,12 @@ const compiledLayout = {
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory": {
+      title: null,
       comp: "section",
 
       children: [{
         key: "enabled"
-      }],
-
-      title: "Memory"
+      }]
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/form-memory#/properties/memory/properties/enabled": {
