@@ -68,6 +68,7 @@
 
 <i18n lang="yaml">
 fr:
+  agents: Agents
   configuration: Configuration
   autonomousAgents: Agents autonomes
   activity: Activité
@@ -76,6 +77,7 @@ fr:
   moderation: Modération
   traces: Conversations enregistrées
 en:
+  agents: Agents
   configuration: Configuration
   autonomousAgents: Autonomous agents
   activity: Activity
@@ -110,7 +112,9 @@ const session = useSession()
 const accountType = route.params.type as string
 const accountId = route.params.id as string
 
-setBreadcrumbs([])
+// Host route: data-fair frames this page at /agents-activity, named Agents there. An empty
+// list would replace the host's own crumb with nothing.
+setBreadcrumbs([{ text: t('agents') }])
 
 // Every section of this page is admin-only (the settings, usage and traces
 // endpoints it consumes are all admin-gated), so a non-admin member is pointed
