@@ -7,7 +7,7 @@ import ucs2length from "ajv/dist/runtime/ucs2length.js";
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Autonomous agent","x-i18n-title":{"en":"Autonomous agent","fr":"Agent autonome"},"x-exports":["validate","types"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","maxLength":131,"title":"Name","x-i18n-title":{"en":"Name","fr":"Nom"}},"persona":{"type":"string","layout":"textarea","title":"Persona","x-i18n-title":{"en":"Persona","fr":"Persona"},"description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","x-i18n-description":{"en":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","fr":"Qui est cet agent autonome : son rôle, son ton et son périmètre. Devient le prompt système."}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","x-i18n-title":{"en":"Instructions","fr":"Instructions"},"description":"How it should work: procedures, constraints, what to do when unsure.","x-i18n-description":{"en":"How it should work: procedures, constraints, what to do when unsure.","fr":"Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute."}},"mcpServers":{"type":"array","default":[],"title":"MCP servers","x-i18n-title":{"en":"MCP servers","fr":"Serveurs MCP"},"description":"Picked from the servers configured for this deployment.","x-i18n-description":{"en":"Picked from the servers configured for this deployment.","fr":"Choisis parmi les serveurs configurés pour ce déploiement."},"layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","x-i18n-title":{"en":"Server","fr":"Serveur"},"layout":{"comp":"autocomplete","getItems":{"url":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","itemsResults":"data.results","itemTitle":"item.name","itemKey":"item.id","itemValue":"item.id"}}},"profiles":{"type":"array","title":"Profiles","x-i18n-title":{"en":"Profiles","fr":"Profils"},"description":"What this server lets the agent do, by profile.","x-i18n-description":{"en":"What this server lets the agent do, by profile.","fr":"Ce que ce serveur permet à l'agent, par profil."},"layout":{"if":"context.profiledServers?.includes(parent.data?.serverId)","slots":{"component":{"name":"mcp-profiles"}}},"items":{"type":"string"}},"toolFilter":{"type":"array","layout":{"if":"!context.profiledServers?.includes(parent.data?.serverId)"},"title":"Only these tools","x-i18n-title":{"en":"Only these tools","fr":"Uniquement ces outils"},"description":"Leave empty to expose every tool this server offers.","x-i18n-description":{"en":"Leave empty to expose every tool this server offers.","fr":"Laissez vide pour exposer tous les outils proposés par ce serveur."},"items":{"type":"string"}}}}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Non-human identity","x-i18n-title":{"en":"Non-human identity","fr":"Identité non humaine"},"properties":{"clientId":{"type":"string","minLength":1,"title":"Client id","x-i18n-title":{"en":"Client id","fr":"Identifiant client"}},"siteUrl":{"type":"string","readOnly":true},"issuer":{"type":"string","readOnly":true}}},"instructors":{"type":"array","default":[],"title":"Who may instruct","x-i18n-title":{"en":"Who may instruct","fr":"Qui peut donner des instructions"},"description":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","x-i18n-description":{"en":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","fr":"Les administrateurs de l'organisation propriétaire sont toujours autorisés. Toute personne correspondant à une référence ci-dessous emprunte les permissions de cet agent autonome."},"items":{"$ref":"https://github.com/data-fair/lib/access-ref"}},"role":{"type":"string","default":"user","title":"Role in the organization","x-i18n-title":{"en":"Role in the organization","fr":"Rôle dans l'organisation"},"description":"What the agent can do in the platform's services, like a member with this role.","x-i18n-description":{"en":"What the agent can do in the platform's services, like a member with this role.","fr":"Ce que l'agent peut faire dans les services de la plateforme, comme un membre ayant ce rôle."},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}/roles"}}},"approvalLevel":{"type":"string","default":"destructive","layout":"radio-group","title":"Ask for approval for","x-i18n-title":{"en":"Ask for approval for","fr":"Demander une approbation pour"},"description":"A planned task has nobody to approve: tools that need approval are not offered to it.","x-i18n-description":{"en":"A planned task has nobody to approve: tools that need approval are not offered to it.","fr":"Une tâche planifiée n'a personne pour approuver : les outils soumis à approbation ne lui sont pas proposés."},"oneOf":[{"const":"write","title":"Every operation that makes changes","x-i18n-title":{"en":"Every operation that makes changes","fr":"Toutes les opérations qui effectuent des modifications"}},{"const":"destructive","title":"Only operations marked as particularly destructive","x-i18n-title":{"en":"Only operations marked as particularly destructive","fr":"Uniquement les opérations notées comme particulièrement destructives"}},{"const":"none","title":"None (the agent is fully autonomous in its tool calls)","x-i18n-title":{"en":"None (the agent is fully autonomous in its tool calls)","fr":"Aucune (l'agent est entièrement autonome dans ses appels d'outils)"}}]},"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","x-i18n-title":{"en":"Memory","fr":"Mémoire"},"properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","x-i18n-title":{"en":"Keep a memory across conversations","fr":"Conserver une mémoire entre les conversations"},"description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","x-i18n-description":{"en":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","fr":"L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et les remet en ordre une fois par jour à partir de ce qu'on lui a dit. Les administrateurs peuvent lire, modifier et restaurer cette mémoire. Les écritures en mémoire ne sont pas soumises aux réglages d'approbation : chaque modification est versionnée et peut être restaurée."}}}},"web":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Web access","x-i18n-title":{"en":"Web access","fr":"Accès au web"},"description":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","x-i18n-description":{"en":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","fr":"Les pages sous les URL autorisées sont lues par l'agent comme du texte, et un texte peut contenir des instructions : leurs auteurs peuvent de fait donner des instructions à cet agent, avec son identité et tous ses outils, et lui faire envoyer des informations à l'extérieur. N'activez cet accès que sur des agents aux capacités d'écriture et d'administration très restreintes."},"properties":{"enabled":{"type":"boolean","default":false,"title":"Read web pages","x-i18n-title":{"en":"Read web pages","fr":"Lire des pages web"},"description":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","x-i18n-description":{"en":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","fr":"L'agent peut lire les pages, flux et plans de site sous les URL autorisées, et demander à un administrateur de l'organisation, dans une conversation, d'en autoriser d'autres."}},"allowedUrls":{"type":"array","maxItems":100,"default":[],"title":"Allowed URLs","x-i18n-title":{"en":"Allowed URLs","fr":"URL autorisées"},"description":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","x-i18n-description":{"en":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","fr":"Une adresse peut être lue quand elle commence par l'une de celles-ci : « https://github.com/data-fair » n'autorise que les dépôts de cette organisation, « https://www.data.gouv.fr/ » tout le site. Le robots.txt, les plans de site et la description de recherche d'un site sont lisibles dès que l'une de ses adresses est autorisée."},"layout":{"if":"parent.data?.enabled"},"items":{"type":"string","minLength":1}}}},"externalMcpServers":{"type":"array","maxItems":50,"default":[],"title":"External MCP servers","x-i18n-title":{"en":"External MCP servers","fr":"Serveurs MCP externes"},"description":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","x-i18n-description":{"en":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","fr":"Serveurs MCP publics que l'agent utilise de façon anonyme — un autre portail de données, sur cette plateforme ou ailleurs. Leurs auteurs écrivent les descriptions que l'agent lit, et ce qu'il leur envoie quitte la plateforme : comme l'accès au web, cela leur permet de fait de donner des instructions à l'agent."},"layout":{"itemTitle":"item?.url || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","x-i18n-title":{"en":"URL","fr":"URL"}}}}},"enabled":{"type":"boolean","default":true,"title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"}}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/autonomous-agent/write-req","title":"Autonomous agent","x-i18n-title":{"en":"Autonomous agent","fr":"Agent autonome"},"x-exports":["validate","types"],"type":"object","additionalProperties":false,"required":["title","persona","mcpServers","enabled"],"layout":{"title":null},"properties":{"title":{"type":"string","maxLength":131,"title":"Name","x-i18n-title":{"en":"Name","fr":"Nom"}},"persona":{"type":"string","layout":"textarea","title":"Persona","x-i18n-title":{"en":"Persona","fr":"Persona"},"description":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","x-i18n-description":{"en":"Who this autonomous agent is: its role, tone and scope. Becomes the system prompt.","fr":"Qui est cet agent autonome : son rôle, son ton et son périmètre. Devient le prompt système."}},"instructions":{"type":"string","layout":"textarea","title":"Instructions","x-i18n-title":{"en":"Instructions","fr":"Instructions"},"description":"How it should work: procedures, constraints, what to do when unsure.","x-i18n-description":{"en":"How it should work: procedures, constraints, what to do when unsure.","fr":"Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute."}},"mcpServers":{"type":"array","default":[],"title":"MCP servers","x-i18n-title":{"en":"MCP servers","fr":"Serveurs MCP"},"description":"Picked from the servers configured for this deployment.","x-i18n-description":{"en":"Picked from the servers configured for this deployment.","fr":"Choisis parmi les serveurs configurés pour ce déploiement."},"layout":{"itemTitle":"item?.serverId || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string","title":"Server","x-i18n-title":{"en":"Server","fr":"Serveur"},"layout":{"comp":"autocomplete","getItems":{"url":"${context.apiPath}/autonomous-agents/${context.accountType}/${context.accountId}/mcp-servers","itemsResults":"data.results","itemTitle":"item.name","itemKey":"item.id","itemValue":"item.id"}}},"toolFilter":{"type":"array","title":"Only these tools","x-i18n-title":{"en":"Only these tools","fr":"Uniquement ces outils"},"description":"Leave empty to expose every tool this server offers.","x-i18n-description":{"en":"Leave empty to expose every tool this server offers.","fr":"Laissez vide pour exposer tous les outils proposés par ce serveur."},"items":{"type":"string"}}}}},"nhi":{"type":"object","additionalProperties":false,"required":["clientId"],"title":"Non-human identity","x-i18n-title":{"en":"Non-human identity","fr":"Identité non humaine"},"properties":{"clientId":{"type":"string","minLength":1,"title":"Client id","x-i18n-title":{"en":"Client id","fr":"Identifiant client"}},"siteUrl":{"type":"string","readOnly":true},"issuer":{"type":"string","readOnly":true}}},"instructors":{"type":"array","default":[],"title":"Who may instruct","x-i18n-title":{"en":"Who may instruct","fr":"Qui peut donner des instructions"},"description":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","x-i18n-description":{"en":"Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.","fr":"Les administrateurs de l'organisation propriétaire sont toujours autorisés. Toute personne correspondant à une référence ci-dessous emprunte les permissions de cet agent autonome."},"items":{"$ref":"https://github.com/data-fair/lib/access-ref"}},"role":{"type":"string","default":"user","title":"Role in the organization","x-i18n-title":{"en":"Role in the organization","fr":"Rôle dans l'organisation"},"description":"What the agent can do in the platform's services, like a member with this role.","x-i18n-description":{"en":"What the agent can do in the platform's services, like a member with this role.","fr":"Ce que l'agent peut faire dans les services de la plateforme, comme un membre ayant ce rôle."},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}/roles"}}},"approvalLevel":{"type":"string","default":"destructive","layout":"radio-group","title":"Ask for approval for","x-i18n-title":{"en":"Ask for approval for","fr":"Demander une approbation pour"},"description":"A planned task has nobody to approve: tools that need approval are not offered to it.","x-i18n-description":{"en":"A planned task has nobody to approve: tools that need approval are not offered to it.","fr":"Une tâche planifiée n'a personne pour approuver : les outils soumis à approbation ne lui sont pas proposés."},"oneOf":[{"const":"write","title":"Every operation that makes changes","x-i18n-title":{"en":"Every operation that makes changes","fr":"Toutes les opérations qui effectuent des modifications"}},{"const":"destructive","title":"Only operations marked as particularly destructive","x-i18n-title":{"en":"Only operations marked as particularly destructive","fr":"Uniquement les opérations notées comme particulièrement destructives"}},{"const":"none","title":"None (the agent is fully autonomous in its tool calls)","x-i18n-title":{"en":"None (the agent is fully autonomous in its tool calls)","fr":"Aucune (l'agent est entièrement autonome dans ses appels d'outils)"}}]},"memory":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Memory","x-i18n-title":{"en":"Memory","fr":"Mémoire"},"properties":{"enabled":{"type":"boolean","default":false,"title":"Keep a memory across conversations","x-i18n-title":{"en":"Keep a memory across conversations","fr":"Conserver une mémoire entre les conversations"},"description":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","x-i18n-description":{"en":"The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.","fr":"L'agent conserve des notes qu'il réutilise dans toutes ses conversations suivantes, et les remet en ordre une fois par jour à partir de ce qu'on lui a dit. Les administrateurs peuvent lire, modifier et restaurer cette mémoire. Les écritures en mémoire ne sont pas soumises aux réglages d'approbation : chaque modification est versionnée et peut être restaurée."}}}},"web":{"type":"object","additionalProperties":false,"required":["enabled"],"title":"Web access","x-i18n-title":{"en":"Web access","fr":"Accès au web"},"description":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","x-i18n-description":{"en":"Pages under the allowed URLs are read by the agent as text, and text can contain instructions: their authors can in effect instruct this agent, with its identity and all its tools, and make it send information out. Enable this only on agents with very restricted write and administration capabilities.","fr":"Les pages sous les URL autorisées sont lues par l'agent comme du texte, et un texte peut contenir des instructions : leurs auteurs peuvent de fait donner des instructions à cet agent, avec son identité et tous ses outils, et lui faire envoyer des informations à l'extérieur. N'activez cet accès que sur des agents aux capacités d'écriture et d'administration très restreintes."},"properties":{"enabled":{"type":"boolean","default":false,"title":"Read web pages","x-i18n-title":{"en":"Read web pages","fr":"Lire des pages web"},"description":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","x-i18n-description":{"en":"The agent can read pages, feeds and sitemaps under the allowed URLs, and ask an administrator of the organization, in a conversation, to allow more.","fr":"L'agent peut lire les pages, flux et plans de site sous les URL autorisées, et demander à un administrateur de l'organisation, dans une conversation, d'en autoriser d'autres."}},"allowedUrls":{"type":"array","maxItems":100,"default":[],"title":"Allowed URLs","x-i18n-title":{"en":"Allowed URLs","fr":"URL autorisées"},"description":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","x-i18n-description":{"en":"An address can be read when it starts with one of these: \"https://github.com/data-fair\" allows the repositories of that organization only, \"https://www.data.gouv.fr/\" the whole site. A site's robots.txt, sitemaps and search description are readable as soon as one of its addresses is allowed.","fr":"Une adresse peut être lue quand elle commence par l'une de celles-ci : « https://github.com/data-fair » n'autorise que les dépôts de cette organisation, « https://www.data.gouv.fr/ » tout le site. Le robots.txt, les plans de site et la description de recherche d'un site sont lisibles dès que l'une de ses adresses est autorisée."},"layout":{"if":"parent.data?.enabled"},"items":{"type":"string","minLength":1}}}},"externalMcpServers":{"type":"array","maxItems":50,"default":[],"title":"External MCP servers","x-i18n-title":{"en":"External MCP servers","fr":"Serveurs MCP externes"},"description":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","x-i18n-description":{"en":"Public MCP servers the agent uses anonymously — another data portal, on this platform or elsewhere. Their authors write the descriptions the agent reads, and what it sends them leaves the platform: like web access, this lets them in effect instruct the agent.","fr":"Serveurs MCP publics que l'agent utilise de façon anonyme — un autre portail de données, sur cette plateforme ou ailleurs. Leurs auteurs écrivent les descriptions que l'agent lit, et ce qu'il leur envoie quitte la plateforme : comme l'accès au web, cela leur permet de fait de donner des instructions à l'agent."},"layout":{"itemTitle":"item?.url || \"\"","listActions":["add","edit","delete"]},"items":{"type":"object","additionalProperties":false,"required":["url"],"properties":{"url":{"type":"string","minLength":1,"title":"URL","x-i18n-title":{"en":"URL","fr":"URL"}}}}},"enabled":{"type":"boolean","default":true,"title":"Enabled","x-i18n-title":{"en":"Enabled","fr":"Activé"}}}};
 const schema17 = {"$id":"https://github.com/data-fair/lib/access-ref","x-exports":["types","validate"],"title":"Access Ref","x-i18n-title":{"fr":"Référence d'accès","en":"Access Ref","es":"Referencia de acceso","it":"Riferimento di accesso","pt":"Referência de acesso","de":"Zugriffsreferenz"},"type":"object","discriminator":{"propertyName":"mode"},"oneOfLayout":{"emptyData":true},"oneOf":[{"title":"Un membre de l'organisation","x-i18n-title":{"fr":"Un membre de l'organisation","en":"An organization member","es":"Un miembro de la organización","it":"Un membro dell'organizzazione","pt":"Um membro da organização","de":"Ein Organisationsmitglied"},"layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member"},"type":{"type":"string","const":"user"},"id":{"type":"string","title":"Membre","x-i18n-title":{"fr":"Membre","en":"Member","es":"Miembro","it":"Membro","pt":"Membro","de":"Mitglied"},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}/members","itemsResults":"data.results","itemTitle":"item.name","itemValue":"item.id","itemIcon":"`/simple-directory/api/avatars/user/${item.id}/avatar.png`"}}}}},{"title":"Un email","x-i18n-title":{"fr":"Un email","en":"An email","es":"Un correo electrónico","it":"Un'email","pt":"Um email","de":"Eine E-Mail"},"required":["mode","type","email"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member"},"type":{"type":"string","const":"user"},"email":{"type":"string","format":"email","title":"Adresse mail","x-i18n-title":{"fr":"Adresse mail","en":"Email address","es":"Dirección de correo","it":"Indirizzo email","pt":"Endereço de email","de":"E-Mail-Adresse"}}}},{"title":"Une organisation partenaire","x-i18n-title":{"fr":"Une organisation partenaire","en":"A partner organization","es":"Una organización asociada","it":"Un'organizzazione partner","pt":"Uma organização parceira","de":"Eine Partnerorganisation"},"layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"member"},"type":{"type":"string","const":"organization"},"department":{"type":"string","const":"*"},"roles":{"type":"array","const":[],"items":{"type":"string"}},"id":{"type":"string","title":"Partenaire","x-i18n-title":{"fr":"Partenaire","en":"Partner","es":"Socio","it":"Partner","pt":"Parceiro","de":"Partner"},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}","itemsResults":"data.partners","itemTitle":"item.name","itemValue":"item.id","itemIcon":"`/simple-directory/api/avatars/organization/${item.id}/avatar.png`"}}}}},{"title":"Un role ou département de mon organisation","x-i18n-title":{"fr":"Un rôle ou département de mon organisation","en":"A role or department of my organization","es":"Un rol o departamento de mi organización","it":"Un ruolo o dipartimento della mia organizzazione","pt":"Um papel ou departamento da minha organização","de":"Eine Rolle oder Abteilung meiner Organisation"},"layout":{"if":"context.owner.type === 'organization'"},"required":["mode","type","id"],"additionalProperties":false,"properties":{"mode":{"type":"string","const":"internal"},"type":{"type":"string","const":"organization"},"id":{"type":"string","layout":{"comp":"none","getConstData":"context.owner.id"}},"department":{"type":"string","title":"Département","x-i18n-title":{"fr":"Département","en":"Department","es":"Departamento","it":"Dipartimento","pt":"Departamento","de":"Abteilung"},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}","itemsResults":"[...(data.departments || []), {id: \"*\", name: \"Tous les départements\"}, {id: \"-\", name: \"Racine de l'organisation uniquement\"}]","itemTitle":"item.name","itemValue":"item.id"}}},"roles":{"type":"array","title":"Rôles","x-i18n-title":{"fr":"Rôles","en":"Roles","es":"Roles","it":"Ruoli","pt":"Funções","de":"Rollen"},"items":{"type":"string"},"layout":{"getItems":{"url":"/simple-directory/api/organizations/${context.owner.id}","itemsResults":"data.roles"}}}}}]};
 const func2 = Object.prototype.hasOwnProperty;
 const func3 = ucs2length.default;
@@ -138,7 +138,7 @@ vErrors.push(err9);
 errors++;
 }
 for(const key1 in data4){
-if(!(((key1 === "serverId") || (key1 === "profiles")) || (key1 === "toolFilter"))){
+if(!((key1 === "serverId") || (key1 === "toolFilter"))){
 const err10 = {instancePath:instancePath+"/mcpServers/" + i0,schemaPath:"#/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err10];
@@ -161,13 +161,13 @@ vErrors.push(err11);
 errors++;
 }
 }
-if(data4.profiles !== undefined){
-let data6 = data4.profiles;
+if(data4.toolFilter !== undefined){
+let data6 = data4.toolFilter;
 if(Array.isArray(data6)){
 const len1 = data6.length;
 for(let i1=0; i1<len1; i1++){
 if(typeof data6[i1] !== "string"){
-const err12 = {instancePath:instancePath+"/mcpServers/" + i0+"/profiles/" + i1,schemaPath:"#/properties/mcpServers/items/properties/profiles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err12 = {instancePath:instancePath+"/mcpServers/" + i0+"/toolFilter/" + i1,schemaPath:"#/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -179,7 +179,7 @@ errors++;
 }
 }
 else {
-const err13 = {instancePath:instancePath+"/mcpServers/" + i0+"/profiles",schemaPath:"#/properties/mcpServers/items/properties/profiles/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err13 = {instancePath:instancePath+"/mcpServers/" + i0+"/toolFilter",schemaPath:"#/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -189,13 +189,9 @@ vErrors.push(err13);
 errors++;
 }
 }
-if(data4.toolFilter !== undefined){
-let data8 = data4.toolFilter;
-if(Array.isArray(data8)){
-const len2 = data8.length;
-for(let i2=0; i2<len2; i2++){
-if(typeof data8[i2] !== "string"){
-const err14 = {instancePath:instancePath+"/mcpServers/" + i0+"/toolFilter/" + i2,schemaPath:"#/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err14 = {instancePath:instancePath+"/mcpServers/" + i0,schemaPath:"#/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -207,7 +203,7 @@ errors++;
 }
 }
 else {
-const err15 = {instancePath:instancePath+"/mcpServers/" + i0+"/toolFilter",schemaPath:"#/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err15 = {instancePath:instancePath+"/mcpServers",schemaPath:"#/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -217,9 +213,11 @@ vErrors.push(err15);
 errors++;
 }
 }
-}
-else {
-const err16 = {instancePath:instancePath+"/mcpServers/" + i0,schemaPath:"#/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data.nhi !== undefined){
+let data8 = data.nhi;
+if(data8 && typeof data8 == "object" && !Array.isArray(data8)){
+if(data8.clientId === undefined){
+const err16 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/required",keyword:"required",params:{missingProperty: "clientId"},message:"must have required property '"+"clientId"+"'"};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -228,10 +226,9 @@ vErrors.push(err16);
 }
 errors++;
 }
-}
-}
-else {
-const err17 = {instancePath:instancePath+"/mcpServers",schemaPath:"#/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
+for(const key2 in data8){
+if(!(((key2 === "clientId") || (key2 === "siteUrl")) || (key2 === "issuer"))){
+const err17 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -241,11 +238,11 @@ vErrors.push(err17);
 errors++;
 }
 }
-if(data.nhi !== undefined){
-let data10 = data.nhi;
-if(data10 && typeof data10 == "object" && !Array.isArray(data10)){
-if(data10.clientId === undefined){
-const err18 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/required",keyword:"required",params:{missingProperty: "clientId"},message:"must have required property '"+"clientId"+"'"};
+if(data8.clientId !== undefined){
+let data9 = data8.clientId;
+if(typeof data9 === "string"){
+if(func3(data9) < 1){
+const err18 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"#/properties/nhi/properties/clientId/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -254,9 +251,9 @@ vErrors.push(err18);
 }
 errors++;
 }
-for(const key2 in data10){
-if(!(((key2 === "clientId") || (key2 === "siteUrl")) || (key2 === "issuer"))){
-const err19 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
+}
+else {
+const err19 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"#/properties/nhi/properties/clientId/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err19];
 }
@@ -266,11 +263,9 @@ vErrors.push(err19);
 errors++;
 }
 }
-if(data10.clientId !== undefined){
-let data11 = data10.clientId;
-if(typeof data11 === "string"){
-if(func3(data11) < 1){
-const err20 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"#/properties/nhi/properties/clientId/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
+if(data8.siteUrl !== undefined){
+if(typeof data8.siteUrl !== "string"){
+const err20 = {instancePath:instancePath+"/nhi/siteUrl",schemaPath:"#/properties/nhi/properties/siteUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -280,8 +275,9 @@ vErrors.push(err20);
 errors++;
 }
 }
-else {
-const err21 = {instancePath:instancePath+"/nhi/clientId",schemaPath:"#/properties/nhi/properties/clientId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data8.issuer !== undefined){
+if(typeof data8.issuer !== "string"){
+const err21 = {instancePath:instancePath+"/nhi/issuer",schemaPath:"#/properties/nhi/properties/issuer/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err21];
 }
@@ -291,9 +287,9 @@ vErrors.push(err21);
 errors++;
 }
 }
-if(data10.siteUrl !== undefined){
-if(typeof data10.siteUrl !== "string"){
-const err22 = {instancePath:instancePath+"/nhi/siteUrl",schemaPath:"#/properties/nhi/properties/siteUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err22 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err22];
 }
@@ -303,9 +299,14 @@ vErrors.push(err22);
 errors++;
 }
 }
-if(data10.issuer !== undefined){
-if(typeof data10.issuer !== "string"){
-const err23 = {instancePath:instancePath+"/nhi/issuer",schemaPath:"#/properties/nhi/properties/issuer/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data.instructors !== undefined){
+let data12 = data.instructors;
+if(Array.isArray(data12)){
+const len2 = data12.length;
+for(let i2=0; i2<len2; i2++){
+let data13 = data12[i2];
+if(!(data13 && typeof data13 == "object" && !Array.isArray(data13))){
+const err23 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err23];
 }
@@ -314,10 +315,13 @@ vErrors.push(err23);
 }
 errors++;
 }
-}
-}
-else {
-const err24 = {instancePath:instancePath+"/nhi",schemaPath:"#/properties/nhi/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const _errs33 = errors;
+let valid10 = false;
+let passing0 = null;
+const _errs34 = errors;
+if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
+if(data13.mode === undefined){
+const err24 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'"};
 if(vErrors === null){
 vErrors = [err24];
 }
@@ -326,15 +330,8 @@ vErrors.push(err24);
 }
 errors++;
 }
-}
-if(data.instructors !== undefined){
-let data14 = data.instructors;
-if(Array.isArray(data14)){
-const len3 = data14.length;
-for(let i3=0; i3<len3; i3++){
-let data15 = data14[i3];
-if(!(data15 && typeof data15 == "object" && !Array.isArray(data15))){
-const err25 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data13.type === undefined){
+const err25 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err25];
 }
@@ -343,13 +340,8 @@ vErrors.push(err25);
 }
 errors++;
 }
-const _errs37 = errors;
-let valid12 = false;
-let passing0 = null;
-const _errs38 = errors;
-if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
-if(data15.mode === undefined){
-const err26 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'"};
+if(data13.id === undefined){
+const err26 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err26];
 }
@@ -358,8 +350,9 @@ vErrors.push(err26);
 }
 errors++;
 }
-if(data15.type === undefined){
-const err27 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+for(const key3 in data13){
+if(!(((key3 === "mode") || (key3 === "type")) || (key3 === "id"))){
+const err27 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err27];
 }
@@ -368,8 +361,11 @@ vErrors.push(err27);
 }
 errors++;
 }
-if(data15.id === undefined){
-const err28 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(data13.mode !== undefined){
+let data14 = data13.mode;
+if(typeof data14 !== "string"){
+const err28 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err28];
 }
@@ -378,9 +374,8 @@ vErrors.push(err28);
 }
 errors++;
 }
-for(const key3 in data15){
-if(!(((key3 === "mode") || (key3 === "type")) || (key3 === "id"))){
-const err29 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties"};
+if("member" !== data14){
+const err29 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err29];
 }
@@ -390,10 +385,10 @@ vErrors.push(err29);
 errors++;
 }
 }
-if(data15.mode !== undefined){
-let data16 = data15.mode;
-if(typeof data16 !== "string"){
-const err30 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.type !== undefined){
+let data15 = data13.type;
+if(typeof data15 !== "string"){
+const err30 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err30];
 }
@@ -402,8 +397,8 @@ vErrors.push(err30);
 }
 errors++;
 }
-if("member" !== data16){
-const err31 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant"};
+if("user" !== data15){
+const err31 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err31];
 }
@@ -413,10 +408,9 @@ vErrors.push(err31);
 errors++;
 }
 }
-if(data15.type !== undefined){
-let data17 = data15.type;
-if(typeof data17 !== "string"){
-const err32 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.id !== undefined){
+if(typeof data13.id !== "string"){
+const err32 = {instancePath:instancePath+"/instructors/" + i2+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err32];
 }
@@ -425,8 +419,17 @@ vErrors.push(err32);
 }
 errors++;
 }
-if("user" !== data17){
-const err33 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant"};
+}
+}
+var _valid0 = _errs34 === errors;
+if(_valid0){
+valid10 = true;
+passing0 = 0;
+}
+const _errs42 = errors;
+if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
+if(data13.mode === undefined){
+const err33 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'"};
 if(vErrors === null){
 vErrors = [err33];
 }
@@ -435,10 +438,8 @@ vErrors.push(err33);
 }
 errors++;
 }
-}
-if(data15.id !== undefined){
-if(typeof data15.id !== "string"){
-const err34 = {instancePath:instancePath+"/instructors/" + i3+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/0/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.type === undefined){
+const err34 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err34];
 }
@@ -447,17 +448,8 @@ vErrors.push(err34);
 }
 errors++;
 }
-}
-}
-var _valid0 = _errs38 === errors;
-if(_valid0){
-valid12 = true;
-passing0 = 0;
-}
-const _errs46 = errors;
-if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
-if(data15.mode === undefined){
-const err35 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'"};
+if(data13.email === undefined){
+const err35 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "email"},message:"must have required property '"+"email"+"'"};
 if(vErrors === null){
 vErrors = [err35];
 }
@@ -466,8 +458,9 @@ vErrors.push(err35);
 }
 errors++;
 }
-if(data15.type === undefined){
-const err36 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+for(const key4 in data13){
+if(!(((key4 === "mode") || (key4 === "type")) || (key4 === "email"))){
+const err36 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key4},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err36];
 }
@@ -476,8 +469,11 @@ vErrors.push(err36);
 }
 errors++;
 }
-if(data15.email === undefined){
-const err37 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/required",keyword:"required",params:{missingProperty: "email"},message:"must have required property '"+"email"+"'"};
+}
+if(data13.mode !== undefined){
+let data17 = data13.mode;
+if(typeof data17 !== "string"){
+const err37 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err37];
 }
@@ -486,9 +482,8 @@ vErrors.push(err37);
 }
 errors++;
 }
-for(const key4 in data15){
-if(!(((key4 === "mode") || (key4 === "type")) || (key4 === "email"))){
-const err38 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key4},message:"must NOT have additional properties"};
+if("member" !== data17){
+const err38 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err38];
 }
@@ -498,10 +493,10 @@ vErrors.push(err38);
 errors++;
 }
 }
-if(data15.mode !== undefined){
-let data19 = data15.mode;
-if(typeof data19 !== "string"){
-const err39 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.type !== undefined){
+let data18 = data13.type;
+if(typeof data18 !== "string"){
+const err39 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err39];
 }
@@ -510,8 +505,8 @@ vErrors.push(err39);
 }
 errors++;
 }
-if("member" !== data19){
-const err40 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant"};
+if("user" !== data18){
+const err40 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err40];
 }
@@ -521,10 +516,11 @@ vErrors.push(err40);
 errors++;
 }
 }
-if(data15.type !== undefined){
-let data20 = data15.type;
-if(typeof data20 !== "string"){
-const err41 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.email !== undefined){
+let data19 = data13.email;
+if(typeof data19 === "string"){
+if(!(formats0.test(data19))){
+const err41 = {instancePath:instancePath+"/instructors/" + i2+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/email/format",keyword:"format",params:{format: "email"},message:"must match format \""+"email"+"\""};
 if(vErrors === null){
 vErrors = [err41];
 }
@@ -533,8 +529,9 @@ vErrors.push(err41);
 }
 errors++;
 }
-if("user" !== data20){
-const err42 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/type/const",keyword:"const",params:{allowedValue: "user"},message:"must be equal to constant"};
+}
+else {
+const err42 = {instancePath:instancePath+"/instructors/" + i2+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/email/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err42];
 }
@@ -544,11 +541,21 @@ vErrors.push(err42);
 errors++;
 }
 }
-if(data15.email !== undefined){
-let data21 = data15.email;
-if(typeof data21 === "string"){
-if(!(formats0.test(data21))){
-const err43 = {instancePath:instancePath+"/instructors/" + i3+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/email/format",keyword:"format",params:{format: "email"},message:"must match format \""+"email"+"\""};
+}
+var _valid0 = _errs42 === errors;
+if(_valid0 && valid10){
+valid10 = false;
+passing0 = [passing0, 1];
+}
+else {
+if(_valid0){
+valid10 = true;
+passing0 = 1;
+}
+const _errs50 = errors;
+if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
+if(data13.mode === undefined){
+const err43 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'"};
 if(vErrors === null){
 vErrors = [err43];
 }
@@ -557,9 +564,8 @@ vErrors.push(err43);
 }
 errors++;
 }
-}
-else {
-const err44 = {instancePath:instancePath+"/instructors/" + i3+"/email",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/1/properties/email/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.type === undefined){
+const err44 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err44];
 }
@@ -568,22 +574,8 @@ vErrors.push(err44);
 }
 errors++;
 }
-}
-}
-var _valid0 = _errs46 === errors;
-if(_valid0 && valid12){
-valid12 = false;
-passing0 = [passing0, 1];
-}
-else {
-if(_valid0){
-valid12 = true;
-passing0 = 1;
-}
-const _errs54 = errors;
-if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
-if(data15.mode === undefined){
-const err45 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'"};
+if(data13.id === undefined){
+const err45 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err45];
 }
@@ -592,8 +584,9 @@ vErrors.push(err45);
 }
 errors++;
 }
-if(data15.type === undefined){
-const err46 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+for(const key5 in data13){
+if(!(((((key5 === "mode") || (key5 === "type")) || (key5 === "department")) || (key5 === "roles")) || (key5 === "id"))){
+const err46 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err46];
 }
@@ -602,8 +595,11 @@ vErrors.push(err46);
 }
 errors++;
 }
-if(data15.id === undefined){
-const err47 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(data13.mode !== undefined){
+let data20 = data13.mode;
+if(typeof data20 !== "string"){
+const err47 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err47];
 }
@@ -612,9 +608,8 @@ vErrors.push(err47);
 }
 errors++;
 }
-for(const key5 in data15){
-if(!(((((key5 === "mode") || (key5 === "type")) || (key5 === "department")) || (key5 === "roles")) || (key5 === "id"))){
-const err48 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties"};
+if("member" !== data20){
+const err48 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err48];
 }
@@ -624,10 +619,10 @@ vErrors.push(err48);
 errors++;
 }
 }
-if(data15.mode !== undefined){
-let data22 = data15.mode;
-if(typeof data22 !== "string"){
-const err49 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.type !== undefined){
+let data21 = data13.type;
+if(typeof data21 !== "string"){
+const err49 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err49];
 }
@@ -636,8 +631,8 @@ vErrors.push(err49);
 }
 errors++;
 }
-if("member" !== data22){
-const err50 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/mode/const",keyword:"const",params:{allowedValue: "member"},message:"must be equal to constant"};
+if("organization" !== data21){
+const err50 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err50];
 }
@@ -647,10 +642,10 @@ vErrors.push(err50);
 errors++;
 }
 }
-if(data15.type !== undefined){
-let data23 = data15.type;
-if(typeof data23 !== "string"){
-const err51 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.department !== undefined){
+let data22 = data13.department;
+if(typeof data22 !== "string"){
+const err51 = {instancePath:instancePath+"/instructors/" + i2+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err51];
 }
@@ -659,8 +654,8 @@ vErrors.push(err51);
 }
 errors++;
 }
-if("organization" !== data23){
-const err52 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant"};
+if("*" !== data22){
+const err52 = {instancePath:instancePath+"/instructors/" + i2+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/department/const",keyword:"const",params:{allowedValue: "*"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err52];
 }
@@ -670,10 +665,10 @@ vErrors.push(err52);
 errors++;
 }
 }
-if(data15.department !== undefined){
-let data24 = data15.department;
-if(typeof data24 !== "string"){
-const err53 = {instancePath:instancePath+"/instructors/" + i3+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.roles !== undefined){
+let data23 = data13.roles;
+if(!func0(data23, schema17.oneOf[2].properties.roles.const)){
+const err53 = {instancePath:instancePath+"/instructors/" + i2+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/const",keyword:"const",params:{allowedValue: schema17.oneOf[2].properties.roles.const},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err53];
 }
@@ -682,8 +677,11 @@ vErrors.push(err53);
 }
 errors++;
 }
-if("*" !== data24){
-const err54 = {instancePath:instancePath+"/instructors/" + i3+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/department/const",keyword:"const",params:{allowedValue: "*"},message:"must be equal to constant"};
+if(Array.isArray(data23)){
+const len3 = data23.length;
+for(let i3=0; i3<len3; i3++){
+if(typeof data23[i3] !== "string"){
+const err54 = {instancePath:instancePath+"/instructors/" + i2+"/roles/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err54];
 }
@@ -693,10 +691,9 @@ vErrors.push(err54);
 errors++;
 }
 }
-if(data15.roles !== undefined){
-let data25 = data15.roles;
-if(!func0(data25, schema17.oneOf[2].properties.roles.const)){
-const err55 = {instancePath:instancePath+"/instructors/" + i3+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/const",keyword:"const",params:{allowedValue: schema17.oneOf[2].properties.roles.const},message:"must be equal to constant"};
+}
+else {
+const err55 = {instancePath:instancePath+"/instructors/" + i2+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err55];
 }
@@ -705,11 +702,10 @@ vErrors.push(err55);
 }
 errors++;
 }
-if(Array.isArray(data25)){
-const len4 = data25.length;
-for(let i4=0; i4<len4; i4++){
-if(typeof data25[i4] !== "string"){
-const err56 = {instancePath:instancePath+"/instructors/" + i3+"/roles/" + i4,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+if(data13.id !== undefined){
+if(typeof data13.id !== "string"){
+const err56 = {instancePath:instancePath+"/instructors/" + i2+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err56];
 }
@@ -720,8 +716,20 @@ errors++;
 }
 }
 }
+var _valid0 = _errs50 === errors;
+if(_valid0 && valid10){
+valid10 = false;
+passing0 = [passing0, 2];
+}
 else {
-const err57 = {instancePath:instancePath+"/instructors/" + i3+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(_valid0){
+valid10 = true;
+passing0 = 2;
+}
+const _errs64 = errors;
+if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
+if(data13.mode === undefined){
+const err57 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'"};
 if(vErrors === null){
 vErrors = [err57];
 }
@@ -730,10 +738,8 @@ vErrors.push(err57);
 }
 errors++;
 }
-}
-if(data15.id !== undefined){
-if(typeof data15.id !== "string"){
-const err58 = {instancePath:instancePath+"/instructors/" + i3+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/2/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.type === undefined){
+const err58 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err58];
 }
@@ -742,22 +748,8 @@ vErrors.push(err58);
 }
 errors++;
 }
-}
-}
-var _valid0 = _errs54 === errors;
-if(_valid0 && valid12){
-valid12 = false;
-passing0 = [passing0, 2];
-}
-else {
-if(_valid0){
-valid12 = true;
-passing0 = 2;
-}
-const _errs68 = errors;
-if(data15 && typeof data15 == "object" && !Array.isArray(data15)){
-if(data15.mode === undefined){
-const err59 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "mode"},message:"must have required property '"+"mode"+"'"};
+if(data13.id === undefined){
+const err59 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err59];
 }
@@ -766,8 +758,9 @@ vErrors.push(err59);
 }
 errors++;
 }
-if(data15.type === undefined){
-const err60 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+for(const key6 in data13){
+if(!(((((key6 === "mode") || (key6 === "type")) || (key6 === "id")) || (key6 === "department")) || (key6 === "roles"))){
+const err60 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key6},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err60];
 }
@@ -776,8 +769,11 @@ vErrors.push(err60);
 }
 errors++;
 }
-if(data15.id === undefined){
-const err61 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(data13.mode !== undefined){
+let data26 = data13.mode;
+if(typeof data26 !== "string"){
+const err61 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err61];
 }
@@ -786,9 +782,8 @@ vErrors.push(err61);
 }
 errors++;
 }
-for(const key6 in data15){
-if(!(((((key6 === "mode") || (key6 === "type")) || (key6 === "id")) || (key6 === "department")) || (key6 === "roles"))){
-const err62 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key6},message:"must NOT have additional properties"};
+if("internal" !== data26){
+const err62 = {instancePath:instancePath+"/instructors/" + i2+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/mode/const",keyword:"const",params:{allowedValue: "internal"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err62];
 }
@@ -798,10 +793,10 @@ vErrors.push(err62);
 errors++;
 }
 }
-if(data15.mode !== undefined){
-let data28 = data15.mode;
-if(typeof data28 !== "string"){
-const err63 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/mode/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.type !== undefined){
+let data27 = data13.type;
+if(typeof data27 !== "string"){
+const err63 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err63];
 }
@@ -810,8 +805,8 @@ vErrors.push(err63);
 }
 errors++;
 }
-if("internal" !== data28){
-const err64 = {instancePath:instancePath+"/instructors/" + i3+"/mode",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/mode/const",keyword:"const",params:{allowedValue: "internal"},message:"must be equal to constant"};
+if("organization" !== data27){
+const err64 = {instancePath:instancePath+"/instructors/" + i2+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err64];
 }
@@ -821,10 +816,9 @@ vErrors.push(err64);
 errors++;
 }
 }
-if(data15.type !== undefined){
-let data29 = data15.type;
-if(typeof data29 !== "string"){
-const err65 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.id !== undefined){
+if(typeof data13.id !== "string"){
+const err65 = {instancePath:instancePath+"/instructors/" + i2+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err65];
 }
@@ -833,8 +827,10 @@ vErrors.push(err65);
 }
 errors++;
 }
-if("organization" !== data29){
-const err66 = {instancePath:instancePath+"/instructors/" + i3+"/type",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/type/const",keyword:"const",params:{allowedValue: "organization"},message:"must be equal to constant"};
+}
+if(data13.department !== undefined){
+if(typeof data13.department !== "string"){
+const err66 = {instancePath:instancePath+"/instructors/" + i2+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err66];
 }
@@ -844,9 +840,13 @@ vErrors.push(err66);
 errors++;
 }
 }
-if(data15.id !== undefined){
-if(typeof data15.id !== "string"){
-const err67 = {instancePath:instancePath+"/instructors/" + i3+"/id",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data13.roles !== undefined){
+let data30 = data13.roles;
+if(Array.isArray(data30)){
+const len4 = data30.length;
+for(let i4=0; i4<len4; i4++){
+if(typeof data30[i4] !== "string"){
+const err67 = {instancePath:instancePath+"/instructors/" + i2+"/roles/" + i4,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err67];
 }
@@ -856,9 +856,9 @@ vErrors.push(err67);
 errors++;
 }
 }
-if(data15.department !== undefined){
-if(typeof data15.department !== "string"){
-const err68 = {instancePath:instancePath+"/instructors/" + i3+"/department",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/department/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+else {
+const err68 = {instancePath:instancePath+"/instructors/" + i2+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err68];
 }
@@ -868,13 +868,22 @@ vErrors.push(err68);
 errors++;
 }
 }
-if(data15.roles !== undefined){
-let data32 = data15.roles;
-if(Array.isArray(data32)){
-const len5 = data32.length;
-for(let i5=0; i5<len5; i5++){
-if(typeof data32[i5] !== "string"){
-const err69 = {instancePath:instancePath+"/instructors/" + i3+"/roles/" + i5,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/roles/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+}
+var _valid0 = _errs64 === errors;
+if(_valid0 && valid10){
+valid10 = false;
+passing0 = [passing0, 3];
+}
+else {
+if(_valid0){
+valid10 = true;
+passing0 = 3;
+}
+}
+}
+}
+if(!valid10){
+const err69 = {instancePath:instancePath+"/instructors/" + i2,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf"};
 if(vErrors === null){
 vErrors = [err69];
 }
@@ -883,10 +892,21 @@ vErrors.push(err69);
 }
 errors++;
 }
+else {
+errors = _errs33;
+if(vErrors !== null){
+if(_errs33){
+vErrors.length = _errs33;
+}
+else {
+vErrors = null;
+}
+}
+}
 }
 }
 else {
-const err70 = {instancePath:instancePath+"/instructors/" + i3+"/roles",schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf/3/properties/roles/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err70 = {instancePath:instancePath+"/instructors",schemaPath:"#/properties/instructors/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err70];
 }
@@ -896,22 +916,9 @@ vErrors.push(err70);
 errors++;
 }
 }
-}
-var _valid0 = _errs68 === errors;
-if(_valid0 && valid12){
-valid12 = false;
-passing0 = [passing0, 3];
-}
-else {
-if(_valid0){
-valid12 = true;
-passing0 = 3;
-}
-}
-}
-}
-if(!valid12){
-const err71 = {instancePath:instancePath+"/instructors/" + i3,schemaPath:"https://github.com/data-fair/lib/access-ref/oneOf",keyword:"oneOf",params:{passingSchemas: passing0},message:"must match exactly one schema in oneOf"};
+if(data.role !== undefined){
+if(typeof data.role !== "string"){
+const err71 = {instancePath:instancePath+"/role",schemaPath:"#/properties/role/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err71];
 }
@@ -920,21 +927,11 @@ vErrors.push(err71);
 }
 errors++;
 }
-else {
-errors = _errs37;
-if(vErrors !== null){
-if(_errs37){
-vErrors.length = _errs37;
 }
-else {
-vErrors = null;
-}
-}
-}
-}
-}
-else {
-const err72 = {instancePath:instancePath+"/instructors",schemaPath:"#/properties/instructors/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data.approvalLevel !== undefined){
+let data33 = data.approvalLevel;
+if(typeof data33 !== "string"){
+const err72 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err72];
 }
@@ -943,10 +940,12 @@ vErrors.push(err72);
 }
 errors++;
 }
-}
-if(data.role !== undefined){
-if(typeof data.role !== "string"){
-const err73 = {instancePath:instancePath+"/role",schemaPath:"#/properties/role/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const _errs82 = errors;
+let valid19 = false;
+let passing1 = null;
+const _errs83 = errors;
+if("write" !== data33){
+const err73 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/0/const",keyword:"const",params:{allowedValue: "write"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err73];
 }
@@ -955,11 +954,14 @@ vErrors.push(err73);
 }
 errors++;
 }
+var _valid1 = _errs83 === errors;
+if(_valid1){
+valid19 = true;
+passing1 = 0;
 }
-if(data.approvalLevel !== undefined){
-let data35 = data.approvalLevel;
-if(typeof data35 !== "string"){
-const err74 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const _errs84 = errors;
+if("destructive" !== data33){
+const err74 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/1/const",keyword:"const",params:{allowedValue: "destructive"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err74];
 }
@@ -968,12 +970,19 @@ vErrors.push(err74);
 }
 errors++;
 }
-const _errs86 = errors;
-let valid21 = false;
-let passing1 = null;
-const _errs87 = errors;
-if("write" !== data35){
-const err75 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/0/const",keyword:"const",params:{allowedValue: "write"},message:"must be equal to constant"};
+var _valid1 = _errs84 === errors;
+if(_valid1 && valid19){
+valid19 = false;
+passing1 = [passing1, 1];
+}
+else {
+if(_valid1){
+valid19 = true;
+passing1 = 1;
+}
+const _errs85 = errors;
+if("none" !== data33){
+const err75 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/2/const",keyword:"const",params:{allowedValue: "none"},message:"must be equal to constant"};
 if(vErrors === null){
 vErrors = [err75];
 }
@@ -982,14 +991,20 @@ vErrors.push(err75);
 }
 errors++;
 }
-var _valid1 = _errs87 === errors;
-if(_valid1){
-valid21 = true;
-passing1 = 0;
+var _valid1 = _errs85 === errors;
+if(_valid1 && valid19){
+valid19 = false;
+passing1 = [passing1, 2];
 }
-const _errs88 = errors;
-if("destructive" !== data35){
-const err76 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/1/const",keyword:"const",params:{allowedValue: "destructive"},message:"must be equal to constant"};
+else {
+if(_valid1){
+valid19 = true;
+passing1 = 2;
+}
+}
+}
+if(!valid19){
+const err76 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf"};
 if(vErrors === null){
 vErrors = [err76];
 }
@@ -998,54 +1013,11 @@ vErrors.push(err76);
 }
 errors++;
 }
-var _valid1 = _errs88 === errors;
-if(_valid1 && valid21){
-valid21 = false;
-passing1 = [passing1, 1];
-}
 else {
-if(_valid1){
-valid21 = true;
-passing1 = 1;
-}
-const _errs89 = errors;
-if("none" !== data35){
-const err77 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf/2/const",keyword:"const",params:{allowedValue: "none"},message:"must be equal to constant"};
-if(vErrors === null){
-vErrors = [err77];
-}
-else {
-vErrors.push(err77);
-}
-errors++;
-}
-var _valid1 = _errs89 === errors;
-if(_valid1 && valid21){
-valid21 = false;
-passing1 = [passing1, 2];
-}
-else {
-if(_valid1){
-valid21 = true;
-passing1 = 2;
-}
-}
-}
-if(!valid21){
-const err78 = {instancePath:instancePath+"/approvalLevel",schemaPath:"#/properties/approvalLevel/oneOf",keyword:"oneOf",params:{passingSchemas: passing1},message:"must match exactly one schema in oneOf"};
-if(vErrors === null){
-vErrors = [err78];
-}
-else {
-vErrors.push(err78);
-}
-errors++;
-}
-else {
-errors = _errs86;
+errors = _errs82;
 if(vErrors !== null){
-if(_errs86){
-vErrors.length = _errs86;
+if(_errs82){
+vErrors.length = _errs82;
 }
 else {
 vErrors = null;
@@ -1054,10 +1026,33 @@ vErrors = null;
 }
 }
 if(data.memory !== undefined){
-let data36 = data.memory;
-if(data36 && typeof data36 == "object" && !Array.isArray(data36)){
-if(data36.enabled === undefined){
-const err79 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
+let data34 = data.memory;
+if(data34 && typeof data34 == "object" && !Array.isArray(data34)){
+if(data34.enabled === undefined){
+const err77 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
+if(vErrors === null){
+vErrors = [err77];
+}
+else {
+vErrors.push(err77);
+}
+errors++;
+}
+for(const key7 in data34){
+if(!(key7 === "enabled")){
+const err78 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err78];
+}
+else {
+vErrors.push(err78);
+}
+errors++;
+}
+}
+if(data34.enabled !== undefined){
+if(typeof data34.enabled !== "boolean"){
+const err79 = {instancePath:instancePath+"/memory/enabled",schemaPath:"#/properties/memory/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err79];
 }
@@ -1066,9 +1061,10 @@ vErrors.push(err79);
 }
 errors++;
 }
-for(const key7 in data36){
-if(!(key7 === "enabled")){
-const err80 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties"};
+}
+}
+else {
+const err80 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err80];
 }
@@ -1078,9 +1074,11 @@ vErrors.push(err80);
 errors++;
 }
 }
-if(data36.enabled !== undefined){
-if(typeof data36.enabled !== "boolean"){
-const err81 = {instancePath:instancePath+"/memory/enabled",schemaPath:"#/properties/memory/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+if(data.web !== undefined){
+let data36 = data.web;
+if(data36 && typeof data36 == "object" && !Array.isArray(data36)){
+if(data36.enabled === undefined){
+const err81 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
 if(vErrors === null){
 vErrors = [err81];
 }
@@ -1089,10 +1087,9 @@ vErrors.push(err81);
 }
 errors++;
 }
-}
-}
-else {
-const err82 = {instancePath:instancePath+"/memory",schemaPath:"#/properties/memory/type",keyword:"type",params:{type: "object"},message:"must be object"};
+for(const key8 in data36){
+if(!((key8 === "enabled") || (key8 === "allowedUrls"))){
+const err82 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key8},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err82];
 }
@@ -1102,11 +1099,9 @@ vErrors.push(err82);
 errors++;
 }
 }
-if(data.web !== undefined){
-let data38 = data.web;
-if(data38 && typeof data38 == "object" && !Array.isArray(data38)){
-if(data38.enabled === undefined){
-const err83 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/required",keyword:"required",params:{missingProperty: "enabled"},message:"must have required property '"+"enabled"+"'"};
+if(data36.enabled !== undefined){
+if(typeof data36.enabled !== "boolean"){
+const err83 = {instancePath:instancePath+"/web/enabled",schemaPath:"#/properties/web/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err83];
 }
@@ -1115,9 +1110,12 @@ vErrors.push(err83);
 }
 errors++;
 }
-for(const key8 in data38){
-if(!((key8 === "enabled") || (key8 === "allowedUrls"))){
-const err84 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key8},message:"must NOT have additional properties"};
+}
+if(data36.allowedUrls !== undefined){
+let data38 = data36.allowedUrls;
+if(Array.isArray(data38)){
+if(data38.length > 100){
+const err84 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items"};
 if(vErrors === null){
 vErrors = [err84];
 }
@@ -1126,10 +1124,12 @@ vErrors.push(err84);
 }
 errors++;
 }
-}
-if(data38.enabled !== undefined){
-if(typeof data38.enabled !== "boolean"){
-const err85 = {instancePath:instancePath+"/web/enabled",schemaPath:"#/properties/web/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+const len5 = data38.length;
+for(let i5=0; i5<len5; i5++){
+let data39 = data38[i5];
+if(typeof data39 === "string"){
+if(func3(data39) < 1){
+const err85 = {instancePath:instancePath+"/web/allowedUrls/" + i5,schemaPath:"#/properties/web/properties/allowedUrls/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err85];
 }
@@ -1139,11 +1139,8 @@ vErrors.push(err85);
 errors++;
 }
 }
-if(data38.allowedUrls !== undefined){
-let data40 = data38.allowedUrls;
-if(Array.isArray(data40)){
-if(data40.length > 100){
-const err86 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/maxItems",keyword:"maxItems",params:{limit: 100},message:"must NOT have more than 100 items"};
+else {
+const err86 = {instancePath:instancePath+"/web/allowedUrls/" + i5,schemaPath:"#/properties/web/properties/allowedUrls/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err86];
 }
@@ -1152,12 +1149,10 @@ vErrors.push(err86);
 }
 errors++;
 }
-const len6 = data40.length;
-for(let i6=0; i6<len6; i6++){
-let data41 = data40[i6];
-if(typeof data41 === "string"){
-if(func3(data41) < 1){
-const err87 = {instancePath:instancePath+"/web/allowedUrls/" + i6,schemaPath:"#/properties/web/properties/allowedUrls/items/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
+}
+}
+else {
+const err87 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err87];
 }
@@ -1167,8 +1162,9 @@ vErrors.push(err87);
 errors++;
 }
 }
+}
 else {
-const err88 = {instancePath:instancePath+"/web/allowedUrls/" + i6,schemaPath:"#/properties/web/properties/allowedUrls/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err88 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err88];
 }
@@ -1178,9 +1174,11 @@ vErrors.push(err88);
 errors++;
 }
 }
-}
-else {
-const err89 = {instancePath:instancePath+"/web/allowedUrls",schemaPath:"#/properties/web/properties/allowedUrls/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(data.externalMcpServers !== undefined){
+let data40 = data.externalMcpServers;
+if(Array.isArray(data40)){
+if(data40.length > 50){
+const err89 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/maxItems",keyword:"maxItems",params:{limit: 50},message:"must NOT have more than 50 items"};
 if(vErrors === null){
 vErrors = [err89];
 }
@@ -1189,10 +1187,12 @@ vErrors.push(err89);
 }
 errors++;
 }
-}
-}
-else {
-const err90 = {instancePath:instancePath+"/web",schemaPath:"#/properties/web/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const len6 = data40.length;
+for(let i6=0; i6<len6; i6++){
+let data41 = data40[i6];
+if(data41 && typeof data41 == "object" && !Array.isArray(data41)){
+if(data41.url === undefined){
+const err90 = {instancePath:instancePath+"/externalMcpServers/" + i6,schemaPath:"#/properties/externalMcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'"};
 if(vErrors === null){
 vErrors = [err90];
 }
@@ -1201,12 +1201,9 @@ vErrors.push(err90);
 }
 errors++;
 }
-}
-if(data.externalMcpServers !== undefined){
-let data42 = data.externalMcpServers;
-if(Array.isArray(data42)){
-if(data42.length > 50){
-const err91 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/maxItems",keyword:"maxItems",params:{limit: 50},message:"must NOT have more than 50 items"};
+for(const key9 in data41){
+if(!(key9 === "url")){
+const err91 = {instancePath:instancePath+"/externalMcpServers/" + i6,schemaPath:"#/properties/externalMcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err91];
 }
@@ -1215,12 +1212,12 @@ vErrors.push(err91);
 }
 errors++;
 }
-const len7 = data42.length;
-for(let i7=0; i7<len7; i7++){
-let data43 = data42[i7];
-if(data43 && typeof data43 == "object" && !Array.isArray(data43)){
-if(data43.url === undefined){
-const err92 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'"};
+}
+if(data41.url !== undefined){
+let data42 = data41.url;
+if(typeof data42 === "string"){
+if(func3(data42) < 1){
+const err92 = {instancePath:instancePath+"/externalMcpServers/" + i6+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
 if(vErrors === null){
 vErrors = [err92];
 }
@@ -1229,9 +1226,9 @@ vErrors.push(err92);
 }
 errors++;
 }
-for(const key9 in data43){
-if(!(key9 === "url")){
-const err93 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties"};
+}
+else {
+const err93 = {instancePath:instancePath+"/externalMcpServers/" + i6+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err93];
 }
@@ -1241,11 +1238,9 @@ vErrors.push(err93);
 errors++;
 }
 }
-if(data43.url !== undefined){
-let data44 = data43.url;
-if(typeof data44 === "string"){
-if(func3(data44) < 1){
-const err94 = {instancePath:instancePath+"/externalMcpServers/" + i7+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/minLength",keyword:"minLength",params:{limit: 1},message:"must NOT have fewer than 1 characters"};
+}
+else {
+const err94 = {instancePath:instancePath+"/externalMcpServers/" + i6,schemaPath:"#/properties/externalMcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err94];
 }
@@ -1255,8 +1250,9 @@ vErrors.push(err94);
 errors++;
 }
 }
+}
 else {
-const err95 = {instancePath:instancePath+"/externalMcpServers/" + i7+"/url",schemaPath:"#/properties/externalMcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err95 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err95];
 }
@@ -1266,9 +1262,9 @@ vErrors.push(err95);
 errors++;
 }
 }
-}
-else {
-const err96 = {instancePath:instancePath+"/externalMcpServers/" + i7,schemaPath:"#/properties/externalMcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(data.enabled !== undefined){
+if(typeof data.enabled !== "boolean"){
+const err96 = {instancePath:instancePath+"/enabled",schemaPath:"#/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err96];
 }
@@ -1280,36 +1276,12 @@ errors++;
 }
 }
 else {
-const err97 = {instancePath:instancePath+"/externalMcpServers",schemaPath:"#/properties/externalMcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err97 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err97];
 }
 else {
 vErrors.push(err97);
-}
-errors++;
-}
-}
-if(data.enabled !== undefined){
-if(typeof data.enabled !== "boolean"){
-const err98 = {instancePath:instancePath+"/enabled",schemaPath:"#/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err98];
-}
-else {
-vErrors.push(err98);
-}
-errors++;
-}
-}
-}
-else {
-const err99 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err99];
-}
-else {
-vErrors.push(err99);
 }
 errors++;
 }

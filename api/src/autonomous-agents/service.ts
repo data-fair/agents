@@ -6,7 +6,7 @@ import mongo from '#mongo'
 import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated, assertAccountRole } from '@data-fair/lib-express'
 import type { Request } from 'express'
-import { listMcpServerCatalog, personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
+import { listMcpServerCatalog, personSiteCredentials, unknownMcpServerIds, type SiteCredentials, type McpServerRef } from '../mcp-servers/operations.ts'
 import { getAutonomousAgentSession, agentSiteCredentials, forgetAgentSessions, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
@@ -17,8 +17,6 @@ import { deleteMemoryStore } from '../memory/service.ts'
 import { deleteConversationFiles } from '../files/service.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { canInstruct } from './operations.ts'
-import { fetchProfiles } from '../mcp-servers/profiles.ts'
-import { offeredRoots, type McpProfile } from '@agents/shared/mcp-profiles'
 
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
 // it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
@@ -26,6 +24,12 @@ import { offeredRoots, type McpProfile } from '@agents/shared/mcp-profiles'
 export { forgetAgentSessions }
 
 export const getMcpServerCatalog = () => listMcpServerCatalog(config.mcpServers ?? [])
+
+/** Save-time check of an agent's references: every one names a catalog entry. */
+export const assertMcpServerRefs = (refs: McpServerRef[] = []) => {
+  const unknown = unknownMcpServerIds(config.mcpServers ?? [], refs)
+  if (unknown.length) throw httpError(400, `unknown MCP server(s): ${unknown.join(', ')}`)
+}
 
 /**
  * Autonomous agents are only ever owned by an organization: their identity model
@@ -175,11 +179,11 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
     ? await agentSiteCredentials(autonomousAgent)
     : personSiteCredentials(undefined, undefined)
   // `kind` as a turn records it (shared/tool-source.ts), so the chat's inspection dialog groups both alike.
-  const { descriptors, profiled: profiles } = await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
+  const { descriptors } = await listAutonomousAgentToolDescriptors(autonomousAgent, sites)
   const results = descriptors.map(descriptor => ({ ...descriptor, kind: 'catalog' as const }))
-  if (!autonomousAgent.externalMcpServers?.length) return { results, skipped: [] as SkippedServer[], profiles }
+  if (!autonomousAgent.externalMcpServers?.length) return { results, skipped: [] as SkippedServer[] }
   const external = await listExternalToolDescriptors(autonomousAgent.externalMcpServers, { publicIps: envPublicIps() })
-  return { results: [...results, ...external.descriptors.map(descriptor => ({ ...descriptor, kind: 'external' as const }))], skipped: external.skipped, profiles }
+  return { results: [...results, ...external.descriptors.map(descriptor => ({ ...descriptor, kind: 'external' as const }))], skipped: external.skipped }
 }
 
 /**
@@ -247,35 +251,4 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
   // and nothing could reach that store once the agent is gone.
   const late = await deleteMemoryStore(agentStoreId(agentId))
   return { conversations: removed.deletedCount, messages: messages.deletedCount, runs: agentRuns.deletedCount + runs.deletedCount, memories: memory.documents + late.documents, memoryVersions: memory.versions + late.versions }
-}
-
-/**
- * What the form's profile tree needs for one profiled server: the vocabulary, the role of the agent's identity
- * in the owner organization, and the roots that role is offered (docs/superpowers/specs/2026-10-14-mcp-profile-selection-design.md §3).
- * No agent, or one not enrolled yet: no role, every root offered.
- */
-export const describeServerProfiles = async (serverId: string, autonomousAgent?: EnrolledAutonomousAgent & { owner: AccountKeys }) => {
-  const server = (config.mcpServers ?? []).find(s => s.id === serverId)
-  if (!server) throw httpError(400, `unknown MCP server "${serverId}"`)
-  if (!server.profilesUrl) throw httpError(400, `MCP server "${serverId}" declares no profiles`)
-  let profiles: McpProfile[]
-  try {
-    profiles = await fetchProfiles(server)
-  } catch (err: any) {
-    throw httpError(502, err.message)
-  }
-  let role: string | undefined
-  let roleError: string | undefined
-  if (autonomousAgent?.nhi?.clientId) {
-    // From the session a turn would use: the NHI token route guarantees exactly one organization. A failed
-    // exchange does not fail the route: the form showing this tree is also where that identity is repaired,
-    // so the offer stays unfiltered and the reason is returned beside it.
-    try {
-      const claims = decodeSessionClaims(await getAutonomousAgentSession(autonomousAgent))
-      role = claims.organizations?.[0]?.role
-    } catch (err: any) {
-      roleError = err.message
-    }
-  }
-  return { profiles, ...(role ? { role } : {}), ...(roleError ? { roleError } : {}), offered: offeredRoots(profiles, role) }
 }

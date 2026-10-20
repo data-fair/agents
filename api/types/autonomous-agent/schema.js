@@ -88,22 +88,8 @@ export default {
               }
             }
           },
-          profiles: {
-            type: 'array',
-            title: 'Profiles',
-            'x-i18n-title': { en: 'Profiles', fr: 'Profils' },
-            description: 'What this server lets the agent do, by profile.',
-            'x-i18n-description': { en: 'What this server lets the agent do, by profile.', fr: 'Ce que ce serveur permet à l\'agent, par profil.' },
-            // a profiled server only (context.profiledServers, from the mcp-servers listing), drawn by McpProfilesTree.vue
-            layout: {
-              if: 'context.profiledServers?.includes(parent.data?.serverId)',
-              slots: { component: { name: 'mcp-profiles' } }
-            },
-            items: { type: 'string' }
-          },
           toolFilter: {
             type: 'array',
-            layout: { if: '!context.profiledServers?.includes(parent.data?.serverId)' },
             title: 'Only these tools',
             'x-i18n-title': { en: 'Only these tools', fr: 'Uniquement ces outils' },
             description: 'Leave empty to expose every tool this server offers.',

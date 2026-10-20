@@ -210,9 +210,9 @@ Only the descriptors cross the socket. A page tool's implementation is the page'
 
 `openAutonomousAgentTools` (`api/src/mcp-servers/client.ts`) builds the catalog part of a turn's tool set from the agent's `mcpServers` references, each narrowed by its optional `toolFilter`.
 
-- **Profiles.** On a profiled entry (`profilesUrl`, see [Configuration](./configuration.md#mcp_servers)) a reference selects `profiles` instead: the turn connects to the entry's `url` with `profiles=<sorted selection>` (`effectiveServer`, `withProfiles` in `shared/mcp-profiles.ts`), so the agent gets exactly what the server composes and nothing is filtered here — skills of unselected profiles are never listed. Listings and connections are keyed on the effective url, so two selections never share one. A profiled reference without `profiles` fails the turn by name instead of listing every tool; a profile the server withdrew fails it with the server's own `unknown profile`. The selection is checked at save against the vocabulary (`assertMcpServerRefs`, `api/src/mcp-servers/profiles.ts`) and shown to the agent in its self-description ("profiles read, write_portals, chosen by an administrator"), followed by the roots it neither selects nor includes, with their titles from the vocabulary ("Not selected, an administrator can add them: catalog (…)"), so the agent can say what is out of reach instead of asking for another server (`notSelectedProfiles`; left out when the vocabulary cannot be read).
+- **Scopes.** A scope-filtered server (data-fair's mcp) lists only the tools the session's scopes allow, and data-fair enforces them on every call. For a configured agent, that is its non-human identity's maximum scopes, stored in simple-directory and granted whole by the exchange (no `scope` is requested): nothing is selected or filtered here.
 
-- **Which servers.** A configured autonomous agent uses the servers its admin selected. A personal assistant (`personalAgent()` in `api/src/agent-session/personal-agent.ts`) uses the servers the deployment configured for it (`PERSONAL_ASSISTANTS`, see [Configuration](./configuration.md#personal_assistants)), and none otherwise: the catalog is shared with configured agents, whose write profiles must not reach it by accident. Within them it acts as the person, so their own permissions are the ceiling.
+- **Which servers.** A configured autonomous agent uses the servers its admin selected. A personal assistant (`personalAgent()` in `api/src/agent-session/personal-agent.ts`) uses the servers the deployment configured for it (`PERSONAL_ASSISTANTS`, see [Configuration](./configuration.md#personal_assistants)), and none otherwise: the catalog is shared with configured agents, whose write tools must not reach it by accident. Within them it acts as the person, so their own permissions are the ceiling.
 - **Who it acts as.** Injected as `SiteCredentials` (type in `mcp-servers/operations.ts`, built in `performTurn`; see Sites below): `agentSiteCredentials` for a configured agent (its own non-human identity, exchanged and cached per site), `personSiteCredentials` for the personal assistant (the cookie from the person's socket upgrade — held per connection, never stored; it cannot be refreshed server-side, so its life is the socket's — which closes when that token expires and is reopened with a fresh cookie — and it is valid on the socket's site only). A session is only requested when some referenced entry has `auth: 'nhi-session'`.
 - **Listings are cached** for `TOOL_LISTING_TTL_MS` (60s) per server and identity (for session-authenticated entries, keyed by who asks — the agent's id, or a hash of the person's session — so two identities never share a listing; not by the session cookie itself, which a configured agent exchanges afresh every turn). A cached listing costs no session exchange: the cookie is asked for only on a miss. Listing on every turn was half of an unloaded turn's time to first token. The cached value is the promise, so turns starting together share one listing; failures are not cached. Servers are listed in parallel.
 - **Connections are lazy.** A server is connected on the first call to one of its tools in the turn and the connection is reused by the turn's later calls; the executor closes them all when the turn ends. A turn that calls no catalog tool opens none.
@@ -296,7 +296,7 @@ An MCP server describes its own tools in two ways, and the loop reads both: the 
 when a client connects, and the **skills** it publishes through the MCP skills extension
 ([SEP-2640](https://modelcontextprotocol.io/seps/2640-skills-extension), Final 2026-09): procedures as
 `skill://…/SKILL.md` resources, listed by `skills/list`. data-fair's MCP server (openapi-mcp) publishes
-both, filtered by the profiles in the entry's URL; the dev fixture (`tests/support/mcp-fixture.ts`)
+both, filtered by the caller's scopes; the dev fixture (`tests/support/mcp-fixture.ts`)
 publishes one listed skill and one reachable by URI only.
 
 - **Gathered with the tools.** The cached listing (`listing` in `api/src/mcp-servers/client.ts`, 60 s per
@@ -311,8 +311,7 @@ publishes one listed skill and one reachable by URI only.
   an external server and cost it all its tools.
 - **Bounded** (`GUIDE_LIMITS`, `api/src/mcp-servers/guides.ts`): instructions 8,000 characters per server,
   50 skills, a description 1,024 characters. A skill naming tools (frontmatter `metadata.tools`) is
-  hidden when the reference's `toolFilter` removed every one of them: the agent could not follow it. A profiled
-  server composes its skills per selection itself, so none of them is filtered here.
+  hidden when the reference's `toolFilter` removed every one of them: the agent could not follow it.
 - **In the system prompt**, after the agent's persona, instructions and identity clauses and before the
   task note and memory (`buildSystemPrompt`): an "Instructions from tool servers" section, one
   `<server-instructions server="…">` envelope per server, and a "Skills" index with one line per skill —

@@ -442,16 +442,6 @@ label reads "Awaiting your approval", with a static icon rather than a spinner, 
 
 An agent is edited in ONE place: its page, `ui/src/pages/[type]/[id]/agents/[agentId].vue`, with configuration, tasks and history tabs (see [planned tasks](planned-tasks.md#the-admin-page)). The organization list (`ui/src/components/AutonomousAgentsSection.vue`) creates an agent, then opens its page, and links to it; it has no edit dialog.
 
-On a profiled MCP server ([Configuration](./configuration.md#mcp_servers)) the form shows the server's profiles as
-a tree (`ui/src/components/McpProfilesTree.vue`, logic in `shared/mcp-profiles.ts`) instead of the tool filter:
-the roots (`catalog`, `read`, `write`, `manage` on data-fair's) check whole or per resource family, what a choice
-includes shows checked and greyed ("included by write_portals"), and what is stored is only what the author
-checked. `catalog` combines with anything. The roots offered follow the role of the agent's identity in the
-organization (`GET …/mcp-servers/:serverId/profiles?agentId=`, read from the session a turn would use): `user`
-gets `catalog` and `read`, `contrib` adds `write`, `admin` everything. That only narrows the offer — a saved
-profile stays visible and can be unchecked, and the API does not enforce it, the services enforce the identity's
-own rights.
-
 ## Spend
 
 The executor talks to providers directly and does its own accounting: the quota/credit gate before the

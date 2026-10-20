@@ -12,8 +12,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import { getAccountRole } from '@data-fair/lib-common-types/session/index.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-import { reqAgent, reqAgentOwner, getMcpServerCatalog, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, describeServerProfiles, forgetAgentSessions, deleteAutonomousAgentData } from './service.ts'
-import { assertMcpServerRefs } from '../mcp-servers/profiles.ts'
+import { reqAgent, reqAgentOwner, getMcpServerCatalog, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAgentSessions, assertMcpServerRefs, deleteAutonomousAgentData } from './service.ts'
 import { nhiIssuerUrl } from '../nhi/operations.ts'
 import { buildNhi, type StoredNhi } from './operations.ts'
 import { abortRunsOfAgent } from '../conversations/live-runs.ts'
@@ -80,17 +79,6 @@ router.get('/:type/:id/mcp-servers', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-// Also before `/:agentId`. The profile tree of a profiled server; with `agentId`, narrowed to that agent's identity.
-router.get('/:type/:id/mcp-servers/:serverId/profiles', async (req, res, next) => {
-  try {
-    const { owner } = reqAgentOwner(req, 'admin')
-    const agentId = typeof req.query.agentId === 'string' ? req.query.agentId : undefined
-    const agent = agentId ? await mongo.autonomousAgents.findOne({ 'owner.type': owner.type, 'owner.id': owner.id, id: agentId }, { projection: { _id: 0 } }) : undefined
-    if (agentId && !agent) throw httpError(404, `unknown autonomous agent "${agentId}"`)
-    res.json(await describeServerProfiles(req.params.serverId, agent ?? undefined))
-  } catch (err) { next(err) }
-})
-
 router.get('/:type/:id', async (req, res, next) => {
   try {
     const { owner } = reqAgentOwner(req, 'admin')
@@ -106,7 +94,7 @@ router.post('/:type/:id', async (req, res, next) => {
   try {
     const { session, owner } = reqAgentOwner(req, 'write')
     const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
-    await assertMcpServerRefs(body.mcpServers)
+    assertMcpServerRefs(body.mcpServers)
 
     const { nhi, writable } = rebuildNhi(body, req)
 
@@ -164,8 +152,8 @@ router.get('/:type/:id/:agentId/tools', async (req, res, next) => {
   try {
     const { agent: autonomousAgent } = await reqAgent(req, 'admin')
 
-    const { results, skipped, profiles } = await describeAutonomousAgentTools(autonomousAgent)
-    res.json({ results, count: results.length, skipped, profiles })
+    const { results, skipped } = await describeAutonomousAgentTools(autonomousAgent)
+    res.json({ results, count: results.length, skipped })
   } catch (err) { next(err) }
 })
 
@@ -173,7 +161,7 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
   try {
     const { owner, agent: existing } = await reqAgent(req, 'write')
     const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
-    await assertMcpServerRefs(body.mcpServers)
+    assertMcpServerRefs(body.mcpServers)
 
     // Keeps the captured site of an unchanged identity (see buildNhi): an admin saving from another of
     // the organization's hosts does not move the agent's home.

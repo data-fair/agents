@@ -9,7 +9,6 @@ import { z } from 'zod'
 import { z as z4 } from 'zod/v4'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
-import type { McpProfile } from '../../shared/mcp-profiles.ts'
 
 const day = (offset: number) => new Date(Date.now() + offset * 86400000).toISOString().slice(0, 10)
 /** Dates are relative to TODAY (see list_road_closures): a fixed month goes stale. */
@@ -32,34 +31,6 @@ export const FIXTURE_INSTRUCTIONS = 'Road closures: always give the district a c
 export const FIXTURE_SKILLS = {
   listed: { uri: 'skill://fixture/closures/SKILL.md', name: 'closures', description: 'How to answer questions about road closures. Read it before listing closures.', tools: 'list_road_closures', body: 'Call list_road_closures with the district, then quote the reopening date.' },
   unlisted: { uri: 'skill://fixture/hidden/SKILL.md', name: 'hidden', description: 'Reachable by URI only.', tools: undefined as string | undefined, body: 'Hidden procedure.' }
-}
-
-// The profiled mode, under /profiled/ on the same port: the vocabulary of data-fair's mcp, on fixture tools.
-// A profile's tools are its own plus those of what it includes (docs/superpowers/specs/2026-10-14-mcp-profile-selection-design.md).
-export const FIXTURE_PROFILES: McpProfile[] = [
-  { name: 'catalog', title: 'Catalog' },
-  { name: 'read', title: 'Read', includes: ['read_roads'] },
-  { name: 'write', title: 'Write', includes: ['write_roads'] },
-  { name: 'read_roads', title: 'Read — roads' },
-  { name: 'write_roads', title: 'Write — roads', includes: ['read_roads'] }
-]
-export const FIXTURE_PROFILE_TOOLS: Record<string, string[]> = {
-  catalog: ['echo'],
-  read_roads: ['list_road_closures', 'closure_stats'],
-  write_roads: ['import_table']
-}
-
-const toolsOfProfiles = (profiles: string[]): string[] => {
-  const byName = new Map(FIXTURE_PROFILES.map(p => [p.name, p]))
-  const seen = new Set<string>()
-  const stack = [...profiles]
-  while (stack.length) {
-    const name = stack.pop()!
-    if (seen.has(name)) continue
-    seen.add(name)
-    stack.push(...(byName.get(name)?.includes ?? []))
-  }
-  return [...seen].flatMap(name => FIXTURE_PROFILE_TOOLS[name] ?? [])
 }
 
 export interface McpFixture {
@@ -85,8 +56,6 @@ export interface McpFixture {
   delaySkillsList: (ms: number) => void
   /** The capabilities the last `initialize` declared: what the agents client says it supports. */
   lastInitializeCapabilities: () => any
-  /** Make a profile unknown to the profiled mode (a profile withdrawn after an agent selected it); undefined restores it. */
-  withdrawProfile: (name: string | undefined) => void
   close: () => Promise<void>
 }
 
@@ -96,7 +65,7 @@ export interface McpFixture {
 // constructed with `sessionIdGenerator: undefined` is shared across requests — unlike what
 // the brief's original one-transport-for-the-process-lifetime sketch assumed. See
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js.
-const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false, skillsListDelay: () => number = () => 0, only?: string[]): McpServer => {
+const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false, skillsListDelay: () => number = () => 0): McpServer => {
   const mcp = new McpServer({ name: 'fixture', version: '1.0.0' }, {
     instructions: FIXTURE_INSTRUCTIONS,
     capabilities: { resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } } as any
@@ -380,12 +349,6 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
       }
     }
   )
-  if (only) {
-    // the profiled mode: the SDK keeps registered tools in _registeredTools, each removable before connecting
-    for (const [name, registered] of Object.entries((mcp as any)._registeredTools as Record<string, { remove: () => void }>)) {
-      if (!only.includes(name)) registered.remove()
-    }
-  }
   return mcp
 }
 
@@ -403,7 +366,6 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   let failSkills = false
   let skillsDelay = 0
   let initializeCapabilities: any
-  let withdrawn: string | undefined
 
   const server: Server = createServer((req, res) => {
     // Plain HTTP files beside the MCP endpoint: what a download link or fetch_url points at.
@@ -423,25 +385,9 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
       res.writeHead(404).end()
       return
     }
-    let profiledOnly: string[] | undefined
-    if (req.url?.startsWith('/profiled/')) {
-      const url = new URL(req.url, 'http://fixture')
-      const declared = FIXTURE_PROFILES.filter(p => p.name !== withdrawn)
-      if (url.pathname === '/profiled/profiles') {
-        res.writeHead(200, { 'content-type': 'application/json' }).end(JSON.stringify({ profiles: declared }))
-        return
-      }
-      const requested = url.searchParams.getAll('profiles').join(',').split(',').map(p => p.trim()).filter(Boolean)
-      const unknown = requested.filter(p => !declared.some(d => d.name === p))
-      if (unknown.length) {
-        res.writeHead(400, { 'content-type': 'text/plain' }).end(`unknown profile: ${unknown.join(', ')} (declared: ${declared.map(d => d.name).join(', ')})`)
-        return
-      }
-      profiledOnly = toolsOfProfiles(requested.length ? requested : ['catalog'])
-    }
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay, profiledOnly)
+    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay)
     // The body is read here, to count methods, and handed to the transport already parsed.
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))
@@ -473,7 +419,6 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     failSkillsList: (fail: boolean) => { failSkills = fail },
     delaySkillsList: (ms: number) => { skillsDelay = ms },
     lastInitializeCapabilities: () => initializeCapabilities,
-    withdrawProfile: (name: string | undefined) => { withdrawn = name },
     // closeAllConnections: the agents API keeps its sockets to this server alive, and close() alone
     // waits for the CLIENT to drop them — undici's 4s idle timeout, paid after every spec using the fixture.
     close: async () => { await new Promise<void>(resolve => { server.close(() => resolve()); server.closeAllConnections() }) }

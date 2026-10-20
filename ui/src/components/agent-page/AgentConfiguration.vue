@@ -97,18 +97,7 @@
             :options="vjsfOptions"
             :locale="locale"
             @update:model-value="(data: any) => onPartUpdate('tools', data)"
-          >
-            <template #mcp-profiles="{ node, statefulLayout }">
-              <mcp-profiles-tree
-                :account-type="accountType"
-                :account-id="accountId"
-                :agent-id="agent.id"
-                :server-id="serverIdOf(node.dataPath)"
-                :model-value="(node.data as string[] | undefined) ?? []"
-                @update:model-value="(value: string[]) => statefulLayout.input(node, value)"
-              />
-            </template>
-          </vjsf-autonomous-agent-form-tools>
+          />
         </v-form>
         <v-alert
           v-if="webWithUnapprovedWrites"
@@ -207,7 +196,6 @@ import { useRoute, useRouter } from 'vue-router'
 import { mdiBrain, mdiCardAccountDetailsOutline, mdiShieldLockOutline, mdiToolboxOutline } from '@mdi/js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useAsyncAction } from '@data-fair/lib-vue/async-action.js'
-import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useLeaveGuard } from '@data-fair/lib-vue/leave-guard.js'
 import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
 import { identityPatch } from '@agents/shared/autonomous-agent-identity'
@@ -221,8 +209,7 @@ import VjsfAutonomousAgentFormSecurity from '~/components/vjsf/vjsf-autonomous-a
 import VjsfAutonomousAgentFormMemory from '~/components/vjsf/vjsf-autonomous-agent-form-memory.vue'
 import AgentMemoryPanel from '~/components/AgentMemoryPanel.vue'
 import FormActions from '~/components/FormActions.vue'
-import McpProfilesTree from '~/components/McpProfilesTree.vue'
-import { autonomousAgentEditDraft, pruneHiddenSelections } from '~/utils/autonomous-agent-draft'
+import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
 import { enrolmentErrorMessage } from '~/utils/autonomous-agent-enrolment-error'
 import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
 import { canonical } from '~/composables/use-settings-form'
@@ -342,22 +329,6 @@ const tabs = computed(() => tabKeys.map(key => ({
  * prefix simple-directory urls into it, see use-autonomous-agent-enrolment.ts). The access-ref schema and
  * the role picker name simple-directory root-absolute, so it is rewritten onto $sitePath here.
  */
-// Which catalog servers are profiled: their references show the profile tree instead of the tool filter
-// (the profiles and toolFilter layouts read context.profiledServers).
-const catalogFetch = useFetch<{ results: { id: string, profiled: boolean }[] }>(() => `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/mcp-servers`)
-const profiledServers = computed(() => catalogFetch.data.value?.results.filter(s => s.profiled).map(s => s.id) ?? [])
-// A reference keeps only the selection its server takes (pruneHiddenSelections): switching a reference's
-// server would otherwise leave a hidden toolFilter or profiles the save refuses. Only once the catalog is
-// known: before, every server would look unprofiled and every profiles selection would be dropped.
-watch([() => draft.value?.mcpServers, profiledServers], ([refs]) => {
-  if (!catalogFetch.data.value || !Array.isArray(refs)) return
-  const pruned = pruneHiddenSelections(refs, profiledServers.value)
-  if (pruned !== refs) draft.value = { ...draft.value, mcpServers: pruned }
-}, { deep: true, immediate: true })
-
-// A reference's profiles node has the dataPath /mcpServers/<i>/profiles: the server is that reference's.
-const serverIdOf = (dataPath: string): string | undefined => draft.value?.mcpServers?.[Number(dataPath.split('/')[2])]?.serverId
-
 const vjsfOptions = computed(() => ({
   validateOn: 'input' as const,
   // 'input', not 'blur': a toggle that only reaches the model on blur is read as unchanged by a save
@@ -371,8 +342,7 @@ const vjsfOptions = computed(() => ({
     apiPath: $apiPath,
     accountType: props.accountType,
     accountId: props.accountId,
-    owner: { type: props.accountType, id: props.accountId },
-    profiledServers: profiledServers.value
+    owner: { type: props.accountType, id: props.accountId }
   },
   fetch: async (url: string, fetchOptions: RequestInit) => {
     const response = await globalThis.fetch(rewriteSimpleDirectoryUrl(url, $sdUrl), { credentials: 'include', ...fetchOptions })

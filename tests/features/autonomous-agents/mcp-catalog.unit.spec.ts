@@ -3,7 +3,8 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { assertGlobalMcpConfig, assertPersonalAssistantsConfig, assertProfiledRefsShape, listMcpServerCatalog, unknownMcpServerIds, callHeaders, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
+import { readFileSync } from 'node:fs'
+import { assertGlobalMcpConfig, assertPersonalAssistantsConfig, listMcpServerCatalog, unknownMcpServerIds, callHeaders, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
 
 const servers: GlobalMcpServer[] = [
   { id: 'registry', name: 'Data Fair registry', url: 'https://example.org/mcp-registry/mcp', auth: 'nhi-session' },
@@ -59,7 +60,7 @@ test.describe('listMcpServerCatalog', () => {
 
   test('keeps the fields an admin picks by', () => {
     const entries = listMcpServerCatalog(servers)
-    assert.deepEqual(entries[0], { id: 'registry', name: 'Data Fair registry', url: 'https://example.org/mcp-registry/mcp', auth: 'nhi-session', profiled: false })
+    assert.deepEqual(entries[0], { id: 'registry', name: 'Data Fair registry', url: 'https://example.org/mcp-registry/mcp', auth: 'nhi-session' })
   })
 
   test('omits an absent description rather than emitting undefined', () => {
@@ -98,33 +99,29 @@ test.describe('callHeaders against the catalog', () => {
   })
 })
 
-const profiled: GlobalMcpServer = { id: 'datafair', name: 'Data Fair', url: 'https://example.org/mcp-server/mcp', profilesUrl: 'https://example.org/mcp-server/profiles', auth: 'nhi-session' }
+const configSchema = JSON.parse(readFileSync(new URL('../../../api/config/type/schema.json', import.meta.url), 'utf8'))
 
-test.describe('profiled servers', () => {
-  test('a profiled entry is accepted and listed as profiled, without its vocabulary url', () => {
-    assertGlobalMcpConfig([...servers, profiled])
-    const entry = listMcpServerCatalog([profiled])[0]
-    assert.equal(entry.profiled, true)
-    assert.equal((entry as any).profilesUrl, undefined)
-    assert.equal(listMcpServerCatalog([servers[1]])[0].profiled, false)
+test.describe('no profile vocabulary', () => {
+  test('a catalog entry with profilesUrl is no longer part of the config schema', () => {
+    const entry = configSchema.properties.mcpServers.items
+    assert.equal(entry.additionalProperties, false)
+    assert.equal(entry.properties.profilesUrl, undefined)
   })
-  test('a profiled url already carrying profiles is refused at boot', () => {
-    assert.throws(() => assertGlobalMcpConfig([{ ...profiled, url: 'https://example.org/mcp-server/mcp?profiles=read' }]), /already carries a profiles parameter/)
+  test('a personal assistant reference with profiles is refused by the config schema', () => {
+    for (const key of ['portal', 'backOffice']) {
+      const ref = configSchema.properties.personalAssistants.properties[key].properties.mcpServers.items
+      assert.equal(ref.additionalProperties, false)
+      assert.equal(ref.properties.profiles, undefined)
+    }
   })
-  test('an unparseable profilesUrl is refused at boot', () => {
-    assert.throws(() => assertGlobalMcpConfig([{ ...profiled, profilesUrl: 'nope' }]), /invalid profilesUrl/)
+  test('listMcpServerCatalog carries no profiled flag', () => {
+    assert.equal('profiled' in listMcpServerCatalog([servers[0]])[0], false)
   })
-  test('reference shape rules', () => {
-    const all = [...servers, profiled]
-    assertProfiledRefsShape(all, [{ serverId: 'datafair', profiles: ['catalog'] }, { serverId: 'public-docs', toolFilter: ['x'] }], 'agent')
-    assert.throws(() => assertProfiledRefsShape(all, [{ serverId: 'datafair', profiles: ['read'], toolFilter: ['x'] }], 'agent'), /select profiles, not toolFilter/)
-    assert.throws(() => assertProfiledRefsShape(all, [{ serverId: 'datafair' }], 'agent'), /select at least one profile/)
-    assert.throws(() => assertProfiledRefsShape(all, [{ serverId: 'datafair', profiles: [] }], 'agent'), /select at least one profile/)
-    assert.throws(() => assertProfiledRefsShape(all, [{ serverId: 'public-docs', profiles: ['read'] }], 'agent'), /declares no profiles/)
-    assert.throws(() => assertProfiledRefsShape(all, [{ serverId: 'datafair', profiles: ['read'] }, { serverId: 'datafair', profiles: ['write'] }], 'agent'), /referenced twice/)
-  })
-  test('personal assistants are checked with the same rules at boot', () => {
-    assert.throws(() => assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'datafair' }] } }, [profiled]), /personal assistant "portal".*select at least one profile/)
-    assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'datafair', profiles: ['catalog'] }] } }, [profiled])
+})
+
+test.describe('assertPersonalAssistantsConfig', () => {
+  test('refuses a personal assistant naming a server the catalog does not have', () => {
+    assert.throws(() => assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'nope' }] } }, servers), /personal assistant "portal" references unknown MCP server "nope"/)
+    assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'registry' }] } }, servers)
   })
 })

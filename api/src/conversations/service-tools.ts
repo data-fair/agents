@@ -28,7 +28,6 @@ import { WEB_SERVER_ID } from '../web/operations.ts'
 import { createRequestMcpAccessTool } from '../mcp-servers/external.ts'
 import { createReadSkillTool, READ_SKILL_TOOL_NAME, READ_SKILL_ANNOTATIONS, SKILLS_SERVER_ID } from '../mcp-servers/read-skill.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
-import type { McpProfile } from '@agents/shared/mcp-profiles'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID } from '../mcp-servers/operations.ts'
 import { saveExternalMcpServers, saveWebAllowedUrls } from '../autonomous-agents/service.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
@@ -52,8 +51,6 @@ export interface TurnCatalog {
   tools: ToolSet
   /** Listed by a server but excluded by the reference's toolFilter. */
   filteredOut: { name: string, server: string }[]
-  /** Profiled servers and the profiles this agent selected on each. */
-  profiled?: { server: string, profiles: string[], notSelected?: McpProfile[] }[]
   /** Tools that take a file, not offered because files are off. */
   needsFiles?: { name: string, server: string }[]
   skippedServers: { id: string, reason: string }[]

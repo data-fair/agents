@@ -150,11 +150,11 @@ test.describe('buildSystemPrompt', () => {
 
   test('both kinds of agent are told the person does not see how they are built', () => {
     // A judged run asked a person who says « nos données » for « l'adresse du serveur MCP »: the agent's
-    // configuration speaks of servers and profiles, and nothing said the person does not.
+    // configuration speaks of servers and tools, and nothing said the person does not.
     const { nhi, ...standard } = agent
     for (const prompt of [buildSystemPrompt(agent), buildSystemPrompt(standard as any)]) {
       assert.match(prompt, /does not see how you are built/)
-      assert.match(prompt, /never mention servers, MCP, tools, profiles or identifiers/)
+      assert.match(prompt, /never mention servers, MCP, tools or identifiers/)
     }
   })
 

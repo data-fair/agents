@@ -148,7 +148,7 @@ JSON-parsed numbers, global rather than per account. They bound **every** turn o
 
 ### `MCP_SERVERS`
 
-JSON array of the MCP server catalog ops publishes for this deployment. Validated fail-fast at boot by `assertGlobalMcpConfig` (`api/src/mcp-servers/operations.ts`, called from `api/src/config.ts`), mirroring `assertGlobalAiConfig` above. Each entry has `id`, `name`, an optional `description`, `url`, `auth`, and an optional `profilesUrl`.
+JSON array of the MCP server catalog ops publishes for this deployment. Validated fail-fast at boot by `assertGlobalMcpConfig` (`api/src/mcp-servers/operations.ts`, called from `api/src/config.ts`), mirroring `assertGlobalAiConfig` above. Each entry has `id`, `name`, an optional `description`, `url` and `auth`.
 
 ```json
 [
@@ -166,16 +166,6 @@ JSON array of the MCP server catalog ops publishes for this deployment. Validate
 | `none` | Sends no credential (public or network-trusted endpoints). |
 | `apiKey` | Sends a static, ops-owned header, from `apiKeyHeader`/`apiKey`. |
 
-**`profilesUrl` makes an entry *profiled*.** It points at the server's profile vocabulary (data-fair's mcp
-serves it at `/mcp-server/profiles`: names, titles, `includes`). A reference to a profiled entry selects
-`profiles` instead of naming tools with `toolFilter`, and the selection reaches the server as the `profiles`
-query parameter of `url` — the contract a server setting `profilesUrl` must follow. The entry's `url` must not
-carry `profiles` itself. data-fair's mcp as one profiled entry:
-
-```json
-{ "id": "datafair", "name": "Data Fair", "url": "http://data-fair-mcp:8080/mcp-server/mcp", "profilesUrl": "http://data-fair-mcp:8080/mcp-server/profiles", "auth": "nhi-session" }
-```
-
 **`apiKey` is a deployment secret.** It lives only in this env var and is never returned by any API response, never written into an autonomous agent document, never included in a prompt, and never persisted in a stored conversation — `listMcpServerCatalog()` (`api/src/mcp-servers/operations.ts`) strips it before the catalog is exposed to org admins (`GET /api/autonomous-agents/:type/:id/mcp-servers`).
 
 **This catalog IS the egress control for autonomous agents.** An org admin configuring an autonomous agent can only select MCP servers ops has already published here — there is no way to point an autonomous agent at an arbitrary URL from the org-admin side.
@@ -184,18 +174,19 @@ Boot validation (`assertGlobalMcpConfig`) rejects:
 - a duplicate `id`;
 - a `url` that is not `http:`/`https:`;
 - an `auth: 'apiKey'` entry missing `apiKeyHeader` or `apiKey`;
-- a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential;
-- a `profilesUrl` that is not an `http:`/`https:` URL, or a profiled entry whose `url` already carries a `profiles` parameter (it would be overwritten by each reference's selection).
+- a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential.
+
+What a scope-filtered server (data-fair's mcp at `/mcp-server/mcp`) lists is cut by the scopes of the session it receives: for an autonomous agent, its non-human identity's maximum scopes in simple-directory. The catalog entry carries no selection of its own.
 
 ### `PERSONAL_ASSISTANTS`
 
-JSON object: the servers of the two built-in personal assistants, `portal` (`portal-assistant`, what a front-office embed talks to) and `backOffice` (`back-office-assistant`, what a back-office embed with `agents` talks to). Each is `{ "mcpServers": [{ "serverId": "…", "profiles": ["…"] }] }` (or `"toolFilter"` on a server without profiles), references into `MCP_SERVERS` exactly like a configured agent's. Example, data-fair's MCP with its read-only `catalog` profile for both:
+JSON object: the servers of the two built-in personal assistants, `portal` (`portal-assistant`, what a front-office embed talks to) and `backOffice` (`back-office-assistant`, what a back-office embed with `agents` talks to). Each is `{ "mcpServers": [{ "serverId": "…" }] }` (with an optional `"toolFilter"`), references into `MCP_SERVERS` exactly like a configured agent's. Example, data-fair's datasets server (the published catalog) for both:
 
 ```json
-{ "portal": { "mcpServers": [{ "serverId": "datafair", "profiles": ["catalog"] }] }, "backOffice": { "mcpServers": [{ "serverId": "datafair", "profiles": ["catalog"] }] } }
+{ "portal": { "mcpServers": [{ "serverId": "datafair-datasets" }] }, "backOffice": { "mcpServers": [{ "serverId": "datafair-datasets" }] } }
 ```
 
-Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write profiles, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`), and so does a reference breaking the profiled rules: no `profiles` (or a `toolFilter`) on a profiled server, `profiles` on one that declares none, the same profiled server twice. Profile names are not checked at boot, the server may be down then: a wrong one fails each turn by name. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
+Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write tools, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`). An assistant acts as the person, whose session carries no scope: on data-fair's platform server it would list every tool their role allows, which is why the example gives it the datasets server. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
 
 ### No signing key to configure
 

@@ -122,8 +122,7 @@
           "url": { "type": "string" },
           "auth": { "type": "string", "enum": ["nhi-session", "none", "apiKey"] },
           "apiKeyHeader": { "type": "string" },
-          "apiKey": { "type": "string" },
-          "profilesUrl": { "type": "string", "description": "The server's profile vocabulary. Set: references select profiles (sent as the profiles query parameter), never a toolFilter." }
+          "apiKey": { "type": "string" }
         }
       }
     },
@@ -133,8 +132,8 @@
       "description": "The servers of each built-in personal assistant: references into mcpServers, like a configured agent's. Unset: no catalog servers.",
       "default": {},
       "properties": {
-        "portal": { "type": "object", "additionalProperties": false, "properties": { "mcpServers": { "type": "array", "default": [], "items": { "type": "object", "additionalProperties": false, "required": ["serverId"], "properties": { "serverId": { "type": "string" }, "profiles": { "type": "array", "items": { "type": "string" } }, "toolFilter": { "type": "array", "items": { "type": "string" } } } } } } },
-        "backOffice": { "type": "object", "additionalProperties": false, "properties": { "mcpServers": { "type": "array", "default": [], "items": { "type": "object", "additionalProperties": false, "required": ["serverId"], "properties": { "serverId": { "type": "string" }, "profiles": { "type": "array", "items": { "type": "string" } }, "toolFilter": { "type": "array", "items": { "type": "string" } } } } } } }
+        "portal": { "type": "object", "additionalProperties": false, "properties": { "mcpServers": { "type": "array", "default": [], "items": { "type": "object", "additionalProperties": false, "required": ["serverId"], "properties": { "serverId": { "type": "string" }, "toolFilter": { "type": "array", "items": { "type": "string" } } } } } } },
+        "backOffice": { "type": "object", "additionalProperties": false, "properties": { "mcpServers": { "type": "array", "default": [], "items": { "type": "object", "additionalProperties": false, "required": ["serverId"], "properties": { "serverId": { "type": "string" }, "toolFilter": { "type": "array", "items": { "type": "string" } } } } } } }
       }
     },
     "autonomousAgentsRequireAdminMode": { "type": "boolean", "default": true },

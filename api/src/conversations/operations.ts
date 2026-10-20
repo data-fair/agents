@@ -99,7 +99,7 @@ export const SELF_KNOWLEDGE_NOTE = 'Before telling someone you cannot do somethi
  * speak of servers, profiles and identifiers: a judged run asked a person who says « nos données » for
  * « l'adresse du serveur MCP ».
  */
-export const AUDIENCE_NOTE = 'The person you talk to does not see how you are built: answer in their words, naming things by their titles, and never mention servers, MCP, tools, profiles or identifiers unless they do first.'
+export const AUDIENCE_NOTE = 'The person you talk to does not see how you are built: answer in their words, naming things by their titles, and never mention servers, MCP, tools or identifiers unless they do first.'
 
 /** The subset of an autonomous agent that shapes its system prompt. */
 interface PromptableAutonomousAgent {
