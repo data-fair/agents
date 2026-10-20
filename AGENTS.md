@@ -57,6 +57,9 @@ which returns `structuredContent` beside its text, as data-fair's MCP does: a `c
 object, the model the text. Only `list_road_closures`, `closure_stats` and the exports return data — the others are structural (a string reflector, a
 fixed empty schema, and a target for `toolFilter`), so they are the ones to use when you need to see an
 agent actually fetch something and quote it. `slow_update` and `bulk_update` are the annotation-free (write) twins of `slow_lookup` and `bulk`, for specs that gate a slow or large call at approval level `write`.
+Under `/datasets/` the same server serves its tools renamed `datasets_*`: with `dev-home-session-mcp`
+(`sites: 'home'`) and `dev-datasets-session-mcp`, the pair data-fair's mcp is configured as — the
+platform server on the home site, its datasets server on every other site.
 
 Only autonomous agents need it. Without it, an agent wired to one of those catalog entries fails with
 a 502 the moment it gathers its tools — the seeded dev fixtures can then be read but not used, which

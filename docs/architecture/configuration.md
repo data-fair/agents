@@ -176,6 +176,22 @@ Boot validation (`assertGlobalMcpConfig`) rejects:
 - an `auth: 'apiKey'` entry missing `apiKeyHeader` or `apiKey`;
 - a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential.
 
+**`sites` and `homeAlternative` (site-bound entries only)** say where an entry is called. `sites: 'all'`
+(the default) is called on the home site — as the agent when it has a session there, anonymously otherwise —
+and on the account's portals through the `portal` argument. `sites: 'home'` is called on the home site
+only, and only with the agent's session: never anonymously, never on a portal. Its `homeAlternative` names
+the `all` entry that stands for it elsewhere, left out of the home site where the `home` entry has its tools.
+Boot validation refuses either field on an entry that is not `nhi-session`, and a `homeAlternative` that is
+not set on a `home` entry or does not name an `nhi-session` `all` entry. data-fair's mcp is configured as
+that pair, and an agent references both:
+
+```json
+[
+  { "id": "datafair", "name": "Data Fair", "url": "http://data-fair-mcp:8080/mcp-server/mcp", "auth": "nhi-session", "sites": "home", "homeAlternative": "datafair-datasets" },
+  { "id": "datafair-datasets", "name": "Data Fair datasets", "url": "http://data-fair-mcp:8080/mcp-server/datasets/mcp", "auth": "nhi-session" }
+]
+```
+
 What a scope-filtered server (data-fair's mcp at `/mcp-server/mcp`) lists is cut by the scopes of the session it receives: for an autonomous agent, its non-human identity's maximum scopes in simple-directory. The catalog entry carries no selection of its own.
 
 ### `PERSONAL_ASSISTANTS`

@@ -12,7 +12,7 @@ import config from '#config'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { callHeaders, listingKey, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer, type McpServerRef } from './operations.ts'
+import { callHeaders, listingKey, connectionKey, entriesForSite, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer, type McpServerRef } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
 import { withPublicMessage, type ToolSet } from '../conversations/operations.ts'
@@ -198,11 +198,17 @@ export const openAutonomousAgentTools = async (
   }
 
   // Listed together: a turn waits for its slowest server, not for the sum of them.
-  const listed = await Promise.all(refs.map(async ref => {
+  // Which entries this turn lists, and where (operations.ts, entriesForSite): a `home` entry only on a home
+  // site where the agent has a session, its `homeAlternative` on the portals only.
+  const listed = await Promise.all(entriesForSite(catalog, refs, sites.home).map(async ({ ref, onHome }) => {
     const server = catalog.find(s => s.id === ref.serverId)
     if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
+    // Portals only, and there are none: nothing to offer. Any portal lists it: what such a server lists does
+    // not depend on which of the account's portals asks.
+    if (!onHome && !sites.portals.length) return undefined
+    const listedOn = server.auth !== 'nhi-session' ? undefined : onHome ? home : sites.portals[0]
     try {
-      return { ref, server, listing: await listServer(server, server.auth === 'nhi-session' ? home : undefined, sites, opts?.fresh) }
+      return { ref, server, onHome, listedOn, listing: await listServer(server, listedOn, sites, opts?.fresh) }
     } catch (err: any) {
       // THROW or SKIP — see forEachListedTool, whose rule this is.
       if (opts?.onServerError !== 'skip') throw withPublicMessage(httpError(502, `MCP server "${server.id}" failed: ${err.message}`), `MCP server "${server.id}" failed`)
@@ -215,7 +221,7 @@ export const openAutonomousAgentTools = async (
   // In reference order, so a name collision resolves exactly as before.
   for (const entry of listed) {
     if (!entry) continue
-    const { ref, server } = entry
+    const { ref, server, onHome } = entry
     for (const t of entry.listing.tools) {
       if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) {
         filteredOut.push({ name: t.name, server: server.id })
@@ -225,7 +231,10 @@ export const openAutonomousAgentTools = async (
       // aggregator's Object.assign semantics — the provenance travels with the tool, so the recorded
       // server is the one whose tool will actually run.
       const siteBound = server.auth === 'nhi-session'
-      const { schema: portalSchema, injected } = siteBound ? withPortalArgument(t.inputSchema, portalHosts) : { schema: (t.inputSchema as any) ?? { type: 'object', properties: {} }, injected: false }
+      // A `home` entry acts on the home site only: no portal argument. Its alternative, on portals only: a required one.
+      const { schema: portalSchema, injected } = siteBound && server.sites !== 'home'
+        ? withPortalArgument(t.inputSchema, portalHosts, onHome ? undefined : { portalsOnly: true })
+        : { schema: (t.inputSchema as any) ?? { type: 'object', properties: {} }, injected: false }
       // A file argument is a path of the turn's files (api/src/files/call-path.ts). Without files the model
       // could not fill it — the MCP server fetches only our signed URLs — so the tool is not offered (spec §2).
       const { schema, fileArgs } = fileArgumentsOf(portalSchema)
@@ -237,6 +246,7 @@ export const openAutonomousAgentTools = async (
       // than letting it complete unseen; what the server already did is not undone.
       const callMcp = async (rawArgs: any, signal?: AbortSignal) => {
         const { portal, args } = splitPortalArgument(rawArgs, injected)
+        if (portal === undefined && !onHome) throw new Error(`name the portal to explore with "${PORTAL_ARGUMENT}" (${portalHosts.join(', ')}): on the site you are working on, use your other tools`)
         const site = portal === undefined ? home : portalByHost.get(portal)
         if (portal !== undefined && !site) throw new Error(`"${portal}" is not a portal of your organization (${portalHosts.join(', ') || 'none'})`)
         debug('call tool=%s server=%s site=%s', t.name, server.id, siteBound ? site : '-')
@@ -303,7 +313,7 @@ export const openAutonomousAgentTools = async (
   const readSkill = async (serverId: string, uri: string): Promise<string> => {
     const entry = listed.find(e => e?.server.id === serverId)
     if (!entry) throw new Error(`"${serverId}" is not one of your tool servers this turn`)
-    const client = await clientFor(entry.server, entry.server.auth === 'nhi-session' ? home : undefined)
+    const client = await clientFor(entry.server, entry.listedOn)
     return await readServerSkill(client, entry.listing.skills, uri)
   }
 

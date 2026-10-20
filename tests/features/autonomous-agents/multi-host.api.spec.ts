@@ -123,4 +123,46 @@ test.describe('Sites of an autonomous agent', () => {
     assert.equal(run.status, 'error')
     assert.match(run.error, /no enrolled non-human identity/)
   })
+
+  // The pair data-fair's mcp is configured as (api/config/development.js): the platform server on the home
+  // site only, its datasets server on every other site.
+  const pair = { mcpServers: [{ serverId: 'dev-home-session-mcp' }, { serverId: 'dev-datasets-session-mcp' }] }
+  const callOf = (assistant: any, toolName: string) => assistant.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === toolName)
+
+  test('on its own site the home entry is listed and the paired entry is not', async () => {
+    await enrol(home, pair)
+    const { data } = await admin.get(`${AGENT}/tools`)
+    const servers = new Set(data.results.map((t: any) => t.server))
+    assert.deepEqual([...servers], ['dev-home-session-mcp', 'dev-datasets-session-mcp'])
+    const homeWhoami = data.results.find((t: any) => t.name === 'whoami')
+    assert.equal(homeWhoami.server, 'dev-home-session-mcp')
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami')
+    assert.deepEqual(whoami(assistant), { forwardedHost: `localhost:${PORT}`, userId: 'test-autonomous-agent-nhi' })
+  })
+
+  test('a portal call goes through the paired entry with the portal\'s session', async () => {
+    await enrol(home, pair)
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, `call tool datasets_whoami {"portal":"${ownPortal}"}`)
+    const part = callOf(assistant, 'datasets_whoami')
+    assert.equal(part?.state, 'output-available', JSON.stringify(assistant.parts))
+    assert.equal(fixture.lastHeaders()['x-forwarded-host'], ownPortal)
+    assert.ok(fixture.lastHeaders().cookie, 'the portal call carries the agent\'s session for that portal')
+  })
+
+  test('the paired entry needs a portal: it never acts on the home site', async () => {
+    await enrol(home, pair)
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool datasets_whoami')
+    const part = callOf(assistant, 'datasets_whoami')
+    assert.equal(part?.state, 'output-error', JSON.stringify(assistant.parts))
+  })
+
+  test('on another organization\'s site only the paired entry is used, anonymously', async () => {
+    await enrol(home, pair)
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool datasets_whoami', { host: foreignPortal })
+    assert.deepEqual(whoami({ parts: assistant.parts.map((p: any) => p.toolName === 'datasets_whoami' ? { ...p, toolName: 'whoami' } : p) }), { forwardedHost: foreignPortal, userId: null })
+    assert.equal(fixture.lastHeaders().cookie, undefined)
+    const homeCall = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami', { host: foreignPortal })
+    // the home entry is not offered outside the account: the model is told the tool does not exist
+    assert.match(callOf(homeCall.assistant, 'whoami')?.errorText ?? '', /unavailable tool 'whoami'/)
+  })
 })

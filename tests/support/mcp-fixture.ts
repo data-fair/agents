@@ -33,6 +33,9 @@ export const FIXTURE_SKILLS = {
   unlisted: { uri: 'skill://fixture/hidden/SKILL.md', name: 'hidden', description: 'Reachable by URI only.', tools: undefined as string | undefined, body: 'Hidden procedure.' }
 }
 
+/** Under /datasets/ the fixture serves its tools renamed with this prefix: the portals-only alternative of a home entry. */
+export const DATASETS_TOOL_PREFIX = 'datasets_'
+
 export interface McpFixture {
   port: number
   lastHeaders: () => Record<string, string | string[] | undefined>
@@ -65,7 +68,7 @@ export interface McpFixture {
 // constructed with `sessionIdGenerator: undefined` is shared across requests — unlike what
 // the brief's original one-transport-for-the-process-lifetime sketch assumed. See
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js.
-const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false, skillsListDelay: () => number = () => 0): McpServer => {
+const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false, skillsListDelay: () => number = () => 0, toolPrefix = ''): McpServer => {
   const mcp = new McpServer({ name: 'fixture', version: '1.0.0' }, {
     instructions: FIXTURE_INSTRUCTIONS,
     capabilities: { resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } } as any
@@ -349,6 +352,12 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
       }
     }
   )
+  if (toolPrefix) {
+    // the datasets mode: the same tools under other names, as data-fair's datasets server renames the platform's
+    for (const [name, registered] of Object.entries((mcp as any)._registeredTools as Record<string, { update: (u: { name: string }) => void }>)) {
+      registered.update({ name: `${toolPrefix}${name}` })
+    }
+  }
   return mcp
 }
 
@@ -387,7 +396,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     }
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay)
+    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay, req.url?.startsWith('/datasets/') ? DATASETS_TOOL_PREFIX : '')
     // The body is read here, to count methods, and handed to the transport already parsed.
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))
