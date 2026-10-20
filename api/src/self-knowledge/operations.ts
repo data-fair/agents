@@ -86,6 +86,13 @@ export const renderConfiguration = (view: ConfigurationView): string => {
     '## Approval policy',
     `approval level: ${agent.approvalLevel ?? DEFAULT_APPROVAL_LEVEL} (${(Object.keys(CLASS_LABELS) as ApprovalClass[]).map(cls => `${CLASS_LABELS[cls]}: ${approvalPolicyFor(cls, agent.approvalLevel)}`).join(', ')})`,
     '## Tools',
+    // What the platform lets its identity reach: the scopes it was granted, which the scope-filtered servers
+    // already applied to the tools listed below (docs/architecture/mcp-tools.md, Scopes).
+    ...(catalog.identity
+      ? [catalog.identity.scopes?.length
+          ? `Your identity's scopes: ${catalog.identity.scopes.join(', ')}, set by an administrator of your organization.`
+          : 'Your identity has no scope restriction: what its role allows.']
+      : []),
     bullets(tools),
     '## Service tools offered this turn',
     bullets(view.serviceTools),

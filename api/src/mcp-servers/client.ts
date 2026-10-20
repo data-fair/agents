@@ -14,6 +14,7 @@ import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, connectionKey, entriesForSite, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer, type McpServerRef } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
+import { sessionScopes } from '../nhi/operations.ts'
 import { toolDescription } from '@agents/shared/tool-description'
 import { withPublicMessage, type ToolSet } from '../conversations/operations.ts'
 import { boundGuide, visibleSkills, type ServerGuide, type GuideSkill } from './guides.ts'
@@ -80,6 +81,8 @@ export interface OpenAutonomousAgentTools {
   filteredOut: { name: string, server: string }[]
   /** Tools that take a file, left out because files are off this turn. */
   needsFiles: { name: string, server: string }[]
+  /** A configured agent's identity on its home site, when a site-bound entry was listed there with its session. */
+  identity?: { scopes?: string[] }
   /** What each listed server says about its tools — instructions and skills — in reference order (./guides.ts). */
   guides: ServerGuide[]
   /** A skill's SKILL.md, read over this turn's connection to that server (as its tools are called). */
@@ -136,9 +139,17 @@ const cookieOf = (server: GlobalMcpServer, siteUrl: string | undefined, sites: S
 /** Forget every cached listing. The test environment's reset calls it, so specs stay independent. */
 export const clearToolListings = () => { listing.clear() }
 
-/** `fresh` lists again, and keeps that answer for the next turns. */
-const listServer = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ServerListing> => {
-  const key = listingKey(server, siteUrl, sites.listingIdentity)
+/**
+ * `fresh` lists again, and keeps that answer for the next turns.
+ *
+ * A site-bound listing is also keyed on the scopes of the session it is listed with: a scope-filtered server
+ * lists by them, and an administrator changing an identity's scopes must not leave its turns on the old tool
+ * set for the cache's lifetime. Reading them asks for the session, which the broker reuses until it nears
+ * its expiry (../nhi/service.ts): no exchange per turn.
+ */
+const listServer = async (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ServerListing> => {
+  const scopes = server.auth === 'nhi-session' && siteUrl ? sessionScopes(await sites.cookieFor(siteUrl)) : undefined
+  const key = listingKey(server, siteUrl, `${sites.listingIdentity}\0${scopes?.join(' ') ?? '*'}`)
   if (fresh) listing.delete(key, server, siteUrl, sites)
   return listing(key, server, siteUrl, sites)
 }
@@ -317,7 +328,15 @@ export const openAutonomousAgentTools = async (
     return await readServerSkill(client, entry.listing.skills, uri)
   }
 
-  return { tools, skippedServers, filteredOut, needsFiles, guides, readSkill, close }
+  // What its identity was granted, as the session of its home site says: what the agent reads about itself.
+  let identity: { scopes?: string[] } | undefined
+  if (autonomousAgent.nhi && home && listed.some(entry => entry?.server.auth === 'nhi-session' && entry.listedOn === home)) {
+    const cookie = await sites.cookieFor(home)
+    const scopes = sessionScopes(cookie)
+    if (cookie) identity = scopes ? { scopes } : {}
+  }
+
+  return { tools, skippedServers, filteredOut, needsFiles, guides, readSkill, close, ...(identity ? { identity } : {}) }
 }
 
 export interface McpToolDescriptor {

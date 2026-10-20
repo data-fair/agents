@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sessionScopes, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -295,5 +295,17 @@ test.describe('sessionNeedsRenewal', () => {
 
   test('the margin leaves most of the session usable', () => {
     assert.ok(SESSION_RENEW_MARGIN_SECONDS * 2 < ASSERTION_TTL_SECONDS)
+  })
+})
+
+test.describe('sessionScopes', () => {
+  const cookieWith = (payload: object) => `id_token=${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.sig; id_token_sign=x`
+  test('reads the scope claim', () => {
+    assert.deepEqual(sessionScopes(cookieWith({ scope: 'datasets:read applications:read' })), ['datasets:read', 'applications:read'])
+  })
+  test('is undefined for an unrestricted or missing session', () => {
+    assert.equal(sessionScopes(cookieWith({ id: 'x' })), undefined)
+    assert.equal(sessionScopes(undefined), undefined)
+    assert.equal(sessionScopes('other=1'), undefined)
   })
 })

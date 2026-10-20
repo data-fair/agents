@@ -225,3 +225,17 @@ export function decodeSessionClaims (cookieHeader: string): Record<string, any> 
   if (segments.length < 2) throw new Error('id_token cookie is not a header.payload pair')
   return JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf8'))
 }
+
+/**
+ * The scopes a session was granted (its `scope` claim, space-separated), or undefined when it is
+ * unrestricted or there is no readable session. Never throws: it describes, it does not authenticate.
+ */
+export function sessionScopes (cookieHeader: string | undefined): string[] | undefined {
+  if (!cookieHeader) return undefined
+  try {
+    const scope = decodeSessionClaims(cookieHeader).scope
+    return typeof scope === 'string' && scope.trim() ? scope.trim().split(/\s+/) : undefined
+  } catch {
+    return undefined
+  }
+}

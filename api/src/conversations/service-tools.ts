@@ -54,6 +54,8 @@ export interface TurnCatalog {
   /** Tools that take a file, not offered because files are off. */
   needsFiles?: { name: string, server: string }[]
   skippedServers: { id: string, reason: string }[]
+  /** A configured agent's identity, from the session of its home site: `scopes` absent when it is unrestricted. */
+  identity?: { scopes?: string[] }
 }
 
 export interface ServiceToolContext {

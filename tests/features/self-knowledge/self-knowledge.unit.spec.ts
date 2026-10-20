@@ -241,3 +241,19 @@ test.describe('earlier work', () => {
     assert.match(READ_CONVERSATION_DESCRIPTION, /from that line ONWARD, as many lines as fit a page/)
   })
 })
+
+test('a scoped identity is told its scopes', () => {
+  const base = view('chat')
+  assert.match(renderConfiguration({ ...base, catalog: { ...base.catalog, identity: { scopes: ['datasets:read'] } } }),
+    /Your identity's scopes: datasets:read, set by an administrator of your organization\./)
+})
+
+test('an unrestricted identity is told so', () => {
+  const base = view('chat')
+  assert.match(renderConfiguration({ ...base, catalog: { ...base.catalog, identity: {} } }),
+    /Your identity has no scope restriction: what its role allows\./)
+})
+
+test('no identity line without an identity', () => {
+  assert.doesNotMatch(renderConfiguration(view('chat')), /scope restriction|identity's scopes/)
+})
