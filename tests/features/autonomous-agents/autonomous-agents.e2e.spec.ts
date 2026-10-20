@@ -30,12 +30,13 @@ test.describe('Autonomous agents configuration', () => {
   // (autonomousAgentsRequireAdminMode), so every write here needs a superadmin in admin mode.
   const asSuperAdmin = { adminMode: true } as const
 
-  test('creation asks only for a name, a role and an example', async ({ page, goToWithAuth }) => {
+  test('creation asks only for a name, a role, its scopes and an example', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
     const dialog = page.locator('.v-overlay--active')
     await expect(dialog.getByTestId('autonomous-agent-create-title')).toBeVisible()
     await expect(dialog.getByTestId('autonomous-agent-create-role')).toBeVisible()
+    await expect(dialog.getByTestId('autonomous-agent-scopes')).toBeVisible()
     await expect(dialog.getByTestId('autonomous-agent-create-example-quality')).toBeVisible()
     // nothing else: no persona, no MCP servers, no client id
     await expect(dialog.getByRole('textbox')).toHaveCount(1)
@@ -113,6 +114,29 @@ test.describe('Autonomous agents configuration', () => {
     await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/, { timeout: 20000 })
     expect(nhiBody.role).toBe('user')
     expect(nhiBody.name).toMatch(/ \(autonomous agent\)$/)
+    expect('scopes' in nhiBody).toBe(false)
+  })
+
+  test('the creation dialog sends the chosen scopes with the new identity', async ({ page, goToWithAuth }) => {
+    await stubScopes(page)
+    let nhiBody: any
+    await page.route('**/simple-directory/api/organizations/*/nhis', async route => {
+      if (route.request().method() !== 'POST') return route.continue()
+      nhiBody = route.request().postDataJSON()
+      await route.fulfill({ status: 201, json: { id: 'nhi-stub' } })
+    })
+    await page.route('**/api/autonomous-agents/organization/test1/*', async route => {
+      if (route.request().method() !== 'PUT') return route.continue()
+      const current = await (await route.fetch({ method: 'GET' })).json()
+      await route.fulfill({ status: 200, json: { ...current, ...route.request().postDataJSON() } })
+    })
+    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
+    await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Scoped by creation')
+    await pickScope(page, 'datasets:read')
+    await page.getByTestId('autonomous-agent-save').click()
+    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/, { timeout: 20000 })
+    expect(nhiBody.scopes).toEqual(['datasets:read'])
   })
 
   test('an unenrolled autonomous agent offers to enrol it, and reports what the directory says', async ({ page, goToWithAuth }) => {
@@ -392,5 +416,103 @@ test.describe('Agent switcher and conversation history', () => {
     const [agentThread] = await threadsOf(agentId)
     const agentMessages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${agentThread.id}/messages`)).data.results
     expect(agentMessages.filter((m: any) => m.role === 'user')).toHaveLength(1)
+  })
+})
+
+// simple-directory's scope list, stubbed: this dev stack's simple-directory knows no platform scopes
+const SCOPES = { scopes: { 'datasets:read': 'Read datasets', 'applications:read': 'Read applications', 'datasets:write': 'Write datasets' } }
+const stubScopes = async (page: Page) => {
+  await page.route('**/simple-directory/api/scopes', route => route.fulfill({ json: SCOPES }))
+}
+const pickScope = async (page: Page, scope: string) => {
+  await page.getByTestId('autonomous-agent-scopes').click()
+  await page.locator('.v-overlay--active .v-list-item').filter({ hasText: scope }).click()
+  await page.keyboard.press('Escape')
+}
+
+test.describe('Scopes of an autonomous agent\'s identity', () => {
+  const asSuperAdmin = { adminMode: true } as const
+  const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+  const AGENT_PAGE = '/agents/organization/test1/agents/test-fixture?config=security'
+  test.beforeEach(async () => {
+    await clean()
+    await putMockSettings(admin, 'organization/test1')
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-autonomous-agent-nhi',
+      siteUrl,
+      issuer: `${siteUrl}/agents/api/nhi`,
+      autonomousAgent: { title: 'Scoped agent', persona: 'x', mcpServers: [], enabled: true }
+    })
+  })
+
+  // The NHI list as simple-directory answers it, and every write the page sends, in order.
+  const stubDirectory = async (page: Page, stored: string[] | undefined, patchAnswer?: { status: number, json: any }) => {
+    await stubScopes(page)
+    const sent: Array<{ method: string, path: string, body: any }> = []
+    await page.route('**/simple-directory/api/organizations/test1/nhis**', async route => {
+      const req = route.request()
+      if (req.method() === 'GET') return route.fulfill({ json: { count: 1, results: [{ id: 'test-autonomous-agent-nhi', ...(stored ? { scopes: stored } : {}) }] } })
+      sent.push({ method: req.method(), path: new URL(req.url()).pathname, body: req.postDataJSON() })
+      return route.fulfill(patchAnswer ?? { status: 200, json: {} })
+    })
+    await page.route('**/agents/api/autonomous-agents/organization/test1/test-fixture', async route => {
+      if (route.request().method() === 'PUT') sent.push({ method: 'PUT', path: new URL(route.request().url()).pathname, body: null })
+      return route.continue()
+    })
+    return sent
+  }
+
+  test('the identity tab shows the scopes and their absence', async ({ page, goToWithAuth }) => {
+    await stubDirectory(page, ['datasets:read'])
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
+    await expect(page.getByTestId('autonomous-agent-scopes-unrestricted')).toHaveCount(0)
+  })
+
+  test('no stored scopes reads as no restriction', async ({ page, goToWithAuth }) => {
+    await stubDirectory(page, undefined)
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-scopes-unrestricted')).toBeVisible({ timeout: 20000 })
+  })
+
+  test('changing only the scopes saves the agent after the identity', async ({ page, goToWithAuth }) => {
+    const sent = await stubDirectory(page, ['datasets:read'])
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
+    await pickScope(page, 'applications:read')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => sent.map(r => r.method)).toEqual(['PATCH', 'PUT'])
+    expect(sent[0].path).toBe('/simple-directory/api/organizations/test1/nhis/test-autonomous-agent-nhi')
+    expect([...sent[0].body.scopes].sort()).toEqual(['applications:read', 'datasets:read'])
+  })
+
+  test('clearing the scopes sends null', async ({ page, goToWithAuth }) => {
+    const sent = await stubDirectory(page, ['datasets:read'])
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
+    await pickScope(page, 'datasets:read')
+    await expect(page.getByTestId('autonomous-agent-scopes-unrestricted')).toBeVisible()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => sent.map(r => r.method)).toEqual(['PATCH', 'PUT'])
+    expect(sent[0].body).toEqual({ scopes: null })
+  })
+
+  test('a refused scope write stops the save', async ({ page, goToWithAuth }) => {
+    const sent = await stubDirectory(page, ['datasets:read'], { status: 400, json: 'unknown scope "datasets:write"' })
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
+    await pickScope(page, 'datasets:write')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect(page.getByTestId('autonomous-agent-scopes-error')).toContainText('unknown scope', { timeout: 20000 })
+    expect(sent.map(r => r.method)).toEqual(['PATCH'])
+  })
+
+  test('an identity declared outside the directory API shows its scopes read-only', async ({ page, goToWithAuth }) => {
+    await stubScopes(page)
+    await page.route('**/simple-directory/api/organizations/test1/nhis**', route => route.fulfill({ json: { count: 0, results: [] } }))
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-scopes-elsewhere')).toBeVisible({ timeout: 20000 })
   })
 })

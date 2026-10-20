@@ -45,6 +45,8 @@ export function autonomousAgentNhiBody (opts: {
   title: string
   issuer: string
   role?: string
+  /** Its maximum scopes; none chosen, none sent: unrestricted, what its role allows. */
+  scopes?: string[]
 }) {
   return {
     name: autonomousAgentNhiName(opts.title),
@@ -58,6 +60,7 @@ export function autonomousAgentNhiBody (opts: {
     // "user1"). A reader comparing the two should not conclude the fixtures are wrong.
     role: opts.role ?? 'user',
     provider: { issuer: opts.issuer },
-    subject: autonomousAgentSubject(opts.agentId)
+    subject: autonomousAgentSubject(opts.agentId),
+    ...(opts.scopes?.length ? { scopes: opts.scopes } : {})
   }
 }

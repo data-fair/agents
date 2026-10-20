@@ -28,6 +28,11 @@
             class="mb-4"
             data-testid="autonomous-agent-create-role"
           />
+          <nhi-scopes-field
+            v-model="scopes"
+            :items="scopeItems"
+            class="mb-4"
+          />
           <div class="text-subtitle-2 mb-1">
             {{ t('example') }}
           </div>
@@ -114,6 +119,8 @@ import { useAutonomousAgentEnrolment } from '~/composables/use-autonomous-agent-
 import { AUTONOMOUS_AGENT_EXAMPLE_KEYS, exampleFields } from '~/utils/autonomous-agent-examples'
 import type { AutonomousAgentExampleKey } from '~/utils/autonomous-agent-examples'
 import { enrolmentErrorMessage } from '~/utils/autonomous-agent-enrolment-error'
+import NhiScopesField from '~/components/agent-page/NhiScopesField.vue'
+import type { ScopeRow } from '~/utils/nhi-scopes'
 
 const props = defineProps<{ accountType: string, accountId: string }>()
 const open = defineModel<boolean>({ default: false })
@@ -121,7 +128,7 @@ const open = defineModel<boolean>({ default: false })
 const { t, locale } = useI18n()
 const router = useRouter()
 const { sendUiNotif } = useUiNotif()
-const { enrol } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
+const { enrol, readScopes } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
 
 // simple-directory caps an identity name at 150 characters and ours adds " (autonomous agent)" (19): keep in step with api/types/autonomous-agent/schema.js.
 const AUTONOMOUS_AGENT_TITLE_MAX = 131
@@ -131,6 +138,9 @@ const title = ref('')
 const role = ref('user')
 const example = ref<AutonomousAgentExampleKey>('blank')
 const roles = ref<string[]>(DEFAULT_ROLES)
+// Nothing chosen by default: an identity with no maximum scopes is unrestricted, what its role allows.
+const scopes = ref<string[]>([])
+const scopeItems = ref<ScopeRow[]>([])
 const saving = ref(false)
 
 // The organization's own roles (simple-directory), so a role it does not have is not offered. Cross-service:
@@ -152,7 +162,9 @@ watch(open, (isOpen) => {
   title.value = ''
   role.value = 'user'
   example.value = 'blank'
+  scopes.value = []
   loadRoles()
+  readScopes().then(rows => { scopeItems.value = rows }).catch(() => { scopeItems.value = [] })
 })
 
 const create = async () => {
@@ -177,7 +189,7 @@ const create = async () => {
   }
   let enrolReason = ''
   try {
-    await enrol(created)
+    await enrol({ ...created, scopes: scopes.value })
   } catch (error) {
     // The agent exists; only its identity does not. Say so, and land on the page, where it can be retried.
     const reason = enrolmentErrorMessage(error)

@@ -18,6 +18,7 @@ import { autonomousAgentNhiBody } from '@agents/shared/autonomous-agent-identity
 import { $apiPath, $fetch, $sdUrl } from '~/context'
 import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
 import { enrolmentErrorMessage } from '~/utils/autonomous-agent-enrolment-error'
+import { scopeRows, type ScopeRow } from '~/utils/nhi-scopes'
 
 /**
  * Cross-service calls must NOT go through `$fetch`, which carries `baseURL: $apiPath`. ofetch applies
@@ -51,14 +52,14 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
    * identity can be created. That is why this is an action on a saved agent rather than a field in
    * the creation form.
    */
-  const enrol = async (autonomousAgent: { id: string, title: string, role?: string }): Promise<void> => {
+  const enrol = async (autonomousAgent: { id: string, title: string, role?: string, scopes?: string[] }): Promise<void> => {
     enrolling.value = true
     error.value = null
     try {
       const issuer = await readIssuer()
       const created = await $crossServiceFetch<{ id: string }>(nhisUrl, {
         method: 'POST',
-        body: autonomousAgentNhiBody({ agentId: autonomousAgent.id, title: autonomousAgent.title, issuer, role: autonomousAgent.role }),
+        body: autonomousAgentNhiBody({ agentId: autonomousAgent.id, title: autonomousAgent.title, issuer, role: autonomousAgent.role, scopes: autonomousAgent.scopes }),
         credentials: 'include'
       })
       try {
@@ -102,9 +103,26 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
     })
   }
 
-  /** Keep the identity in step with the autonomous agent: simple-directory accepts a name and a role. Throws; the caller formats the error. */
-  const syncIdentity = async (clientId: string, patch: { name?: string, role?: string }): Promise<void> => {
+  /**
+   * Keep the identity in step with the autonomous agent: simple-directory accepts a name, a role and its maximum
+   * scopes (`null` clears them). Throws; the caller formats the error.
+   */
+  const syncIdentity = async (clientId: string, patch: { name?: string, role?: string, scopes?: string[] | null }): Promise<void> => {
     await $crossServiceFetch(`${nhisUrl}/${clientId}`, { method: 'PATCH', body: patch, credentials: 'include' })
+  }
+
+  /** The scopes simple-directory knows: what an identity's maximum scopes may name. */
+  const readScopes = async (): Promise<ScopeRow[]> => scopeRows(await $crossServiceFetch(`${$sdUrl}/api/scopes`, { credentials: 'include' }))
+
+  /**
+   * The maximum scopes of this identity, from the organization's identity list (simple-directory has no
+   * single-identity read). One missing from the list is declared outside the directory's API (its files, in
+   * dev): its scopes are not editable here.
+   */
+  const readIdentityScopes = async (clientId: string): Promise<{ scopes: string[], managedElsewhere: boolean }> => {
+    const list = await $crossServiceFetch<{ results?: { id: string, scopes?: string[] }[] }>(nhisUrl, { credentials: 'include' })
+    const nhi = list.results?.find(n => n.id === clientId)
+    return nhi ? { scopes: nhi.scopes ?? [], managedElsewhere: false } : { scopes: [], managedElsewhere: true }
   }
 
   /** Delete the identity from the directory. Throws; the caller formats the error. */
@@ -112,5 +130,5 @@ export function useAutonomousAgentEnrolment (accountType: string, accountId: str
     await $crossServiceFetch(`${nhisUrl}/${clientId}`, { method: 'DELETE', credentials: 'include' })
   }
 
-  return { enrolling, error, enrol, readIssuer, syncIdentity, removeIdentity }
+  return { enrolling, error, enrol, readIssuer, syncIdentity, readScopes, readIdentityScopes, removeIdentity }
 }

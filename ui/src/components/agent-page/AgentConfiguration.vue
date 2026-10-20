@@ -121,6 +121,23 @@
             @update:model-value="(data: any) => onPartUpdate('security', data)"
           />
         </v-form>
+        <!-- Not part of the agent document: the identity's maximum scopes live on its NHI in simple-directory. -->
+        <template v-if="agent.nhi?.clientId">
+          <v-alert
+            v-if="scopesError"
+            type="error"
+            variant="tonal"
+            class="my-2"
+            data-testid="autonomous-agent-scopes-error"
+            :text="scopesError"
+          />
+          <nhi-scopes-field
+            v-model="scopes"
+            :items="scopeItems"
+            :readonly="scopesElsewhere"
+            class="mt-4"
+          />
+        </template>
       </v-tabs-window-item>
       <v-tabs-window-item
         value="memory"
@@ -162,6 +179,7 @@ en:
   enrol: Create the identity
   enrolFailed: The identity of this autonomous agent could not be created
   saveFirst: Save or cancel your changes before creating the identity.
+  scopesRefused: "The directory refused the scopes, nothing was saved: {message}"
   syncFailed: "The agent is saved, but the directory did not accept the new {field}: {message}. The identity keeps the previous value."
   fields:
     name: name
@@ -180,6 +198,7 @@ fr:
   enrol: Créer l'identité
   enrolFailed: L'identité de cet agent autonome n'a pas pu être créée
   saveFirst: Enregistrez ou annulez vos modifications avant de créer l'identité.
+  scopesRefused: "L'annuaire a refusé les portées, rien n'a été enregistré : {message}"
   syncFailed: "L'agent est enregistré, mais l'annuaire n'a pas accepté le nouveau {field} : {message}. L'identité garde l'ancienne valeur."
   fields:
     name: nom
@@ -209,6 +228,8 @@ import VjsfAutonomousAgentFormSecurity from '~/components/vjsf/vjsf-autonomous-a
 import VjsfAutonomousAgentFormMemory from '~/components/vjsf/vjsf-autonomous-agent-form-memory.vue'
 import AgentMemoryPanel from '~/components/AgentMemoryPanel.vue'
 import FormActions from '~/components/FormActions.vue'
+import NhiScopesField from '~/components/agent-page/NhiScopesField.vue'
+import { sameScopes, scopesPatchValue, type ScopeRow } from '~/utils/nhi-scopes'
 import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
 import { enrolmentErrorMessage } from '~/utils/autonomous-agent-enrolment-error'
 import { rewriteSimpleDirectoryUrl } from '~/utils/simple-directory-url'
@@ -247,12 +268,21 @@ const slicedFields = tabKeys.flatMap(key => TAB_FIELDS[key])
 // agent. It also fills the defaults the forms materialize, so a page merely opened has nothing to save.
 const draft = ref<Record<string, any>>({})
 const saved = ref<Record<string, any>>({})
+// The identity's maximum scopes, edited beside the draft: they are the NHI's in simple-directory, not the agent's.
+const scopes = ref<string[]>([])
+const savedScopes = ref<string[]>([])
+const scopesElsewhere = ref(false)
+const scopeItems = ref<ScopeRow[]>([])
+const scopesError = ref<string | null>(null)
+const scopesChanged = computed(() => !scopesElsewhere.value && !sameScopes(scopes.value, savedScopes.value))
+
 const reset = () => {
   draft.value = autonomousAgentEditDraft(props.agent)
   saved.value = autonomousAgentEditDraft(props.agent)
+  scopes.value = [...savedScopes.value]
 }
 
-const hasDiff = computed(() => JSON.stringify(canonical(draft.value)) !== JSON.stringify(canonical(saved.value)))
+const hasDiff = computed(() => scopesChanged.value || JSON.stringify(canonical(draft.value)) !== JSON.stringify(canonical(saved.value)))
 
 // The agent is re-read after a change made outside this form — the header's enabled switch saves on its
 // own. Unsaved edits survive it: the stored agent becomes the new baseline, and only `enabled` (on no tab)
@@ -357,7 +387,23 @@ const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled &&
 
 // ---- identity (federated with simple-directory, client-side) ----
 
-const { enrolling, error: enrolError, enrol, syncIdentity } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
+const { enrolling, error: enrolError, enrol, syncIdentity, readScopes, readIdentityScopes } = useAutonomousAgentEnrolment(props.accountType, props.accountId)
+
+const loadScopes = async (clientId: string | undefined) => {
+  if (!clientId) return
+  readScopes().then(rows => { scopeItems.value = rows }).catch(() => { scopeItems.value = [] })
+  try {
+    const identity = await readIdentityScopes(clientId)
+    savedScopes.value = identity.scopes
+    scopesElsewhere.value = identity.managedElsewhere
+  } catch {
+    // unreadable (not an organization admin, the directory down): shown, not editable
+    savedScopes.value = []
+    scopesElsewhere.value = true
+  }
+  scopes.value = [...savedScopes.value]
+}
+watch(() => props.agent.nhi?.clientId, loadScopes, { immediate: true })
 
 // Arriving from the creation dialog whose enrolment failed: its reason (a transient notification there) is
 // shown persistently, beside the retry button.
@@ -379,10 +425,23 @@ const save = useAsyncAction(async () => {
   const body = draft.value
   // Against the saved baseline, before it is replaced by the save: what changed for the identity.
   const patch = identityPatch(saved.value, body)
+  const clientId = body.nhi?.clientId
+  // The scopes first, and a refusal stops the save: an administrator narrowing them must never be left
+  // with a saved agent that still has the wider reach. The PUT follows even when only they changed, since it
+  // is what drops the agent's sessions (forgetAgentSessions), so the next turn carries the new scopes.
+  if (clientId && scopesChanged.value) {
+    try {
+      await syncIdentity(clientId, { scopes: scopesPatchValue(scopes.value) })
+      scopesError.value = null
+      savedScopes.value = [...scopes.value]
+    } catch (err) {
+      scopesError.value = t('scopesRefused', { message: enrolmentErrorMessage(err) })
+      throw err
+    }
+  }
   await $fetch(`${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${props.agent.id}`, {
     method: 'PUT', body, credentials: 'include'
   })
-  const clientId = body.nhi?.clientId
   if (clientId && patch) {
     try {
       await syncIdentity(clientId, patch)

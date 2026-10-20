@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { autonomousAgentNhiBody, autonomousAgentNhiName, autonomousAgentSubject, identityPatch } from '@agents/shared/autonomous-agent-identity'
 import { enrolmentErrorMessage } from '../../../ui/src/utils/autonomous-agent-enrolment-error.ts'
 import { buildNhi } from '../../../api/src/autonomous-agents/operations.ts'
+import { scopeRows, sameScopes, scopesPatchValue } from '../../../ui/src/utils/nhi-scopes.ts'
 
 const issuer = 'https://example.test/agents/api/nhi'
 
@@ -141,5 +142,30 @@ test.describe('identityPatch', () => {
   test('the registration body and the rename use the same name', () => {
     const body = autonomousAgentNhiBody({ agentId: 'a', title: 'Support', issuer, role: undefined })
     assert.equal(body.name, autonomousAgentNhiName('Support'))
+  })
+})
+
+test('the NHI body carries scopes only when some are chosen', () => {
+  const issuer = 'http://i'
+  assert.deepEqual(autonomousAgentNhiBody({ agentId: 'a', title: 'A', issuer, scopes: ['datasets:read'] }).scopes, ['datasets:read'])
+  assert.equal('scopes' in autonomousAgentNhiBody({ agentId: 'a', title: 'A', issuer, scopes: [] }), false)
+  assert.equal('scopes' in autonomousAgentNhiBody({ agentId: 'a', title: 'A', issuer }), false)
+})
+
+test.describe('nhi scopes', () => {
+  test('simple-directory\'s scope list becomes sorted rows, with a description whatever its form', () => {
+    assert.deepEqual(scopeRows({ scopes: { 'datasets:read': 'Read datasets', 'all:read': { description: 'Read everything', includes: ['datasets:read'] } } }), [
+      { scope: 'all:read', description: 'Read everything' },
+      { scope: 'datasets:read', description: 'Read datasets' }
+    ])
+    assert.deepEqual(scopeRows({}), [])
+  })
+  test('two selections are the same whatever their order', () => {
+    assert.equal(sameScopes(['a', 'b'], ['b', 'a']), true)
+    assert.equal(sameScopes(['a'], ['a', 'b']), false)
+  })
+  test('an empty selection clears the stored scopes: null, never an empty array', () => {
+    assert.equal(scopesPatchValue([]), null)
+    assert.deepEqual(scopesPatchValue(['datasets:read']), ['datasets:read'])
   })
 })
