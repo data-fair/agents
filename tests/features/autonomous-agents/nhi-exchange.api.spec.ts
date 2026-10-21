@@ -117,7 +117,7 @@ test.describe('NHI exchange', () => {
     try {
       await assert.rejects(
         admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
-          title: 'Portal enrolment', persona: 'x', mcpServers: [], enabled: true, nhi: { clientId: 'test-autonomous-agent-nhi' }
+          title: 'Portal enrolment', persona: 'x', mcpServers: [], enabled: true, nhi: { clientId: 'nhi-portal-probe' }
         }, { headers: { 'x-forwarded-host': portal, host: portal } }),
         (err: any) => {
           assert.equal(err.status, 400, JSON.stringify(err.data))
