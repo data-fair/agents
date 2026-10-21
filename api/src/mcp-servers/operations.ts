@@ -149,6 +149,15 @@ export function unknownMcpServerIds (servers: GlobalMcpServer[], refs: { serverI
   return refs.map(ref => ref.serverId).filter(id => !known.has(id))
 }
 
+/** What a call carries on a site: the person's cookie (a personal assistant), or the agent's bearer token. */
+export type SiteCredential = { cookie: string } | { bearer: string }
+
+/** The one place a credential becomes headers. */
+export function credentialHeaders (credential: SiteCredential | undefined): { cookie: string } | { authorization: string } | Record<string, never> {
+  if (!credential) return {}
+  return 'cookie' in credential ? { cookie: credential.cookie } : { authorization: `Bearer ${credential.bearer}` }
+}
+
 /**
  * Where a turn's calls act, and with which credential (see SiteCredentials users in ./client.ts).
  * A configured agent's comes from its account sites (nhi/service.ts), the personal assistant's from
@@ -167,8 +176,8 @@ export interface SiteCredentials {
    * could not be listed (`unconfirmed`: the site is not known to be foreign). The system prompt says so.
    */
   home: 'account' | 'anonymous' | 'unconfirmed'
-  /** The cookie to send to a site, or undefined to call it anonymously. Rejects when an account site's exchange fails. */
-  cookieFor: (siteUrl: string) => Promise<string | undefined>
+  /** The credential to send to a site, or undefined to call it anonymously. Rejects when an account site's token request fails. */
+  credentialFor: (siteUrl: string) => Promise<SiteCredential | undefined>
   /**
    * Who asks, for the tool-listing cache: what a site-bound server lists may depend on it. Stable for as
    * long as the identity is (an agent's id; a hash of the person's session), never the credential itself.
@@ -186,25 +195,22 @@ export function personSiteCredentials (socketSite: string | undefined, cookie: s
     clientIp,
     portals: [],
     home: 'account',
-    cookieFor: async site => site === socketSite ? cookie : undefined,
+    credentialFor: async site => site === socketSite && cookie ? { cookie } : undefined,
     listingIdentity: cookie ? `person:${createHash('sha256').update(cookie).digest('hex')}` : 'anonymous'
   }
 }
 
 /**
  * The headers of one call. A site-bound entry (`nhi-session`: a stack service) is told which site it
- * acts on, and carries the session of THAT site when there is one — absent, it is called anonymously,
- * which is what acting outside the account means. A cookie never travels without its site.
- *
- * A cookie rather than a bearer token: @data-fair/lib-express reads sessions from the id_token /
- * id_token_sign cookies only and parses no Authorization header.
+ * acts on, and carries the credential of THAT site when there is one — absent, it is called anonymously,
+ * which is what acting outside the account means. A credential never travels without its site.
  */
-export function callHeaders (server: GlobalMcpServer, siteUrl: string | undefined, cookieHeader: string | undefined, clientIp?: string): Record<string, string> {
+export function callHeaders (server: GlobalMcpServer, siteUrl: string | undefined, credential: SiteCredential | undefined, clientIp?: string): Record<string, string> {
   if (server.auth === 'nhi-session') {
     if (!siteUrl) return {}
     return {
       ...forwardedSiteHeaders(siteUrl),
-      ...(cookieHeader ? { cookie: cookieHeader } : {}),
+      ...credentialHeaders(credential),
       // whoever the call is for, so the stack limits that person as if they called it directly
       ...(clientIp ? { 'x-forwarded-for': clientIp } : {})
     }

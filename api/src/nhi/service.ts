@@ -210,7 +210,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   // exchange it does not use: a turn on public tools stays as fast as before sites existed.
   const catalog = config.mcpServers ?? []
   if (autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
-    return { homeSite: home, clientIp, portals: [], home: 'account', cookieFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
+    return { homeSite: home, clientIp, portals: [], home: 'account', credentialFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
   }
   let listed: string[] | undefined
   try {
@@ -225,11 +225,11 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     clientIp,
     portals,
     home: placement,
-    cookieFor: site => {
+    credentialFor: async site => {
       const origin = siteOrigin(site)
-      if (!account.includes(origin)) return Promise.resolve(undefined)
+      if (!account.includes(origin)) return undefined
       // Renewed by the broker when it nears its expiry: a turn may outlast a session.
-      return getAutonomousAgentSession(autonomousAgent, origin)
+      return { cookie: await getAutonomousAgentSession(autonomousAgent, origin) }
     },
     listingIdentity: `agent:${autonomousAgent.id}`
   }

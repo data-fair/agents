@@ -17,12 +17,12 @@ import { FsBackend } from '../../../api/src/files/fs.ts'
 import { createTurnFiles } from '../../../api/src/files/turn-files.ts'
 
 const publicIps = ['127.0.0.1', '::1']
-const seen: { server: 'a' | 'b', url: string, cookie?: string }[] = []
+const seen: { server: 'a' | 'b', url: string, cookie?: string, authorization?: string }[] = []
 let a: http.Server, b: http.Server, A: string, B: string
 
 const start = (name: 'a' | 'b', routes: Record<string, (req: http.IncomingMessage, res: http.ServerResponse) => void>) => {
   const server = http.createServer((req, res) => {
-    seen.push({ server: name, url: req.url ?? '', cookie: req.headers.cookie })
+    seen.push({ server: name, url: req.url ?? '', cookie: req.headers.cookie, authorization: req.headers.authorization })
     const route = routes[(req.url ?? '').split('?')[0]]
     if (route) route(req, res); else res.writeHead(404).end()
   })
@@ -70,12 +70,21 @@ test.describe('openDownload', () => {
   })
 
   test('a bound-site download never leaves its origin, and the cookie goes to that origin only', async () => {
-    const opened = await openDownload({ url: `${A}/hop`, allowedUrls: [], site: { origin: A, cookie: 'id_token=abc' }, publicIps })
+    const opened = await openDownload({ url: `${A}/hop`, allowedUrls: [], site: { origin: A, credential: { cookie: 'id_token=abc' } }, publicIps })
     opened.body.destroy()
     assert.deepEqual(seen.map(s => [s.server, s.cookie]), [['a', 'id_token=abc'], ['a', 'id_token=abc']])
     seen.length = 0
-    await assert.rejects(openDownload({ url: `${A}/away`, allowedUrls: [], site: { origin: A, cookie: 'id_token=abc' }, publicIps }), /is not on http:\/\/localhost:\d+, the site this file was linked from/)
+    await assert.rejects(openDownload({ url: `${A}/away`, allowedUrls: [], site: { origin: A, credential: { cookie: 'id_token=abc' } }, publicIps }), /is not on http:\/\/localhost:\d+, the site this file was linked from/)
     assert.ok(!seen.some(s => s.server === 'b'), 'the other origin is never contacted')
+  })
+
+  test('a bearer goes to its site only: a redirect off it is refused before the other origin is contacted', async () => {
+    const opened = await openDownload({ url: `${A}/hop`, allowedUrls: [], site: { origin: A, credential: { bearer: 'tok' } }, publicIps })
+    opened.body.destroy()
+    assert.deepEqual(seen.map(s => [s.server, s.authorization, s.cookie]), [['a', 'Bearer tok', undefined], ['a', 'Bearer tok', undefined]])
+    seen.length = 0
+    await assert.rejects(openDownload({ url: `${A}/away`, allowedUrls: [B], site: { origin: A, credential: { bearer: 'tok' } }, publicIps }), /is not on http:\/\/localhost:\d+, the site this file was linked from/)
+    assert.ok(!seen.some(s => s.server === 'b'), 'the bearer never reaches the other origin')
   })
 
   test('messages show origin and path only, never a query', async () => {
@@ -144,7 +153,7 @@ test.describe('saveUrl', () => {
 test.describe('createLinkOpener', () => {
   test('only a catalog link on the bound site carries the cookie and skips the allowlist', async () => {
     const asked: string[] = []
-    const open = createLinkOpener({ sites: { cookieFor: async (site: string) => { asked.push(site); return 'id_token=abc' } } as any, allowedUrls: [], publicIps })
+    const open = createLinkOpener({ sites: { credentialFor: async (site: string) => { asked.push(site); return { cookie: 'id_token=abc' } } } as any, allowedUrls: [], publicIps })
     const bound = { catalog: true, site: A }
     ;(await open({ uri: `${A}/data.csv`, name: 'd' }, bound)).body.destroy()
     assert.deepEqual(asked, [A])
@@ -160,7 +169,7 @@ test.describe('createLinkOpener', () => {
     }
     assert.deepEqual(asked, [A], 'no session was even asked for')
     assert.equal(seen.length, 0)
-    const anonymous = createLinkOpener({ sites: { cookieFor: async () => 'id_token=abc' } as any, allowedUrls: [A], publicIps })
+    const anonymous = createLinkOpener({ sites: { credentialFor: async () => ({ cookie: 'id_token=abc' }) } as any, allowedUrls: [A], publicIps })
     ;(await anonymous({ uri: `${A}/data.csv`, name: 'd' }, { catalog: false, site: A })).body.destroy()
     assert.deepEqual(seen.map(s => s.cookie), [undefined])
   })

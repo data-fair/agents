@@ -8,6 +8,7 @@
 import crypto from 'node:crypto'
 import { forwardedSiteHeaders } from '../sites/operations.ts'
 import type { CipheredContent } from '../cipher/operations.ts'
+import type { SiteCredential } from '../mcp-servers/operations.ts'
 
 /** The ES256 private key this deployment signs NHI assertions with. */
 export interface NhiPrivateJwk {
@@ -209,31 +210,37 @@ export function buildAssertionClaims (opts: {
 }
 
 /**
- * simple-directory splits the session JWT across two cookies: `id_token` carries
- * `header.payload` and `id_token_sign` the signature (hence the cookie list in
- * lib-express's unsetCookies). So the claims are the SECOND dot-separated segment of
- * `id_token`, base64url-encoded.
+ * The claims a credential carries. A person's session: simple-directory splits the session JWT across
+ * two cookies, `id_token` carrying `header.payload` and `id_token_sign` the signature (hence the cookie
+ * list in lib-express's unsetCookies), so the claims are the SECOND dot-separated segment of `id_token`.
+ * An agent's bearer: an `at+jwt` access token, whose payload is its second segment. Both base64url.
  *
  * Deliberately does NOT verify the signature, and nothing may be authorized on the
  * strength of what it returns: this process just obtained the token from
  * simple-directory itself, and this is a diagnostic read of claims we already hold.
  */
-export function decodeSessionClaims (cookieHeader: string): Record<string, any> {
-  const pair = cookieHeader.split(';').map(c => c.trim()).find(c => c.startsWith('id_token='))
-  if (!pair) throw new Error('no id_token cookie in the session')
-  const segments = pair.slice('id_token='.length).split('.')
-  if (segments.length < 2) throw new Error('id_token cookie is not a header.payload pair')
+export function credentialClaims (credential: SiteCredential): Record<string, any> {
+  let token: string
+  if ('bearer' in credential) {
+    token = credential.bearer
+  } else {
+    const pair = credential.cookie.split(';').map(c => c.trim()).find(c => c.startsWith('id_token='))
+    if (!pair) throw new Error('no id_token cookie in the session')
+    token = pair.slice('id_token='.length)
+  }
+  const segments = token.split('.')
+  if (segments.length < 2) throw new Error('the session token is not a header.payload pair')
   return JSON.parse(Buffer.from(segments[1], 'base64url').toString('utf8'))
 }
 
 /**
- * The scopes a session was granted (its `scope` claim, space-separated), or undefined when it is
- * unrestricted or there is no readable session. Never throws: it describes, it does not authenticate.
+ * The scopes a credential was granted (its `scope` claim, space-separated), or undefined when it is
+ * unrestricted or there is no readable token. Never throws: it describes, it does not authenticate.
  */
-export function sessionScopes (cookieHeader: string | undefined): string[] | undefined {
-  if (!cookieHeader) return undefined
+export function credentialScopes (credential: SiteCredential | undefined): string[] | undefined {
+  if (!credential) return undefined
   try {
-    const scope = decodeSessionClaims(cookieHeader).scope
+    const scope = credentialClaims(credential).scope
     return typeof scope === 'string' && scope.trim() ? scope.trim().split(/\s+/) : undefined
   } catch {
     return undefined

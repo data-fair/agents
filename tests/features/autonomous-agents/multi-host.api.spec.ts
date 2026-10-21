@@ -11,7 +11,7 @@ import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { createSite, deleteSite, portalHost } from '../../support/sites.ts'
-import { sessionScopes } from '../../../api/src/nhi/operations.ts'
+import { credentialScopes } from '../../../api/src/nhi/operations.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -180,6 +180,6 @@ test.describe('Sites of an autonomous agent', () => {
     })
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-scoped-fixture' }, 'call tool echo {"value":"hi"}')
     assert.equal(assistant.parts.find((p: any) => p.toolName === 'echo')?.state, 'output-available', JSON.stringify(assistant.parts))
-    assert.deepEqual(sessionScopes(String(fixture.lastHeaders().cookie)), ['datasets:read'])
+    assert.deepEqual(credentialScopes({ cookie: String(fixture.lastHeaders().cookie) }), ['datasets:read'])
   })
 })

@@ -85,17 +85,17 @@ test.describe('unknownMcpServerIds', () => {
 test.describe('callHeaders against the catalog', () => {
   test('an "nhi-session" catalog entry replays the supplied cookie', () => {
     const registry = servers.find(s => s.id === 'registry') as GlobalMcpServer
-    assert.deepEqual(callHeaders(registry, 'https://a.example.org', 'id_token=abc; id_token_sign=def'), { 'x-forwarded-host': 'a.example.org', 'x-forwarded-proto': 'https', cookie: 'id_token=abc; id_token_sign=def' })
+    assert.deepEqual(callHeaders(registry, 'https://a.example.org', { cookie: 'id_token=abc; id_token_sign=def' }), { 'x-forwarded-host': 'a.example.org', 'x-forwarded-proto': 'https', cookie: 'id_token=abc; id_token_sign=def' })
   })
 
   test('a "none" catalog entry never sends the cookie', () => {
     const publicDocs = servers.find(s => s.id === 'public-docs') as GlobalMcpServer
-    assert.deepEqual(callHeaders(publicDocs, 'https://a.example.org', 'id_token=abc; id_token_sign=def'), {})
+    assert.deepEqual(callHeaders(publicDocs, 'https://a.example.org', { cookie: 'id_token=abc; id_token_sign=def' }), {})
   })
 
   test('an "apiKey" catalog entry sends its configured header, never the cookie', () => {
     const thirdParty = servers.find(s => s.id === 'third-party') as GlobalMcpServer
-    assert.deepEqual(callHeaders(thirdParty, 'https://a.example.org', 'id_token=abc; id_token_sign=def'), { 'x-api-key': 'secret-value' })
+    assert.deepEqual(callHeaders(thirdParty, 'https://a.example.org', { cookie: 'id_token=abc; id_token_sign=def' }), { 'x-api-key': 'secret-value' })
   })
 })
 

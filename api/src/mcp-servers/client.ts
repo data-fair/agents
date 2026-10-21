@@ -12,9 +12,9 @@ import config from '#config'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { callHeaders, listingKey, scopedListingIdentity, connectionKey, entriesForSite, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer, type McpServerRef } from './operations.ts'
+import { callHeaders, listingKey, scopedListingIdentity, connectionKey, entriesForSite, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, codeOutputSchemaFor, type SiteCredentials, type SiteCredential, type GlobalMcpServer, type McpServerRef } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
-import { sessionScopes } from '../nhi/operations.ts'
+import { credentialScopes } from '../nhi/operations.ts'
 import { toolDescription } from '@agents/shared/tool-description'
 import { withPublicMessage, type ToolSet } from '../conversations/operations.ts'
 import { boundGuide, visibleSkills, type ServerGuide, type GuideSkill } from './guides.ts'
@@ -27,11 +27,11 @@ const debug = Debug('agents:mcp-client')
  * rather than fixed when it connects: `cookie` is asked each time, so a session renewed during a long turn
  * (agentSiteCredentials) reaches the calls already holding this connection.
  */
-export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, cookie: () => Promise<string | undefined> = async () => undefined, clientIp?: string) => {
+export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, credential: () => Promise<SiteCredential | undefined> = async () => undefined, clientIp?: string) => {
   const transport = new StreamableHTTPClientTransport(new URL(server.url), {
     fetch: async (url, init) => {
       const headers = new Headers(init?.headers)
-      for (const [name, value] of Object.entries(callHeaders(server, siteUrl, await cookie(), clientIp))) headers.set(name, value)
+      for (const [name, value] of Object.entries(callHeaders(server, siteUrl, await credential(), clientIp))) headers.set(name, value)
       return await fetch(url, { ...init, headers })
     }
   })
@@ -120,7 +120,7 @@ export const TOOL_LISTING_TTL_MS = 60_000
  */
 const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials): Promise<ServerListing> => {
   // the listing is shared across turns: it carries the IP of the turn that lists (tools/list costs the stack nothing)
-  const { client, close } = await connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites), sites.clientIp)
+  const { client, close } = await connectMcpServer(server, siteUrl, credentialOf(server, siteUrl, sites), sites.clientIp)
   try {
     const tools = (await client.listTools()).tools as ListedMcpTool[]
     // What the server says about its own tools comes with the same connection, so a cached listing
@@ -133,8 +133,8 @@ const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: s
 }, { promise: true, maxAge: TOOL_LISTING_TTL_MS, max: 1000, length: 1 })
 
 /** What a call to this server, on this site, authenticates with: the site's session for a site-bound entry, else nothing. */
-const cookieOf = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials) =>
-  async () => server.auth === 'nhi-session' && siteUrl ? await sites.cookieFor(siteUrl) : undefined
+const credentialOf = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials) =>
+  async () => server.auth === 'nhi-session' && siteUrl ? await sites.credentialFor(siteUrl) : undefined
 
 /** Forget every cached listing. The test environment's reset calls it, so specs stay independent. */
 export const clearToolListings = () => { listing.clear() }
@@ -148,7 +148,7 @@ export const clearToolListings = () => { listing.clear() }
  * its expiry (../nhi/service.ts): no exchange per turn.
  */
 const listServer = async (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ServerListing> => {
-  const scopes = server.auth === 'nhi-session' && siteUrl ? sessionScopes(await sites.cookieFor(siteUrl)) : undefined
+  const scopes = server.auth === 'nhi-session' && siteUrl ? credentialScopes(await sites.credentialFor(siteUrl)) : undefined
   const key = listingKey(server, siteUrl, scopedListingIdentity(sites.listingIdentity, scopes))
   if (fresh) listing.delete(key, server, siteUrl, sites)
   return listing(key, server, siteUrl, sites)
@@ -193,8 +193,8 @@ export const openAutonomousAgentTools = async (
     let connection = connections.get(key)
     if (!connection) {
       // The promise is stored before connecting, so two concurrent first calls to the same site share one
-      // connection (and one exchange: cookieFor shares it too) instead of each connecting.
-      connection = connectMcpServer(server, siteUrl, cookieOf(server, siteUrl, sites), sites.clientIp)
+      // connection (and one token request: credentialFor shares it too) instead of each connecting.
+      connection = connectMcpServer(server, siteUrl, credentialOf(server, siteUrl, sites), sites.clientIp)
       connections.set(key, connection)
       // A failed connect is forgotten, so the next call retries rather than replaying the failure.
       connection.catch(() => { if (connections.get(key) === connection) connections.delete(key) })
@@ -331,9 +331,9 @@ export const openAutonomousAgentTools = async (
   // What its identity was granted, as the session of its home site says: what the agent reads about itself.
   let identity: { scopes?: string[] } | undefined
   if (autonomousAgent.nhi && home && listed.some(entry => entry?.server.auth === 'nhi-session' && entry.listedOn === home)) {
-    const cookie = await sites.cookieFor(home)
-    const scopes = sessionScopes(cookie)
-    if (cookie) identity = scopes ? { scopes } : {}
+    const credential = await sites.credentialFor(home)
+    const scopes = credentialScopes(credential)
+    if (credential) identity = scopes ? { scopes } : {}
   }
 
   return { tools, skippedServers, filteredOut, needsFiles, guides, readSkill, close, ...(identity ? { identity } : {}) }

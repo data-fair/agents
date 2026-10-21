@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sessionScopes, accountPlacement, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, credentialClaims, credentialScopes, accountPlacement, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -175,24 +175,24 @@ test.describe('buildAssertionClaims', () => {
   })
 })
 
-test.describe('decodeSessionClaims', () => {
+test.describe('credentialClaims', () => {
   const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: 1_700_000_300 }
   const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
 
   test('reads the claims out of the id_token cookie', () => {
-    assert.deepEqual(decodeSessionClaims(`id_token=${idToken}; id_token_sign=zzz`), claims)
+    assert.deepEqual(credentialClaims({ cookie: `id_token=${idToken}; id_token_sign=zzz` }), claims)
   })
 
   test('finds id_token regardless of position', () => {
-    assert.equal(decodeSessionClaims(`id_token_sign=zzz; id_token=${idToken}`).id, 'nhi-abc')
+    assert.equal(credentialClaims({ cookie: `id_token_sign=zzz; id_token=${idToken}` }).id, 'nhi-abc')
   })
 
   test('throws when there is no id_token cookie', () => {
-    assert.throws(() => decodeSessionClaims('id_token_sign=zzz'), /no id_token cookie/)
+    assert.throws(() => credentialClaims({ cookie: 'id_token_sign=zzz' }), /no id_token cookie/)
   })
 
   test('throws on a cookie that is not a header.payload pair', () => {
-    assert.throws(() => decodeSessionClaims('id_token=nodots'), /header.payload pair/)
+    assert.throws(() => credentialClaims({ cookie: 'id_token=nodots' }), /header.payload pair/)
   })
 
   // describeAutonomousAgentSession's whole purpose is a diagnostic that never leaks the
@@ -205,7 +205,7 @@ test.describe('decodeSessionClaims', () => {
     // a realistic Set-Cookie-derived header: id_token carries header.payload, id_token_sign
     // the signature — exactly the two cookies simple-directory splits the session JWT across.
     const cookieHeader = `id_token=${idToken}; id_token_sign=zzz-signature-blob`
-    const decoded = decodeSessionClaims(cookieHeader)
+    const decoded = credentialClaims({ cookie: cookieHeader })
     assert.deepEqual(decoded, claims)
     const serialized = JSON.stringify(decoded)
     assert.equal(serialized.includes(idToken), false)
@@ -219,7 +219,7 @@ test.describe('decodeSessionClaims', () => {
     const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: Math.floor(Date.now() / 1000) + 120 }
     const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
     const cookieHeader = `id_token=${idToken}; id_token_sign=zzz-signature-blob`
-    const decoded = decodeSessionClaims(cookieHeader)
+    const decoded = credentialClaims({ cookie: cookieHeader })
     const projection = {
       userId: decoded.id,
       userName: decoded.name,
@@ -298,15 +298,24 @@ test.describe('sessionNeedsRenewal', () => {
   })
 })
 
-test.describe('sessionScopes', () => {
+test.describe('credentialScopes', () => {
   const cookieWith = (payload: object) => `id_token=${Buffer.from('{}').toString('base64url')}.${Buffer.from(JSON.stringify(payload)).toString('base64url')}.sig; id_token_sign=x`
   test('reads the scope claim', () => {
-    assert.deepEqual(sessionScopes(cookieWith({ scope: 'datasets:read applications:read' })), ['datasets:read', 'applications:read'])
+    assert.deepEqual(credentialScopes({ cookie: cookieWith({ scope: 'datasets:read applications:read' }) }), ['datasets:read', 'applications:read'])
   })
   test('is undefined for an unrestricted or missing session', () => {
-    assert.equal(sessionScopes(cookieWith({ id: 'x' })), undefined)
-    assert.equal(sessionScopes(undefined), undefined)
-    assert.equal(sessionScopes('other=1'), undefined)
+    assert.equal(credentialScopes({ cookie: cookieWith({ id: 'x' }) }), undefined)
+    assert.equal(credentialScopes(undefined), undefined)
+    assert.equal(credentialScopes({ cookie: 'other=1' }), undefined)
+  })
+  test('reads the claims of a bearer access token', () => {
+    const b64 = (o: object) => Buffer.from(JSON.stringify(o)).toString('base64url')
+    const token = `${b64({ alg: 'ES256', typ: 'at+jwt' })}.${b64({ id: 'nhi1', scope: 'datasets:read' })}.sig`
+    assert.deepEqual(credentialClaims({ bearer: token }), { id: 'nhi1', scope: 'datasets:read' })
+    assert.deepEqual(credentialScopes({ bearer: token }), ['datasets:read'])
+  })
+  test('a bearer that is not a jwt has no scopes, and does not throw', () => {
+    assert.equal(credentialScopes({ bearer: 'opaque' }), undefined)
   })
 })
 

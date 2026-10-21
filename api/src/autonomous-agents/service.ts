@@ -8,7 +8,7 @@ import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated, ass
 import type { Request } from 'express'
 import { listMcpServerCatalog, personSiteCredentials, unknownMcpServerIds, type SiteCredentials, type McpServerRef } from '../mcp-servers/operations.ts'
 import { getAutonomousAgentSession, agentSiteCredentials, forgetAgentSessions, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
-import { decodeSessionClaims, autonomousAgentSubject } from '../nhi/operations.ts'
+import { credentialClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
 import { listExternalToolDescriptors } from '../mcp-servers/external.ts'
 import { envPublicIps } from '../web/public-lookup.ts'
@@ -119,7 +119,7 @@ export const reqAgent = async (req: Request, access: 'instruct' | 'admin' | 'wri
  */
 export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }) => {
   const cookieHeader = await getAutonomousAgentSession(autonomousAgent)
-  const claims = decodeSessionClaims(cookieHeader)
+  const claims = credentialClaims({ cookie: cookieHeader })
   // The listing is a diagnostic of its own: its failure must not hide the session this endpoint exists to show.
   let accountSites: string[] | undefined
   let accountSitesError: string | undefined
@@ -133,7 +133,7 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
     userName: claims.name,
     // From `organizations`, NOT a singular `organization` claim — there is no such claim in the
     // id_token (simple-directory's getTokenPayload builds `organizations`, and the ACTIVE org travels
-    // in the separate id_token_org cookie, which decodeSessionClaims does not read). Reading
+    // in the separate id_token_org cookie, which credentialClaims does not read). Reading
     // `claims.organization?.id` left this permanently undefined, i.e. the one field telling an admin
     // which organization the agent acts in was always blank. Taking [0] is exact rather than a guess:
     // the NHI token route refuses any identity whose `organizations.length !== 1`.
@@ -168,7 +168,7 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  * identity. Descriptions and annotations only — never a credential.
  */
 export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools & EnrolledAutonomousAgent & { owner: AccountKeys, externalMcpServers?: { url: string }[] }) => {
-  // With no home site `cookieFor` is never called, so the enrolment check getAutonomousAgentSession makes
+  // With no home site `credentialFor` is never called, so the enrolment check getAutonomousAgentSession makes
   // would be lost: refuse here rather than list a session server's tools anonymously.
   const catalog = config.mcpServers ?? []
   if (!autonomousAgent.nhi?.clientId && (autonomousAgent.mcpServers ?? []).some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {

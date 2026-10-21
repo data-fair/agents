@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import { callHeaders, personSiteCredentials, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
 
 const cookie = 'id_token=abc; id_token_sign=def'
+const credential = { cookie }
 const portal = 'https://portal.example.org'
 
 const server = (over: Partial<GlobalMcpServer> = {}): GlobalMcpServer =>
@@ -17,25 +18,30 @@ const server = (over: Partial<GlobalMcpServer> = {}): GlobalMcpServer =>
 
 test.describe('callHeaders', () => {
   test('a site-bound entry is told its site, and gets the cookie of that site', () => {
-    assert.deepEqual(callHeaders(server({ auth: 'nhi-session' }), portal, cookie), { 'x-forwarded-host': 'portal.example.org', 'x-forwarded-proto': 'https', cookie })
+    assert.deepEqual(callHeaders(server({ auth: 'nhi-session' }), portal, credential), { 'x-forwarded-host': 'portal.example.org', 'x-forwarded-proto': 'https', cookie })
   })
   test('outside the account: the site, and no cookie', () => {
     assert.deepEqual(callHeaders(server({ auth: 'nhi-session' }), portal, undefined), { 'x-forwarded-host': 'portal.example.org', 'x-forwarded-proto': 'https' })
   })
   test('never a cookie without a site', () => {
-    assert.deepEqual(callHeaders(server({ auth: 'nhi-session' }), undefined, cookie), {})
+    assert.deepEqual(callHeaders(server({ auth: 'nhi-session' }), undefined, credential), {})
   })
   test('a public entry gets nothing, whatever the site', () => {
-    assert.deepEqual(callHeaders(server({ auth: 'none' }), portal, cookie), {})
+    assert.deepEqual(callHeaders(server({ auth: 'none' }), portal, credential), {})
   })
   test('an apiKey entry gets its header only', () => {
-    assert.deepEqual(callHeaders(server({ auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'secret' }), portal, cookie), { 'x-api-key': 'secret' })
+    assert.deepEqual(callHeaders(server({ auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'secret' }), portal, credential), { 'x-api-key': 'secret' })
   })
   test('a site-bound call forwards the person\'s IP when there is one', () => {
-    assert.equal(callHeaders(server({ auth: 'nhi-session' }), portal, cookie, '203.0.113.7')['x-forwarded-for'], '203.0.113.7')
+    assert.equal(callHeaders(server({ auth: 'nhi-session' }), portal, credential, '203.0.113.7')['x-forwarded-for'], '203.0.113.7')
   })
   test('and none on a task run, which acts for no address', () => {
-    assert.equal(callHeaders(server({ auth: 'nhi-session' }), portal, cookie, undefined)['x-forwarded-for'], undefined)
+    assert.equal(callHeaders(server({ auth: 'nhi-session' }), portal, credential, undefined)['x-forwarded-for'], undefined)
+  })
+  test('a bearer travels as authorization, never as a cookie', () => {
+    const headers = callHeaders(server({ auth: 'nhi-session' }), portal, { bearer: 'tok' })
+    assert.equal(headers.authorization, 'Bearer tok')
+    assert.equal('cookie' in headers, false)
   })
   test('a third-party server never receives it', () => {
     assert.equal(callHeaders(server({ auth: 'apiKey', apiKeyHeader: 'x-api-key', apiKey: 'secret' }), portal, undefined, '203.0.113.7')['x-forwarded-for'], undefined)
@@ -48,8 +54,8 @@ test.describe('personSiteCredentials', () => {
     const sites = personSiteCredentials(portal, cookie)
     assert.equal(sites.homeSite, portal)
     assert.deepEqual(sites.portals, [])
-    assert.equal(await sites.cookieFor(portal), cookie)
-    assert.equal(await sites.cookieFor('https://admin.example.org'), undefined)
+    assert.deepEqual(await sites.credentialFor(portal), credential)
+    assert.equal(await sites.credentialFor('https://admin.example.org'), undefined)
   })
   test('their listings are cached per person, under a hash of the session, never the session itself', () => {
     const sites = personSiteCredentials(portal, cookie)

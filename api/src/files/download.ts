@@ -15,7 +15,7 @@ import { request, type Agent } from 'undici'
 import { checkUrl, displayUrl } from '../web/operations.ts'
 import { USER_AGENT } from '../web/client.ts'
 import { envPublicIps, ipList, isPublicAddress, publicDispatcher } from '../web/public-lookup.ts'
-import type { SiteCredentials } from '../mcp-servers/operations.ts'
+import { credentialHeaders, type SiteCredentials, type SiteCredential } from '../mcp-servers/operations.ts'
 import { parseFilePath, linkCredentialSite, type LinkOrigin, type ResourceLink, type DownloadRecord } from './operations.ts'
 import type { TurnFiles } from './turn-files.ts'
 
@@ -36,7 +36,7 @@ export interface DownloadOptions {
   /** The anonymous mode's allowlist (fetch_url's). Unused for a bound site. */
   allowedUrls: string[]
   /** The bound-site mode: the origin the link must stay on, and the session of the call that returned it. */
-  site?: { origin: string, cookie?: string }
+  site?: { origin: string, credential?: SiteCredential }
   publicIps?: string[]
   signal?: AbortSignal
   maxRedirects?: number
@@ -84,7 +84,7 @@ export const openDownload = async (opts: DownloadOptions): Promise<OpenedDownloa
         method: 'GET',
         dispatcher,
         signal,
-        headers: { 'user-agent': USER_AGENT, ...(opts.site?.cookie ? { cookie: opts.site.cookie } : {}) }
+        headers: { 'user-agent': USER_AGENT, ...credentialHeaders(opts.site?.credential) }
       })
     } catch (err: any) {
       throw new Error(`could not fetch ${displayUrl(url)}: ${err?.cause?.message ?? err.message}`)
@@ -151,17 +151,17 @@ export const saveUrl = async (opts: { url: string, path: string, allowedUrls: st
 }
 
 /**
- * How a turn opens the links its tools return (spec §4.2). The session is the turn's own: `cookieFor` is the
+ * How a turn opens the links its tools return (spec §4.2). The credential is the turn's own: `credentialFor` is the
  * per-turn, per-site cache the catalog calls use (nhi/service.ts agentSiteCredentials), so a link fetch
  * reuses the session of the call that produced it. A bound site outside the account has no session: the
  * link is fetched there anonymously, still without the allowlist — the rule is where the URL came from.
  */
-export const createLinkOpener = (opts: { sites: Pick<SiteCredentials, 'cookieFor'>, allowedUrls: string[], publicIps?: string[] }) =>
+export const createLinkOpener = (opts: { sites: Pick<SiteCredentials, 'credentialFor'>, allowedUrls: string[], publicIps?: string[] }) =>
   async (link: ResourceLink, origin: LinkOrigin, signal?: AbortSignal): Promise<OpenedDownload> => {
     const site = linkCredentialSite(link.uri, origin)
     if (site) {
-      const cookie = await opts.sites.cookieFor(site)
-      return await openDownload({ url: link.uri, allowedUrls: [], site: { origin: site, ...(cookie ? { cookie } : {}) }, publicIps: opts.publicIps, signal })
+      const credential = await opts.sites.credentialFor(site)
+      return await openDownload({ url: link.uri, allowedUrls: [], site: { origin: site, ...(credential ? { credential } : {}) }, publicIps: opts.publicIps, signal })
     }
     return await openDownload({ url: link.uri, allowedUrls: opts.allowedUrls, publicIps: opts.publicIps, signal })
   }
