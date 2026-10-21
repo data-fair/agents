@@ -16,7 +16,8 @@
  *   with its reason. An identity failure (`invalid_grant`, 401, 403: the NHI deleted, its client id changed, the
  *   agent left its organization) backs off the identity on every site; any other refusal (`invalid_target`: a site
  *   outside the issuer's realm, a 404: no token endpoint) backs off that site alone — one refused portal must not
- *   take the home site down;
+ *   take the home site down. (simple-directory also answers `invalid_grant` for a site its NHI's organization does
+ *   not own; the agent only asks for sites listed as its organization's, so that is an identity failure here too);
  * - a 429 waits and retries instead of failing the turn.
  *
  * `forget` (the agent saved or deleted) drops an agent's sessions and its back-off. Pure of config and

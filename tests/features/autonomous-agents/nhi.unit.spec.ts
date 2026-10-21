@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiTokenUrl, tokenRequestHeaders, tokenRequestBody, mcpResource, autonomousAgentSubject, buildAssertionClaims, credentialClaims, credentialScopes, accountPlacement, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiTokenUrl, tokenRequestHeaders, tokenRequestBody, mcpResource, autonomousAgentSubject, buildAssertionClaims, credentialClaims, credentialScopes, accountPlacement, sanitizeExchangeError, tokenRequestError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -288,6 +288,15 @@ test.describe('sanitizeExchangeError', () => {
     const sanitized = sanitizeExchangeError(err) as any
     assert.equal(sanitized.exchangeError, 'invalid_grant')
     assert.equal(JSON.stringify({ ...sanitized, message: sanitized.message }).includes('hidden-detail'), false)
+  })
+
+  test('the error a token request throws keeps the status and the OAuth code, names the site, and carries no assertion', () => {
+    const raw = Object.assign(new Error('400 - {"error":"invalid_grant"}'), { status: 400, data: { error: 'invalid_grant' }, config: { data: 'assertion=SECRET' } })
+    const err = tokenRequestError(raw, 'http://p.test') as any
+    assert.equal(err.exchangeStatus, 400)
+    assert.equal(err.exchangeError, 'invalid_grant')
+    assert.match(err.message, /nhi token request failed: .* \(site http:\/\/p\.test\)/)
+    assert.equal(JSON.stringify({ ...err, message: err.message }).includes('SECRET'), false)
   })
 
   test('tolerates a non-error rejection', () => {

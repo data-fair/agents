@@ -211,6 +211,14 @@ export function sanitizeExchangeError (err: unknown): Error {
   return Object.assign(sanitized, typeof status === 'number' ? { exchangeStatus: status } : {}, typeof code === 'string' ? { exchangeError: code } : {})
 }
 
+/** What a failed token request throws: the sanitized error, naming the site, with simple-directory's status and OAuth code (the broker's rejectionScope reads both). */
+export function tokenRequestError (err: unknown, site: string): Error {
+  const sanitized = sanitizeExchangeError(err) as Error & { exchangeStatus?: number, exchangeError?: string }
+  return Object.assign(new Error(`${sanitized.message} (site ${site})`),
+    sanitized.exchangeStatus !== undefined ? { exchangeStatus: sanitized.exchangeStatus } : {},
+    sanitized.exchangeError !== undefined ? { exchangeError: sanitized.exchangeError } : {})
+}
+
 /**
  * The assertion's claims. Signature, iss, sub, aud and exp/nbf are all checked by
  * simple-directory in one jwtVerify call, with requiredClaims ['exp', 'sub', 'iat'].

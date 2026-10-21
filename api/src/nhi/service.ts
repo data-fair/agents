@@ -13,7 +13,7 @@ import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
 import mongo from '#mongo'
 import { cipher, decipher } from '../cipher/operations.ts'
 import { securityKey } from '../cipher/service.ts'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, tokenRequestHeaders, tokenRequestBody, nhiTokenUrl, mcpResource, sanitizeExchangeError, accountPlacement, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, tokenRequestHeaders, tokenRequestBody, nhiTokenUrl, mcpResource, tokenRequestError, accountPlacement, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSites, type ListedSite } from '../sites/operations.ts'
 import { createSessionBroker } from './session-broker.ts'
 
@@ -134,10 +134,9 @@ const requestAgentToken = async (autonomousAgent: EnrolledAutonomousAgent, siteU
     )
   } catch (err) {
     // lib-node's axios interceptor attaches the request body (which carries the
-    // assertion) to the rejected error — see sanitizeExchangeError. Never let the raw
+    // assertion) to the rejected error — see sanitizeExchangeError, which tokenRequestError applies. Never let the raw
     // error escape this call.
-    const sanitized = sanitizeExchangeError(err)
-    throw Object.assign(new Error(`${sanitized.message} (site ${site})`), 'exchangeStatus' in sanitized ? { exchangeStatus: sanitized.exchangeStatus } : {})
+    throw tokenRequestError(err, site)
   }
   const { access_token: value, expires_in: ttlSeconds } = res.data ?? {}
   if (typeof value !== 'string' || !value) throw new Error('nhi token request returned no access token')
