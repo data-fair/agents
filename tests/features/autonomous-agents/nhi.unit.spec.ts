@@ -283,6 +283,13 @@ test.describe('sanitizeExchangeError', () => {
     assert.equal(sanitizeExchangeError(err).message.includes('SECRET'), false)
   })
 
+  test('keeps the OAuth error code, nothing else of the body', () => {
+    const err = Object.assign(new Error('400 - {"error":"invalid_grant"}'), { status: 400, data: { error: 'invalid_grant', error_description: 'hidden-detail' }, response: { status: 400, data: { error: 'invalid_grant', error_description: 'hidden-detail' } } })
+    const sanitized = sanitizeExchangeError(err) as any
+    assert.equal(sanitized.exchangeError, 'invalid_grant')
+    assert.equal(JSON.stringify({ ...sanitized, message: sanitized.message }).includes('hidden-detail'), false)
+  })
+
   test('tolerates a non-error rejection', () => {
     assert.match(sanitizeExchangeError('boom').message, /unknown error/)
   })

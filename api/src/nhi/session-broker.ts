@@ -12,8 +12,11 @@
  * - concurrent asks for one session share one exchange, and at most `maxInFlight` exchanges run at once, the
  *   rest queued: planned tasks on the same schedule, or one admin page's parallel reads, no longer go over the
  *   budget together;
- * - an identity simple-directory REJECTED (400/401/403: the NHI deleted, its client id changed, the agent left
- *   its organization) is not asked again for `rejectionMs`: the failure is answered from here, with its reason;
+ * - a request simple-directory REJECTED is not asked again for `rejectionMs`: the failure is answered from here,
+ *   with its reason. An identity failure (`invalid_grant`, 401, 403: the NHI deleted, its client id changed, the
+ *   agent left its organization) backs off the identity on every site; any other refusal (`invalid_target`: a site
+ *   outside the issuer's realm, a 404: no token endpoint) backs off that site alone — one refused portal must not
+ *   take the home site down;
  * - a 429 waits and retries instead of failing the turn.
  *
  * `forget` (the agent saved or deleted) drops an agent's sessions and its back-off. Pure of config and
@@ -39,7 +42,17 @@ export interface SessionBrokerOptions {
 
 /** simple-directory's status for a failed exchange (sanitizeExchangeError); absent when it never answered. */
 const statusOf = (err: unknown) => (err as { exchangeStatus?: unknown } | undefined)?.exchangeStatus
-const isRejection = (err: unknown) => [400, 401, 403].includes(statusOf(err) as number)
+/**
+ * What a failed exchange says about the future: `identity`, refused whatever the site; `site`, refused on that site;
+ * undefined, not a refusal (the directory down, a 429): not remembered.
+ */
+export function rejectionScope (err: unknown): 'identity' | 'site' | undefined {
+  const status = statusOf(err)
+  if (status === 401 || status === 403) return 'identity'
+  if (status === 400) return (err as { exchangeError?: unknown }).exchangeError === 'invalid_grant' ? 'identity' : 'site'
+  if (status === 404) return 'site'
+  return undefined
+}
 
 export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
   const maxInFlight = opts.maxInFlight ?? 2
@@ -51,7 +64,7 @@ export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
 
   // ttlSeconds is the token's own lifetime once it is known; a pending one renews on the default.
   const sessions = new Map<string, { value: Promise<string>, obtainedAt: number, ttlSeconds?: number }>()
-  const rejections = new Map<string, { until: number, message: string, status: unknown }>()
+  const rejections = new Map<string, { until: number, message: string, status: unknown, error?: unknown }>()
 
   // The gate: a slot per exchange in flight, waiters served in order.
   let inFlight = 0
@@ -85,14 +98,14 @@ export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
 
   return {
     session (key: SessionKey, exchange: () => Promise<IssuedSession>): Promise<string> {
-      const rejection = rejections.get(identityId(key))
-      if (rejection && now() < rejection.until) {
+      const id = sessionId(key)
+      const rejection = [rejections.get(identityId(key)), rejections.get(id)].find(r => r && now() < r.until)
+      if (rejection) {
         return Promise.reject(Object.assign(
           new Error(`${rejection.message} (not asked again before ${new Date(rejection.until).toISOString()})`),
-          { exchangeStatus: rejection.status }
+          { exchangeStatus: rejection.status, ...(rejection.error ? { exchangeError: rejection.error } : {}) }
         ))
       }
-      const id = sessionId(key)
       const held = sessions.get(id)
       if (held && !sessionNeedsRenewal(held.obtainedAt, now(), held.ttlSeconds)) return held.value
       // Timed from BEFORE the exchange, so the renewal point errs early.
@@ -101,7 +114,8 @@ export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
       sessions.set(id, entry)
       entry.value.catch(err => {
         if (sessions.get(id) === entry) sessions.delete(id)
-        if (isRejection(err)) rejections.set(identityId(key), { until: now() + rejectionMs, message: err instanceof Error ? err.message : String(err), status: statusOf(err) })
+        const scope = rejectionScope(err)
+        if (scope) rejections.set(scope === 'identity' ? identityId(key) : id, { until: now() + rejectionMs, message: err instanceof Error ? err.message : String(err), status: statusOf(err), error: (err as { exchangeError?: unknown }).exchangeError })
       })
       return entry.value
     },

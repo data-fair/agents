@@ -11,7 +11,7 @@ import assert from 'node:assert/strict'
 import { createSessionBroker } from '../../../api/src/nhi/session-broker.ts'
 
 const key = (agentId = 'a1', site = 'https://portal.test', clientId = 'c1') => ({ agentId, clientId, site })
-const rejected = (status: number) => Object.assign(new Error(`nhi token request failed: ${status}`), { exchangeStatus: status })
+const rejected = (status: number, error?: string) => Object.assign(new Error(`nhi token request failed: ${status}`), { exchangeStatus: status, ...(error ? { exchangeError: error } : {}) })
 const issued = (value: string, ttlSeconds = 300) => ({ value, ttlSeconds })
 const tick = () => new Promise(resolve => setImmediate(resolve))
 
@@ -82,13 +82,36 @@ test.describe('the NHI session broker', () => {
     let now = 0
     let exchanges = 0
     const broker = createSessionBroker({ now: () => now })
-    const exchange = async () => { exchanges++; throw rejected(401) }
-    await assert.rejects(broker.session(key(), exchange), /401/)
-    await assert.rejects(broker.session(key('a1', 'https://other.test'), exchange), /401.*not asked again before/s, 'any site of that identity')
+    const exchange = async () => { exchanges++; throw rejected(400, 'invalid_grant') }
+    await assert.rejects(broker.session(key(), exchange), /400/)
+    await assert.rejects(broker.session(key('a1', 'https://other.test'), exchange), /400.*not asked again before/s, 'any site of that identity')
     assert.equal(exchanges, 1)
     now += 5 * 60_000
-    await assert.rejects(broker.session(key(), exchange), /401/)
+    await assert.rejects(broker.session(key(), exchange), /400/)
     assert.equal(exchanges, 2, 'asked again once the back-off is over')
+  })
+
+  test('a refused site is backed off alone: the other sites of the identity are still asked', async () => {
+    const asked: string[] = []
+    const broker = createSessionBroker()
+    const exchangeFor = (site: string) => async () => {
+      asked.push(site)
+      if (site === 'https://b.test') throw rejected(400, 'invalid_target')
+      return issued(`token-${site}`)
+    }
+    await assert.rejects(broker.session(key('a1', 'https://b.test'), exchangeFor('https://b.test')), /400/)
+    await assert.rejects(broker.session(key('a1', 'https://b.test'), exchangeFor('https://b.test')), /not asked again before/)
+    assert.equal(await broker.session(key('a1', 'https://a.test'), exchangeFor('https://a.test')), 'token-https://a.test')
+    assert.deepEqual(asked, ['https://b.test', 'https://a.test'])
+  })
+
+  test('an identity refused by the directory is backed off on every site', async () => {
+    let exchanges = 0
+    const broker = createSessionBroker()
+    const exchange = async () => { exchanges++; throw rejected(400, 'invalid_grant') }
+    await assert.rejects(broker.session(key('a1', 'https://a.test'), exchange))
+    await assert.rejects(broker.session(key('a1', 'https://b.test'), exchange), /not asked again before/)
+    assert.equal(exchanges, 1)
   })
 
   test('forgetting an agent drops its sessions and its back-off: a changed enrolment is tried at once', async () => {

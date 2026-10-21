@@ -205,7 +205,10 @@ export function sanitizeExchangeError (err: unknown): Error {
   // reads as "you are not signed in").
   const status = (err as any)?.status ?? (err as any)?.response?.status
   const sanitized = new Error(`nhi token request failed: ${message}`)
-  return typeof status === 'number' ? Object.assign(sanitized, { exchangeStatus: status }) : sanitized
+  // The OAuth error code (`invalid_grant`, `invalid_target`…), nothing else of the body: the broker tells a refused
+  // identity from a refused site by it.
+  const code = (err as any)?.data?.error ?? (err as any)?.response?.data?.error
+  return Object.assign(sanitized, typeof status === 'number' ? { exchangeStatus: status } : {}, typeof code === 'string' ? { exchangeError: code } : {})
 }
 
 /**
