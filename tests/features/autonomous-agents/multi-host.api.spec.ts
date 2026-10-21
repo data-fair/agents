@@ -11,6 +11,7 @@ import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { createSite, deleteSite, portalHost } from '../../support/sites.ts'
+import { sessionScopes } from '../../../api/src/nhi/operations.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -164,5 +165,21 @@ test.describe('Sites of an autonomous agent', () => {
     const homeCall = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami', { host: foreignPortal })
     // the home entry is not offered outside the account: the model is told the tool does not exist
     assert.match(callOf(homeCall.assistant, 'whoami')?.errorText ?? '', /unavailable tool 'whoami'/)
+  })
+
+  test('a scoped identity\'s session carries its maximum scopes to a site-bound server', async () => {
+    // test-scoped-autonomous-agent-nhi holds the maximum scopes ["datasets:read"] (dev/resources/users.template.json);
+    // the exchange asks for no scope, so its session is granted exactly those.
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-scoped-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-scoped-autonomous-agent-nhi',
+      siteUrl: home,
+      issuer,
+      autonomousAgent: { title: 'Scoped probe', persona: 'x', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true }
+    })
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-scoped-fixture' }, 'call tool echo {"value":"hi"}')
+    assert.equal(assistant.parts.find((p: any) => p.toolName === 'echo')?.state, 'output-available', JSON.stringify(assistant.parts))
+    assert.deepEqual(sessionScopes(String(fixture.lastHeaders().cookie)), ['datasets:read'])
   })
 })

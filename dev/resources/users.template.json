@@ -94,5 +94,16 @@
       },
       "subject": "autonomous-agent:dev-fixture"
     }
+  },
+  {
+    "id": "test-scoped-autonomous-agent-nhi",
+    "email": "test-scoped-autonomous-agent-nhi@test.com",
+    "nhi": {
+      "provider": {
+        "issuer": "http://localhost:{NGINX_PORT}/agents/api/nhi"
+      },
+      "subject": "autonomous-agent:test-scoped-fixture",
+      "scopes": ["datasets:read"]
+    }
   }
 ]

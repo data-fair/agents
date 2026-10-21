@@ -12,7 +12,7 @@ import config from '#config'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { callHeaders, listingKey, connectionKey, entriesForSite, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer, type McpServerRef } from './operations.ts'
+import { callHeaders, listingKey, scopedListingIdentity, connectionKey, entriesForSite, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, codeOutputSchemaFor, type SiteCredentials, type GlobalMcpServer, type McpServerRef } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { sessionScopes } from '../nhi/operations.ts'
 import { toolDescription } from '@agents/shared/tool-description'
@@ -149,7 +149,7 @@ export const clearToolListings = () => { listing.clear() }
  */
 const listServer = async (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ServerListing> => {
   const scopes = server.auth === 'nhi-session' && siteUrl ? sessionScopes(await sites.cookieFor(siteUrl)) : undefined
-  const key = listingKey(server, siteUrl, `${sites.listingIdentity}\0${scopes?.join(' ') ?? '*'}`)
+  const key = listingKey(server, siteUrl, scopedListingIdentity(sites.listingIdentity, scopes))
   if (fresh) listing.delete(key, server, siteUrl, sites)
   return listing(key, server, siteUrl, sites)
 }

@@ -210,6 +210,14 @@ export function callHeaders (server: GlobalMcpServer, siteUrl: string | undefine
   return {}
 }
 
+/**
+ * Who asks, with the scopes of the session it lists with: a scope-filtered server lists by them, so an
+ * identity whose scopes changed lists afresh instead of reusing the old tool set. Undefined: unrestricted.
+ */
+export function scopedListingIdentity (listingIdentity: string, scopes: string[] | undefined): string {
+  return `${listingIdentity}\0${scopes ? [...scopes].sort().join(' ') : '*'}`
+}
+
 /** A cached tool listing's key. What a site-bound server lists may depend on the site and on who asks, so both are in it. */
 export function listingKey (server: GlobalMcpServer, siteUrl: string | undefined, listingIdentity: string): string {
   if (server.auth !== 'nhi-session') return `${server.id}\0${server.url}`

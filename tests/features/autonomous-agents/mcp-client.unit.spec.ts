@@ -7,7 +7,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { callHeaders, personSiteCredentials, listingKey, connectionKey, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
+import { callHeaders, personSiteCredentials, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
 
 const cookie = 'id_token=abc; id_token_sign=def'
 const portal = 'https://portal.example.org'
@@ -102,5 +102,16 @@ test.describe('the portal argument', () => {
     assert.deepEqual(splitPortalArgument({ q: 'x', portal: 'portal.example.org' }, true), { portal: 'portal.example.org', args: { q: 'x' } })
     assert.deepEqual(splitPortalArgument({ q: 'x', portal: 3 }, false), { args: { q: 'x', portal: 3 } })
     assert.deepEqual(splitPortalArgument(undefined, true), { args: {} })
+  })
+})
+
+test.describe('scopedListingIdentity', () => {
+  test('a new scope claim lists afresh: two scope sets never share a listing', () => {
+    const a = scopedListingIdentity('agent:x', ['datasets:read'])
+    assert.notEqual(a, scopedListingIdentity('agent:x', ['datasets:read', 'applications:read']))
+    assert.notEqual(a, scopedListingIdentity('agent:x', undefined))
+  })
+  test('the order of the claim does not matter', () => {
+    assert.equal(scopedListingIdentity('agent:x', ['b', 'a']), scopedListingIdentity('agent:x', ['a', 'b']))
   })
 })
