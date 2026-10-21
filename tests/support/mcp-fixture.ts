@@ -302,8 +302,9 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     { description: 'Says which site the call acts on, and as whom', inputSchema: {}, annotations: { readOnlyHint: true } },
     async () => {
       record('whoami')
-      const cookie = String(headers.cookie ?? '')
-      const token = /(?:^|;\s*)id_token=([^;]+)/.exec(cookie)?.[1]
+      // an autonomous agent's bearer, or a person's session cookie
+      const bearer = /^Bearer (.+)$/.exec(String(headers.authorization ?? ''))?.[1]
+      const token = bearer ?? /(?:^|;\s*)id_token=([^;]+)/.exec(String(headers.cookie ?? ''))?.[1]
       let userId: string | null = null
       if (token) {
         try { userId = JSON.parse(Buffer.from(token.split('.')[1], 'base64url').toString('utf8')).id ?? null } catch {}

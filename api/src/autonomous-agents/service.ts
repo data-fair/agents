@@ -7,7 +7,7 @@ import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated, assertAccountRole } from '@data-fair/lib-express'
 import type { Request } from 'express'
 import { listMcpServerCatalog, personSiteCredentials, unknownMcpServerIds, type SiteCredentials, type McpServerRef } from '../mcp-servers/operations.ts'
-import { getAutonomousAgentSession, agentSiteCredentials, forgetAgentSessions, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
+import { getAgentToken, agentSiteCredentials, forgetAgentSessions, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { credentialClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
 import { listExternalToolDescriptors } from '../mcp-servers/external.ts'
@@ -112,14 +112,13 @@ export const reqAgent = async (req: Request, access: 'instruct' | 'admin' | 'wri
 
 /** 400 naming every unknown server id, rather than storing a reference that can never resolve. */
 /**
- * Obtain a session for this autonomous agent and report WHICH identity it got, without
- * ever returning the cookie. Diagnostic surface for admins, and the end-to-end proof
+ * Obtain a token for this autonomous agent and report WHICH identity it got, without
+ * ever returning the token. Diagnostic surface for admins, and the end-to-end proof
  * that issuer/jwks/claims/audience agree — and where it has its account (the sites it acts on
- * with its own session).
+ * as itself).
  */
 export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }) => {
-  const cookieHeader = await getAutonomousAgentSession(autonomousAgent)
-  const claims = credentialClaims({ cookie: cookieHeader })
+  const claims = credentialClaims({ bearer: await getAgentToken(autonomousAgent) })
   // The listing is a diagnostic of its own: its failure must not hide the session this endpoint exists to show.
   let accountSites: string[] | undefined
   let accountSitesError: string | undefined
@@ -132,11 +131,8 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
     userId: claims.id,
     userName: claims.name,
     // From `organizations`, NOT a singular `organization` claim — there is no such claim in the
-    // id_token (simple-directory's getTokenPayload builds `organizations`, and the ACTIVE org travels
-    // in the separate id_token_org cookie, which credentialClaims does not read). Reading
-    // `claims.organization?.id` left this permanently undefined, i.e. the one field telling an admin
-    // which organization the agent acts in was always blank. Taking [0] is exact rather than a guess:
-    // the NHI token route refuses any identity whose `organizations.length !== 1`.
+    // token (simple-directory's sdClaims builds `organizations`). Taking [0] is exact rather than a
+    // guess: simple-directory refuses any NHI whose `organizations.length !== 1`.
     organization: claims.organizations?.[0]?.id,
     nhi: claims.nhi === 1 || claims.nhi === true,
     expiresIn: typeof claims.exp === 'number' ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : undefined,
@@ -146,7 +142,7 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
 }
 
 /**
- * Perform a real exchange so a misconfigured enrolment fails at configuration time
+ * Perform a real token request so a misconfigured enrolment fails at configuration time
  * rather than inside the first run — the lesson nhi-proxy's `enroll` encodes.
  *
  * Called only when clientId/siteUrl/issuer CHANGED: exchanges spend a rate-limit budget every
@@ -157,7 +153,7 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
 export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAgent) => {
   forgetAgentSessions(autonomousAgent.id)
   try {
-    await getAutonomousAgentSession(autonomousAgent)
+    await getAgentToken(autonomousAgent)
   } catch (err: any) {
     throw httpError(400, `the non-human identity "${autonomousAgent.nhi?.clientId}" could not be verified against simple-directory: ${err.message}. Check that the NHI exists, that its issuer is ${autonomousAgent.nhi?.issuer} and that its subject is ${autonomousAgentSubject(autonomousAgent.id)}.`)
   }
@@ -168,7 +164,7 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
  * identity. Descriptions and annotations only — never a credential.
  */
 export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAgentForTools & EnrolledAutonomousAgent & { owner: AccountKeys, externalMcpServers?: { url: string }[] }) => {
-  // With no home site `credentialFor` is never called, so the enrolment check getAutonomousAgentSession makes
+  // With no home site `credentialFor` is never called, so the enrolment check getAgentToken makes
   // would be lost: refuse here rather than list a session server's tools anonymously.
   const catalog = config.mcpServers ?? []
   if (!autonomousAgent.nhi?.clientId && (autonomousAgent.mcpServers ?? []).some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {

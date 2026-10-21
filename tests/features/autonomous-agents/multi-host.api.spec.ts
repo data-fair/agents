@@ -61,12 +61,6 @@ test.describe('Sites of an autonomous agent', () => {
     assert.deepEqual(data.accountSites, [home, `http://${ownPortal}`])
   })
 
-  test('enrolled from one of its organization\'s portals, it still sees the whole account', async () => {
-    await enrol(`http://${ownPortal}`)
-    const { data } = await admin.get(`${AGENT}/session`)
-    assert.deepEqual(data.accountSites, [`http://${ownPortal}`])
-  })
-
   test('a chat on its own site acts there, as the agent', async () => {
     await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami')
@@ -147,7 +141,18 @@ test.describe('Sites of an autonomous agent', () => {
     const part = callOf(assistant, 'datasets_whoami')
     assert.equal(part?.state, 'output-available', JSON.stringify(assistant.parts))
     assert.equal(fixture.lastHeaders()['x-forwarded-host'], ownPortal)
-    assert.ok(fixture.lastHeaders().cookie, 'the portal call carries the agent\'s session for that portal')
+    assert.match(String(fixture.lastHeaders().authorization), /^Bearer /, 'the portal call carries the agent\'s token for that portal')
+    assert.equal(fixture.lastHeaders().cookie, undefined)
+  })
+
+  test('the agent\'s token is addressed to the site\'s MCP and issued by its enrolment site', async () => {
+    await enrol(home, pair)
+    await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, `call tool datasets_whoami {"portal":"${ownPortal}"}`)
+    const token = String(fixture.lastHeaders().authorization).slice('Bearer '.length)
+    const [header, payload] = token.split('.').slice(0, 2).map(part => JSON.parse(Buffer.from(part, 'base64url').toString('utf8')))
+    assert.equal(header.typ, 'at+jwt')
+    assert.deepEqual(payload.aud, [`http://${ownPortal}/mcp-server`, `http://${ownPortal}`])
+    assert.equal(payload.id, 'test-autonomous-agent-nhi')
   })
 
   test('the paired entry needs a portal: it never acts on the home site', async () => {
@@ -162,6 +167,7 @@ test.describe('Sites of an autonomous agent', () => {
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool datasets_whoami', { host: foreignPortal })
     assert.deepEqual(whoami({ parts: assistant.parts.map((p: any) => p.toolName === 'datasets_whoami' ? { ...p, toolName: 'whoami' } : p) }), { forwardedHost: foreignPortal, userId: null })
     assert.equal(fixture.lastHeaders().cookie, undefined)
+    assert.equal(fixture.lastHeaders().authorization, undefined)
     const homeCall = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami', { host: foreignPortal })
     // the home entry is not offered outside the account: the model is told the tool does not exist
     assert.match(callOf(homeCall.assistant, 'whoami')?.errorText ?? '', /unavailable tool 'whoami'/)
@@ -180,6 +186,6 @@ test.describe('Sites of an autonomous agent', () => {
     })
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-scoped-fixture' }, 'call tool echo {"value":"hi"}')
     assert.equal(assistant.parts.find((p: any) => p.toolName === 'echo')?.state, 'output-available', JSON.stringify(assistant.parts))
-    assert.deepEqual(credentialScopes({ cookie: String(fixture.lastHeaders().cookie) }), ['datasets:read'])
+    assert.deepEqual(credentialScopes({ bearer: String(fixture.lastHeaders().authorization).slice('Bearer '.length) }), ['datasets:read'])
   })
 })

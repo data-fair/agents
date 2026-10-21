@@ -104,9 +104,9 @@ test.describe('NHI exchange', () => {
     await fixture('nhi-doesnotexist')
     const refusal = async () => await admin.get(sessionRoute).then(() => '', (err: any) => JSON.stringify(err.data))
     const rejected = await refusal()
-    assert.match(rejected, /nhi token exchange failed/)
+    assert.match(rejected, /nhi token request failed/)
     assert.doesNotMatch(rejected, /not asked again/)
-    assert.match(await refusal(), /nhi token exchange failed.*not asked again before/, 'answered here, simple-directory not called')
+    assert.match(await refusal(), /nhi token request failed.*not asked again before/, 'answered here, simple-directory not called')
   })
 
   test('a client-supplied nhi.siteUrl / nhi.issuer is discarded, not trusted', async () => {

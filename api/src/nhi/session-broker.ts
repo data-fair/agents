@@ -24,6 +24,9 @@ import { sessionNeedsRenewal } from './operations.ts'
 
 export interface SessionKey { agentId: string, clientId: string, site: string }
 
+/** What an exchange obtained: the credential, and how long simple-directory says it lives. */
+export interface IssuedSession { value: string, ttlSeconds: number }
+
 export interface SessionBrokerOptions {
   maxInFlight?: number
   rejectionMs?: number
@@ -46,7 +49,8 @@ export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
   const now = opts.now ?? Date.now
   const wait = opts.wait ?? ((ms: number) => new Promise<void>(resolve => setTimeout(resolve, ms).unref()))
 
-  const sessions = new Map<string, { cookie: Promise<string>, obtainedAt: number }>()
+  // ttlSeconds is the token's own lifetime once it is known; a pending one renews on the default.
+  const sessions = new Map<string, { value: Promise<string>, obtainedAt: number, ttlSeconds?: number }>()
   const rejections = new Map<string, { until: number, message: string, status: unknown }>()
 
   // The gate: a slot per exchange in flight, waiters served in order.
@@ -67,7 +71,7 @@ export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
   const sessionId = (key: SessionKey) => `${key.agentId}\n${key.clientId}\n${key.site}`
   const identityId = (key: SessionKey) => `${key.agentId}\n${key.clientId}`
 
-  const exchangeWithRetries = async (exchange: () => Promise<string>): Promise<string> => {
+  const exchangeWithRetries = async (exchange: () => Promise<IssuedSession>): Promise<IssuedSession> => {
     for (let attempt = 0; ; attempt++) {
       try {
         return await gated(exchange)
@@ -80,7 +84,7 @@ export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
   }
 
   return {
-    session (key: SessionKey, exchange: () => Promise<string>): Promise<string> {
+    session (key: SessionKey, exchange: () => Promise<IssuedSession>): Promise<string> {
       const rejection = rejections.get(identityId(key))
       if (rejection && now() < rejection.until) {
         return Promise.reject(Object.assign(
@@ -90,15 +94,16 @@ export const createSessionBroker = (opts: SessionBrokerOptions = {}) => {
       }
       const id = sessionId(key)
       const held = sessions.get(id)
-      if (held && !sessionNeedsRenewal(held.obtainedAt, now())) return held.cookie
+      if (held && !sessionNeedsRenewal(held.obtainedAt, now(), held.ttlSeconds)) return held.value
       // Timed from BEFORE the exchange, so the renewal point errs early.
-      const entry = { cookie: exchangeWithRetries(exchange), obtainedAt: now() }
+      const entry: { value: Promise<string>, obtainedAt: number, ttlSeconds?: number } = { value: Promise.resolve(''), obtainedAt: now() }
+      entry.value = exchangeWithRetries(exchange).then(issued => { entry.ttlSeconds = issued.ttlSeconds; return issued.value })
       sessions.set(id, entry)
-      entry.cookie.catch(err => {
+      entry.value.catch(err => {
         if (sessions.get(id) === entry) sessions.delete(id)
         if (isRejection(err)) rejections.set(identityId(key), { until: now() + rejectionMs, message: err instanceof Error ? err.message : String(err), status: statusOf(err) })
       })
-      return entry.cookie
+      return entry.value
     },
 
     forget (agentId: string) {

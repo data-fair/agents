@@ -54,6 +54,8 @@ services:
       # dev only: the issuer is http://localhost, which assertSafeIssuer would reject
       # for being non-https on a private host
       NHIS_ALLOW_INSECURE_ISSUERS: true
+      # the token endpoint an autonomous agent's bearer comes from (/api/oauth/token): off by default
+      OAUTH_SERVER_ENABLED: true
       MONGO_URL: mongodb://localhost:${MONGO_PORT}/simple-directory
       OBSERVER_ACTIVE: false
       PUBLIC_URL: http://localhost:${NGINX_PORT}/simple-directory

@@ -63,6 +63,7 @@ test.describe('External MCP servers', () => {
     const listed = (await admin.get(`${AGENTS}/${agent.id}/tools`)).data.results.find((t: any) => t.name === name)
     assert.equal(listed.kind, 'external')
     assert.equal(external.lastHeaders().cookie, undefined)
+    assert.equal(external.lastHeaders().authorization, undefined)
     assert.equal(external.lastHeaders()['x-api-key'], undefined)
   })
 

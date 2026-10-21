@@ -13,11 +13,11 @@ import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
 import mongo from '#mongo'
 import { cipher, decipher } from '../cipher/operations.ts'
 import { securityKey } from '../cipher/service.ts'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, accountPlacement, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, tokenRequestHeaders, tokenRequestBody, nhiTokenUrl, mcpResource, sanitizeExchangeError, accountPlacement, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
 import { createSessionBroker } from './session-broker.ts'
 
-import type { SiteCredentials } from '../mcp-servers/operations.ts'
+import { credentialHeaders, type SiteCredentials } from '../mcp-servers/operations.ts'
 
 /**
  * The signing keys live in mongo, the private halves ciphered with CIPHER_PASSWORD, as simple-directory
@@ -92,14 +92,14 @@ const requireEnrolment = (autonomousAgent: EnrolledAutonomousAgent) => {
   return { clientId: nhi.clientId, siteUrl: nhi.siteUrl, issuer: nhi.issuer }
 }
 
-export const mintAssertion = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl: string): Promise<string> => {
+export const mintAssertion = async (autonomousAgent: EnrolledAutonomousAgent): Promise<string> => {
   const key = signingNhiKey(await readNhiKeys(), new Date()).jwk
-  const { issuer } = requireEnrolment(autonomousAgent)
+  const { issuer, siteUrl } = requireEnrolment(autonomousAgent)
   const claims = buildAssertionClaims({
     issuer,
     subject: autonomousAgentSubject(autonomousAgent.id),
-    // The audience is the site the session is asked for, which simple-directory recomputes
-    // from the headers we send below.
+    // The audience is the token endpoint's site, the enrolment site, whatever site the token is for:
+    // simple-directory recomputes it from the headers we send (requestAgentToken).
     audience: siteOrigin(siteUrl),
     ttlSeconds: ASSERTION_TTL_SECONDS,
     nowSeconds: Math.floor(Date.now() / 1000)
@@ -115,22 +115,22 @@ export const mintAssertion = async (autonomousAgent: EnrolledAutonomousAgent, si
 }
 
 /**
- * Exchange the assertion for a session, over the PRIVATE directory url so the call never
- * leaves the internal network. We keep the Set-Cookie pairs rather than the returned
- * access_token because @data-fair/lib-express reads sessions from the id_token /
- * id_token_sign COOKIES only and parses no Authorization header — the same reason
- * nhi-proxy relays Set-Cookie to its client.
+ * An access token of this agent for one site: the JWT bearer grant (RFC 7523) on the enrolment site's token
+ * endpoint, over the PRIVATE directory url so the call never leaves the internal network, for the resource
+ * `<site><mcpPath>` (RFC 8707). simple-directory gives that resource the audience [<site>/mcp-server, <site>],
+ * so the one token covers the site's MCP servers and its own APIs.
  */
-const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl: string): Promise<string> => {
-  const { clientId } = requireEnrolment(autonomousAgent)
+const requestAgentToken = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl: string): Promise<{ value: string, ttlSeconds: number }> => {
+  const { clientId, siteUrl: enrolledSite } = requireEnrolment(autonomousAgent)
   const site = siteOrigin(siteUrl)
-  const assertion = await mintAssertion(autonomousAgent, site)
+  const issuerSite = siteOrigin(enrolledSite)
+  const assertion = await mintAssertion(autonomousAgent)
   let res
   try {
     res = await axios.post(
-      nhiExchangeUrl(config.privateDirectoryUrl, site),
-      { client_id: clientId, assertion },
-      { headers: exchangeHeaders(site), maxRedirects: 0 }
+      nhiTokenUrl(config.privateDirectoryUrl, issuerSite),
+      tokenRequestBody({ clientId, assertion, resource: mcpResource(site, config.mcpPath) }),
+      { headers: tokenRequestHeaders(issuerSite), maxRedirects: 0 }
     )
   } catch (err) {
     // lib-node's axios interceptor attaches the request body (which carries the
@@ -139,30 +139,25 @@ const exchangeForSession = async (autonomousAgent: EnrolledAutonomousAgent, site
     const sanitized = sanitizeExchangeError(err)
     throw Object.assign(new Error(`${sanitized.message} (site ${site})`), 'exchangeStatus' in sanitized ? { exchangeStatus: sanitized.exchangeStatus } : {})
   }
-  const setCookies: string[] = res.headers['set-cookie'] ?? []
-  // keep only name=value, dropping attributes (Path, HttpOnly, …) — a Cookie request
-  // header carries pairs only
-  const pairs = setCookies.map(c => c.split(';')[0].trim()).filter(Boolean)
-  if (!pairs.some(pair => pair.startsWith('id_token='))) {
-    throw new Error('nhi exchange returned no id_token cookie')
-  }
-  return pairs.join('; ')
+  const { access_token: value, expires_in: ttlSeconds } = res.data ?? {}
+  if (typeof value !== 'string' || !value) throw new Error('nhi token request returned no access token')
+  return { value, ttlSeconds: typeof ttlSeconds === 'number' && ttlSeconds > 0 ? ttlSeconds : ASSERTION_TTL_SECONDS }
 }
 
 /**
- * A session of this agent ON ONE SITE (default: the site it was enrolled on). simple-directory refuses
- * the exchange on a site outside the agent's organization — with the same 401 as any bad assertion —
- * so callers only ask for an account site (see listAccountSites).
+ * An access token of this agent FOR ONE SITE (default: the site it was enrolled on). simple-directory refuses
+ * a resource outside the issuer's realm or the agent's organization, so callers only ask for an account site
+ * (see listAccountSites).
  */
 // The process's exchanges: reused while valid, bounded in flight, a rejected identity backed off (./session-broker.ts).
 const broker = createSessionBroker()
 
-export const getAutonomousAgentSession = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl?: string): Promise<string> => {
+export const getAgentToken = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl?: string): Promise<string> => {
   const { clientId, siteUrl: enrolledSite } = requireEnrolment(autonomousAgent)
   const site = siteOrigin(siteUrl ?? enrolledSite)
-  // Reused across turns until it nears its expiry, rather than exchanged per turn: simple-directory's exchange
-  // budget is shared by every agent of the service. The session lives no longer for it (ASSERTION_TTL_SECONDS).
-  return await broker.session({ agentId: autonomousAgent.id, clientId, site }, () => exchangeForSession(autonomousAgent, site))
+  // Reused across turns until it nears its expiry (its own expires_in), rather than requested per turn:
+  // simple-directory's token budget is shared by every agent of the service.
+  return await broker.session({ agentId: autonomousAgent.id, clientId, site }, () => requestAgentToken(autonomousAgent, site))
 }
 
 /** How long the list of an agent's account sites is reused: a site is created far less often than a turn starts. */
@@ -175,10 +170,10 @@ export const ACCOUNT_SITES_TTL_MS = 60_000
  */
 export const listAccountSites = memoize(async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }): Promise<string[]> => {
   const { siteUrl } = requireEnrolment(autonomousAgent)
-  const cookie = await getAutonomousAgentSession(autonomousAgent)
+  const token = await getAgentToken(autonomousAgent)
   const res = await axios.get(`${config.privateDirectoryUrl.replace(/\/+$/, '')}/simple-directory/api/sites`, {
     params: { owner: `${autonomousAgent.owner.type}:${autonomousAgent.owner.id}`, tmp: false },
-    headers: { cookie, ...forwardedSiteHeaders(siteOrigin(siteUrl)) }
+    headers: { ...credentialHeaders({ bearer: token }), ...forwardedSiteHeaders(siteOrigin(siteUrl)) }
   })
   const hosts: string[] = (res.data?.results ?? []).map((s: { host: string }) => s.host).filter(Boolean)
   return accountSiteOrigins(siteUrl, hosts)
@@ -229,7 +224,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
       const origin = siteOrigin(site)
       if (!account.includes(origin)) return undefined
       // Renewed by the broker when it nears its expiry: a turn may outlast a session.
-      return { cookie: await getAutonomousAgentSession(autonomousAgent, origin) }
+      return { bearer: await getAgentToken(autonomousAgent, origin) }
     },
     listingIdentity: `agent:${autonomousAgent.id}`
   }

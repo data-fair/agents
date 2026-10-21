@@ -116,7 +116,7 @@ test.describe('Server instructions and skills', () => {
     })
     const { assistant } = await runTurn('test-fixture', 'call tool read_skill {"server":"dev-session-mcp","uri":"skill://fixture/closures/SKILL.md"}')
     assert.equal(toolCall(assistant, 'read_skill')?.state, 'output-available')
-    assert.match(String(fixture.lastHeaders().cookie ?? ''), /id_token=/)
+    assert.match(String(fixture.lastHeaders().authorization ?? ''), /^Bearer /)
   })
 
   test('read_skill never reads from a server outside the turn: a wrong label falls back to the turn\'s server listing the URI, or reads nothing', async () => {

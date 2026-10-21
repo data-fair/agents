@@ -12,6 +12,7 @@
   "additionalProperties": false,
   "required": [
     "privateDirectoryUrl",
+    "mcpPath",
     "mongoUrl",
     "port",
     "tmpDir",
@@ -54,6 +55,10 @@
     "privateDirectoryUrl": {
       "type": "string",
       "pattern": "^https?://"
+    },
+    "mcpPath": {
+      "type": "string",
+      "pattern": "^/"
     },
     "privateEventsUrl": {
       "type": "string"

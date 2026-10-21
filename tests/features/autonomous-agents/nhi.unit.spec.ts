@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, credentialClaims, credentialScopes, accountPlacement, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiTokenUrl, tokenRequestHeaders, tokenRequestBody, mcpResource, autonomousAgentSubject, buildAssertionClaims, credentialClaims, credentialScopes, accountPlacement, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -88,40 +88,40 @@ test.describe('nhiIssuerUrl', () => {
   })
 })
 
-test.describe('nhiExchangeUrl', () => {
+test.describe('nhiTokenUrl', () => {
   // Both segments are mandatory: simple-directory calls createSiteMiddleware('simple-directory')
   // with no options, so a url without a /simple-directory segment throws 404 before the
   // route runs, and a missing sitePath prefix resolves a different site.
   test('inserts the /simple-directory segment on the main site', () => {
     assert.equal(
-      nhiExchangeUrl('http://simple-directory:8080', 'http://localhost:25475'),
-      'http://simple-directory:8080/simple-directory/api/auth/nhi-token'
+      nhiTokenUrl('http://simple-directory:8080', 'http://localhost:25475'),
+      'http://simple-directory:8080/simple-directory/api/oauth/token'
     )
   })
 
   test('preserves the site path prefix ahead of the service segment', () => {
     assert.equal(
-      nhiExchangeUrl('http://simple-directory:8080', 'https://example.org/portal'),
-      'http://simple-directory:8080/portal/simple-directory/api/auth/nhi-token'
+      nhiTokenUrl('http://simple-directory:8080', 'https://example.org/portal'),
+      'http://simple-directory:8080/portal/simple-directory/api/oauth/token'
     )
   })
 
   test('does not leave a double slash for a root site url', () => {
-    assert.equal(nhiExchangeUrl('http://simple-directory:8080/', 'https://example.org/'), 'http://simple-directory:8080/simple-directory/api/auth/nhi-token')
+    assert.equal(nhiTokenUrl('http://simple-directory:8080/', 'https://example.org/'), 'http://simple-directory:8080/simple-directory/api/oauth/token')
   })
 })
 
-test.describe('exchangeHeaders', () => {
+test.describe('tokenRequestHeaders', () => {
   test('declares the three headers the route requires', () => {
-    const h = exchangeHeaders('http://localhost:25475')
+    const h = tokenRequestHeaders('http://localhost:25475')
     assert.equal(h['x-forwarded-host'], 'localhost:25475')
     assert.equal(h['x-forwarded-proto'], 'http')
     assert.equal(h['x-forwarded-for'], '127.0.0.1')
-    assert.equal(h['content-type'], 'application/json')
+    assert.equal(h['content-type'], 'application/x-www-form-urlencoded')
   })
 
   test('drops a default https port from the declared host', () => {
-    const h = exchangeHeaders('https://example.org')
+    const h = tokenRequestHeaders('https://example.org')
     assert.equal(h['x-forwarded-host'], 'example.org')
     assert.equal(h['x-forwarded-proto'], 'https')
   })
@@ -132,19 +132,32 @@ test.describe('exchangeHeaders', () => {
   // disagree, every exchange fails as an indistinguishable 401 with no diagnostic.
   for (const siteUrl of ['http://localhost:25475', 'https://example.org', 'https://example.org/portal', 'http://example.org:8080/portal']) {
     test(`declared headers + posted path reconstruct exactly the signed audience — ${siteUrl}`, () => {
-      const h = exchangeHeaders(siteUrl)
+      const h = tokenRequestHeaders(siteUrl)
       const [host, port] = h['x-forwarded-host'].split(':')
       const proto = h['x-forwarded-proto']
       const origin = port && !(port === '443' && proto === 'https') && !(port === '80' && proto === 'http')
         ? `${proto}://${host}:${port}`
         : `${proto}://${host}`
       // simple-directory's sitePath is match[1] of (.*?)\/simple-directory(\/|$) against
-      // the path we posted to — i.e. exactly the prefix nhiExchangeUrl preserved
-      const posted = new URL(nhiExchangeUrl('http://sd:8080', siteUrl)).pathname
+      // the path we posted to — i.e. exactly the prefix nhiTokenUrl preserved
+      const posted = new URL(nhiTokenUrl('http://sd:8080', siteUrl)).pathname
       const sitePath = posted.slice(0, posted.indexOf('/simple-directory'))
       assert.equal(origin + sitePath, siteUrl.replace(/\/$/, ''))
     })
   }
+})
+
+test.describe('tokenRequestBody', () => {
+  test('the token request is the JWT bearer grant for an MCP resource, with no scope', () => {
+    const body = new URLSearchParams(tokenRequestBody({ clientId: 'c1', assertion: 'a.b.c', resource: 'http://p.test/mcp-server' }))
+    assert.equal(body.get('grant_type'), 'urn:ietf:params:oauth:grant-type:jwt-bearer')
+    assert.deepEqual([body.get('client_id'), body.get('assertion'), body.get('resource')], ['c1', 'a.b.c', 'http://p.test/mcp-server'])
+    assert.equal(body.has('scope'), false)
+    assert.equal(tokenRequestHeaders('http://p.test')['content-type'], 'application/x-www-form-urlencoded')
+  })
+  test('the resource is the site\'s platform MCP server, below its MCP path, whatever path the site url carries', () => {
+    assert.equal(mcpResource('http://p.test/some/page', '/mcp-server'), 'http://p.test/mcp-server/mcp')
+  })
 })
 
 test.describe('autonomousAgentSubject', () => {
@@ -238,7 +251,7 @@ test.describe('sanitizeExchangeError', () => {
   const fake = () => {
     const err: any = new Error('401 - invalid credentials')
     // the shape lib-node's interceptor actually produces
-    err.config = { method: 'post', url: 'http://sd:8080/simple-directory/api/auth/nhi-token', data: JSON.stringify({ client_id: 'nhi-abc', assertion: 'eyJhbGciOiJFUzI1NiJ9.SECRET_ASSERTION.sig' }) }
+    err.config = { method: 'post', url: 'http://sd:8080/simple-directory/api/oauth/token', data: JSON.stringify({ client_id: 'nhi-abc', assertion: 'eyJhbGciOiJFUzI1NiJ9.SECRET_ASSERTION.sig' }) }
     err.response = { status: 401, config: err.config }
     return err
   }
@@ -262,6 +275,12 @@ test.describe('sanitizeExchangeError', () => {
     assert.equal((sanitizeExchangeError(new Error('connect ECONNREFUSED')) as any).exchangeStatus, undefined)
     // never as `status`, which would become this service's own answer to its caller
     assert.equal((sanitizeExchangeError(fake()) as any).status, undefined)
+  })
+
+  test('a form-encoded body is dropped too', () => {
+    const err = Object.assign(new Error('Request failed with status code 400'), { status: 400, config: { data: 'grant_type=x&assertion=SECRET' }, response: { status: 400, config: { data: 'assertion=SECRET' } } })
+    assert.equal(JSON.stringify(sanitizeExchangeError(err)).includes('SECRET'), false)
+    assert.equal(sanitizeExchangeError(err).message.includes('SECRET'), false)
   })
 
   test('tolerates a non-error rejection', () => {

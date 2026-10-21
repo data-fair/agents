@@ -28,6 +28,7 @@ export type ApiConfig = {
   port: number;
   tmpDir: string;
   privateDirectoryUrl: string;
+  mcpPath: string;
   privateEventsUrl?: string;
   secretKeys: {
     events?: string;

@@ -135,9 +135,9 @@ export function nhiIssuerUrl (siteUrl: string): string {
  *    different site (and therefore a different audience).
  * We target the PRIVATE directory url so the call never leaves the internal network.
  */
-export function nhiExchangeUrl (privateDirectoryUrl: string, siteUrl: string): string {
+export function nhiTokenUrl (privateDirectoryUrl: string, siteUrl: string): string {
   const sitePath = new URL(siteUrl).pathname.replace(/\/+$/, '')
-  return `${privateDirectoryUrl.replace(/\/+$/, '')}${sitePath}/simple-directory/api/auth/nhi-token`
+  return `${privateDirectoryUrl.replace(/\/+$/, '')}${sitePath}/simple-directory/api/oauth/token`
 }
 
 /**
@@ -153,12 +153,35 @@ export const DECLARED_CLIENT_IP = '127.0.0.1'
  * rejects every caller identically), x-forwarded-host (resolves the site and, through
  * reqSiteUrl, IS the audience) and x-forwarded-proto (reqOrigin throws without it).
  */
-export function exchangeHeaders (siteUrl: string): Record<string, string> {
+export function tokenRequestHeaders (siteUrl: string): Record<string, string> {
   return {
-    'content-type': 'application/json',
+    'content-type': 'application/x-www-form-urlencoded',
     'x-forwarded-for': DECLARED_CLIENT_IP,
     ...forwardedSiteHeaders(siteUrl)
   }
+}
+
+/**
+ * The token request (RFC 7523's JWT bearer grant, RFC 8707's resource indicator). No `scope`: the token
+ * carries the identity's maximum scopes, which is what the agent may do.
+ */
+export function tokenRequestBody (opts: { clientId: string, assertion: string, resource: string }): string {
+  return new URLSearchParams({
+    grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
+    client_id: opts.clientId,
+    assertion: opts.assertion,
+    resource: opts.resource
+  }).toString()
+}
+
+/**
+ * The resource a site's token is asked for: the site's platform MCP server, `<site><mcpPath>/mcp`.
+ * simple-directory recognizes an MCP resource by a path BELOW its mcpPath (the bare `<site>/mcp-server` is an
+ * unknown resource), and gives any of them the audience [<site><mcpPath>, <site>]: the one token covers every
+ * MCP server of the site and the site's own APIs.
+ */
+export function mcpResource (siteUrl: string, mcpPath: string): string {
+  return `${new URL(siteUrl).origin}${mcpPath}/mcp`
 }
 
 /**
@@ -181,7 +204,7 @@ export function sanitizeExchangeError (err: unknown): Error {
   // this service, and as `status` it would become this service's answer to its own caller (a 401 to an admin
   // reads as "you are not signed in").
   const status = (err as any)?.status ?? (err as any)?.response?.status
-  const sanitized = new Error(`nhi token exchange failed: ${message}`)
+  const sanitized = new Error(`nhi token request failed: ${message}`)
   return typeof status === 'number' ? Object.assign(sanitized, { exchangeStatus: status }) : sanitized
 }
 

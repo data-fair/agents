@@ -61,6 +61,7 @@ test.describe('File links', () => {
     assert.match(outputOf(callPart(saved.assistant, 'export_closures')), /Saved to your files: \/closures-riverside\.csv/)
     assert.equal(fixture.exportRequests().length, 1)
     assert.equal(fixture.exportRequests()[0].headers.cookie, undefined, 'no credential to another origin')
+    assert.equal(fixture.exportRequests()[0].headers.authorization, undefined, 'no credential to another origin')
   })
 
   test('a link on the call\'s own site is fetched with the call\'s session, without the allowlist', async () => {

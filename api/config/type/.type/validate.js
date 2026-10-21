@@ -5,11 +5,12 @@ import ucs2length from "ajv/dist/runtime/ucs2length.js";
 "use strict";
 export const validate = validate14;
 export default validate14;
-const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","requireAnonymousActionToken","eurosPerCredit","defaultLimits","compactionPercent","turnCredits","liveTurnsPerCaller","turnTimeoutSeconds","shutdownGraceSeconds","taskTimeoutSeconds","codeModeMaxWorkers","tasks"],"$defs":{"modelRef":{"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}}},"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"},"limits":{"type":"string"}}},"providers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["type","id","name"],"properties":{"type":{"type":"string","enum":["openai","anthropic","google","mistral","openrouter","ollama","scaleway","openai-compatible","mock"]},"id":{"type":"string"},"name":{"type":"string"},"enabled":{"type":"boolean","default":true},"apiKey":{"type":"string"},"baseURL":{"type":"string"},"projectId":{"type":"string"},"compatibility":{"type":"string","enum":["default","compatible"]}}}},"models":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","provider","usage","inputPricePerMillion","outputPricePerMillion"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"usage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["assistant","tools","summarizer","moderator"]}},"contextWindow":{"type":"number","minimum":0},"inputPricePerMillion":{"type":"number","minimum":0},"outputPricePerMillion":{"type":"number","minimum":0},"cachedInputPricePerMillion":{"type":"number","minimum":0}}}},"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","url","auth"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"url":{"type":"string"},"auth":{"type":"string","enum":["nhi-session","none","apiKey"]},"apiKeyHeader":{"type":"string"},"apiKey":{"type":"string"},"sites":{"type":"string","enum":["home","all"],"description":"Site-bound entries only. home: the turn's home site only, with the agent's session. all (default): every site, anonymously outside the account."},"homeAlternative":{"type":"string","description":"On a sites home entry: the sites all entry that serves every other site, left out of the home site."}}}},"personalAssistants":{"type":"object","additionalProperties":false,"description":"The servers of each built-in personal assistant: references into mcpServers, like a configured agent's. Unset: no catalog servers.","default":{},"properties":{"portal":{"type":"object","additionalProperties":false,"properties":{"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string"},"toolFilter":{"type":"array","items":{"type":"string"}}}}}}},"backOffice":{"type":"object","additionalProperties":false,"properties":{"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string"},"toolFilter":{"type":"array","items":{"type":"string"}}}}}}}}},"autonomousAgentsRequireAdminMode":{"type":"boolean","default":true},"tasks":{"type":"object","additionalProperties":false,"required":["minIntervalSeconds","maxPerAgent","pollSeconds","maxConsecutiveFailures"],"properties":{"minIntervalSeconds":{"type":"integer","minimum":60,"default":3600,"description":"A task schedule may not fire more often than this."},"maxPerAgent":{"type":"integer","minimum":1,"default":20,"description":"Planned tasks one autonomous agent may hold."},"pollSeconds":{"type":"integer","minimum":1,"default":10,"description":"How often the scheduler looks for due tasks."},"maxConsecutiveFailures":{"type":"integer","minimum":1,"default":5,"description":"Failed runs in a row after which a task is paused."}}},"files":{"type":"object","additionalProperties":false,"required":["storage","secret","publicUrl"],"description":"The file store of autonomous agents (docs/architecture/agent-files.md). Unset: files are off.","properties":{"storage":{"type":"string","enum":["fs","s3"]},"dataDir":{"type":"string","description":"fs: a directory on a volume shared by every node when the service is scaled."},"s3":{"type":"object","additionalProperties":false,"properties":{"region":{"type":"string"},"endpoint":{"type":"string"},"bucket":{"type":"string"},"credentials":{"type":"object","additionalProperties":false,"properties":{"accessKeyId":{"type":"string"},"secretAccessKey":{"type":"string"}}},"forcePathStyle":{"type":"boolean"}}},"secret":{"type":"string","minLength":32,"description":"Signs the file URLs MCP servers fetch."},"publicUrl":{"type":"string","pattern":"^https?://","description":"The agents API base URL as MCP servers reach it: what they configure as FILE_URL_PREFIXES."}}},"defaultModels":{"type":"object","additionalProperties":false,"default":{},"properties":{"assistant":{"$ref":"#/$defs/modelRef"},"tools":{"$ref":"#/$defs/modelRef"},"summarizer":{"$ref":"#/$defs/modelRef"},"moderator":{"$ref":"#/$defs/modelRef"}}},"eurosPerCredit":{"type":"number","exclusiveMinimum":0,"default":0.008},"defaultLimits":{"type":"object","additionalProperties":false,"default":{"credits":0},"properties":{"credits":{"type":"number","default":0}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"requireAnonymousActionToken":{"type":"boolean","default":true},"util":{},"get":{},"has":{},"compactionPercent":{"type":"number","title":"Compaction percent","description":"Share of the assistant model's context window above which conversation history is compacted.","default":70,"minimum":10,"maximum":100},"turnCredits":{"type":"number","title":"Turn credit budget","description":"Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this.","default":5,"minimum":0},"liveTurnsPerCaller":{"type":"integer","title":"Turns at once per caller","description":"How many chat turns one person — or one anonymous visitor's address — may have running at once. A further prompt is refused (429) until one ends. Quotas are re-checked between steps, so this bounds how far turns started together can overshoot one.","default":5,"minimum":1},"turnTimeoutSeconds":{"type":"number","title":"Turn timeout (seconds)","description":"Wall-clock ceiling for one chat turn, so a hanging model or MCP server cannot hold a conversation's lock. A planned task run has its own, taskTimeoutSeconds.","default":300,"minimum":10},"taskTimeoutSeconds":{"type":"integer","minimum":10,"default":1800,"description":"Wall-clock ceiling of one planned task's run. Longer than a chat turn's: nobody waits on it, and code mode and files make long runs the normal case."},"codeModeMaxWorkers":{"type":"integer","minimum":1,"default":4,"description":"How many code_mode scripts this process runs at once (one QuickJS worker each, up to 64 MiB). A script started while all are busy is refused, not queued."},"shutdownGraceSeconds":{"type":"number","title":"Shutdown grace (seconds)","description":"On SIGTERM, how long running turns are given to finish before they are stopped as 'the server restarted'. The pod's terminationGracePeriodSeconds must exceed it.","default":90,"minimum":0}}};
+const schema16 = {"$id":"https://github.com/data-fair/agents/api/config","x-exports":["types","validate"],"x-ajv":{"coerceTypes":"array"},"type":"object","title":"Api config","additionalProperties":false,"required":["privateDirectoryUrl","mcpPath","mongoUrl","port","tmpDir","observer","secretKeys","cipherPassword","requireAnonymousActionToken","eurosPerCredit","defaultLimits","compactionPercent","turnCredits","liveTurnsPerCaller","turnTimeoutSeconds","shutdownGraceSeconds","taskTimeoutSeconds","codeModeMaxWorkers","tasks"],"$defs":{"modelRef":{"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}}},"properties":{"mongoUrl":{"type":"string"},"port":{"type":"number"},"tmpDir":{"type":"string"},"privateDirectoryUrl":{"type":"string","pattern":"^https?://"},"mcpPath":{"type":"string","pattern":"^/"},"privateEventsUrl":{"type":"string"},"secretKeys":{"type":"object","additionalProperties":false,"properties":{"events":{"type":"string"},"limits":{"type":"string"}}},"providers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["type","id","name"],"properties":{"type":{"type":"string","enum":["openai","anthropic","google","mistral","openrouter","ollama","scaleway","openai-compatible","mock"]},"id":{"type":"string"},"name":{"type":"string"},"enabled":{"type":"boolean","default":true},"apiKey":{"type":"string"},"baseURL":{"type":"string"},"projectId":{"type":"string"},"compatibility":{"type":"string","enum":["default","compatible"]}}}},"models":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","provider","usage","inputPricePerMillion","outputPricePerMillion"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"provider":{"type":"string"},"usage":{"type":"array","minItems":1,"uniqueItems":true,"items":{"type":"string","enum":["assistant","tools","summarizer","moderator"]}},"contextWindow":{"type":"number","minimum":0},"inputPricePerMillion":{"type":"number","minimum":0},"outputPricePerMillion":{"type":"number","minimum":0},"cachedInputPricePerMillion":{"type":"number","minimum":0}}}},"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["id","name","url","auth"],"properties":{"id":{"type":"string"},"name":{"type":"string"},"description":{"type":"string"},"url":{"type":"string"},"auth":{"type":"string","enum":["nhi-session","none","apiKey"]},"apiKeyHeader":{"type":"string"},"apiKey":{"type":"string"},"sites":{"type":"string","enum":["home","all"],"description":"Site-bound entries only. home: the turn's home site only, with the agent's session. all (default): every site, anonymously outside the account."},"homeAlternative":{"type":"string","description":"On a sites home entry: the sites all entry that serves every other site, left out of the home site."}}}},"personalAssistants":{"type":"object","additionalProperties":false,"description":"The servers of each built-in personal assistant: references into mcpServers, like a configured agent's. Unset: no catalog servers.","default":{},"properties":{"portal":{"type":"object","additionalProperties":false,"properties":{"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string"},"toolFilter":{"type":"array","items":{"type":"string"}}}}}}},"backOffice":{"type":"object","additionalProperties":false,"properties":{"mcpServers":{"type":"array","default":[],"items":{"type":"object","additionalProperties":false,"required":["serverId"],"properties":{"serverId":{"type":"string"},"toolFilter":{"type":"array","items":{"type":"string"}}}}}}}}},"autonomousAgentsRequireAdminMode":{"type":"boolean","default":true},"tasks":{"type":"object","additionalProperties":false,"required":["minIntervalSeconds","maxPerAgent","pollSeconds","maxConsecutiveFailures"],"properties":{"minIntervalSeconds":{"type":"integer","minimum":60,"default":3600,"description":"A task schedule may not fire more often than this."},"maxPerAgent":{"type":"integer","minimum":1,"default":20,"description":"Planned tasks one autonomous agent may hold."},"pollSeconds":{"type":"integer","minimum":1,"default":10,"description":"How often the scheduler looks for due tasks."},"maxConsecutiveFailures":{"type":"integer","minimum":1,"default":5,"description":"Failed runs in a row after which a task is paused."}}},"files":{"type":"object","additionalProperties":false,"required":["storage","secret","publicUrl"],"description":"The file store of autonomous agents (docs/architecture/agent-files.md). Unset: files are off.","properties":{"storage":{"type":"string","enum":["fs","s3"]},"dataDir":{"type":"string","description":"fs: a directory on a volume shared by every node when the service is scaled."},"s3":{"type":"object","additionalProperties":false,"properties":{"region":{"type":"string"},"endpoint":{"type":"string"},"bucket":{"type":"string"},"credentials":{"type":"object","additionalProperties":false,"properties":{"accessKeyId":{"type":"string"},"secretAccessKey":{"type":"string"}}},"forcePathStyle":{"type":"boolean"}}},"secret":{"type":"string","minLength":32,"description":"Signs the file URLs MCP servers fetch."},"publicUrl":{"type":"string","pattern":"^https?://","description":"The agents API base URL as MCP servers reach it: what they configure as FILE_URL_PREFIXES."}}},"defaultModels":{"type":"object","additionalProperties":false,"default":{},"properties":{"assistant":{"$ref":"#/$defs/modelRef"},"tools":{"$ref":"#/$defs/modelRef"},"summarizer":{"$ref":"#/$defs/modelRef"},"moderator":{"$ref":"#/$defs/modelRef"}}},"eurosPerCredit":{"type":"number","exclusiveMinimum":0,"default":0.008},"defaultLimits":{"type":"object","additionalProperties":false,"default":{"credits":0},"properties":{"credits":{"type":"number","default":0}}},"observer":{"type":"object","properties":{"active":{"type":"boolean"},"port":{"type":"number"}}},"upgradeRoot":{"type":"string"},"cipherPassword":{"type":"string"},"requireAnonymousActionToken":{"type":"boolean","default":true},"util":{},"get":{},"has":{},"compactionPercent":{"type":"number","title":"Compaction percent","description":"Share of the assistant model's context window above which conversation history is compacted.","default":70,"minimum":10,"maximum":100},"turnCredits":{"type":"number","title":"Turn credit budget","description":"Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this.","default":5,"minimum":0},"liveTurnsPerCaller":{"type":"integer","title":"Turns at once per caller","description":"How many chat turns one person — or one anonymous visitor's address — may have running at once. A further prompt is refused (429) until one ends. Quotas are re-checked between steps, so this bounds how far turns started together can overshoot one.","default":5,"minimum":1},"turnTimeoutSeconds":{"type":"number","title":"Turn timeout (seconds)","description":"Wall-clock ceiling for one chat turn, so a hanging model or MCP server cannot hold a conversation's lock. A planned task run has its own, taskTimeoutSeconds.","default":300,"minimum":10},"taskTimeoutSeconds":{"type":"integer","minimum":10,"default":1800,"description":"Wall-clock ceiling of one planned task's run. Longer than a chat turn's: nobody waits on it, and code mode and files make long runs the normal case."},"codeModeMaxWorkers":{"type":"integer","minimum":1,"default":4,"description":"How many code_mode scripts this process runs at once (one QuickJS worker each, up to 64 MiB). A script started while all are busy is refused, not queued."},"shutdownGraceSeconds":{"type":"number","title":"Shutdown grace (seconds)","description":"On SIGTERM, how long running turns are given to finish before they are stopped as 'the server restarted'. The pod's terminationGracePeriodSeconds must exceed it.","default":90,"minimum":0}}};
 const schema17 = {"type":"object","additionalProperties":false,"required":["provider","id"],"properties":{"provider":{"type":"string"},"id":{"type":"string"}}};
 const func2 = Object.prototype.hasOwnProperty;
 const func4 = ucs2length.default;
 const pattern0 = new RegExp("^https?://", "u");
+const pattern1 = new RegExp("^/", "u");
 
 function validate14(data, {instancePath="", parentData, parentDataProperty, rootData=data}={}){
 /*# sourceURL="https://github.com/data-fair/agents/api/config" */;
@@ -26,8 +27,8 @@ vErrors.push(err0);
 }
 errors++;
 }
-if(data.mongoUrl === undefined){
-const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "mongoUrl"},message:"must have required property '"+"mongoUrl"+"'"};
+if(data.mcpPath === undefined){
+const err1 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "mcpPath"},message:"must have required property '"+"mcpPath"+"'"};
 if(vErrors === null){
 vErrors = [err1];
 }
@@ -36,8 +37,8 @@ vErrors.push(err1);
 }
 errors++;
 }
-if(data.port === undefined){
-const err2 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "port"},message:"must have required property '"+"port"+"'"};
+if(data.mongoUrl === undefined){
+const err2 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "mongoUrl"},message:"must have required property '"+"mongoUrl"+"'"};
 if(vErrors === null){
 vErrors = [err2];
 }
@@ -46,8 +47,8 @@ vErrors.push(err2);
 }
 errors++;
 }
-if(data.tmpDir === undefined){
-const err3 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "tmpDir"},message:"must have required property '"+"tmpDir"+"'"};
+if(data.port === undefined){
+const err3 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "port"},message:"must have required property '"+"port"+"'"};
 if(vErrors === null){
 vErrors = [err3];
 }
@@ -56,8 +57,8 @@ vErrors.push(err3);
 }
 errors++;
 }
-if(data.observer === undefined){
-const err4 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "observer"},message:"must have required property '"+"observer"+"'"};
+if(data.tmpDir === undefined){
+const err4 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "tmpDir"},message:"must have required property '"+"tmpDir"+"'"};
 if(vErrors === null){
 vErrors = [err4];
 }
@@ -66,8 +67,8 @@ vErrors.push(err4);
 }
 errors++;
 }
-if(data.secretKeys === undefined){
-const err5 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "secretKeys"},message:"must have required property '"+"secretKeys"+"'"};
+if(data.observer === undefined){
+const err5 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "observer"},message:"must have required property '"+"observer"+"'"};
 if(vErrors === null){
 vErrors = [err5];
 }
@@ -76,8 +77,8 @@ vErrors.push(err5);
 }
 errors++;
 }
-if(data.cipherPassword === undefined){
-const err6 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "cipherPassword"},message:"must have required property '"+"cipherPassword"+"'"};
+if(data.secretKeys === undefined){
+const err6 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "secretKeys"},message:"must have required property '"+"secretKeys"+"'"};
 if(vErrors === null){
 vErrors = [err6];
 }
@@ -86,8 +87,8 @@ vErrors.push(err6);
 }
 errors++;
 }
-if(data.requireAnonymousActionToken === undefined){
-const err7 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "requireAnonymousActionToken"},message:"must have required property '"+"requireAnonymousActionToken"+"'"};
+if(data.cipherPassword === undefined){
+const err7 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "cipherPassword"},message:"must have required property '"+"cipherPassword"+"'"};
 if(vErrors === null){
 vErrors = [err7];
 }
@@ -96,8 +97,8 @@ vErrors.push(err7);
 }
 errors++;
 }
-if(data.eurosPerCredit === undefined){
-const err8 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "eurosPerCredit"},message:"must have required property '"+"eurosPerCredit"+"'"};
+if(data.requireAnonymousActionToken === undefined){
+const err8 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "requireAnonymousActionToken"},message:"must have required property '"+"requireAnonymousActionToken"+"'"};
 if(vErrors === null){
 vErrors = [err8];
 }
@@ -106,8 +107,8 @@ vErrors.push(err8);
 }
 errors++;
 }
-if(data.defaultLimits === undefined){
-const err9 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "defaultLimits"},message:"must have required property '"+"defaultLimits"+"'"};
+if(data.eurosPerCredit === undefined){
+const err9 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "eurosPerCredit"},message:"must have required property '"+"eurosPerCredit"+"'"};
 if(vErrors === null){
 vErrors = [err9];
 }
@@ -116,8 +117,8 @@ vErrors.push(err9);
 }
 errors++;
 }
-if(data.compactionPercent === undefined){
-const err10 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "compactionPercent"},message:"must have required property '"+"compactionPercent"+"'"};
+if(data.defaultLimits === undefined){
+const err10 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "defaultLimits"},message:"must have required property '"+"defaultLimits"+"'"};
 if(vErrors === null){
 vErrors = [err10];
 }
@@ -126,8 +127,8 @@ vErrors.push(err10);
 }
 errors++;
 }
-if(data.turnCredits === undefined){
-const err11 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "turnCredits"},message:"must have required property '"+"turnCredits"+"'"};
+if(data.compactionPercent === undefined){
+const err11 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "compactionPercent"},message:"must have required property '"+"compactionPercent"+"'"};
 if(vErrors === null){
 vErrors = [err11];
 }
@@ -136,8 +137,8 @@ vErrors.push(err11);
 }
 errors++;
 }
-if(data.liveTurnsPerCaller === undefined){
-const err12 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "liveTurnsPerCaller"},message:"must have required property '"+"liveTurnsPerCaller"+"'"};
+if(data.turnCredits === undefined){
+const err12 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "turnCredits"},message:"must have required property '"+"turnCredits"+"'"};
 if(vErrors === null){
 vErrors = [err12];
 }
@@ -146,8 +147,8 @@ vErrors.push(err12);
 }
 errors++;
 }
-if(data.turnTimeoutSeconds === undefined){
-const err13 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "turnTimeoutSeconds"},message:"must have required property '"+"turnTimeoutSeconds"+"'"};
+if(data.liveTurnsPerCaller === undefined){
+const err13 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "liveTurnsPerCaller"},message:"must have required property '"+"liveTurnsPerCaller"+"'"};
 if(vErrors === null){
 vErrors = [err13];
 }
@@ -156,8 +157,8 @@ vErrors.push(err13);
 }
 errors++;
 }
-if(data.shutdownGraceSeconds === undefined){
-const err14 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "shutdownGraceSeconds"},message:"must have required property '"+"shutdownGraceSeconds"+"'"};
+if(data.turnTimeoutSeconds === undefined){
+const err14 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "turnTimeoutSeconds"},message:"must have required property '"+"turnTimeoutSeconds"+"'"};
 if(vErrors === null){
 vErrors = [err14];
 }
@@ -166,8 +167,8 @@ vErrors.push(err14);
 }
 errors++;
 }
-if(data.taskTimeoutSeconds === undefined){
-const err15 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "taskTimeoutSeconds"},message:"must have required property '"+"taskTimeoutSeconds"+"'"};
+if(data.shutdownGraceSeconds === undefined){
+const err15 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "shutdownGraceSeconds"},message:"must have required property '"+"shutdownGraceSeconds"+"'"};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -176,8 +177,8 @@ vErrors.push(err15);
 }
 errors++;
 }
-if(data.codeModeMaxWorkers === undefined){
-const err16 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "codeModeMaxWorkers"},message:"must have required property '"+"codeModeMaxWorkers"+"'"};
+if(data.taskTimeoutSeconds === undefined){
+const err16 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "taskTimeoutSeconds"},message:"must have required property '"+"taskTimeoutSeconds"+"'"};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -186,8 +187,8 @@ vErrors.push(err16);
 }
 errors++;
 }
-if(data.tasks === undefined){
-const err17 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "tasks"},message:"must have required property '"+"tasks"+"'"};
+if(data.codeModeMaxWorkers === undefined){
+const err17 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "codeModeMaxWorkers"},message:"must have required property '"+"codeModeMaxWorkers"+"'"};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -196,14 +197,24 @@ vErrors.push(err17);
 }
 errors++;
 }
-for(const key0 in data){
-if(!(func2.call(schema16.properties, key0))){
-const err18 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(data.tasks === undefined){
+const err18 = {instancePath,schemaPath:"#/required",keyword:"required",params:{missingProperty: "tasks"},message:"must have required property '"+"tasks"+"'"};
 if(vErrors === null){
 vErrors = [err18];
 }
 else {
 vErrors.push(err18);
+}
+errors++;
+}
+for(const key0 in data){
+if(!(func2.call(schema16.properties, key0))){
+const err19 = {instancePath,schemaPath:"#/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key0},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err19];
+}
+else {
+vErrors.push(err19);
 }
 errors++;
 }
@@ -228,12 +239,12 @@ else if(data0 === null){
 coerced0 = "";
 }
 else {
-const err19 = {instancePath:instancePath+"/mongoUrl",schemaPath:"#/properties/mongoUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err20 = {instancePath:instancePath+"/mongoUrl",schemaPath:"#/properties/mongoUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err19];
+vErrors = [err20];
 }
 else {
-vErrors.push(err19);
+vErrors.push(err20);
 }
 errors++;
 }
@@ -264,12 +275,12 @@ if(dataType1 == "boolean" || data1 === null
 coerced1 = +data1;
 }
 else {
-const err20 = {instancePath:instancePath+"/port",schemaPath:"#/properties/port/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err21 = {instancePath:instancePath+"/port",schemaPath:"#/properties/port/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
-vErrors = [err20];
+vErrors = [err21];
 }
 else {
-vErrors.push(err20);
+vErrors.push(err21);
 }
 errors++;
 }
@@ -302,12 +313,12 @@ else if(data2 === null){
 coerced2 = "";
 }
 else {
-const err21 = {instancePath:instancePath+"/tmpDir",schemaPath:"#/properties/tmpDir/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err22 = {instancePath:instancePath+"/tmpDir",schemaPath:"#/properties/tmpDir/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err21];
+vErrors = [err22];
 }
 else {
-vErrors.push(err21);
+vErrors.push(err22);
 }
 errors++;
 }
@@ -340,12 +351,12 @@ else if(data3 === null){
 coerced3 = "";
 }
 else {
-const err22 = {instancePath:instancePath+"/privateDirectoryUrl",schemaPath:"#/properties/privateDirectoryUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err23 = {instancePath:instancePath+"/privateDirectoryUrl",schemaPath:"#/properties/privateDirectoryUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err22];
+vErrors = [err23];
 }
 else {
-vErrors.push(err22);
+vErrors.push(err23);
 }
 errors++;
 }
@@ -359,19 +370,19 @@ data["privateDirectoryUrl"] = coerced3;
 }
 if(typeof data3 === "string"){
 if(!pattern0.test(data3)){
-const err23 = {instancePath:instancePath+"/privateDirectoryUrl",schemaPath:"#/properties/privateDirectoryUrl/pattern",keyword:"pattern",params:{pattern: "^https?://"},message:"must match pattern \""+"^https?://"+"\""};
+const err24 = {instancePath:instancePath+"/privateDirectoryUrl",schemaPath:"#/properties/privateDirectoryUrl/pattern",keyword:"pattern",params:{pattern: "^https?://"},message:"must match pattern \""+"^https?://"+"\""};
 if(vErrors === null){
-vErrors = [err23];
+vErrors = [err24];
 }
 else {
-vErrors.push(err23);
+vErrors.push(err24);
 }
 errors++;
 }
 }
 }
-if(data.privateEventsUrl !== undefined){
-let data4 = data.privateEventsUrl;
+if(data.mcpPath !== undefined){
+let data4 = data.mcpPath;
 if(typeof data4 !== "string"){
 let dataType4 = typeof data4;
 let coerced4 = undefined;
@@ -390,30 +401,7 @@ else if(data4 === null){
 coerced4 = "";
 }
 else {
-const err24 = {instancePath:instancePath+"/privateEventsUrl",schemaPath:"#/properties/privateEventsUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err24];
-}
-else {
-vErrors.push(err24);
-}
-errors++;
-}
-}
-if(coerced4 !== undefined){
-data4 = coerced4;
-if(data !== undefined){
-data["privateEventsUrl"] = coerced4;
-}
-}
-}
-}
-if(data.secretKeys !== undefined){
-let data5 = data.secretKeys;
-if(data5 && typeof data5 == "object" && !Array.isArray(data5)){
-for(const key1 in data5){
-if(!((key1 === "events") || (key1 === "limits"))){
-const err25 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+const err25 = {instancePath:instancePath+"/mcpPath",schemaPath:"#/properties/mcpPath/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err25];
 }
@@ -423,27 +411,16 @@ vErrors.push(err25);
 errors++;
 }
 }
-if(data5.events !== undefined){
-let data6 = data5.events;
-if(typeof data6 !== "string"){
-let dataType5 = typeof data6;
-let coerced5 = undefined;
-if(dataType5 == 'object' && Array.isArray(data6) && data6.length == 1){
-data6 = data6[0];
-dataType5 = typeof data6;
-if(typeof data6 === "string"){
-coerced5 = data6;
+if(coerced4 !== undefined){
+data4 = coerced4;
+if(data !== undefined){
+data["mcpPath"] = coerced4;
 }
 }
-if(!(coerced5 !== undefined)){
-if(dataType5 == "number" || dataType5 == "boolean"){
-coerced5 = "" + data6;
 }
-else if(data6 === null){
-coerced5 = "";
-}
-else {
-const err26 = {instancePath:instancePath+"/secretKeys/events",schemaPath:"#/properties/secretKeys/properties/events/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(typeof data4 === "string"){
+if(!pattern1.test(data4)){
+const err26 = {instancePath:instancePath+"/mcpPath",schemaPath:"#/properties/mcpPath/pattern",keyword:"pattern",params:{pattern: "^/"},message:"must match pattern \""+"^/"+"\""};
 if(vErrors === null){
 vErrors = [err26];
 }
@@ -453,16 +430,62 @@ vErrors.push(err26);
 errors++;
 }
 }
+}
+if(data.privateEventsUrl !== undefined){
+let data5 = data.privateEventsUrl;
+if(typeof data5 !== "string"){
+let dataType5 = typeof data5;
+let coerced5 = undefined;
+if(dataType5 == 'object' && Array.isArray(data5) && data5.length == 1){
+data5 = data5[0];
+dataType5 = typeof data5;
+if(typeof data5 === "string"){
+coerced5 = data5;
+}
+}
+if(!(coerced5 !== undefined)){
+if(dataType5 == "number" || dataType5 == "boolean"){
+coerced5 = "" + data5;
+}
+else if(data5 === null){
+coerced5 = "";
+}
+else {
+const err27 = {instancePath:instancePath+"/privateEventsUrl",schemaPath:"#/properties/privateEventsUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err27];
+}
+else {
+vErrors.push(err27);
+}
+errors++;
+}
+}
 if(coerced5 !== undefined){
-data6 = coerced5;
-if(data5 !== undefined){
-data5["events"] = coerced5;
+data5 = coerced5;
+if(data !== undefined){
+data["privateEventsUrl"] = coerced5;
 }
 }
 }
 }
-if(data5.limits !== undefined){
-let data7 = data5.limits;
+if(data.secretKeys !== undefined){
+let data6 = data.secretKeys;
+if(data6 && typeof data6 == "object" && !Array.isArray(data6)){
+for(const key1 in data6){
+if(!((key1 === "events") || (key1 === "limits"))){
+const err28 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err28];
+}
+else {
+vErrors.push(err28);
+}
+errors++;
+}
+}
+if(data6.events !== undefined){
+let data7 = data6.events;
 if(typeof data7 !== "string"){
 let dataType6 = typeof data7;
 let coerced6 = undefined;
@@ -481,55 +504,7 @@ else if(data7 === null){
 coerced6 = "";
 }
 else {
-const err27 = {instancePath:instancePath+"/secretKeys/limits",schemaPath:"#/properties/secretKeys/properties/limits/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err27];
-}
-else {
-vErrors.push(err27);
-}
-errors++;
-}
-}
-if(coerced6 !== undefined){
-data7 = coerced6;
-if(data5 !== undefined){
-data5["limits"] = coerced6;
-}
-}
-}
-}
-}
-else {
-const err28 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err28];
-}
-else {
-vErrors.push(err28);
-}
-errors++;
-}
-}
-if(data.providers !== undefined){
-let data8 = data.providers;
-if(!(Array.isArray(data8))){
-let dataType7 = typeof data8;
-let coerced7 = undefined;
-if(dataType7 == 'object' && Array.isArray(data8) && data8.length == 1){
-data8 = data8[0];
-dataType7 = typeof data8;
-if(Array.isArray(data8)){
-coerced7 = data8;
-}
-}
-if(!(coerced7 !== undefined)){
-if(dataType7 === "string" || dataType7 === "number"
-              || dataType7 === "boolean" || data8 === null){
-coerced7 = [data8];
-}
-else {
-const err29 = {instancePath:instancePath+"/providers",schemaPath:"#/properties/providers/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err29 = {instancePath:instancePath+"/secretKeys/events",schemaPath:"#/properties/secretKeys/properties/events/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err29];
 }
@@ -539,20 +514,35 @@ vErrors.push(err29);
 errors++;
 }
 }
-if(coerced7 !== undefined){
-data8 = coerced7;
-if(data !== undefined){
-data["providers"] = coerced7;
+if(coerced6 !== undefined){
+data7 = coerced6;
+if(data6 !== undefined){
+data6["events"] = coerced6;
 }
 }
 }
-if(Array.isArray(data8)){
-const len0 = data8.length;
-for(let i0=0; i0<len0; i0++){
-let data9 = data8[i0];
-if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
-if(data9.type === undefined){
-const err30 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
+}
+if(data6.limits !== undefined){
+let data8 = data6.limits;
+if(typeof data8 !== "string"){
+let dataType7 = typeof data8;
+let coerced7 = undefined;
+if(dataType7 == 'object' && Array.isArray(data8) && data8.length == 1){
+data8 = data8[0];
+dataType7 = typeof data8;
+if(typeof data8 === "string"){
+coerced7 = data8;
+}
+}
+if(!(coerced7 !== undefined)){
+if(dataType7 == "number" || dataType7 == "boolean"){
+coerced7 = "" + data8;
+}
+else if(data8 === null){
+coerced7 = "";
+}
+else {
+const err30 = {instancePath:instancePath+"/secretKeys/limits",schemaPath:"#/properties/secretKeys/properties/limits/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err30];
 }
@@ -561,8 +551,18 @@ vErrors.push(err30);
 }
 errors++;
 }
-if(data9.id === undefined){
-const err31 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(coerced7 !== undefined){
+data8 = coerced7;
+if(data6 !== undefined){
+data6["limits"] = coerced7;
+}
+}
+}
+}
+}
+else {
+const err31 = {instancePath:instancePath+"/secretKeys",schemaPath:"#/properties/secretKeys/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err31];
 }
@@ -571,8 +571,26 @@ vErrors.push(err31);
 }
 errors++;
 }
-if(data9.name === undefined){
-const err32 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+if(data.providers !== undefined){
+let data9 = data.providers;
+if(!(Array.isArray(data9))){
+let dataType8 = typeof data9;
+let coerced8 = undefined;
+if(dataType8 == 'object' && Array.isArray(data9) && data9.length == 1){
+data9 = data9[0];
+dataType8 = typeof data9;
+if(Array.isArray(data9)){
+coerced8 = data9;
+}
+}
+if(!(coerced8 !== undefined)){
+if(dataType8 === "string" || dataType8 === "number"
+              || dataType8 === "boolean" || data9 === null){
+coerced8 = [data9];
+}
+else {
+const err32 = {instancePath:instancePath+"/providers",schemaPath:"#/properties/providers/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err32];
 }
@@ -581,9 +599,21 @@ vErrors.push(err32);
 }
 errors++;
 }
-for(const key2 in data9){
-if(!((((((((key2 === "type") || (key2 === "id")) || (key2 === "name")) || (key2 === "enabled")) || (key2 === "apiKey")) || (key2 === "baseURL")) || (key2 === "projectId")) || (key2 === "compatibility"))){
-const err33 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
+}
+if(coerced8 !== undefined){
+data9 = coerced8;
+if(data !== undefined){
+data["providers"] = coerced8;
+}
+}
+}
+if(Array.isArray(data9)){
+const len0 = data9.length;
+for(let i0=0; i0<len0; i0++){
+let data10 = data9[i0];
+if(data10 && typeof data10 == "object" && !Array.isArray(data10)){
+if(data10.type === undefined){
+const err33 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/required",keyword:"required",params:{missingProperty: "type"},message:"must have required property '"+"type"+"'"};
 if(vErrors === null){
 vErrors = [err33];
 }
@@ -592,28 +622,8 @@ vErrors.push(err33);
 }
 errors++;
 }
-}
-if(data9.type !== undefined){
-let data10 = data9.type;
-if(typeof data10 !== "string"){
-let dataType8 = typeof data10;
-let coerced8 = undefined;
-if(dataType8 == 'object' && Array.isArray(data10) && data10.length == 1){
-data10 = data10[0];
-dataType8 = typeof data10;
-if(typeof data10 === "string"){
-coerced8 = data10;
-}
-}
-if(!(coerced8 !== undefined)){
-if(dataType8 == "number" || dataType8 == "boolean"){
-coerced8 = "" + data10;
-}
-else if(data10 === null){
-coerced8 = "";
-}
-else {
-const err34 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data10.id === undefined){
+const err34 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err34];
 }
@@ -622,16 +632,8 @@ vErrors.push(err34);
 }
 errors++;
 }
-}
-if(coerced8 !== undefined){
-data10 = coerced8;
-if(data9 !== undefined){
-data9["type"] = coerced8;
-}
-}
-}
-if(!(((((((((data10 === "openai") || (data10 === "anthropic")) || (data10 === "google")) || (data10 === "mistral")) || (data10 === "openrouter")) || (data10 === "ollama")) || (data10 === "scaleway")) || (data10 === "openai-compatible")) || (data10 === "mock"))){
-const err35 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/properties/type/enum",keyword:"enum",params:{allowedValues: schema16.properties.providers.items.properties.type.enum},message:"must be equal to one of the allowed values"};
+if(data10.name === undefined){
+const err35 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err35];
 }
@@ -640,9 +642,20 @@ vErrors.push(err35);
 }
 errors++;
 }
+for(const key2 in data10){
+if(!((((((((key2 === "type") || (key2 === "id")) || (key2 === "name")) || (key2 === "enabled")) || (key2 === "apiKey")) || (key2 === "baseURL")) || (key2 === "projectId")) || (key2 === "compatibility"))){
+const err36 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key2},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err36];
 }
-if(data9.id !== undefined){
-let data11 = data9.id;
+else {
+vErrors.push(err36);
+}
+errors++;
+}
+}
+if(data10.type !== undefined){
+let data11 = data10.type;
 if(typeof data11 !== "string"){
 let dataType9 = typeof data11;
 let coerced9 = undefined;
@@ -661,26 +674,36 @@ else if(data11 === null){
 coerced9 = "";
 }
 else {
-const err36 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err37 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/properties/type/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err36];
+vErrors = [err37];
 }
 else {
-vErrors.push(err36);
+vErrors.push(err37);
 }
 errors++;
 }
 }
 if(coerced9 !== undefined){
 data11 = coerced9;
-if(data9 !== undefined){
-data9["id"] = coerced9;
+if(data10 !== undefined){
+data10["type"] = coerced9;
 }
 }
 }
+if(!(((((((((data11 === "openai") || (data11 === "anthropic")) || (data11 === "google")) || (data11 === "mistral")) || (data11 === "openrouter")) || (data11 === "ollama")) || (data11 === "scaleway")) || (data11 === "openai-compatible")) || (data11 === "mock"))){
+const err38 = {instancePath:instancePath+"/providers/" + i0+"/type",schemaPath:"#/properties/providers/items/properties/type/enum",keyword:"enum",params:{allowedValues: schema16.properties.providers.items.properties.type.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err38];
 }
-if(data9.name !== undefined){
-let data12 = data9.name;
+else {
+vErrors.push(err38);
+}
+errors++;
+}
+}
+if(data10.id !== undefined){
+let data12 = data10.id;
 if(typeof data12 !== "string"){
 let dataType10 = typeof data12;
 let coerced10 = undefined;
@@ -699,83 +722,7 @@ else if(data12 === null){
 coerced10 = "";
 }
 else {
-const err37 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err37];
-}
-else {
-vErrors.push(err37);
-}
-errors++;
-}
-}
-if(coerced10 !== undefined){
-data12 = coerced10;
-if(data9 !== undefined){
-data9["name"] = coerced10;
-}
-}
-}
-}
-if(data9.enabled !== undefined){
-let data13 = data9.enabled;
-if(typeof data13 !== "boolean"){
-let dataType11 = typeof data13;
-let coerced11 = undefined;
-if(dataType11 == 'object' && Array.isArray(data13) && data13.length == 1){
-data13 = data13[0];
-dataType11 = typeof data13;
-if(typeof data13 === "boolean"){
-coerced11 = data13;
-}
-}
-if(!(coerced11 !== undefined)){
-if(data13 === "false" || data13 === 0 || data13 === null){
-coerced11 = false;
-}
-else if(data13 === "true" || data13 === 1){
-coerced11 = true;
-}
-else {
-const err38 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err38];
-}
-else {
-vErrors.push(err38);
-}
-errors++;
-}
-}
-if(coerced11 !== undefined){
-data13 = coerced11;
-if(data9 !== undefined){
-data9["enabled"] = coerced11;
-}
-}
-}
-}
-if(data9.apiKey !== undefined){
-let data14 = data9.apiKey;
-if(typeof data14 !== "string"){
-let dataType12 = typeof data14;
-let coerced12 = undefined;
-if(dataType12 == 'object' && Array.isArray(data14) && data14.length == 1){
-data14 = data14[0];
-dataType12 = typeof data14;
-if(typeof data14 === "string"){
-coerced12 = data14;
-}
-}
-if(!(coerced12 !== undefined)){
-if(dataType12 == "number" || dataType12 == "boolean"){
-coerced12 = "" + data14;
-}
-else if(data14 === null){
-coerced12 = "";
-}
-else {
-const err39 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err39 = {instancePath:instancePath+"/providers/" + i0+"/id",schemaPath:"#/properties/providers/items/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err39];
 }
@@ -785,16 +732,92 @@ vErrors.push(err39);
 errors++;
 }
 }
+if(coerced10 !== undefined){
+data12 = coerced10;
+if(data10 !== undefined){
+data10["id"] = coerced10;
+}
+}
+}
+}
+if(data10.name !== undefined){
+let data13 = data10.name;
+if(typeof data13 !== "string"){
+let dataType11 = typeof data13;
+let coerced11 = undefined;
+if(dataType11 == 'object' && Array.isArray(data13) && data13.length == 1){
+data13 = data13[0];
+dataType11 = typeof data13;
+if(typeof data13 === "string"){
+coerced11 = data13;
+}
+}
+if(!(coerced11 !== undefined)){
+if(dataType11 == "number" || dataType11 == "boolean"){
+coerced11 = "" + data13;
+}
+else if(data13 === null){
+coerced11 = "";
+}
+else {
+const err40 = {instancePath:instancePath+"/providers/" + i0+"/name",schemaPath:"#/properties/providers/items/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err40];
+}
+else {
+vErrors.push(err40);
+}
+errors++;
+}
+}
+if(coerced11 !== undefined){
+data13 = coerced11;
+if(data10 !== undefined){
+data10["name"] = coerced11;
+}
+}
+}
+}
+if(data10.enabled !== undefined){
+let data14 = data10.enabled;
+if(typeof data14 !== "boolean"){
+let dataType12 = typeof data14;
+let coerced12 = undefined;
+if(dataType12 == 'object' && Array.isArray(data14) && data14.length == 1){
+data14 = data14[0];
+dataType12 = typeof data14;
+if(typeof data14 === "boolean"){
+coerced12 = data14;
+}
+}
+if(!(coerced12 !== undefined)){
+if(data14 === "false" || data14 === 0 || data14 === null){
+coerced12 = false;
+}
+else if(data14 === "true" || data14 === 1){
+coerced12 = true;
+}
+else {
+const err41 = {instancePath:instancePath+"/providers/" + i0+"/enabled",schemaPath:"#/properties/providers/items/properties/enabled/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+if(vErrors === null){
+vErrors = [err41];
+}
+else {
+vErrors.push(err41);
+}
+errors++;
+}
+}
 if(coerced12 !== undefined){
 data14 = coerced12;
-if(data9 !== undefined){
-data9["apiKey"] = coerced12;
+if(data10 !== undefined){
+data10["enabled"] = coerced12;
 }
 }
 }
 }
-if(data9.baseURL !== undefined){
-let data15 = data9.baseURL;
+if(data10.apiKey !== undefined){
+let data15 = data10.apiKey;
 if(typeof data15 !== "string"){
 let dataType13 = typeof data15;
 let coerced13 = undefined;
@@ -813,26 +836,26 @@ else if(data15 === null){
 coerced13 = "";
 }
 else {
-const err40 = {instancePath:instancePath+"/providers/" + i0+"/baseURL",schemaPath:"#/properties/providers/items/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err42 = {instancePath:instancePath+"/providers/" + i0+"/apiKey",schemaPath:"#/properties/providers/items/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err40];
+vErrors = [err42];
 }
 else {
-vErrors.push(err40);
+vErrors.push(err42);
 }
 errors++;
 }
 }
 if(coerced13 !== undefined){
 data15 = coerced13;
-if(data9 !== undefined){
-data9["baseURL"] = coerced13;
+if(data10 !== undefined){
+data10["apiKey"] = coerced13;
 }
 }
 }
 }
-if(data9.projectId !== undefined){
-let data16 = data9.projectId;
+if(data10.baseURL !== undefined){
+let data16 = data10.baseURL;
 if(typeof data16 !== "string"){
 let dataType14 = typeof data16;
 let coerced14 = undefined;
@@ -851,26 +874,26 @@ else if(data16 === null){
 coerced14 = "";
 }
 else {
-const err41 = {instancePath:instancePath+"/providers/" + i0+"/projectId",schemaPath:"#/properties/providers/items/properties/projectId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err43 = {instancePath:instancePath+"/providers/" + i0+"/baseURL",schemaPath:"#/properties/providers/items/properties/baseURL/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err41];
+vErrors = [err43];
 }
 else {
-vErrors.push(err41);
+vErrors.push(err43);
 }
 errors++;
 }
 }
 if(coerced14 !== undefined){
 data16 = coerced14;
-if(data9 !== undefined){
-data9["projectId"] = coerced14;
+if(data10 !== undefined){
+data10["baseURL"] = coerced14;
 }
 }
 }
 }
-if(data9.compatibility !== undefined){
-let data17 = data9.compatibility;
+if(data10.projectId !== undefined){
+let data17 = data10.projectId;
 if(typeof data17 !== "string"){
 let dataType15 = typeof data17;
 let coerced15 = undefined;
@@ -889,37 +912,7 @@ else if(data17 === null){
 coerced15 = "";
 }
 else {
-const err42 = {instancePath:instancePath+"/providers/" + i0+"/compatibility",schemaPath:"#/properties/providers/items/properties/compatibility/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err42];
-}
-else {
-vErrors.push(err42);
-}
-errors++;
-}
-}
-if(coerced15 !== undefined){
-data17 = coerced15;
-if(data9 !== undefined){
-data9["compatibility"] = coerced15;
-}
-}
-}
-if(!((data17 === "default") || (data17 === "compatible"))){
-const err43 = {instancePath:instancePath+"/providers/" + i0+"/compatibility",schemaPath:"#/properties/providers/items/properties/compatibility/enum",keyword:"enum",params:{allowedValues: schema16.properties.providers.items.properties.compatibility.enum},message:"must be equal to one of the allowed values"};
-if(vErrors === null){
-vErrors = [err43];
-}
-else {
-vErrors.push(err43);
-}
-errors++;
-}
-}
-}
-else {
-const err44 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err44 = {instancePath:instancePath+"/providers/" + i0+"/projectId",schemaPath:"#/properties/providers/items/properties/projectId/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err44];
 }
@@ -929,27 +922,35 @@ vErrors.push(err44);
 errors++;
 }
 }
+if(coerced15 !== undefined){
+data17 = coerced15;
+if(data10 !== undefined){
+data10["projectId"] = coerced15;
 }
 }
-if(data.models !== undefined){
-let data18 = data.models;
-if(!(Array.isArray(data18))){
+}
+}
+if(data10.compatibility !== undefined){
+let data18 = data10.compatibility;
+if(typeof data18 !== "string"){
 let dataType16 = typeof data18;
 let coerced16 = undefined;
 if(dataType16 == 'object' && Array.isArray(data18) && data18.length == 1){
 data18 = data18[0];
 dataType16 = typeof data18;
-if(Array.isArray(data18)){
+if(typeof data18 === "string"){
 coerced16 = data18;
 }
 }
 if(!(coerced16 !== undefined)){
-if(dataType16 === "string" || dataType16 === "number"
-              || dataType16 === "boolean" || data18 === null){
-coerced16 = [data18];
+if(dataType16 == "number" || dataType16 == "boolean"){
+coerced16 = "" + data18;
+}
+else if(data18 === null){
+coerced16 = "";
 }
 else {
-const err45 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err45 = {instancePath:instancePath+"/providers/" + i0+"/compatibility",schemaPath:"#/properties/providers/items/properties/compatibility/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err45];
 }
@@ -961,18 +962,13 @@ errors++;
 }
 if(coerced16 !== undefined){
 data18 = coerced16;
-if(data !== undefined){
-data["models"] = coerced16;
+if(data10 !== undefined){
+data10["compatibility"] = coerced16;
 }
 }
 }
-if(Array.isArray(data18)){
-const len1 = data18.length;
-for(let i1=0; i1<len1; i1++){
-let data19 = data18[i1];
-if(data19 && typeof data19 == "object" && !Array.isArray(data19)){
-if(data19.id === undefined){
-const err46 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(!((data18 === "default") || (data18 === "compatible"))){
+const err46 = {instancePath:instancePath+"/providers/" + i0+"/compatibility",schemaPath:"#/properties/providers/items/properties/compatibility/enum",keyword:"enum",params:{allowedValues: schema16.properties.providers.items.properties.compatibility.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err46];
 }
@@ -981,8 +977,10 @@ vErrors.push(err46);
 }
 errors++;
 }
-if(data19.name === undefined){
-const err47 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+}
+else {
+const err47 = {instancePath:instancePath+"/providers/" + i0,schemaPath:"#/properties/providers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err47];
 }
@@ -991,8 +989,28 @@ vErrors.push(err47);
 }
 errors++;
 }
-if(data19.provider === undefined){
-const err48 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+}
+}
+}
+if(data.models !== undefined){
+let data19 = data.models;
+if(!(Array.isArray(data19))){
+let dataType17 = typeof data19;
+let coerced17 = undefined;
+if(dataType17 == 'object' && Array.isArray(data19) && data19.length == 1){
+data19 = data19[0];
+dataType17 = typeof data19;
+if(Array.isArray(data19)){
+coerced17 = data19;
+}
+}
+if(!(coerced17 !== undefined)){
+if(dataType17 === "string" || dataType17 === "number"
+              || dataType17 === "boolean" || data19 === null){
+coerced17 = [data19];
+}
+else {
+const err48 = {instancePath:instancePath+"/models",schemaPath:"#/properties/models/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err48];
 }
@@ -1001,8 +1019,21 @@ vErrors.push(err48);
 }
 errors++;
 }
-if(data19.usage === undefined){
-const err49 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "usage"},message:"must have required property '"+"usage"+"'"};
+}
+if(coerced17 !== undefined){
+data19 = coerced17;
+if(data !== undefined){
+data["models"] = coerced17;
+}
+}
+}
+if(Array.isArray(data19)){
+const len1 = data19.length;
+for(let i1=0; i1<len1; i1++){
+let data20 = data19[i1];
+if(data20 && typeof data20 == "object" && !Array.isArray(data20)){
+if(data20.id === undefined){
+const err49 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err49];
 }
@@ -1011,8 +1042,8 @@ vErrors.push(err49);
 }
 errors++;
 }
-if(data19.inputPricePerMillion === undefined){
-const err50 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "inputPricePerMillion"},message:"must have required property '"+"inputPricePerMillion"+"'"};
+if(data20.name === undefined){
+const err50 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err50];
 }
@@ -1021,8 +1052,8 @@ vErrors.push(err50);
 }
 errors++;
 }
-if(data19.outputPricePerMillion === undefined){
-const err51 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "outputPricePerMillion"},message:"must have required property '"+"outputPricePerMillion"+"'"};
+if(data20.provider === undefined){
+const err51 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err51];
 }
@@ -1031,9 +1062,8 @@ vErrors.push(err51);
 }
 errors++;
 }
-for(const key3 in data19){
-if(!((((((((key3 === "id") || (key3 === "name")) || (key3 === "provider")) || (key3 === "usage")) || (key3 === "contextWindow")) || (key3 === "inputPricePerMillion")) || (key3 === "outputPricePerMillion")) || (key3 === "cachedInputPricePerMillion"))){
-const err52 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties"};
+if(data20.usage === undefined){
+const err52 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "usage"},message:"must have required property '"+"usage"+"'"};
 if(vErrors === null){
 vErrors = [err52];
 }
@@ -1042,28 +1072,8 @@ vErrors.push(err52);
 }
 errors++;
 }
-}
-if(data19.id !== undefined){
-let data20 = data19.id;
-if(typeof data20 !== "string"){
-let dataType17 = typeof data20;
-let coerced17 = undefined;
-if(dataType17 == 'object' && Array.isArray(data20) && data20.length == 1){
-data20 = data20[0];
-dataType17 = typeof data20;
-if(typeof data20 === "string"){
-coerced17 = data20;
-}
-}
-if(!(coerced17 !== undefined)){
-if(dataType17 == "number" || dataType17 == "boolean"){
-coerced17 = "" + data20;
-}
-else if(data20 === null){
-coerced17 = "";
-}
-else {
-const err53 = {instancePath:instancePath+"/models/" + i1+"/id",schemaPath:"#/properties/models/items/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data20.inputPricePerMillion === undefined){
+const err53 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "inputPricePerMillion"},message:"must have required property '"+"inputPricePerMillion"+"'"};
 if(vErrors === null){
 vErrors = [err53];
 }
@@ -1072,17 +1082,30 @@ vErrors.push(err53);
 }
 errors++;
 }
+if(data20.outputPricePerMillion === undefined){
+const err54 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/required",keyword:"required",params:{missingProperty: "outputPricePerMillion"},message:"must have required property '"+"outputPricePerMillion"+"'"};
+if(vErrors === null){
+vErrors = [err54];
 }
-if(coerced17 !== undefined){
-data20 = coerced17;
-if(data19 !== undefined){
-data19["id"] = coerced17;
+else {
+vErrors.push(err54);
+}
+errors++;
+}
+for(const key3 in data20){
+if(!((((((((key3 === "id") || (key3 === "name")) || (key3 === "provider")) || (key3 === "usage")) || (key3 === "contextWindow")) || (key3 === "inputPricePerMillion")) || (key3 === "outputPricePerMillion")) || (key3 === "cachedInputPricePerMillion"))){
+const err55 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key3},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err55];
+}
+else {
+vErrors.push(err55);
+}
+errors++;
 }
 }
-}
-}
-if(data19.name !== undefined){
-let data21 = data19.name;
+if(data20.id !== undefined){
+let data21 = data20.id;
 if(typeof data21 !== "string"){
 let dataType18 = typeof data21;
 let coerced18 = undefined;
@@ -1101,26 +1124,26 @@ else if(data21 === null){
 coerced18 = "";
 }
 else {
-const err54 = {instancePath:instancePath+"/models/" + i1+"/name",schemaPath:"#/properties/models/items/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err56 = {instancePath:instancePath+"/models/" + i1+"/id",schemaPath:"#/properties/models/items/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err54];
+vErrors = [err56];
 }
 else {
-vErrors.push(err54);
+vErrors.push(err56);
 }
 errors++;
 }
 }
 if(coerced18 !== undefined){
 data21 = coerced18;
-if(data19 !== undefined){
-data19["name"] = coerced18;
+if(data20 !== undefined){
+data20["id"] = coerced18;
 }
 }
 }
 }
-if(data19.provider !== undefined){
-let data22 = data19.provider;
+if(data20.name !== undefined){
+let data22 = data20.name;
 if(typeof data22 !== "string"){
 let dataType19 = typeof data22;
 let coerced19 = undefined;
@@ -1139,62 +1162,7 @@ else if(data22 === null){
 coerced19 = "";
 }
 else {
-const err55 = {instancePath:instancePath+"/models/" + i1+"/provider",schemaPath:"#/properties/models/items/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err55];
-}
-else {
-vErrors.push(err55);
-}
-errors++;
-}
-}
-if(coerced19 !== undefined){
-data22 = coerced19;
-if(data19 !== undefined){
-data19["provider"] = coerced19;
-}
-}
-}
-}
-if(data19.usage !== undefined){
-let data23 = data19.usage;
-if(!(Array.isArray(data23))){
-let dataType20 = typeof data23;
-let coerced20 = undefined;
-if(dataType20 == 'object' && Array.isArray(data23) && data23.length == 1){
-data23 = data23[0];
-dataType20 = typeof data23;
-if(Array.isArray(data23)){
-coerced20 = data23;
-}
-}
-if(!(coerced20 !== undefined)){
-if(dataType20 === "string" || dataType20 === "number"
-              || dataType20 === "boolean" || data23 === null){
-coerced20 = [data23];
-}
-else {
-const err56 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/type",keyword:"type",params:{type: "array"},message:"must be array"};
-if(vErrors === null){
-vErrors = [err56];
-}
-else {
-vErrors.push(err56);
-}
-errors++;
-}
-}
-if(coerced20 !== undefined){
-data23 = coerced20;
-if(data19 !== undefined){
-data19["usage"] = coerced20;
-}
-}
-}
-if(Array.isArray(data23)){
-if(data23.length < 1){
-const err57 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/minItems",keyword:"minItems",params:{limit: 1},message:"must NOT have fewer than 1 items"};
+const err57 = {instancePath:instancePath+"/models/" + i1+"/name",schemaPath:"#/properties/models/items/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err57];
 }
@@ -1203,28 +1171,36 @@ vErrors.push(err57);
 }
 errors++;
 }
-const len2 = data23.length;
-for(let i2=0; i2<len2; i2++){
-let data24 = data23[i2];
-if(typeof data24 !== "string"){
-let dataType21 = typeof data24;
-let coerced21 = undefined;
-if(dataType21 == 'object' && Array.isArray(data24) && data24.length == 1){
-data24 = data24[0];
-dataType21 = typeof data24;
-if(typeof data24 === "string"){
-coerced21 = data24;
+}
+if(coerced19 !== undefined){
+data22 = coerced19;
+if(data20 !== undefined){
+data20["name"] = coerced19;
 }
 }
-if(!(coerced21 !== undefined)){
-if(dataType21 == "number" || dataType21 == "boolean"){
-coerced21 = "" + data24;
 }
-else if(data24 === null){
-coerced21 = "";
+}
+if(data20.provider !== undefined){
+let data23 = data20.provider;
+if(typeof data23 !== "string"){
+let dataType20 = typeof data23;
+let coerced20 = undefined;
+if(dataType20 == 'object' && Array.isArray(data23) && data23.length == 1){
+data23 = data23[0];
+dataType20 = typeof data23;
+if(typeof data23 === "string"){
+coerced20 = data23;
+}
+}
+if(!(coerced20 !== undefined)){
+if(dataType20 == "number" || dataType20 == "boolean"){
+coerced20 = "" + data23;
+}
+else if(data23 === null){
+coerced20 = "";
 }
 else {
-const err58 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err58 = {instancePath:instancePath+"/models/" + i1+"/provider",schemaPath:"#/properties/models/items/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err58];
 }
@@ -1234,15 +1210,33 @@ vErrors.push(err58);
 errors++;
 }
 }
-if(coerced21 !== undefined){
-data24 = coerced21;
-if(data23 !== undefined){
-data23[i2] = coerced21;
+if(coerced20 !== undefined){
+data23 = coerced20;
+if(data20 !== undefined){
+data20["provider"] = coerced20;
 }
 }
 }
-if(!((((data24 === "assistant") || (data24 === "tools")) || (data24 === "summarizer")) || (data24 === "moderator"))){
-const err59 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/enum",keyword:"enum",params:{allowedValues: schema16.properties.models.items.properties.usage.items.enum},message:"must be equal to one of the allowed values"};
+}
+if(data20.usage !== undefined){
+let data24 = data20.usage;
+if(!(Array.isArray(data24))){
+let dataType21 = typeof data24;
+let coerced21 = undefined;
+if(dataType21 == 'object' && Array.isArray(data24) && data24.length == 1){
+data24 = data24[0];
+dataType21 = typeof data24;
+if(Array.isArray(data24)){
+coerced21 = data24;
+}
+}
+if(!(coerced21 !== undefined)){
+if(dataType21 === "string" || dataType21 === "number"
+              || dataType21 === "boolean" || data24 === null){
+coerced21 = [data24];
+}
+else {
+const err59 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err59];
 }
@@ -1252,18 +1246,16 @@ vErrors.push(err59);
 errors++;
 }
 }
-let i3 = data23.length;
-let j0;
-if(i3 > 1){
-const indices0 = {};
-for(;i3--;){
-let item0 = data23[i3];
-if(typeof item0 !== "string"){
-continue;
+if(coerced21 !== undefined){
+data24 = coerced21;
+if(data20 !== undefined){
+data20["usage"] = coerced21;
 }
-if(typeof indices0[item0] == "number"){
-j0 = indices0[item0];
-const err60 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/uniqueItems",keyword:"uniqueItems",params:{i: i3, j: j0},message:"must NOT have duplicate items (items ## "+j0+" and "+i3+" are identical)"};
+}
+}
+if(Array.isArray(data24)){
+if(data24.length < 1){
+const err60 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/minItems",keyword:"minItems",params:{limit: 1},message:"must NOT have fewer than 1 items"};
 if(vErrors === null){
 vErrors = [err60];
 }
@@ -1271,32 +1263,29 @@ else {
 vErrors.push(err60);
 }
 errors++;
-break;
 }
-indices0[item0] = i3;
-}
-}
-}
-}
-if(data19.contextWindow !== undefined){
-let data25 = data19.contextWindow;
-if(!(typeof data25 == "number")){
+const len2 = data24.length;
+for(let i2=0; i2<len2; i2++){
+let data25 = data24[i2];
+if(typeof data25 !== "string"){
 let dataType22 = typeof data25;
 let coerced22 = undefined;
 if(dataType22 == 'object' && Array.isArray(data25) && data25.length == 1){
 data25 = data25[0];
 dataType22 = typeof data25;
-if(typeof data25 == "number"){
+if(typeof data25 === "string"){
 coerced22 = data25;
 }
 }
 if(!(coerced22 !== undefined)){
-if(dataType22 == "boolean" || data25 === null
-              || (dataType22 == "string" && data25 && data25 == +data25)){
-coerced22 = +data25;
+if(dataType22 == "number" || dataType22 == "boolean"){
+coerced22 = "" + data25;
+}
+else if(data25 === null){
+coerced22 = "";
 }
 else {
-const err61 = {instancePath:instancePath+"/models/" + i1+"/contextWindow",schemaPath:"#/properties/models/items/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err61 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err61];
 }
@@ -1308,14 +1297,13 @@ errors++;
 }
 if(coerced22 !== undefined){
 data25 = coerced22;
-if(data19 !== undefined){
-data19["contextWindow"] = coerced22;
+if(data24 !== undefined){
+data24[i2] = coerced22;
 }
 }
 }
-if(typeof data25 == "number"){
-if(data25 < 0 || isNaN(data25)){
-const err62 = {instancePath:instancePath+"/models/" + i1+"/contextWindow",schemaPath:"#/properties/models/items/properties/contextWindow/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(!((((data25 === "assistant") || (data25 === "tools")) || (data25 === "summarizer")) || (data25 === "moderator"))){
+const err62 = {instancePath:instancePath+"/models/" + i1+"/usage/" + i2,schemaPath:"#/properties/models/items/properties/usage/items/enum",keyword:"enum",params:{allowedValues: schema16.properties.models.items.properties.usage.items.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err62];
 }
@@ -1325,9 +1313,34 @@ vErrors.push(err62);
 errors++;
 }
 }
+let i3 = data24.length;
+let j0;
+if(i3 > 1){
+const indices0 = {};
+for(;i3--;){
+let item0 = data24[i3];
+if(typeof item0 !== "string"){
+continue;
 }
-if(data19.inputPricePerMillion !== undefined){
-let data26 = data19.inputPricePerMillion;
+if(typeof indices0[item0] == "number"){
+j0 = indices0[item0];
+const err63 = {instancePath:instancePath+"/models/" + i1+"/usage",schemaPath:"#/properties/models/items/properties/usage/uniqueItems",keyword:"uniqueItems",params:{i: i3, j: j0},message:"must NOT have duplicate items (items ## "+j0+" and "+i3+" are identical)"};
+if(vErrors === null){
+vErrors = [err63];
+}
+else {
+vErrors.push(err63);
+}
+errors++;
+break;
+}
+indices0[item0] = i3;
+}
+}
+}
+}
+if(data20.contextWindow !== undefined){
+let data26 = data20.contextWindow;
 if(!(typeof data26 == "number")){
 let dataType23 = typeof data26;
 let coerced23 = undefined;
@@ -1344,26 +1357,7 @@ if(dataType23 == "boolean" || data26 === null
 coerced23 = +data26;
 }
 else {
-const err63 = {instancePath:instancePath+"/models/" + i1+"/inputPricePerMillion",schemaPath:"#/properties/models/items/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err63];
-}
-else {
-vErrors.push(err63);
-}
-errors++;
-}
-}
-if(coerced23 !== undefined){
-data26 = coerced23;
-if(data19 !== undefined){
-data19["inputPricePerMillion"] = coerced23;
-}
-}
-}
-if(typeof data26 == "number"){
-if(data26 < 0 || isNaN(data26)){
-const err64 = {instancePath:instancePath+"/models/" + i1+"/inputPricePerMillion",schemaPath:"#/properties/models/items/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+const err64 = {instancePath:instancePath+"/models/" + i1+"/contextWindow",schemaPath:"#/properties/models/items/properties/contextWindow/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err64];
 }
@@ -1373,9 +1367,28 @@ vErrors.push(err64);
 errors++;
 }
 }
+if(coerced23 !== undefined){
+data26 = coerced23;
+if(data20 !== undefined){
+data20["contextWindow"] = coerced23;
 }
-if(data19.outputPricePerMillion !== undefined){
-let data27 = data19.outputPricePerMillion;
+}
+}
+if(typeof data26 == "number"){
+if(data26 < 0 || isNaN(data26)){
+const err65 = {instancePath:instancePath+"/models/" + i1+"/contextWindow",schemaPath:"#/properties/models/items/properties/contextWindow/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(vErrors === null){
+vErrors = [err65];
+}
+else {
+vErrors.push(err65);
+}
+errors++;
+}
+}
+}
+if(data20.inputPricePerMillion !== undefined){
+let data27 = data20.inputPricePerMillion;
 if(!(typeof data27 == "number")){
 let dataType24 = typeof data27;
 let coerced24 = undefined;
@@ -1392,26 +1405,7 @@ if(dataType24 == "boolean" || data27 === null
 coerced24 = +data27;
 }
 else {
-const err65 = {instancePath:instancePath+"/models/" + i1+"/outputPricePerMillion",schemaPath:"#/properties/models/items/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err65];
-}
-else {
-vErrors.push(err65);
-}
-errors++;
-}
-}
-if(coerced24 !== undefined){
-data27 = coerced24;
-if(data19 !== undefined){
-data19["outputPricePerMillion"] = coerced24;
-}
-}
-}
-if(typeof data27 == "number"){
-if(data27 < 0 || isNaN(data27)){
-const err66 = {instancePath:instancePath+"/models/" + i1+"/outputPricePerMillion",schemaPath:"#/properties/models/items/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+const err66 = {instancePath:instancePath+"/models/" + i1+"/inputPricePerMillion",schemaPath:"#/properties/models/items/properties/inputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err66];
 }
@@ -1421,9 +1415,28 @@ vErrors.push(err66);
 errors++;
 }
 }
+if(coerced24 !== undefined){
+data27 = coerced24;
+if(data20 !== undefined){
+data20["inputPricePerMillion"] = coerced24;
 }
-if(data19.cachedInputPricePerMillion !== undefined){
-let data28 = data19.cachedInputPricePerMillion;
+}
+}
+if(typeof data27 == "number"){
+if(data27 < 0 || isNaN(data27)){
+const err67 = {instancePath:instancePath+"/models/" + i1+"/inputPricePerMillion",schemaPath:"#/properties/models/items/properties/inputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(vErrors === null){
+vErrors = [err67];
+}
+else {
+vErrors.push(err67);
+}
+errors++;
+}
+}
+}
+if(data20.outputPricePerMillion !== undefined){
+let data28 = data20.outputPricePerMillion;
 if(!(typeof data28 == "number")){
 let dataType25 = typeof data28;
 let coerced25 = undefined;
@@ -1440,26 +1453,7 @@ if(dataType25 == "boolean" || data28 === null
 coerced25 = +data28;
 }
 else {
-const err67 = {instancePath:instancePath+"/models/" + i1+"/cachedInputPricePerMillion",schemaPath:"#/properties/models/items/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
-if(vErrors === null){
-vErrors = [err67];
-}
-else {
-vErrors.push(err67);
-}
-errors++;
-}
-}
-if(coerced25 !== undefined){
-data28 = coerced25;
-if(data19 !== undefined){
-data19["cachedInputPricePerMillion"] = coerced25;
-}
-}
-}
-if(typeof data28 == "number"){
-if(data28 < 0 || isNaN(data28)){
-const err68 = {instancePath:instancePath+"/models/" + i1+"/cachedInputPricePerMillion",schemaPath:"#/properties/models/items/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+const err68 = {instancePath:instancePath+"/models/" + i1+"/outputPricePerMillion",schemaPath:"#/properties/models/items/properties/outputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err68];
 }
@@ -1469,10 +1463,16 @@ vErrors.push(err68);
 errors++;
 }
 }
+if(coerced25 !== undefined){
+data28 = coerced25;
+if(data20 !== undefined){
+data20["outputPricePerMillion"] = coerced25;
 }
 }
-else {
-const err69 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+}
+if(typeof data28 == "number"){
+if(data28 < 0 || isNaN(data28)){
+const err69 = {instancePath:instancePath+"/models/" + i1+"/outputPricePerMillion",schemaPath:"#/properties/models/items/properties/outputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err69];
 }
@@ -1483,26 +1483,25 @@ errors++;
 }
 }
 }
-}
-if(data.mcpServers !== undefined){
-let data29 = data.mcpServers;
-if(!(Array.isArray(data29))){
+if(data20.cachedInputPricePerMillion !== undefined){
+let data29 = data20.cachedInputPricePerMillion;
+if(!(typeof data29 == "number")){
 let dataType26 = typeof data29;
 let coerced26 = undefined;
 if(dataType26 == 'object' && Array.isArray(data29) && data29.length == 1){
 data29 = data29[0];
 dataType26 = typeof data29;
-if(Array.isArray(data29)){
+if(typeof data29 == "number"){
 coerced26 = data29;
 }
 }
 if(!(coerced26 !== undefined)){
-if(dataType26 === "string" || dataType26 === "number"
-              || dataType26 === "boolean" || data29 === null){
-coerced26 = [data29];
+if(dataType26 == "boolean" || data29 === null
+              || (dataType26 == "string" && data29 && data29 == +data29)){
+coerced26 = +data29;
 }
 else {
-const err70 = {instancePath:instancePath+"/mcpServers",schemaPath:"#/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err70 = {instancePath:instancePath+"/models/" + i1+"/cachedInputPricePerMillion",schemaPath:"#/properties/models/items/properties/cachedInputPricePerMillion/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err70];
 }
@@ -1514,18 +1513,14 @@ errors++;
 }
 if(coerced26 !== undefined){
 data29 = coerced26;
-if(data !== undefined){
-data["mcpServers"] = coerced26;
+if(data20 !== undefined){
+data20["cachedInputPricePerMillion"] = coerced26;
 }
 }
 }
-if(Array.isArray(data29)){
-const len3 = data29.length;
-for(let i4=0; i4<len3; i4++){
-let data30 = data29[i4];
-if(data30 && typeof data30 == "object" && !Array.isArray(data30)){
-if(data30.id === undefined){
-const err71 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(typeof data29 == "number"){
+if(data29 < 0 || isNaN(data29)){
+const err71 = {instancePath:instancePath+"/models/" + i1+"/cachedInputPricePerMillion",schemaPath:"#/properties/models/items/properties/cachedInputPricePerMillion/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err71];
 }
@@ -1534,8 +1529,11 @@ vErrors.push(err71);
 }
 errors++;
 }
-if(data30.name === undefined){
-const err72 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
+}
+}
+}
+else {
+const err72 = {instancePath:instancePath+"/models/" + i1,schemaPath:"#/properties/models/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err72];
 }
@@ -1544,8 +1542,28 @@ vErrors.push(err72);
 }
 errors++;
 }
-if(data30.url === undefined){
-const err73 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'"};
+}
+}
+}
+if(data.mcpServers !== undefined){
+let data30 = data.mcpServers;
+if(!(Array.isArray(data30))){
+let dataType27 = typeof data30;
+let coerced27 = undefined;
+if(dataType27 == 'object' && Array.isArray(data30) && data30.length == 1){
+data30 = data30[0];
+dataType27 = typeof data30;
+if(Array.isArray(data30)){
+coerced27 = data30;
+}
+}
+if(!(coerced27 !== undefined)){
+if(dataType27 === "string" || dataType27 === "number"
+              || dataType27 === "boolean" || data30 === null){
+coerced27 = [data30];
+}
+else {
+const err73 = {instancePath:instancePath+"/mcpServers",schemaPath:"#/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err73];
 }
@@ -1554,8 +1572,21 @@ vErrors.push(err73);
 }
 errors++;
 }
-if(data30.auth === undefined){
-const err74 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "auth"},message:"must have required property '"+"auth"+"'"};
+}
+if(coerced27 !== undefined){
+data30 = coerced27;
+if(data !== undefined){
+data["mcpServers"] = coerced27;
+}
+}
+}
+if(Array.isArray(data30)){
+const len3 = data30.length;
+for(let i4=0; i4<len3; i4++){
+let data31 = data30[i4];
+if(data31 && typeof data31 == "object" && !Array.isArray(data31)){
+if(data31.id === undefined){
+const err74 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
 if(vErrors === null){
 vErrors = [err74];
 }
@@ -1564,9 +1595,8 @@ vErrors.push(err74);
 }
 errors++;
 }
-for(const key4 in data30){
-if(!(func2.call(schema16.properties.mcpServers.items.properties, key4))){
-const err75 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key4},message:"must NOT have additional properties"};
+if(data31.name === undefined){
+const err75 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "name"},message:"must have required property '"+"name"+"'"};
 if(vErrors === null){
 vErrors = [err75];
 }
@@ -1575,28 +1605,8 @@ vErrors.push(err75);
 }
 errors++;
 }
-}
-if(data30.id !== undefined){
-let data31 = data30.id;
-if(typeof data31 !== "string"){
-let dataType27 = typeof data31;
-let coerced27 = undefined;
-if(dataType27 == 'object' && Array.isArray(data31) && data31.length == 1){
-data31 = data31[0];
-dataType27 = typeof data31;
-if(typeof data31 === "string"){
-coerced27 = data31;
-}
-}
-if(!(coerced27 !== undefined)){
-if(dataType27 == "number" || dataType27 == "boolean"){
-coerced27 = "" + data31;
-}
-else if(data31 === null){
-coerced27 = "";
-}
-else {
-const err76 = {instancePath:instancePath+"/mcpServers/" + i4+"/id",schemaPath:"#/properties/mcpServers/items/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data31.url === undefined){
+const err76 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "url"},message:"must have required property '"+"url"+"'"};
 if(vErrors === null){
 vErrors = [err76];
 }
@@ -1605,17 +1615,30 @@ vErrors.push(err76);
 }
 errors++;
 }
+if(data31.auth === undefined){
+const err77 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "auth"},message:"must have required property '"+"auth"+"'"};
+if(vErrors === null){
+vErrors = [err77];
 }
-if(coerced27 !== undefined){
-data31 = coerced27;
-if(data30 !== undefined){
-data30["id"] = coerced27;
+else {
+vErrors.push(err77);
+}
+errors++;
+}
+for(const key4 in data31){
+if(!(func2.call(schema16.properties.mcpServers.items.properties, key4))){
+const err78 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key4},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err78];
+}
+else {
+vErrors.push(err78);
+}
+errors++;
 }
 }
-}
-}
-if(data30.name !== undefined){
-let data32 = data30.name;
+if(data31.id !== undefined){
+let data32 = data31.id;
 if(typeof data32 !== "string"){
 let dataType28 = typeof data32;
 let coerced28 = undefined;
@@ -1634,26 +1657,26 @@ else if(data32 === null){
 coerced28 = "";
 }
 else {
-const err77 = {instancePath:instancePath+"/mcpServers/" + i4+"/name",schemaPath:"#/properties/mcpServers/items/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err79 = {instancePath:instancePath+"/mcpServers/" + i4+"/id",schemaPath:"#/properties/mcpServers/items/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err77];
+vErrors = [err79];
 }
 else {
-vErrors.push(err77);
+vErrors.push(err79);
 }
 errors++;
 }
 }
 if(coerced28 !== undefined){
 data32 = coerced28;
-if(data30 !== undefined){
-data30["name"] = coerced28;
+if(data31 !== undefined){
+data31["id"] = coerced28;
 }
 }
 }
 }
-if(data30.description !== undefined){
-let data33 = data30.description;
+if(data31.name !== undefined){
+let data33 = data31.name;
 if(typeof data33 !== "string"){
 let dataType29 = typeof data33;
 let coerced29 = undefined;
@@ -1672,26 +1695,26 @@ else if(data33 === null){
 coerced29 = "";
 }
 else {
-const err78 = {instancePath:instancePath+"/mcpServers/" + i4+"/description",schemaPath:"#/properties/mcpServers/items/properties/description/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err80 = {instancePath:instancePath+"/mcpServers/" + i4+"/name",schemaPath:"#/properties/mcpServers/items/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err78];
+vErrors = [err80];
 }
 else {
-vErrors.push(err78);
+vErrors.push(err80);
 }
 errors++;
 }
 }
 if(coerced29 !== undefined){
 data33 = coerced29;
-if(data30 !== undefined){
-data30["description"] = coerced29;
+if(data31 !== undefined){
+data31["name"] = coerced29;
 }
 }
 }
 }
-if(data30.url !== undefined){
-let data34 = data30.url;
+if(data31.description !== undefined){
+let data34 = data31.description;
 if(typeof data34 !== "string"){
 let dataType30 = typeof data34;
 let coerced30 = undefined;
@@ -1710,26 +1733,26 @@ else if(data34 === null){
 coerced30 = "";
 }
 else {
-const err79 = {instancePath:instancePath+"/mcpServers/" + i4+"/url",schemaPath:"#/properties/mcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err81 = {instancePath:instancePath+"/mcpServers/" + i4+"/description",schemaPath:"#/properties/mcpServers/items/properties/description/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err79];
+vErrors = [err81];
 }
 else {
-vErrors.push(err79);
+vErrors.push(err81);
 }
 errors++;
 }
 }
 if(coerced30 !== undefined){
 data34 = coerced30;
-if(data30 !== undefined){
-data30["url"] = coerced30;
+if(data31 !== undefined){
+data31["description"] = coerced30;
 }
 }
 }
 }
-if(data30.auth !== undefined){
-let data35 = data30.auth;
+if(data31.url !== undefined){
+let data35 = data31.url;
 if(typeof data35 !== "string"){
 let dataType31 = typeof data35;
 let coerced31 = undefined;
@@ -1748,36 +1771,26 @@ else if(data35 === null){
 coerced31 = "";
 }
 else {
-const err80 = {instancePath:instancePath+"/mcpServers/" + i4+"/auth",schemaPath:"#/properties/mcpServers/items/properties/auth/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err82 = {instancePath:instancePath+"/mcpServers/" + i4+"/url",schemaPath:"#/properties/mcpServers/items/properties/url/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err80];
+vErrors = [err82];
 }
 else {
-vErrors.push(err80);
+vErrors.push(err82);
 }
 errors++;
 }
 }
 if(coerced31 !== undefined){
 data35 = coerced31;
-if(data30 !== undefined){
-data30["auth"] = coerced31;
+if(data31 !== undefined){
+data31["url"] = coerced31;
 }
 }
 }
-if(!(((data35 === "nhi-session") || (data35 === "none")) || (data35 === "apiKey"))){
-const err81 = {instancePath:instancePath+"/mcpServers/" + i4+"/auth",schemaPath:"#/properties/mcpServers/items/properties/auth/enum",keyword:"enum",params:{allowedValues: schema16.properties.mcpServers.items.properties.auth.enum},message:"must be equal to one of the allowed values"};
-if(vErrors === null){
-vErrors = [err81];
 }
-else {
-vErrors.push(err81);
-}
-errors++;
-}
-}
-if(data30.apiKeyHeader !== undefined){
-let data36 = data30.apiKeyHeader;
+if(data31.auth !== undefined){
+let data36 = data31.auth;
 if(typeof data36 !== "string"){
 let dataType32 = typeof data36;
 let coerced32 = undefined;
@@ -1796,26 +1809,36 @@ else if(data36 === null){
 coerced32 = "";
 }
 else {
-const err82 = {instancePath:instancePath+"/mcpServers/" + i4+"/apiKeyHeader",schemaPath:"#/properties/mcpServers/items/properties/apiKeyHeader/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err83 = {instancePath:instancePath+"/mcpServers/" + i4+"/auth",schemaPath:"#/properties/mcpServers/items/properties/auth/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err82];
+vErrors = [err83];
 }
 else {
-vErrors.push(err82);
+vErrors.push(err83);
 }
 errors++;
 }
 }
 if(coerced32 !== undefined){
 data36 = coerced32;
-if(data30 !== undefined){
-data30["apiKeyHeader"] = coerced32;
+if(data31 !== undefined){
+data31["auth"] = coerced32;
 }
 }
 }
+if(!(((data36 === "nhi-session") || (data36 === "none")) || (data36 === "apiKey"))){
+const err84 = {instancePath:instancePath+"/mcpServers/" + i4+"/auth",schemaPath:"#/properties/mcpServers/items/properties/auth/enum",keyword:"enum",params:{allowedValues: schema16.properties.mcpServers.items.properties.auth.enum},message:"must be equal to one of the allowed values"};
+if(vErrors === null){
+vErrors = [err84];
 }
-if(data30.apiKey !== undefined){
-let data37 = data30.apiKey;
+else {
+vErrors.push(err84);
+}
+errors++;
+}
+}
+if(data31.apiKeyHeader !== undefined){
+let data37 = data31.apiKeyHeader;
 if(typeof data37 !== "string"){
 let dataType33 = typeof data37;
 let coerced33 = undefined;
@@ -1834,26 +1857,26 @@ else if(data37 === null){
 coerced33 = "";
 }
 else {
-const err83 = {instancePath:instancePath+"/mcpServers/" + i4+"/apiKey",schemaPath:"#/properties/mcpServers/items/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err85 = {instancePath:instancePath+"/mcpServers/" + i4+"/apiKeyHeader",schemaPath:"#/properties/mcpServers/items/properties/apiKeyHeader/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err83];
+vErrors = [err85];
 }
 else {
-vErrors.push(err83);
+vErrors.push(err85);
 }
 errors++;
 }
 }
 if(coerced33 !== undefined){
 data37 = coerced33;
-if(data30 !== undefined){
-data30["apiKey"] = coerced33;
+if(data31 !== undefined){
+data31["apiKeyHeader"] = coerced33;
 }
 }
 }
 }
-if(data30.sites !== undefined){
-let data38 = data30.sites;
+if(data31.apiKey !== undefined){
+let data38 = data31.apiKey;
 if(typeof data38 !== "string"){
 let dataType34 = typeof data38;
 let coerced34 = undefined;
@@ -1872,36 +1895,26 @@ else if(data38 === null){
 coerced34 = "";
 }
 else {
-const err84 = {instancePath:instancePath+"/mcpServers/" + i4+"/sites",schemaPath:"#/properties/mcpServers/items/properties/sites/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err86 = {instancePath:instancePath+"/mcpServers/" + i4+"/apiKey",schemaPath:"#/properties/mcpServers/items/properties/apiKey/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err84];
+vErrors = [err86];
 }
 else {
-vErrors.push(err84);
+vErrors.push(err86);
 }
 errors++;
 }
 }
 if(coerced34 !== undefined){
 data38 = coerced34;
-if(data30 !== undefined){
-data30["sites"] = coerced34;
+if(data31 !== undefined){
+data31["apiKey"] = coerced34;
 }
 }
 }
-if(!((data38 === "home") || (data38 === "all"))){
-const err85 = {instancePath:instancePath+"/mcpServers/" + i4+"/sites",schemaPath:"#/properties/mcpServers/items/properties/sites/enum",keyword:"enum",params:{allowedValues: schema16.properties.mcpServers.items.properties.sites.enum},message:"must be equal to one of the allowed values"};
-if(vErrors === null){
-vErrors = [err85];
 }
-else {
-vErrors.push(err85);
-}
-errors++;
-}
-}
-if(data30.homeAlternative !== undefined){
-let data39 = data30.homeAlternative;
+if(data31.sites !== undefined){
+let data39 = data31.sites;
 if(typeof data39 !== "string"){
 let dataType35 = typeof data39;
 let coerced35 = undefined;
@@ -1920,27 +1933,7 @@ else if(data39 === null){
 coerced35 = "";
 }
 else {
-const err86 = {instancePath:instancePath+"/mcpServers/" + i4+"/homeAlternative",schemaPath:"#/properties/mcpServers/items/properties/homeAlternative/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err86];
-}
-else {
-vErrors.push(err86);
-}
-errors++;
-}
-}
-if(coerced35 !== undefined){
-data39 = coerced35;
-if(data30 !== undefined){
-data30["homeAlternative"] = coerced35;
-}
-}
-}
-}
-}
-else {
-const err87 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err87 = {instancePath:instancePath+"/mcpServers/" + i4+"/sites",schemaPath:"#/properties/mcpServers/items/properties/sites/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err87];
 }
@@ -1950,14 +1943,15 @@ vErrors.push(err87);
 errors++;
 }
 }
+if(coerced35 !== undefined){
+data39 = coerced35;
+if(data31 !== undefined){
+data31["sites"] = coerced35;
 }
 }
-if(data.personalAssistants !== undefined){
-let data40 = data.personalAssistants;
-if(data40 && typeof data40 == "object" && !Array.isArray(data40)){
-for(const key5 in data40){
-if(!((key5 === "portal") || (key5 === "backOffice"))){
-const err88 = {instancePath:instancePath+"/personalAssistants",schemaPath:"#/properties/personalAssistants/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties"};
+}
+if(!((data39 === "home") || (data39 === "all"))){
+const err88 = {instancePath:instancePath+"/mcpServers/" + i4+"/sites",schemaPath:"#/properties/mcpServers/items/properties/sites/enum",keyword:"enum",params:{allowedValues: schema16.properties.mcpServers.items.properties.sites.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err88];
 }
@@ -1967,12 +1961,27 @@ vErrors.push(err88);
 errors++;
 }
 }
-if(data40.portal !== undefined){
-let data41 = data40.portal;
-if(data41 && typeof data41 == "object" && !Array.isArray(data41)){
-for(const key6 in data41){
-if(!(key6 === "mcpServers")){
-const err89 = {instancePath:instancePath+"/personalAssistants/portal",schemaPath:"#/properties/personalAssistants/properties/portal/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key6},message:"must NOT have additional properties"};
+if(data31.homeAlternative !== undefined){
+let data40 = data31.homeAlternative;
+if(typeof data40 !== "string"){
+let dataType36 = typeof data40;
+let coerced36 = undefined;
+if(dataType36 == 'object' && Array.isArray(data40) && data40.length == 1){
+data40 = data40[0];
+dataType36 = typeof data40;
+if(typeof data40 === "string"){
+coerced36 = data40;
+}
+}
+if(!(coerced36 !== undefined)){
+if(dataType36 == "number" || dataType36 == "boolean"){
+coerced36 = "" + data40;
+}
+else if(data40 === null){
+coerced36 = "";
+}
+else {
+const err89 = {instancePath:instancePath+"/mcpServers/" + i4+"/homeAlternative",schemaPath:"#/properties/mcpServers/items/properties/homeAlternative/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err89];
 }
@@ -1982,25 +1991,17 @@ vErrors.push(err89);
 errors++;
 }
 }
-if(data41.mcpServers !== undefined){
-let data42 = data41.mcpServers;
-if(!(Array.isArray(data42))){
-let dataType36 = typeof data42;
-let coerced36 = undefined;
-if(dataType36 == 'object' && Array.isArray(data42) && data42.length == 1){
-data42 = data42[0];
-dataType36 = typeof data42;
-if(Array.isArray(data42)){
-coerced36 = data42;
+if(coerced36 !== undefined){
+data40 = coerced36;
+if(data31 !== undefined){
+data31["homeAlternative"] = coerced36;
 }
 }
-if(!(coerced36 !== undefined)){
-if(dataType36 === "string" || dataType36 === "number"
-              || dataType36 === "boolean" || data42 === null){
-coerced36 = [data42];
+}
+}
 }
 else {
-const err90 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers",schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err90 = {instancePath:instancePath+"/mcpServers/" + i4,schemaPath:"#/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err90];
 }
@@ -2010,20 +2011,14 @@ vErrors.push(err90);
 errors++;
 }
 }
-if(coerced36 !== undefined){
-data42 = coerced36;
-if(data41 !== undefined){
-data41["mcpServers"] = coerced36;
 }
 }
-}
-if(Array.isArray(data42)){
-const len4 = data42.length;
-for(let i5=0; i5<len4; i5++){
-let data43 = data42[i5];
-if(data43 && typeof data43 == "object" && !Array.isArray(data43)){
-if(data43.serverId === undefined){
-const err91 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5,schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "serverId"},message:"must have required property '"+"serverId"+"'"};
+if(data.personalAssistants !== undefined){
+let data41 = data.personalAssistants;
+if(data41 && typeof data41 == "object" && !Array.isArray(data41)){
+for(const key5 in data41){
+if(!((key5 === "portal") || (key5 === "backOffice"))){
+const err91 = {instancePath:instancePath+"/personalAssistants",schemaPath:"#/properties/personalAssistants/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key5},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err91];
 }
@@ -2032,9 +2027,13 @@ vErrors.push(err91);
 }
 errors++;
 }
-for(const key7 in data43){
-if(!((key7 === "serverId") || (key7 === "toolFilter"))){
-const err92 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5,schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties"};
+}
+if(data41.portal !== undefined){
+let data42 = data41.portal;
+if(data42 && typeof data42 == "object" && !Array.isArray(data42)){
+for(const key6 in data42){
+if(!(key6 === "mcpServers")){
+const err92 = {instancePath:instancePath+"/personalAssistants/portal",schemaPath:"#/properties/personalAssistants/properties/portal/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key6},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err92];
 }
@@ -2044,27 +2043,25 @@ vErrors.push(err92);
 errors++;
 }
 }
-if(data43.serverId !== undefined){
-let data44 = data43.serverId;
-if(typeof data44 !== "string"){
-let dataType37 = typeof data44;
+if(data42.mcpServers !== undefined){
+let data43 = data42.mcpServers;
+if(!(Array.isArray(data43))){
+let dataType37 = typeof data43;
 let coerced37 = undefined;
-if(dataType37 == 'object' && Array.isArray(data44) && data44.length == 1){
-data44 = data44[0];
-dataType37 = typeof data44;
-if(typeof data44 === "string"){
-coerced37 = data44;
+if(dataType37 == 'object' && Array.isArray(data43) && data43.length == 1){
+data43 = data43[0];
+dataType37 = typeof data43;
+if(Array.isArray(data43)){
+coerced37 = data43;
 }
 }
 if(!(coerced37 !== undefined)){
-if(dataType37 == "number" || dataType37 == "boolean"){
-coerced37 = "" + data44;
-}
-else if(data44 === null){
-coerced37 = "";
+if(dataType37 === "string" || dataType37 === "number"
+              || dataType37 === "boolean" || data43 === null){
+coerced37 = [data43];
 }
 else {
-const err93 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5+"/serverId",schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/properties/serverId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err93 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers",schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err93];
 }
@@ -2075,32 +2072,19 @@ errors++;
 }
 }
 if(coerced37 !== undefined){
-data44 = coerced37;
-if(data43 !== undefined){
-data43["serverId"] = coerced37;
+data43 = coerced37;
+if(data42 !== undefined){
+data42["mcpServers"] = coerced37;
 }
 }
 }
-}
-if(data43.toolFilter !== undefined){
-let data45 = data43.toolFilter;
-if(!(Array.isArray(data45))){
-let dataType38 = typeof data45;
-let coerced38 = undefined;
-if(dataType38 == 'object' && Array.isArray(data45) && data45.length == 1){
-data45 = data45[0];
-dataType38 = typeof data45;
-if(Array.isArray(data45)){
-coerced38 = data45;
-}
-}
-if(!(coerced38 !== undefined)){
-if(dataType38 === "string" || dataType38 === "number"
-              || dataType38 === "boolean" || data45 === null){
-coerced38 = [data45];
-}
-else {
-const err94 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5+"/toolFilter",schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(Array.isArray(data43)){
+const len4 = data43.length;
+for(let i5=0; i5<len4; i5++){
+let data44 = data43[i5];
+if(data44 && typeof data44 == "object" && !Array.isArray(data44)){
+if(data44.serverId === undefined){
+const err94 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5,schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "serverId"},message:"must have required property '"+"serverId"+"'"};
 if(vErrors === null){
 vErrors = [err94];
 }
@@ -2109,37 +2093,9 @@ vErrors.push(err94);
 }
 errors++;
 }
-}
-if(coerced38 !== undefined){
-data45 = coerced38;
-if(data43 !== undefined){
-data43["toolFilter"] = coerced38;
-}
-}
-}
-if(Array.isArray(data45)){
-const len5 = data45.length;
-for(let i6=0; i6<len5; i6++){
-let data46 = data45[i6];
-if(typeof data46 !== "string"){
-let dataType39 = typeof data46;
-let coerced39 = undefined;
-if(dataType39 == 'object' && Array.isArray(data46) && data46.length == 1){
-data46 = data46[0];
-dataType39 = typeof data46;
-if(typeof data46 === "string"){
-coerced39 = data46;
-}
-}
-if(!(coerced39 !== undefined)){
-if(dataType39 == "number" || dataType39 == "boolean"){
-coerced39 = "" + data46;
-}
-else if(data46 === null){
-coerced39 = "";
-}
-else {
-const err95 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5+"/toolFilter/" + i6,schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+for(const key7 in data44){
+if(!((key7 === "serverId") || (key7 === "toolFilter"))){
+const err95 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5,schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key7},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err95];
 }
@@ -2149,19 +2105,27 @@ vErrors.push(err95);
 errors++;
 }
 }
-if(coerced39 !== undefined){
-data46 = coerced39;
-if(data45 !== undefined){
-data45[i6] = coerced39;
+if(data44.serverId !== undefined){
+let data45 = data44.serverId;
+if(typeof data45 !== "string"){
+let dataType38 = typeof data45;
+let coerced38 = undefined;
+if(dataType38 == 'object' && Array.isArray(data45) && data45.length == 1){
+data45 = data45[0];
+dataType38 = typeof data45;
+if(typeof data45 === "string"){
+coerced38 = data45;
 }
 }
+if(!(coerced38 !== undefined)){
+if(dataType38 == "number" || dataType38 == "boolean"){
+coerced38 = "" + data45;
 }
-}
-}
-}
+else if(data45 === null){
+coerced38 = "";
 }
 else {
-const err96 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5,schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err96 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5+"/serverId",schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/properties/serverId/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err96];
 }
@@ -2171,11 +2135,33 @@ vErrors.push(err96);
 errors++;
 }
 }
+if(coerced38 !== undefined){
+data45 = coerced38;
+if(data44 !== undefined){
+data44["serverId"] = coerced38;
 }
 }
+}
+}
+if(data44.toolFilter !== undefined){
+let data46 = data44.toolFilter;
+if(!(Array.isArray(data46))){
+let dataType39 = typeof data46;
+let coerced39 = undefined;
+if(dataType39 == 'object' && Array.isArray(data46) && data46.length == 1){
+data46 = data46[0];
+dataType39 = typeof data46;
+if(Array.isArray(data46)){
+coerced39 = data46;
+}
+}
+if(!(coerced39 !== undefined)){
+if(dataType39 === "string" || dataType39 === "number"
+              || dataType39 === "boolean" || data46 === null){
+coerced39 = [data46];
 }
 else {
-const err97 = {instancePath:instancePath+"/personalAssistants/portal",schemaPath:"#/properties/personalAssistants/properties/portal/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err97 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5+"/toolFilter",schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err97];
 }
@@ -2185,12 +2171,36 @@ vErrors.push(err97);
 errors++;
 }
 }
-if(data40.backOffice !== undefined){
-let data47 = data40.backOffice;
-if(data47 && typeof data47 == "object" && !Array.isArray(data47)){
-for(const key8 in data47){
-if(!(key8 === "mcpServers")){
-const err98 = {instancePath:instancePath+"/personalAssistants/backOffice",schemaPath:"#/properties/personalAssistants/properties/backOffice/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key8},message:"must NOT have additional properties"};
+if(coerced39 !== undefined){
+data46 = coerced39;
+if(data44 !== undefined){
+data44["toolFilter"] = coerced39;
+}
+}
+}
+if(Array.isArray(data46)){
+const len5 = data46.length;
+for(let i6=0; i6<len5; i6++){
+let data47 = data46[i6];
+if(typeof data47 !== "string"){
+let dataType40 = typeof data47;
+let coerced40 = undefined;
+if(dataType40 == 'object' && Array.isArray(data47) && data47.length == 1){
+data47 = data47[0];
+dataType40 = typeof data47;
+if(typeof data47 === "string"){
+coerced40 = data47;
+}
+}
+if(!(coerced40 !== undefined)){
+if(dataType40 == "number" || dataType40 == "boolean"){
+coerced40 = "" + data47;
+}
+else if(data47 === null){
+coerced40 = "";
+}
+else {
+const err98 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5+"/toolFilter/" + i6,schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err98];
 }
@@ -2200,25 +2210,19 @@ vErrors.push(err98);
 errors++;
 }
 }
-if(data47.mcpServers !== undefined){
-let data48 = data47.mcpServers;
-if(!(Array.isArray(data48))){
-let dataType40 = typeof data48;
-let coerced40 = undefined;
-if(dataType40 == 'object' && Array.isArray(data48) && data48.length == 1){
-data48 = data48[0];
-dataType40 = typeof data48;
-if(Array.isArray(data48)){
-coerced40 = data48;
+if(coerced40 !== undefined){
+data47 = coerced40;
+if(data46 !== undefined){
+data46[i6] = coerced40;
 }
 }
-if(!(coerced40 !== undefined)){
-if(dataType40 === "string" || dataType40 === "number"
-              || dataType40 === "boolean" || data48 === null){
-coerced40 = [data48];
+}
+}
+}
+}
 }
 else {
-const err99 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers",schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
+const err99 = {instancePath:instancePath+"/personalAssistants/portal/mcpServers/" + i5,schemaPath:"#/properties/personalAssistants/properties/portal/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err99];
 }
@@ -2228,20 +2232,11 @@ vErrors.push(err99);
 errors++;
 }
 }
-if(coerced40 !== undefined){
-data48 = coerced40;
-if(data47 !== undefined){
-data47["mcpServers"] = coerced40;
 }
 }
 }
-if(Array.isArray(data48)){
-const len6 = data48.length;
-for(let i7=0; i7<len6; i7++){
-let data49 = data48[i7];
-if(data49 && typeof data49 == "object" && !Array.isArray(data49)){
-if(data49.serverId === undefined){
-const err100 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7,schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "serverId"},message:"must have required property '"+"serverId"+"'"};
+else {
+const err100 = {instancePath:instancePath+"/personalAssistants/portal",schemaPath:"#/properties/personalAssistants/properties/portal/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err100];
 }
@@ -2250,9 +2245,13 @@ vErrors.push(err100);
 }
 errors++;
 }
-for(const key9 in data49){
-if(!((key9 === "serverId") || (key9 === "toolFilter"))){
-const err101 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7,schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties"};
+}
+if(data41.backOffice !== undefined){
+let data48 = data41.backOffice;
+if(data48 && typeof data48 == "object" && !Array.isArray(data48)){
+for(const key8 in data48){
+if(!(key8 === "mcpServers")){
+const err101 = {instancePath:instancePath+"/personalAssistants/backOffice",schemaPath:"#/properties/personalAssistants/properties/backOffice/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key8},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err101];
 }
@@ -2262,27 +2261,25 @@ vErrors.push(err101);
 errors++;
 }
 }
-if(data49.serverId !== undefined){
-let data50 = data49.serverId;
-if(typeof data50 !== "string"){
-let dataType41 = typeof data50;
+if(data48.mcpServers !== undefined){
+let data49 = data48.mcpServers;
+if(!(Array.isArray(data49))){
+let dataType41 = typeof data49;
 let coerced41 = undefined;
-if(dataType41 == 'object' && Array.isArray(data50) && data50.length == 1){
-data50 = data50[0];
-dataType41 = typeof data50;
-if(typeof data50 === "string"){
-coerced41 = data50;
+if(dataType41 == 'object' && Array.isArray(data49) && data49.length == 1){
+data49 = data49[0];
+dataType41 = typeof data49;
+if(Array.isArray(data49)){
+coerced41 = data49;
 }
 }
 if(!(coerced41 !== undefined)){
-if(dataType41 == "number" || dataType41 == "boolean"){
-coerced41 = "" + data50;
-}
-else if(data50 === null){
-coerced41 = "";
+if(dataType41 === "string" || dataType41 === "number"
+              || dataType41 === "boolean" || data49 === null){
+coerced41 = [data49];
 }
 else {
-const err102 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7+"/serverId",schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/properties/serverId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err102 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers",schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err102];
 }
@@ -2293,32 +2290,19 @@ errors++;
 }
 }
 if(coerced41 !== undefined){
-data50 = coerced41;
-if(data49 !== undefined){
-data49["serverId"] = coerced41;
+data49 = coerced41;
+if(data48 !== undefined){
+data48["mcpServers"] = coerced41;
 }
 }
 }
-}
-if(data49.toolFilter !== undefined){
-let data51 = data49.toolFilter;
-if(!(Array.isArray(data51))){
-let dataType42 = typeof data51;
-let coerced42 = undefined;
-if(dataType42 == 'object' && Array.isArray(data51) && data51.length == 1){
-data51 = data51[0];
-dataType42 = typeof data51;
-if(Array.isArray(data51)){
-coerced42 = data51;
-}
-}
-if(!(coerced42 !== undefined)){
-if(dataType42 === "string" || dataType42 === "number"
-              || dataType42 === "boolean" || data51 === null){
-coerced42 = [data51];
-}
-else {
-const err103 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7+"/toolFilter",schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array"};
+if(Array.isArray(data49)){
+const len6 = data49.length;
+for(let i7=0; i7<len6; i7++){
+let data50 = data49[i7];
+if(data50 && typeof data50 == "object" && !Array.isArray(data50)){
+if(data50.serverId === undefined){
+const err103 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7,schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/required",keyword:"required",params:{missingProperty: "serverId"},message:"must have required property '"+"serverId"+"'"};
 if(vErrors === null){
 vErrors = [err103];
 }
@@ -2327,37 +2311,9 @@ vErrors.push(err103);
 }
 errors++;
 }
-}
-if(coerced42 !== undefined){
-data51 = coerced42;
-if(data49 !== undefined){
-data49["toolFilter"] = coerced42;
-}
-}
-}
-if(Array.isArray(data51)){
-const len7 = data51.length;
-for(let i8=0; i8<len7; i8++){
-let data52 = data51[i8];
-if(typeof data52 !== "string"){
-let dataType43 = typeof data52;
-let coerced43 = undefined;
-if(dataType43 == 'object' && Array.isArray(data52) && data52.length == 1){
-data52 = data52[0];
-dataType43 = typeof data52;
-if(typeof data52 === "string"){
-coerced43 = data52;
-}
-}
-if(!(coerced43 !== undefined)){
-if(dataType43 == "number" || dataType43 == "boolean"){
-coerced43 = "" + data52;
-}
-else if(data52 === null){
-coerced43 = "";
-}
-else {
-const err104 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7+"/toolFilter/" + i8,schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
+for(const key9 in data50){
+if(!((key9 === "serverId") || (key9 === "toolFilter"))){
+const err104 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7,schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key9},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err104];
 }
@@ -2367,19 +2323,27 @@ vErrors.push(err104);
 errors++;
 }
 }
-if(coerced43 !== undefined){
-data52 = coerced43;
-if(data51 !== undefined){
-data51[i8] = coerced43;
+if(data50.serverId !== undefined){
+let data51 = data50.serverId;
+if(typeof data51 !== "string"){
+let dataType42 = typeof data51;
+let coerced42 = undefined;
+if(dataType42 == 'object' && Array.isArray(data51) && data51.length == 1){
+data51 = data51[0];
+dataType42 = typeof data51;
+if(typeof data51 === "string"){
+coerced42 = data51;
 }
 }
+if(!(coerced42 !== undefined)){
+if(dataType42 == "number" || dataType42 == "boolean"){
+coerced42 = "" + data51;
 }
-}
-}
-}
+else if(data51 === null){
+coerced42 = "";
 }
 else {
-const err105 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7,schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err105 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7+"/serverId",schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/properties/serverId/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err105];
 }
@@ -2389,11 +2353,33 @@ vErrors.push(err105);
 errors++;
 }
 }
+if(coerced42 !== undefined){
+data51 = coerced42;
+if(data50 !== undefined){
+data50["serverId"] = coerced42;
 }
 }
+}
+}
+if(data50.toolFilter !== undefined){
+let data52 = data50.toolFilter;
+if(!(Array.isArray(data52))){
+let dataType43 = typeof data52;
+let coerced43 = undefined;
+if(dataType43 == 'object' && Array.isArray(data52) && data52.length == 1){
+data52 = data52[0];
+dataType43 = typeof data52;
+if(Array.isArray(data52)){
+coerced43 = data52;
+}
+}
+if(!(coerced43 !== undefined)){
+if(dataType43 === "string" || dataType43 === "number"
+              || dataType43 === "boolean" || data52 === null){
+coerced43 = [data52];
 }
 else {
-const err106 = {instancePath:instancePath+"/personalAssistants/backOffice",schemaPath:"#/properties/personalAssistants/properties/backOffice/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err106 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7+"/toolFilter",schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/properties/toolFilter/type",keyword:"type",params:{type: "array"},message:"must be array"};
 if(vErrors === null){
 vErrors = [err106];
 }
@@ -2403,9 +2389,36 @@ vErrors.push(err106);
 errors++;
 }
 }
+if(coerced43 !== undefined){
+data52 = coerced43;
+if(data50 !== undefined){
+data50["toolFilter"] = coerced43;
+}
+}
+}
+if(Array.isArray(data52)){
+const len7 = data52.length;
+for(let i8=0; i8<len7; i8++){
+let data53 = data52[i8];
+if(typeof data53 !== "string"){
+let dataType44 = typeof data53;
+let coerced44 = undefined;
+if(dataType44 == 'object' && Array.isArray(data53) && data53.length == 1){
+data53 = data53[0];
+dataType44 = typeof data53;
+if(typeof data53 === "string"){
+coerced44 = data53;
+}
+}
+if(!(coerced44 !== undefined)){
+if(dataType44 == "number" || dataType44 == "boolean"){
+coerced44 = "" + data53;
+}
+else if(data53 === null){
+coerced44 = "";
 }
 else {
-const err107 = {instancePath:instancePath+"/personalAssistants",schemaPath:"#/properties/personalAssistants/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err107 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7+"/toolFilter/" + i8,schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/properties/toolFilter/items/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err107];
 }
@@ -2415,27 +2428,19 @@ vErrors.push(err107);
 errors++;
 }
 }
-if(data.autonomousAgentsRequireAdminMode !== undefined){
-let data53 = data.autonomousAgentsRequireAdminMode;
-if(typeof data53 !== "boolean"){
-let dataType44 = typeof data53;
-let coerced44 = undefined;
-if(dataType44 == 'object' && Array.isArray(data53) && data53.length == 1){
-data53 = data53[0];
-dataType44 = typeof data53;
-if(typeof data53 === "boolean"){
-coerced44 = data53;
+if(coerced44 !== undefined){
+data53 = coerced44;
+if(data52 !== undefined){
+data52[i8] = coerced44;
 }
 }
-if(!(coerced44 !== undefined)){
-if(data53 === "false" || data53 === 0 || data53 === null){
-coerced44 = false;
 }
-else if(data53 === "true" || data53 === 1){
-coerced44 = true;
+}
+}
+}
 }
 else {
-const err108 = {instancePath:instancePath+"/autonomousAgentsRequireAdminMode",schemaPath:"#/properties/autonomousAgentsRequireAdminMode/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+const err108 = {instancePath:instancePath+"/personalAssistants/backOffice/mcpServers/" + i7,schemaPath:"#/properties/personalAssistants/properties/backOffice/properties/mcpServers/items/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err108];
 }
@@ -2445,19 +2450,11 @@ vErrors.push(err108);
 errors++;
 }
 }
-if(coerced44 !== undefined){
-data53 = coerced44;
-if(data !== undefined){
-data["autonomousAgentsRequireAdminMode"] = coerced44;
 }
 }
 }
-}
-if(data.tasks !== undefined){
-let data54 = data.tasks;
-if(data54 && typeof data54 == "object" && !Array.isArray(data54)){
-if(data54.minIntervalSeconds === undefined){
-const err109 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/required",keyword:"required",params:{missingProperty: "minIntervalSeconds"},message:"must have required property '"+"minIntervalSeconds"+"'"};
+else {
+const err109 = {instancePath:instancePath+"/personalAssistants/backOffice",schemaPath:"#/properties/personalAssistants/properties/backOffice/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err109];
 }
@@ -2466,8 +2463,10 @@ vErrors.push(err109);
 }
 errors++;
 }
-if(data54.maxPerAgent === undefined){
-const err110 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/required",keyword:"required",params:{missingProperty: "maxPerAgent"},message:"must have required property '"+"maxPerAgent"+"'"};
+}
+}
+else {
+const err110 = {instancePath:instancePath+"/personalAssistants",schemaPath:"#/properties/personalAssistants/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err110];
 }
@@ -2476,8 +2475,28 @@ vErrors.push(err110);
 }
 errors++;
 }
-if(data54.pollSeconds === undefined){
-const err111 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/required",keyword:"required",params:{missingProperty: "pollSeconds"},message:"must have required property '"+"pollSeconds"+"'"};
+}
+if(data.autonomousAgentsRequireAdminMode !== undefined){
+let data54 = data.autonomousAgentsRequireAdminMode;
+if(typeof data54 !== "boolean"){
+let dataType45 = typeof data54;
+let coerced45 = undefined;
+if(dataType45 == 'object' && Array.isArray(data54) && data54.length == 1){
+data54 = data54[0];
+dataType45 = typeof data54;
+if(typeof data54 === "boolean"){
+coerced45 = data54;
+}
+}
+if(!(coerced45 !== undefined)){
+if(data54 === "false" || data54 === 0 || data54 === null){
+coerced45 = false;
+}
+else if(data54 === "true" || data54 === 1){
+coerced45 = true;
+}
+else {
+const err111 = {instancePath:instancePath+"/autonomousAgentsRequireAdminMode",schemaPath:"#/properties/autonomousAgentsRequireAdminMode/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err111];
 }
@@ -2486,8 +2505,20 @@ vErrors.push(err111);
 }
 errors++;
 }
-if(data54.maxConsecutiveFailures === undefined){
-const err112 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/required",keyword:"required",params:{missingProperty: "maxConsecutiveFailures"},message:"must have required property '"+"maxConsecutiveFailures"+"'"};
+}
+if(coerced45 !== undefined){
+data54 = coerced45;
+if(data !== undefined){
+data["autonomousAgentsRequireAdminMode"] = coerced45;
+}
+}
+}
+}
+if(data.tasks !== undefined){
+let data55 = data.tasks;
+if(data55 && typeof data55 == "object" && !Array.isArray(data55)){
+if(data55.minIntervalSeconds === undefined){
+const err112 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/required",keyword:"required",params:{missingProperty: "minIntervalSeconds"},message:"must have required property '"+"minIntervalSeconds"+"'"};
 if(vErrors === null){
 vErrors = [err112];
 }
@@ -2496,9 +2527,8 @@ vErrors.push(err112);
 }
 errors++;
 }
-for(const key10 in data54){
-if(!((((key10 === "minIntervalSeconds") || (key10 === "maxPerAgent")) || (key10 === "pollSeconds")) || (key10 === "maxConsecutiveFailures"))){
-const err113 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key10},message:"must NOT have additional properties"};
+if(data55.maxPerAgent === undefined){
+const err113 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/required",keyword:"required",params:{missingProperty: "maxPerAgent"},message:"must have required property '"+"maxPerAgent"+"'"};
 if(vErrors === null){
 vErrors = [err113];
 }
@@ -2507,26 +2537,8 @@ vErrors.push(err113);
 }
 errors++;
 }
-}
-if(data54.minIntervalSeconds !== undefined){
-let data55 = data54.minIntervalSeconds;
-if(!((typeof data55 == "number") && (!(data55 % 1) && !isNaN(data55)))){
-let dataType45 = typeof data55;
-let coerced45 = undefined;
-if(dataType45 == 'object' && Array.isArray(data55) && data55.length == 1){
-data55 = data55[0];
-dataType45 = typeof data55;
-if((typeof data55 == "number") && (!(data55 % 1) && !isNaN(data55))){
-coerced45 = data55;
-}
-}
-if(!(coerced45 !== undefined)){
-if(dataType45 === "boolean" || data55 === null
-              || (dataType45 === "string" && data55 && data55 == +data55 && !(data55 % 1))){
-coerced45 = +data55;
-}
-else {
-const err114 = {instancePath:instancePath+"/tasks/minIntervalSeconds",schemaPath:"#/properties/tasks/properties/minIntervalSeconds/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(data55.pollSeconds === undefined){
+const err114 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/required",keyword:"required",params:{missingProperty: "pollSeconds"},message:"must have required property '"+"pollSeconds"+"'"};
 if(vErrors === null){
 vErrors = [err114];
 }
@@ -2535,17 +2547,8 @@ vErrors.push(err114);
 }
 errors++;
 }
-}
-if(coerced45 !== undefined){
-data55 = coerced45;
-if(data54 !== undefined){
-data54["minIntervalSeconds"] = coerced45;
-}
-}
-}
-if(typeof data55 == "number"){
-if(data55 < 60 || isNaN(data55)){
-const err115 = {instancePath:instancePath+"/tasks/minIntervalSeconds",schemaPath:"#/properties/tasks/properties/minIntervalSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 60},message:"must be >= 60"};
+if(data55.maxConsecutiveFailures === undefined){
+const err115 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/required",keyword:"required",params:{missingProperty: "maxConsecutiveFailures"},message:"must have required property '"+"maxConsecutiveFailures"+"'"};
 if(vErrors === null){
 vErrors = [err115];
 }
@@ -2554,10 +2557,20 @@ vErrors.push(err115);
 }
 errors++;
 }
+for(const key10 in data55){
+if(!((((key10 === "minIntervalSeconds") || (key10 === "maxPerAgent")) || (key10 === "pollSeconds")) || (key10 === "maxConsecutiveFailures"))){
+const err116 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key10},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err116];
+}
+else {
+vErrors.push(err116);
+}
+errors++;
 }
 }
-if(data54.maxPerAgent !== undefined){
-let data56 = data54.maxPerAgent;
+if(data55.minIntervalSeconds !== undefined){
+let data56 = data55.minIntervalSeconds;
 if(!((typeof data56 == "number") && (!(data56 % 1) && !isNaN(data56)))){
 let dataType46 = typeof data56;
 let coerced46 = undefined;
@@ -2574,26 +2587,7 @@ if(dataType46 === "boolean" || data56 === null
 coerced46 = +data56;
 }
 else {
-const err116 = {instancePath:instancePath+"/tasks/maxPerAgent",schemaPath:"#/properties/tasks/properties/maxPerAgent/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
-if(vErrors === null){
-vErrors = [err116];
-}
-else {
-vErrors.push(err116);
-}
-errors++;
-}
-}
-if(coerced46 !== undefined){
-data56 = coerced46;
-if(data54 !== undefined){
-data54["maxPerAgent"] = coerced46;
-}
-}
-}
-if(typeof data56 == "number"){
-if(data56 < 1 || isNaN(data56)){
-const err117 = {instancePath:instancePath+"/tasks/maxPerAgent",schemaPath:"#/properties/tasks/properties/maxPerAgent/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+const err117 = {instancePath:instancePath+"/tasks/minIntervalSeconds",schemaPath:"#/properties/tasks/properties/minIntervalSeconds/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err117];
 }
@@ -2603,9 +2597,28 @@ vErrors.push(err117);
 errors++;
 }
 }
+if(coerced46 !== undefined){
+data56 = coerced46;
+if(data55 !== undefined){
+data55["minIntervalSeconds"] = coerced46;
 }
-if(data54.pollSeconds !== undefined){
-let data57 = data54.pollSeconds;
+}
+}
+if(typeof data56 == "number"){
+if(data56 < 60 || isNaN(data56)){
+const err118 = {instancePath:instancePath+"/tasks/minIntervalSeconds",schemaPath:"#/properties/tasks/properties/minIntervalSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 60},message:"must be >= 60"};
+if(vErrors === null){
+vErrors = [err118];
+}
+else {
+vErrors.push(err118);
+}
+errors++;
+}
+}
+}
+if(data55.maxPerAgent !== undefined){
+let data57 = data55.maxPerAgent;
 if(!((typeof data57 == "number") && (!(data57 % 1) && !isNaN(data57)))){
 let dataType47 = typeof data57;
 let coerced47 = undefined;
@@ -2622,26 +2635,7 @@ if(dataType47 === "boolean" || data57 === null
 coerced47 = +data57;
 }
 else {
-const err118 = {instancePath:instancePath+"/tasks/pollSeconds",schemaPath:"#/properties/tasks/properties/pollSeconds/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
-if(vErrors === null){
-vErrors = [err118];
-}
-else {
-vErrors.push(err118);
-}
-errors++;
-}
-}
-if(coerced47 !== undefined){
-data57 = coerced47;
-if(data54 !== undefined){
-data54["pollSeconds"] = coerced47;
-}
-}
-}
-if(typeof data57 == "number"){
-if(data57 < 1 || isNaN(data57)){
-const err119 = {instancePath:instancePath+"/tasks/pollSeconds",schemaPath:"#/properties/tasks/properties/pollSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+const err119 = {instancePath:instancePath+"/tasks/maxPerAgent",schemaPath:"#/properties/tasks/properties/maxPerAgent/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err119];
 }
@@ -2651,9 +2645,28 @@ vErrors.push(err119);
 errors++;
 }
 }
+if(coerced47 !== undefined){
+data57 = coerced47;
+if(data55 !== undefined){
+data55["maxPerAgent"] = coerced47;
 }
-if(data54.maxConsecutiveFailures !== undefined){
-let data58 = data54.maxConsecutiveFailures;
+}
+}
+if(typeof data57 == "number"){
+if(data57 < 1 || isNaN(data57)){
+const err120 = {instancePath:instancePath+"/tasks/maxPerAgent",schemaPath:"#/properties/tasks/properties/maxPerAgent/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+if(vErrors === null){
+vErrors = [err120];
+}
+else {
+vErrors.push(err120);
+}
+errors++;
+}
+}
+}
+if(data55.pollSeconds !== undefined){
+let data58 = data55.pollSeconds;
 if(!((typeof data58 == "number") && (!(data58 % 1) && !isNaN(data58)))){
 let dataType48 = typeof data58;
 let coerced48 = undefined;
@@ -2670,26 +2683,7 @@ if(dataType48 === "boolean" || data58 === null
 coerced48 = +data58;
 }
 else {
-const err120 = {instancePath:instancePath+"/tasks/maxConsecutiveFailures",schemaPath:"#/properties/tasks/properties/maxConsecutiveFailures/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
-if(vErrors === null){
-vErrors = [err120];
-}
-else {
-vErrors.push(err120);
-}
-errors++;
-}
-}
-if(coerced48 !== undefined){
-data58 = coerced48;
-if(data54 !== undefined){
-data54["maxConsecutiveFailures"] = coerced48;
-}
-}
-}
-if(typeof data58 == "number"){
-if(data58 < 1 || isNaN(data58)){
-const err121 = {instancePath:instancePath+"/tasks/maxConsecutiveFailures",schemaPath:"#/properties/tasks/properties/maxConsecutiveFailures/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+const err121 = {instancePath:instancePath+"/tasks/pollSeconds",schemaPath:"#/properties/tasks/properties/pollSeconds/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err121];
 }
@@ -2699,10 +2693,16 @@ vErrors.push(err121);
 errors++;
 }
 }
+if(coerced48 !== undefined){
+data58 = coerced48;
+if(data55 !== undefined){
+data55["pollSeconds"] = coerced48;
 }
 }
-else {
-const err122 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/type",keyword:"type",params:{type: "object"},message:"must be object"};
+}
+if(typeof data58 == "number"){
+if(data58 < 1 || isNaN(data58)){
+const err122 = {instancePath:instancePath+"/tasks/pollSeconds",schemaPath:"#/properties/tasks/properties/pollSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
 if(vErrors === null){
 vErrors = [err122];
 }
@@ -2712,11 +2712,26 @@ vErrors.push(err122);
 errors++;
 }
 }
-if(data.files !== undefined){
-let data59 = data.files;
-if(data59 && typeof data59 == "object" && !Array.isArray(data59)){
-if(data59.storage === undefined){
-const err123 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/required",keyword:"required",params:{missingProperty: "storage"},message:"must have required property '"+"storage"+"'"};
+}
+if(data55.maxConsecutiveFailures !== undefined){
+let data59 = data55.maxConsecutiveFailures;
+if(!((typeof data59 == "number") && (!(data59 % 1) && !isNaN(data59)))){
+let dataType49 = typeof data59;
+let coerced49 = undefined;
+if(dataType49 == 'object' && Array.isArray(data59) && data59.length == 1){
+data59 = data59[0];
+dataType49 = typeof data59;
+if((typeof data59 == "number") && (!(data59 % 1) && !isNaN(data59))){
+coerced49 = data59;
+}
+}
+if(!(coerced49 !== undefined)){
+if(dataType49 === "boolean" || data59 === null
+              || (dataType49 === "string" && data59 && data59 == +data59 && !(data59 % 1))){
+coerced49 = +data59;
+}
+else {
+const err123 = {instancePath:instancePath+"/tasks/maxConsecutiveFailures",schemaPath:"#/properties/tasks/properties/maxConsecutiveFailures/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err123];
 }
@@ -2725,8 +2740,17 @@ vErrors.push(err123);
 }
 errors++;
 }
-if(data59.secret === undefined){
-const err124 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/required",keyword:"required",params:{missingProperty: "secret"},message:"must have required property '"+"secret"+"'"};
+}
+if(coerced49 !== undefined){
+data59 = coerced49;
+if(data55 !== undefined){
+data55["maxConsecutiveFailures"] = coerced49;
+}
+}
+}
+if(typeof data59 == "number"){
+if(data59 < 1 || isNaN(data59)){
+const err124 = {instancePath:instancePath+"/tasks/maxConsecutiveFailures",schemaPath:"#/properties/tasks/properties/maxConsecutiveFailures/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
 if(vErrors === null){
 vErrors = [err124];
 }
@@ -2735,8 +2759,11 @@ vErrors.push(err124);
 }
 errors++;
 }
-if(data59.publicUrl === undefined){
-const err125 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/required",keyword:"required",params:{missingProperty: "publicUrl"},message:"must have required property '"+"publicUrl"+"'"};
+}
+}
+}
+else {
+const err125 = {instancePath:instancePath+"/tasks",schemaPath:"#/properties/tasks/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err125];
 }
@@ -2745,9 +2772,12 @@ vErrors.push(err125);
 }
 errors++;
 }
-for(const key11 in data59){
-if(!(((((key11 === "storage") || (key11 === "dataDir")) || (key11 === "s3")) || (key11 === "secret")) || (key11 === "publicUrl"))){
-const err126 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key11},message:"must NOT have additional properties"};
+}
+if(data.files !== undefined){
+let data60 = data.files;
+if(data60 && typeof data60 == "object" && !Array.isArray(data60)){
+if(data60.storage === undefined){
+const err126 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/required",keyword:"required",params:{missingProperty: "storage"},message:"must have required property '"+"storage"+"'"};
 if(vErrors === null){
 vErrors = [err126];
 }
@@ -2756,28 +2786,8 @@ vErrors.push(err126);
 }
 errors++;
 }
-}
-if(data59.storage !== undefined){
-let data60 = data59.storage;
-if(typeof data60 !== "string"){
-let dataType49 = typeof data60;
-let coerced49 = undefined;
-if(dataType49 == 'object' && Array.isArray(data60) && data60.length == 1){
-data60 = data60[0];
-dataType49 = typeof data60;
-if(typeof data60 === "string"){
-coerced49 = data60;
-}
-}
-if(!(coerced49 !== undefined)){
-if(dataType49 == "number" || dataType49 == "boolean"){
-coerced49 = "" + data60;
-}
-else if(data60 === null){
-coerced49 = "";
-}
-else {
-const err127 = {instancePath:instancePath+"/files/storage",schemaPath:"#/properties/files/properties/storage/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data60.secret === undefined){
+const err127 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/required",keyword:"required",params:{missingProperty: "secret"},message:"must have required property '"+"secret"+"'"};
 if(vErrors === null){
 vErrors = [err127];
 }
@@ -2786,16 +2796,8 @@ vErrors.push(err127);
 }
 errors++;
 }
-}
-if(coerced49 !== undefined){
-data60 = coerced49;
-if(data59 !== undefined){
-data59["storage"] = coerced49;
-}
-}
-}
-if(!((data60 === "fs") || (data60 === "s3"))){
-const err128 = {instancePath:instancePath+"/files/storage",schemaPath:"#/properties/files/properties/storage/enum",keyword:"enum",params:{allowedValues: schema16.properties.files.properties.storage.enum},message:"must be equal to one of the allowed values"};
+if(data60.publicUrl === undefined){
+const err128 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/required",keyword:"required",params:{missingProperty: "publicUrl"},message:"must have required property '"+"publicUrl"+"'"};
 if(vErrors === null){
 vErrors = [err128];
 }
@@ -2804,9 +2806,20 @@ vErrors.push(err128);
 }
 errors++;
 }
+for(const key11 in data60){
+if(!(((((key11 === "storage") || (key11 === "dataDir")) || (key11 === "s3")) || (key11 === "secret")) || (key11 === "publicUrl"))){
+const err129 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key11},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err129];
 }
-if(data59.dataDir !== undefined){
-let data61 = data59.dataDir;
+else {
+vErrors.push(err129);
+}
+errors++;
+}
+}
+if(data60.storage !== undefined){
+let data61 = data60.storage;
 if(typeof data61 !== "string"){
 let dataType50 = typeof data61;
 let coerced50 = undefined;
@@ -2825,30 +2838,7 @@ else if(data61 === null){
 coerced50 = "";
 }
 else {
-const err129 = {instancePath:instancePath+"/files/dataDir",schemaPath:"#/properties/files/properties/dataDir/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err129];
-}
-else {
-vErrors.push(err129);
-}
-errors++;
-}
-}
-if(coerced50 !== undefined){
-data61 = coerced50;
-if(data59 !== undefined){
-data59["dataDir"] = coerced50;
-}
-}
-}
-}
-if(data59.s3 !== undefined){
-let data62 = data59.s3;
-if(data62 && typeof data62 == "object" && !Array.isArray(data62)){
-for(const key12 in data62){
-if(!(((((key12 === "region") || (key12 === "endpoint")) || (key12 === "bucket")) || (key12 === "credentials")) || (key12 === "forcePathStyle"))){
-const err130 = {instancePath:instancePath+"/files/s3",schemaPath:"#/properties/files/properties/s3/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key12},message:"must NOT have additional properties"};
+const err130 = {instancePath:instancePath+"/files/storage",schemaPath:"#/properties/files/properties/storage/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err130];
 }
@@ -2858,27 +2848,15 @@ vErrors.push(err130);
 errors++;
 }
 }
-if(data62.region !== undefined){
-let data63 = data62.region;
-if(typeof data63 !== "string"){
-let dataType51 = typeof data63;
-let coerced51 = undefined;
-if(dataType51 == 'object' && Array.isArray(data63) && data63.length == 1){
-data63 = data63[0];
-dataType51 = typeof data63;
-if(typeof data63 === "string"){
-coerced51 = data63;
+if(coerced50 !== undefined){
+data61 = coerced50;
+if(data60 !== undefined){
+data60["storage"] = coerced50;
 }
 }
-if(!(coerced51 !== undefined)){
-if(dataType51 == "number" || dataType51 == "boolean"){
-coerced51 = "" + data63;
 }
-else if(data63 === null){
-coerced51 = "";
-}
-else {
-const err131 = {instancePath:instancePath+"/files/s3/region",schemaPath:"#/properties/files/properties/s3/properties/region/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(!((data61 === "fs") || (data61 === "s3"))){
+const err131 = {instancePath:instancePath+"/files/storage",schemaPath:"#/properties/files/properties/storage/enum",keyword:"enum",params:{allowedValues: schema16.properties.files.properties.storage.enum},message:"must be equal to one of the allowed values"};
 if(vErrors === null){
 vErrors = [err131];
 }
@@ -2888,16 +2866,61 @@ vErrors.push(err131);
 errors++;
 }
 }
+if(data60.dataDir !== undefined){
+let data62 = data60.dataDir;
+if(typeof data62 !== "string"){
+let dataType51 = typeof data62;
+let coerced51 = undefined;
+if(dataType51 == 'object' && Array.isArray(data62) && data62.length == 1){
+data62 = data62[0];
+dataType51 = typeof data62;
+if(typeof data62 === "string"){
+coerced51 = data62;
+}
+}
+if(!(coerced51 !== undefined)){
+if(dataType51 == "number" || dataType51 == "boolean"){
+coerced51 = "" + data62;
+}
+else if(data62 === null){
+coerced51 = "";
+}
+else {
+const err132 = {instancePath:instancePath+"/files/dataDir",schemaPath:"#/properties/files/properties/dataDir/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err132];
+}
+else {
+vErrors.push(err132);
+}
+errors++;
+}
+}
 if(coerced51 !== undefined){
-data63 = coerced51;
-if(data62 !== undefined){
-data62["region"] = coerced51;
+data62 = coerced51;
+if(data60 !== undefined){
+data60["dataDir"] = coerced51;
 }
 }
 }
 }
-if(data62.endpoint !== undefined){
-let data64 = data62.endpoint;
+if(data60.s3 !== undefined){
+let data63 = data60.s3;
+if(data63 && typeof data63 == "object" && !Array.isArray(data63)){
+for(const key12 in data63){
+if(!(((((key12 === "region") || (key12 === "endpoint")) || (key12 === "bucket")) || (key12 === "credentials")) || (key12 === "forcePathStyle"))){
+const err133 = {instancePath:instancePath+"/files/s3",schemaPath:"#/properties/files/properties/s3/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key12},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err133];
+}
+else {
+vErrors.push(err133);
+}
+errors++;
+}
+}
+if(data63.region !== undefined){
+let data64 = data63.region;
 if(typeof data64 !== "string"){
 let dataType52 = typeof data64;
 let coerced52 = undefined;
@@ -2916,26 +2939,26 @@ else if(data64 === null){
 coerced52 = "";
 }
 else {
-const err132 = {instancePath:instancePath+"/files/s3/endpoint",schemaPath:"#/properties/files/properties/s3/properties/endpoint/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err134 = {instancePath:instancePath+"/files/s3/region",schemaPath:"#/properties/files/properties/s3/properties/region/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
-vErrors = [err132];
+vErrors = [err134];
 }
 else {
-vErrors.push(err132);
+vErrors.push(err134);
 }
 errors++;
 }
 }
 if(coerced52 !== undefined){
 data64 = coerced52;
-if(data62 !== undefined){
-data62["endpoint"] = coerced52;
+if(data63 !== undefined){
+data63["region"] = coerced52;
 }
 }
 }
 }
-if(data62.bucket !== undefined){
-let data65 = data62.bucket;
+if(data63.endpoint !== undefined){
+let data65 = data63.endpoint;
 if(typeof data65 !== "string"){
 let dataType53 = typeof data65;
 let coerced53 = undefined;
@@ -2954,60 +2977,7 @@ else if(data65 === null){
 coerced53 = "";
 }
 else {
-const err133 = {instancePath:instancePath+"/files/s3/bucket",schemaPath:"#/properties/files/properties/s3/properties/bucket/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err133];
-}
-else {
-vErrors.push(err133);
-}
-errors++;
-}
-}
-if(coerced53 !== undefined){
-data65 = coerced53;
-if(data62 !== undefined){
-data62["bucket"] = coerced53;
-}
-}
-}
-}
-if(data62.credentials !== undefined){
-let data66 = data62.credentials;
-if(data66 && typeof data66 == "object" && !Array.isArray(data66)){
-for(const key13 in data66){
-if(!((key13 === "accessKeyId") || (key13 === "secretAccessKey"))){
-const err134 = {instancePath:instancePath+"/files/s3/credentials",schemaPath:"#/properties/files/properties/s3/properties/credentials/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key13},message:"must NOT have additional properties"};
-if(vErrors === null){
-vErrors = [err134];
-}
-else {
-vErrors.push(err134);
-}
-errors++;
-}
-}
-if(data66.accessKeyId !== undefined){
-let data67 = data66.accessKeyId;
-if(typeof data67 !== "string"){
-let dataType54 = typeof data67;
-let coerced54 = undefined;
-if(dataType54 == 'object' && Array.isArray(data67) && data67.length == 1){
-data67 = data67[0];
-dataType54 = typeof data67;
-if(typeof data67 === "string"){
-coerced54 = data67;
-}
-}
-if(!(coerced54 !== undefined)){
-if(dataType54 == "number" || dataType54 == "boolean"){
-coerced54 = "" + data67;
-}
-else if(data67 === null){
-coerced54 = "";
-}
-else {
-const err135 = {instancePath:instancePath+"/files/s3/credentials/accessKeyId",schemaPath:"#/properties/files/properties/s3/properties/credentials/properties/accessKeyId/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err135 = {instancePath:instancePath+"/files/s3/endpoint",schemaPath:"#/properties/files/properties/s3/properties/endpoint/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err135];
 }
@@ -3017,16 +2987,69 @@ vErrors.push(err135);
 errors++;
 }
 }
+if(coerced53 !== undefined){
+data65 = coerced53;
+if(data63 !== undefined){
+data63["endpoint"] = coerced53;
+}
+}
+}
+}
+if(data63.bucket !== undefined){
+let data66 = data63.bucket;
+if(typeof data66 !== "string"){
+let dataType54 = typeof data66;
+let coerced54 = undefined;
+if(dataType54 == 'object' && Array.isArray(data66) && data66.length == 1){
+data66 = data66[0];
+dataType54 = typeof data66;
+if(typeof data66 === "string"){
+coerced54 = data66;
+}
+}
+if(!(coerced54 !== undefined)){
+if(dataType54 == "number" || dataType54 == "boolean"){
+coerced54 = "" + data66;
+}
+else if(data66 === null){
+coerced54 = "";
+}
+else {
+const err136 = {instancePath:instancePath+"/files/s3/bucket",schemaPath:"#/properties/files/properties/s3/properties/bucket/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(vErrors === null){
+vErrors = [err136];
+}
+else {
+vErrors.push(err136);
+}
+errors++;
+}
+}
 if(coerced54 !== undefined){
-data67 = coerced54;
-if(data66 !== undefined){
-data66["accessKeyId"] = coerced54;
+data66 = coerced54;
+if(data63 !== undefined){
+data63["bucket"] = coerced54;
 }
 }
 }
 }
-if(data66.secretAccessKey !== undefined){
-let data68 = data66.secretAccessKey;
+if(data63.credentials !== undefined){
+let data67 = data63.credentials;
+if(data67 && typeof data67 == "object" && !Array.isArray(data67)){
+for(const key13 in data67){
+if(!((key13 === "accessKeyId") || (key13 === "secretAccessKey"))){
+const err137 = {instancePath:instancePath+"/files/s3/credentials",schemaPath:"#/properties/files/properties/s3/properties/credentials/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key13},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err137];
+}
+else {
+vErrors.push(err137);
+}
+errors++;
+}
+}
+if(data67.accessKeyId !== undefined){
+let data68 = data67.accessKeyId;
 if(typeof data68 !== "string"){
 let dataType55 = typeof data68;
 let coerced55 = undefined;
@@ -3045,57 +3068,7 @@ else if(data68 === null){
 coerced55 = "";
 }
 else {
-const err136 = {instancePath:instancePath+"/files/s3/credentials/secretAccessKey",schemaPath:"#/properties/files/properties/s3/properties/credentials/properties/secretAccessKey/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err136];
-}
-else {
-vErrors.push(err136);
-}
-errors++;
-}
-}
-if(coerced55 !== undefined){
-data68 = coerced55;
-if(data66 !== undefined){
-data66["secretAccessKey"] = coerced55;
-}
-}
-}
-}
-}
-else {
-const err137 = {instancePath:instancePath+"/files/s3/credentials",schemaPath:"#/properties/files/properties/s3/properties/credentials/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err137];
-}
-else {
-vErrors.push(err137);
-}
-errors++;
-}
-}
-if(data62.forcePathStyle !== undefined){
-let data69 = data62.forcePathStyle;
-if(typeof data69 !== "boolean"){
-let dataType56 = typeof data69;
-let coerced56 = undefined;
-if(dataType56 == 'object' && Array.isArray(data69) && data69.length == 1){
-data69 = data69[0];
-dataType56 = typeof data69;
-if(typeof data69 === "boolean"){
-coerced56 = data69;
-}
-}
-if(!(coerced56 !== undefined)){
-if(data69 === "false" || data69 === 0 || data69 === null){
-coerced56 = false;
-}
-else if(data69 === "true" || data69 === 1){
-coerced56 = true;
-}
-else {
-const err138 = {instancePath:instancePath+"/files/s3/forcePathStyle",schemaPath:"#/properties/files/properties/s3/properties/forcePathStyle/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+const err138 = {instancePath:instancePath+"/files/s3/credentials/accessKeyId",schemaPath:"#/properties/files/properties/s3/properties/credentials/properties/accessKeyId/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err138];
 }
@@ -3105,17 +3078,35 @@ vErrors.push(err138);
 errors++;
 }
 }
-if(coerced56 !== undefined){
-data69 = coerced56;
-if(data62 !== undefined){
-data62["forcePathStyle"] = coerced56;
+if(coerced55 !== undefined){
+data68 = coerced55;
+if(data67 !== undefined){
+data67["accessKeyId"] = coerced55;
 }
 }
 }
 }
+if(data67.secretAccessKey !== undefined){
+let data69 = data67.secretAccessKey;
+if(typeof data69 !== "string"){
+let dataType56 = typeof data69;
+let coerced56 = undefined;
+if(dataType56 == 'object' && Array.isArray(data69) && data69.length == 1){
+data69 = data69[0];
+dataType56 = typeof data69;
+if(typeof data69 === "string"){
+coerced56 = data69;
+}
+}
+if(!(coerced56 !== undefined)){
+if(dataType56 == "number" || dataType56 == "boolean"){
+coerced56 = "" + data69;
+}
+else if(data69 === null){
+coerced56 = "";
 }
 else {
-const err139 = {instancePath:instancePath+"/files/s3",schemaPath:"#/properties/files/properties/s3/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err139 = {instancePath:instancePath+"/files/s3/credentials/secretAccessKey",schemaPath:"#/properties/files/properties/s3/properties/credentials/properties/secretAccessKey/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err139];
 }
@@ -3125,27 +3116,17 @@ vErrors.push(err139);
 errors++;
 }
 }
-if(data59.secret !== undefined){
-let data70 = data59.secret;
-if(typeof data70 !== "string"){
-let dataType57 = typeof data70;
-let coerced57 = undefined;
-if(dataType57 == 'object' && Array.isArray(data70) && data70.length == 1){
-data70 = data70[0];
-dataType57 = typeof data70;
-if(typeof data70 === "string"){
-coerced57 = data70;
+if(coerced56 !== undefined){
+data69 = coerced56;
+if(data67 !== undefined){
+data67["secretAccessKey"] = coerced56;
 }
 }
-if(!(coerced57 !== undefined)){
-if(dataType57 == "number" || dataType57 == "boolean"){
-coerced57 = "" + data70;
 }
-else if(data70 === null){
-coerced57 = "";
+}
 }
 else {
-const err140 = {instancePath:instancePath+"/files/secret",schemaPath:"#/properties/files/properties/secret/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err140 = {instancePath:instancePath+"/files/s3/credentials",schemaPath:"#/properties/files/properties/s3/properties/credentials/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err140];
 }
@@ -3155,16 +3136,27 @@ vErrors.push(err140);
 errors++;
 }
 }
-if(coerced57 !== undefined){
-data70 = coerced57;
-if(data59 !== undefined){
-data59["secret"] = coerced57;
+if(data63.forcePathStyle !== undefined){
+let data70 = data63.forcePathStyle;
+if(typeof data70 !== "boolean"){
+let dataType57 = typeof data70;
+let coerced57 = undefined;
+if(dataType57 == 'object' && Array.isArray(data70) && data70.length == 1){
+data70 = data70[0];
+dataType57 = typeof data70;
+if(typeof data70 === "boolean"){
+coerced57 = data70;
 }
 }
+if(!(coerced57 !== undefined)){
+if(data70 === "false" || data70 === 0 || data70 === null){
+coerced57 = false;
 }
-if(typeof data70 === "string"){
-if(func4(data70) < 32){
-const err141 = {instancePath:instancePath+"/files/secret",schemaPath:"#/properties/files/properties/secret/minLength",keyword:"minLength",params:{limit: 32},message:"must NOT have fewer than 32 characters"};
+else if(data70 === "true" || data70 === 1){
+coerced57 = true;
+}
+else {
+const err141 = {instancePath:instancePath+"/files/s3/forcePathStyle",schemaPath:"#/properties/files/properties/s3/properties/forcePathStyle/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err141];
 }
@@ -3174,9 +3166,28 @@ vErrors.push(err141);
 errors++;
 }
 }
+if(coerced57 !== undefined){
+data70 = coerced57;
+if(data63 !== undefined){
+data63["forcePathStyle"] = coerced57;
 }
-if(data59.publicUrl !== undefined){
-let data71 = data59.publicUrl;
+}
+}
+}
+}
+else {
+const err142 = {instancePath:instancePath+"/files/s3",schemaPath:"#/properties/files/properties/s3/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err142];
+}
+else {
+vErrors.push(err142);
+}
+errors++;
+}
+}
+if(data60.secret !== undefined){
+let data71 = data60.secret;
 if(typeof data71 !== "string"){
 let dataType58 = typeof data71;
 let coerced58 = undefined;
@@ -3195,26 +3206,7 @@ else if(data71 === null){
 coerced58 = "";
 }
 else {
-const err142 = {instancePath:instancePath+"/files/publicUrl",schemaPath:"#/properties/files/properties/publicUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err142];
-}
-else {
-vErrors.push(err142);
-}
-errors++;
-}
-}
-if(coerced58 !== undefined){
-data71 = coerced58;
-if(data59 !== undefined){
-data59["publicUrl"] = coerced58;
-}
-}
-}
-if(typeof data71 === "string"){
-if(!pattern0.test(data71)){
-const err143 = {instancePath:instancePath+"/files/publicUrl",schemaPath:"#/properties/files/properties/publicUrl/pattern",keyword:"pattern",params:{pattern: "^https?://"},message:"must match pattern \""+"^https?://"+"\""};
+const err143 = {instancePath:instancePath+"/files/secret",schemaPath:"#/properties/files/properties/secret/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err143];
 }
@@ -3224,10 +3216,16 @@ vErrors.push(err143);
 errors++;
 }
 }
+if(coerced58 !== undefined){
+data71 = coerced58;
+if(data60 !== undefined){
+data60["secret"] = coerced58;
 }
 }
-else {
-const err144 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/type",keyword:"type",params:{type: "object"},message:"must be object"};
+}
+if(typeof data71 === "string"){
+if(func4(data71) < 32){
+const err144 = {instancePath:instancePath+"/files/secret",schemaPath:"#/properties/files/properties/secret/minLength",keyword:"minLength",params:{limit: 32},message:"must NOT have fewer than 32 characters"};
 if(vErrors === null){
 vErrors = [err144];
 }
@@ -3237,12 +3235,28 @@ vErrors.push(err144);
 errors++;
 }
 }
-if(data.defaultModels !== undefined){
-let data72 = data.defaultModels;
-if(data72 && typeof data72 == "object" && !Array.isArray(data72)){
-for(const key14 in data72){
-if(!((((key14 === "assistant") || (key14 === "tools")) || (key14 === "summarizer")) || (key14 === "moderator"))){
-const err145 = {instancePath:instancePath+"/defaultModels",schemaPath:"#/properties/defaultModels/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key14},message:"must NOT have additional properties"};
+}
+if(data60.publicUrl !== undefined){
+let data72 = data60.publicUrl;
+if(typeof data72 !== "string"){
+let dataType59 = typeof data72;
+let coerced59 = undefined;
+if(dataType59 == 'object' && Array.isArray(data72) && data72.length == 1){
+data72 = data72[0];
+dataType59 = typeof data72;
+if(typeof data72 === "string"){
+coerced59 = data72;
+}
+}
+if(!(coerced59 !== undefined)){
+if(dataType59 == "number" || dataType59 == "boolean"){
+coerced59 = "" + data72;
+}
+else if(data72 === null){
+coerced59 = "";
+}
+else {
+const err145 = {instancePath:instancePath+"/files/publicUrl",schemaPath:"#/properties/files/properties/publicUrl/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err145];
 }
@@ -3252,11 +3266,16 @@ vErrors.push(err145);
 errors++;
 }
 }
-if(data72.assistant !== undefined){
-let data73 = data72.assistant;
-if(data73 && typeof data73 == "object" && !Array.isArray(data73)){
-if(data73.provider === undefined){
-const err146 = {instancePath:instancePath+"/defaultModels/assistant",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+if(coerced59 !== undefined){
+data72 = coerced59;
+if(data60 !== undefined){
+data60["publicUrl"] = coerced59;
+}
+}
+}
+if(typeof data72 === "string"){
+if(!pattern0.test(data72)){
+const err146 = {instancePath:instancePath+"/files/publicUrl",schemaPath:"#/properties/files/properties/publicUrl/pattern",keyword:"pattern",params:{pattern: "^https?://"},message:"must match pattern \""+"^https?://"+"\""};
 if(vErrors === null){
 vErrors = [err146];
 }
@@ -3265,8 +3284,11 @@ vErrors.push(err146);
 }
 errors++;
 }
-if(data73.id === undefined){
-const err147 = {instancePath:instancePath+"/defaultModels/assistant",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+}
+}
+else {
+const err147 = {instancePath:instancePath+"/files",schemaPath:"#/properties/files/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err147];
 }
@@ -3275,9 +3297,13 @@ vErrors.push(err147);
 }
 errors++;
 }
-for(const key15 in data73){
-if(!((key15 === "provider") || (key15 === "id"))){
-const err148 = {instancePath:instancePath+"/defaultModels/assistant",schemaPath:"#/$defs/modelRef/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key15},message:"must NOT have additional properties"};
+}
+if(data.defaultModels !== undefined){
+let data73 = data.defaultModels;
+if(data73 && typeof data73 == "object" && !Array.isArray(data73)){
+for(const key14 in data73){
+if(!((((key14 === "assistant") || (key14 === "tools")) || (key14 === "summarizer")) || (key14 === "moderator"))){
+const err148 = {instancePath:instancePath+"/defaultModels",schemaPath:"#/properties/defaultModels/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key14},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err148];
 }
@@ -3287,27 +3313,11 @@ vErrors.push(err148);
 errors++;
 }
 }
-if(data73.provider !== undefined){
-let data74 = data73.provider;
-if(typeof data74 !== "string"){
-let dataType59 = typeof data74;
-let coerced59 = undefined;
-if(dataType59 == 'object' && Array.isArray(data74) && data74.length == 1){
-data74 = data74[0];
-dataType59 = typeof data74;
-if(typeof data74 === "string"){
-coerced59 = data74;
-}
-}
-if(!(coerced59 !== undefined)){
-if(dataType59 == "number" || dataType59 == "boolean"){
-coerced59 = "" + data74;
-}
-else if(data74 === null){
-coerced59 = "";
-}
-else {
-const err149 = {instancePath:instancePath+"/defaultModels/assistant/provider",schemaPath:"#/$defs/modelRef/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data73.assistant !== undefined){
+let data74 = data73.assistant;
+if(data74 && typeof data74 == "object" && !Array.isArray(data74)){
+if(data74.provider === undefined){
+const err149 = {instancePath:instancePath+"/defaultModels/assistant",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err149];
 }
@@ -3316,17 +3326,30 @@ vErrors.push(err149);
 }
 errors++;
 }
+if(data74.id === undefined){
+const err150 = {instancePath:instancePath+"/defaultModels/assistant",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err150];
 }
-if(coerced59 !== undefined){
-data74 = coerced59;
-if(data73 !== undefined){
-data73["provider"] = coerced59;
+else {
+vErrors.push(err150);
+}
+errors++;
+}
+for(const key15 in data74){
+if(!((key15 === "provider") || (key15 === "id"))){
+const err151 = {instancePath:instancePath+"/defaultModels/assistant",schemaPath:"#/$defs/modelRef/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key15},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err151];
+}
+else {
+vErrors.push(err151);
+}
+errors++;
 }
 }
-}
-}
-if(data73.id !== undefined){
-let data75 = data73.id;
+if(data74.provider !== undefined){
+let data75 = data74.provider;
 if(typeof data75 !== "string"){
 let dataType60 = typeof data75;
 let coerced60 = undefined;
@@ -3345,41 +3368,7 @@ else if(data75 === null){
 coerced60 = "";
 }
 else {
-const err150 = {instancePath:instancePath+"/defaultModels/assistant/id",schemaPath:"#/$defs/modelRef/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err150];
-}
-else {
-vErrors.push(err150);
-}
-errors++;
-}
-}
-if(coerced60 !== undefined){
-data75 = coerced60;
-if(data73 !== undefined){
-data73["id"] = coerced60;
-}
-}
-}
-}
-}
-else {
-const err151 = {instancePath:instancePath+"/defaultModels/assistant",schemaPath:"#/$defs/modelRef/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err151];
-}
-else {
-vErrors.push(err151);
-}
-errors++;
-}
-}
-if(data72.tools !== undefined){
-let data76 = data72.tools;
-if(data76 && typeof data76 == "object" && !Array.isArray(data76)){
-if(data76.provider === undefined){
-const err152 = {instancePath:instancePath+"/defaultModels/tools",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+const err152 = {instancePath:instancePath+"/defaultModels/assistant/provider",schemaPath:"#/$defs/modelRef/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err152];
 }
@@ -3388,8 +3377,36 @@ vErrors.push(err152);
 }
 errors++;
 }
-if(data76.id === undefined){
-const err153 = {instancePath:instancePath+"/defaultModels/tools",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(coerced60 !== undefined){
+data75 = coerced60;
+if(data74 !== undefined){
+data74["provider"] = coerced60;
+}
+}
+}
+}
+if(data74.id !== undefined){
+let data76 = data74.id;
+if(typeof data76 !== "string"){
+let dataType61 = typeof data76;
+let coerced61 = undefined;
+if(dataType61 == 'object' && Array.isArray(data76) && data76.length == 1){
+data76 = data76[0];
+dataType61 = typeof data76;
+if(typeof data76 === "string"){
+coerced61 = data76;
+}
+}
+if(!(coerced61 !== undefined)){
+if(dataType61 == "number" || dataType61 == "boolean"){
+coerced61 = "" + data76;
+}
+else if(data76 === null){
+coerced61 = "";
+}
+else {
+const err153 = {instancePath:instancePath+"/defaultModels/assistant/id",schemaPath:"#/$defs/modelRef/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err153];
 }
@@ -3398,9 +3415,18 @@ vErrors.push(err153);
 }
 errors++;
 }
-for(const key16 in data76){
-if(!((key16 === "provider") || (key16 === "id"))){
-const err154 = {instancePath:instancePath+"/defaultModels/tools",schemaPath:"#/$defs/modelRef/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key16},message:"must NOT have additional properties"};
+}
+if(coerced61 !== undefined){
+data76 = coerced61;
+if(data74 !== undefined){
+data74["id"] = coerced61;
+}
+}
+}
+}
+}
+else {
+const err154 = {instancePath:instancePath+"/defaultModels/assistant",schemaPath:"#/$defs/modelRef/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err154];
 }
@@ -3410,27 +3436,11 @@ vErrors.push(err154);
 errors++;
 }
 }
-if(data76.provider !== undefined){
-let data77 = data76.provider;
-if(typeof data77 !== "string"){
-let dataType61 = typeof data77;
-let coerced61 = undefined;
-if(dataType61 == 'object' && Array.isArray(data77) && data77.length == 1){
-data77 = data77[0];
-dataType61 = typeof data77;
-if(typeof data77 === "string"){
-coerced61 = data77;
-}
-}
-if(!(coerced61 !== undefined)){
-if(dataType61 == "number" || dataType61 == "boolean"){
-coerced61 = "" + data77;
-}
-else if(data77 === null){
-coerced61 = "";
-}
-else {
-const err155 = {instancePath:instancePath+"/defaultModels/tools/provider",schemaPath:"#/$defs/modelRef/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data73.tools !== undefined){
+let data77 = data73.tools;
+if(data77 && typeof data77 == "object" && !Array.isArray(data77)){
+if(data77.provider === undefined){
+const err155 = {instancePath:instancePath+"/defaultModels/tools",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err155];
 }
@@ -3439,17 +3449,30 @@ vErrors.push(err155);
 }
 errors++;
 }
+if(data77.id === undefined){
+const err156 = {instancePath:instancePath+"/defaultModels/tools",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err156];
 }
-if(coerced61 !== undefined){
-data77 = coerced61;
-if(data76 !== undefined){
-data76["provider"] = coerced61;
+else {
+vErrors.push(err156);
+}
+errors++;
+}
+for(const key16 in data77){
+if(!((key16 === "provider") || (key16 === "id"))){
+const err157 = {instancePath:instancePath+"/defaultModels/tools",schemaPath:"#/$defs/modelRef/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key16},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err157];
+}
+else {
+vErrors.push(err157);
+}
+errors++;
 }
 }
-}
-}
-if(data76.id !== undefined){
-let data78 = data76.id;
+if(data77.provider !== undefined){
+let data78 = data77.provider;
 if(typeof data78 !== "string"){
 let dataType62 = typeof data78;
 let coerced62 = undefined;
@@ -3468,41 +3491,7 @@ else if(data78 === null){
 coerced62 = "";
 }
 else {
-const err156 = {instancePath:instancePath+"/defaultModels/tools/id",schemaPath:"#/$defs/modelRef/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err156];
-}
-else {
-vErrors.push(err156);
-}
-errors++;
-}
-}
-if(coerced62 !== undefined){
-data78 = coerced62;
-if(data76 !== undefined){
-data76["id"] = coerced62;
-}
-}
-}
-}
-}
-else {
-const err157 = {instancePath:instancePath+"/defaultModels/tools",schemaPath:"#/$defs/modelRef/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err157];
-}
-else {
-vErrors.push(err157);
-}
-errors++;
-}
-}
-if(data72.summarizer !== undefined){
-let data79 = data72.summarizer;
-if(data79 && typeof data79 == "object" && !Array.isArray(data79)){
-if(data79.provider === undefined){
-const err158 = {instancePath:instancePath+"/defaultModels/summarizer",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+const err158 = {instancePath:instancePath+"/defaultModels/tools/provider",schemaPath:"#/$defs/modelRef/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err158];
 }
@@ -3511,8 +3500,36 @@ vErrors.push(err158);
 }
 errors++;
 }
-if(data79.id === undefined){
-const err159 = {instancePath:instancePath+"/defaultModels/summarizer",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(coerced62 !== undefined){
+data78 = coerced62;
+if(data77 !== undefined){
+data77["provider"] = coerced62;
+}
+}
+}
+}
+if(data77.id !== undefined){
+let data79 = data77.id;
+if(typeof data79 !== "string"){
+let dataType63 = typeof data79;
+let coerced63 = undefined;
+if(dataType63 == 'object' && Array.isArray(data79) && data79.length == 1){
+data79 = data79[0];
+dataType63 = typeof data79;
+if(typeof data79 === "string"){
+coerced63 = data79;
+}
+}
+if(!(coerced63 !== undefined)){
+if(dataType63 == "number" || dataType63 == "boolean"){
+coerced63 = "" + data79;
+}
+else if(data79 === null){
+coerced63 = "";
+}
+else {
+const err159 = {instancePath:instancePath+"/defaultModels/tools/id",schemaPath:"#/$defs/modelRef/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err159];
 }
@@ -3521,9 +3538,18 @@ vErrors.push(err159);
 }
 errors++;
 }
-for(const key17 in data79){
-if(!((key17 === "provider") || (key17 === "id"))){
-const err160 = {instancePath:instancePath+"/defaultModels/summarizer",schemaPath:"#/$defs/modelRef/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key17},message:"must NOT have additional properties"};
+}
+if(coerced63 !== undefined){
+data79 = coerced63;
+if(data77 !== undefined){
+data77["id"] = coerced63;
+}
+}
+}
+}
+}
+else {
+const err160 = {instancePath:instancePath+"/defaultModels/tools",schemaPath:"#/$defs/modelRef/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err160];
 }
@@ -3533,27 +3559,11 @@ vErrors.push(err160);
 errors++;
 }
 }
-if(data79.provider !== undefined){
-let data80 = data79.provider;
-if(typeof data80 !== "string"){
-let dataType63 = typeof data80;
-let coerced63 = undefined;
-if(dataType63 == 'object' && Array.isArray(data80) && data80.length == 1){
-data80 = data80[0];
-dataType63 = typeof data80;
-if(typeof data80 === "string"){
-coerced63 = data80;
-}
-}
-if(!(coerced63 !== undefined)){
-if(dataType63 == "number" || dataType63 == "boolean"){
-coerced63 = "" + data80;
-}
-else if(data80 === null){
-coerced63 = "";
-}
-else {
-const err161 = {instancePath:instancePath+"/defaultModels/summarizer/provider",schemaPath:"#/$defs/modelRef/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data73.summarizer !== undefined){
+let data80 = data73.summarizer;
+if(data80 && typeof data80 == "object" && !Array.isArray(data80)){
+if(data80.provider === undefined){
+const err161 = {instancePath:instancePath+"/defaultModels/summarizer",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err161];
 }
@@ -3562,17 +3572,30 @@ vErrors.push(err161);
 }
 errors++;
 }
+if(data80.id === undefined){
+const err162 = {instancePath:instancePath+"/defaultModels/summarizer",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err162];
 }
-if(coerced63 !== undefined){
-data80 = coerced63;
-if(data79 !== undefined){
-data79["provider"] = coerced63;
+else {
+vErrors.push(err162);
+}
+errors++;
+}
+for(const key17 in data80){
+if(!((key17 === "provider") || (key17 === "id"))){
+const err163 = {instancePath:instancePath+"/defaultModels/summarizer",schemaPath:"#/$defs/modelRef/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key17},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err163];
+}
+else {
+vErrors.push(err163);
+}
+errors++;
 }
 }
-}
-}
-if(data79.id !== undefined){
-let data81 = data79.id;
+if(data80.provider !== undefined){
+let data81 = data80.provider;
 if(typeof data81 !== "string"){
 let dataType64 = typeof data81;
 let coerced64 = undefined;
@@ -3591,41 +3614,7 @@ else if(data81 === null){
 coerced64 = "";
 }
 else {
-const err162 = {instancePath:instancePath+"/defaultModels/summarizer/id",schemaPath:"#/$defs/modelRef/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err162];
-}
-else {
-vErrors.push(err162);
-}
-errors++;
-}
-}
-if(coerced64 !== undefined){
-data81 = coerced64;
-if(data79 !== undefined){
-data79["id"] = coerced64;
-}
-}
-}
-}
-}
-else {
-const err163 = {instancePath:instancePath+"/defaultModels/summarizer",schemaPath:"#/$defs/modelRef/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err163];
-}
-else {
-vErrors.push(err163);
-}
-errors++;
-}
-}
-if(data72.moderator !== undefined){
-let data82 = data72.moderator;
-if(data82 && typeof data82 == "object" && !Array.isArray(data82)){
-if(data82.provider === undefined){
-const err164 = {instancePath:instancePath+"/defaultModels/moderator",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
+const err164 = {instancePath:instancePath+"/defaultModels/summarizer/provider",schemaPath:"#/$defs/modelRef/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err164];
 }
@@ -3634,8 +3623,36 @@ vErrors.push(err164);
 }
 errors++;
 }
-if(data82.id === undefined){
-const err165 = {instancePath:instancePath+"/defaultModels/moderator",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+}
+if(coerced64 !== undefined){
+data81 = coerced64;
+if(data80 !== undefined){
+data80["provider"] = coerced64;
+}
+}
+}
+}
+if(data80.id !== undefined){
+let data82 = data80.id;
+if(typeof data82 !== "string"){
+let dataType65 = typeof data82;
+let coerced65 = undefined;
+if(dataType65 == 'object' && Array.isArray(data82) && data82.length == 1){
+data82 = data82[0];
+dataType65 = typeof data82;
+if(typeof data82 === "string"){
+coerced65 = data82;
+}
+}
+if(!(coerced65 !== undefined)){
+if(dataType65 == "number" || dataType65 == "boolean"){
+coerced65 = "" + data82;
+}
+else if(data82 === null){
+coerced65 = "";
+}
+else {
+const err165 = {instancePath:instancePath+"/defaultModels/summarizer/id",schemaPath:"#/$defs/modelRef/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err165];
 }
@@ -3644,9 +3661,18 @@ vErrors.push(err165);
 }
 errors++;
 }
-for(const key18 in data82){
-if(!((key18 === "provider") || (key18 === "id"))){
-const err166 = {instancePath:instancePath+"/defaultModels/moderator",schemaPath:"#/$defs/modelRef/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key18},message:"must NOT have additional properties"};
+}
+if(coerced65 !== undefined){
+data82 = coerced65;
+if(data80 !== undefined){
+data80["id"] = coerced65;
+}
+}
+}
+}
+}
+else {
+const err166 = {instancePath:instancePath+"/defaultModels/summarizer",schemaPath:"#/$defs/modelRef/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err166];
 }
@@ -3656,27 +3682,11 @@ vErrors.push(err166);
 errors++;
 }
 }
-if(data82.provider !== undefined){
-let data83 = data82.provider;
-if(typeof data83 !== "string"){
-let dataType65 = typeof data83;
-let coerced65 = undefined;
-if(dataType65 == 'object' && Array.isArray(data83) && data83.length == 1){
-data83 = data83[0];
-dataType65 = typeof data83;
-if(typeof data83 === "string"){
-coerced65 = data83;
-}
-}
-if(!(coerced65 !== undefined)){
-if(dataType65 == "number" || dataType65 == "boolean"){
-coerced65 = "" + data83;
-}
-else if(data83 === null){
-coerced65 = "";
-}
-else {
-const err167 = {instancePath:instancePath+"/defaultModels/moderator/provider",schemaPath:"#/$defs/modelRef/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
+if(data73.moderator !== undefined){
+let data83 = data73.moderator;
+if(data83 && typeof data83 == "object" && !Array.isArray(data83)){
+if(data83.provider === undefined){
+const err167 = {instancePath:instancePath+"/defaultModels/moderator",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'"};
 if(vErrors === null){
 vErrors = [err167];
 }
@@ -3685,17 +3695,30 @@ vErrors.push(err167);
 }
 errors++;
 }
+if(data83.id === undefined){
+const err168 = {instancePath:instancePath+"/defaultModels/moderator",schemaPath:"#/$defs/modelRef/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'"};
+if(vErrors === null){
+vErrors = [err168];
 }
-if(coerced65 !== undefined){
-data83 = coerced65;
-if(data82 !== undefined){
-data82["provider"] = coerced65;
+else {
+vErrors.push(err168);
+}
+errors++;
+}
+for(const key18 in data83){
+if(!((key18 === "provider") || (key18 === "id"))){
+const err169 = {instancePath:instancePath+"/defaultModels/moderator",schemaPath:"#/$defs/modelRef/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key18},message:"must NOT have additional properties"};
+if(vErrors === null){
+vErrors = [err169];
+}
+else {
+vErrors.push(err169);
+}
+errors++;
 }
 }
-}
-}
-if(data82.id !== undefined){
-let data84 = data82.id;
+if(data83.provider !== undefined){
+let data84 = data83.provider;
 if(typeof data84 !== "string"){
 let dataType66 = typeof data84;
 let coerced66 = undefined;
@@ -3714,39 +3737,7 @@ else if(data84 === null){
 coerced66 = "";
 }
 else {
-const err168 = {instancePath:instancePath+"/defaultModels/moderator/id",schemaPath:"#/$defs/modelRef/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err168];
-}
-else {
-vErrors.push(err168);
-}
-errors++;
-}
-}
-if(coerced66 !== undefined){
-data84 = coerced66;
-if(data82 !== undefined){
-data82["id"] = coerced66;
-}
-}
-}
-}
-}
-else {
-const err169 = {instancePath:instancePath+"/defaultModels/moderator",schemaPath:"#/$defs/modelRef/type",keyword:"type",params:{type: "object"},message:"must be object"};
-if(vErrors === null){
-vErrors = [err169];
-}
-else {
-vErrors.push(err169);
-}
-errors++;
-}
-}
-}
-else {
-const err170 = {instancePath:instancePath+"/defaultModels",schemaPath:"#/properties/defaultModels/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err170 = {instancePath:instancePath+"/defaultModels/moderator/provider",schemaPath:"#/$defs/modelRef/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err170];
 }
@@ -3756,25 +3747,35 @@ vErrors.push(err170);
 errors++;
 }
 }
-if(data.eurosPerCredit !== undefined){
-let data85 = data.eurosPerCredit;
-if(!(typeof data85 == "number")){
+if(coerced66 !== undefined){
+data84 = coerced66;
+if(data83 !== undefined){
+data83["provider"] = coerced66;
+}
+}
+}
+}
+if(data83.id !== undefined){
+let data85 = data83.id;
+if(typeof data85 !== "string"){
 let dataType67 = typeof data85;
 let coerced67 = undefined;
 if(dataType67 == 'object' && Array.isArray(data85) && data85.length == 1){
 data85 = data85[0];
 dataType67 = typeof data85;
-if(typeof data85 == "number"){
+if(typeof data85 === "string"){
 coerced67 = data85;
 }
 }
 if(!(coerced67 !== undefined)){
-if(dataType67 == "boolean" || data85 === null
-              || (dataType67 == "string" && data85 && data85 == +data85)){
-coerced67 = +data85;
+if(dataType67 == "number" || dataType67 == "boolean"){
+coerced67 = "" + data85;
+}
+else if(data85 === null){
+coerced67 = "";
 }
 else {
-const err171 = {instancePath:instancePath+"/eurosPerCredit",schemaPath:"#/properties/eurosPerCredit/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err171 = {instancePath:instancePath+"/defaultModels/moderator/id",schemaPath:"#/$defs/modelRef/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err171];
 }
@@ -3786,14 +3787,15 @@ errors++;
 }
 if(coerced67 !== undefined){
 data85 = coerced67;
-if(data !== undefined){
-data["eurosPerCredit"] = coerced67;
+if(data83 !== undefined){
+data83["id"] = coerced67;
 }
 }
 }
-if(typeof data85 == "number"){
-if(data85 <= 0 || isNaN(data85)){
-const err172 = {instancePath:instancePath+"/eurosPerCredit",schemaPath:"#/properties/eurosPerCredit/exclusiveMinimum",keyword:"exclusiveMinimum",params:{comparison: ">", limit: 0},message:"must be > 0"};
+}
+}
+else {
+const err172 = {instancePath:instancePath+"/defaultModels/moderator",schemaPath:"#/$defs/modelRef/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err172];
 }
@@ -3804,12 +3806,8 @@ errors++;
 }
 }
 }
-if(data.defaultLimits !== undefined){
-let data86 = data.defaultLimits;
-if(data86 && typeof data86 == "object" && !Array.isArray(data86)){
-for(const key19 in data86){
-if(!(key19 === "credits")){
-const err173 = {instancePath:instancePath+"/defaultLimits",schemaPath:"#/properties/defaultLimits/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key19},message:"must NOT have additional properties"};
+else {
+const err173 = {instancePath:instancePath+"/defaultModels",schemaPath:"#/properties/defaultModels/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err173];
 }
@@ -3819,25 +3817,25 @@ vErrors.push(err173);
 errors++;
 }
 }
-if(data86.credits !== undefined){
-let data87 = data86.credits;
-if(!(typeof data87 == "number")){
-let dataType68 = typeof data87;
+if(data.eurosPerCredit !== undefined){
+let data86 = data.eurosPerCredit;
+if(!(typeof data86 == "number")){
+let dataType68 = typeof data86;
 let coerced68 = undefined;
-if(dataType68 == 'object' && Array.isArray(data87) && data87.length == 1){
-data87 = data87[0];
-dataType68 = typeof data87;
-if(typeof data87 == "number"){
-coerced68 = data87;
+if(dataType68 == 'object' && Array.isArray(data86) && data86.length == 1){
+data86 = data86[0];
+dataType68 = typeof data86;
+if(typeof data86 == "number"){
+coerced68 = data86;
 }
 }
 if(!(coerced68 !== undefined)){
-if(dataType68 == "boolean" || data87 === null
-              || (dataType68 == "string" && data87 && data87 == +data87)){
-coerced68 = +data87;
+if(dataType68 == "boolean" || data86 === null
+              || (dataType68 == "string" && data86 && data86 == +data86)){
+coerced68 = +data86;
 }
 else {
-const err174 = {instancePath:instancePath+"/defaultLimits/credits",schemaPath:"#/properties/defaultLimits/properties/credits/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err174 = {instancePath:instancePath+"/eurosPerCredit",schemaPath:"#/properties/eurosPerCredit/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err174];
 }
@@ -3848,16 +3846,15 @@ errors++;
 }
 }
 if(coerced68 !== undefined){
-data87 = coerced68;
-if(data86 !== undefined){
-data86["credits"] = coerced68;
+data86 = coerced68;
+if(data !== undefined){
+data["eurosPerCredit"] = coerced68;
 }
 }
 }
-}
-}
-else {
-const err175 = {instancePath:instancePath+"/defaultLimits",schemaPath:"#/properties/defaultLimits/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(typeof data86 == "number"){
+if(data86 <= 0 || isNaN(data86)){
+const err175 = {instancePath:instancePath+"/eurosPerCredit",schemaPath:"#/properties/eurosPerCredit/exclusiveMinimum",keyword:"exclusiveMinimum",params:{comparison: ">", limit: 0},message:"must be > 0"};
 if(vErrors === null){
 vErrors = [err175];
 }
@@ -3867,30 +3864,13 @@ vErrors.push(err175);
 errors++;
 }
 }
-if(data.observer !== undefined){
-let data88 = data.observer;
-if(data88 && typeof data88 == "object" && !Array.isArray(data88)){
-if(data88.active !== undefined){
-let data89 = data88.active;
-if(typeof data89 !== "boolean"){
-let dataType69 = typeof data89;
-let coerced69 = undefined;
-if(dataType69 == 'object' && Array.isArray(data89) && data89.length == 1){
-data89 = data89[0];
-dataType69 = typeof data89;
-if(typeof data89 === "boolean"){
-coerced69 = data89;
 }
-}
-if(!(coerced69 !== undefined)){
-if(data89 === "false" || data89 === 0 || data89 === null){
-coerced69 = false;
-}
-else if(data89 === "true" || data89 === 1){
-coerced69 = true;
-}
-else {
-const err176 = {instancePath:instancePath+"/observer/active",schemaPath:"#/properties/observer/properties/active/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
+if(data.defaultLimits !== undefined){
+let data87 = data.defaultLimits;
+if(data87 && typeof data87 == "object" && !Array.isArray(data87)){
+for(const key19 in data87){
+if(!(key19 === "credits")){
+const err176 = {instancePath:instancePath+"/defaultLimits",schemaPath:"#/properties/defaultLimits/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key19},message:"must NOT have additional properties"};
 if(vErrors === null){
 vErrors = [err176];
 }
@@ -3900,33 +3880,25 @@ vErrors.push(err176);
 errors++;
 }
 }
-if(coerced69 !== undefined){
-data89 = coerced69;
-if(data88 !== undefined){
-data88["active"] = coerced69;
+if(data87.credits !== undefined){
+let data88 = data87.credits;
+if(!(typeof data88 == "number")){
+let dataType69 = typeof data88;
+let coerced69 = undefined;
+if(dataType69 == 'object' && Array.isArray(data88) && data88.length == 1){
+data88 = data88[0];
+dataType69 = typeof data88;
+if(typeof data88 == "number"){
+coerced69 = data88;
 }
 }
-}
-}
-if(data88.port !== undefined){
-let data90 = data88.port;
-if(!(typeof data90 == "number")){
-let dataType70 = typeof data90;
-let coerced70 = undefined;
-if(dataType70 == 'object' && Array.isArray(data90) && data90.length == 1){
-data90 = data90[0];
-dataType70 = typeof data90;
-if(typeof data90 == "number"){
-coerced70 = data90;
-}
-}
-if(!(coerced70 !== undefined)){
-if(dataType70 == "boolean" || data90 === null
-              || (dataType70 == "string" && data90 && data90 == +data90)){
-coerced70 = +data90;
+if(!(coerced69 !== undefined)){
+if(dataType69 == "boolean" || data88 === null
+              || (dataType69 == "string" && data88 && data88 == +data88)){
+coerced69 = +data88;
 }
 else {
-const err177 = {instancePath:instancePath+"/observer/port",schemaPath:"#/properties/observer/properties/port/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err177 = {instancePath:instancePath+"/defaultLimits/credits",schemaPath:"#/properties/defaultLimits/properties/credits/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err177];
 }
@@ -3936,17 +3908,17 @@ vErrors.push(err177);
 errors++;
 }
 }
-if(coerced70 !== undefined){
-data90 = coerced70;
-if(data88 !== undefined){
-data88["port"] = coerced70;
+if(coerced69 !== undefined){
+data88 = coerced69;
+if(data87 !== undefined){
+data87["credits"] = coerced69;
 }
 }
 }
 }
 }
 else {
-const err178 = {instancePath:instancePath+"/observer",schemaPath:"#/properties/observer/type",keyword:"type",params:{type: "object"},message:"must be object"};
+const err178 = {instancePath:instancePath+"/defaultLimits",schemaPath:"#/properties/defaultLimits/type",keyword:"type",params:{type: "object"},message:"must be object"};
 if(vErrors === null){
 vErrors = [err178];
 }
@@ -3956,27 +3928,30 @@ vErrors.push(err178);
 errors++;
 }
 }
-if(data.upgradeRoot !== undefined){
-let data91 = data.upgradeRoot;
-if(typeof data91 !== "string"){
-let dataType71 = typeof data91;
-let coerced71 = undefined;
-if(dataType71 == 'object' && Array.isArray(data91) && data91.length == 1){
-data91 = data91[0];
-dataType71 = typeof data91;
-if(typeof data91 === "string"){
-coerced71 = data91;
+if(data.observer !== undefined){
+let data89 = data.observer;
+if(data89 && typeof data89 == "object" && !Array.isArray(data89)){
+if(data89.active !== undefined){
+let data90 = data89.active;
+if(typeof data90 !== "boolean"){
+let dataType70 = typeof data90;
+let coerced70 = undefined;
+if(dataType70 == 'object' && Array.isArray(data90) && data90.length == 1){
+data90 = data90[0];
+dataType70 = typeof data90;
+if(typeof data90 === "boolean"){
+coerced70 = data90;
 }
 }
-if(!(coerced71 !== undefined)){
-if(dataType71 == "number" || dataType71 == "boolean"){
-coerced71 = "" + data91;
+if(!(coerced70 !== undefined)){
+if(data90 === "false" || data90 === 0 || data90 === null){
+coerced70 = false;
 }
-else if(data91 === null){
-coerced71 = "";
+else if(data90 === "true" || data90 === 1){
+coerced70 = true;
 }
 else {
-const err179 = {instancePath:instancePath+"/upgradeRoot",schemaPath:"#/properties/upgradeRoot/type",keyword:"type",params:{type: "string"},message:"must be string"};
+const err179 = {instancePath:instancePath+"/observer/active",schemaPath:"#/properties/observer/properties/active/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err179];
 }
@@ -3986,16 +3961,64 @@ vErrors.push(err179);
 errors++;
 }
 }
+if(coerced70 !== undefined){
+data90 = coerced70;
+if(data89 !== undefined){
+data89["active"] = coerced70;
+}
+}
+}
+}
+if(data89.port !== undefined){
+let data91 = data89.port;
+if(!(typeof data91 == "number")){
+let dataType71 = typeof data91;
+let coerced71 = undefined;
+if(dataType71 == 'object' && Array.isArray(data91) && data91.length == 1){
+data91 = data91[0];
+dataType71 = typeof data91;
+if(typeof data91 == "number"){
+coerced71 = data91;
+}
+}
+if(!(coerced71 !== undefined)){
+if(dataType71 == "boolean" || data91 === null
+              || (dataType71 == "string" && data91 && data91 == +data91)){
+coerced71 = +data91;
+}
+else {
+const err180 = {instancePath:instancePath+"/observer/port",schemaPath:"#/properties/observer/properties/port/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(vErrors === null){
+vErrors = [err180];
+}
+else {
+vErrors.push(err180);
+}
+errors++;
+}
+}
 if(coerced71 !== undefined){
 data91 = coerced71;
-if(data !== undefined){
-data["upgradeRoot"] = coerced71;
+if(data89 !== undefined){
+data89["port"] = coerced71;
 }
 }
 }
 }
-if(data.cipherPassword !== undefined){
-let data92 = data.cipherPassword;
+}
+else {
+const err181 = {instancePath:instancePath+"/observer",schemaPath:"#/properties/observer/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err181];
+}
+else {
+vErrors.push(err181);
+}
+errors++;
+}
+}
+if(data.upgradeRoot !== undefined){
+let data92 = data.upgradeRoot;
 if(typeof data92 !== "string"){
 let dataType72 = typeof data92;
 let coerced72 = undefined;
@@ -4014,81 +4037,7 @@ else if(data92 === null){
 coerced72 = "";
 }
 else {
-const err180 = {instancePath:instancePath+"/cipherPassword",schemaPath:"#/properties/cipherPassword/type",keyword:"type",params:{type: "string"},message:"must be string"};
-if(vErrors === null){
-vErrors = [err180];
-}
-else {
-vErrors.push(err180);
-}
-errors++;
-}
-}
-if(coerced72 !== undefined){
-data92 = coerced72;
-if(data !== undefined){
-data["cipherPassword"] = coerced72;
-}
-}
-}
-}
-if(data.requireAnonymousActionToken !== undefined){
-let data93 = data.requireAnonymousActionToken;
-if(typeof data93 !== "boolean"){
-let dataType73 = typeof data93;
-let coerced73 = undefined;
-if(dataType73 == 'object' && Array.isArray(data93) && data93.length == 1){
-data93 = data93[0];
-dataType73 = typeof data93;
-if(typeof data93 === "boolean"){
-coerced73 = data93;
-}
-}
-if(!(coerced73 !== undefined)){
-if(data93 === "false" || data93 === 0 || data93 === null){
-coerced73 = false;
-}
-else if(data93 === "true" || data93 === 1){
-coerced73 = true;
-}
-else {
-const err181 = {instancePath:instancePath+"/requireAnonymousActionToken",schemaPath:"#/properties/requireAnonymousActionToken/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
-if(vErrors === null){
-vErrors = [err181];
-}
-else {
-vErrors.push(err181);
-}
-errors++;
-}
-}
-if(coerced73 !== undefined){
-data93 = coerced73;
-if(data !== undefined){
-data["requireAnonymousActionToken"] = coerced73;
-}
-}
-}
-}
-if(data.compactionPercent !== undefined){
-let data94 = data.compactionPercent;
-if(!(typeof data94 == "number")){
-let dataType74 = typeof data94;
-let coerced74 = undefined;
-if(dataType74 == 'object' && Array.isArray(data94) && data94.length == 1){
-data94 = data94[0];
-dataType74 = typeof data94;
-if(typeof data94 == "number"){
-coerced74 = data94;
-}
-}
-if(!(coerced74 !== undefined)){
-if(dataType74 == "boolean" || data94 === null
-              || (dataType74 == "string" && data94 && data94 == +data94)){
-coerced74 = +data94;
-}
-else {
-const err182 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err182 = {instancePath:instancePath+"/upgradeRoot",schemaPath:"#/properties/upgradeRoot/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err182];
 }
@@ -4098,16 +4047,35 @@ vErrors.push(err182);
 errors++;
 }
 }
-if(coerced74 !== undefined){
-data94 = coerced74;
+if(coerced72 !== undefined){
+data92 = coerced72;
 if(data !== undefined){
-data["compactionPercent"] = coerced74;
+data["upgradeRoot"] = coerced72;
 }
 }
 }
-if(typeof data94 == "number"){
-if(data94 > 100 || isNaN(data94)){
-const err183 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/maximum",keyword:"maximum",params:{comparison: "<=", limit: 100},message:"must be <= 100"};
+}
+if(data.cipherPassword !== undefined){
+let data93 = data.cipherPassword;
+if(typeof data93 !== "string"){
+let dataType73 = typeof data93;
+let coerced73 = undefined;
+if(dataType73 == 'object' && Array.isArray(data93) && data93.length == 1){
+data93 = data93[0];
+dataType73 = typeof data93;
+if(typeof data93 === "string"){
+coerced73 = data93;
+}
+}
+if(!(coerced73 !== undefined)){
+if(dataType73 == "number" || dataType73 == "boolean"){
+coerced73 = "" + data93;
+}
+else if(data93 === null){
+coerced73 = "";
+}
+else {
+const err183 = {instancePath:instancePath+"/cipherPassword",schemaPath:"#/properties/cipherPassword/type",keyword:"type",params:{type: "string"},message:"must be string"};
 if(vErrors === null){
 vErrors = [err183];
 }
@@ -4116,8 +4084,36 @@ vErrors.push(err183);
 }
 errors++;
 }
-if(data94 < 10 || isNaN(data94)){
-const err184 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
+}
+if(coerced73 !== undefined){
+data93 = coerced73;
+if(data !== undefined){
+data["cipherPassword"] = coerced73;
+}
+}
+}
+}
+if(data.requireAnonymousActionToken !== undefined){
+let data94 = data.requireAnonymousActionToken;
+if(typeof data94 !== "boolean"){
+let dataType74 = typeof data94;
+let coerced74 = undefined;
+if(dataType74 == 'object' && Array.isArray(data94) && data94.length == 1){
+data94 = data94[0];
+dataType74 = typeof data94;
+if(typeof data94 === "boolean"){
+coerced74 = data94;
+}
+}
+if(!(coerced74 !== undefined)){
+if(data94 === "false" || data94 === 0 || data94 === null){
+coerced74 = false;
+}
+else if(data94 === "true" || data94 === 1){
+coerced74 = true;
+}
+else {
+const err184 = {instancePath:instancePath+"/requireAnonymousActionToken",schemaPath:"#/properties/requireAnonymousActionToken/type",keyword:"type",params:{type: "boolean"},message:"must be boolean"};
 if(vErrors === null){
 vErrors = [err184];
 }
@@ -4127,9 +4123,16 @@ vErrors.push(err184);
 errors++;
 }
 }
+if(coerced74 !== undefined){
+data94 = coerced74;
+if(data !== undefined){
+data["requireAnonymousActionToken"] = coerced74;
 }
-if(data.turnCredits !== undefined){
-let data95 = data.turnCredits;
+}
+}
+}
+if(data.compactionPercent !== undefined){
+let data95 = data.compactionPercent;
 if(!(typeof data95 == "number")){
 let dataType75 = typeof data95;
 let coerced75 = undefined;
@@ -4146,7 +4149,7 @@ if(dataType75 == "boolean" || data95 === null
 coerced75 = +data95;
 }
 else {
-const err185 = {instancePath:instancePath+"/turnCredits",schemaPath:"#/properties/turnCredits/type",keyword:"type",params:{type: "number"},message:"must be number"};
+const err185 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err185];
 }
@@ -4159,13 +4162,13 @@ errors++;
 if(coerced75 !== undefined){
 data95 = coerced75;
 if(data !== undefined){
-data["turnCredits"] = coerced75;
+data["compactionPercent"] = coerced75;
 }
 }
 }
 if(typeof data95 == "number"){
-if(data95 < 0 || isNaN(data95)){
-const err186 = {instancePath:instancePath+"/turnCredits",schemaPath:"#/properties/turnCredits/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(data95 > 100 || isNaN(data95)){
+const err186 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/maximum",keyword:"maximum",params:{comparison: "<=", limit: 100},message:"must be <= 100"};
 if(vErrors === null){
 vErrors = [err186];
 }
@@ -4174,27 +4177,8 @@ vErrors.push(err186);
 }
 errors++;
 }
-}
-}
-if(data.liveTurnsPerCaller !== undefined){
-let data96 = data.liveTurnsPerCaller;
-if(!((typeof data96 == "number") && (!(data96 % 1) && !isNaN(data96)))){
-let dataType76 = typeof data96;
-let coerced76 = undefined;
-if(dataType76 == 'object' && Array.isArray(data96) && data96.length == 1){
-data96 = data96[0];
-dataType76 = typeof data96;
-if((typeof data96 == "number") && (!(data96 % 1) && !isNaN(data96))){
-coerced76 = data96;
-}
-}
-if(!(coerced76 !== undefined)){
-if(dataType76 === "boolean" || data96 === null
-              || (dataType76 === "string" && data96 && data96 == +data96 && !(data96 % 1))){
-coerced76 = +data96;
-}
-else {
-const err187 = {instancePath:instancePath+"/liveTurnsPerCaller",schemaPath:"#/properties/liveTurnsPerCaller/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(data95 < 10 || isNaN(data95)){
+const err187 = {instancePath:instancePath+"/compactionPercent",schemaPath:"#/properties/compactionPercent/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
 if(vErrors === null){
 vErrors = [err187];
 }
@@ -4204,16 +4188,26 @@ vErrors.push(err187);
 errors++;
 }
 }
-if(coerced76 !== undefined){
-data96 = coerced76;
-if(data !== undefined){
-data["liveTurnsPerCaller"] = coerced76;
 }
-}
-}
+if(data.turnCredits !== undefined){
+let data96 = data.turnCredits;
+if(!(typeof data96 == "number")){
+let dataType76 = typeof data96;
+let coerced76 = undefined;
+if(dataType76 == 'object' && Array.isArray(data96) && data96.length == 1){
+data96 = data96[0];
+dataType76 = typeof data96;
 if(typeof data96 == "number"){
-if(data96 < 1 || isNaN(data96)){
-const err188 = {instancePath:instancePath+"/liveTurnsPerCaller",schemaPath:"#/properties/liveTurnsPerCaller/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+coerced76 = data96;
+}
+}
+if(!(coerced76 !== undefined)){
+if(dataType76 == "boolean" || data96 === null
+              || (dataType76 == "string" && data96 && data96 == +data96)){
+coerced76 = +data96;
+}
+else {
+const err188 = {instancePath:instancePath+"/turnCredits",schemaPath:"#/properties/turnCredits/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err188];
 }
@@ -4223,26 +4217,16 @@ vErrors.push(err188);
 errors++;
 }
 }
-}
-if(data.turnTimeoutSeconds !== undefined){
-let data97 = data.turnTimeoutSeconds;
-if(!(typeof data97 == "number")){
-let dataType77 = typeof data97;
-let coerced77 = undefined;
-if(dataType77 == 'object' && Array.isArray(data97) && data97.length == 1){
-data97 = data97[0];
-dataType77 = typeof data97;
-if(typeof data97 == "number"){
-coerced77 = data97;
+if(coerced76 !== undefined){
+data96 = coerced76;
+if(data !== undefined){
+data["turnCredits"] = coerced76;
 }
 }
-if(!(coerced77 !== undefined)){
-if(dataType77 == "boolean" || data97 === null
-              || (dataType77 == "string" && data97 && data97 == +data97)){
-coerced77 = +data97;
 }
-else {
-const err189 = {instancePath:instancePath+"/turnTimeoutSeconds",schemaPath:"#/properties/turnTimeoutSeconds/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(typeof data96 == "number"){
+if(data96 < 0 || isNaN(data96)){
+const err189 = {instancePath:instancePath+"/turnCredits",schemaPath:"#/properties/turnCredits/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
 if(vErrors === null){
 vErrors = [err189];
 }
@@ -4252,16 +4236,26 @@ vErrors.push(err189);
 errors++;
 }
 }
-if(coerced77 !== undefined){
-data97 = coerced77;
-if(data !== undefined){
-data["turnTimeoutSeconds"] = coerced77;
+}
+if(data.liveTurnsPerCaller !== undefined){
+let data97 = data.liveTurnsPerCaller;
+if(!((typeof data97 == "number") && (!(data97 % 1) && !isNaN(data97)))){
+let dataType77 = typeof data97;
+let coerced77 = undefined;
+if(dataType77 == 'object' && Array.isArray(data97) && data97.length == 1){
+data97 = data97[0];
+dataType77 = typeof data97;
+if((typeof data97 == "number") && (!(data97 % 1) && !isNaN(data97))){
+coerced77 = data97;
 }
 }
+if(!(coerced77 !== undefined)){
+if(dataType77 === "boolean" || data97 === null
+              || (dataType77 === "string" && data97 && data97 == +data97 && !(data97 % 1))){
+coerced77 = +data97;
 }
-if(typeof data97 == "number"){
-if(data97 < 10 || isNaN(data97)){
-const err190 = {instancePath:instancePath+"/turnTimeoutSeconds",schemaPath:"#/properties/turnTimeoutSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
+else {
+const err190 = {instancePath:instancePath+"/liveTurnsPerCaller",schemaPath:"#/properties/liveTurnsPerCaller/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err190];
 }
@@ -4271,26 +4265,16 @@ vErrors.push(err190);
 errors++;
 }
 }
-}
-if(data.taskTimeoutSeconds !== undefined){
-let data98 = data.taskTimeoutSeconds;
-if(!((typeof data98 == "number") && (!(data98 % 1) && !isNaN(data98)))){
-let dataType78 = typeof data98;
-let coerced78 = undefined;
-if(dataType78 == 'object' && Array.isArray(data98) && data98.length == 1){
-data98 = data98[0];
-dataType78 = typeof data98;
-if((typeof data98 == "number") && (!(data98 % 1) && !isNaN(data98))){
-coerced78 = data98;
+if(coerced77 !== undefined){
+data97 = coerced77;
+if(data !== undefined){
+data["liveTurnsPerCaller"] = coerced77;
 }
 }
-if(!(coerced78 !== undefined)){
-if(dataType78 === "boolean" || data98 === null
-              || (dataType78 === "string" && data98 && data98 == +data98 && !(data98 % 1))){
-coerced78 = +data98;
 }
-else {
-const err191 = {instancePath:instancePath+"/taskTimeoutSeconds",schemaPath:"#/properties/taskTimeoutSeconds/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
+if(typeof data97 == "number"){
+if(data97 < 1 || isNaN(data97)){
+const err191 = {instancePath:instancePath+"/liveTurnsPerCaller",schemaPath:"#/properties/liveTurnsPerCaller/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
 if(vErrors === null){
 vErrors = [err191];
 }
@@ -4300,16 +4284,26 @@ vErrors.push(err191);
 errors++;
 }
 }
-if(coerced78 !== undefined){
-data98 = coerced78;
-if(data !== undefined){
-data["taskTimeoutSeconds"] = coerced78;
 }
-}
-}
+if(data.turnTimeoutSeconds !== undefined){
+let data98 = data.turnTimeoutSeconds;
+if(!(typeof data98 == "number")){
+let dataType78 = typeof data98;
+let coerced78 = undefined;
+if(dataType78 == 'object' && Array.isArray(data98) && data98.length == 1){
+data98 = data98[0];
+dataType78 = typeof data98;
 if(typeof data98 == "number"){
-if(data98 < 10 || isNaN(data98)){
-const err192 = {instancePath:instancePath+"/taskTimeoutSeconds",schemaPath:"#/properties/taskTimeoutSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
+coerced78 = data98;
+}
+}
+if(!(coerced78 !== undefined)){
+if(dataType78 == "boolean" || data98 === null
+              || (dataType78 == "string" && data98 && data98 == +data98)){
+coerced78 = +data98;
+}
+else {
+const err192 = {instancePath:instancePath+"/turnTimeoutSeconds",schemaPath:"#/properties/turnTimeoutSeconds/type",keyword:"type",params:{type: "number"},message:"must be number"};
 if(vErrors === null){
 vErrors = [err192];
 }
@@ -4319,9 +4313,28 @@ vErrors.push(err192);
 errors++;
 }
 }
+if(coerced78 !== undefined){
+data98 = coerced78;
+if(data !== undefined){
+data["turnTimeoutSeconds"] = coerced78;
 }
-if(data.codeModeMaxWorkers !== undefined){
-let data99 = data.codeModeMaxWorkers;
+}
+}
+if(typeof data98 == "number"){
+if(data98 < 10 || isNaN(data98)){
+const err193 = {instancePath:instancePath+"/turnTimeoutSeconds",schemaPath:"#/properties/turnTimeoutSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
+if(vErrors === null){
+vErrors = [err193];
+}
+else {
+vErrors.push(err193);
+}
+errors++;
+}
+}
+}
+if(data.taskTimeoutSeconds !== undefined){
+let data99 = data.taskTimeoutSeconds;
 if(!((typeof data99 == "number") && (!(data99 % 1) && !isNaN(data99)))){
 let dataType79 = typeof data99;
 let coerced79 = undefined;
@@ -4338,26 +4351,7 @@ if(dataType79 === "boolean" || data99 === null
 coerced79 = +data99;
 }
 else {
-const err193 = {instancePath:instancePath+"/codeModeMaxWorkers",schemaPath:"#/properties/codeModeMaxWorkers/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
-if(vErrors === null){
-vErrors = [err193];
-}
-else {
-vErrors.push(err193);
-}
-errors++;
-}
-}
-if(coerced79 !== undefined){
-data99 = coerced79;
-if(data !== undefined){
-data["codeModeMaxWorkers"] = coerced79;
-}
-}
-}
-if(typeof data99 == "number"){
-if(data99 < 1 || isNaN(data99)){
-const err194 = {instancePath:instancePath+"/codeModeMaxWorkers",schemaPath:"#/properties/codeModeMaxWorkers/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
+const err194 = {instancePath:instancePath+"/taskTimeoutSeconds",schemaPath:"#/properties/taskTimeoutSeconds/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err194];
 }
@@ -4367,26 +4361,16 @@ vErrors.push(err194);
 errors++;
 }
 }
-}
-if(data.shutdownGraceSeconds !== undefined){
-let data100 = data.shutdownGraceSeconds;
-if(!(typeof data100 == "number")){
-let dataType80 = typeof data100;
-let coerced80 = undefined;
-if(dataType80 == 'object' && Array.isArray(data100) && data100.length == 1){
-data100 = data100[0];
-dataType80 = typeof data100;
-if(typeof data100 == "number"){
-coerced80 = data100;
+if(coerced79 !== undefined){
+data99 = coerced79;
+if(data !== undefined){
+data["taskTimeoutSeconds"] = coerced79;
 }
 }
-if(!(coerced80 !== undefined)){
-if(dataType80 == "boolean" || data100 === null
-              || (dataType80 == "string" && data100 && data100 == +data100)){
-coerced80 = +data100;
 }
-else {
-const err195 = {instancePath:instancePath+"/shutdownGraceSeconds",schemaPath:"#/properties/shutdownGraceSeconds/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(typeof data99 == "number"){
+if(data99 < 10 || isNaN(data99)){
+const err195 = {instancePath:instancePath+"/taskTimeoutSeconds",schemaPath:"#/properties/taskTimeoutSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 10},message:"must be >= 10"};
 if(vErrors === null){
 vErrors = [err195];
 }
@@ -4396,16 +4380,26 @@ vErrors.push(err195);
 errors++;
 }
 }
-if(coerced80 !== undefined){
-data100 = coerced80;
-if(data !== undefined){
-data["shutdownGraceSeconds"] = coerced80;
+}
+if(data.codeModeMaxWorkers !== undefined){
+let data100 = data.codeModeMaxWorkers;
+if(!((typeof data100 == "number") && (!(data100 % 1) && !isNaN(data100)))){
+let dataType80 = typeof data100;
+let coerced80 = undefined;
+if(dataType80 == 'object' && Array.isArray(data100) && data100.length == 1){
+data100 = data100[0];
+dataType80 = typeof data100;
+if((typeof data100 == "number") && (!(data100 % 1) && !isNaN(data100))){
+coerced80 = data100;
 }
 }
+if(!(coerced80 !== undefined)){
+if(dataType80 === "boolean" || data100 === null
+              || (dataType80 === "string" && data100 && data100 == +data100 && !(data100 % 1))){
+coerced80 = +data100;
 }
-if(typeof data100 == "number"){
-if(data100 < 0 || isNaN(data100)){
-const err196 = {instancePath:instancePath+"/shutdownGraceSeconds",schemaPath:"#/properties/shutdownGraceSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+else {
+const err196 = {instancePath:instancePath+"/codeModeMaxWorkers",schemaPath:"#/properties/codeModeMaxWorkers/type",keyword:"type",params:{type: "integer"},message:"must be integer"};
 if(vErrors === null){
 vErrors = [err196];
 }
@@ -4415,15 +4409,82 @@ vErrors.push(err196);
 errors++;
 }
 }
+if(coerced80 !== undefined){
+data100 = coerced80;
+if(data !== undefined){
+data["codeModeMaxWorkers"] = coerced80;
 }
 }
-else {
-const err197 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+}
+if(typeof data100 == "number"){
+if(data100 < 1 || isNaN(data100)){
+const err197 = {instancePath:instancePath+"/codeModeMaxWorkers",schemaPath:"#/properties/codeModeMaxWorkers/minimum",keyword:"minimum",params:{comparison: ">=", limit: 1},message:"must be >= 1"};
 if(vErrors === null){
 vErrors = [err197];
 }
 else {
 vErrors.push(err197);
+}
+errors++;
+}
+}
+}
+if(data.shutdownGraceSeconds !== undefined){
+let data101 = data.shutdownGraceSeconds;
+if(!(typeof data101 == "number")){
+let dataType81 = typeof data101;
+let coerced81 = undefined;
+if(dataType81 == 'object' && Array.isArray(data101) && data101.length == 1){
+data101 = data101[0];
+dataType81 = typeof data101;
+if(typeof data101 == "number"){
+coerced81 = data101;
+}
+}
+if(!(coerced81 !== undefined)){
+if(dataType81 == "boolean" || data101 === null
+              || (dataType81 == "string" && data101 && data101 == +data101)){
+coerced81 = +data101;
+}
+else {
+const err198 = {instancePath:instancePath+"/shutdownGraceSeconds",schemaPath:"#/properties/shutdownGraceSeconds/type",keyword:"type",params:{type: "number"},message:"must be number"};
+if(vErrors === null){
+vErrors = [err198];
+}
+else {
+vErrors.push(err198);
+}
+errors++;
+}
+}
+if(coerced81 !== undefined){
+data101 = coerced81;
+if(data !== undefined){
+data["shutdownGraceSeconds"] = coerced81;
+}
+}
+}
+if(typeof data101 == "number"){
+if(data101 < 0 || isNaN(data101)){
+const err199 = {instancePath:instancePath+"/shutdownGraceSeconds",schemaPath:"#/properties/shutdownGraceSeconds/minimum",keyword:"minimum",params:{comparison: ">=", limit: 0},message:"must be >= 0"};
+if(vErrors === null){
+vErrors = [err199];
+}
+else {
+vErrors.push(err199);
+}
+errors++;
+}
+}
+}
+}
+else {
+const err200 = {instancePath,schemaPath:"#/type",keyword:"type",params:{type: "object"},message:"must be object"};
+if(vErrors === null){
+vErrors = [err200];
+}
+else {
+vErrors.push(err200);
 }
 errors++;
 }

@@ -1,5 +1,7 @@
 export default {
   privateDirectoryUrl: 'http://simple-directory:8080',
+  // simple-directory's MCP_PATH: an autonomous agent's token on a site is asked for <site><mcpPath>
+  mcpPath: '/mcp-server',
   privateEventsUrl: undefined,
   mongoUrl: 'mongodb://localhost:27017/data-fair-agents',
   port: 8080,

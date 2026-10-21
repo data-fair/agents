@@ -2,6 +2,7 @@ export default {
   mongoUrl: 'MONGO_URL',
   port: 'PORT',
   privateDirectoryUrl: 'PRIVATE_DIRECTORY_URL',
+  mcpPath: 'MCP_PATH',
   privateEventsUrl: 'PRIVATE_EVENTS_URL',
   secretKeys: {
     events: 'SECRET_EVENTS',
