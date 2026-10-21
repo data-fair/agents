@@ -128,7 +128,10 @@ declare global {
   const rewriteSimpleDirectoryUrl: typeof import('../src/utils/simple-directory-url').rewriteSimpleDirectoryUrl
   const runStatusLabel: typeof import('../src/utils/run-statuses').runStatusLabel
   const runStatuses: typeof import('../src/utils/run-statuses').runStatuses
+  const sameScopes: typeof import('../src/utils/nhi-scopes').sameScopes
   const sanitizeEvent: typeof import('../src/composables/use-host-events').sanitizeEvent
+  const scopeRows: typeof import('../src/utils/nhi-scopes').scopeRows
+  const scopesPatchValue: typeof import('../src/utils/nhi-scopes').scopesPatchValue
   const serializeFlagsCookie: typeof import('../src/utils/agent-flags').serializeFlagsCookie
   const setBreadcrumbs: typeof import('../src/utils/breadcrumbs').setBreadcrumbs
   const settleWaitInvocations: typeof import('../src/composables/agent-stream-parts').settleWaitInvocations
@@ -219,6 +222,9 @@ declare global {
   // @ts-ignore
   export type { MermaidFailure } from '../src/utils/mermaid'
   import('../src/utils/mermaid')
+  // @ts-ignore
+  export type { ScopeRow } from '../src/utils/nhi-scopes'
+  import('../src/utils/nhi-scopes')
   // @ts-ignore
   export type { ToolGroup } from '../src/utils/tool-groups'
   import('../src/utils/tool-groups')
@@ -324,7 +330,10 @@ declare module 'vue' {
     readonly rewriteSimpleDirectoryUrl: UnwrapRef<typeof import('../src/utils/simple-directory-url')['rewriteSimpleDirectoryUrl']>
     readonly runStatusLabel: UnwrapRef<typeof import('../src/utils/run-statuses')['runStatusLabel']>
     readonly runStatuses: UnwrapRef<typeof import('../src/utils/run-statuses')['runStatuses']>
+    readonly sameScopes: UnwrapRef<typeof import('../src/utils/nhi-scopes')['sameScopes']>
     readonly sanitizeEvent: UnwrapRef<typeof import('../src/composables/use-host-events')['sanitizeEvent']>
+    readonly scopeRows: UnwrapRef<typeof import('../src/utils/nhi-scopes')['scopeRows']>
+    readonly scopesPatchValue: UnwrapRef<typeof import('../src/utils/nhi-scopes')['scopesPatchValue']>
     readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
