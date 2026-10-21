@@ -488,6 +488,27 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
     expect([...sent[0].body.scopes].sort()).toEqual(['applications:read', 'datasets:read'])
   })
 
+  test('a failed agent save keeps the scopes change pending, so saving again resends both', async ({ page, goToWithAuth }) => {
+    const sent = await stubDirectory(page, ['datasets:read'])
+    let puts = 0
+    // registered last, so it answers before stubDirectory's handler: the first PUT fails
+    await page.route('**/agents/api/autonomous-agents/organization/test1/test-fixture', async route => {
+      if (route.request().method() === 'PUT' && puts++ === 0) {
+        sent.push({ method: 'PUT', path: new URL(route.request().url()).pathname, body: null })
+        return route.fulfill({ status: 500, json: 'boom' })
+      }
+      return route.fallback()
+    })
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
+    await pickScope(page, 'applications:read')
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => sent.map(r => r.method)).toEqual(['PATCH', 'PUT'])
+    await expect(page.getByRole('button', { name: 'Save' })).toBeEnabled()
+    await page.getByRole('button', { name: 'Save' }).click()
+    await expect.poll(() => sent.map(r => r.method)).toEqual(['PATCH', 'PUT', 'PATCH', 'PUT'])
+  })
+
   test('clearing the scopes sends null', async ({ page, goToWithAuth }) => {
     const sent = await stubDirectory(page, ['datasets:read'])
     await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)

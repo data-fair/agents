@@ -202,7 +202,7 @@ JSON object: the servers of the two built-in personal assistants, `portal` (`por
 { "portal": { "mcpServers": [{ "serverId": "datafair-datasets" }] }, "backOffice": { "mcpServers": [{ "serverId": "datafair-datasets" }] } }
 ```
 
-Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write tools, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`). An assistant acts as the person, whose session carries no scope: on data-fair's platform server it would list every tool their role allows, which is why the example gives it the datasets server. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
+Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write tools, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`), and so does a `sites: "home"` entry: an assistant acts as the person, anonymously for a visitor, and such an entry is never called anonymously. Name its `homeAlternative` instead. The person's session carries no scope, so even signed in, data-fair's platform server would list every tool their role allows. That is another reason the example gives the assistants the datasets server. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
 
 ### No signing key to configure
 

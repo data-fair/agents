@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sessionScopes, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
+import { generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, NHI_KEY_PUBLISH_AHEAD_SECONDS, NHI_KEY_ROTATION_DAYS, sessionNeedsRenewal, SESSION_RENEW_MARGIN_SECONDS, ASSERTION_TTL_SECONDS, toPublicJwk, nhiIssuerUrl, nhiExchangeUrl, exchangeHeaders, autonomousAgentSubject, buildAssertionClaims, decodeSessionClaims, sessionScopes, accountPlacement, sanitizeExchangeError, type NhiPrivateJwk } from '../../../api/src/nhi/operations.ts'
 
 const key: NhiPrivateJwk = {
   kty: 'EC',
@@ -307,5 +307,24 @@ test.describe('sessionScopes', () => {
     assert.equal(sessionScopes(cookieWith({ id: 'x' })), undefined)
     assert.equal(sessionScopes(undefined), undefined)
     assert.equal(sessionScopes('other=1'), undefined)
+  })
+})
+
+// The account listing fails for a scoped identity until simple-directory lets it list its own sites.
+test.describe('accountPlacement', () => {
+  const enrolled = 'https://a.example.org'
+  const portal = 'https://portal.example.org'
+  test('a listed account offers its other sites as portals', () => {
+    assert.deepEqual(accountPlacement(enrolled, enrolled, [enrolled, portal]), { account: [enrolled, portal], portals: [portal], home: 'account' })
+    assert.deepEqual(accountPlacement(enrolled, portal, [enrolled, portal]), { account: [enrolled, portal], portals: [enrolled], home: 'account' })
+  })
+  test('a site outside a listed account is anonymous', () => {
+    assert.equal(accountPlacement(enrolled, 'https://other.example.org', [enrolled]).home, 'anonymous')
+  })
+  test('a failed listing still acts as the agent on its enrolment site, with no portal', () => {
+    assert.deepEqual(accountPlacement(enrolled, enrolled, undefined), { account: [enrolled], portals: [], home: 'account' })
+  })
+  test('a failed listing leaves another site unconfirmed, not foreign', () => {
+    assert.deepEqual(accountPlacement(enrolled, portal, undefined), { account: [enrolled], portals: [], home: 'unconfirmed' })
   })
 })

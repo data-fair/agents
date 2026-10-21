@@ -13,7 +13,7 @@ import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
 import mongo from '#mongo'
 import { cipher, decipher } from '../cipher/operations.ts'
 import { securityKey } from '../cipher/service.ts'
-import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, exchangeHeaders, nhiExchangeUrl, sanitizeExchangeError, accountPlacement, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
 import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
 import { createSessionBroker } from './session-broker.ts'
 
@@ -212,22 +212,19 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   if (autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
     return { homeSite: home, clientIp, portals: [], home: 'account', cookieFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
   }
-  let account: string[]
-  let listingFailed = false
+  let listed: string[] | undefined
   try {
-    account = await listAccountSites(autonomousAgent)
+    listed = await listAccountSites(autonomousAgent)
   } catch (err: any) {
-    // Its own state, not "the account is just the enrolment site": no portal can be offered, and a home
-    // other than the enrolment site is UNCONFIRMED rather than known to be foreign (the prompt says so).
+    // Its own state, not "the account is just the enrolment site": see accountPlacement.
     console.warn(`could not list the account sites of autonomous agent ${autonomousAgent.id}: ${err.message}`)
-    account = [enrolled]
-    listingFailed = true
   }
+  const { account, portals, home: placement } = accountPlacement(enrolled, home, listed)
   return {
     homeSite: home,
     clientIp,
-    portals: listingFailed ? [] : account.filter(site => site !== home),
-    home: account.includes(home) ? 'account' : listingFailed ? 'unconfirmed' : 'anonymous',
+    portals,
+    home: placement,
     cookieFor: site => {
       const origin = siteOrigin(site)
       if (!account.includes(origin)) return Promise.resolve(undefined)

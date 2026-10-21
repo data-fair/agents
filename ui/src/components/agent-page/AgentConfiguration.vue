@@ -429,11 +429,13 @@ const save = useAsyncAction(async () => {
   // The scopes first, and a refusal stops the save: an administrator narrowing them must never be left
   // with a saved agent that still has the wider reach. The PUT follows even when only they changed, since it
   // is what drops the agent's sessions (forgetAgentSessions), so the next turn carries the new scopes.
-  if (clientId && scopesChanged.value) {
+  // The baseline moves only once the PUT is done: until then the change stays pending, so a failed PUT
+  // leaves something to save again rather than written scopes with the old sessions still live.
+  const writtenScopes = clientId && scopesChanged.value ? [...scopes.value] : undefined
+  if (clientId && writtenScopes) {
     try {
-      await syncIdentity(clientId, { scopes: scopesPatchValue(scopes.value) })
+      await syncIdentity(clientId, { scopes: scopesPatchValue(writtenScopes) })
       scopesError.value = null
-      savedScopes.value = [...scopes.value]
     } catch (err) {
       scopesError.value = t('scopesRefused', { message: enrolmentErrorMessage(err) })
       throw err
@@ -442,6 +444,7 @@ const save = useAsyncAction(async () => {
   await $fetch(`${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${props.agent.id}`, {
     method: 'PUT', body, credentials: 'include'
   })
+  if (writtenScopes) savedScopes.value = writtenScopes
   if (clientId && patch) {
     try {
       await syncIdentity(clientId, patch)

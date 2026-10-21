@@ -124,6 +124,11 @@ test.describe('assertPersonalAssistantsConfig', () => {
     assert.throws(() => assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'nope' }] } }, servers), /personal assistant "portal" references unknown MCP server "nope"/)
     assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'registry' }] } }, servers)
   })
+  // a personal assistant acts as the person, anonymous for a visitor: a 'home' entry is never called anonymously
+  test('refuses a personal assistant naming a home-site entry', () => {
+    const home: GlobalMcpServer = { id: 'p', name: 'P', url: 'http://h/mcp', auth: 'nhi-session', sites: 'home' }
+    assert.throws(() => assertPersonalAssistantsConfig({ backOffice: { mcpServers: [{ serverId: 'p' }] } }, [...servers, home]), /personal assistant "backOffice" references MCP server "p", which serves the home site only/)
+  })
 })
 
 test.describe('home-site entries', () => {

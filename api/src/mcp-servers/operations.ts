@@ -97,16 +97,22 @@ export function assertGlobalMcpConfig (servers: GlobalMcpServer[]): void {
 
 /**
  * Fail-fast boot validation of `personalAssistants`: an assistant naming a server the catalog does not
- * have is a typo that would otherwise surface as a 400 on someone's first message.
+ * have is a typo that would otherwise surface as a 400 on someone's first message. Nor may it name a
+ * `sites: 'home'` entry: it acts as the person, anonymously for a visitor, and such an entry is never
+ * called anonymously.
  */
 export function assertPersonalAssistantsConfig (
   assistants: Record<string, { mcpServers?: McpServerRef[] } | undefined>,
-  servers: Array<Pick<GlobalMcpServer, 'id'>>
+  servers: Array<Pick<GlobalMcpServer, 'id' | 'sites'>>
 ): void {
   for (const [name, assistant] of Object.entries(assistants)) {
     for (const ref of assistant?.mcpServers ?? []) {
-      if (!servers.some(server => server.id === ref.serverId)) {
+      const server = servers.find(server => server.id === ref.serverId)
+      if (!server) {
         throw new Error(`invalid personalAssistants config: personal assistant "${name}" references unknown MCP server "${ref.serverId}"`)
+      }
+      if (server.sites === 'home') {
+        throw new Error(`invalid personalAssistants config: personal assistant "${name}" references MCP server "${ref.serverId}", which serves the home site only: name its homeAlternative`)
       }
     }
   }
