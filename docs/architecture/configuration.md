@@ -140,7 +140,7 @@ JSON-parsed numbers, global rather than per account. They bound **every** turn o
 | --- | --- | --- |
 | `TURN_CREDITS` | `500` | per-run credit ceiling; the turn stops with stop reason `budget` once crossed. A runaway ceiling, not a per-turn allowance — the account credit cap still applies on top. |
 | `LIVE_TURNS_PER_CALLER` | `5` | chat turns one person, or one anonymous visitor's address, may have running at once; a further prompt is refused (429) until one ends. |
-| `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one chat turn, so a hung model or MCP server cannot hold the conversation's lock. Independent of the NHI session lifetime: a longer turn renews its sessions. |
+| `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one chat turn, so a hung model or MCP server cannot hold the conversation's lock. Independent of the NHI token lifetime: a longer turn renews its tokens. |
 | `TASK_TIMEOUT_SECONDS` | `1800` | the same ceiling for a planned task's run, which nobody waits on (see [planned tasks](./planned-tasks.md#the-turn)). A deploy still stops a run after `SHUTDOWN_GRACE_SECONDS`. |
 | `SHUTDOWN_GRACE_SECONDS` | `90` | on SIGTERM, how long running turns get to finish before being stopped as "the server restarted" (see [autonomous agents](./autonomous-agents.md#recovery)). The pod's `terminationGracePeriodSeconds` must exceed it by about 15 s. |
 | `COMPACTION_PERCENT` | `70` | share of the assistant model's context window above which history is compacted (see [Context management](./context-management.md)). |
@@ -162,7 +162,7 @@ JSON array of the MCP server catalog ops publishes for this deployment. Validate
 
 | `auth` | Behavior |
 | --- | --- |
-| `nhi-session` | Injects the calling autonomous agent's NHI session cookie (stack services). |
+| `nhi-session` | Injects the site's credential: the calling autonomous agent's bearer token, or the person's cookie for a personal assistant (stack services). |
 | `none` | Sends no credential (public or network-trusted endpoints). |
 | `apiKey` | Sends a static, ops-owned header, from `apiKeyHeader`/`apiKey`. |
 
@@ -204,9 +204,13 @@ JSON object: the servers of the two built-in personal assistants, `portal` (`por
 
 Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write tools, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`), and so does a `sites: "home"` entry: an assistant acts as the person, anonymously for a visitor, and such an entry is never called anonymously. Name its `homeAlternative` instead. The person's session carries no scope, so even signed in, data-fair's platform server would list every tool their role allows. That is another reason the example gives the assistants the datasets server. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
 
+### `MCP_PATH` and simple-directory's authorization server
+
+An autonomous agent's tokens come from simple-directory's OAuth token endpoint, which is **off by default**: the simple-directory it uses must run with `OAUTH_SERVER_ENABLED=true` (with it off, the endpoint answers 404 and every enrolment is refused, naming that cause). For each site it acts on, the agent asks for the resource `<site><MCP_PATH>/mcp`; `MCP_PATH` (`mcpPath`, default `/mcp-server`) must equal simple-directory's own, which is where the stack's MCP servers are mounted. See [Autonomous agents](./autonomous-agents.md#identity-the-agent-acts-as-itself).
+
 ### No signing key to configure
 
-The ES256 keys that sign the assertions an autonomous agent exchanges for its own session (see [Autonomous agents](./autonomous-agents.md#identity-the-agent-acts-as-itself)) are the service's own state, managed as simple-directory manages its token keys (`api/src/tokens/keys-manager.ts` there): generated at the first boot, stored in mongo (`secrets`, `_id: 'nhi-signing-keys'`) with the private halves ciphered by `CIPHER_PASSWORD`, rotated every 30 days (`maintainNhiKeys`, `api/src/nhi/service.ts`). A new key is published in `/jwks` an hour before it signs, since simple-directory caches the JWKS, and the key it replaces stays published until the next rotation. Nothing outside this service holds a key: simple-directory reads the public halves through discovery, so a lost or suspect key is only a new one — delete that document and restart, and every enrolled agent keeps working.
+The ES256 keys that sign the assertions an autonomous agent exchanges for its own access tokens (see [Autonomous agents](./autonomous-agents.md#identity-the-agent-acts-as-itself)) are the service's own state, managed as simple-directory manages its token keys (`api/src/tokens/keys-manager.ts` there): generated at the first boot, stored in mongo (`secrets`, `_id: 'nhi-signing-keys'`) with the private halves ciphered by `CIPHER_PASSWORD`, rotated every 30 days (`maintainNhiKeys`, `api/src/nhi/service.ts`). A new key is published in `/jwks` an hour before it signs, since simple-directory caches the JWKS, and the key it replaces stays published until the next rotation. Nothing outside this service holds a key: simple-directory reads the public halves through discovery, so a lost or suspect key is only a new one — delete that document and restart, and every enrolled agent keeps working.
 
 ### Verifying an autonomous agent's identity and tools
 
@@ -216,13 +220,13 @@ The ES256 keys that sign the assertions an autonomous agent exchanges for its ow
 2. **Confirm discovery resolves** by requesting `<the site's own public url>/agents/api/nhi/.well-known/openid-configuration` through the reverse proxy (not directly on the API port — the issuer is meaningless without the proxy's `x-forwarded-*` headers).
 3. **Create an autonomous agent** (`POST /api/autonomous-agents/organization/:id`) through the admin UI, referencing the MCP servers to verify. Steps 4 and 5 are then **done by the creation dialog**, which enrols the NHI with the role chosen there; they remain as the manual fallback when enrolment fails (the agent page then offers a retry) or when the agent was created through the API.
 4. **Register the NHI in simple-directory**, with `provider.issuer` set to the `nhi.issuer` now stored on the autonomous agent (`GET /api/autonomous-agents/organization/:id/:agentId`) and `subject` set to `autonomous-agent:<agentId>` (`autonomousAgentSubject()`).
-5. **PUT the returned `nhi-…` id** onto the autonomous agent's `nhi.clientId`. The save performs a real exchange before accepting it (`assertEnrolmentWorks`), so a bad id, a wrong subject or an unreachable issuer is refused immediately at configuration time rather than surfacing later as a confusing failure inside a run.
-6. **`GET …/:agentId/session`** to see which identity the exchange actually obtained (user id, org, session TTL) without ever returning the session cookie itself.
+5. **PUT the returned `nhi-…` id** onto the autonomous agent's `nhi.clientId`. The save performs a real token request before accepting it (`assertEnrolmentWorks`), so a bad id, a wrong subject or an unreachable issuer is refused immediately at configuration time rather than surfacing later as a confusing failure inside a run.
+6. **`GET …/:agentId/session`** to see which identity the token request actually obtained (user id, org, token TTL), and the organization's sites it cannot reach as itself (`unreachableSites`), without ever returning the token itself.
 7. **`GET …/:agentId/tools`** to see the live tool list fetched as that identity — the deliverable this section documents.
 
 **simple-directory must run with `manageNhis` enabled** (`MANAGE_NHIS=true`) for step 4 (or the dialog's enrolment) to work at all; it is what exposes `POST /api/organizations/:id/nhis`.
 
-**`allowedIps` and `ipBinding` must not be set on an autonomous agent's NHI.** Both key off the address this service *declares* on the exchange (`DECLARED_CLIENT_IP`, a fixed `127.0.0.1` — see `api/src/nhi/operations.ts`) rather than any real client address, since the exchange is server-to-server and every autonomous agent on this deployment shares that one declared egress address. Binding either setting to a real pod/node IP breaks the exchange (a mismatched declared address) or the session it issues (a mismatched bound address on every subsequent call) — there is no real client IP here for either setting to usefully pin.
+**`allowedIps` and `ipBinding` must not be set on an autonomous agent's NHI.** Both key off the address this service *declares* on the token request (`DECLARED_CLIENT_IP`, a fixed `127.0.0.1` — see `api/src/nhi/operations.ts`) rather than any real client address, since the token request is server-to-server and every autonomous agent on this deployment shares that one declared egress address. Binding either setting to a real pod/node IP breaks the token request (a mismatched declared address) or the session it issues (a mismatched bound address on every subsequent call) — there is no real client IP here for either setting to usefully pin.
 
 Registering the NHI is a one-time UI action, not a per-rotation chore: because discovery (`.well-known/openid-configuration` + `/jwks`) is fetched live rather than pinned, simple-directory picks up a new signing key automatically on rotation (it refetches the JWKS on an unknown `kid`) without the NHI record ever needing to be touched again. `/jwks` publishes the next key before it signs, so a rotation is never refused by a verifier holding an older copy.
 

@@ -10,7 +10,7 @@ import { MCP_CODE_OUTPUT_SCHEMA } from '../files/operations.ts'
 
 /**
  * How the MCP client authenticates to a server:
- * - nhi-session: the autonomous agent's NHI session cookie is injected (stack services)
+ * - nhi-session: the site's credential is injected: the autonomous agent's bearer token, the person's cookie (stack services)
  * - none:        no credential (public or network-trusted endpoints)
  * - apiKey:      a static ops-owned header (third-party servers with their own auth)
  */

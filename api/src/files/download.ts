@@ -4,7 +4,7 @@
  *  - anonymous: fetch_url's rules — the allowlist at every redirect hop;
  *  - bound site: a link a catalog tool returned on the site its call was bound to — no allowlist (the URL
  *    is the output of a tool an admin selected), the call's own session when it had one, and it never
- *    leaves that origin, so the cookie cannot follow a redirect elsewhere.
+ *    leaves that origin, so the credential cannot follow a redirect elsewhere.
  * Both: GET only, public addresses only (SSRF_PUBLIC_IPS exceptions), 15 s to the headers, 30 s idle body,
  * 5 minutes overall. Messages show origin and path only: a redirect target or a link can be presigned.
  */

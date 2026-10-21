@@ -24,7 +24,7 @@ const debug = Debug('agents:mcp-client')
 
 /**
  * A connection to one catalog server, for one site. The credential headers are computed for EVERY request
- * rather than fixed when it connects: `cookie` is asked each time, so a session renewed during a long turn
+ * rather than fixed when it connects: `credential` is asked each time, so a token renewed during a long turn
  * (agentSiteCredentials) reaches the calls already holding this connection.
  */
 export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, credential: () => Promise<SiteCredential | undefined> = async () => undefined, clientIp?: string) => {
@@ -114,9 +114,9 @@ export const TOOL_LISTING_TTL_MS = 60_000
  *
  * Keyed on who asks as well as the server, because what a session-authenticated server lists may
  * depend on it (SiteCredentials.listingIdentity): two identities never share a listing. On the
- * identity, not the session cookie, which is a fresh exchange every turn for a configured agent — keyed
- * on it, its listings never hit. `cookie` is asked for only on a miss, so a cached listing costs no
- * session exchange.
+ * identity, not the credential, which is renewed every few minutes for a configured agent — keyed
+ * on it, its listings would rarely hit. The credential is asked for only on a miss, so a cached listing costs no
+ * token request.
  */
 const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials): Promise<ServerListing> => {
   // the listing is shared across turns: it carries the IP of the turn that lists (tools/list costs the stack nothing)

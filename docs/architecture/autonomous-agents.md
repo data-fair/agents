@@ -158,27 +158,41 @@ also settles the approved calls it left without a result, "outcome is unknown" (
 
 ## Identity: the agent acts as itself
 
-An autonomous agent authenticates as a **non-human identity** in simple-directory, via an RFC 7523 JWT
-bearer exchange (`api/src/nhi/`). This service is the issuer, and the issuer url (with the site
+An autonomous agent authenticates as a **non-human identity** in simple-directory, as an OAuth client:
+it obtains `at+jwt` access tokens from simple-directory's token endpoint with the RFC 7523 JWT bearer
+grant, and calls the stack with `Authorization: Bearer` (`api/src/nhi/`). Cookie sessions are for agents
+that drive a browser (nhi-proxy); this service is an API client, so it authenticates like one. This service is the issuer, and the issuer url (with the site
 it was reached on, `nhi.siteUrl`) is *captured* from the real proxied request rather than configured,
 so it is always a url that demonstrably resolves here. It is captured on first enrolment, or when the
 client id changes, and kept by later saves, so editing an agent from another of the organization's
 sites does not move it.
 
 - The subject is `autonomous-agent:<agent id>`, which is what binds one NHI to one agent.
-- Sessions are short-lived and non-refreshable, exchanged **per agent and per site**, reused across
-  turns until one nears its expiry, then exchanged again. A session lives the assertion TTL
-  (`ASSERTION_TTL_SECONDS`, 300 s — simple-directory caps a session at its assertion's expiry; longer
-  than nhi-proxy's 120 s because the cookie never leaves this process). A site's session is renewed
-  `SESSION_RENEW_MARGIN_SECONDS` (60 s) before it would expire (`sessionNeedsRenewal`), and the MCP
-  transport reads the current one on every request rather than fixing it when it connects
-  (`connectMcpServer`), so a turn may run longer than a session lives: the TTL bounds a credential,
-  not a turn. simple-directory's sessions are host-only, so one is exchanged for each site the agent acts
-  on, and only for its *account sites* (the enrolment site plus the organization's sites, listed by simple-directory as the
-  agent and cached for a minute — `listAccountSites`, `agentSiteCredentials` in `api/src/nhi/service.ts`).
-  Elsewhere the agent is anonymous. An agent that references no `nhi-session` catalog entry never
-  lists its account nor exchanges anything; if the listing fails, the turn degrades to the enrolment
-  site alone. See [Hosts](./overview.md#hosts).
+- **One token per site.** For each site it acts on, the service asks for the resource
+  `<site><MCP_PATH>/mcp` (RFC 8707; `mcpPath`, default `/mcp-server`, simple-directory's own `MCP_PATH`).
+  simple-directory gives an MCP resource the audience `[<site>/mcp-server, <site>]`, so the one token covers
+  every MCP server of the site and the site's own APIs (simple-directory, data-fair, the links tools return).
+  The resource is derived from the site, not from a catalog entry's URL: entries are reached on private urls.
+  No `scope` is requested: a token carries the identity's maximum scopes.
+- **The issuer is the enrolment site.** The token endpoint exists only on issuer sites — an account's main
+  site, or the platform's main site — so every token is asked there, with an assertion whose audience is that
+  site, whatever site the token is for. An agent is enrolled from the issuer of its account's realm; enrolling
+  anywhere else is refused with a message naming both possible causes (not an issuer, or
+  `OAUTH_SERVER_ENABLED` off: either way the endpoint answers 404).
+- **Realm.** simple-directory issues a token only for a resource in the issuer's realm (its
+  `resolveAccountMainSite`): sites with no `authMode` or `onlyBackOffice` are the platform's realm,
+  `onlyOtherSite` sites the realm of the site they name, any other site its own. The agent's *account sites*
+  are the enrolment site plus the organization's sites in that realm (listed by simple-directory as the agent,
+  cached for a minute — `listAccountSites`, `accountSites` in `api/src/sites/operations.ts`). The organization's
+  sites in another realm are **unreachable**: the agent is anonymous there, as on a foreign site, and its
+  security tab lists them; the service tells them apart from the listing (`authMode`, `authOnlyOtherSite`) rather
+  than spending a token request known to fail. Elsewhere the agent is anonymous too. An agent that references no
+  `nhi-session` catalog entry never lists its account nor asks for a token; if the listing fails, the turn
+  degrades to the enrolment site alone. See [Hosts](./overview.md#hosts).
+- Tokens are reused across turns until one nears its expiry — its own `expires_in`, renewed
+  `SESSION_RENEW_MARGIN_SECONDS` (60 s) before (`sessionNeedsRenewal`) — and the MCP transport reads the
+  current one on every request rather than fixing it when it connects (`connectMcpServer`), so a turn may run
+  longer than a token lives: the lifetime bounds a credential, not a turn.
 - Enrolment is driven from the admin UI, **client-side**: the browser calls simple-directory's NHI
   API with the admin's own session (`ui/src/composables/use-autonomous-agent-enrolment.ts`), taking
   the subject from `shared/autonomous-agent-identity.ts` and the issuer from this service's discovery
@@ -196,28 +210,30 @@ sites does not move it.
   simple-directory (for instance on file storage) is shown as a persistent alert and the stored
   value diverges from the identity's: accepted, because the directory is the authority on an
   identity and this service only verifies one. This server never manages an identity; it verifies
-  one, by a **real exchange** whenever the enrolment changes, so a misconfiguration fails where an
+  one, by a **real token request** whenever the enrolment changes, so a misconfiguration fails where an
   admin can see it rather than inside the first run.
-- The exchange is a server-to-server call to `privateDirectoryUrl` that declares the `x-forwarded-*`
-  headers no proxy sets (`exchangeHeaders`): the host is the site and so the audience, and the client
-  address is a fixed `127.0.0.1`, which is why `allowedIps`/`ipBinding` must never be set on an agent's
-  NHI (see [Configuration](./configuration.md#verifying-an-autonomous-agents-identity-and-tools)). It returns the session as cookies, not
-  a bearer token, because `@data-fair/lib-express` reads sessions from cookies only.
-- **Exchanges spend a budget all agents share** (`api/src/nhi/session-broker.ts`). simple-directory counts
-  each exchange against `authRateLimit` (5 a minute) per caller IP and per client id, gives a success its
+- The token request is a server-to-server, form-encoded POST to `privateDirectoryUrl` that declares the
+  `x-forwarded-*` headers no proxy sets (`tokenRequestHeaders`): the host is the enrolment site and so the
+  assertion's audience, and the client address is a fixed `127.0.0.1`, which is why `allowedIps`/`ipBinding`
+  must never be set on an agent's NHI (see [Configuration](./configuration.md#verifying-an-autonomous-agents-identity-and-tools)).
+  Every service the agent reaches must read `at+jwt` bearers (`@data-fair/lib-express` ≥ 1.31, with the
+  audience check ≥ 1.34): an older one sees the agent anonymous.
+- **Token requests spend a budget all agents share** (`api/src/nhi/session-broker.ts`). simple-directory counts
+  each one against `authRateLimit` (5 a minute) per caller IP and per client id, gives a success its
   point back when it ends and keeps a failure's; every exchange of this service declares the same address,
   so the in-flight exchanges and the recent failures of all agents of all organizations share one budget.
-  So, per process: a session is reused across turns rather than exchanged per turn (it lives no longer for
-  it); concurrent asks for one session share one exchange, and at most 2 run at once, the rest queued (planned
-  tasks on the same schedule, the admin page's parallel reads); an identity simple-directory rejected
-  (400/401/403: the NHI deleted, its client id changed, the agent out of its organization) is not asked again
-  for 5 minutes, the failure answered here with its reason; a 429 waits and retries (3 times) rather than
+  So, per process: a token is reused across turns rather than requested per turn (it lives no longer for
+  it); concurrent asks for one token share one request, and at most 2 run at once, the rest queued (planned
+  tasks on the same schedule, the admin page's parallel reads); a refusal is not asked again for 5 minutes,
+  the failure answered here with its reason — on every site for an identity failure (`invalid_grant`, 401,
+  403: the NHI deleted, its client id changed, the agent out of its organization), on that site alone for any
+  other (`invalid_target`, 404), so one refused portal never takes the home site down; a 429 waits and retries (3 times) rather than
   failing the turn. Saving, disabling or deleting the agent drops its sessions and its back-off. The
   limit is per process: N replicas run up to 2N at once.
 - **The ceiling is simple-directory's, not ours.** An NHI belongs to exactly one organization, can
   never be an admin nor an impersonation target, so an org admin cannot give an agent reach beyond their
   organization. The catalog `apiKey`s come from the environment, the signing keys are ciphered in mongo, and assertions and
-  cookies stay in the transport: no credential enters a prompt, a message or a run.
+  tokens stay in the transport: no credential enters a prompt, a message or a run.
 - **One signing key covers every agent of the deployment** — a known trade, chosen over a keypair per
   agent for operational simplicity: whoever holds it can mint an assertion for any subject. It is
   generated and rotated by the service itself, as simple-directory's own token keys are, and stored

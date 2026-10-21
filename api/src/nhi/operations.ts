@@ -33,11 +33,11 @@ export interface NhiPublicJwk {
 }
 
 /**
- * Assertion lifetime, and therefore session lifetime (see buildAssertionClaims).
- * nhi-proxy uses 120s because a browser it drives holds the cookie directly; here the
- * cookie never leaves this process, so 300s cuts exchanges ~15x against the 30m cap
- * at a cost bounded by the assertion never being exposed. A turn longer than that renews
- * its sessions (sessionNeedsRenewal): the TTL bounds a credential, not a turn.
+ * Assertion lifetime. nhi-proxy uses 120s because a browser it drives holds its session directly;
+ * here the assertion never leaves this process (it is spent at once on the token endpoint), so 300s
+ * costs nothing. A token lives its own `expires_in`, which the broker renews from; this is the
+ * fallback when simple-directory gives none. A turn longer than a token renews it
+ * (sessionNeedsRenewal): the TTL bounds a credential, not a turn.
  */
 export const ASSERTION_TTL_SECONDS = 300
 

@@ -113,11 +113,11 @@ path only (`displayUrl`): a redirect target or a link can be presigned. The one 
    origin is **the site that call was bound to** (home site or portal). The URL is then the output of a tool
    an admin selected, on the site the call acted on. A bound-site fetch never leaves its origin: a redirect
    elsewhere is refused, so the session cannot follow it. The session is the turn's own
-   `SiteCredentials.cookieFor(site)`, the per-site cache the catalog calls use, so a link fetch costs no new
-   exchange. Every other link is fetched anonymously under `fetch_url`'s allowlist: one from an external
+   `SiteCredentials.credentialFor(site)`, the per-site cache the catalog calls use, so a link fetch costs no new
+   token request. Every other link is fetched anonymously under `fetch_url`'s allowlist: one from an external
    MCP server, from a catalog entry that is not site-bound, or on another origin. One ruling to know: a
    catalog link on the bound site when the account has **no session** there is fetched anonymously but
-   still without the allowlist, because the rule is where the URL came from, not whether a cookie exists.
+   still without the allowlist, because the rule is where the URL came from, not whether a credential exists.
 
 A fetched link is **named** from its response's `Content-Disposition`, else the link's `name`, else its
 URL's last segment, with an extension from the response type, else the link's `mimeType`, else `.bin`:

@@ -119,9 +119,9 @@ sessions are host-only, so every MCP call of an agent acts on exactly one **site
 prefix is ignored, `api/src/sites/operations.ts`):
 
 1. **Credentialed MCP is site-bound.** A catalog entry with `auth: nhi-session` is called with the
-   site's `x-forwarded-host`, and with a session exchanged for that site when it is one of the agent's
+   site's `x-forwarded-host`, and with a token obtained for that site when it is one of the agent's
    **account sites**: the site it was enrolled on, plus its organization's sites as simple-directory
-   lists them. Anywhere else it is called anonymously, and a cookie never travels without its site.
+   lists them. Anywhere else it is called anonymously, and a credential never travels without its site.
    An entry with `sites: 'home'` (data-fair's platform server, which refuses anonymous callers) is called
    on the home site only, and only when the agent has a session there; its `homeAlternative` (the
    datasets server) stands for it everywhere else: on the portals, and on a home outside the account.

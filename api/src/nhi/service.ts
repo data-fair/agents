@@ -72,14 +72,14 @@ export const getNhiDiscovery = (req: Request): { issuer: string, jwks_uri: strin
 
 export const getNhiJwks = async (): Promise<{ keys: NhiPublicJwk[] }> => ({ keys: (await readNhiKeys()).map(key => toPublicJwk(key.jwk)) })
 
-/** The shape the exchange needs off an autonomous agent document. */
+/** The shape the token request needs off an autonomous agent document. */
 export interface EnrolledAutonomousAgent {
   id: string
   nhi?: { clientId: string, siteUrl?: string, issuer?: string }
 }
 
 /**
- * An autonomous agent can only be exchanged for a session once all three captured values
+ * An autonomous agent can only obtain a token once all three captured values
  * are present. siteUrl/issuer are written by the write routes from reqSiteUrl(req); an
  * agent enrolled before that capture existed would have clientId alone, so check all three
  * rather than assuming.
@@ -202,9 +202,9 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   const { siteUrl } = requireEnrolment(autonomousAgent)
   const enrolled = siteOrigin(siteUrl)
   const home = socketSite ? siteOrigin(socketSite) : enrolled
-  // Listing the account costs a session exchange. An agent none of whose entries is site-bound
-  // (`nhi-session`) never asks for a cookie or a portal, so it must not pay for, nor depend on, an
-  // exchange it does not use: a turn on public tools stays as fast as before sites existed.
+  // Listing the account costs a token request. An agent none of whose entries is site-bound
+  // (`nhi-session`) never asks for a credential or a portal, so it must not pay for, nor depend on, a
+  // request it does not use: a turn on public tools stays as fast as before sites existed.
   const catalog = config.mcpServers ?? []
   if (autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
     return { homeSite: home, clientIp, portals: [], home: 'account', credentialFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
