@@ -7,6 +7,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { superAdmin, clean } from '../../support/axios.ts'
+import { createSite, deleteSite, portalHost } from '../../support/sites.ts'
 
 const admin = await superAdmin
 
@@ -107,6 +108,28 @@ test.describe('NHI exchange', () => {
     assert.match(rejected, /nhi token request failed/)
     assert.doesNotMatch(rejected, /not asked again/)
     assert.match(await refusal(), /nhi token request failed.*not asked again before/, 'answered here, simple-directory not called')
+  })
+
+  test('enrolling from a site that is not an issuer is refused, naming both causes', async () => {
+    // a portal of test1: its own sites have no token endpoint, only the issuer of its realm (the platform's main site)
+    const portal = portalHost('test1-enrol')
+    const siteId = await createSite(portal, { type: 'organization', id: 'test1', name: 'Test 1' })
+    try {
+      await assert.rejects(
+        admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
+          title: 'Portal enrolment', persona: 'x', mcpServers: [], enabled: true, nhi: { clientId: 'test-autonomous-agent-nhi' }
+        }, { headers: { 'x-forwarded-host': portal, host: portal } }),
+        (err: any) => {
+          assert.equal(err.status, 400, JSON.stringify(err.data))
+          const errText = JSON.stringify(err.data)
+          assert.match(errText, /enrol this agent from its account's issuer site/)
+          assert.match(errText, /OAUTH_SERVER_ENABLED/)
+          return true
+        }
+      )
+    } finally {
+      await deleteSite(siteId)
+    }
   })
 
   test('a client-supplied nhi.siteUrl / nhi.issuer is discarded, not trusted', async () => {

@@ -155,6 +155,11 @@ export const assertEnrolmentWorks = async (autonomousAgent: EnrolledAutonomousAg
   try {
     await getAgentToken(autonomousAgent)
   } catch (err: any) {
+    // The token endpoint exists only on issuer sites (an account's main site, the platform's main site), and only
+    // when simple-directory's authorization server is on: either way, a 404.
+    if (err.exchangeStatus === 404) {
+      throw httpError(400, `the non-human identity "${autonomousAgent.nhi?.clientId}" cannot obtain tokens on ${autonomousAgent.nhi?.siteUrl}: enrol this agent from its account's issuer site (the account's main site, or the platform's main site), and check that simple-directory's authorization server is on (OAUTH_SERVER_ENABLED)`)
+    }
     throw httpError(400, `the non-human identity "${autonomousAgent.nhi?.clientId}" could not be verified against simple-directory: ${err.message}. Check that the NHI exists, that its issuer is ${autonomousAgent.nhi?.issuer} and that its subject is ${autonomousAgentSubject(autonomousAgent.id)}.`)
   }
 }
