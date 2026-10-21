@@ -471,6 +471,27 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
     await expect(page.getByTestId('autonomous-agent-scopes-unrestricted')).toHaveCount(0)
   })
 
+  test('the sites of the organization it cannot act on as itself are listed', async ({ page, goToWithAuth }) => {
+    await stubDirectory(page, ['datasets:read'])
+    const sessionReads: string[] = []
+    await page.route('**/agents/api/autonomous-agents/organization/test1/test-fixture/session', async route => {
+      sessionReads.push(route.request().url())
+      return route.fulfill({ json: { userId: 'test-autonomous-agent-nhi', accountSites: [siteUrl], unreachableSites: ['http://sso.example.org'] } })
+    })
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-unreachable-sites')).toContainText('sso.example.org', { timeout: 20000 })
+    expect(sessionReads.length).toBe(1)
+  })
+
+  test('no unreachable site, no warning', async ({ page, goToWithAuth }) => {
+    await stubDirectory(page, ['datasets:read'])
+    await page.route('**/agents/api/autonomous-agents/organization/test1/test-fixture/session', route =>
+      route.fulfill({ json: { userId: 'test-autonomous-agent-nhi', accountSites: [siteUrl], unreachableSites: [] } }))
+    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
+    await expect(page.getByTestId('autonomous-agent-unreachable-sites')).toHaveCount(0)
+  })
+
   test('no stored scopes reads as no restriction', async ({ page, goToWithAuth }) => {
     await stubDirectory(page, undefined)
     await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)

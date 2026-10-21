@@ -121,9 +121,10 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
   const claims = credentialClaims({ bearer: await getAgentToken(autonomousAgent) })
   // The listing is a diagnostic of its own: its failure must not hide the session this endpoint exists to show.
   let accountSites: string[] | undefined
+  let unreachableSites: string[] | undefined
   let accountSitesError: string | undefined
   try {
-    accountSites = await listAccountSites(autonomousAgent)
+    ({ reachable: accountSites, unreachable: unreachableSites } = await listAccountSites(autonomousAgent))
   } catch (err: any) {
     accountSitesError = err.message
   }
@@ -137,6 +138,7 @@ export const describeAutonomousAgentSession = async (autonomousAgent: EnrolledAu
     nhi: claims.nhi === 1 || claims.nhi === true,
     expiresIn: typeof claims.exp === 'number' ? Math.max(0, claims.exp - Math.floor(Date.now() / 1000)) : undefined,
     accountSites,
+    unreachableSites,
     ...(accountSitesError ? { accountSitesError } : {})
   }
 }

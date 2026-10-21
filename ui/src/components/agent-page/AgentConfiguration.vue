@@ -137,6 +137,14 @@
             :readonly="scopesElsewhere"
             class="mt-4"
           />
+          <v-alert
+            v-if="unreachableHosts"
+            type="info"
+            variant="tonal"
+            class="mt-4"
+            data-testid="autonomous-agent-unreachable-sites"
+            :text="t('unreachableSites', { sites: unreachableHosts })"
+          />
         </template>
       </v-tabs-window-item>
       <v-tabs-window-item
@@ -185,6 +193,7 @@ en:
     name: name
     role: role
     both: name and role
+  unreachableSites: "These sites of the organization use their own sign-in: the agent cannot act on them as itself, only anonymously: {sites}"
   webRiskTitle: This agent reads the web and can write without approval
   webRisk: "A page it reads can contain instructions, and the agent may follow them with its identity and all its tools. Prefer read-only tools for an agent with web access, or set approval to \"Every operation that makes changes\"."
 fr:
@@ -204,6 +213,7 @@ fr:
     name: nom
     role: rôle
     both: nom et rôle
+  unreachableSites: "Ces sites de l'organisation ont leur propre authentification : l'agent ne peut pas y agir en son nom, seulement anonymement : {sites}"
   webRiskTitle: Cet agent lit le web et peut écrire sans approbation
   webRisk: "Une page qu'il lit peut contenir des instructions, et l'agent peut les suivre avec son identité et tous ses outils. Préférez des outils en lecture seule pour un agent qui accède au web, ou réglez l'approbation sur « Toutes les opérations qui effectuent des modifications »."
 </i18n>
@@ -404,6 +414,23 @@ const loadScopes = async (clientId: string | undefined) => {
   scopes.value = [...savedScopes.value]
 }
 watch(() => props.agent.nhi?.clientId, loadScopes, { immediate: true })
+
+// The organization's sites outside its issuer's realm, where it acts only anonymously. Read once, when the
+// security tab is first shown: the read costs a token request.
+const unreachableSites = ref<string[]>([])
+const unreachableHosts = computed(() => unreachableSites.value.map(origin => new URL(origin).host).join(', '))
+let sitesRead = false
+watch([tab, () => props.agent.nhi?.clientId], async ([current, clientId]) => {
+  if (current !== 'security' || !clientId || sitesRead) return
+  sitesRead = true
+  try {
+    const session = await $fetch(`${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${props.agent.id}/session`)
+    unreachableSites.value = session.unreachableSites ?? []
+  } catch {
+    // a failed token request is the enrolment's own diagnostic (the page header), not this warning's
+    unreachableSites.value = []
+  }
+}, { immediate: true })
 
 // Arriving from the creation dialog whose enrolment failed: its reason (a transient notification there) is
 // shown persistently, beside the retry button.

@@ -44,16 +44,47 @@ export function forwardedSiteHeaders (siteUrl: string): { 'x-forwarded-host': st
   return { 'x-forwarded-host': url.host, 'x-forwarded-proto': url.protocol.slice(0, -1) }
 }
 
+/** A site as simple-directory's public listing gives it: what tells its authentication realm. */
+export interface ListedSite { host: string, authMode?: string, authOnlyOtherSite?: string }
+
 /**
- * The agent's authentication space: the site it was enrolled on, and the sites simple-directory lists
- * for its organization (hosts only, served on the enrolment site's protocol).
+ * The realm a site authenticates in, mirroring simple-directory's resolveAccountMainSite: `'platform'` (no
+ * authMode, or onlyBackOffice), the host of the site it relies on (onlyOtherSite), or its own host. `null` when
+ * the chain cannot be resolved from the listing — a backing site not listed, or itself onlyOtherSite, which
+ * simple-directory refuses: such a site is unreachable, never an error.
  */
-export function accountSiteOrigins (nhiSiteUrl: string, listedHosts: string[]): string[] {
-  const protocol = new URL(nhiSiteUrl).protocol
-  const origins = new Set([siteOrigin(nhiSiteUrl)])
-  for (const host of listedHosts) {
-    // a malformed listed host is skipped: one bad entry must not take the whole listing down
-    try { origins.add(siteOrigin(`${protocol}//${host}`)) } catch { /* skipped */ }
+export function siteRealm (site: ListedSite | undefined, byHost: (host: string) => ListedSite | undefined): string | null {
+  if (!site?.authMode || site.authMode === 'onlyBackOffice') return 'platform'
+  if (site.authMode === 'onlyOtherSite' && site.authOnlyOtherSite) {
+    const backing = byHost(site.authOnlyOtherSite)
+    if (!backing) return null
+    if (!backing.authMode || backing.authMode === 'onlyBackOffice') return 'platform'
+    if (backing.authMode === 'onlyOtherSite' && backing.authOnlyOtherSite) return null
+    return backing.host.toLowerCase()
   }
-  return [...origins]
+  return site.host.toLowerCase()
+}
+
+/**
+ * The agent's authentication space: the site it was enrolled on (its issuer), then the sites simple-directory
+ * lists for its organization (hosts only, served on the enrolment site's protocol) — reachable when they are in
+ * the issuer's realm, which is the only place its token endpoint issues tokens for. The enrolment site's realm is
+ * its listed entry's, or the platform's when it is not listed (the platform's main site belongs to no organization).
+ */
+export function accountSites (enrolmentSiteUrl: string, listed: ListedSite[]): { reachable: string[], unreachable: string[] } {
+  const protocol = new URL(enrolmentSiteUrl).protocol
+  const enrolled = siteOrigin(enrolmentSiteUrl)
+  const byHost = (host: string) => listed.find(site => site.host?.toLowerCase() === host.toLowerCase())
+  const issuerRealm = siteRealm(byHost(new URL(enrolled).host), byHost) ?? 'platform'
+  const reachable = new Set([enrolled])
+  const unreachable = new Set<string>()
+  for (const site of listed) {
+    let origin: string
+    // a malformed listed host is skipped: one bad entry must not take the whole listing down
+    try { origin = siteOrigin(`${protocol}//${site.host}`) } catch { continue }
+    if (reachable.has(origin)) continue
+    if (siteRealm(site, byHost) === issuerRealm) reachable.add(origin)
+    else unreachable.add(origin)
+  }
+  return { reachable: [...reachable], unreachable: [...unreachable] }
 }

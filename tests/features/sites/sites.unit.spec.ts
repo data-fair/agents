@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { siteOrigin, siteOriginFromHeaders, forwardedSiteHeaders, accountSiteOrigins } from '../../../api/src/sites/operations.ts'
+import { siteOrigin, siteOriginFromHeaders, forwardedSiteHeaders, accountSites } from '../../../api/src/sites/operations.ts'
 
 test.describe('siteOrigin', () => {
   test('drops the path, the default port and the case', () => {
@@ -39,18 +39,43 @@ test.describe('forwardedSiteHeaders', () => {
   })
 })
 
-test.describe('accountSiteOrigins', () => {
+test.describe('accountSites', () => {
   test('the enrolment site first, then the listed hosts, on its protocol, once each', () => {
     assert.deepEqual(
-      accountSiteOrigins('https://admin.example.org/', ['portal.example.org', 'ADMIN.example.org', 'other.example.org:8443']),
+      accountSites('https://admin.example.org/', [{ host: 'portal.example.org' }, { host: 'ADMIN.example.org' }, { host: 'other.example.org:8443' }]).reachable,
       ['https://admin.example.org', 'https://portal.example.org', 'https://other.example.org:8443']
     )
   })
 
   test('skips a malformed listed host instead of throwing', () => {
     assert.deepEqual(
-      accountSiteOrigins('https://admin.example.org/', ['bad host', 'portal.example.org', '']),
-      ['https://admin.example.org', 'https://portal.example.org']
+      accountSites('https://admin.example.org/', [{ host: 'bad host' }, { host: 'portal.example.org' }, { host: '' }]),
+      { reachable: ['https://admin.example.org', 'https://portal.example.org'], unreachable: [] }
     )
+  })
+
+  test('onlyBackOffice portals share the platform realm of a platform enrolment', () => {
+    assert.deepEqual(accountSites('http://main.test', [{ host: 'p.test' }, { host: 'q.test', authMode: 'onlyBackOffice' }]),
+      { reachable: ['http://main.test', 'http://p.test', 'http://q.test'], unreachable: [] })
+  })
+
+  test('a portal that is its own realm is unreachable from the platform issuer', () => {
+    assert.deepEqual(accountSites('http://main.test', [{ host: 'sso.test', authMode: 'ssoBackOffice' }]),
+      { reachable: ['http://main.test'], unreachable: ['http://sso.test'] })
+  })
+
+  test('enrolled on the account main site, its onlyOtherSite portals are reachable and the platform-realm ones are not', () => {
+    const listed = [{ host: 'acc.test', authMode: 'onlyLocal' }, { host: 'p.test', authMode: 'onlyOtherSite', authOnlyOtherSite: 'acc.test' }, { host: 'q.test' }]
+    assert.deepEqual(accountSites('http://acc.test', listed), { reachable: ['http://acc.test', 'http://p.test'], unreachable: ['http://q.test'] })
+  })
+
+  test('an onlyOtherSite portal backed by a platform-realm site is in the platform realm', () => {
+    const listed = [{ host: 'p.test', authMode: 'onlyOtherSite', authOnlyOtherSite: 'q.test' }, { host: 'q.test', authMode: 'onlyBackOffice' }]
+    assert.deepEqual(accountSites('http://main.test', listed).reachable, ['http://main.test', 'http://p.test', 'http://q.test'])
+  })
+
+  test('a broken realm chain leaves the site unreachable, never throws', () => {
+    const listed = [{ host: 'a.test', authMode: 'onlyOtherSite', authOnlyOtherSite: 'b.test' }, { host: 'b.test', authMode: 'onlyOtherSite', authOnlyOtherSite: 'a.test' }, { host: 'c.test', authMode: 'onlyOtherSite', authOnlyOtherSite: 'unlisted.test' }]
+    assert.deepEqual(accountSites('http://main.test', listed).unreachable, ['http://a.test', 'http://b.test', 'http://c.test'])
   })
 })

@@ -11,8 +11,16 @@ const key = 'secret-sites'
 
 export const portalHost = (name: string) => `${name}.localhost:${process.env.NGINX_PORT}`
 
-export async function createSite (host: string, owner: { type: 'organization', id: string, name: string }): Promise<string> {
+/**
+ * `auth` sets the site's authentication mode, which the secret route does not take: simple-directory's PATCH
+ * does, for a superadmin in admin mode.
+ */
+export async function createSite (host: string, owner: { type: 'organization', id: string, name: string }, auth?: { authMode: string, authOnlyOtherSite?: string }): Promise<string> {
   const res = await axios.post(sitesUrl, { owner, host }, { params: { key } })
+  if (auth) {
+    const { superAdmin } = await import('./axios.ts')
+    await (await superAdmin).patch(`${sitesUrl}/${res.data._id}`, auth)
+  }
   return res.data._id
 }
 

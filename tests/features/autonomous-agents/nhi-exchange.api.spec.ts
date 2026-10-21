@@ -68,7 +68,7 @@ test.describe('NHI exchange', () => {
     // these guard against it ever being widened to pass the cookie or the assertion through.
     assert.deepEqual(
       Object.keys(session.data).sort(),
-      ['accountSites', 'expiresIn', 'nhi', 'organization', 'userId', 'userName'],
+      ['accountSites', 'expiresIn', 'nhi', 'organization', 'unreachableSites', 'userId', 'userName'],
       'a new key on this response must be reviewed: the cookie and the assertion must never be among them'
     )
   })

@@ -31,6 +31,8 @@ const home = `http://localhost:${PORT}`
 const issuer = `${home}/agents/api/nhi`
 const ownPortal = portalHost('test1-portal')
 const foreignPortal = portalHost('dev1-portal')
+// test1's too, but its own sign-in realm: no token for it from the platform issuer
+const ssoPortal = portalHost('test1-sso')
 const AGENT = '/api/autonomous-agents/organization/test1/test-fixture'
 
 const enrol = async (siteUrl = home, over: any = {}) => await admin.post('/api/test-env/autonomous-agent', {
@@ -48,6 +50,7 @@ test.describe('Sites of an autonomous agent', () => {
     fixture = await startMcpFixture(Number(PORT) + 30)
     siteIds.push(await createSite(ownPortal, { type: 'organization', id: 'test1', name: 'Test 1' }))
     siteIds.push(await createSite(foreignPortal, { type: 'organization', id: 'dev1', name: 'Dev 1' }))
+    siteIds.push(await createSite(ssoPortal, { type: 'organization', id: 'test1', name: 'Test 1' }, { authMode: 'ssoBackOffice' }))
   })
   test.afterAll(async () => { for (const id of siteIds) await deleteSite(id); await fixture.close() })
   test.beforeEach(async () => {
@@ -59,6 +62,16 @@ test.describe('Sites of an autonomous agent', () => {
     await enrol()
     const { data } = await admin.get(`${AGENT}/session`)
     assert.deepEqual(data.accountSites, [home, `http://${ownPortal}`])
+    assert.deepEqual(data.unreachableSites, [`http://${ssoPortal}`])
+  })
+
+  test('a site of its organization outside its issuer\'s realm is not one of its portals, and a chat there is anonymous', async () => {
+    await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
+    const { data } = await admin.get(`${AGENT}/session`)
+    assert.deepEqual(data.accountSites, [home, `http://${ownPortal}`])
+    assert.deepEqual(data.unreachableSites, [`http://${ssoPortal}`])
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami', { host: ssoPortal })
+    assert.deepEqual(whoami(assistant), { forwardedHost: ssoPortal, userId: null })
   })
 
   test('a chat on its own site acts there, as the agent', async () => {

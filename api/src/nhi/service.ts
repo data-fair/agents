@@ -14,7 +14,7 @@ import mongo from '#mongo'
 import { cipher, decipher } from '../cipher/operations.ts'
 import { securityKey } from '../cipher/service.ts'
 import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, tokenRequestHeaders, tokenRequestBody, nhiTokenUrl, mcpResource, sanitizeExchangeError, accountPlacement, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
-import { siteOrigin, forwardedSiteHeaders, accountSiteOrigins } from '../sites/operations.ts'
+import { siteOrigin, forwardedSiteHeaders, accountSites, type ListedSite } from '../sites/operations.ts'
 import { createSessionBroker } from './session-broker.ts'
 
 import { credentialHeaders, type SiteCredentials } from '../mcp-servers/operations.ts'
@@ -165,18 +165,20 @@ export const ACCOUNT_SITES_TTL_MS = 60_000
 
 /**
  * The agent's authentication space as origins: its enrolment site, then the non-temporary sites
- * simple-directory lists for its organization — asked AS the agent, on its enrolment site, which is
- * always inside its account. A failure is not cached, and is the caller's to degrade.
+ * simple-directory lists for its organization in its issuer's realm (sites/operations.ts accountSites) —
+ * asked AS the agent, on its enrolment site, which is always inside its account. The organization's sites in
+ * another realm are `unreachable`: no token is issued for them, so the agent is there as on a foreign site.
+ * A failure is not cached, and is the caller's to degrade.
  */
-export const listAccountSites = memoize(async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }): Promise<string[]> => {
+export const listAccountSites = memoize(async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }): Promise<{ reachable: string[], unreachable: string[] }> => {
   const { siteUrl } = requireEnrolment(autonomousAgent)
   const token = await getAgentToken(autonomousAgent)
   const res = await axios.get(`${config.privateDirectoryUrl.replace(/\/+$/, '')}/simple-directory/api/sites`, {
     params: { owner: `${autonomousAgent.owner.type}:${autonomousAgent.owner.id}`, tmp: false },
     headers: { ...credentialHeaders({ bearer: token }), ...forwardedSiteHeaders(siteOrigin(siteUrl)) }
   })
-  const hosts: string[] = (res.data?.results ?? []).map((s: { host: string }) => s.host).filter(Boolean)
-  return accountSiteOrigins(siteUrl, hosts)
+  const listed: ListedSite[] = (res.data?.results ?? []).filter((s: Partial<ListedSite>) => typeof s?.host === 'string' && s.host)
+  return accountSites(siteUrl, listed)
 }, { promise: true, maxAge: ACCOUNT_SITES_TTL_MS, max: 1000, normalizer: ([autonomousAgent]) => autonomousAgent.id })
 
 /**
@@ -209,7 +211,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   }
   let listed: string[] | undefined
   try {
-    listed = await listAccountSites(autonomousAgent)
+    listed = (await listAccountSites(autonomousAgent)).reachable
   } catch (err: any) {
     // Its own state, not "the account is just the enrolment site": see accountPlacement.
     console.warn(`could not list the account sites of autonomous agent ${autonomousAgent.id}: ${err.message}`)
