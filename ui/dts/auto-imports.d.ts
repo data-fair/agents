@@ -150,6 +150,7 @@ declare global {
   const toRefs: typeof import('vue').toRefs
   const toValue: typeof import('vue').toValue
   const triggerRef: typeof import('vue').triggerRef
+  const turnTools: typeof import('../src/utils/tool-groups').turnTools
   const unref: typeof import('vue').unref
   const useAgentChat: typeof import('../src/composables/use-agent-chat').useAgentChat
   const useAgentSession: typeof import('../src/composables/use-agent-session').useAgentSession
@@ -306,7 +307,6 @@ declare module 'vue' {
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
     readonly msUntilValid: UnwrapRef<typeof import('../src/utils/anonymous-token')['msUntilValid']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
-    readonly offeredToolGroups: UnwrapRef<typeof import('../src/utils/tool-groups')['offeredToolGroups']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
     readonly onBeforeMount: UnwrapRef<typeof import('vue')['onBeforeMount']>
     readonly onBeforeRouteLeave: UnwrapRef<typeof import('vue-router')['onBeforeRouteLeave']>
@@ -354,6 +354,7 @@ declare module 'vue' {
     readonly toRefs: UnwrapRef<typeof import('vue')['toRefs']>
     readonly toValue: UnwrapRef<typeof import('vue')['toValue']>
     readonly triggerRef: UnwrapRef<typeof import('vue')['triggerRef']>
+    readonly turnTools: UnwrapRef<typeof import('../src/utils/tool-groups')['turnTools']>
     readonly unref: UnwrapRef<typeof import('vue')['unref']>
     readonly useAgentSession: UnwrapRef<typeof import('../src/composables/use-agent-session')['useAgentSession']>
     readonly useAsyncAction: UnwrapRef<typeof import('@data-fair/lib-vue/async-action.js')['useAsyncAction']>

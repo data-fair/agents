@@ -101,8 +101,17 @@ segments, so the param route would otherwise match it with `type: 'conversation'
   `ui/src/components/ConversationReview.vue`. It renders the thread through
   `AgentChatMessages`, the **same** renderer the chat uses, so a reviewer sees what the person saw
   rather than a second rendering that can drift. Read-only: no streaming, no activity, no composer.
+  One prop, `showToolDetails`, is where it differs from the chat (a task run's view sets it too): a
+  call opens on its input and its output, error or refusal, verbatim, and a `code_mode` panel shows
+  the script's source above the calls it made and its returned value below them. The chat shows what
+  the agent did; a reviewer reads what it fetched. An account admin sees this as a superadmin does —
+  the review route always returned it, and the export's tighter gate is about its purpose, not its
+  content.
   Above it, run telemetry chips (turns, model calls, credits, models used) and a detail toggle
-  showing the system prompt and a per-call table.
+  showing what each run recorded, turn by turn: status and stop reason, trigger and who triggered
+  it, every field of every model call, and the system prompt, page context and offered tools — each
+  said to be unchanged rather than repeated when it is the previous turn's. Nothing is shown that is
+  not stored: tool descriptions, per-step telemetry and per-tool durations are not recorded.
 
 This replaced about a thousand lines of reconstruction — `reconstruct-trace.ts`,
 `session-recorder.ts` and a bespoke `TraceView` — all of which existed because the conversation was

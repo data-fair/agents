@@ -43,7 +43,21 @@ test.describe('autonomousAgentMessageToChat', () => {
         { type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'output-available', input: {}, output: 'r' }
       ]
     })
-    assert.deepEqual(chat.toolInvocations, [{ toolCallId: 't1', toolName: 'echo', state: 'done', input: {} }])
+    assert.deepEqual(chat.toolInvocations, [{ toolCallId: 't1', toolName: 'echo', state: 'done', input: {}, output: 'r' }])
+  })
+
+  test('a call carries what went wrong: the error of a failed one, the reason a denied one was refused', () => {
+    // What the review page opens a call to read. Both used to stop at the conversion.
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'output-error', input: {}, errorText: 'boom' },
+        { type: 'dynamic-tool', toolCallId: 't2', toolName: 'drop', state: 'output-denied', input: {}, approval: { id: 'a1', approved: false, reason: 'not today' } }
+      ]
+    })
+    assert.equal(chat.toolInvocations?.[0].errorText, 'boom')
+    assert.equal(chat.toolInvocations?.[1].deniedReason, 'not today')
   })
 
   test('a call carries its arguments, so a wait chip can say what it waits for', () => {

@@ -40,5 +40,24 @@ test.describe('Panel of a code_mode call', () => {
 
     await page.reload()
     await expect(page.getByTestId('subagent-panel').filter({ hasText: 'Script' })).toBeVisible({ timeout: 15000 })
+
+    // The chat names the calls; the review page opens them. The script reads as its source and its value,
+    // and the call it made as the arguments it was given and the result it returned — what knowing only
+    // that closure_stats was called could not tell a reviewer.
+    let conversationId: string | undefined
+    await expect.poll(async () => {
+      const res = await admin.get('/api/review/organization/test1?page=1&size=20').catch(() => null)
+      conversationId = res?.data.results?.[0]?.conversationId
+      return conversationId
+    }, { timeout: 12000 }).toBeTruthy()
+    await goToWithAuth(`/agents/organization/test1/review/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    const reviewed = page.getByTestId('subagent-panel').filter({ hasText: 'Script' })
+    await reviewed.getByTestId('subagent-panel-header').click({ timeout: 15000 })
+    const body = reviewed.getByTestId('subagent-panel-body')
+    await expect(body.getByTestId('tool-call-input').first()).toHaveText(js)
+    await expect(body.getByTestId('tool-call-output').last()).toBeVisible()
+    await body.getByTestId('nested-tool-chip').filter({ hasText: 'closure_stats' }).click()
+    const nested = body.getByTestId('tool-call-detail').filter({ has: page.getByTestId('tool-call-input').filter({ hasText: 'city-center' }) })
+    await expect(nested.getByTestId('tool-call-output')).toContainText('"district"')
   })
 })

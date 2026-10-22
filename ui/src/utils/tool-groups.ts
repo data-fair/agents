@@ -39,9 +39,9 @@ export interface SourcedTools {
 
 type RunCalls = { calls?: Array<{ toolNames?: string[], toolSources?: Record<string, ToolSource> }> }
 
-/** The tools offered on a conversation's last turn: the union over the calls of the last run that recorded any. */
-export function lastOfferedTools (runs: RunCalls[]): SourcedTools {
-  const calls = runs.filter(run => run.calls?.some(call => call.toolNames)).pop()?.calls ?? []
+/** The tools one turn offered: the union over its calls. */
+export function turnTools (run: RunCalls): SourcedTools {
+  const calls = run.calls ?? []
   return {
     names: [...new Set(calls.flatMap(call => call.toolNames ?? []))],
     // A run recorded before sources were has none: its tools are one unlabelled group rather than mislabelled.
@@ -49,9 +49,9 @@ export function lastOfferedTools (runs: RunCalls[]): SourcedTools {
   }
 }
 
-export function offeredToolGroups (runs: RunCalls[]): ToolGroup[] {
-  const { names, sources } = lastOfferedTools(runs)
-  return groupTools(names, sources)
+/** The tools offered on a conversation's last turn: those of the last run that recorded any. */
+export function lastOfferedTools (runs: RunCalls[]): SourcedTools {
+  return turnTools(runs.filter(run => run.calls?.some(call => call.toolNames)).pop() ?? {})
 }
 
 /**

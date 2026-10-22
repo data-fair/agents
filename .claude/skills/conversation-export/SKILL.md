@@ -50,9 +50,10 @@ that `ref` holds the value verbatim.
 3. **Only the blobs the question needs.** One line, read deliberately:
 
    ```bash
-   # a whole lifted part; the fallbacks cover a tool whose output is a bare string
-   sed -n '47p' conversation-<id>.jsonl | jq -r '.value.output.text // .value.output // .value.text // .value'
-   sed -n '47p' conversation-<id>.jsonl | jq -r '.value.output.text // .value.output' | head -c 3000   # a sample
+   # a whole lifted part; the fallbacks cover a tool whose output is a bare string — the `?` is what
+   # lets them: without it, `.text` of a string is an error that `//` does not catch
+   sed -n '47p' conversation-<id>.jsonl | jq -r '.value.output.text? // .value.output // .value.text? // .value'
+   sed -n '47p' conversation-<id>.jsonl | jq -r '.value.output.text? // .value.output' | head -c 3000   # a sample
    ```
 
    Decide from the outline's `bytes` whether you want the whole thing. A 100k

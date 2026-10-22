@@ -58,6 +58,7 @@
         :mermaid-enabled="false"
         :simple-sub-agents="false"
         :show-reasoning="true"
+        show-tool-details
         readonly
       />
     </template>

@@ -110,13 +110,22 @@
                       <v-chip
                         v-else-if="simpleSubAgents || !isNestedWork(invocation.toolName)"
                         size="small"
-                        :color="invocation.state === 'done' ? 'success' : invocation.state === 'denied' ? 'error' : 'warning'"
+                        :color="chipColor(invocation)"
                         variant="outlined"
                         class="mr-1 mb-1"
                         :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
+                        :append-icon="showToolDetails ? (detailOpen[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown) : undefined"
+                        @click="showToolDetails && toggleDetail(invocation.toolCallId)"
                       >
                         {{ chipLabel(invocation) }}
                       </v-chip>
+                    </template>
+                    <template v-if="showToolDetails">
+                      <tool-call-detail
+                        v-for="invocation in openDetails(block.invocations, '')"
+                        :key="invocation.toolCallId"
+                        :invocation="invocation"
+                      />
                     </template>
                   </div>
                   <!-- Full sub-agent panels (when the simplify flag is off): each
@@ -169,6 +178,11 @@
                           data-testid="subagent-panel-body"
                           class="mt-2"
                         >
+                          <tool-call-detail
+                            v-if="showToolDetails"
+                            :invocation="invocation"
+                            show="input"
+                          />
                           <div v-if="message.subAgentPanels?.[invocation.toolCallId]?.messages.length">
                             <div
                               v-for="(subMsg, subIdx) in message.subAgentPanels[invocation.toolCallId].messages"
@@ -189,21 +203,36 @@
                                   v-for="subInv in subMsg.toolInvocations"
                                   :key="subInv.toolCallId"
                                   size="small"
-                                  :color="subInv.state === 'done' ? 'success' : 'warning'"
+                                  :color="chipColor(subInv)"
                                   variant="outlined"
                                   class="mr-1 mb-1"
+                                  data-testid="nested-tool-chip"
+                                  :append-icon="showToolDetails ? (detailOpen[`${invocation.toolCallId}/${subInv.toolCallId}`] ? mdiChevronUp : mdiChevronDown) : undefined"
+                                  @click="showToolDetails && toggleDetail(`${invocation.toolCallId}/${subInv.toolCallId}`)"
                                 >
                                   {{ toolTitle(subInv.toolName) }}
                                 </v-chip>
+                                <template v-if="showToolDetails">
+                                  <tool-call-detail
+                                    v-for="subInv in openDetails(subMsg.toolInvocations, `${invocation.toolCallId}/`)"
+                                    :key="subInv.toolCallId"
+                                    :invocation="subInv"
+                                  />
+                                </template>
                               </div>
                             </div>
                           </div>
                           <div
-                            v-else-if="invocation.state === 'done'"
+                            v-else-if="invocation.state === 'done' && !showToolDetails"
                             class="text-body-medium text-medium-emphasis"
                           >
                             {{ invocation.toolName === 'code_mode' ? t('scriptDone') : t('subAgentDone') }}
                           </div>
+                          <tool-call-detail
+                            v-if="showToolDetails"
+                            :invocation="invocation"
+                            show="output"
+                          />
                         </div>
                       </v-expand-transition>
                     </div>
@@ -323,6 +352,7 @@ import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, m
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import ApprovalCard from './ApprovalCard.vue'
+import ToolCallDetail from './ToolCallDetail.vue'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/utils/chat-message'
@@ -363,13 +393,17 @@ const props = withDefaults(defineProps<{
   // A transcript read by someone who cannot answer it (the admin review, a task run): approval cards
   // show no buttons.
   readonly?: boolean
+  // A transcript read to audit it (the admin review, a task run): a call opens on what went in and what
+  // came back, and a script's panel shows its source and its value around the calls it made.
+  showToolDetails?: boolean
 }>(), {
   activity: null,
   subAgentActivities: () => ({}),
   simpleSubAgents: true,
   showReasoning: false,
   agentPath: undefined,
-  readonly: false
+  readonly: false,
+  showToolDetails: false
 })
 
 const isActionPrompt = (message: ChatMessage) => {
@@ -514,6 +548,17 @@ const toggleExpanded = (toolCallId: string) => { expanded[toolCallId] = !expande
 // A script's calls are shown like a worker's: in a panel under the call (api/src/code-mode/code-tools.ts).
 const isNestedWork = (toolName: string) => toolName.startsWith('subagent_') || toolName === 'code_mode'
 const subAgentInvocations = (invocations: Invocation[]) => invocations.filter(ti => isNestedWork(ti.toolName))
+
+// Open tool details, keyed like the panels; a call inside a panel is prefixed with the panel's call id.
+const detailOpen = reactive<Record<string, boolean>>({})
+const toggleDetail = (key: string) => { detailOpen[key] = !detailOpen[key] }
+const openDetails = (invocations: Invocation[], prefix: string) => invocations.filter(ti =>
+  detailOpen[prefix + ti.toolCallId] && (prefix || simpleSubAgentsOrPlain(ti)))
+const simpleSubAgentsOrPlain = (ti: Invocation) => props.simpleSubAgents || !isNestedWork(ti.toolName)
+// A failed call is 'done' (ChatMessage has no failure state); where details are shown, its chip says it failed.
+const chipColor = (ti: Invocation) => props.showToolDetails && ti.errorText !== undefined
+  ? 'error'
+  : ti.state === 'done' ? 'success' : ti.state === 'denied' ? 'error' : 'warning'
 
 const subAgentTitle = (toolName: string) => {
   if (toolName === 'code_mode') return t('scriptTitle')

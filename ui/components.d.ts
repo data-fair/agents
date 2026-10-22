@@ -48,6 +48,7 @@ declare module 'vue' {
     RouterView: typeof import('vue-router')['RouterView']
     RunSummary: typeof import('./src/components/agent-page/RunSummary.vue')['default']
     TaskRunView: typeof import('./src/components/agent-page/TaskRunView.vue')['default']
+    ToolCallDetail: typeof import('./src/components/agent-chat/ToolCallDetail.vue')['default']
     ToolGroupList: typeof import('./src/components/agent-chat/ToolGroupList.vue')['default']
     TraceConsentSheet: typeof import('./src/components/agent-chat/TraceConsentSheet.vue')['default']
     TracesSection: typeof import('./src/components/TracesSection.vue')['default']

@@ -52,8 +52,8 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
 
   // One part per tool call, carrying its own state — so a call that FAILED is readable directly, where
   // it used to be recovered by joining a call part to a separate result part on their shared id. The
-  // results themselves are still not rendered: they are tool payloads, and the transcript shows what
-  // the agent did, not what it fetched.
+  // results are carried too, but only a transcript that shows tool details (the review page, a task
+  // run) renders them: the chat shows what the agent did, not what it fetched.
   const calls = parts.filter(isDynamicToolUIPart)
   if (calls.length) {
     chat.toolInvocations = calls.map(call => ({
@@ -62,6 +62,9 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
       // What the chip is labelled from: a wait's chip names what it waits for. Dropped here, every
       // wait chip read "Waiting for: " with nothing after it.
       input: call.input,
+      ...(call.state === 'output-available' ? { output: call.output } : {}),
+      ...(call.state === 'output-error' ? { errorText: call.errorText } : {}),
+      ...(call.state === 'output-denied' && call.approval.reason ? { deniedReason: call.approval.reason } : {}),
       // PER CALL, not per message. The states before an output arrives are exactly the ones still
       // running, so a parallel step now shows each call finishing as it finishes, instead of every
       // chip waiting on the slowest. A failed call is 'done', because ChatMessage has no failure

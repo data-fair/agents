@@ -175,10 +175,10 @@ router.get('/:type/:id/:conversationId', async (req, res, next) => {
  * the file is line-addressable JSONL, and .claude/skills/conversation-export/SKILL.md for how to
  * read it.
  *
- * SUPERADMIN ONLY, and a tighter gate than the review page it is reached from. The page shows an
- * account admin a rendered transcript; this hands over a file containing every tool argument and
- * result verbatim, which is a different disclosure — and the analysis it is for is a platform
- * engineering task, not an account administration one.
+ * SUPERADMIN ONLY, and a tighter gate than the review page it is reached from — though not for what it
+ * discloses: the page shows an account admin the same thing, every tool argument and result included.
+ * The gate is the purpose: the analysis this file is for is a platform engineering task, not an account
+ * administration one.
  */
 router.get('/:type/:id/:conversationId/export', async (req, res, next) => {
   try {

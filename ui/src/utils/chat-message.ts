@@ -16,6 +16,12 @@ export interface ChatMessage {
     state: 'pending' | 'done' | 'awaiting-approval' | 'denied'
     /** The call's arguments: what a chip is labelled from (a wait's `expecting`), and what an approval card shows. */
     input?: unknown
+    /** What the call returned, verbatim as the model got it. Rendered only where a transcript shows tool details. */
+    output?: unknown
+    /** Why the call failed: the error the model was handed in place of an output. */
+    errorText?: string
+    /** Why an approval was refused, when the decision gave a reason. */
+    deniedReason?: string
     /** Set while the call awaits the person's approval: what their decision names. */
     approvalId?: string
     /** Set while the turn that asked is still finishing: the card shows, but cannot be decided yet. */
