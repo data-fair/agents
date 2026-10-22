@@ -8,6 +8,7 @@ import { awaitAgentRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
+import { createEnrolledAgent, type AgentSlot } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -25,10 +26,9 @@ test.describe('Run history', () => {
   })
 
   test('list filters, one run with content, and the JSONL export', async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+    const agent = await createEnrolledAgent({
       title: 'Historian', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
-    })).data
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    })
     const create = async (prompt: string) => (await admin.post(`${agentBase(agent.id)}/tasks`, { title: 'Probe', prompt, scheduling: [daily] })).data
     const run = async (task: any) => {
       const id = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
@@ -76,15 +76,13 @@ test.describe('Run history', () => {
   })
 
   test('a run of another agent, a conversation run export and a bad since are refused', async () => {
-    const make = async (title: string) => {
-      const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
-        title, persona: 'x', mcpServers: [], enabled: true
-      })).data
-      await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    // two agents at once: one per fixture identity of test1
+    const make = async (title: string, slot: AgentSlot) => {
+      const agent = await createEnrolledAgent({ title, persona: 'x', mcpServers: [], enabled: true }, slot)
       return agent
     }
-    const agent = await make('First')
-    const other = await make('Second')
+    const agent = await make('First', 'test-fixture')
+    const other = await make('Second', 'test-scoped-fixture')
     const task = (await admin.post(`${agentBase(other.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
     const otherRun = (await admin.post(`${agentBase(other.id)}/tasks/${task.id}/run`)).data.runId as string
     await awaitAgentRun(orgAdmin, other.id, otherRun)
@@ -102,10 +100,7 @@ test.describe('Run history', () => {
   })
 
   test('the kind filter lists task runs or conversation runs', async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
-      title: 'Both', persona: 'x', mcpServers: [], enabled: true
-    })).data
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    const agent = await createEnrolledAgent({ title: 'Both', persona: 'x', mcpServers: [], enabled: true })
     const task = (await admin.post(`${agentBase(agent.id)}/tasks`, { title: 'Probe', prompt: 'hello', scheduling: [daily] })).data
     const taskRun = (await admin.post(`${agentBase(agent.id)}/tasks/${task.id}/run`)).data.runId as string
     await awaitAgentRun(orgAdmin, agent.id, taskRun)

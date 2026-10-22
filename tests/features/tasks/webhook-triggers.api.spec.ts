@@ -7,6 +7,7 @@ import axios from 'axios'
 import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
 import { awaitAgentRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -16,10 +17,9 @@ const base = (agentId: string) => `/api/autonomous-agents/organization/test1/${a
 const anonymous = axios.create({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
 
 const createAgent = async () => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+  const agent = await createEnrolledAgent({
     title: 'Hooked', persona: 'You answer briefly.', mcpServers: [], enabled: true
-  })).data
-  await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+  })
   return agent
 }
 const createTask = async (agentId: string, prompt = 'hello', scheduling: any[] = [daily]) =>

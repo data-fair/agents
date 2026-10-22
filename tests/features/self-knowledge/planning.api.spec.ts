@@ -9,6 +9,7 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { awaitRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { decideOverSocket, decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -24,7 +25,7 @@ const daily = (hour: number, minute: number) => ({ type: 'daily', month: '*', da
 const digest = { title: 'Weekly digest', prompt: 'Summarize the week.', scheduling: [weekly] }
 
 const createAgent = async (over: any = {}) => {
-  const agent = (await admin.post(AGENTS, {
+  const agent = await createEnrolledAgent({
     title: 'Planner',
     persona: 'You answer briefly.',
     mcpServers: [],
@@ -32,8 +33,7 @@ const createAgent = async (over: any = {}) => {
     // test1-admin1 by name too, so the same person may instruct from their personal account.
     instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }, { mode: 'member', type: 'user', id: 'test1-admin1' }],
     ...over
-  })).data
-  await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+  })
   return agent
 }
 const tasksOf = async (agentId: string) => (await admin.get(`${AGENTS}/${agentId}/tasks`)).data.results

@@ -55,6 +55,24 @@ test.describe('The built-in data-fair server', () => {
       (err: any) => { assert.equal(err.status, 400); return true })
   })
 
+  // The point of the built-in server: it is called AS the agent, so its scopes apply. An agent referencing no
+  // site-bound catalog server used to skip asking for a session altogether, and called data-fair anonymously.
+  test('an agent with no catalog server calls data-fair as itself, under its scopes', async () => {
+    // test-scoped-autonomous-agent-nhi holds the maximum scopes ["datasets:read"] (dev/resources/users.template.json)
+    await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-scoped-fixture',
+      owner: { type: 'organization', id: 'test1' },
+      clientId: 'test-scoped-autonomous-agent-nhi',
+      siteUrl: home,
+      issuer: `${home}/agents/api/nhi`,
+      autonomousAgent: { title: 'Scoped platform probe', persona: 'x', mcpServers: [], enabled: true }
+    })
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-scoped-fixture' }, 'call tool get_my_configuration')
+    const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'get_my_configuration')
+    assert.equal(part?.state, 'output-available', JSON.stringify(assistant.parts))
+    assert.match(JSON.stringify(part.output), /Your identity's scopes: datasets:read/)
+  })
+
   test('a turn records data-fair\'s tools as platform', async () => {
     await enrol()
     const { assistant, run } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool platform_list_road_closures {"district":"city-center"}')

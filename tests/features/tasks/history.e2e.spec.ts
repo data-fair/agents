@@ -9,6 +9,7 @@ import { test } from '../../fixtures/login.ts'
 import { axiosAuth, clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -19,10 +20,9 @@ const LIMITS_SECRET = 'secretlimits'
 
 const agentBase = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}`
 const createAgent = async () => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+  const agent = await createEnrolledAgent({
     title: 'History agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
-  })).data
-  await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+  })
   return agent.id as string
 }
 const createTask = async (agentId: string, title: string, prompt: string) =>

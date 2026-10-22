@@ -10,6 +10,7 @@ import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket, decideOverSocketToRun } from '../../../dev/socket-turn.ts'
 import { externalToolName } from '../../../api/src/mcp-servers/operations.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -19,8 +20,7 @@ const externalUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 32}/mcp
 let external: McpFixture
 
 const createAgent = async (over: any = {}) => {
-  const agent = (await admin.post(AGENTS, { title: 'Interop', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }], instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }], ...over })).data
-  await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+  const agent = await createEnrolledAgent({ title: 'Interop', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }], instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }], ...over })
   return agent
 }
 
@@ -36,7 +36,8 @@ test.describe('External MCP servers', () => {
   })
 
   test('the list is stored as it is connected to, and an IP address is refused', async () => {
-    const agent = await createAgent({ externalMcpServers: [{ url: externalUrl }, { url: externalUrl }] })
+    // through the write route, whose normalization this is (createAgent seeds past it)
+    const agent = (await admin.post(AGENTS, { title: 'x', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }, { url: externalUrl }] })).data
     assert.deepEqual(agent.externalMcpServers, [{ url: externalUrl }])
     await assert.rejects(admin.post(AGENTS, { title: 'x', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: 'https://10.0.0.1/mcp' }] }), { status: 400 })
   })

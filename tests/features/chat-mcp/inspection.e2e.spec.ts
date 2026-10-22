@@ -7,6 +7,7 @@ import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
 
@@ -21,10 +22,9 @@ test.describe('Chat inspection dialog', () => {
   test.beforeEach(async () => {
     await clean()
     await putMockSettings(admin, 'organization/test1')
-    agentId = (await admin.post('/api/autonomous-agents/organization/test1', {
+    agentId = (await createEnrolledAgent({
       title: 'Inspected agent', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
-    })).data.id
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
+    })).id
   })
 
   test('an admin sees the agent\'s MCP tools before its first turn, then the offered tools by source', async ({ page, goToWithAuth }) => {

@@ -8,6 +8,7 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
+import { createEnrolledAgent, type AgentSlot } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -16,11 +17,10 @@ const agentsBase = '/api/autonomous-agents/organization/test1'
 const SELF_TOOLS = ['get_my_configuration', 'list_my_runs', 'read_conversation']
 
 // `ignored` is listed by the fixture and left out of the filter: the filtered tool.
-const createAgent = async (title = 'Self reader', over: any = {}) => {
-  const agent = (await admin.post(agentsBase, {
+const createAgent = async (title = 'Self reader', over: any = {}, slot?: AgentSlot) => {
+  const agent = await createEnrolledAgent({
     title, persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp', toolFilter: ['echo', 'wipe_everything'] }], enabled: true, ...over
-  })).data
-  await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+  }, slot)
   return agent
 }
 const runTask = async (agentId: string, prompt: string) => {
@@ -121,7 +121,7 @@ test.describe('Self-knowledge', () => {
 
   test('read_conversation of another agent\'s conversation is an error naming 404', async () => {
     const agent = await createAgent()
-    const other = await createAgent('Another agent')
+    const other = await createAgent('Another agent', {}, 'test-scoped-fixture')
     const elsewhere = await turnOverSocket(orgAdmin, { agentId: other.id }, 'hello')
     const part = await chatCall(agent.id, `call tool read_conversation {"conversationId":"${elsewhere.conversationId}"}`, 'read_conversation')
     assert.equal(part.state, 'output-error', JSON.stringify(part))
@@ -130,7 +130,7 @@ test.describe('Self-knowledge', () => {
 
   test('read_conversation of another agent\'s task run is an error naming 404', async () => {
     const agent = await createAgent()
-    const other = await createAgent('Another agent')
+    const other = await createAgent('Another agent', {}, 'test-scoped-fixture')
     const otherRun = await runTask(other.id, 'hello')
     const part = await chatCall(agent.id, `call tool read_conversation {"runId":"${otherRun.id}"}`, 'read_conversation')
     assert.equal(part.state, 'output-error', JSON.stringify(part))

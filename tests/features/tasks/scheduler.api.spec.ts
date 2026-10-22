@@ -6,6 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -13,8 +14,7 @@ const hourly = { type: 'hours', month: '*', dayOfWeek: '*', dayOfMonth: '*', hou
 const base = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
 
 const createAgent = async (enabled = true) => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Tasker', persona: 'x', mcpServers: [], enabled })).data
-  await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+  const agent = await createEnrolledAgent({ title: 'Tasker', persona: 'x', mcpServers: [], enabled })
   return agent
 }
 const dueTask = async (agentId: string, prompt = 'hello', dueAt = '2026-01-15T10:00:00.000Z') => {

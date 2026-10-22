@@ -17,7 +17,7 @@ import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject
 import { siteOrigin, forwardedSiteHeaders, accountSites, type ListedSite } from '../sites/operations.ts'
 import { createSessionBroker } from './session-broker.ts'
 
-import { credentialHeaders, type SiteCredentials } from '../mcp-servers/operations.ts'
+import { credentialHeaders, getsPlatformServer, type SiteCredentials } from '../mcp-servers/operations.ts'
 
 /**
  * The signing keys live in mongo, the private halves ciphered with CIPHER_PASSWORD, as simple-directory
@@ -201,11 +201,12 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   const { siteUrl } = requireEnrolment(autonomousAgent)
   const enrolled = siteOrigin(siteUrl)
   const home = socketSite ? siteOrigin(socketSite) : enrolled
-  // Listing the account costs a token request. An agent none of whose entries is site-bound
-  // (`nhi-session`) never asks for a credential or a portal, so it must not pay for, nor depend on, a
-  // request it does not use: a turn on public tools stays as fast as before sites existed.
+  // Listing the account costs a token request. An agent none of whose servers is site-bound (`nhi-session`)
+  // never asks for a credential or a portal, so it must not pay for, nor depend on, a request it does not
+  // use: a turn on public tools stays as fast as before sites existed. data-fair's built-in server is
+  // site-bound: an agent that gets it asks, or it would call data-fair anonymously, outside its scopes.
   const catalog = config.mcpServers ?? []
-  if (autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
+  if (!getsPlatformServer(autonomousAgent, config.privateMcpUrl) && autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
     return { homeSite: home, clientIp, portals: [], home: 'account', credentialFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
   }
   let listed: string[] | undefined

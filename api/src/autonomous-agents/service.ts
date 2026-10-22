@@ -6,7 +6,7 @@ import mongo from '#mongo'
 import config from '#config'
 import { type AccountKeys, httpError, reqAdminMode, reqSessionAuthenticated, assertAccountRole } from '@data-fair/lib-express'
 import type { Request } from 'express'
-import { listMcpServerCatalog, personSiteCredentials, unknownMcpServerIds, PLATFORM_MCP_SERVER_ID, type SiteCredentials, type McpServerRef } from '../mcp-servers/operations.ts'
+import { listMcpServerCatalog, personSiteCredentials, unknownMcpServerIds, PLATFORM_MCP_SERVER_ID, getsPlatformServer, type SiteCredentials, type McpServerRef } from '../mcp-servers/operations.ts'
 import { getAgentToken, agentSiteCredentials, forgetAgentSessions, listAccountSites, type EnrolledAutonomousAgent } from '../nhi/service.ts'
 import { credentialClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
@@ -182,7 +182,7 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
     ? await agentSiteCredentials(autonomousAgent)
     : personSiteCredentials(undefined, undefined)
   // `kind` as a turn records it (shared/tool-source.ts), so the chat's inspection dialog groups both alike.
-  const { descriptors } = await listAutonomousAgentToolDescriptors(autonomousAgent, sites, { platform: !!autonomousAgent.nhi?.clientId })
+  const { descriptors } = await listAutonomousAgentToolDescriptors(autonomousAgent, sites, { platform: getsPlatformServer(autonomousAgent, config.privateMcpUrl) })
   const results = descriptors.map(descriptor => ({ ...descriptor, kind: descriptor.server === PLATFORM_MCP_SERVER_ID ? 'platform' as const : 'catalog' as const }))
   if (!autonomousAgent.externalMcpServers?.length) return { results, skipped: [] as SkippedServer[] }
   const external = await listExternalToolDescriptors(autonomousAgent.externalMcpServers, { publicIps: envPublicIps() })

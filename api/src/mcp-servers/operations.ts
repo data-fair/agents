@@ -50,6 +50,15 @@ export function platformMcpServer (url: string | undefined): GlobalMcpServer | u
   return url ? { id: PLATFORM_MCP_SERVER_ID, name: 'Data Fair', url, auth: 'nhi-session' } : undefined
 }
 
+/**
+ * Whether an agent gets the built-in server: the deployment has one and the agent an enrolled identity — never
+ * without one, so never as the session of whoever instructs an unenrolled agent. The one rule its gathering
+ * (executor, the tools route) and its credentials (nhi/service.ts agentSiteCredentials) both follow.
+ */
+export function getsPlatformServer (agent: { nhi?: { clientId?: string } }, privateMcpUrl: string | undefined): boolean {
+  return !!privateMcpUrl && !!agent.nhi?.clientId
+}
+
 /** A reference to a catalog entry, from an autonomous agent or a personal assistant. */
 export type McpServerRef = { serverId: string, toolFilter?: string[] }
 

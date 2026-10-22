@@ -9,6 +9,7 @@ import { awaitAgentRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { OUTCOME_REMINDER } from '../../../api/src/conversations/service-tool-names.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -16,10 +17,9 @@ const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour
 const base = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
 
 const createAgent = async (over: any = {}) => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+  const agent = await createEnrolledAgent({
     title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true, ...over
-  })).data
-  await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+  })
   return agent
 }
 const createTask = async (agentId: string, prompt: string) =>
@@ -61,8 +61,8 @@ test.describe('Task runs', () => {
 
   test('a notification links to the run in the agent page', async () => {
     const agent = await createAgent()
+    // its enrolment site (tests/support/agents.ts)
     const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id, siteUrl })
     const task = await createTask(agent.id, 'call tool report_outcome {"status":"needs-attention","summary":"look"}')
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, task.id))
     const event = (await events()).find(e => e.topic.key === `agents:task-needs-attention:${task.id}`)
