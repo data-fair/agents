@@ -77,14 +77,6 @@ export type ApiConfig = {
     auth: "nhi-session" | "none" | "apiKey";
     apiKeyHeader?: string;
     apiKey?: string;
-    /**
-     * Site-bound entries only. home: the turn's home site only, with the agent's session. all (default): every site, anonymously outside the account.
-     */
-    sites?: "home" | "all";
-    /**
-     * On a sites home entry: the sites all entry that serves every other site, left out of the home site.
-     */
-    homeAlternative?: string;
   }[];
   /**
    * The servers of each built-in personal assistant: references into mcpServers, like a configured agent's. Unset: no catalog servers.

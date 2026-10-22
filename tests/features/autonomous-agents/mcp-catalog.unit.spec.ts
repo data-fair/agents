@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { assertGlobalMcpConfig, assertPersonalAssistantsConfig, entriesForSite, listMcpServerCatalog, unknownMcpServerIds, callHeaders, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
+import { assertGlobalMcpConfig, assertPersonalAssistantsConfig, listMcpServerCatalog, unknownMcpServerIds, callHeaders, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
 
 const servers: GlobalMcpServer[] = [
   { id: 'registry', name: 'Data Fair registry', url: 'https://example.org/mcp-registry/mcp', auth: 'nhi-session' },
@@ -123,41 +123,5 @@ test.describe('assertPersonalAssistantsConfig', () => {
   test('refuses a personal assistant naming a server the catalog does not have', () => {
     assert.throws(() => assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'nope' }] } }, servers), /personal assistant "portal" references unknown MCP server "nope"/)
     assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'registry' }] } }, servers)
-  })
-  // a personal assistant acts as the person, anonymous for a visitor: a 'home' entry is never called anonymously
-  test('refuses a personal assistant naming a home-site entry', () => {
-    const home: GlobalMcpServer = { id: 'p', name: 'P', url: 'http://h/mcp', auth: 'nhi-session', sites: 'home' }
-    assert.throws(() => assertPersonalAssistantsConfig({ backOffice: { mcpServers: [{ serverId: 'p' }] } }, [...servers, home]), /personal assistant "backOffice" references MCP server "p", which serves the home site only/)
-  })
-})
-
-test.describe('home-site entries', () => {
-  const platform: GlobalMcpServer = { id: 'p', name: 'P', url: 'http://h/mcp', auth: 'nhi-session', sites: 'home', homeAlternative: 'd' }
-  const datasets: GlobalMcpServer = { id: 'd', name: 'D', url: 'http://h/datasets/mcp', auth: 'nhi-session' }
-  test('a paired home entry and its alternative are accepted', () => {
-    assertGlobalMcpConfig([platform, datasets])
-  })
-  test('homeAlternative must name an nhi-session entry with sites all', () => {
-    assert.throws(() => assertGlobalMcpConfig([{ ...platform, homeAlternative: 'nope' }, datasets]), /homeAlternative/)
-    assert.throws(() => assertGlobalMcpConfig([platform, { ...datasets, sites: 'home' }]), /homeAlternative/)
-    assert.throws(() => assertGlobalMcpConfig([platform, { ...datasets, auth: 'none' }]), /homeAlternative/)
-  })
-  test('sites is refused on an entry that is not site-bound', () => {
-    assert.throws(() => assertGlobalMcpConfig([{ id: 'x', name: 'x', url: 'http://x/mcp', auth: 'none', sites: 'home' }]), /sites/)
-  })
-  test('in the account, the paired datasets entry is left out of the home site', () => {
-    assert.deepEqual(entriesForSite([platform, datasets], [{ serverId: 'p' }, { serverId: 'd' }], 'account'),
-      [{ ref: { serverId: 'p' }, onHome: true }, { ref: { serverId: 'd' }, onHome: false }])
-  })
-  test("a 'home' entry outside the account is silently absent", () => {
-    assert.deepEqual(entriesForSite([platform, datasets], [{ serverId: 'p' }, { serverId: 'd' }], 'anonymous'),
-      [{ ref: { serverId: 'd' }, onHome: true }])
-    assert.deepEqual(entriesForSite([platform, datasets], [{ serverId: 'p' }], 'unconfirmed'), [])
-  })
-  test('an unpaired all entry stays on the home site', () => {
-    assert.deepEqual(entriesForSite([platform, datasets], [{ serverId: 'd' }], 'account'), [{ ref: { serverId: 'd' }, onHome: true }])
-  })
-  test('an unknown reference is kept for the caller to refuse by name', () => {
-    assert.deepEqual(entriesForSite([platform, datasets], [{ serverId: 'zz' }], 'account'), [{ ref: { serverId: 'zz' }, onHome: true }])
   })
 })

@@ -95,12 +95,6 @@ test.describe('the portal argument', () => {
     assert.equal(result.injected, false)
     assert.deepEqual(result.schema, own)
   })
-  test('on a portals-only tool it is required, beside the tool\'s own required arguments', () => {
-    const { schema: out, injected } = withPortalArgument(schema, ['portal.example.org'], { portalsOnly: true })
-    assert.equal(injected, true)
-    assert.deepEqual(out.required, ['q', PORTAL_ARGUMENT])
-    assert.match(out.properties[PORTAL_ARGUMENT].description, /published catalog/)
-  })
   test('a missing schema becomes an object schema', () => {
     assert.equal(withPortalArgument(undefined, ['portal.example.org']).schema.type, 'object')
   })

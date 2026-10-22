@@ -33,9 +33,6 @@ export const FIXTURE_SKILLS = {
   unlisted: { uri: 'skill://fixture/hidden/SKILL.md', name: 'hidden', description: 'Reachable by URI only.', tools: undefined as string | undefined, body: 'Hidden procedure.' }
 }
 
-/** Under /datasets/ the fixture serves its tools renamed with this prefix: the portals-only alternative of a home entry. */
-export const DATASETS_TOOL_PREFIX = 'datasets_'
-
 export interface McpFixture {
   port: number
   lastHeaders: () => Record<string, string | string[] | undefined>
@@ -397,7 +394,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     }
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay, req.url?.startsWith('/datasets/') ? DATASETS_TOOL_PREFIX : '')
+    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay)
     // The body is read here, to count methods, and handed to the transport already parsed.
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))

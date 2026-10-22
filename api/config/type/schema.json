@@ -127,9 +127,7 @@
           "url": { "type": "string" },
           "auth": { "type": "string", "enum": ["nhi-session", "none", "apiKey"] },
           "apiKeyHeader": { "type": "string" },
-          "apiKey": { "type": "string" },
-          "sites": { "type": "string", "enum": ["home", "all"], "description": "Site-bound entries only. home: the turn's home site only, with the agent's session. all (default): every site, anonymously outside the account." },
-          "homeAlternative": { "type": "string", "description": "On a sites home entry: the sites all entry that serves every other site, left out of the home site." }
+          "apiKey": { "type": "string" }
         }
       }
     },

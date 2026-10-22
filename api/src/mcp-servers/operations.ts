@@ -27,18 +27,6 @@ export interface GlobalMcpServer {
   apiKeyHeader?: string
   /** only with auth: 'apiKey' — a deployment secret, never returned by the API */
   apiKey?: string
-  /**
-   * Site-bound entries only. `home`: called on the turn's home site only, and only when the agent has a
-   * session there: never anonymously, never on a portal (data-fair's platform server, which refuses
-   * anonymous callers). `all` (default): the home site, as the agent when it has a session there and
-   * anonymously otherwise, and the account's portals through the `portal` argument.
-   */
-  sites?: 'home' | 'all'
-  /**
-   * On a `home` entry: the `all` entry that stands for it everywhere else (data-fair's datasets server).
-   * It is left out of the home site, where this entry already has its tools, and serves the portals.
-   */
-  homeAlternative?: string
 }
 
 /** The same entry as exposed to org admins: identical minus the credential. */
@@ -74,16 +62,6 @@ export function assertGlobalMcpConfig (servers: GlobalMcpServer[]): void {
       throw new Error(`invalid global MCP config: server "${server.id}" url must be http(s), got "${url.protocol}"`)
     }
 
-    if ((server.sites !== undefined || server.homeAlternative !== undefined) && server.auth !== 'nhi-session') {
-      throw new Error(`invalid global MCP config: server "${server.id}" with auth "${server.auth}" must not carry sites/homeAlternative: only site-bound (nhi-session) entries are called per site`)
-    }
-    if (server.homeAlternative !== undefined) {
-      const alternative = servers.find(s => s.id === server.homeAlternative)
-      if (server.sites !== 'home' || !alternative || alternative.auth !== 'nhi-session' || (alternative.sites ?? 'all') !== 'all') {
-        throw new Error(`invalid global MCP config: server "${server.id}" homeAlternative must be set on a sites "home" entry and name an nhi-session entry with sites "all"`)
-      }
-    }
-
     if (server.auth === 'apiKey') {
       if (!server.apiKeyHeader) throw new Error(`invalid global MCP config: server "${server.id}" with auth "apiKey" requires apiKeyHeader`)
       if (!server.apiKey) throw new Error(`invalid global MCP config: server "${server.id}" with auth "apiKey" requires apiKey`)
@@ -97,39 +75,19 @@ export function assertGlobalMcpConfig (servers: GlobalMcpServer[]): void {
 
 /**
  * Fail-fast boot validation of `personalAssistants`: an assistant naming a server the catalog does not
- * have is a typo that would otherwise surface as a 400 on someone's first message. Nor may it name a
- * `sites: 'home'` entry: it acts as the person, anonymously for a visitor, and such an entry is never
- * called anonymously.
+ * have is a typo that would otherwise surface as a 400 on someone's first message.
  */
 export function assertPersonalAssistantsConfig (
   assistants: Record<string, { mcpServers?: McpServerRef[] } | undefined>,
-  servers: Array<Pick<GlobalMcpServer, 'id' | 'sites'>>
+  servers: Array<Pick<GlobalMcpServer, 'id'>>
 ): void {
   for (const [name, assistant] of Object.entries(assistants)) {
     for (const ref of assistant?.mcpServers ?? []) {
-      const server = servers.find(server => server.id === ref.serverId)
-      if (!server) {
+      if (!servers.some(server => server.id === ref.serverId)) {
         throw new Error(`invalid personalAssistants config: personal assistant "${name}" references unknown MCP server "${ref.serverId}"`)
-      }
-      if (server.sites === 'home') {
-        throw new Error(`invalid personalAssistants config: personal assistant "${name}" references MCP server "${ref.serverId}", which serves the home site only: name its homeAlternative`)
       }
     }
   }
-}
-
-/**
- * The references a turn lists, in reference order, and whether each is listed on the home site. A `home`
- * entry is kept only when the agent has a session on its home site (`account`): elsewhere it is simply not
- * there, which is the design rather than a failure. The `all` entry a kept `home` entry names as its
- * `homeAlternative` serves the portals only (`onHome: false`): on the home site the `home` entry has its tools.
- * An unknown id is kept, for the caller to refuse by name.
- */
-export function entriesForSite (catalog: GlobalMcpServer[], refs: McpServerRef[], home: SiteCredentials['home']): Array<{ ref: McpServerRef, onHome: boolean }> {
-  const byId = new Map(catalog.map(server => [server.id, server]))
-  const kept = refs.filter(ref => byId.get(ref.serverId)?.sites !== 'home' || home === 'account')
-  const replacedOnHome = new Set(kept.map(ref => byId.get(ref.serverId)?.homeAlternative).filter((id): id is string => !!id))
-  return kept.map(ref => ({ ref, onHome: !replacedOnHome.has(ref.serverId) }))
 }
 
 /** Strip the credential. The only shape the API is allowed to return. */
@@ -249,7 +207,7 @@ export const PORTAL_ARGUMENT = 'portal'
  * when there is none, nor over a `portal` the tool declares itself — that one is the tool's own and is
  * passed through untouched (see splitPortalArgument).
  */
-export function withPortalArgument (inputSchema: unknown, portalHosts: string[], opts?: { portalsOnly?: boolean }): { schema: Record<string, any>, injected: boolean } {
+export function withPortalArgument (inputSchema: unknown, portalHosts: string[]): { schema: Record<string, any>, injected: boolean } {
   const schema = (inputSchema && typeof inputSchema === 'object' ? inputSchema : { type: 'object', properties: {} }) as Record<string, any>
   if (!portalHosts.length || schema.type !== 'object' || schema.properties?.[PORTAL_ARGUMENT]) return { schema, injected: false }
   return {
@@ -261,13 +219,9 @@ export function withPortalArgument (inputSchema: unknown, portalHosts: string[],
         [PORTAL_ARGUMENT]: {
           type: 'string',
           enum: portalHosts,
-          description: opts?.portalsOnly
-            ? 'The portal of your organization whose published catalog to explore.'
-            : 'Run this on another portal of your organization instead of the site you are working on. Omit it for the current site.'
+          description: 'Run this on another portal of your organization instead of the site you are working on. Omit it for the current site.'
         }
-      },
-      // a portals-only tool (a home entry's alternative) has no current-site form: the portal is required
-      ...(opts?.portalsOnly ? { required: [...new Set([...(schema.required ?? []), PORTAL_ARGUMENT])] } : {})
+      }
     }
   }
 }

@@ -41,10 +41,6 @@ export default {
       { id: 'dev-review-session-mcp', name: 'Dev Review MCP (as the agent)', url: reviewUrl, auth: 'nhi-session' },
       { id: 'dev-public-mcp', name: 'Dev Public MCP', url: fixtureUrl, auth: 'none' },
       { id: 'dev-session-mcp', name: 'Dev Session MCP', url: fixtureUrl, auth: 'nhi-session' },
-      // The pair data-fair's mcp is configured as: a home-site-only entry (the platform server) and the entry that
-      // stands for it on every other site (the datasets server, its tools renamed under the fixture's /datasets/).
-      { id: 'dev-home-session-mcp', name: 'Dev Home MCP (home site only)', url: fixtureUrl, auth: 'nhi-session', sites: 'home', homeAlternative: 'dev-datasets-session-mcp' },
-      { id: 'dev-datasets-session-mcp', name: 'Dev Datasets MCP (other sites)', url: fixtureUrl.replace(/\/mcp$/, '/datasets/mcp'), auth: 'nhi-session' },
       // Only entry that carries a credential — needed so the "no credentials in the
       // catalog" api test actually exercises the apiKey-stripping path instead of
       // trivially passing because no configured entry ever had a key to leak.
