@@ -182,13 +182,16 @@ and on the account's portals through the `portal` argument. `sites: 'home'` is c
 only, and only with the agent's session: never anonymously, never on a portal. Its `homeAlternative` names
 the `all` entry that stands for it elsewhere, left out of the home site where the `home` entry has its tools.
 Boot validation refuses either field on an entry that is not `nhi-session`, and a `homeAlternative` that is
-not set on a `home` entry or does not name an `nhi-session` `all` entry. data-fair's mcp is configured as
-that pair, and an agent references both:
+not set on a `home` entry or does not name an `nhi-session` `all` entry. An agent that should reach both
+sides of such a pair references both entries.
+
+data-fair's mcp is deployed as one `all` entry, the full server: an autonomous agent calls it the same way on
+the home site and on the account's portals (`X-Forwarded-Host` of the site, the agent's bearer token), and
+the personal assistants use their page's WebMCP tools only, so no `PERSONAL_ASSISTANTS` is set:
 
 ```json
 [
-  { "id": "datafair", "name": "Data Fair", "url": "http://data-fair-mcp:8080/mcp-server/mcp", "auth": "nhi-session", "sites": "home", "homeAlternative": "datafair-datasets" },
-  { "id": "datafair-datasets", "name": "Data Fair datasets", "url": "http://data-fair-mcp:8080/mcp-server/datasets/mcp", "auth": "nhi-session" }
+  { "id": "datafair", "name": "Data Fair", "url": "http://data-fair-mcp:8080/mcp-server/mcp", "auth": "nhi-session" }
 ]
 ```
 
@@ -196,7 +199,7 @@ What a scope-filtered server (data-fair's mcp at `/mcp-server/mcp`) lists is cut
 
 ### `PERSONAL_ASSISTANTS`
 
-JSON object: the servers of the two built-in personal assistants, `portal` (`portal-assistant`, what a front-office embed talks to) and `backOffice` (`back-office-assistant`, what a back-office embed with `agents` talks to). Each is `{ "mcpServers": [{ "serverId": "…" }] }` (with an optional `"toolFilter"`), references into `MCP_SERVERS` exactly like a configured agent's. Example, data-fair's datasets server (the published catalog) for both:
+JSON object: the servers of the two built-in personal assistants, `portal` (`portal-assistant`, what a front-office embed talks to) and `backOffice` (`back-office-assistant`, what a back-office embed with `agents` talks to). Each is `{ "mcpServers": [{ "serverId": "…" }] }` (with an optional `"toolFilter"`), references into `MCP_SERVERS` exactly like a configured agent's. data-fair's deployment leaves it unset: its assistants use their page's WebMCP tools only, and moving them to MCP servers is a later step. Example, with a catalog that also publishes data-fair's datasets server (the published catalog), for both:
 
 ```json
 { "portal": { "mcpServers": [{ "serverId": "datafair-datasets" }] }, "backOffice": { "mcpServers": [{ "serverId": "datafair-datasets" }] } }
