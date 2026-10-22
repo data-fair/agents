@@ -58,9 +58,15 @@ object, the model the text. Only `list_road_closures`, `closure_stats` and the e
 fixed empty schema, and a target for `toolFilter`), so they are the ones to use when you need to see an
 agent actually fetch something and quote it. `slow_update` and `bulk_update` are the annotation-free (write) twins of `slow_lookup` and `bulk`, for specs that gate a slow or large call at approval level `write`.
 
-Only autonomous agents need it. Without it, an agent wired to one of those catalog entries fails with
-a 502 the moment it gathers its tools — the seeded dev fixtures can then be read but not used, which
-is a confusing way to discover this is not running.
+Under `/platform/` it stands in for data-fair's MCP, the built-in server of every autonomous agent with an
+identity: `privateMcpUrl` in `api/config/development.js` points there. It serves the data tools only
+(`list_road_closures`, `closure_stats`, `export_closures`, `export_my_profile`), renamed `platform_*`, and
+its skills under `skill://platform/` — so the built-in server, which wins a name collision, never shadows a
+tool of the per-spec fixture, whose call log a spec asserts on. CI starts it too (`reuse-quality.yml`).
+
+Only autonomous agents need it. Without it, every agent with an identity fails with a 502 the moment it
+gathers its tools — the seeded dev fixtures can then be read but not used, which is a confusing way to
+discover this is not running. A change to it (or to `tests/support/mcp-fixture.ts`) needs it restarted.
 
 ### Running on Claude Code models
 

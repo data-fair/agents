@@ -122,16 +122,13 @@ prefix is ignored, `api/src/sites/operations.ts`):
    site's `x-forwarded-host`, and with a token obtained for that site when it is one of the agent's
    **account sites**: the site it was enrolled on, plus its organization's sites as simple-directory
    lists them. Anywhere else it is called anonymously, and a credential never travels without its site.
-   An entry with `sites: 'home'` (data-fair's platform server, which refuses anonymous callers) is called
-   on the home site only, and only when the agent has a session there; its `homeAlternative` (the
-   datasets server) stands for it everywhere else: on the portals, and on a home outside the account.
+   data-fair's MCP is such a server, built into every agent with an identity (`PRIVATE_MCP_URL`, see
+   [configuration](./configuration.md#private_mcp_url)): not a catalog entry, its reach the identity's scopes.
 2. **Home site.** A chat acts on the site of the person's socket; a planned task, or a turn nobody
    watches, on `nhi.siteUrl`, captured when the agent is first configured. A chat outside the account
    runs anonymously, and the agent is told so.
 3. **Account portals** are reached through the same tools, with an optional `portal` argument naming
-   another account site. A `home` entry's tools take none: its `homeAlternative`'s tools are offered for the
-   portals only, with a required `portal`. Platform tools on another portal of the same account would
-   mostly duplicate the home ones; what differs from one portal to the next is its published catalog.
+   another account site.
 4. **Everything else is external MCP**: public endpoints an organization admin lists on the agent,
    called anonymously through the web egress guard. Web access reports the MCP servers a site publishes
    (its `/.well-known/ai-catalog.json`), and `request_mcp_access` asks an admin to connect one.

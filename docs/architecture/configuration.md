@@ -174,38 +174,44 @@ Boot validation (`assertGlobalMcpConfig`) rejects:
 - a duplicate `id`;
 - a `url` that is not `http:`/`https:`;
 - an `auth: 'apiKey'` entry missing `apiKeyHeader` or `apiKey`;
-- a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential.
+- a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential;
+- the id `data-fair`, reserved for the built-in server below.
 
-**`sites` and `homeAlternative` (site-bound entries only)** say where an entry is called. `sites: 'all'`
-(the default) is called on the home site — as the agent when it has a session there, anonymously otherwise —
-and on the account's portals through the `portal` argument. `sites: 'home'` is called on the home site
-only, and only with the agent's session: never anonymously, never on a portal. Its `homeAlternative` names
-the `all` entry that stands for it elsewhere, left out of the home site where the `home` entry has its tools.
-Boot validation refuses either field on an entry that is not `nhi-session`, and a `homeAlternative` that is
-not set on a `home` entry or does not name an `nhi-session` `all` entry. An agent that should reach both
-sides of such a pair references both entries.
+A site-bound (`nhi-session`) entry is called on the home site — as the agent when it has a session there,
+anonymously otherwise — and on the account's portals through the `portal` argument.
 
-data-fair's mcp is deployed as one `all` entry, the full server: an autonomous agent calls it the same way on
-the home site and on the account's portals (`X-Forwarded-Host` of the site, the agent's bearer token), and
-the personal assistants use their page's WebMCP tools only, so no `PERSONAL_ASSISTANTS` is set:
+data-fair's MCP is **not** a catalog entry: it is built in (`PRIVATE_MCP_URL`, below).
 
-```json
-[
-  { "id": "datafair", "name": "Data Fair", "url": "http://data-fair-mcp:8080/mcp-server/mcp", "auth": "nhi-session" }
-]
-```
+### `PRIVATE_MCP_URL`
 
-What a scope-filtered server (data-fair's mcp at `/mcp-server/mcp`) lists is cut by the scopes of the session it receives: for an autonomous agent, its non-human identity's maximum scopes in simple-directory. The catalog entry carries no selection of its own.
+data-fair's MCP endpoint as this service reaches it, like `PRIVATE_DIRECTORY_URL` and `PRIVATE_EVENTS_URL`
+for the stack's other services. data-fair's deployment: `http://data-fair-mcp:8080/mcp-server/mcp`.
+
+Every configured autonomous agent **with an enrolled identity** calls it, without referencing it: it is not in
+`MCP_SERVERS`, an agent's `mcpServers` cannot name it, and it has no `toolFilter`. What an agent may do there
+is its identity's **scopes** and nothing else: the server lists by the scopes of the session it receives (the
+non-human identity's maximum scopes in simple-directory) and data-fair enforces them on every call. Two
+controls for one thing — pick the server, then the scopes — would leave an agent with scopes meaning nothing,
+which is what a catalog entry did to every agent created without it.
+
+It is called as any site-bound entry is (server id `data-fair`, `auth: nhi-session`): on the turn's home site
+and, through `portal`, on the account's portals, with the agent's token for that site. Its tools are gathered
+after the agent's catalog references, so on a name collision its tool is kept; they are recorded with the
+source kind `platform` ("Data Fair" in the tool lists). An agent without an identity does not get it: it has
+no scopes, and data-fair must never be reached with the session of whoever instructs it.
+
+Unset (the default), there is no built-in server and boot says so: agents have their catalog servers only.
+In dev, `api/config/development.js` points it at dev-mcp's `/platform/` stand-in (see AGENTS.md).
 
 ### `PERSONAL_ASSISTANTS`
 
-JSON object: the servers of the two built-in personal assistants, `portal` (`portal-assistant`, what a front-office embed talks to) and `backOffice` (`back-office-assistant`, what a back-office embed with `agents` talks to). Each is `{ "mcpServers": [{ "serverId": "…" }] }` (with an optional `"toolFilter"`), references into `MCP_SERVERS` exactly like a configured agent's. data-fair's deployment leaves it unset: its assistants use their page's WebMCP tools only, and moving them to MCP servers is a later step. Example, with a catalog that also publishes data-fair's datasets server (the published catalog), for both:
+JSON object: the servers of the two built-in personal assistants, `portal` (`portal-assistant`, what a front-office embed talks to) and `backOffice` (`back-office-assistant`, what a back-office embed with `agents` talks to). Each is `{ "mcpServers": [{ "serverId": "…" }] }` (with an optional `"toolFilter"`), references into `MCP_SERVERS` exactly like a configured agent's. data-fair's deployment leaves it unset: its assistants use their page's WebMCP tools only, and moving them to data-fair's MCP is a later step. Example, with a catalog publishing a read-only server for both:
 
 ```json
-{ "portal": { "mcpServers": [{ "serverId": "datafair-datasets" }] }, "backOffice": { "mcpServers": [{ "serverId": "datafair-datasets" }] } }
+{ "portal": { "mcpServers": [{ "serverId": "docs-search" }] }, "backOffice": { "mcpServers": [{ "serverId": "docs-search" }] } }
 ```
 
-Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write tools, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`), and so does a `sites: "home"` entry: an assistant acts as the person, anonymously for a visitor, and such an entry is never called anonymously. Name its `homeAlternative` instead. The person's session carries no scope, so even signed in, data-fair's platform server would list every tool their role allows. That is another reason the example gives the assistants the datasets server. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
+Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write tools, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`). The built-in data-fair server is never a personal assistant's. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
 
 ### `MCP_PATH` and simple-directory's authorization server
 
