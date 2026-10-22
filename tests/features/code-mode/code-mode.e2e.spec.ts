@@ -56,8 +56,11 @@ test.describe('Panel of a code_mode call', () => {
     const body = reviewed.getByTestId('subagent-panel-body')
     await expect(body.getByTestId('tool-call-input').first()).toHaveText(js)
     await expect(body.getByTestId('tool-call-output').last()).toBeVisible()
-    await body.getByTestId('nested-tool-chip').filter({ hasText: 'closure_stats' }).click()
-    const nested = body.getByTestId('tool-call-detail').filter({ has: page.getByTestId('tool-call-input').filter({ hasText: 'city-center' }) })
+    const chip = body.getByTestId('nested-tool-chip').filter({ hasText: 'closure_stats' })
+    await chip.click()
+    // under its own chip, not after the row of chips, where several open calls could not be told apart
+    const nested = chip.locator('xpath=..').getByTestId('tool-call-detail')
+    await expect(nested.getByTestId('tool-call-input')).toContainText('city-center')
     await expect(nested.getByTestId('tool-call-output')).toContainText('"district"')
   })
 })
