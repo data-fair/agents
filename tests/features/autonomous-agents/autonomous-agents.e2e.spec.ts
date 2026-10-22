@@ -469,6 +469,8 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
     await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-scopes-unrestricted')).toHaveCount(0)
+    // the one control of what it may do on data-fair, whose server it has without picking it
+    await expect(page.getByTestId('autonomous-agent-scopes-platform')).toHaveText('These scopes decide what the agent can do on Data Fair.')
   })
 
   test('the sites of the organization it cannot act on as itself are listed', async ({ page, goToWithAuth }) => {

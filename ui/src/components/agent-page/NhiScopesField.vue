@@ -30,6 +30,13 @@
       >{{ t('unrestricted') }}</span>
       <span v-else>{{ t('hint') }}</span>
     </div>
+    <!-- data-fair's MCP is built into every agent with an identity: these scopes are all that limits it there. -->
+    <div
+      class="text-caption text-medium-emphasis"
+      data-testid="autonomous-agent-scopes-platform"
+    >
+      {{ t('platform') }}
+    </div>
   </div>
 </template>
 
@@ -39,11 +46,13 @@ en:
   hint: What the platform lets this identity do, within what its role allows.
   unrestricted: 'No restriction: everything its role allows in the organization.'
   elsewhere: Managed outside this page.
+  platform: These scopes decide what the agent can do on Data Fair.
 fr:
   label: Portées
   hint: Ce que la plateforme permet à cette identité, dans la limite de son rôle.
   unrestricted: 'Aucune restriction : tout ce que son rôle permet dans l''organisation.'
   elsewhere: Gérées en dehors de cette page.
+  platform: Ces portées décident de ce que l'agent peut faire sur Data Fair.
 </i18n>
 
 <script lang="ts" setup>
