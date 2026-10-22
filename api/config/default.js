@@ -3,6 +3,9 @@ export default {
   // simple-directory's MCP_PATH: an autonomous agent's token on a site is asked for <site><mcpPath>
   mcpPath: '/mcp-server',
   privateEventsUrl: undefined,
+  // data-fair's MCP endpoint, built into every autonomous agent with an identity (mcp-servers/operations.ts,
+  // platformMcpServer). Unset: no built-in server, agents have their catalog servers only.
+  privateMcpUrl: undefined,
   mongoUrl: 'mongodb://localhost:27017/data-fair-agents',
   port: 8080,
   tmpDir: '/tmp',

@@ -43,6 +43,7 @@
 fr:
   noTools: Aucun outil
   sources:
+    platform: Data Fair
     catalog: MCP · {server}
     external: MCP externe · {server}
     page: Cette page (WebMCP)
@@ -50,6 +51,7 @@ fr:
 en:
   noTools: No tools
   sources:
+    platform: Data Fair
     catalog: MCP · {server}
     external: External MCP · {server}
     page: This page (WebMCP)
@@ -69,5 +71,5 @@ defineProps<{
 
 const { t } = useI18n()
 
-const sourceColor = (kind: ToolSourceKind) => ({ catalog: 'primary', external: 'warning', page: 'accent', service: 'secondary' })[kind]
+const sourceColor = (kind: ToolSourceKind) => ({ platform: 'success', catalog: 'primary', external: 'warning', page: 'accent', service: 'secondary' })[kind]
 </script>

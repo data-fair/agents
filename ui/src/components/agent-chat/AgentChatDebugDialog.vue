@@ -277,7 +277,7 @@ watch(() => [props.modelValue, props.usageVersion, props.conversationId] as cons
   }
   if (lastTurnTools.value.names.length || !props.isAdmin || !props.agentId || isPersonalAgentId(props.agentId)) return
   try {
-    const res = await $fetch<{ results: Array<{ name: string, server: string, kind: 'catalog' | 'external' }> }>(
+    const res = await $fetch<{ results: Array<{ name: string, server: string, kind: 'platform' | 'catalog' | 'external' }> }>(
       `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${props.agentId}/tools`
     )
     agentServerTools.value = {

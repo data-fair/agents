@@ -4,6 +4,7 @@ export default {
   privateDirectoryUrl: 'PRIVATE_DIRECTORY_URL',
   mcpPath: 'MCP_PATH',
   privateEventsUrl: 'PRIVATE_EVENTS_URL',
+  privateMcpUrl: 'PRIVATE_MCP_URL',
   secretKeys: {
     events: 'SECRET_EVENTS',
     limits: 'SECRET_LIMITS'

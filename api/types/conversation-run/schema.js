@@ -116,7 +116,7 @@ export default {
               additionalProperties: false,
               required: ['kind'],
               properties: {
-                kind: { type: 'string', enum: ['catalog', 'external', 'page', 'service'] },
+                kind: { type: 'string', enum: ['platform', 'catalog', 'external', 'page', 'service'] },
                 server: { type: 'string' }
               }
             }

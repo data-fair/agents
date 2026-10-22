@@ -33,6 +33,15 @@ export const FIXTURE_SKILLS = {
   unlisted: { uri: 'skill://fixture/hidden/SKILL.md', name: 'hidden', description: 'Reachable by URI only.', tools: undefined as string | undefined, body: 'Hidden procedure.' }
 }
 
+/**
+ * Under /platform/ the fixture stands in for data-fair's MCP, the built-in server of autonomous agents
+ * (api/config/development.js, privateMcpUrl): its data tools only, renamed with this prefix so they never
+ * shadow a tool the same fixture serves at /mcp, which the built-in server would otherwise win.
+ */
+export const PLATFORM_TOOL_PREFIX = 'platform_'
+export const PLATFORM_TOOLS = ['list_road_closures', 'closure_stats', 'export_closures', 'export_my_profile']
+const platformNamed = (text: string) => text.replace(new RegExp(`\\b(${PLATFORM_TOOLS.join('|')})\\b`, 'g'), `${PLATFORM_TOOL_PREFIX}$1`)
+
 export interface McpFixture {
   port: number
   lastHeaders: () => Record<string, string | string[] | undefined>
@@ -65,12 +74,16 @@ export interface McpFixture {
 // constructed with `sessionIdGenerator: undefined` is shared across requests — unlike what
 // the brief's original one-transport-for-the-process-lifetime sketch assumed. See
 // node_modules/@modelcontextprotocol/sdk/dist/esm/server/webStandardStreamableHttp.js.
-const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false, skillsListDelay: () => number = () => 0, toolPrefix = ''): McpServer => {
+const buildMcpServer = (record: (toolName: string) => void, headers: Record<string, string | string[] | undefined>, recordFileUrl: (url: string) => void, failSkillsList: () => boolean = () => false, skillsListDelay: () => number = () => 0, platform = false): McpServer => {
   const mcp = new McpServer({ name: 'fixture', version: '1.0.0' }, {
     instructions: FIXTURE_INSTRUCTIONS,
     capabilities: { resources: {}, extensions: { 'io.modelcontextprotocol/skills': {} } } as any
   })
-  for (const s of Object.values(FIXTURE_SKILLS)) {
+  // the stand-in's skills are its own, as another server's would be: their own URIs, naming its tools as it serves them
+  const skills = Object.fromEntries(Object.entries(FIXTURE_SKILLS).map(([key, s]) => [key, platform
+    ? { ...s, uri: s.uri.replace('skill://fixture/', 'skill://platform/'), body: platformNamed(s.body), ...(s.tools ? { tools: platformNamed(s.tools) } : {}) }
+    : s])) as typeof FIXTURE_SKILLS
+  for (const s of Object.values(skills)) {
     mcp.registerResource(s.name, s.uri, { mimeType: 'text/markdown' }, async () => ({
       contents: [{ uri: s.uri, mimeType: 'text/markdown', text: `---\nname: ${s.name}\ndescription: ${JSON.stringify(s.description)}\n---\n\n${s.body}\n` }]
     }))
@@ -80,10 +93,10 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
   mcp.server.setRequestHandler(z.object({ method: z.literal('skills/list'), params: z.any().optional() }), async () => {
     if (failSkillsList()) throw new Error('skills/list is broken on purpose')
     if (skillsListDelay()) await new Promise(resolve => setTimeout(resolve, skillsListDelay()))
-    return { skills: [skillEntry(FIXTURE_SKILLS.listed)] } as any
+    return { skills: [skillEntry(skills.listed)] } as any
   })
   mcp.server.setRequestHandler(z.object({ method: z.literal('skills/get'), params: z.object({ uri: z.string() }) }), async (req) => {
-    const s = Object.values(FIXTURE_SKILLS).find(x => x.uri === req.params.uri)
+    const s = Object.values(skills).find(x => x.uri === req.params.uri)
     if (!s) throw new Error(`No skill is served at ${req.params.uri}`)
     return { skill: skillEntry(s) } as any
   })
@@ -350,10 +363,10 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
       }
     }
   )
-  if (toolPrefix) {
-    // the datasets mode: the same tools under other names, as data-fair's datasets server renames the platform's
-    for (const [name, registered] of Object.entries((mcp as any)._registeredTools as Record<string, { update: (u: { name: string }) => void }>)) {
-      registered.update({ name: `${toolPrefix}${name}` })
+  if (platform) {
+    for (const [name, registered] of Object.entries((mcp as any)._registeredTools as Record<string, { update: (u: { name: string }) => void, remove: () => void }>)) {
+      if (PLATFORM_TOOLS.includes(name)) registered.update({ name: `${PLATFORM_TOOL_PREFIX}${name}` })
+      else registered.remove()
     }
   }
   return mcp
@@ -394,7 +407,7 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
     }
     lastHeaders = req.headers
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined })
-    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay)
+    const mcp = buildMcpServer(name => invoked.push(name), req.headers, url => fileUrls.push(url), () => failSkills, () => skillsDelay, req.url?.startsWith('/platform/'))
     // The body is read here, to count methods, and handed to the transport already parsed.
     const chunks: Buffer[] = []
     req.on('data', chunk => chunks.push(chunk))

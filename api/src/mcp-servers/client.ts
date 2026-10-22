@@ -12,7 +12,7 @@ import config from '#config'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { callHeaders, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, type SiteCredentials, type SiteCredential, type GlobalMcpServer, type McpServerRef } from './operations.ts'
+import { callHeaders, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, platformMcpServer, type SiteCredentials, type SiteCredential, type GlobalMcpServer, type McpServerRef } from './operations.ts'
 import { formatMcpToolResult } from '@agents/shared/tool-result'
 import { credentialScopes } from '../nhi/operations.ts'
 import { toolDescription } from '@agents/shared/tool-description'
@@ -171,7 +171,9 @@ const listServer = async (server: GlobalMcpServer, siteUrl: string | undefined, 
 export const openAutonomousAgentTools = async (
   autonomousAgent: AutonomousAgentForTools,
   sites: SiteCredentials,
-  opts?: { onServerError?: 'throw' | 'skip', fresh?: boolean, files?: boolean }
+  // `platform`: data-fair's built-in server is gathered too (operations.ts, platformMcpServer) — for an agent
+  // with an identity only, whose scopes are what it may do there.
+  opts?: { onServerError?: 'throw' | 'skip', fresh?: boolean, files?: boolean, platform?: boolean }
 ): Promise<OpenAutonomousAgentTools> => {
   const filesOn = opts?.files ?? !!config.files
   const needsFiles: { name: string, server: string }[] = []
@@ -208,9 +210,15 @@ export const openAutonomousAgentTools = async (
     }
   }
 
+  // The agent's references, then data-fair's built-in server: LAST, so on a name collision its tool is the
+  // one kept (below) and no catalog entry can stand in for a platform tool. No toolFilter: its scopes are the filter.
+  const platform = opts?.platform ? platformMcpServer(config.privateMcpUrl) : undefined
+  const entries = [
+    ...refs.map(ref => ({ ref, server: catalog.find(s => s.id === ref.serverId) })),
+    ...(platform ? [{ ref: { serverId: platform.id } as McpServerRef, server: platform }] : [])
+  ]
   // Listed together: a turn waits for its slowest server, not for the sum of them.
-  const listed = await Promise.all(refs.map(async ref => {
-    const server = catalog.find(s => s.id === ref.serverId)
+  const listed = await Promise.all(entries.map(async ({ ref, server }) => {
     if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
     const listedOn = server.auth !== 'nhi-session' ? undefined : home
     try {
@@ -347,9 +355,10 @@ export interface McpToolDescriptor {
  */
 export const listAutonomousAgentToolDescriptors = async (
   autonomousAgent: AutonomousAgentForTools,
-  sites: SiteCredentials
+  sites: SiteCredentials,
+  opts?: { platform?: boolean }
 ): Promise<{ descriptors: McpToolDescriptor[] }> => {
-  const { tools, close } = await openAutonomousAgentTools(autonomousAgent, sites, { fresh: true })
+  const { tools, close } = await openAutonomousAgentTools(autonomousAgent, sites, { fresh: true, ...opts })
   await close()
   const descriptors = Object.entries(tools).map(([name, { tool, server, annotations }]) => ({
     name,

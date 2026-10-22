@@ -4,7 +4,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { assertGlobalMcpConfig, assertPersonalAssistantsConfig, listMcpServerCatalog, unknownMcpServerIds, callHeaders, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
+import { assertGlobalMcpConfig, assertPersonalAssistantsConfig, listMcpServerCatalog, unknownMcpServerIds, callHeaders, platformMcpServer, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
 
 const servers: GlobalMcpServer[] = [
   { id: 'registry', name: 'Data Fair registry', url: 'https://example.org/mcp-registry/mcp', auth: 'nhi-session' },
@@ -123,5 +123,16 @@ test.describe('assertPersonalAssistantsConfig', () => {
   test('refuses a personal assistant naming a server the catalog does not have', () => {
     assert.throws(() => assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'nope' }] } }, servers), /personal assistant "portal" references unknown MCP server "nope"/)
     assertPersonalAssistantsConfig({ portal: { mcpServers: [{ serverId: 'registry' }] } }, servers)
+  })
+})
+
+test.describe('the built-in data-fair server', () => {
+  test('platformMcpServer is undefined without a url', () => {
+    assert.equal(platformMcpServer(undefined), undefined)
+    assert.deepEqual(platformMcpServer('http://m/mcp'), { id: 'data-fair', name: 'Data Fair', url: 'http://m/mcp', auth: 'nhi-session' })
+  })
+  // its id would otherwise name two servers, in a run's record as in the listing cache
+  test('the data-fair id is reserved', () => {
+    assert.throws(() => assertGlobalMcpConfig([{ id: 'data-fair', name: 'X', url: 'http://h/mcp', auth: 'none' }]), /data-fair/)
   })
 })

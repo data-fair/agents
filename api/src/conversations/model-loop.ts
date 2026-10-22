@@ -57,7 +57,7 @@ export interface ModelLoopContext {
   /** The turn's fixed tools: the catalog's, then the service's. The page's are added live (see assembleTools). */
   tools: ToolSet
   /** Which of `tools` come from an MCP server, catalog or external; the others are the service's. Recorded with the run. */
-  toolOrigins?: Record<string, 'catalog' | 'external'>
+  toolOrigins?: Record<string, 'platform' | 'catalog' | 'external'>
   settings: Awaited<ReturnType<typeof getSettings>>
   budget: number
   /** The agent's memory as of run start, when it has one; rendered into the system prompt. */

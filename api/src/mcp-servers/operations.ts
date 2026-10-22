@@ -38,6 +38,18 @@ export interface McpServerCatalogEntry {
   auth: McpServerAuth
 }
 
+/**
+ * Data-fair's MCP, built into every autonomous agent with an identity (`privateMcpUrl`): the stack's own API
+ * surface for agents, as simple-directory and events are stack services, so not a catalog entry an agent
+ * picks. What an agent may do there is its identity's scopes, and nothing else.
+ */
+export const PLATFORM_MCP_SERVER_ID = 'data-fair'
+
+/** The built-in server as the call path takes it, or undefined when the deployment has none. */
+export function platformMcpServer (url: string | undefined): GlobalMcpServer | undefined {
+  return url ? { id: PLATFORM_MCP_SERVER_ID, name: 'Data Fair', url, auth: 'nhi-session' } : undefined
+}
+
 /** A reference to a catalog entry, from an autonomous agent or a personal assistant. */
 export type McpServerRef = { serverId: string, toolFilter?: string[] }
 
@@ -50,6 +62,7 @@ export function assertGlobalMcpConfig (servers: GlobalMcpServer[]): void {
   const ids = new Set<string>()
   for (const server of servers) {
     if (ids.has(server.id)) throw new Error(`invalid global MCP config: duplicate server id "${server.id}"`)
+    if (server.id === PLATFORM_MCP_SERVER_ID) throw new Error(`invalid global MCP config: server id "${server.id}" is data-fair's built-in server, configured by privateMcpUrl`)
     ids.add(server.id)
 
     let url: URL

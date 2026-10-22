@@ -31,7 +31,7 @@ import { contextBudget } from '../models/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
 import { openExternalMcpTools } from '../mcp-servers/external.ts'
 import { envPublicIps } from '../web/public-lookup.ts'
-import { personSiteCredentials, type SiteCredentials } from '../mcp-servers/operations.ts'
+import { personSiteCredentials, PLATFORM_MCP_SERVER_ID, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { applyApprovalPolicy, personalAssistantTools, unattended } from './approval-policy.ts'
 import { agentSiteCredentials } from '../nhi/service.ts'
 import { notifyMessage } from '../agent-session/registry.ts'
@@ -168,7 +168,10 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
   const { tools: listedTools, skippedServers, filteredOut, needsFiles, identity: catalogIdentity, guides: catalogGuides, readSkill: readCatalogSkill, close: closeTools } =
     await openAutonomousAgentTools(autonomousAgent, sites, {
       onServerError: isPersonalAgentId(autonomousAgent.id) ? 'skip' : 'throw',
-      files: !!files
+      files: !!files,
+      // data-fair's built-in server, as the agent's own identity: never without one, so never as the
+      // session of whoever instructs an unenrolled agent.
+      platform: !isPersonalAgentId(autonomousAgent.id) && !!autonomousAgent.nhi?.clientId
     })
   // Everything from here on releases the connections however it ends: an open that succeeded and a later
   // step that throws (the service tools, say) must not leave clients and sockets behind.
@@ -227,11 +230,11 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       : {}
     // Which of the fixed tools are MCP servers', for the run's record (shared/tool-source.ts); the rest are the
     // service's own. A service tool sharing a name wins the set above, so it is not counted as the server's.
-    const toolOrigins: Record<string, 'catalog' | 'external'> = {}
+    const toolOrigins: Record<string, 'platform' | 'catalog' | 'external'> = {}
     for (const name of Object.keys(tools)) {
       if (name in service.tools) continue
       if (external && name in external.tools) toolOrigins[name] = 'external'
-      else if (name in listedTools) toolOrigins[name] = 'catalog'
+      else if (name in listedTools) toolOrigins[name] = listedTools[name].server === PLATFORM_MCP_SERVER_ID ? 'platform' : 'catalog'
     }
     const loop = { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead: readSkill }
     const result = await runModelLoop(loop)

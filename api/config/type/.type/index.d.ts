@@ -30,6 +30,10 @@ export type ApiConfig = {
   privateDirectoryUrl: string;
   mcpPath: string;
   privateEventsUrl?: string;
+  /**
+   * data-fair's MCP endpoint, built into every autonomous agent with an identity. Unset: none.
+   */
+  privateMcpUrl?: string;
   secretKeys: {
     events?: string;
     limits?: string;

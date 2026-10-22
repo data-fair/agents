@@ -128,7 +128,8 @@ test.describe('Server instructions and skills', () => {
     const { assistant } = await runTurn(agent.id, 'call tool read_skill {"server":"dev-session-mcp","uri":"skill://fixture/hidden/SKILL.md"}')
     const call = toolCall(assistant, 'read_skill')
     assert.equal(call?.state, 'output-error')
-    assert.match(call.errorText, /not one of your tool servers this turn \(agent, dev-public-mcp\)/)
+    // an enrolled agent also has data-fair, its built-in server
+    assert.match(call.errorText, /not one of your tool servers this turn \(agent, dev-public-mcp, data-fair\)/)
     assert.equal(fixture.methodCounts()['resources/read'] ?? 0, 0)
   })
 

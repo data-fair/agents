@@ -8,6 +8,9 @@ export default {
   port: process.env.DEV_API_PORT,
   privateDirectoryUrl: `http://localhost:${process.env.SD_PORT}`,
   privateEventsUrl: `http://localhost:${process.env.EVENTS_PORT}`,
+  // dev-mcp's stand-in for data-fair (`npm run dev-mcp`, tests/support/mcp-fixture.ts): its data tools only,
+  // prefixed `platform_` so the built-in server never shadows a tool of the per-spec fixture (NGINX_PORT + 30).
+  privateMcpUrl: `http://localhost:${Number(process.env.NGINX_PORT) + 31}/platform/mcp`,
   mongoUrl: `mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`,
   tmpDir: './tmp',
   observer: {

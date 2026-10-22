@@ -30,6 +30,7 @@ if (!Number.isInteger(port)) {
 }
 const fixture = await startMcpFixture(port)
 console.log(`dev MCP server listening on http://localhost:${port}/mcp`)
+console.log(`data-fair's stand-in (privateMcpUrl) on http://localhost:${port}/platform/mcp: list_road_closures, closure_stats and the exports, prefixed platform_`)
 console.log('tools: echo, get_schema, ignored, list_road_closures, closure_stats (structuredContent: an object for a code_mode script, text for the model), import_table (takes a file), export_closures and export_my_profile (return a file link); files at /exports/')
 
 const stop = async (signal: string) => {

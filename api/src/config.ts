@@ -12,6 +12,7 @@ assertValid(config, { lang: 'en', name: 'config', internal: true })
 
 assertGlobalAiConfig(config.providers ?? [], config.models ?? [], config.defaultModels ?? {})
 assertGlobalMcpConfig(config.mcpServers ?? [])
+if (!config.privateMcpUrl) console.log('[mcp] PRIVATE_MCP_URL is not set: autonomous agents have no built-in data-fair server, only their catalog servers')
 assertPersonalAssistantsConfig(config.personalAssistants ?? {}, config.mcpServers ?? [])
 assertFilesConfig(config.files)
 

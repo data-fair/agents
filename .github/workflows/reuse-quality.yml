@@ -53,6 +53,22 @@ jobs:
         cat dev/logs/dev-api.log || true
         exit 1
 
+    # data-fair's stand-in: privateMcpUrl (api/config/development.js) points at its /platform/ endpoint, so
+    # without it every turn of an autonomous agent with an identity fails to list its built-in server
+    - name: Start dev MCP server
+      run: mkdir -p dev/logs && (npm run dev-mcp > dev/logs/dev-mcp.log 2>&1 &)
+
+    - name: Wait for dev MCP server
+      run: |
+        port=$(( $(grep '^NGINX_PORT=' .env | cut -d= -f2) + 31 ))
+        for i in $(seq 30); do
+          curl -s -o /dev/null "http://localhost:$port/mcp" && exit 0
+          sleep 1
+        done
+        echo "dev MCP server did not answer on port $port"
+        cat dev/logs/dev-mcp.log || true
+        exit 1
+
     - name: Install Playwright browser
       run: npx playwright install --with-deps chromium
 

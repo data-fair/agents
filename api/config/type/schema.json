@@ -63,6 +63,11 @@
     "privateEventsUrl": {
       "type": "string"
     },
+    "privateMcpUrl": {
+      "type": "string",
+      "pattern": "^https?://",
+      "description": "data-fair's MCP endpoint, built into every autonomous agent with an identity. Unset: none."
+    },
     "secretKeys": {
       "type": "object",
       "additionalProperties": false,
