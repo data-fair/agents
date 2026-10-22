@@ -138,6 +138,12 @@ export default {
      * request body by filtering for a system-role message.
      */
     systemPrompt: { type: 'string' },
+    /**
+     * What the page in front of the person told the model this run: the state and event blocks folded
+     * into the last user message at call time. Not stored with that message, so this is its only record.
+     * Absent when the page said nothing, and on runs recorded before it existed.
+     */
+    hostContext: { type: 'string' },
     status: { type: 'string', enum: ['running', 'done', 'error', 'aborted', 'interrupted', 'skipped'] },
     // 'waiting': the turn handed over to the person (wait_for_user_action) and ends there; their action
     // starts the next one. Not 'completed', which would read as work finished.

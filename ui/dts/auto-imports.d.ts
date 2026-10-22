@@ -41,6 +41,7 @@ declare global {
   const applyStreamPart: typeof import('../src/composables/agent-stream-parts').applyStreamPart
   const autonomousAgentEditDraft: typeof import('../src/utils/autonomous-agent-draft').autonomousAgentEditDraft
   const autonomousAgentMessageToChat: typeof import('../src/utils/autonomous-agent-chat-message').autonomousAgentMessageToChat
+  const availableToolGroups: typeof import('../src/utils/tool-groups').availableToolGroups
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
   const breakdownDatasets: typeof import('../src/utils/usage-breakdown').breakdownDatasets
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid').buildMermaidThemeVariables
@@ -91,10 +92,12 @@ declare global {
   const isReadonly: typeof import('vue').isReadonly
   const isRef: typeof import('vue').isRef
   const isShallow: typeof import('vue').isShallow
+  const lastOfferedTools: typeof import('../src/utils/tool-groups').lastOfferedTools
   const looksLikeIncompleteTable: typeof import('../src/utils/markdown').looksLikeIncompleteTable
   const markRaw: typeof import('vue').markRaw
   const msUntilValid: typeof import('../src/utils/anonymous-token').msUntilValid
   const nextTick: typeof import('vue').nextTick
+  const offeredToolGroups: typeof import('../src/utils/tool-groups').offeredToolGroups
   const onActivated: typeof import('vue').onActivated
   const onBeforeMount: typeof import('vue').onBeforeMount
   const onBeforeRouteLeave: typeof import('vue-router').onBeforeRouteLeave
@@ -226,7 +229,7 @@ declare global {
   export type { ScopeRow } from '../src/utils/nhi-scopes'
   import('../src/utils/nhi-scopes')
   // @ts-ignore
-  export type { ToolGroup } from '../src/utils/tool-groups'
+  export type { ToolGroup, SourcedTools } from '../src/utils/tool-groups'
   import('../src/utils/tool-groups')
   // @ts-ignore
   export type { UsageDimension, UsageEntry } from '../src/utils/usage-breakdown'
@@ -265,6 +268,7 @@ declare module 'vue' {
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
     readonly autonomousAgentMessageToChat: UnwrapRef<typeof import('../src/utils/autonomous-agent-chat-message')['autonomousAgentMessageToChat']>
+    readonly availableToolGroups: UnwrapRef<typeof import('../src/utils/tool-groups')['availableToolGroups']>
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
@@ -297,10 +301,12 @@ declare module 'vue' {
     readonly isReadonly: UnwrapRef<typeof import('vue')['isReadonly']>
     readonly isRef: UnwrapRef<typeof import('vue')['isRef']>
     readonly isShallow: UnwrapRef<typeof import('vue')['isShallow']>
+    readonly lastOfferedTools: UnwrapRef<typeof import('../src/utils/tool-groups')['lastOfferedTools']>
     readonly looksLikeIncompleteTable: UnwrapRef<typeof import('../src/utils/markdown')['looksLikeIncompleteTable']>
     readonly markRaw: UnwrapRef<typeof import('vue')['markRaw']>
     readonly msUntilValid: UnwrapRef<typeof import('../src/utils/anonymous-token')['msUntilValid']>
     readonly nextTick: UnwrapRef<typeof import('vue')['nextTick']>
+    readonly offeredToolGroups: UnwrapRef<typeof import('../src/utils/tool-groups')['offeredToolGroups']>
     readonly onActivated: UnwrapRef<typeof import('vue')['onActivated']>
     readonly onBeforeMount: UnwrapRef<typeof import('vue')['onBeforeMount']>
     readonly onBeforeRouteLeave: UnwrapRef<typeof import('vue-router')['onBeforeRouteLeave']>

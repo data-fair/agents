@@ -32,6 +32,14 @@
           {{ t('credits', { n: totalCredits.toFixed(4) }) }}
         </v-chip>
         <v-chip
+          v-if="cachedShare !== undefined"
+          size="small"
+          variant="tonal"
+          data-testid="cached-share"
+        >
+          {{ t('cachedShare', { n: cachedShare }) }}
+        </v-chip>
+        <v-chip
           v-for="model in modelsUsed"
           :key="model"
           size="small"
@@ -76,7 +84,25 @@
           <div class="text-caption font-weight-bold mb-1">
             {{ t('systemPrompt') }}
           </div>
-          <pre class="conversation-review__pre pa-3">{{ systemPrompt || '—' }}</pre>
+          <pre class="conversation-review__pre pa-3">{{ lastRun?.systemPrompt || '—' }}</pre>
+
+          <!-- What the page told the model on the last turn: state and events folded into the person's
+               message at call time, which the thread below does not show. -->
+          <div class="text-caption font-weight-bold mt-3 mb-1">
+            {{ t('hostContext') }}
+          </div>
+          <pre
+            class="conversation-review__pre pa-3"
+            data-testid="review-host-context"
+          >{{ lastRun?.hostContext || '—' }}</pre>
+
+          <div class="text-caption font-weight-bold mt-3 mb-1">
+            {{ t('offeredTools', { n: offeredCount }) }}
+          </div>
+          <tool-group-list
+            :groups="offeredGroups"
+            data-testid="review-offered-tools"
+          />
 
           <div class="text-caption font-weight-bold mt-3 mb-1">
             {{ t('modelCalls') }}
@@ -88,6 +114,12 @@
                 <th>{{ t('model') }}</th>
                 <th class="text-right">
                   {{ t('input') }}
+                </th>
+                <th class="text-right">
+                  {{ t('cacheRead') }}
+                </th>
+                <th class="text-right">
+                  {{ t('cacheWrite') }}
                 </th>
                 <th class="text-right">
                   {{ t('output') }}
@@ -110,6 +142,12 @@
                 <td>{{ call.model }}</td>
                 <td class="text-right">
                   {{ call.inputTokens ?? '—' }}
+                </td>
+                <td class="text-right">
+                  {{ call.cacheReadTokens ?? '—' }}
+                </td>
+                <td class="text-right">
+                  {{ call.cacheWriteTokens ?? '—' }}
                 </td>
                 <td class="text-right">
                   {{ call.outputTokens ?? '—' }}
@@ -152,12 +190,17 @@ fr:
   turns: "{n} tours"
   calls: "{n} appels de modèle"
   credits: "{n} crédits"
+  cachedShare: "{n} % de l'entrée en cache"
   creditsShort: Crédits
   downloadExport: Télécharger
   downloadExportHint: Télécharge la conversation complète (messages, résultats d'outils, télémétrie par appel) dans un fichier JSONL, pour analyse par un agent de code.
   hideDetail: Masquer le détail
   showDetail: Voir le détail
   systemPrompt: Instructions données au modèle
+  hostContext: Contexte transmis par la page au dernier tour
+  offeredTools: "Outils proposés au dernier tour ({n})"
+  cacheRead: Lu en cache
+  cacheWrite: Écrit en cache
   modelCalls: Appels de modèle
   role: Rôle
   model: Modèle
@@ -170,12 +213,17 @@ en:
   turns: "{n} turns"
   calls: "{n} model calls"
   credits: "{n} credits"
+  cachedShare: "{n}% of input cached"
   creditsShort: Credits
   downloadExport: Download
   downloadExportHint: Downloads the whole conversation (messages, tool results, per-call telemetry) as a JSONL file, for analysis by a coding agent.
   hideDetail: Hide detail
   showDetail: Show detail
   systemPrompt: Instructions given to the model
+  hostContext: Context reported by the page on the last turn
+  offeredTools: "Tools offered on the last turn ({n})"
+  cacheRead: Cache read
+  cacheWrite: Cache write
   modelCalls: Model calls
   role: Role
   model: Model
@@ -205,6 +253,8 @@ import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { mdiDownload } from '@mdi/js'
 import AgentChatMessages from '~/components/agent-chat/AgentChatMessages.vue'
+import ToolGroupList from '~/components/agent-chat/ToolGroupList.vue'
+import { offeredToolGroups } from '~/utils/tool-groups'
 import { createToolTitleMemo } from '~/composables/tool-titles'
 import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-message'
 import type { ChatMessage } from '~/utils/chat-message'
@@ -228,7 +278,6 @@ const loadError = ref('')
 const showDetail = ref(false)
 const messages = ref<ChatMessage[]>([])
 const runs = ref<any[]>([])
-const systemPrompt = ref('')
 // Where an approval card left open in the thread reads the task a planning call would change.
 const agentPath = ref<string>()
 
@@ -239,6 +288,19 @@ const allCalls = computed(() => runs.value.flatMap(run => run.calls ?? []))
 const callCount = computed(() => allCalls.value.length)
 const totalCredits = computed(() => runs.value.reduce((sum, run) => sum + (run.credits ?? 0), 0))
 const modelsUsed = computed(() => [...new Set(allCalls.value.map(call => call.model).filter(Boolean))])
+// The share of input tokens read from the provider's cache (input counts include them). Absent when
+// no call reported cache usage, which is not the same as a provider reporting none was hit.
+const cachedShare = computed(() => {
+  const reporting = allCalls.value.filter(call => call.cacheReadTokens !== undefined)
+  const input = reporting.reduce((sum, call) => sum + (call.inputTokens ?? 0), 0)
+  if (!reporting.length || !input) return undefined
+  return Math.round(100 * reporting.reduce((sum, call) => sum + call.cacheReadTokens, 0) / input)
+})
+// The instructions and the page context are per run and the tools per turn; the last run is what a
+// reviewer is looking at.
+const lastRun = computed(() => [...runs.value].reverse().find(run => run.systemPrompt))
+const offeredGroups = computed(() => offeredToolGroups(runs.value))
+const offeredCount = computed(() => offeredGroups.value.reduce((count, group) => count + group.names.length, 0))
 
 const load = async () => {
   loaded.value = false
@@ -250,9 +312,6 @@ const load = async () => {
     agentPath.value = data.conversation?.agentId
       ? `${$apiPath}/autonomous-agents/${props.owner.type}/${props.owner.id}/${data.conversation.agentId}`
       : undefined
-    // The prompt is per run and does not change within a conversation unless the agent does; the
-    // last one is what a reviewer is looking at.
-    systemPrompt.value = [...runs.value].reverse().find(run => run.systemPrompt)?.systemPrompt ?? ''
     loaded.value = true
     emit('loaded', { owner: props.owner, label: data.conversation?.title ?? props.conversationId })
   } catch (err: any) {

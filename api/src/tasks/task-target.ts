@@ -61,7 +61,7 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
     history: async () => ({
       messages: [{ role: 'user', content: `Planned task "${task.title}":\n\n${run.prompt}` }],
       credits: 0,
-      hostBlockChars: 0
+      hostContext: ''
     }),
     // Conditional on the run still running, so a late write from an abandoned turn cannot overwrite the
     // parts its close already wrote.

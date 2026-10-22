@@ -280,9 +280,9 @@ export function withHostContext<M extends { role: string, content: unknown }> (
   // Appended AFTER the host blocks, so they are the last thing the model reads before the person's
   // words — which is the position a reminder needs (see interruptedWaitReminder).
   trailing: string[] = [],
-  // Told how many characters were folded in, for the run's telemetry: the blocks are not stored with
-  // the message, so this is the only record of how much the page said to the model.
-  measure?: { chars: number }
+  // Told what was folded in, for the run's telemetry: the blocks are not stored with the message, so
+  // this is the only record of what the page said to the model.
+  measure?: { text: string }
 ): M[] {
   const snapshot = store?.snapshot()
   // Drained whole, but only the UNKEYED events are reported: a keyed event is a state change, and the
@@ -306,7 +306,7 @@ export function withHostContext<M extends { role: string, content: unknown }> (
   if (at === -1) return history
   const target = history[at]
   const hidden = blocks.join('\n\n')
-  if (measure) measure.chars = hidden.length
+  if (measure) measure.text = hidden
   const next = [...history]
 
   // BOTH content shapes, and the array one is the one that matters.

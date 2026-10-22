@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { groupTools } from '../../../ui/src/utils/tool-groups.ts'
+import { groupTools, lastOfferedTools, availableToolGroups } from '../../../ui/src/utils/tool-groups.ts'
 
 test.describe('groupTools', () => {
   test('groups by kind in a fixed order, MCP servers one group each', () => {
@@ -28,5 +28,20 @@ test.describe('groupTools', () => {
 
   test('a run recorded before sources were is one list', () => {
     assert.deepEqual(groupTools(['b', 'a']), [{ names: ['a', 'b'] }])
+  })
+})
+
+test.describe('availableToolGroups', () => {
+  test('the last turn\'s tools, with the page\'s replaced by those it registers now', () => {
+    const known = lastOfferedTools([
+      { calls: [{ toolNames: ['old_page_tool', 'list_datasets'], toolSources: { old_page_tool: { kind: 'page' }, list_datasets: { kind: 'catalog', server: 'data-fair' } } }] },
+      { calls: [{ toolNames: ['select_row', 'list_datasets'], toolSources: { select_row: { kind: 'page' }, list_datasets: { kind: 'catalog', server: 'data-fair' } } }] },
+      { calls: [{}] }
+    ])
+    assert.deepEqual(known.names, ['select_row', 'list_datasets'], 'the last run that recorded tools')
+    assert.deepEqual(availableToolGroups(known, ['open_row']), [
+      { kind: 'catalog', server: 'data-fair', names: ['list_datasets'] },
+      { kind: 'page', names: ['open_row'] }
+    ])
   })
 })

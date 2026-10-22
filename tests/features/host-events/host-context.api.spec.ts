@@ -162,6 +162,9 @@ test.describe('Host context reaching the model', () => {
     const runs = (await user.get(`/api/conversations/${OWNER}/${conversationId}/runs`)).data.results as any[]
     const call = runs[0].calls.find((c: any) => c.modelRole === 'assistant')
     assert.ok(call.hostBlockChars > 'the datasets list'.length, `host blocks measured, got ${call.hostBlockChars}`)
+    // And the blocks themselves, once per run beside the system prompt: what the review page shows.
+    assert.match(runs[0].hostContext, /- page: the datasets list/)
+    assert.equal(runs[0].hostContext.length, call.hostBlockChars)
     assert.ok(call.toolNames.includes('wait_for_user_action'), `the offered tools, got ${JSON.stringify(call.toolNames)}`)
     assert.deepEqual(call.toolNames, [...call.toolNames].sort())
     // And where each came from, which the names alone cannot say (shared/tool-source.ts).

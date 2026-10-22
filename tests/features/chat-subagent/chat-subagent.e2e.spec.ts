@@ -28,9 +28,10 @@ test.describe('Chat Sub-Agent UI', () => {
     await goToWithAuth('/agents/_dev/chat-subagent', 'test-standalone1')
     await waitForPageTools(page, 'set_display', 'subagent_data_analyst')
 
-    // Before any turn there is no server record to show.
+    // Before any turn there is no server record: only the page's own tools, and no service tool yet.
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await expect(page.getByTestId('offered-tools-empty')).toBeVisible()
+    await expect(page.getByTestId('available-tools')).toContainText('set_display')
+    await expect(page.getByTestId('available-tools')).not.toContainText('wait_for_user_action')
     await page.getByRole('button', { name: /Close|Fermer/ }).click()
 
     await page.getByPlaceholder('Type your message...').fill('hello')
@@ -42,11 +43,11 @@ test.describe('Chat Sub-Agent UI', () => {
     await expect(async () => {
       await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
       try {
-        const offered = page.getByTestId('offered-tools')
-        await expect(offered).toContainText('set_display', { timeout: 1500 })
-        await expect(offered).toContainText('subagent_data_analyst', { timeout: 1500 })
-        // grouped by source: the page's own tool under the page's label
-        await expect(offered.getByTestId('tool-group').filter({ hasText: 'This page (WebMCP)' })).toContainText('set_display', { timeout: 1500 })
+        const available = page.getByTestId('available-tools')
+        await expect(available).toContainText('subagent_data_analyst', { timeout: 1500 })
+        // grouped by source: the page's own tool under the page's label, the service's from the turn's record
+        await expect(available.getByTestId('tool-group').filter({ hasText: 'This page (WebMCP)' })).toContainText('set_display', { timeout: 1500 })
+        await expect(available.getByTestId('tool-group').filter({ hasText: 'Built into the service' })).toContainText('wait_for_user_action', { timeout: 1500 })
       } finally {
         await page.getByRole('button', { name: /Close|Fermer/ }).click()
       }

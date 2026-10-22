@@ -30,3 +30,38 @@ export function groupTools (names: string[], sources?: Record<string, ToolSource
     .map(group => ({ ...group, names: [...group.names].sort() }))
     .sort((a, b) => rank(a) - rank(b) || (a.server ?? '').localeCompare(b.server ?? ''))
 }
+
+/** A set of tool names and where each came from, as a run's calls record them. */
+export interface SourcedTools {
+  names: string[]
+  sources: Record<string, ToolSource>
+}
+
+type RunCalls = { calls?: Array<{ toolNames?: string[], toolSources?: Record<string, ToolSource> }> }
+
+/** The tools offered on a conversation's last turn: the union over the calls of the last run that recorded any. */
+export function lastOfferedTools (runs: RunCalls[]): SourcedTools {
+  const calls = runs.filter(run => run.calls?.some(call => call.toolNames)).pop()?.calls ?? []
+  return {
+    names: [...new Set(calls.flatMap(call => call.toolNames ?? []))],
+    // A run recorded before sources were has none: its tools are one unlabelled group rather than mislabelled.
+    sources: Object.assign({}, ...calls.map(call => call.toolSources ?? {}))
+  }
+}
+
+export function offeredToolGroups (runs: RunCalls[]): ToolGroup[] {
+  const { names, sources } = lastOfferedTools(runs)
+  return groupTools(names, sources)
+}
+
+/**
+ * What the chat can call now: a known set (the last turn's, or the agent's servers' before a first one)
+ * with the page's tools replaced by those it registers now, since the page's are live and the rest are not.
+ */
+export function availableToolGroups (known: SourcedTools, pageNames: string[]): ToolGroup[] {
+  const kept = known.names.filter(name => known.sources[name]?.kind !== 'page' && !pageNames.includes(name))
+  return groupTools([...kept, ...pageNames], {
+    ...known.sources,
+    ...Object.fromEntries(pageNames.map(name => [name, { kind: 'page' as const }]))
+  })
+}

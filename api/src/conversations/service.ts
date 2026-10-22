@@ -548,11 +548,12 @@ export const appendRunCall = async (id: string, call: NonNullable<ConversationRu
   await mongo.runs.updateOne({ id }, { $push: { calls: call } })
 }
 
-/** The instructions this run gave the model, recorded once. */
-export const setRunSystemPrompt = async (id: string, systemPrompt: string) => {
+/** The instructions this run gave the model and the page context folded into its last user message, recorded once. */
+export const setRunInputs = async (id: string, systemPrompt: string, hostContext: string) => {
+  const inputs = { systemPrompt, ...(hostContext ? { hostContext } : {}) }
   const buffer = runBuffers.get(id)
-  if (buffer) { buffer.systemPrompt = systemPrompt; return }
-  await mongo.runs.updateOne({ id }, { $set: { systemPrompt } })
+  if (buffer) { buffer.inputs = inputs; return }
+  await mongo.runs.updateOne({ id }, { $set: inputs })
 }
 
 /** Add one step's spend to a run, as it happens ($inc: a turn abandoned at its deadline keeps spending). */
@@ -576,7 +577,7 @@ export const incrementRunSpend = async (id: string, credits: number, steps: numb
  * deadline, still spending) writes directly. The price: a process dying mid-turn loses that turn's
  * telemetry. Its spend is not lost — the usage ledger is written per call, separately.
  */
-interface RunBuffer { calls: NonNullable<ConversationRun['calls']>, credits: number, steps: number, systemPrompt?: string }
+interface RunBuffer { calls: NonNullable<ConversationRun['calls']>, credits: number, steps: number, inputs?: { systemPrompt: string, hostContext?: string } }
 const runBuffers = new Map<string, RunBuffer>()
 
 export const bufferRunWrites = (runId: string) => {
@@ -589,7 +590,7 @@ const drainRunBuffer = (runId: string) => {
   runBuffers.delete(runId)
   if (!buffer) return { set: {}, update: {}, credits: 0 }
   return {
-    set: buffer.systemPrompt !== undefined ? { systemPrompt: buffer.systemPrompt } : {},
+    set: buffer.inputs ?? {},
     update: {
       ...(buffer.calls.length ? { $push: { calls: { $each: buffer.calls } } } : {}),
       ...(buffer.credits || buffer.steps ? { $inc: { credits: buffer.credits, steps: buffer.steps } } : {})

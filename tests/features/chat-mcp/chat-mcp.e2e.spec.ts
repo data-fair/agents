@@ -16,24 +16,18 @@ test.describe('Chat MCP UI', () => {
     await putMockSettings(admin, 'user/test-standalone1')
   })
 
-  test('Page loads, and the debug dialog shows the declared tool inputSchema', async ({ page, goToWithAuth }) => {
+  test('Page loads, and the debug dialog lists the page tool with its description', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
     await expect(page.getByRole('heading', { name: 'Chat MCP Dev', level: 1 })).toBeVisible()
     await expect(page.getByLabel('Data')).toBeVisible()
 
     await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
+    await page.getByRole('tab', { name: 'Tools' }).click()
 
-    // Expand the tool panel to reveal the inputSchema (discovery is asynchronous, hence the timeout).
-    const tool = page.getByTestId('page-tools').getByText('set_data', { exact: true })
+    // Listed under the page's own source, with the description the page declared (discovery is asynchronous, hence the timeout).
+    const tool = page.getByTestId('available-tools').locator('[data-kind="page"]').getByText('set_data', { exact: true })
     await expect(tool).toBeVisible({ timeout: 10000 })
-    await tool.click()
-
-    // The schema the page declared is not empty - it should contain the "data" property
-    const schemaBlock = page.getByTestId('page-tools').locator('.agent-chat__pre').last()
-    await expect(schemaBlock).toBeVisible()
-    await expect(schemaBlock).toContainText('"properties"')
-    await expect(schemaBlock).toContainText('"data"')
+    await expect(tool).toHaveAttribute('title', /.+/)
   })
 
   test('Agent can call set_data tool', async ({ page, goToWithAuth }) => {

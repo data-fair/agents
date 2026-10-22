@@ -32,10 +32,11 @@ test.describe('Chat inspection dialog', () => {
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
 
     await openDialog(page)
-    await expect(page.getByTestId('offered-tools-empty')).toBeVisible()
-    const agentTools = page.getByTestId('agent-tools')
-    await expect(agentTools).toContainText('MCP · dev-public-mcp', { timeout: 15000 })
-    await expect(agentTools).toContainText('list_road_closures')
+    const available = page.getByTestId('available-tools')
+    await expect(available).toContainText('MCP · dev-public-mcp', { timeout: 15000 })
+    await expect(available).toContainText('list_road_closures')
+    // the service's own tools come with a turn, which the dialog says
+    await expect(available).not.toContainText('wait_for_user_action')
     await closeDialog(page)
 
     await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill('hello')
@@ -46,11 +47,10 @@ test.describe('Chat inspection dialog', () => {
     await expect(async () => {
       await openDialog(page)
       try {
-        const groups = page.getByTestId('offered-tools').getByTestId('tool-group')
+        const groups = page.getByTestId('available-tools').getByTestId('tool-group')
         await expect(groups.filter({ hasText: 'MCP · dev-public-mcp' })).toContainText('list_road_closures', { timeout: 1500 })
+        // the turn's record replaces the servers' listing, and carries the service's tools
         await expect(groups.filter({ hasText: 'Built into the service' })).toContainText('wait_for_user_action', { timeout: 1500 })
-        // the listing is for before a turn: once there is a record, the record is what is shown
-        await expect(page.getByTestId('agent-tools')).toHaveCount(0)
       } finally {
         await closeDialog(page)
       }

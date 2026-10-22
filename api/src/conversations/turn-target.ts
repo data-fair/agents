@@ -127,7 +127,7 @@ export interface TurnTarget {
    */
   messageSeq?: number
   /** The model's context for this turn, within budget, as it is sent. */
-  history: (request: TurnHistoryRequest) => Promise<{ messages: ModelMessage[], credits: number, hostBlockChars: number }>
+  history: (request: TurnHistoryRequest) => Promise<{ messages: ModelMessage[], credits: number, hostContext: string }>
   /** Persist the turn's structure as it stands: called when a call opens or settles. */
   persist: (parts: MessagePart[]) => Promise<void>
   frames: TurnFrames
@@ -210,11 +210,11 @@ export const conversationTarget = (
       // their words. In the interrupted wait's own result it sat in history ahead of the new question, and
       // judged runs answered the question and never waited again.
       const reminder = pendingWaitReminder(compacted.messages)
-      const hostBlocks = { chars: 0 }
+      const hostBlocks = { text: '' }
       const history = session || reminder
         ? withHostContext(compacted.messages, session?.hostEvents ?? null, reminder ? [reminder] : [], hostBlocks)
         : compacted.messages
-      return { messages: history, credits: compacted.credits, hostBlockChars: hostBlocks.chars }
+      return { messages: history, credits: compacted.credits, hostContext: hostBlocks.text }
     },
     persist: async (parts) => { await updateMessage(run.conversationId, messageSeq, { parts, pending: true }) },
     frames: {

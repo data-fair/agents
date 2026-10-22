@@ -57,7 +57,7 @@ test.describe('Consented review flow', () => {
     await page.getByRole('button', { name: /^Settings$|^Paramètres$/ }).click()
     await expect(page.getByRole('tab')).toHaveCount(3)
     await expect(page.getByRole('tab', { name: 'Trace' })).toHaveCount(0)
-    await expect(page.getByRole('tab', { name: 'Info' })).toBeVisible()
+    await expect(page.getByRole('tab', { name: 'Tools' })).toBeVisible()
     await expect(page.getByRole('tab', { name: 'Consumption' })).toBeVisible()
     await page.getByRole('tab', { name: /^Settings$|^Paramètres$/ }).click()
     await expect(page.getByText('Store my conversations for review')).toBeVisible({ timeout: 5000 })

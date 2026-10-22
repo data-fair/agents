@@ -97,5 +97,10 @@ test.describe('Activity and review pages', () => {
     await page.getByRole('button', { name: 'Show detail' }).click()
     await expect(page.getByText('Instructions given to the model')).toBeVisible()
     await expect(page.getByText('tool result', { exact: false }).first()).toBeVisible()
+    // What else the model was given that the thread does not show: the page's context (none from a bare
+    // socket) and the tools the turn offered, by source; and per call, what the provider cache served.
+    await expect(page.getByTestId('review-host-context')).toBeVisible()
+    await expect(page.getByTestId('review-offered-tools').getByTestId('tool-group').filter({ hasText: 'Built into the service' })).toContainText('wait_for_user_action')
+    await expect(page.getByRole('columnheader', { name: 'Cache read' })).toBeVisible()
   })
 })

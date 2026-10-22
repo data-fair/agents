@@ -14,7 +14,7 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin } from '../../support/axios.ts'
+import { axiosAuth, clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { findChatFrame, waitForChatFrame } from '../../support/chat-frame.ts'
 
@@ -63,14 +63,25 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
 
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
 
-    // The debug dialog shows everything this PAGE tells the model — the whole client-side
-    // contribution, now that the persona itself lives on the server. If the marker is not in there,
-    // the client did not carry it, which is exactly what the removed capability was.
-    //
-    // Wait for a fact that IS reported before asserting the marker's absence: against an empty or
-    // still-loading dialog the absence assertion would pass for the wrong reason.
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await expect(page.locator('.v-dialog')).toContainText('language:', { timeout: 5000 })
-    await expect(page.locator('.v-dialog')).not.toContainText('SYSPROMPT_E2E_MARKER')
+    // Run a turn, then read the server's record of what the model was given: the run's system prompt
+    // and the page context folded into the person's message (the whole client-side contribution, now
+    // that the persona lives on the server). If the marker is in neither, the client did not carry it,
+    // which is exactly what the removed capability was.
+    await page.getByPlaceholder('Type your message...').fill('hello')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
+
+    // Wait for a fact the page DOES report before asserting the marker's absence: against a run whose
+    // telemetry has not landed yet, the absence assertion would pass for the wrong reason.
+    const user = await axiosAuth('test-standalone1')
+    let run: any
+    await expect.poll(async () => {
+      const conversations = (await user.get('/api/conversations/user/test-standalone1')).data.results
+      if (!conversations.length) return undefined
+      run = (await user.get(`/api/conversations/user/test-standalone1/${conversations[0].id}/runs`)).data.results.at(-1)
+      return run?.hostContext
+    }, { timeout: 15000 }).toContain('language:')
+    expect(run.systemPrompt).not.toContain('SYSPROMPT_E2E_MARKER')
+    expect(run.hostContext).not.toContain('SYSPROMPT_E2E_MARKER')
   })
 })

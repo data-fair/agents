@@ -15,7 +15,7 @@ import { withCallPath, describeFileArguments, type CallPathContext } from '../fi
 import { buildSystemPrompt, workerInstructions, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
 import type { TurnTarget, TurnResult } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { setRunSystemPrompt } from './service.ts'
+import { setRunInputs } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { CACHED_PREFIX_PROVIDER_OPTIONS, type ModelRole } from '../models/operations.ts'
@@ -93,7 +93,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const loaded = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
-  const { credits: compactionCredits, hostBlockChars } = loaded
+  const { credits: compactionCredits, hostContext } = loaded
   const continuation = ctx.continuation
   // A second pass sees the first as the model produced it, then the note: the same conversion a stored turn's
   // replay uses (data parts, such as the reminder itself, are left out of it by the SDK).
@@ -659,12 +659,12 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     ...(target.messageSeq !== undefined ? { historyUpToSeq: target.messageSeq } : {}),
     toolNames: [...offeredTools.keys()].sort(),
     toolSources: Object.fromEntries(offeredTools),
-    hostBlockChars
+    hostBlockChars: hostContext.length
   })
-  // The instructions, recorded ONCE per run rather than on every call: they do not change within a
-  // turn, and they are what a reviewer needs that the conversation does not contain.
-  setRunSystemPrompt(run.id, systemPrompt)
-    .catch(err => console.error('could not record the run system prompt', err))
+  // The instructions and the page's context, recorded ONCE per run rather than on every call: they do
+  // not change within a turn, and they are what a reviewer needs that the conversation does not contain.
+  setRunInputs(run.id, systemPrompt, hostContext)
+    .catch(err => console.error('could not record the run inputs', err))
   // A guard-stopped turn is a truncation, not a provider error: the model still wanted to
   // call tools when a cap cut it off. The budget is checked first because it is the reason
   // that is not otherwise visible from the finish reason.
