@@ -38,19 +38,14 @@ test.describe('Chat Sub-Agent UI', () => {
     await page.getByRole('button', { name: 'Send' }).click()
     await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
 
-    // The record is read when the dialog opens, and the call record is written fire-and-forget, so
-    // open it until the turn's tools show up: what the model was actually offered.
-    await expect(async () => {
-      await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-      try {
-        const available = page.getByTestId('available-tools')
-        await expect(available).toContainText('subagent_data_analyst', { timeout: 1500 })
-        // grouped by source: the page's own tool under the page's label, the service's from the turn's record
-        await expect(available.getByTestId('tool-group').filter({ hasText: 'This page (WebMCP)' })).toContainText('set_display', { timeout: 1500 })
-        await expect(available.getByTestId('tool-group').filter({ hasText: 'Built into the service' })).toContainText('wait_for_user_action', { timeout: 1500 })
-      } finally {
-        await page.getByRole('button', { name: /Close|Fermer/ }).click()
-      }
-    }).toPass({ timeout: 15000 })
+    // Opened as soon as the answer shows, which is before the run closes and writes its record: the dialog
+    // must catch up when the turn ends, without being reopened (it used to keep the turn before until a reload).
+    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
+    const available = page.getByTestId('available-tools')
+    await expect(available).toContainText('subagent_data_analyst')
+    // grouped by source: the page's own tool under the page's label, the service's from the turn's record
+    await expect(available.getByTestId('tool-group').filter({ hasText: 'This page (WebMCP)' })).toContainText('set_display')
+    await expect(available.getByTestId('tool-group').filter({ hasText: 'Built into the service' })).toContainText('wait_for_user_action', { timeout: 15000 })
+    await page.getByRole('button', { name: /Close|Fermer/ }).click()
   })
 })

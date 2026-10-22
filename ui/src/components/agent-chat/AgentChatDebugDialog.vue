@@ -245,8 +245,10 @@ const pageToolDescriptions = computed(() => Object.fromEntries(Object.entries(pr
 
 /**
  * The tools the model was offered on the conversation's last turn, read from the run when the dialog
- * opens (cleared first, so another thread's list never lingers). Empty before a first turn, and for an
- * anonymous chat, which has no run to read: an admin is then shown what the agent's MCP servers offer now.
+ * opens and again when a turn ends: the run's record is written as it closes, a moment after its answer
+ * has streamed, so a dialog opened in between first reads the turn before. Empty before a first turn, and
+ * for an anonymous chat, which has no run to read: an admin is then shown what the agent's MCP servers
+ * offer now.
  */
 const noTools: SourcedTools = { names: [], sources: {} }
 const lastTurnTools = ref<SourcedTools>(noTools)
@@ -257,10 +259,14 @@ const availableGroups = computed(() => availableToolGroups(
 ))
 const availableCount = computed(() => availableGroups.value.reduce((count, group) => count + group.names.length, 0))
 
-watch(() => props.modelValue, async open => {
+watch(() => [props.modelValue, props.usageVersion, props.conversationId] as const, async ([open], previous) => {
   if (!open) return
-  lastTurnTools.value = noTools
-  agentServerTools.value = noTools
+  // Cleared on opening and on another thread, so a list never lingers where it is not true; a refetch
+  // after a turn keeps the one on screen until the new one replaces it.
+  if (!previous?.[0] || previous[2] !== props.conversationId) {
+    lastTurnTools.value = noTools
+    agentServerTools.value = noTools
+  }
   if (props.conversationId) {
     try {
       const res = await $fetch<{ results: Parameters<typeof lastOfferedTools>[0] }>(
