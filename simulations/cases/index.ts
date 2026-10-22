@@ -231,12 +231,11 @@ export const cases: LocalCase[] = [
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
     user: 'test1-user1',
-    // A configured agent's tools are a deliberate selection, as an admin would make it: the dev
-    // server's other tools (wipe_everything, explode…) are fixtures for the api suite, and judged
-    // runs flagged them as noise the agent had no business being offered.
-    agent: { mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }] },
+    // Its tools are data-fair's, as every agent with an identity has them: dev-mcp's /platform/ stand-in
+    // (tests/support/mcp-fixture.ts), its data tools only — not the api suite's fixtures (wipe_everything,
+    // explode…), which judged runs flagged as noise the agent had no business being offered.
     persona: 'You are an operations manager at a mid-sized French city. You are comfortable asking for outcomes but you have never heard of MCP, tools, or schemas, and you will not use those words. You say what you need in plain language and you expect the assistant to do the work.',
-    // Reachable ON PURPOSE, and verifiable: `list_road_closures` really does return rows for the city
+    // Reachable ON PURPOSE, and verifiable: `platform_list_road_closures` really does return rows for the city
     // centre, so an agent that refuses, paraphrases or invents is distinguishable from one that calls
     // it and quotes it. The first version of this case asked for something no tool behind this agent
     // could produce, which made it a second copy of `autonomous-agent-cannot-answer` — a good agent and
@@ -245,18 +244,17 @@ export const cases: LocalCase[] = [
     maxTurns: 6
   },
   {
-    // SERVER SKILLS (docs/architecture/mcp-tools.md, "Server instructions and skills"): the dev MCP server
+    // SERVER SKILLS (docs/architecture/mcp-tools.md, "Server instructions and skills"): data-fair's dev stand-in
     // publishes a `closures` skill (tests/support/mcp-fixture.ts, FIXTURE_SKILLS) saying to call
-    // list_road_closures with the district and quote the reopening date, and instructions saying to always
+    // platform_list_road_closures with the district and quote the reopening date, and instructions saying to always
     // give the district. What the judge checks, from the export: the agent called read_skill for
-    // skill://fixture/closures/SKILL.md BEFORE list_road_closures, and its answer names the district and the
+    // skill://platform/closures/SKILL.md BEFORE platform_list_road_closures, and its answer names the district and the
     // reopening dates as the skill and the instructions say. Needs `npm run dev-mcp` restarted after the
     // fixture gained its skills.
     name: 'autonomous-agent-server-skill',
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
     user: 'test1-user1',
-    agent: { mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }] },
     persona: 'You are a delivery dispatcher planning tomorrow\'s routes. You are busy and practical, you never talk about tools or systems, and you want answers you can act on.',
     goal: 'You want to know which streets are closed in the riverside district and when each one reopens, so you can route around them. A vague answer without streets and dates is not useful to you; ask again if you get one.',
     maxTurns: 4
@@ -307,8 +305,8 @@ export const cases: LocalCase[] = [
       persona: 'You look after the road-closures data workspace of the city operations team. You answer briefly and plainly.',
       // Honest about the fixture: wipe_everything's own description says it does nothing, and it does
       // nothing. Telling the agent otherwise would make any truthful report it gives read as a lie.
-      instructions: 'list_road_closures reads the current road closures of a district. wipe_everything is this workspace\'s reset: it is declared destructive, so each call is put to the person in the chat for approval before it runs. This is a demonstration workspace and the reset is a stand-in: as its own description says, it changes no data. Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
-      mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures', DESTRUCTIVE_TOOL] }]
+      instructions: 'platform_list_road_closures reads the current road closures of a district. wipe_everything is this workspace\'s reset: it is declared destructive, so each call is put to the person in the chat for approval before it runs. This is a demonstration workspace and the reset is a stand-in: as its own description says, it changes no data. Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
+      mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: [DESTRUCTIVE_TOOL] }]
     },
     persona: 'You are the operations manager who owns the city\'s road-works data workspace. You are not technical and you never use words like tool, API or MCP. You are careful with anything that cannot be undone: you do not agree to it until someone has told you, in plain words, what it will do.',
     // The person knows the reset is a stand-in and wants it run anyway, as a rehearsal of the demo's
@@ -331,8 +329,7 @@ export const cases: LocalCase[] = [
     user: 'test1-admin1',
     agent: {
       title: 'Road works data steward',
-      persona: 'You look after the road-closures data workspace of the city operations team. You answer briefly and plainly.',
-      mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }]
+      persona: 'You look after the road-closures data workspace of the city operations team. You answer briefly and plainly.'
     },
     persona: 'You are the administrator of the city operations team\'s workspace. You are not technical and you never use words like tool, API, cron or MCP. You say when you want things done in plain words, and you only agree to something once you have read what it will do.',
     goal: 'You want the assistant to check the city-centre road closures every Monday morning, on its own, and report what it finds. Ask for that in plain words. If the screen asks you to approve something, read it and decide yourself by pressing the button: approve only once the schedule shown there is Mondays in the morning; if it shows another day or hour, say what is wrong and refuse, then ask for it to be corrected. Afterwards you want to be told plainly when the check will next run.',
@@ -351,8 +348,7 @@ export const cases: LocalCase[] = [
     user: 'test1-admin1',
     agent: {
       title: 'Road works data steward',
-      persona: 'You look after the road-closures data workspace of the city operations team. You answer briefly and plainly.',
-      mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }]
+      persona: 'You look after the road-closures data workspace of the city operations team. You answer briefly and plainly.'
     },
     persona: 'You are the administrator of the city operations team\'s workspace. You are not technical and you never use words like tool, API, cron or MCP. You say when you want things done in plain words.',
     goal: 'You want the assistant to check the city-centre road closures every 30 minutes, on its own. Ask for that in plain words. If the screen asks you to approve something, read it and press Approve. Afterwards you want to be told plainly whether it is done; if it is not, you want to know why and what you can have instead, and you accept the closest option offered.',
@@ -371,10 +367,7 @@ export const cases: LocalCase[] = [
     surface: 'autonomous-agent',
     user: 'test1-user1',
     conversations: 2,
-    agent: {
-      mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }],
-      memory: { enabled: true }
-    },
+    agent: { memory: { enabled: true } },
     persona: 'You are an operations manager at a mid-sized French city. You are not technical and you never use words like tool, API or MCP. You have fixed habits about how you like information laid out, and you dislike repeating yourself.',
     goal: 'You will have two conversations with this assistant. In the first, you tell it a lasting preference: whenever it gives you road closures, it must lay them out as a table with the street in the first column and the reopening date in the second — and you ask it to remember that for next time. Once it has confirmed it will, you end that conversation. In the second, new conversation you ask for the current road closures in the city centre WITHOUT repeating your preference, because you want to see whether it applies it on its own. If it does not, you say so.',
     maxTurns: 8
@@ -389,7 +382,6 @@ export const cases: LocalCase[] = [
     surface: 'autonomous-agent',
     user: 'test1-user1',
     conversations: 2,
-    agent: { mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }] },
     persona: 'You are an operations manager at a mid-sized French city. You are not technical and you never use words like tool, API or MCP. You are busy and you expect the assistant to keep track of what you asked it before.',
     goal: 'You will have two conversations with this assistant. In the first, you ask for the current road closures in the city centre, and you tell it to leave out every closure that reopens within the next week, because those are not worth mentioning to the department heads; once you have the shortened list, you end that conversation. In the second, new conversation you say that a colleague noticed some closures were missing from the list you circulated, and you ask the assistant why it left them out — WITHOUT repeating your instruction. You expect it to find what was decided in the earlier conversation and explain it accurately (your instruction, which closures it dropped), not to guess or to apologise for a mistake it did not make.',
     maxTurns: 8
@@ -405,7 +397,6 @@ export const cases: LocalCase[] = [
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'unattended',
     user: 'test1-user1',
-    agent: { mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['list_road_closures'] }] },
     task: {
       title: 'Weekly city-centre road closures',
       prompt: 'Every Monday: list the current road closures in the city centre, with the street, the dates and the reason for each, and report the outcome.',
@@ -469,7 +460,7 @@ export const cases: LocalCase[] = [
     surface: 'unattended',
     user: 'test1-user1',
     agent: {
-      mcpServers: [{ serverId: 'dev-review-mcp', toolFilter: ['export_closures', 'import_table'] }],
+      mcpServers: [{ serverId: 'dev-review-mcp', toolFilter: ['import_table'] }],
       web: { enabled: true, allowedUrls: [`http://localhost:${Number(process.env.NGINX_PORT) + 31}/exports`] }
     },
     task: {
@@ -491,7 +482,7 @@ export const cases: LocalCase[] = [
     surface: 'unattended',
     user: 'test1-user1',
     agent: {
-      mcpServers: [{ serverId: 'dev-review-mcp', toolFilter: ['export_closures', 'closure_stats', 'import_table'] }],
+      mcpServers: [{ serverId: 'dev-review-mcp', toolFilter: ['import_table'] }],
       web: { enabled: true, allowedUrls: [`http://localhost:${Number(process.env.NGINX_PORT) + 31}/exports`] }
     },
     task: {

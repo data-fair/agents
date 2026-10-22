@@ -145,7 +145,7 @@ export interface SimulatedAgentConfig {
   title?: string
   persona?: string
   instructions?: string
-  /** Catalog entries from `api/config/development.js`, each optionally narrowed by a toolFilter. */
+  /** Catalog entries from `api/config/development.js`, each optionally narrowed by a toolFilter: beside data-fair's built-in server. */
   mcpServers?: Array<{ serverId: string, toolFilter?: string[] }>
   /** Whether the agent keeps a memory across conversations (off unless a case turns it on). */
   memory?: { enabled: boolean }
@@ -161,9 +161,10 @@ export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
   title: 'Simulated autonomous agent',
   persona: 'You are a helpful data assistant. You answer briefly and you say plainly when you cannot do something.',
   instructions: 'Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
-  // The long-running review server (npm run dev-mcp), not the per-spec fixture: a simulation is
-  // not a spec and nothing would be listening on the fixture's port.
-  mcpServers: [{ serverId: 'dev-review-session-mcp' }],
+  // None: its tools are data-fair's built-in server, dev-mcp's /platform/ stand-in (privateMcpUrl). A case
+  // needing a tool the stand-in lacks references the long-running review server for it, never the
+  // per-spec fixture: a simulation is not a spec and nothing would be listening on the fixture's port.
+  mcpServers: [],
   // Off, as the product's own default: a case not about memory must not have its later conversations
   // shaped by what an earlier one wrote.
   memory: { enabled: false },

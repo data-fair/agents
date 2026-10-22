@@ -158,13 +158,15 @@ async function seedChats (sessions: Record<string, any>) {
 const AUTONOMOUS_AGENT_ID = 'dev-fixture'
 const AUTONOMOUS_AGENT_NHI = 'dev-autonomous-agent-nhi'
 
-// Wired to the review MCP server (npm run dev-mcp), not the test fixture: the test one only exists
-// for the life of a spec, so an agent pointed at it would 502 the moment you posted a message.
+// Its tools are data-fair's built-in server, which dev points at the review MCP server's /platform/ stand-in
+// (npm run dev-mcp, privateMcpUrl), plus that server's get_schema, which the stand-in lacks and the truncated
+// turn below calls. The review server, not the test fixture: that one only exists for the life of a spec, so
+// an agent using it would 502 the moment you posted a message.
 const autonomousAgentBody = {
   title: 'Dev fixture agent',
   persona: 'You are a helpful data assistant for the Dev Organization. You answer briefly and you say plainly when you cannot do something.',
   instructions: 'Prefer calling a tool over guessing. If a tool fails, say so rather than inventing a result.',
-  mcpServers: [{ serverId: 'dev-review-session-mcp' }],
+  mcpServers: [{ serverId: 'dev-review-session-mcp', toolFilter: ['get_schema'] }],
   // The grant is half the feature and is otherwise unreviewable by hand: dev1's two admins
   // are allowed anyway, so without an instructor there is no way to open this thread as
   // someone who is NOT an admin and see what they are permitted to do. dev1-contrib1 is a
@@ -178,7 +180,7 @@ const autonomousAgentBody = {
 // covers a clean answer, a real tool call, a provider failure and a guard truncation.
 const autonomousConversations = [
   { title: 'A plain answer', message: 'hello' },
-  { title: 'A tool call', message: 'call tool list_road_closures {"district":"city-center"}' },
+  { title: 'A tool call', message: 'call tool platform_list_road_closures {"district":"city-center"}' },
   { title: 'A failed turn', message: 'stream error' },
   { title: 'A truncated turn', message: 'loop forever' }
 ]
