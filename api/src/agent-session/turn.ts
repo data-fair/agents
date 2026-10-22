@@ -23,6 +23,7 @@ import { settlePendingWait } from '../conversations/waits.ts'
 import { interruptedWaitResult } from '../conversations/interrupted-turn.ts'
 import mongo from '#mongo'
 import type { AgentSession } from './session.ts'
+import type { ServerMessage } from '@agents/shared/agent-session-protocol'
 import { wrapHiddenContext } from '@agents/shared/hidden-context'
 import { getEffectiveRole } from '../auth.ts'
 import config from '#config'
@@ -166,13 +167,16 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
  *
  * Authorization is the caller's: this is reached only after `assertOwnsConversation` on the attach.
  */
-export const sendHistory = async (session: AgentSession, conversationId: string) => {
+export const sendHistory = async (send: (message: ServerMessage) => void, conversationId: string) => {
+  // Read in the same tick as the attach, before the history: every frame the turn broadcasts from here on
+  // follows it (held, see service.ts), so the page gets each part once — in the snapshot or after it.
+  const live = liveTurnOf(conversationId)
   const messages = await mongo.messages
     .find({ conversationId }, { projection: { _id: 0 } })
     .sort({ seq: 1 })
     .toArray()
   for (const message of messages) {
-    session.send({
+    send({
       type: 'message',
       seq: message.seq,
       role: message.role,
@@ -187,11 +191,10 @@ export const sendHistory = async (session: AgentSession, conversationId: string)
   const pending = last?.role === 'assistant'
     ? (last.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.state === 'approval-requested') as { toolName?: string } | undefined
     : undefined
-  if (pending) session.send({ type: 'activity', activity: { kind: 'approval', toolName: pending.toolName ?? '' } })
+  if (pending) send({ type: 'activity', activity: { kind: 'approval', toolName: pending.toolName ?? '' } })
   // A turn running here has more than the store: its answer is written at the end, not as it
   // streams. Same seq as the stored pending message, so the client replaces that one with it, and
   // the rest arrives live — the turn sends to whoever watches the conversation now.
-  const live = liveTurnOf(conversationId)
-  if (live) session.send({ type: 'message', seq: live.messageSeq, role: 'assistant', parts: live.parts, pending: true })
+  if (live) send({ type: 'message', seq: live.messageSeq, role: 'assistant', parts: live.parts, pending: true })
   debug('sent %d stored message(s) for %s', messages.length, conversationId)
 }

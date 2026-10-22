@@ -15,6 +15,30 @@ import { nanoid } from 'nanoid'
 import type { BrowserToolDescriptor, ClientMessage, ServerMessage } from '@agents/shared/agent-session-protocol'
 import { HostEventStore } from './host-events.ts'
 
+/**
+ * A socket's sender that can hold back what the turn broadcasts while a page is being caught up.
+ *
+ * A page attaching mid-turn is sent the stored history, then the turn so far, while the turn keeps
+ * broadcasting to it. Sent as they came, a turn ending during the history read reached the page FIRST —
+ * the settled answer, then turn-end — and the stale stored message replayed after it replaced that answer
+ * with an empty pending one. Held, the broadcasts follow the replay (`direct`) in the order they were sent.
+ */
+export const holdingSender = (send: (message: ServerMessage) => void) => {
+  let held: ServerMessage[] | undefined
+  return {
+    /** What the turn's broadcasts reach. */
+    send: (message: ServerMessage) => { if (held) held.push(message); else send(message) },
+    /** The catch-up's own frames, never held. */
+    direct: send,
+    hold: () => { held ??= [] },
+    release: () => {
+      const frames = held ?? []
+      held = undefined
+      for (const message of frames) send(message)
+    }
+  }
+}
+
 /** How long the server waits for the browser to answer a contextual tool call. */
 export const BROWSER_CALL_TIMEOUT_MS = 30_000
 

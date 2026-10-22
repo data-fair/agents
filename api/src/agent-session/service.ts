@@ -13,7 +13,7 @@ import { session as expressSession, httpError, type AccountKeys } from '@data-fa
 import eventsLog from '@data-fair/lib-express/events-log.js'
 import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, isSupersededFrame, type ServerMessage, type ClientMessage } from '@agents/shared/agent-session-protocol'
-import { createAgentSession, type AgentSession } from './session.ts'
+import { createAgentSession, holdingSender, type AgentSession } from './session.ts'
 import { attachSession, detachSession } from './registry.ts'
 import {
   requireConversationById,
@@ -93,8 +93,10 @@ export const startAgentSessions = (server: Server) => {
     let helloRefusal: unknown
     // The one thread an ANONYMOUS socket holds: created by its first prompt, purged when it closes.
     let anonymousThread: { id: string, owner: AccountKeys, usageUserId: string } | undefined
+    // What the turn broadcasts is held while an attach catches the page up (session.ts, holdingSender).
+    const sender = holdingSender(send)
     const agentSession: AgentSession = createAgentSession({
-      send,
+      send: sender.send,
       // The cookie is taken from the UPGRADE request, which is the only moment it is available: a
       // websocket frame carries no headers.
       sessionCookie: req.headers.cookie,
@@ -117,10 +119,17 @@ export const startAgentSessions = (server: Server) => {
           // thread it created (see hello).
           const conversation = sessionState?.user ? await resolveOwnConversation(conversationId) : undefined
           boundConversationId = conversationId
-          attachSession(conversationId, agentSession)
-          // The transcript so far, so a reload or a second tab shows the conversation rather than
-          // an empty pane.
-          if (conversation) await sendHistoryFor(conversation)
+          // From the moment it watches, what the turn broadcasts waits for the catch-up below: a turn ending
+          // during the history read would otherwise reach the page before its stale stored copy.
+          sender.hold()
+          try {
+            attachSession(conversationId, agentSession)
+            // The transcript so far, so a reload or a second tab shows the conversation rather than
+            // an empty pane.
+            if (conversation) await sendHistoryFor(conversation)
+          } finally {
+            sender.release()
+          }
         } catch (err: any) {
           // Reported rather than leaving the client to guess why nothing arrived, and kept as what this
           // socket's prompts are answered with: it is bound to nothing, and not because nothing was named.
@@ -233,12 +242,12 @@ export const startAgentSessions = (server: Server) => {
     }
 
     const sendHistoryFor = async (conversation: Awaited<ReturnType<typeof requireConversationById>>) => {
-      await sendHistory(agentSession, conversation.id)
+      await sendHistory(sender.direct, conversation.id)
       // The total so far, for the chat's Consumption tab; refreshed before every turn-end. Off the
       // document the ownership check just read, rather than a read of its own.
-      agentSession.send({ type: 'cost', conversationCost: await conversationCost(conversation.id, conversation) })
+      sender.direct({ type: 'cost', conversationCost: await conversationCost(conversation.id, conversation) })
       // A thread waiting on the person says so on reopening, as it did when the handover was made.
-      if (conversation.pendingWait) agentSession.send({ type: 'activity', activity: { kind: 'waiting', expecting: conversation.pendingWait.expecting ?? '' } })
+      if (conversation.pendingWait) sender.direct({ type: 'activity', activity: { kind: 'waiting', expecting: conversation.pendingWait.expecting ?? '' } })
     }
 
     /** Who this socket speaks for, as the conversation service names a caller. */

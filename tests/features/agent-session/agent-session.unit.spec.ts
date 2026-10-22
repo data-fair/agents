@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { parseClientMessage, parseServerMessageForClient, isAgentSessionPath, isSupersededFrame, CLIENT_FRAME_LIMITS, TOOLS_MESSAGE } from '@agents/shared/agent-session-protocol'
-import { createAgentSession, BROWSER_CALL_TIMEOUT_MS, DELTA_FLUSH_MS } from '../../../api/src/agent-session/session.ts'
+import { createAgentSession, holdingSender, BROWSER_CALL_TIMEOUT_MS, DELTA_FLUSH_MS } from '../../../api/src/agent-session/session.ts'
 import type { ServerMessage } from '@agents/shared/agent-session-protocol'
 
 const parse = (value: unknown) => parseClientMessage(JSON.stringify(value))
@@ -447,5 +447,25 @@ test.describe('delta batching', () => {
     h.session.close('gone')
     await wait(DELTA_FLUSH_MS + 20)
     assert.equal(h.sent.length, 0)
+  })
+})
+
+test.describe('holdingSender (attaching mid-turn)', () => {
+  // A page attaching replays the stored history, then the live turn so far, while the turn keeps broadcasting
+  // to it. Sent as they come, the turn's end overtook the replay, and the stale stored message that followed
+  // it replaced the settled answer on the page.
+  test('frames broadcast while the replay runs follow it, in order', () => {
+    const sent: any[] = []
+    const sender = holdingSender((m: any) => sent.push(m.type))
+    sender.hold()
+    sender.send({ type: 'delta' } as any)
+    sender.direct({ type: 'message' } as any)
+    sender.send({ type: 'turn-end' } as any)
+    sender.direct({ type: 'cost' } as any)
+    assert.deepEqual(sent, ['message', 'cost'])
+    sender.release()
+    assert.deepEqual(sent, ['message', 'cost', 'delta', 'turn-end'])
+    sender.send({ type: 'delta' } as any)
+    assert.deepEqual(sent.at(-1), 'delta')
   })
 })
