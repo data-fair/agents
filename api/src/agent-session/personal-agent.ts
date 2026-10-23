@@ -17,6 +17,15 @@ export { PORTAL_ASSISTANT_ID, BACK_OFFICE_ASSISTANT_ID, PERSONAL_AGENT_IDS, isPe
 
 type ServerRefs = NonNullable<AutonomousAgentForTools['mcpServers']>
 
+/**
+ * Whether a turn of this agent takes the tools of the page in front of the person (WebMCP).
+ *
+ * One rule for now, for simplicity: the personal assistants work through their page, a configured agent
+ * through MCP only (data-fair's built-in server and its catalog references). A configured agent opened in
+ * the back-office chat used to take both, so it answered with whichever set the model reached for first.
+ */
+export const usesPageTools = (agentId: string): boolean => isPersonalAgentId(agentId)
+
 /** The deployment's `personalAssistants`: each assistant's catalog references, like a configured agent's. */
 export interface PersonalAssistantsConfig {
   portal?: { mcpServers?: ServerRefs }

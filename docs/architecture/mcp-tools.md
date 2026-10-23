@@ -8,6 +8,8 @@ The model runs in **one loop, on the server** (`runModelLoop` in `api/src/conver
 | **Catalog tools** — the deployment's MCP servers (`config.mcpServers`) | on the server, over MCP streamable HTTP (`api/src/mcp-servers/client.ts`) | a configured agent: its own non-human identity; the personal assistant: the person, via their forwarded session cookie |
 | **Loop-provided** — `wait_for_user_action` | on the server: it ends the turn, and the person's next action on the page (from the session's host-event store) starts the next one | — |
 
+**Which agent gets which.** For now, one rule kept simple on purpose: the personal assistants work through their page (page tools and `wait_for_user_action`, plus any servers `PERSONAL_ASSISTANTS` gives them), a configured agent through MCP only (data-fair's built-in server and its catalog references), wherever its chat is opened. `usesPageTools` (`api/src/agent-session/personal-agent.ts`) is the one place it is decided. A configured agent opened in the back-office chat used to take the page's tools as well, and answered with whichever set the model reached for first; merging the two again is a later question.
+
 Once assembled, the loop cannot tell a page tool from a catalog tool: both get the same provenance envelope, and both are called through `execute`. That is the property that lets one loop serve the in-page personal assistant and configured autonomous agents alike.
 
 Page tools are **decoupled from the chat UI**: each frame declares its tools through WebMCP (the `@mcp-b/webmcp-*` packages), and the project adds a **BroadcastChannel transport** so those WebMCP servers can be discovered across sibling frames of the same origin — which WebMCP, scoped to a single page, does not cover on its own. The chat iframe aggregates them and forwards their *descriptors* to the server; their implementations never leave the browser.
@@ -364,7 +366,7 @@ publishes one listed skill and one reachable by URI only.
 
 ### Assembly and provenance
 
-The executor (`performTurn`) merges the catalog tools, the page tools (when a socket watches the conversation) and `wait_for_user_action` (only when someone is there to act), in that order — a page tool overrides a catalog tool of the same name. Both catalog and page results are wrapped by `withProvenance` (`api/src/conversations/operations.ts`) in a `<tool-result server="…" tool="…">` envelope marking them as untrusted data; a page's server name is the fixed `the-page`, never its URL. Thrown failures are wrapped too. Sub-agents are then partitioned out (see [Sub-Agent Orchestration](./sub-agents.md)). Each tool goes through the call path before the envelope (`modelTools(set, callPath)`).
+The executor (`performTurn`) merges the catalog tools, the page tools (when a socket watches the conversation and the agent works through its page) and `wait_for_user_action` (only when someone is there to act on that page), in that order — a page tool overrides a catalog tool of the same name. Both catalog and page results are wrapped by `withProvenance` (`api/src/conversations/operations.ts`) in a `<tool-result server="…" tool="…">` envelope marking them as untrusted data; a page's server name is the fixed `the-page`, never its URL. Thrown failures are wrapped too. Sub-agents are then partitioned out (see [Sub-Agent Orchestration](./sub-agents.md)). Each tool goes through the call path before the envelope (`modelTools(set, callPath)`).
 
 ### Result formatting
 

@@ -14,6 +14,7 @@ import type { AutonomousAgent, ConversationRun } from '#types'
 import type { AgentSession } from '../agent-session/session.ts'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import { createWaitTool } from '../agent-session/host-events.ts'
+import { usesPageTools, isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { sourcedTools, type ToolSet } from './operations.ts'
 import { agentStoreId, memoryEnabledFor, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, MEMORY_TOOL_ANNOTATIONS, type MemoryDocument } from '../memory/operations.ts'
 import { loadMemory } from '../memory/service.ts'
@@ -30,7 +31,6 @@ import { createReadSkillTool, READ_SKILL_TOOL_NAME, READ_SKILL_ANNOTATIONS, SKIL
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, EXTERNAL_MCP_SERVER_ID } from '../mcp-servers/operations.ts'
 import { saveExternalMcpServers, saveWebAllowedUrls } from '../autonomous-agents/service.ts'
-import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { createSelfKnowledgeTools } from '../self-knowledge/tools.ts'
 import { createPlanningTools, PLANNING_TOOL_ANNOTATIONS } from '../self-knowledge/planning.ts'
 import { SELF_KNOWLEDGE_SERVER_ID } from '../self-knowledge/operations.ts'
@@ -87,10 +87,10 @@ interface ServiceToolEntry {
 
 const ENTRIES: ServiceToolEntry[] = [
   {
-    // `wait_for_user_action`: only when someone is actually there to act. Calling it ends the turn (see
-    // `handover` in runModelLoop and ./waits.ts). Unwrapped, as before: its result is the loop's own
-    // handover marker, not data from a server.
-    applies: ctx => ctx.surface === 'chat' && !!ctx.session,
+    // `wait_for_user_action`: only when someone is actually there to act, on a page the agent works
+    // through (usesPageTools). Calling it ends the turn (see `handover` in runModelLoop and ./waits.ts).
+    // Unwrapped, as before: its result is the loop's own handover marker, not data from a server.
+    applies: ctx => ctx.surface === 'chat' && !!ctx.session && usesPageTools(ctx.agent.id),
     build: async (_ctx, into) => { into.tools[WAIT_TOOL_NAME] = { tool: createWaitTool() } }
   },
   {

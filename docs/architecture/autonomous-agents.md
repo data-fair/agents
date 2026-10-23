@@ -17,8 +17,9 @@ instruct — and `GET /api/conversations/:type/:id` (its `agentId` optional) fee
 Front-office embeds stay mono-agent; the back office sets `agents` on the embeddable components and
 gets the picker and history (see [Embedding](./embedding.md#back-office-mode-agents)). The standalone
 thread page autonomous agents used to have is gone: it duplicated the chat on a second transport (HTTP
-+ pub/sub), and driving turns through the chat's socket is what gives them the page's tools and the
-lived activity/abort signal. The pub/sub change notifications went with it: nothing subscribed to them
++ pub/sub), and driving turns through the chat's socket is what gives them the
+lived activity/abort signal. Not the page's tools: a configured agent works through MCP only
+(see [MCP tools](./mcp-tools.md)). The pub/sub change notifications went with it: nothing subscribed to them
 any more, and the agent-session socket is now the service's only websocket endpoint.
 
 ## What it is made of
@@ -254,7 +255,7 @@ A conversation is **one person's** thread (`conversation.userId`), never a timel
 write to. Why:
 
 - **The loop is bound to a person's socket.** A turn runs for the page that prompted it, with that
-  page's tools and host state, and the personal assistant acts with that person's own session; a second
+  page's host state (and, for a personal assistant, its tools), and the personal assistant acts with that person's own session; a second
   author would have their turn run with someone else's page and, for the personal assistant, someone
   else's credentials.
 - **No in-band attribution to trust.** A shared thread must tell the model who wrote each turn, and

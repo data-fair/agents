@@ -8,6 +8,7 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 import { awaitRun } from '../../support/turn.ts'
 import { openAgentSession, newThreadHello } from '../../../dev/agent-session-client.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { BACK_OFFICE_ASSISTANT_ID } from '../../../shared/agent-audit.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { decideOverSocket, decideOverSocketToRun, startTurnOverSocket, turnOverSocket, runOf } from '../../../dev/socket-turn.ts'
 
@@ -449,13 +450,15 @@ test.describe('Deciding over the socket', () => {
     socket.close(); stranger.close()
   })
 
+  // A wait hands a page over, so only an agent that works through its page has one (usesPageTools): the
+  // back-office assistant, whose deployment servers include the gated fixture (api/config/development.js),
+  // and whose non-read-only calls always wait for approval.
   test('acting on the page a wait handed over rejects a call stopped beside it', async () => {
     // The handover wins the step, so the turn ends `waiting` with a call awaiting approval beside the
     // wait. The person acting on the page continues without it — as writing would — rather than leave a
     // card that, approved later, could never run.
-    const agent = await createGatedAgent()
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
-    socket.send(newThreadHello('organization/test1', { agentId: agent.id }))
+    socket.send(newThreadHello('organization/test1', { agentId: BACK_OFFICE_ASSISTANT_ID }))
     await socket.next()
     socket.send({ type: 'prompt', content: 'wait and call wipe_everything' })
     const asked = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
@@ -479,9 +482,8 @@ test.describe('Deciding over the socket', () => {
     // The wait handed the turn over and the gate stopped a call in the same step. Deciding is the person's
     // move: the wait is settled (nothing is left waiting, no later page action wakes the thread), and the
     // continuation replays a step whose every call has a result.
-    const agent = await createGatedAgent()
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
-    socket.send(newThreadHello('organization/test1', { agentId: agent.id }))
+    socket.send(newThreadHello('organization/test1', { agentId: BACK_OFFICE_ASSISTANT_ID }))
     await socket.next()
     socket.send({ type: 'prompt', content: 'wait and call wipe_everything' })
     const asked = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
@@ -505,6 +507,30 @@ test.describe('Deciding over the socket', () => {
     await new Promise(resolve => setTimeout(resolve, 1500))
     const runs = (await orgAdmin.get(`${BASE}/${socket.conversationId()}/runs`)).data.results
     assert.equal(runs.filter((r: any) => r.trigger === 'wake').length, 0)
+    socket.close()
+  })
+})
+
+test.describe('Which tools a turn takes', () => {
+  let fixture: McpFixture
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.afterAll(async () => { await fixture.close() })
+  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test1') })
+
+  test('a configured agent works through MCP only, even beside a page that declares tools', async () => {
+    // The rule for now (usesPageTools): the personal assistants take their page's tools, a configured agent
+    // its MCP servers only — so no page tool, and no wait, which only hands a page over.
+    const agent = await createGatedAgent()
+    const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
+    socket.send(newThreadHello('organization/test1', { agentId: agent.id, tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }] }))
+    await socket.next()
+    socket.send({ type: 'prompt', content: 'hello' })
+    for (let i = 0; i < 100 && (await socket.next(20_000)).type !== 'turn-end'; i++);
+    const runs = (await orgAdmin.get(`${BASE}/${socket.conversationId()}/runs`)).data.results
+    const call = runs[0].calls.find((c: any) => c.modelRole === 'assistant')
+    assert.ok(call.toolNames.includes('wipe_everything'), `its catalog tools, got ${JSON.stringify(call.toolNames)}`)
+    assert.ok(!call.toolNames.includes('select_row'))
+    assert.ok(!call.toolNames.includes('wait_for_user_action'))
     socket.close()
   })
 })

@@ -26,6 +26,7 @@ import { toolDescription } from '@agents/shared/tool-description'
 import type { ToolSource } from '@agents/shared/tool-source'
 import { denyGoneApprovedTools, TOOL_NO_LONGER_AVAILABLE } from './approved-calls.ts'
 import { browserToolSet, rawBrowserToolSet } from '../agent-session/browser-tools.ts'
+import { usesPageTools } from '../agent-session/personal-agent.ts'
 import { createScriptTool } from '../code-mode/tool.ts'
 import { codeFacingTools, createCodeTrace, type TurnCalls } from '../code-mode/code-tools.ts'
 import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeModeOfferedTo } from '../code-mode/operations.ts'
@@ -86,8 +87,8 @@ export interface ModelLoopContext {
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
   const { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
-  // the history by the target).
-  const session = target.session
+  // the history by the target). Its tools only for an agent that works through its page (usesPageTools).
+  const pageSession = usesPageTools(autonomousAgent.id) ? target.session : undefined
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
   const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides, timeZone: target.timeZone })
   const identity = usageIdentityFor(autonomousAgent, run)
@@ -276,7 +277,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    * sub-agent or a tool one reserves — and it is re-run only when the page's tool NAMES changed,
    * because each pass reads every sub-agent's config over the socket.
    */
-  const pageToolNames = () => (session?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
+  const pageToolNames = () => (pageSession?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
   const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath))
   const liveTools: Record<string, Tool> = {}
   // The tool calls this turn's scripts have made, across the steps that rebuild the map (CODE_MODE_TURN_CALLS).
@@ -291,7 +292,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const assembleTools = async () => {
     // The service's own tools are never page tools, even when a page registers one by that name
     // (./service-tool-names.ts): the page's would answer under the service's name.
-    const pageTools = session ? Object.fromEntries(Object.entries(browserToolSet(session)).filter(([name]) => mayBePageTool(name))) : {}
+    const pageTools = pageSession ? Object.fromEntries(Object.entries(browserToolSet(pageSession)).filter(([name]) => mayBePageTool(name))) : {}
     pageNames = new Set(Object.keys(pageTools))
     const mainTools = await partitionSubAgents({ ...fixedTools, ...pageTools }, buildDelegation)
     // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
@@ -299,7 +300,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // A page tool shadows a catalog tool of the same name for the model ({ ...fixedTools, ...page } above), so
     // it does for a script too. Not offered to an anonymous visitor nor an outsider (codeModeOfferedTo).
     if (codeModeOfferedTo(run.triggeredByRole)) {
-      const page = session ? Object.fromEntries(Object.entries(rawBrowserToolSet(session, undefined, { drainEvents: false })).filter(([name]) => mayBePageTool(name))) : {}
+      const page = pageSession ? Object.fromEntries(Object.entries(rawBrowserToolSet(pageSession, undefined, { drainEvents: false })).filter(([name]) => mayBePageTool(name))) : {}
       const scriptTool = createScriptTool(codeFacingTools({
         names: Object.keys(mainTools),
         fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page))),
