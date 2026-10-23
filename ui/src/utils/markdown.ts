@@ -40,11 +40,16 @@ sanitizeOpts.transformTags = {
 }
 marked.use(markedVuetify)
 
+// Embedded, a link goes to the host page, which the chat is beside. On a page of its own (an autonomous
+// agent's chat), the same target replaced the conversation with the link: there it opens a new tab, as a
+// link in any chat product does.
+const linkTarget = () => globalThis.window && window.top !== window.self ? '_top' : '_blank'
+
 marked.use({
   renderer: {
     link (token) {
       const html = marked.Renderer.prototype.link.call(this, token)
-      return html.replace('<a ', '<a target="_top" ')
+      return html.replace('<a ', `<a target="${linkTarget()}" `)
     }
   }
 })

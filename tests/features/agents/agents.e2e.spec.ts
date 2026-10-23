@@ -31,7 +31,8 @@ test.describe('Chat UI', () => {
     const link = page.locator('.assistant-content a', { hasText: 'the docs' }).last()
     await expect(link).toBeVisible({ timeout: 10000 })
     await expect(link).toHaveAttribute('href', 'https://example.com/docs')
-    await expect(link).toHaveAttribute('target', '_top')
+    // a chat on a page of its own: a link must not replace the conversation
+    await expect(link).toHaveAttribute('target', '_blank')
 
     expect(errors.filter(e => e.includes('parseInline'))).toEqual([])
   })
