@@ -26,6 +26,7 @@ const fakeSession = (over: Partial<AgentSession> = {}): AgentSession => ({
   bind: () => {},
   send: () => {},
   hostEvents: new HostEventStore(),
+  chatFactKeys: new Set(),
   attached: () => true,
   close: () => {},
   ...over

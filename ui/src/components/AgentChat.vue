@@ -325,6 +325,8 @@ const chat = useSessionChat({
   // Unnamed (the page passes `''` without `?agentId=`), the office decides which personal assistant: the
   // host cannot, as the back office is a path on the main portal's domain.
   agentId: props.agentId || initConfig?.agentId || (props.multiAgent ? BACK_OFFICE_ASSISTANT_ID : PORTAL_ASSISTANT_ID),
+  // In the back office, a reload reopens the last conversation even when it was with another agent.
+  resumeAnyAgent: !!props.multiAgent && !props.agentId && !initConfig?.agentId,
   initialMessages: props.initialMessages,
   // The picker's own conversations are titled by the date; a host chat title would name every
   // thread of an agent identically, which is exactly what a history list cannot afford.

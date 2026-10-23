@@ -52,6 +52,12 @@ export interface UseSessionChatOptions {
    * list shows, so two threads of the same agent are distinguishable. */
   title?: string
   /**
+   * Opening resumes the person's latest conversation WHATEVER its agent, and the chat switches to that
+   * agent: the back office when its host named none, where a picker lets the person move between agents.
+   * Otherwise opening resumes the latest conversation of `agentId` only.
+   */
+  resumeAnyAgent?: boolean
+  /**
    * No signed-in person: the thread lives as long as the socket, and the caller proves it is a browser
    * with simple-directory's anonymous action token.
    */
@@ -305,11 +311,12 @@ export function useSessionChat (options: UseSessionChatOptions) {
    * Best-effort on purpose: an unknown agent or a revoked grant must surface from the socket's answer
    * to the hello, with the server's own sentence, not from this lookup.
    */
-  const findLatestConversation = async (agentId: string): Promise<{ id: string } | undefined> => {
+  const findLatestConversation = async (agentId: string | undefined): Promise<{ id: string, agentId: string } | undefined> => {
     if (options.anonymous) return undefined
     try {
-      const res = await $fetch<{ results: Array<{ id: string }> }>(
-        `${$apiPath}/conversations/${options.accountType}/${options.accountId}?agentId=${encodeURIComponent(agentId)}&size=1`
+      // Without an agent, the history route answers across every agent the person may use.
+      const res = await $fetch<{ results: Array<{ id: string, agentId: string }> }>(
+        `${$apiPath}/conversations/${options.accountType}/${options.accountId}?${agentId ? `agentId=${encodeURIComponent(agentId)}&` : ''}size=1`
       )
       return res.results?.[0]
     } catch {
@@ -420,8 +427,9 @@ export function useSessionChat (options: UseSessionChatOptions) {
     // A visitor's thread is created only for a browser that proves itself with an action token.
     if (options.anonymous) await refreshAnonymousToken()
     // Opening the chat of an agent resumes the thread this person was in the middle of, if any.
-    const latest = await findLatestConversation(activeAgentId.value)
+    const latest = await findLatestConversation(options.resumeAnyAgent ? undefined : activeAgentId.value)
     if (latest) {
+      activeAgentId.value = latest.agentId
       conversationId.value = latest.id
       agent.connect({ conversationId: latest.id })
     } else {

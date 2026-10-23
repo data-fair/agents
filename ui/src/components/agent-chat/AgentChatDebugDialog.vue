@@ -199,7 +199,7 @@ import type { SelfUsage } from '../../../../api/src/usage/operations'
 import AgentChatConsumption from './AgentChatConsumption.vue'
 import type { Tool } from 'ai'
 import { toolDescription } from '@agents/shared/tool-description'
-import { isPersonalAgentId } from '@agents/shared/agent-audit'
+import { isPersonalAgentId, usesPageTools } from '@agents/shared/agent-audit'
 import { availableToolGroups, lastOfferedTools, type SourcedTools } from '~/utils/tool-groups'
 import ToolGroupList from './ToolGroupList.vue'
 import { $apiPath, $fetch } from '~/context'
@@ -253,9 +253,10 @@ const pageToolDescriptions = computed(() => Object.fromEntries(Object.entries(pr
 const noTools: SourcedTools = { names: [], sources: {} }
 const lastTurnTools = ref<SourcedTools>(noTools)
 const agentServerTools = ref<SourcedTools>(noTools)
+// The page's tools only for an agent a turn gives them to: a configured agent works through MCP only.
 const availableGroups = computed(() => availableToolGroups(
   lastTurnTools.value.names.length ? lastTurnTools.value : agentServerTools.value,
-  Object.keys(props.pageTools)
+  usesPageTools(props.agentId) ? Object.keys(props.pageTools) : []
 ))
 const availableCount = computed(() => availableGroups.value.reduce((count, group) => count + group.names.length, 0))
 

@@ -29,7 +29,8 @@ import type { UsageIdentity } from '../usage/operations.ts'
 import type { getSettings } from '../settings/service.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 import type { TurnSurface, TaskOutcome } from './service-tools.ts'
-import { withHostContext, LOCATION_KEY } from '../agent-session/host-events.ts'
+import { withHostContext, chatFactsOnly, LOCATION_KEY } from '../agent-session/host-events.ts'
+import { usesPageTools } from '../agent-session/personal-agent.ts'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type StopCause } from './interrupted-turn.ts'
@@ -211,8 +212,10 @@ export const conversationTarget = (
       // judged runs answered the question and never waited again.
       const reminder = pendingWaitReminder(compacted.messages)
       const hostBlocks = { text: '' }
+      // An agent that does not work through its page (usesPageTools) is told the chat's own facts only.
+      const store = session && (usesPageTools(agentId) ? session.hostEvents : chatFactsOnly(session.hostEvents, session.chatFactKeys))
       const history = session || reminder
-        ? withHostContext(compacted.messages, session?.hostEvents ?? null, reminder ? [reminder] : [], hostBlocks)
+        ? withHostContext(compacted.messages, store ?? null, reminder ? [reminder] : [], hostBlocks)
         : compacted.messages
       return { messages: history, credits: compacted.credits, hostContext: hostBlocks.text }
     },

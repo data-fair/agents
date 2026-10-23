@@ -252,6 +252,20 @@ export function hasHostState (snapshot: HostStateSnapshot): boolean {
 }
 
 /**
+ * The chat's own facts out of a session's host-event store, without the page's: no page state, no page
+ * events. What a turn of an agent that does not work through its page reads (usesPageTools in
+ * shared/agent-audit.ts) — a configured agent was told what the page beside its chat showed, and answered a
+ * "hello" by describing it.
+ */
+export function chatFactsOnly (store: HostEventStore, chatFactKeys: ReadonlySet<string>): { snapshot: () => HostStateSnapshot, hasPending: () => boolean, takePending: () => AgentEvent[] } {
+  return {
+    snapshot: () => ({ state: store.snapshot().state.filter(event => !!event.key && chatFactKeys.has(event.key)), recent: [] }),
+    hasPending: () => false,
+    takePending: () => []
+  }
+}
+
+/**
  * Fold what the page has reported into the last user message of a history, for one model call.
  *
  * Without it the store would be write-only: the socket fills it, `wait_for_user_action` drains its

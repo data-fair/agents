@@ -126,6 +126,12 @@ export interface AgentSession {
    */
   hostEvents: HostEventStore
   /**
+   * The keys of `hostEvents` the CHAT reported about itself (`host-state`: language, organization, surface,
+   * diagrams), as opposed to what the page beside it reported (`host-events`). An agent that does not work
+   * through its page gets these only (chatFactsOnly in ./host-events.ts).
+   */
+  chatFactKeys: ReadonlySet<string>
+  /**
    * Ask the browser to run one of its contextual tools.
    *
    * Rejects on timeout, on a browser-reported error, and when the connection closes — never hangs,
@@ -155,6 +161,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   const clearTimer = options.clearTimer ?? ((handle) => { clearTimeout(handle as ReturnType<typeof setTimeout>) })
 
   const hostEvents = new HostEventStore()
+  const chatFactKeys = new Set<string>()
   // Said by `hello` and updated by a `review-consent` frame, so answering the sheet takes effect on the
   // NEXT TURN rather than on the next page load. No answer is no consent.
   let reviewConsent = false
@@ -214,6 +221,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   return {
     send,
     hostEvents,
+    chatFactKeys,
     tools: () => [...tools],
     attached: () => attached,
     sessionCookie: () => options.sessionCookie,
@@ -273,7 +281,10 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           // which is a different statement from never having reported it.
           for (const [key, detail] of Object.entries(message.state)) {
             if (detail === null || detail === undefined) hostEvents.withdraw(key)
-            else hostEvents.push({ name: key, key, detail: String(detail), at: Date.now() })
+            else {
+              hostEvents.push({ name: key, key, detail: String(detail), at: Date.now() })
+              chatFactKeys.add(key)
+            }
           }
           return options.onHostEvents?.()
         case 'host-events':

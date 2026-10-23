@@ -519,11 +519,14 @@ test.describe('Which tools a turn takes', () => {
 
   test('a configured agent works through MCP only, even beside a page that declares tools', async () => {
     // The rule for now (usesPageTools): the personal assistants take their page's tools, a configured agent
-    // its MCP servers only — so no page tool, and no wait, which only hands a page over.
+    // its MCP servers only — so no page tool, no wait, which only hands a page over, and none of what the
+    // page reports: only the chat's facts about itself.
     const agent = await createGatedAgent()
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
     socket.send(newThreadHello('organization/test1', { agentId: agent.id, tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }] }))
     await socket.next()
+    socket.send({ type: 'host-state', state: { language: 'fr' } })
+    socket.send({ type: 'host-events', events: [{ name: 'location', key: 'location', detail: 'the stored conversation page', at: Date.now() }, { name: 'clicked Save', at: Date.now() }] })
     socket.send({ type: 'prompt', content: 'hello' })
     for (let i = 0; i < 100 && (await socket.next(20_000)).type !== 'turn-end'; i++);
     const runs = (await orgAdmin.get(`${BASE}/${socket.conversationId()}/runs`)).data.results
@@ -531,6 +534,8 @@ test.describe('Which tools a turn takes', () => {
     assert.ok(call.toolNames.includes('wipe_everything'), `its catalog tools, got ${JSON.stringify(call.toolNames)}`)
     assert.ok(!call.toolNames.includes('select_row'))
     assert.ok(!call.toolNames.includes('wait_for_user_action'))
+    assert.match(runs[0].hostContext, /language: fr/)
+    assert.doesNotMatch(runs[0].hostContext, /stored conversation page|clicked Save/)
     socket.close()
   })
 })

@@ -417,6 +417,22 @@ test.describe('Agent switcher and conversation history', () => {
     const agentMessages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${agentThread.id}/messages`)).data.results
     expect(agentMessages.filter((m: any) => m.role === 'user')).toHaveLength(1)
   })
+
+  test('a back office that names no agent reopens the last conversation, whatever agent it was with', async ({ page, goToWithAuth }) => {
+    // The data-fair back office embeds the chat without an agent: a reload used to open an empty thread
+    // with the back-office assistant even when the person had just been talking to an autonomous agent.
+    const openUnnamed = async () => await goToWithAuth('/agents/organization/test1/chat?agents=1', 'test1-admin1', { org: 'test1' })
+    await openUnnamed()
+    await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('Back-office assistant', { timeout: 20000 })
+    await page.getByTestId('agent-chat-agent-picker').click()
+    await page.getByTestId('agent-chat-agent-option').filter({ hasText: 'History agent' }).click()
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    await openUnnamed()
+    await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('History agent', { timeout: 20000 })
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+  })
 })
 
 // simple-directory's scope list, stubbed: this dev stack's simple-directory knows no platform scopes

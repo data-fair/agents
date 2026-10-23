@@ -23,3 +23,15 @@ export const isPersonalAgentId = (agentId: string | undefined): boolean =>
 
 export const isAuditedAgentId = (agentId: string | undefined): boolean =>
   !!agentId && !isPersonalAgentId(agentId)
+
+/**
+ * Whether this agent works through the page in front of the person: its WebMCP tools, its state and its
+ * events.
+ *
+ * One rule for now, for simplicity: the personal assistants work through their page, a configured agent
+ * through MCP only (data-fair's built-in server and its catalog references), wherever its chat is opened.
+ * A configured agent opened in the back-office chat used to take both, answered with whichever set the
+ * model reached for first, and described the page beside its chat when told "hello". Server and chat read
+ * the same predicate, so the debug dialog lists what a turn is actually offered.
+ */
+export const usesPageTools = (agentId: string | undefined): boolean => isPersonalAgentId(agentId)
