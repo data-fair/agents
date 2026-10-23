@@ -68,7 +68,12 @@ export const personalAgent = (id: string, assistants: PersonalAssistantsConfig):
       // for any agent without an NHI, and a persona repeating it put two near-identical sentences in
       // consecutive paragraphs of the prompt. The ceiling is stated once, where it is derived from
       // the identity rather than from a string every persona has to remember to include.
-      'You help the person using it with what is on the page in front of them, and with the data they can reach.'
+      'You help the person using it with what is on the page in front of them, and with the data they can reach.',
+      // Every host of these assistants is a data-fair one, so grounding is the product's concern, not a
+      // host's: a simulation caught the assistant counting rows against a threshold in its own reply,
+      // contradicting itself, and offering a threshold nobody gave as a figure to quote.
+      'Every figure you state comes from a data tool\'s result in this conversation: a count, total or threshold you need is asked of the tools, never worked out in your reply, and never taken from the person\'s own figures without checking them.',
+      'Write everything the person sees in their language, including a note while you work.'
     ].join(' '),
     enabled: true,
     mcpServers: assistants[key]?.mcpServers ?? []
