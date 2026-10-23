@@ -25,7 +25,9 @@ test.describe('Audited chat notice', () => {
     })).data
     await admin.put(`/api/memory/organization/test1/${agent.id}/document`, { description: 'Core facts', content: '- the sales dataset is "ventes"' }, { params: { path: 'MEMORY.md' } })
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
-    await expect(page.getByTestId('agent-chat-audited-notice')).toContainText('other people it talks with', { timeout: 20000 })
+    await expect(page.getByTestId('agent-chat-audited-notice')).toContainText('not private', { timeout: 20000 })
+    await page.getByTestId('agent-chat-audited-details').click()
+    await expect(page.getByText('other people it talks with')).toBeVisible()
     await page.getByTestId('agent-chat-memory').click()
     await page.getByTestId('memory-document-MEMORY.md').click()
     const content = page.getByTestId('memory-content').locator('textarea:not([aria-hidden="true"])')

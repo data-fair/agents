@@ -20,24 +20,46 @@
       @new-conversation="handleNewConversation"
     />
 
-    <!-- Not dismissible: it states a standing fact about every message sent here (shared/agent-audit.ts). -->
-    <v-alert
+    <!-- Not dismissible: it states a standing fact about every message sent here (shared/agent-audit.ts).
+         One line whatever the width, as chat products state such a fact; the explanation is a click away. -->
+    <div
       v-if="audited"
       data-testid="agent-chat-audited-notice"
-      type="info"
-      variant="tonal"
-      density="compact"
-      class="mx-2 mb-2 text-caption"
+      class="d-flex align-center ga-1 px-3 pb-1 text-caption text-medium-emphasis text-no-wrap"
     >
-      {{ t('auditedNotice') }}
-      <!-- What it remembers is what it may repeat: instructors read it, admins change it on the agent's page. -->
-      <a
-        v-if="signedIn"
-        href="#"
-        data-testid="agent-chat-memory"
-        @click.prevent="memoryDialog = true"
-      >{{ t('seeMemory') }}</a>
-    </v-alert>
+      <v-icon
+        :icon="mdiEyeOutline"
+        size="small"
+      />
+      <span class="text-truncate">{{ t('auditedShort') }}</span>
+      <v-menu
+        location="bottom"
+        max-width="320"
+      >
+        <template #activator="{ props: menuProps }">
+          <a
+            href="#"
+            data-testid="agent-chat-audited-details"
+            v-bind="menuProps"
+            @click.prevent
+          >{{ t('details') }}</a>
+        </template>
+        <v-card class="pa-3 text-body-2">
+          {{ t('auditedNotice') }}
+          <!-- What it remembers is what it may repeat: instructors read it, admins change it on the agent's page. -->
+          <div
+            v-if="signedIn"
+            class="mt-2"
+          >
+            <a
+              href="#"
+              data-testid="agent-chat-memory"
+              @click.prevent="memoryDialog = true"
+            >{{ t('seeMemory') }}</a>
+          </div>
+        </v-card>
+      </v-menu>
+    </div>
     <agent-memory-dialog
       v-if="audited && signedIn"
       v-model="memoryDialog"
@@ -131,6 +153,8 @@
 
 <i18n lang="yaml">
 fr:
+  auditedShort: Conversation non privée
+  details: Détails
   auditedNotice: Les conversations avec cet agent ne sont pas privées. Les administrateurs de l'organisation peuvent les consulter, et l'agent peut se souvenir de ce qui est dit ici et le répéter aux autres personnes avec qui il échange.
   seeMemory: Voir ce dont il se souvient
   defaultTitle: Assistant
@@ -144,6 +168,8 @@ fr:
   quotaShared: "Le quota IA partagé par les visiteurs est épuisé. Il sera réinitialisé le {date}."
   quotaAccount: "Le budget IA de ce compte est épuisé jusqu'au {date}."
 en:
+  auditedShort: Conversation not private
+  details: Details
   auditedNotice: Conversations with this agent are not private. Administrators of the organization can review them, and the agent may remember what is said here and repeat it to the other people it talks with.
   seeMemory: See what it remembers
   defaultTitle: Assistant
@@ -161,6 +187,7 @@ en:
 <script lang="ts" setup>
 import { createToolTitleMemo } from '../composables/tool-titles'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { mdiEyeOutline } from '@mdi/js'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
