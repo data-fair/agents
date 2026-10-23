@@ -53,7 +53,9 @@ test.describe('Chat inspection dialog', () => {
         const groups = page.getByTestId('available-tools').getByTestId('tool-group')
         await expect(groups.filter({ hasText: 'MCP · dev-public-mcp' })).toContainText('list_road_closures', { timeout: 1500 })
         // the turn's record replaces the servers' listing, and carries the service's tools
-        await expect(groups.filter({ hasText: 'Built into the service' })).toContainText('wait_for_user_action', { timeout: 1500 })
+        await expect(groups.filter({ hasText: 'Built into the service' })).toContainText('get_my_configuration', { timeout: 1500 })
+        // no wait: a configured agent works through MCP only, and a wait only hands a page over (usesPageTools)
+        await expect(groups.filter({ hasText: 'Built into the service' })).not.toContainText('wait_for_user_action', { timeout: 1500 })
         await expect(groups.filter({ hasText: 'Data Fair' })).toContainText('platform_list_road_closures', { timeout: 1500 })
       } finally {
         await closeDialog(page)
