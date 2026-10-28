@@ -7,7 +7,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { browserToolSet, BROWSER_TOOL_SERVER } from '../../../api/src/agent-session/browser-tools.ts'
+import { browserToolSet, pageGuide, readPageSkill, BROWSER_TOOL_SERVER } from '../../../api/src/agent-session/browser-tools.ts'
 import { toDescriptors } from '../../../ui/src/composables/use-agent-session.ts'
 import { createAgentSession } from '../../../api/src/agent-session/session.ts'
 import { tool, jsonSchema } from 'ai'
@@ -150,5 +150,27 @@ test.describe('the bridge against a real session object', () => {
     const tools = browserToolSet(session, [{ name: 'select_row' }])
     session.handle({ type: 'tools-changed', tools: [] })
     await assert.rejects(run(tools, 'select_row'), /does not offer a tool named select_row/)
+  })
+})
+
+test.describe('pageGuide — the page\'s skills as one more tool server', () => {
+  const skill = { name: 'fill-form', description: 'How to fill the form', uri: 'skill://fill-form/SKILL.md', body: '# Fill the form' }
+
+  test('lists the page\'s skills under the page\'s server label, without their bodies', () => {
+    assert.deepEqual(pageGuide(fakeSession({ skills: () => [skill] })), {
+      server: BROWSER_TOOL_SERVER,
+      skills: [{ name: 'fill-form', description: 'How to fill the form', uri: 'skill://fill-form/SKILL.md' }]
+    })
+  })
+
+  test('is absent when there is no page, or the page publishes no skill', () => {
+    assert.equal(pageGuide(undefined), undefined)
+    assert.equal(pageGuide(fakeSession({ skills: () => [] })), undefined)
+  })
+
+  test('a skill is read from what the page declared, and an unknown one is refused', () => {
+    const session = fakeSession({ skills: () => [skill] })
+    assert.equal(readPageSkill(session, 'skill://fill-form/SKILL.md'), '# Fill the form')
+    assert.throws(() => readPageSkill(session, 'skill://other/SKILL.md'), /skill:\/\/other\/SKILL.md is not one of this page's skills/)
   })
 })

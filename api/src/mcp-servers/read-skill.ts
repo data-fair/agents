@@ -30,7 +30,11 @@ const resolveServer = (guides: ServerGuide[], server: string | undefined, uri: s
   throw new Error(`none of your tool servers lists ${uri}: name the server (${servers.join(', ') || 'none'})`)
 }
 
-export const createReadSkillTool = (opts: { guides: ServerGuide[], read: (server: string, uri: string) => Promise<string> }): Tool => tool({
+/**
+ * `guides` may be read live: a page's skills can change during a turn (a form mounted by a tool call), and the
+ * next step must be able to load what it now lists.
+ */
+export const createReadSkillTool = (opts: { guides: ServerGuide[] | (() => ServerGuide[]), read: (server: string, uri: string) => Promise<string> }): Tool => tool({
   description: 'Load a skill: a procedure for some of your tools, published by one of your tool servers or by the service itself. Pass the skill URI exactly as the Skills list in your instructions gives it (or as a server\'s instructions or another skill name a skill:// URI), and the server it is listed under. Load a matching skill before acting, then follow it.',
   inputSchema: jsonSchema<{ server?: string, uri: string }>({
     type: 'object',
@@ -43,7 +47,7 @@ export const createReadSkillTool = (opts: { guides: ServerGuide[], read: (server
   }),
   execute: async ({ server: named, uri }) => {
     if (!uri.startsWith('skill://')) throw new Error(`a skill URI starts with skill:// (got ${uri})`)
-    const server = resolveServer(opts.guides, named, uri)
+    const server = resolveServer(typeof opts.guides === 'function' ? opts.guides() : opts.guides, named, uri)
     let body: string
     try {
       body = await opts.read(server, uri)

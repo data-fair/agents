@@ -71,7 +71,13 @@ export interface ServiceToolContext {
   /** The turn's catalog tools, for the agent's own reading of what it can use. */
   catalog?: TurnCatalog
   /** What the turn's tool servers say about their tools, and how a skill of one is read (api/src/mcp-servers/guides.ts). */
-  guides?: { list: ServerGuide[], read: (server: string, uri: string) => Promise<string> }
+  guides?: {
+    /** Read live: a page's skills can change mid-turn. */
+    list: () => ServerGuide[]
+    read: (server: string, uri: string) => Promise<string>
+    /** The turn works through a page, which may publish skills later in the turn. */
+    live?: boolean
+  }
 }
 
 export interface BuiltServiceTools {
@@ -165,7 +171,7 @@ const ENTRIES: ServiceToolEntry[] = [
     // SKILLS (api/src/mcp-servers/read-skill.ts): loading a skill a tool server publishes, whenever one of the
     // turn's servers publishes skills or instructions (which may point at a skill URI). On every surface, the
     // personal assistant's included; read-only, so outside the approval gate. It envelopes its own result.
-    applies: ctx => !!ctx.guides?.list.length,
+    applies: ctx => !!ctx.guides && (!!ctx.guides.live || ctx.guides.list().length > 0),
     build: async ({ guides }, into) => {
       into.tools[READ_SKILL_TOOL_NAME] = {
         tool: createReadSkillTool({ guides: guides!.list, read: guides!.read }),

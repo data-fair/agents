@@ -17,6 +17,7 @@ import { withProvenance } from '../conversations/operations.ts'
 import type { BrowserToolDescriptor } from '@agents/shared/agent-session-protocol'
 import type { AgentSession } from './session.ts'
 import { appendHostEvents } from './host-events.ts'
+import type { ServerGuide } from '../mcp-servers/guides.ts'
 
 /**
  * The server name a page tool's provenance envelope carries.
@@ -26,6 +27,23 @@ import { appendHostEvents } from './host-events.ts'
  * as a page; which page it was is in the conversation's own record.
  */
 export const BROWSER_TOOL_SERVER = 'the-page'
+
+/**
+ * The page's skills as one more tool server's guide, so they land in the same Skills index and the same
+ * read_skill as an MCP server's (docs/architecture/mcp-tools.md, "Page skills"). Bodies stay out: they are
+ * loaded on demand, as an MCP skill's are. Undefined when there is no page or it publishes none.
+ */
+export function pageGuide (session: AgentSession | undefined): ServerGuide | undefined {
+  const skills = session?.skills() ?? []
+  return skills.length ? { server: BROWSER_TOOL_SERVER, skills: skills.map(({ name, description, uri }) => ({ name, description, uri })) } : undefined
+}
+
+/** A page skill's body, as the page last declared it: read_skill's reader for the page's server label. */
+export function readPageSkill (session: AgentSession | undefined, uri: string): string {
+  const skill = session?.skills().find(s => s.uri === uri)
+  if (!skill) throw new Error(`${uri} is not one of this page's skills`)
+  return skill.body
+}
 
 /**
  * The declared tools, made callable.

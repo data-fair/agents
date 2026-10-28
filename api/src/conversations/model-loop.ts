@@ -71,8 +71,11 @@ export interface ModelLoopContext {
   target: TurnTarget
   /** The turn's call path: its files, and how it opens links (api/src/files/call-path.ts). */
   callPath: CallPathContext
-  /** What the turn's tool servers say about their tools: rendered into the system prompt (api/src/mcp-servers/guides.ts). */
-  guides?: ServerGuide[]
+  /**
+   * What the turn's tool servers say about their tools: rendered into the system prompt (api/src/mcp-servers/guides.ts).
+   * Read live: the page's skills can change mid-turn, and the prompt follows them (prepareStep below).
+   */
+  guides?: () => ServerGuide[]
   /** How a skill of one of those servers is read: what a sub-agent worker's read_skill uses. */
   guidesRead?: (server: string, uri: string) => Promise<string>
   /**
@@ -90,7 +93,13 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // the history by the target). Its tools only for an agent that works through its page (usesPageTools).
   const pageSession = usesPageTools(autonomousAgent.id) ? target.session : undefined
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
-  const systemPrompt = buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides, timeZone: target.timeZone })
+  const promptFor = () => buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides: guides?.(), timeZone: target.timeZone })
+  const systemPrompt = promptFor()
+  // The page's skills as the prompt was built. When they change mid-turn (a tool call mounted a form), the
+  // following steps get a prompt rebuilt with them; the run records the turn's first prompt.
+  const pageSkillsKey = () => (pageSession?.skills() ?? []).map(skill => skill.uri).sort().join('\n')
+  let promptSkills = pageSkillsKey()
+  let stepInstructions: string | undefined
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const loaded = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
@@ -207,7 +216,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // The worker uses the tools it reserves, so it reads what their servers say about them, and may load
     // their skills — its read_skill limited to those servers. Added unwrapped: workerTools are already the
     // model's tools, and read_skill envelopes its own result.
-    const own = workerGuides(guides ?? [], Object.keys(workerTools), tools)
+    const own = workerGuides(guides?.() ?? [], Object.keys(workerTools), tools)
     const block = renderGuidesBlock(own)
     const config = { ...workerConfig, prompt: workerInstructions(workerConfig.prompt, block) }
     const ownTools = block && guidesRead
@@ -364,8 +373,14 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         debug('tool set refreshed mid-turn: %d tool(s)', Object.keys(liveTools).length)
       }
       for (const name of Object.keys(liveTools)) if (!offeredTools.has(name)) offeredTools.set(name, sourceOf(name))
+      const skills = pageSkillsKey()
+      if (skills !== promptSkills) {
+        promptSkills = skills
+        stepInstructions = promptFor()
+        debug('page skills changed mid-turn: prompt rebuilt')
+      }
       const guarded = loopGuardPrepareStep(options)
-      return { ...guarded, messages: stepContext(guarded.messages) }
+      return { ...guarded, messages: stepContext(guarded.messages), ...(stepInstructions ? { instructions: stepInstructions } : {}) }
     },
     // No SDK `timeout`: the run's deadline (driveTurn) bounds the whole turn, stream included, and its
     // abort reaches the stream through abortSignal. The IDLE bound is ours (idleWatchdog below), not the

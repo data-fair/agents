@@ -55,3 +55,11 @@ test('a URI listed by several servers, or by none, needs the server named', asyn
   await assert.rejects(run(t, { uri: 'skill://y/SKILL.md' }), /none of your tool servers lists skill:\/\/y\/SKILL\.md: name the server/)
   assert.equal(read, false)
 })
+
+test('a skill published after the tool was built is still read: the guides are read live', async () => {
+  const guides = [{ server: 'data-fair', skills: [] as Array<{ name: string, description: string, uri: string }> }]
+  const t = createReadSkillTool({ guides: () => guides, read: async (server, uri) => `${server} ${uri}` })
+  guides.push({ server: 'the-page', skills: [{ name: 'fill-form', description: 'd', uri: 'skill://fill-form/SKILL.md' }] })
+  const out = await (t.execute as any)({ uri: 'skill://fill-form/SKILL.md' }, {})
+  assert.match(String(out), /the-page skill:\/\/fill-form\/SKILL.md/)
+})

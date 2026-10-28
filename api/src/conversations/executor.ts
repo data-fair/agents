@@ -29,13 +29,15 @@ import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { contextBudget } from '../models/operations.ts'
 import { openAutonomousAgentTools } from '../mcp-servers/client.ts'
+import type { ServerGuide } from '../mcp-servers/guides.ts'
 import { openExternalMcpTools } from '../mcp-servers/external.ts'
 import { envPublicIps } from '../web/public-lookup.ts'
 import { personSiteCredentials, PLATFORM_MCP_SERVER_ID, getsPlatformServer, type SiteCredentials } from '../mcp-servers/operations.ts'
 import { applyApprovalPolicy, personalAssistantTools, unattended } from './approval-policy.ts'
 import { agentSiteCredentials } from '../nhi/service.ts'
 import { notifyMessage } from '../agent-session/registry.ts'
-import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
+import { isPersonalAgentId, usesPageTools } from '../agent-session/personal-agent.ts'
+import { pageGuide, readPageSkill, BROWSER_TOOL_SERVER } from '../agent-session/browser-tools.ts'
 import { settlePendingWait } from './waits.ts'
 import { TurnStopped, stopCauseOf, interruptedWaitResult, interruptReason, type StopCause } from './interrupted-turn.ts'
 import { turnFilesFor } from '../files/service.ts'
@@ -188,9 +190,16 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     // A configured agent's own skills come first (api/src/self-knowledge/operations.ts, agentGuide): the
     // personal assistant has no history tools, so no earlier-work skill either.
     const ownGuide = isPersonalAgentId(autonomousAgent.id) ? [] : [agentGuide()]
-    const guides = [...ownGuide, ...catalogGuides, ...(external?.guides ?? [])]
+    // The page's skills, for an agent that works through its page (as its tools are): read LIVE, because a
+    // tool call can mount a form whose skill the next step must list and load.
+    const pageSession = usesPageTools(autonomousAgent.id) ? session : undefined
+    const guides = (): ServerGuide[] => {
+      const page = pageGuide(pageSession)
+      return [...ownGuide, ...(page ? [page] : []), ...catalogGuides, ...(external?.guides ?? [])]
+    }
     const readSkill = async (server: string, uri: string): Promise<string> => {
       if (ownGuide.length && server === AGENT_SKILLS_SERVER) return readAgentSkill(uri)
+      if (pageSession && server === BROWSER_TOOL_SERVER) return readPageSkill(pageSession, uri)
       if (catalogGuides.some(g => g.server === server)) return await readCatalogSkill(server, uri)
       if (external) return await external.readSkill(server, uri)
       throw new Error(`"${server}" is not one of your tool servers this turn`)
@@ -215,7 +224,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       ...(files ? { files } : {}),
       ...(target.reportOutcome ? { reportOutcome: target.reportOutcome } : {}),
       catalog: { tools: catalog, filteredOut, skippedServers, needsFiles, ...(catalogIdentity ? { identity: catalogIdentity } : {}) },
-      guides: { list: guides, read: readSkill }
+      guides: { list: guides, read: readSkill, live: !!pageSession }
     })
     // An UNATTENDED turn (a planned task's run) is offered no tool needing approval, from any source.
     const assembled: ToolSet = { ...catalogTools, ...service.tools }
