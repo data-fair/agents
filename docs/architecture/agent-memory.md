@@ -54,7 +54,7 @@ Wiring (the `memory` entry of the service-tool registry, `api/src/conversations/
 
 - **Frozen at run start**, as in Hermes. The store is read once; the block rendered by `renderMemoryBlock` is part of the system prompt, which is the run's stable prefix for caching across its steps, and is recorded on the run (`setRunSystemPrompt`), which answers "what memory did this run see?". Writes made during the turn land in the store at once and show in the prompt from the next run. The block carries days, not times, so the prefix stays stable for a whole day. Tags of the block's vocabulary inside a document are defused so it cannot forge the envelope.
 - **Outside the approval gate.** The tool is added after `applyApprovalPolicy`: it writes only the agent's own audited store. Its annotations are explicit (`MEMORY_TOOL_ANNOTATIONS`) and recorded on the stored call, with provenance server `agent-memory`.
-- **Cannot be displaced.** A catalog tool or a page tool named `memory` does not stand in for it (it is added last), a page tool of that name is not treated as a page tool, and a sub-agent configuration cannot reserve it (`api/src/agent-session/sub-agents.ts`), so it can be neither handed to a worker nor hidden from the lead.
+- **Cannot be displaced.** A catalog tool or a page tool named `memory` does not stand in for it (it is added last), and a page tool of that name is not treated as a page tool (`mayBePageTool`, `api/src/conversations/service-tool-names.ts`), so it cannot be hidden from the agent.
 - **Refusals are errors.** A refusal is thrown, so the call is stored `output-error` and the model is handed the reason.
 
 ## Writes and versions

@@ -134,7 +134,7 @@ Test users are defined in `dev/resources/users.template.json` and organizations 
 
 The two `*-autonomous-agent-nhi` users are non-human identities an autonomous agent authenticates as. Each needs an `email` (simple-directory lowercases it unguarded), must belong to exactly one organization, and must carry no `allowedIps`/`ipBinding` — every autonomous agent shares one egress address. Their `nhi.subject` must equal `autonomous-agent:<agent id>`, which is why a dev-only seam creates a fixture agent with a chosen id. `tests/features/autonomous-agents/dev-fixtures.unit.spec.ts` enforces all of this — including the pairing itself, read out of `dev/fixtures.ts` and the specs rather than restated, so renaming an agent id without renaming the subject fails a unit test instead of surfacing as that uniform 401.
 
-Tests are separated in playwright projects: unit (pure functions), api (stateful API endpoints through HTTP) and e2e (UI with playwright browser intrumentation). When working on the e2e part you can use subagents `playwright-test-generator` and `playwright-test-generator`.
+Tests are separated in playwright projects: unit (pure functions), api (stateful API endpoints through HTTP) and e2e (UI with playwright browser intrumentation). When working on the e2e part you can use the Claude Code agents `playwright-test-generator` and `playwright-test-generator`.
 
 In case of failures you might find error contexts in `test-results`.
 
@@ -174,7 +174,7 @@ model mapping points at the mock would be graded on the mock's canned reply whil
 still reporting a valid run. The persona can also
 look at, click and type on the page itself (not the composer), so a claim like
 "I don't see it" is checkable against what it actually observed, not invented.
-A judge subagent then reads the transcript, observations included, and the
+A judge agent (`simulation-judge`) then reads the transcript, observations included, and the
 server's record of the run: the runner downloads each conversation's export —
 the same file used to debug a real session — so the seeded account stores
 traces and the browser carries the consent cookie. Needs the

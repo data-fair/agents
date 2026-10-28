@@ -74,7 +74,7 @@ export type SimulationOptions = {
 
 export async function runSimulation (page: Page, simCase: SimulationCase, opts: SimulationOptions): Promise<void> {
   const assistantModel = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
-  // The sub-agent, compaction and moderation roles, pinned separately and lower: that
+  // The memory, compaction and moderation roles, pinned separately and lower: that
   // is where a deployment puts a small model, so that is where the product has to
   // work. See BACKGROUND_ROLES.
   const toolsModel = process.env.SIM_TOOLS_MODEL ?? 'haiku'
@@ -130,17 +130,6 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     // covers threads the person agreed to have reviewed — and the consent sheet is not what a case
     // is about, so the persona is not asked.
     await page.context().addCookies([{ name: REVIEW_CONSENT_COOKIE, value: REVIEW_CONSENT_YES, url: new URL(opts.agentsUrl).origin }])
-
-    // SIM_SUB_AGENTS=0 runs the chat in its experimental flattened mode: sub-agents
-    // that do not pin a model hand their tools to the assistant itself. Set through
-    // the chat's own flags cookie, as its settings page does, before the chat loads.
-    if (process.env.SIM_SUB_AGENTS === '0') {
-      await page.context().addCookies([{
-        name: 'agent-chat-flags',
-        value: encodeURIComponent(JSON.stringify({ toolExploration: false, subAgents: false, simpleSubAgents: true, mermaid: false, showReasoning: false })),
-        url: opts.agentsUrl
-      }])
-    }
 
     await opts.setup({ assistantModel, toolsModel })
 

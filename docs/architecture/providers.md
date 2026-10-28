@@ -4,7 +4,7 @@ The system supports **9 provider types** through a unified factory (`createModel
 
 ```mermaid
 graph LR
-  RM["resolveRoleModel (turn, sub-agents, compaction, summaries, moderation)"] --> CM[createModel]
+  RM["resolveRoleModel (turn, memory consolidation, compaction, summaries, moderation)"] --> CM[createModel]
 
   CM --> OAI["@ai-sdk/openai"]
   CM --> ANT["@ai-sdk/anthropic"]
@@ -31,7 +31,7 @@ graph LR
 | Role | Purpose |
 |------|---------|
 | `assistant` | Primary conversational model |
-| `tools` | Structured data / tool-calling specialist; default seat for sub-agent workers |
+| `tools` | Structured data / tool-calling specialist; the seat of memory consolidation |
 | `summarizer` | Context compaction, conversation summaries |
 | `moderator` | Input moderation guard (internal, server-side) |
 
@@ -66,16 +66,16 @@ OpenAI, Gemini (implicit caching), DeepSeek, and vLLM-style servers behind `open
 request asks for it.**
 
 The calls that send a growing prefix again ask, by passing `CACHED_PREFIX_PROVIDER_OPTIONS`
-(`api/src/models/operations.ts`): the lead loop's steps (`model-loop.ts`), sub-agent workers
-(`sub-agents.ts`) and memory consolidation (`memory/consolidation.ts`). It is
+(`api/src/models/operations.ts`): the loop's steps (`model-loop.ts`) and memory consolidation
+(`memory/consolidation.ts`). It is
 `{ anthropic: { cacheControl: { type: 'ephemeral' } } }`, a request-level option that
 `@ai-sdk/anthropic` sends as Anthropic's top-level `cache_control` — automatic mode: the cache point
 is the request's last block, so each step reads what the previous step wrote, and a request never
 exceeds the four explicit cache points Anthropic allows. Other providers ignore the `anthropic` key,
 so the call sites pass it whatever the provider.
 
-One-off calls do **not** ask — compaction, the conversation title, the summary route, the sub-agent
-close-out, moderation: an Anthropic cache write costs 1.25× the input price and they would not read
+One-off calls do **not** ask — compaction, the conversation title, the summary route,
+moderation: an Anthropic cache write costs 1.25× the input price and they would not read
 it back, and not asking is how an Anthropic call stays out of the cache. Cache reads and writes come
 back in `usage.inputTokenDetails` and are charged by `priceTokensBreakdown`.
 
@@ -95,14 +95,12 @@ What this service relies on in AI SDK 7, and where each is pinned by a test agai
 | Behaviour | Relied on by | Pinned in |
 |---|---|---|
 | Each step's tools are built from the `tools` object after `prepareStep`, so a map mutated in place is live | `runModelLoop`'s `liveTools` (`api/src/conversations/model-loop.ts`; [MCP tools §7](./mcp-tools.md#7-the-tool-set-is-live-within-a-turn)) | `tests/features/autonomous-agents/live-tool-set.unit.spec.ts` |
-| A `prepareStep` `messages` override carries forward to later steps | `loopGuardPrepareStep` rebuilds each step instead of appending ([loop guards](./loop-guards.md)) | `tests/features/chat-subagent/loop-guards.unit.spec.ts` |
-| `result.response.messages` is the final step's only; `result.responseMessages` is all of them | the sub-agent close-out ([sub-agents §3](./sub-agents.md#loop-guard-close-out)) | `tests/features/agent-session/sub-agents.unit.spec.ts` |
+| A `prepareStep` `messages` override carries forward to later steps | `loopGuardPrepareStep` rebuilds each step instead of appending ([loop guards](./loop-guards.md)) | `tests/features/conversations/loop-guards.unit.spec.ts` |
 | A step's tools run only after the model call ends (`model-call-end`, `execute-tools-from-stream.ts`), not as each call streams in: a small latency change | the activity-label comment in `runModelLoop` (`api/src/conversations/model-loop.ts`) | none (read from the SDK source) |
 | `@ai-sdk/openai-compatible` reads provider options under the camelCase name (`openaiCompatible`) | the moderator's `reasoningEffort: 'none'` | `tests/features/models/models.unit.spec.ts` |
 | `@ai-sdk/anthropic` sends a request-level `cacheControl` as the top-level `cache_control`, and reports cache reads in `inputTokenDetails` | [prompt caching](#prompt-caching) on the loops | `tests/features/models/models.unit.spec.ts` ("prompt caching options") |
 | A v3 model (the mock) receives a tool's image as `file-data` with an `image/*` media type | the mock's `what did you see` seam | `tests/features/models/models.unit.spec.ts` |
 | An abort cancels the model stream | the mock model clears its timer when cancelled, instead of writing to a closed stream and crashing the server (`api/src/models/mock-model.ts`) | `tests/features/agents/mock-model.unit.spec.ts` ("a stream cancelled mid-text stops pushing, instead of crashing the process") |
-| An abort signalled to a `ToolLoopAgent` is honoured **between steps** | a sub-agent worker crossing the run's credit budget is stopped, not left to run to its step limit ([sub-agents](./sub-agents.md#billing-and-ceilings)) | `tests/features/agent-session/sub-agents.api.spec.ts` |
 | An abort ends an in-flight tool call immediately | a stopped turn does not wait for a slow MCP call; the remote side may still complete, so the stored error says the outcome is unknown ([approval gate](./autonomous-agents.md#the-approval-gate)) | `tests/features/autonomous-agents/approval-gate.api.spec.ts` (a person speaking while `slow_lookup` runs: the run ends at once with the outcome unknown, and the remote side still completes) |
 | An approved call whose tool is gone is silently skipped | `toolApproval: denyGoneApprovedTools(...)` (`api/src/conversations/approved-calls.ts`) denies it by name, so it is settled `output-error` rather than left open | `tests/features/autonomous-agents/approved-calls.unit.spec.ts` |
 

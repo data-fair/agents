@@ -81,16 +81,15 @@ was lifted into its own `blob` record; the message keeps a stub with `__ref`,
 Never read a large blob whole when its preview answers the question.
 
 A tool call is one `dynamic-tool` part: `toolName`, `input`, and either `output`
-(state `output-available`) or `errorText` (state `output-error`). A sub-agent's
-own work is a `data-subagent` part of the message that dispatched it.
+(state `output-available`) or `errorText` (state `output-error`). A
+`code_mode` script's own calls are a `data-trace` part of the message that ran it.
 
 Not every model call is the assistant answering the person. Compaction,
-moderation and sub-agents each run on their own model role, recorded as
-`modelRole` on each entry of a run's `calls`. `metrics.requestsByRole` totals
-them — read it before attributing spend, and never call a request a sub-agent
-dispatch unless a `subagent_*` tool call appears in the messages. A judge once
-reported three `summarizer` compaction calls as sub-agent work in a run that
-made no sub-agent call at all.
+moderation and memory consolidation each run on their own model role, recorded
+as `modelRole` on each entry of a run's `calls`. `metrics.requestsByRole` totals
+them — read it before attributing spend. A judge once reported three
+`summarizer` compaction calls as delegated work in a run that delegated
+nothing.
 
 A claim about what is on screen must be supported by a preceding `look` in
 `observations`. A persona asserting a visual fact it never observed is a

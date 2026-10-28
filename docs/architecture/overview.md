@@ -1,6 +1,6 @@
 # Architecture overview
 
-**data-fair/agents** is a multi-provider AI chat service with tool-use capabilities, designed to be embedded into data-fair applications. The agent loop runs on the server, which also holds the conversation; the browser renders it and contributes page tools. It provides a websocket agent session, server-side orchestration with sub-agents, and an embeddable chat widget.
+**data-fair/agents** is a multi-provider AI chat service with tool-use capabilities, designed to be embedded into data-fair applications. The agent loop runs on the server, which also holds the conversation; the browser renders it and contributes page tools. It provides a websocket agent session, server-side tool orchestration (page tools and skills, MCP servers, scripts), and an embeddable chat widget.
 
 ```mermaid
 graph TB
@@ -27,7 +27,7 @@ graph TB
 | `api/` | Express server: the agent loop and conversation store, the agent session socket, settings, quotas and usage, moderation, review, summarization |
 | `ui/` | Vue 3 + Vuetify 4 SPA: the chat (rendering the turn the server streams, gathering the page's tools for it), settings and review pages |
 | `shared/` | What both the server and the browser read: the agent session protocol and its frame schemas, host events, message parts, the audited-agent rule — and nothing else (a unit test enforces that every module has a UI consumer) |
-| `lib-vue/` | Vue composables: WebMCP tool registration, sub-agent declaration, BroadcastChannel transport |
+| `lib-vue/` | Vue composables: WebMCP tool and skill registration, BroadcastChannel transport |
 | `lib-vuetify/` | Embeddable Vuetify components: chat drawer, menu, action button, toggle FAB |
 | `lib-sim/` | The scenario-simulation harness (`npm run simulate`) and the dev bridge to Claude Code models |
 
@@ -36,8 +36,8 @@ chat's personal assistant and configured [autonomous agents](./autonomous-agents
 talks to it over the agent session websocket (`api/src/agent-session/service.ts`, protocol in
 `shared/agent-session-protocol.ts`), the only live channel and the only way to start a turn or decide
 on an approval: there is no HTTP route for either, and no polling. The chat sends prompts, its page's
-contextual tools, its host state and events, aborts and approval decisions; it receives the stored turn
-as it is written (`delta`, `message`, `activity`, `subagent`, `cost`, `turn-end`), plus calls to those
+contextual tools and skills, its host state and events, aborts and approval decisions; it receives the stored turn
+as it is written (`delta`, `message`, `activity`, `trace`, `cost`, `turn-end`), plus calls to those
 tools. HTTP serves the rest: the agents a person may talk to, the history list, a conversation's
 runs as a plain read, and deleting a thread. A transcript is read only over the socket (the history
 sent on attach) and through review.
@@ -53,7 +53,7 @@ Both directions are bounded. A browser frame is at most 1 MiB (`maxPayload`; a l
 socket with 1009) and its fields have sizes (`shared/agent-session-client-frame/limits.js`: a prompt of
 200 000 characters, 100 tools, 100 host events of 1000 characters…), which the chat itself fits what it
 forwards to. Towards a browser that is not reading fast enough (over 1 MiB waiting), frames a later one
-replaces whole — an in-progress message or sub-agent transcript, a delta — are skipped before being
+replaces whole — an in-progress message or `code_mode` trace, a delta — are skipped before being
 serialized (`isSupersededFrame`); the final message, calls to the page, activities and the turn's end
 always go.
 
@@ -141,9 +141,9 @@ prefix is ignored, `api/src/sites/operations.ts`):
 | Concern | Read |
 |---|---|
 | A turn's tools: page tools over the socket, the MCP catalog, `wait_for_user_action` | [MCP tool integration](./mcp-tools.md), [Host events](./host-events.md) |
+| Skills: what MCP servers, the agent itself and the page publish, the Skills index and `read_skill`; why pages publish skills rather than delegate | [MCP tool integration → Server instructions and skills](./mcp-tools.md#server-instructions-and-skills), [Page skills](./mcp-tools.md#page-skills) |
 | What the model is sent, and how a long conversation is kept within its window | [Context management](./context-management.md) |
 | What stops a turn: step and repetition guards, budgets, the clock | [Loop guards](./loop-guards.md) |
-| Delegating to workers | [Sub-agent orchestration](./sub-agents.md) |
 | Configured agents with their own identity | [Autonomous agents](./autonomous-agents.md) |
 | What an agent remembers across conversations | [Agent memory](./agent-memory.md) |
 | Prompts an agent runs on a schedule, unattended | [Planned tasks](./planned-tasks.md) |

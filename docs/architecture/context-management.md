@@ -111,7 +111,7 @@ budget paid a full summarizer call on every turn for ever. Tier 1 needs no such 
 pure function of the history and the parameters — recomputed every turn for free. That asymmetry is
 exactly why ordering the cheap tier first costs nothing.
 
-**Before each step**, the lead loop's `prepareStep` passes the step's messages through the step context
+**Before each step**, the loop's `prepareStep` passes the step's messages through the step context
 (`createStepContext(budget)`, `api/src/conversations/step-context.ts`), composed after the loop guards'
 rebuild ([loop guards](./loop-guards.md#2-repeated-call-guard--nudge-at-3-stop-at-5)). A turn of many steps
 — code mode, files, a planned task's run of tens of minutes — can outgrow the window on its own, and every
@@ -142,9 +142,7 @@ later resort (Anthropic's compaction, LangChain's `SummarizationMiddleware`) —
 follows: "clears older tool outputs first, then summarizes the conversation if needed".
 
 A planned task's run starts from one prompt, so it never compacts at start; the per-step tier is what
-keeps a long run within its window. Sub-agent workers are stateless single-shot runs (see
-[sub-agents](./sub-agents.md)) with their own short context: they are neither compacted nor given the step
-context.
+keeps a long run within its window.
 
 ## Prompt caching
 

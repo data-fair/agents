@@ -106,8 +106,8 @@ Delivery, in `api/src/conversations/executor.ts` and `api/src/agent-session/brow
    are drained and appended to that tool's result as a `<host-events>` block
    (`appendHostEvents`): the event lands in history exactly where it happened (the
    Playwright "action returns the resulting page" shape), so the model decides its next
-   step on the page its own call produced. A sub-agent worker's page tools are the same
-   tool objects, so they drain the same shared buffer.
+   step on the page its own call produced. A `code_mode` script's page calls do not drain
+   (`drainEvents: false`): a script could not pass the events on, so they stay pending.
 3. **Otherwise** — at the start of the next turn, `withHostContext` folds a block set into
    the `<hidden-context>` wrapper of the **last user message**: a `<host-state>` block of
    the retained keys (without the recent-actions ring), then the drained `<host-events>`,
@@ -149,7 +149,7 @@ publishes without a browser.
 
 A loop-provided tool (`WAIT_TOOL_NAME`, built by `createWaitTool` in `api/src/agent-session/host-events.ts`),
 added to a turn's tool set whenever an agent session is attached — someone is there to act. It
-is a fixed tool of the lead's set; sub-agent workers only receive the tools they reserve.
+is one of the turn's fixed tools, beside the catalog's.
 `{ message, expecting }`. `message` is the model's reply to the person — what is ready and what
 to press — and `expecting` is only the status label. Before `message` existed, models read the
 « En attente : … » label as their message and handed buttons over in silence. The loop adds the

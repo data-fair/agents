@@ -223,33 +223,32 @@ The chat iframe's `FrameClientAggregator` discovers the server, and the iframe d
 
 ---
 
-## Declaring Sub-Agents
+## Publishing Page Skills
 
-Host applications can also declare sub-agents that have exclusive access to specific tools:
+A page can publish a **skill** beside its tools: a procedure the agent sees listed (name and description)
+and loads only when it needs it, such as how to fill a large form:
 
 ```vue
 <script setup>
-import { useFrameServer, useAgentTool, useAgentSubAgent } from '@data-fair/lib-vue-agents'
+import { useFrameServer, useAgentTool, useAgentSkill } from '@data-fair/lib-vue-agents'
 
 useFrameServer('parent')
 
-// Register tools
 useAgentTool({ name: 'query_data', ... })
-useAgentTool({ name: 'get_schema', ... })
 
-// Declare a sub-agent that owns those tools
-useAgentSubAgent({
-  name: 'analyst',
-  title: 'Data Analyst',
-  description: 'Analyzes datasets using SQL queries',
-  prompt: 'You are a data analyst. Use query_data and get_schema to answer questions.',
-  tools: ['query_data', 'get_schema'],
-  model: 'tools'
+useAgentSkill({
+  name: 'query-guide',
+  description: 'How to query this dataset. Load it before using query_data.',
+  body: '# Querying the dataset\n\nAlways read the schema before writing a query.'
 })
 </script>
 ```
 
-The main agent will delegate to `subagent_analyst` rather than calling `query_data` directly. The `subagent_*` tool only returns its configuration: the server loop calls it over the socket, then runs the worker itself (`api/src/agent-session/sub-agents.ts`), the worker's page-tool calls coming back to the page like any other. See [Sub-agent orchestration](./sub-agents.md) for details.
+The skill is an MCP resource `skill://query-guide/SKILL.md` on the page's model context, so it needs
+`useFrameServer` (the bare WebMCP polyfill has no resources); it is unregistered when the component
+unmounts. The chat sends it to the session with the tools, and an agent that works through its page lists
+it in its Skills index under the server `the-page` and loads it with `read_skill`, like a skill an MCP
+server publishes. Bounds and details: [MCP tool integration → Page skills](./mcp-tools.md#page-skills).
 
 ---
 

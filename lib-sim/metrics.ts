@@ -32,7 +32,7 @@ export type RunMetrics = {
   modelRequests: number | null
   /**
    * Calls per model role — `assistant` is the person's own conversation; `tools`, `summarizer` and
-   * `moderator` are sub-agents, compaction and the moderation gate. The record names the role, so
+   * `moderator` are memory consolidation, compaction and the moderation gate. The record names the role, so
    * nothing is inferred from the shape of the history.
    */
   requestsByRole: Record<string, number> | null

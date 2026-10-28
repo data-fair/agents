@@ -155,8 +155,7 @@ experimental.
 
 ## What a script can call
 
-The turn's **main** tool set, after the sub-agent partition (so a worker's reserved tools are already out),
-filtered by `codeCallable` (`api/src/code-mode/operations.ts`). Excluded, with the reason for each:
+The turn's tool set, filtered by `codeCallable` (`api/src/code-mode/operations.ts`). Excluded, with the reason for each:
 
 | Excluded | Why |
 |---|---|
@@ -164,7 +163,6 @@ filtered by `codeCallable` (`api/src/code-mode/operations.ts`). Excluded, with t
 | `wait_for_user_action` | it ends the turn |
 | `request_web_access`, `request_mcp_access`, `plan_task`, `update_task`, `delete_task` | they ask an administrator |
 | `read_skill` | a skill is guidance for the model; inside a script it is data nobody reads |
-| every `subagent_*` delegation | a model loop inside a script (upstream vercel/ai#18145), and a worker's trace is keyed on the model's own call |
 | `code_mode` | itself |
 
 Everything else is callable: catalog and external MCP tools, the file and web tools, `memory`, and
@@ -174,11 +172,8 @@ Everything else is callable: catalog and external MCP tools, the file and web to
   and **host events are not drained**. A script could not pass them on to the model, so they stay pending for
   the model's next direct page call or its next turn. A page tool that shadows a catalog tool for the model
   shadows it for a script too. A task run has no page, so none.
-- **Not a sub-agent.** Code mode is not routed through a `tools` worker: both keep intermediate results out of
-  the lead's context, with different workers, and nesting them adds a model hop for no isolation gain. Every
-  reference implementation gives scripting to the agent that plans the work.
-- **Sub-agent workers do not get `code_mode`.** It is a service tool name, so a page config listing it
-  reserves nothing. Spec §6.3 allows a page worker to list it; that is deferred until a page declares one.
+- **Given to the agent that plans the work**, as every reference implementation does: no second model runs
+  the script.
 
 ## Data for code, text for the model
 
@@ -214,11 +209,11 @@ script is not the model.
 
 **Recorded as a trace.** The package emits no event for nested calls (upstream vercel/ai#18144): `streamText`'s
 callbacks, telemetry and stream see only the outer `code_mode` call. So our code-facing wrapper
-(`codeFacingTools`, `api/src/code-mode/code-tools.ts`) records each call into a `data-subagent` trace under
-the `code_mode` call (`name: 'code_mode'`), keyed by the package's nested id `<outer>:tool-<n>`. It is the
-mechanism sub-agent workers already use, so there is one way to show nested work:
+(`codeFacingTools`, `api/src/code-mode/code-tools.ts`) records each call into a `data-trace` part under
+the `code_mode` call (`name: 'code_mode'`, `parentToolCallId` the outer call's id), keyed by the package's nested
+id `<outer>:tool-<n>`:
 
-- streamed as `subagent` frames while the script runs, coalesced within 25 ms (`TRACE_FLUSH_MS`, as the
+- streamed as `trace` server frames (`target.frames.trace(...)`) while the script runs, coalesced within 25 ms (`TRACE_FLUSH_MS`, as the
   session's text deltas): each frame carries the whole trace, so one per open and settle made the traffic
   quadratic in the script's calls;
 - each call's input is recorded **bounded** (`boundRecordedInput`, `parts-recorder.ts`): every string cut at
@@ -230,8 +225,9 @@ mechanism sub-agent workers already use, so there is one way to show nested work
   script ended before this call answered", sends the final frame, and ignores whatever answers after it — a
   late frame would replace the finished trace in the chat with an empty pending one;
 - left out of replay — the point: the model never sees intermediate results;
-- rendered by the chat like a worker's: with the default `simpleSubAgents` display flag, a status chip on
-  the `code_mode` call; with the flag off, a panel under the call, titled "Script", listing the nested calls.
+- shown where it is read: the chat shows the script as a tool chip like any call; the review page and the task
+  run view (`AgentChatMessages` with `show-traces`, from `ConversationReview.vue` and `TaskRunView.vue`) show an
+  expandable panel under the call, titled "Script", collapsed by default, listing the nested calls.
 
 Nested calls are not entries of the run's `calls` telemetry, which records model calls.
 
@@ -355,7 +351,7 @@ R4, pending.
 - `api/src/files/tools.ts` — `createFileCodeExecutes`; `api/src/mcp-servers/client.ts`, `external.ts` —
   the MCP `codeExecute`; `api/src/agent-session/browser-tools.ts` — `rawBrowserToolSet`.
 - `api/src/conversations/model-loop.ts` — `assembleTools` builds it with the live set; the trace is stored
-  through `storeSubAgentTrace`.
+  as a `data-trace` part (`storeTrace`).
 
 Tests: `tests/features/code-mode/code-mode.unit.spec.ts` (the engine against the real package: sandbox,
 console, line numbers, errors, limits, abort, description), `code-tools.unit.spec.ts` (`codeCallable`, data
@@ -363,8 +359,7 @@ and recording, failures, the uncaught failure reported as itself, bounded inputs
 timeout with nothing sent after it, coalesced frames, the file tools' return types),
 `tests/features/autonomous-agents/external-mcp.unit.spec.ts` (a call's abort signal reaches the MCP request), `code-mode.api.spec.ts` (through the mock model: `structuredContent` and nested
 records, files end to end, gated and reserved tools absent, errors, the personal assistant, self-knowledge),
-`tests/features/agent-session/sub-agents.api.spec.ts` (a worker's reserved tool is out of a script's reach),
-`code-mode.e2e.spec.ts` (the nested calls listed under the `code_mode` call, and after a reload),
+`code-mode.e2e.spec.ts` (a chip in the chat, the nested calls in a panel under the `code_mode` call on the review page),
 `tests/features/files/call-path.unit.spec.ts` (mode `'code'`). The fixture's `closure_stats` returns
 `structuredContent` without an `outputSchema`, as data-fair's MCP does. The unattended simulation case
 `code-mode-clean-and-import-task-run` does export, filter and import in one script.
@@ -373,8 +368,7 @@ records, files end to end, gated and reserved tools absent, errors, the personal
 
 - `@ai-sdk/code-mode`: https://ai-sdk.dev/docs/ai-sdk-core/code-mode ; `run`: https://github.com/vercel-labs/run
 - vercel/ai#18143 (approvals in code mode): https://github.com/vercel/ai/issues/18143 ; #18144 (telemetry and
-  lifecycle hooks for nested calls): https://github.com/vercel/ai/issues/18144 ; #18145 (sub-agent tools
-  across callers): https://github.com/vercel/ai/issues/18145 ; #20572 (code-mode conversation messages):
+  lifecycle hooks for nested calls): https://github.com/vercel/ai/issues/18144 ; #20572 (code-mode conversation messages):
   https://github.com/vercel/ai/pull/20572
 - Anthropic, programmatic tool calling: https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling ;
   code execution with MCP: https://www.anthropic.com/engineering/code-execution-with-mcp

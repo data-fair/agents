@@ -23,17 +23,17 @@ sequenceDiagram
   Explore->>Sum: generateText(full registry, forced select_tools)
   Sum-->>Explore: { summary, toolNames }
   Explore->>Explore: promotedTools += toolNames
-  Note over Step: next step activeTools = [explore_tools, …subagents, …promoted]
+  Note over Step: next step activeTools = [explore_tools, …promoted]
   Asst->>Asst: now calls the promoted tool directly
 ```
 
 **How it worked:**
 
-1. The full tool registry was still passed to `streamText`, but `activeTools` (returned from `prepareStep` each step) gated which tools were exposed to the model. It started as `[explore_tools, …subAgentNames]`.
+1. The full tool registry was still passed to `streamText`, but `activeTools` (returned from `prepareStep` each step) gated which tools were exposed to the model. It started as `[explore_tools]`.
 2. `explore_tools.execute` ran the **summarizer** model over the full registry, forcing a `select_tools` tool call to get structured `{ summary, toolNames }`. Selected names were validated against the live registry and added to a `promotedTools` set.
 3. `prepareStep` read `promotedTools` live, so a tool promoted at step *N* was callable at step *N+1* — within the same turn.
 4. Promotions survived history compaction, pruned to the tools the retained window still referenced (`retainedToolNames`), and were cleared on reset. Tools that appeared mid-turn were announced as a `<tools-available>` message rather than made callable.
 
-Gating limits which tools are *advertised*, not a hard execution barrier. Sub-agent delegations were always active.
+Gating limits which tools are *advertised*, not a hard execution barrier.
 
 **For the port.** The server loop already has the hooks this needs: `runModelLoop` passes a `prepareStep` to `streamText`, so returning `activeTools` there is the natural place. The original folded the name catalog into the system text because the gateway hoisted all `system`-role messages into one block; with the gateway gone, placement (system vs. a tail message) should be decided against whatever prompt caching exists at that time.

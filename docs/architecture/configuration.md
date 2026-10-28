@@ -290,7 +290,7 @@ So for role `tools`: try `modelMapping.tools`, then `defaultModels.tools`; if ne
 
 ## Credits
 
-Every LLM call — assistant turns, sub-agent delegations, the summarizer's compaction calls, moderator classification calls, and summary-endpoint calls — is priced in **credits**, not currency:
+Every LLM call — assistant turns, memory consolidation, the summarizer's compaction calls, moderator classification calls, and summary-endpoint calls — is priced in **credits**, not currency:
 
 ```
 euros   = (noCacheTokens + cacheWriteTokens) × inputPricePerMillion       / 1_000_000

@@ -59,6 +59,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/_dev/chat-air-quality': RouteRecordInfo<
+      '/_dev/chat-air-quality',
+      '/_dev/chat-air-quality',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/_dev/chat-block': RouteRecordInfo<
       '/_dev/chat-block',
       '/_dev/chat-block',
@@ -253,6 +260,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/chat-action.vue': {
       routes:
         | '/_dev/chat-action'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/_dev/chat-air-quality.vue': {
+      routes:
+        | '/_dev/chat-air-quality'
       views:
         | never
       pathParamNames:

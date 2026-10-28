@@ -25,7 +25,7 @@ shows otherwise: the tools, links, and user intent all come from the host.
 
 ### data-fair back-office
 
-A rich tool surface (dozens of tools across sub-agents). The main families:
+A rich tool surface (dozens of tools). The main families:
 
 - **Navigation:** `navigate`, `list_pages`, `get_current_location`.
 - **Dataset exploration:** `list_datasets`, `describe_dataset`,
@@ -42,9 +42,9 @@ A rich tool surface (dozens of tools across sub-agents). The main families:
 
 ### portals manager
 
-A narrow surface: VJSF form sub-agents only — `pageConfig_form` and
-`portalConfig_form` — which translate natural-language requests into form
-mutations. The user still reviews and saves the form.
+A narrow surface: the tools of its VJSF configuration forms (page and portal
+configuration), with which the agent turns natural-language requests into form
+mutations, guided by the form's page skill. The user still reviews and saves the form.
 
 ## Domain vocabulary
 

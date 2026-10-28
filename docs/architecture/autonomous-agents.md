@@ -328,7 +328,7 @@ swept by their own purges.)
 - `session` and `messageSeq`: the page in front of the person as the turn started (its tools and host events; undefined is normal), and the message the turn writes (also the history bound recorded on its telemetry).
 - `history`: the stored messages up to the turn's own, compacted within the budget, with the page's context (host events, the pending-wait reminder) folded into the last user message at call time and never persisted.
 - `persist`: writes the turn's structure to its assistant message each time a call opens or settles. Streamed text is not written as it goes.
-- `frames`: deltas, activity, the message so far and sub-agent frames, sent to whoever watches the conversation **now** (read at each send), not to the session the turn started with, so a reload or a second tab does not silence it.
+- `frames`: deltas, activity, the message so far and `code_mode` traces, sent to whoever watches the conversation **now** (read at each send), not to the session the turn started with, so a reload or a second tab does not silence it.
 - `settleEarlierCall`: the result of a call an earlier turn made, an approved call the SDK executed on replay, settled on its original part.
 - `close` and `fail`: write the record and close the run. The answer so far is not the target's: `driveTurn` registers each live run (`api/src/conversations/live-runs.ts`) with its controller, its message seq and the parts the loop produces, so a page attaching mid-turn gets the answer on attach and the rest live (`liveTurnOf`), and a stopped or failing turn is settled from it (`livePartsOf`).
 
@@ -349,7 +349,7 @@ The system prompt (`buildSystemPrompt`) states today's date, as Claude.ai and Ch
 - planning (`plan_task`, `update_task`, `delete_task`): a configured agent in a chat an administrator started, each call approved by an administrator; see [planned tasks](./planned-tasks.md#self-knowledge-and-planning). Provenance server `agent-self`.
 - `report_outcome`: the task surface only, how a planned task's run reports its outcome. Provenance server `agent-service`.
 
-Service tools are added after the approval policy is applied, so they are outside the approval policy; one that needs a person says so itself (`needsApproval`, as the planning tools and `request_web_access` do). None can be displaced: `api/src/conversations/service-tool-names.ts` holds `SERVICE_TOOL_NAMES` and the pure `mayBePageTool`, so a page tool of such a name is not treated as a page tool, a catalog tool does not stand in for one, and a sub-agent configuration never reserves one.
+Service tools are added after the approval policy is applied, so they are outside the approval policy; one that needs a person says so itself (`needsApproval`, as the planning tools and `request_web_access` do). None can be displaced: `api/src/conversations/service-tool-names.ts` holds `SERVICE_TOOL_NAMES` and the pure `mayBePageTool`, so a page tool of such a name is not treated as a page tool and a catalog tool does not stand in for one.
 
 ## The approval gate
 
@@ -438,10 +438,6 @@ when the model called `wait_for_user_action` and a gated tool in one step, the h
 `waiting` with the request beside it; the person acting on the page rejects it (`PENDING_APPROVAL_ACTED`) before the
 wait is settled. Two guards keep this true: a turn answering a message (`user` run) rejects pending approvals again when it starts, so a rejection cannot be lost to the asking turn's last writes; and `decideAndContinue` settles a wait handed over in the same step as the gated call with `WAIT_SUPERSEDED_BY_DECISION`. A pending approval is therefore always the conversation's latest step, so no undecided call can be
 compacted away or approved out of order, and the compaction policy needs no guard for it.
-
-A **sub-agent worker** is never handed a tool needing approval (`partitionSubAgents`): its request would stop the
-worker's own loop, where nobody can see or decide it. Such a tool is not reserved — it stays with the lead, where the
-gate asks the person.
 
 An approved call's result, settled on its original part by the next run, keeps `toolMetadata.truncated` when it was
 cut at the result bound, beside `toolMetadata.decision`.

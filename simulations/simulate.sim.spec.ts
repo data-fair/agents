@@ -18,7 +18,7 @@ import { clean } from '../tests/support/axios.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../ui/src/review/review-consent.ts'
 
 const ASSISTANT_MODEL = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
-// The sub-agent, compaction and moderation roles, pinned separately and lower:
+// The memory, compaction and moderation roles, pinned separately and lower:
 // that is where a deployment puts a small model, so that is where the product
 // has to work.
 const TOOLS_MODEL = process.env.SIM_TOOLS_MODEL ?? 'haiku'

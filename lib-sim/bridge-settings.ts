@@ -9,9 +9,9 @@ export const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'moderator'] as 
 export type ModelRole = typeof MODEL_ROLES[number]
 
 /**
- * Roles a deployment puts on a small model: sub-agents, compaction, the
+ * Roles a deployment puts on a small model: memory consolidation, compaction, the
  * moderation guard. Running them on the assistant's model would both cost more
- * per case and flatter the product — a sub-agent prompt that only a large model
+ * per case and flatter the product — a prompt that only a large model
  * can follow reads as working until a real deployment runs it on the cheap tier.
  */
 export const BACKGROUND_ROLES: readonly ModelRole[] = ['tools', 'summarizer', 'moderator']

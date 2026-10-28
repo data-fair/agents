@@ -83,7 +83,7 @@ export type RunSidecar = {
   valid: boolean
   error?: string
   assistantModel: string
-  /** The tier the background roles ran on (sub-agents, compaction, moderation),
+  /** The tier the background roles ran on (memory consolidation, compaction, moderation),
    *  when the host pins it separately from the assistant's. */
   toolsModel?: string
   userModel: string

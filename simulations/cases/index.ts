@@ -123,7 +123,7 @@ export const importedACleanedFile: Premise = {
 
 /**
  * The run did the import inside ONE code_mode script: a code_mode call that did not fail, whose trace
- * (the `data-subagent` part named code_mode, its `parts` the nested calls) holds an import_table call
+ * (the `data-trace` part named code_mode, its `parts` the nested calls) holds an import_table call
  * that succeeded. Nested calls are not top-level tool calls, so recordedToolCalls does not see them.
  */
 export const importedACleanedFileWithAScript: Premise = {
@@ -132,7 +132,7 @@ export const importedACleanedFileWithAScript: Premise = {
     if (!recordedToolCalls(exported).some(call => call.toolName === 'code_mode' && !call.failed)) return false
     return exported.messages.some(message => message.parts.some((stub: any) => {
       const part: any = (stub.__ref ? exported.blobs.get(stub.__ref) : undefined) ?? stub
-      return part.type === 'data-subagent' && part.data?.name === 'code_mode' &&
+      return part.type === 'data-trace' && part.data?.name === 'code_mode' &&
         Array.isArray(part.data.parts) && part.data.parts.some((nested: any) =>
         nested.type === 'dynamic-tool' && nested.toolName === 'import_table' && nested.state !== 'output-error')
     }))
@@ -172,7 +172,7 @@ const NEWSLETTER_READER = 'Nobody is present while this runs. The reader is the 
 export const cases: LocalCase[] = [
   {
     name: 'air-quality',
-    route: '/agents/_dev/chat-subagent',
+    route: '/agents/_dev/chat-air-quality',
     persona: 'You are an environmental officer at a mid-sized French city. You are comfortable with data but you are not a programmer, you do not know what a "schema" or an "aggregation" is, and you will not use those words. You are busy and you ask for what you want in plain language.',
     goal: 'You want to know which monitoring station has the worst PM2.5 air quality, and you want that answer shown on the screen so you can point at it in a meeting this afternoon.',
     maxTurns: 8
