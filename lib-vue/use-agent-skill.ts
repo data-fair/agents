@@ -8,8 +8,11 @@ export interface AgentSkillOptions {
   name: string
   /** When the agent should load it. Always shown to the agent; keep it to what decides that. */
   description: string
-  /** The procedure, in markdown: loaded only when the agent asks for it. A function is read on each load. */
-  body: string | (() => string)
+  /**
+   * The procedure, in markdown: listed to the agent by its description, read by it on demand. Sent with the page's
+   * tools, so it is the text as registered; register again (a new scope) to change it.
+   */
+  body: string
 }
 
 let warned = false
@@ -40,7 +43,7 @@ export function useAgentSkill (options: AgentSkillOptions) {
       description: options.description,
       mimeType: 'text/markdown',
       read: async () => ({
-        contents: [{ uri, mimeType: 'text/markdown', text: typeof options.body === 'function' ? options.body() : options.body }]
+        contents: [{ uri, mimeType: 'text/markdown', text: options.body }]
       })
     })
   } catch (err) {

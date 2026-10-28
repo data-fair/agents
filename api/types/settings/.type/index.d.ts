@@ -252,7 +252,7 @@ export type ModelPerRole = {
   moderator?: Moderator1;
 }
 /**
- * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
+ * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools.
  */
 export type Assistant1 = {
   provider: string;

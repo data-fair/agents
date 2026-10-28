@@ -61,25 +61,33 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
 const TRUNCATED = '\n\n[truncated]'
 /** The Agent Skills name format, as the frame schema states it. */
 const SKILL_NAME = /^(?=.{1,64}$)[a-z0-9]+(-[a-z0-9]+)*$/
+const SKILL_URI = /^skill:\/\/[a-z0-9]+(-[a-z0-9]+)*\/SKILL\.md$/
 
 /**
  * What a page publishes, made to fit the frame: the first of a duplicate URI, `skill://` URIs only, at
- * most CLIENT_FRAME_LIMITS.skills, descriptions and bodies cut to their bounds. Called by the browser
+ * most CLIENT_FRAME_LIMITS.skills within CLIENT_FRAME_LIMITS.skillsBytes, descriptions and bodies cut to their bounds. Called by the browser
  * before sending, because a frame the server refuses would lose the page's tools as well.
  */
 export function fitPageSkills (skills: PageSkillDescriptor[]): PageSkillDescriptor[] {
   const L = CLIENT_FRAME_LIMITS
   const seen = new Set<string>()
   const fitted: PageSkillDescriptor[] = []
+  const encoder = new TextEncoder()
+  let bytes = 0
   for (const skill of skills) {
     // What the schema would refuse is dropped here: one refused skill would cost the whole frame.
-    if (!skill.uri.startsWith('skill://') || skill.uri.length > L.id || !SKILL_NAME.test(skill.name) || seen.has(skill.uri)) continue
+    if (!SKILL_URI.test(skill.uri) || skill.uri.length > L.id || !SKILL_NAME.test(skill.name) || seen.has(skill.uri)) continue
     seen.add(skill.uri)
-    fitted.push({
+    const one = {
       ...skill,
       description: skill.description.slice(0, L.skillDescription),
       body: skill.body.length > L.skillBody ? skill.body.slice(0, L.skillBody - TRUNCATED.length) + TRUNCATED : skill.body
-    })
+    }
+    // The frame's real weight, not its characters: a skill that would push it over the budget is left out.
+    const weight = encoder.encode(JSON.stringify(one)).length
+    if (bytes + weight > L.skillsBytes) continue
+    bytes += weight
+    fitted.push(one)
     if (fitted.length === L.skills) break
   }
   return fitted

@@ -14,8 +14,8 @@ const MODEL_ROLE_TITLES = {
 /** @type {Record<string, { en: string, fr: string }>} */
 const MODEL_ROLE_DESCRIPTIONS = {
   assistant: {
-    en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.',
-    fr: "L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents."
+    en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools.',
+    fr: "L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle mène la conversation et appelle les outils."
   },
   tools: {
     en: 'The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.',

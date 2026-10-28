@@ -370,8 +370,8 @@ listed and loads when it needs it, such as how to fill a large form.
 - **Published with `useAgentSkill({ name, description, body })`** (`lib-vue/use-agent-skill.ts`). It
   registers an MCP resource `skill://<name>/SKILL.md` (`text/markdown`) on the page's `navigator.modelContext`,
   unregistered with the component's scope. `name` is in the Agent Skills format (lowercase words joined by
-  hyphens); `description` is always shown to the agent, `body` only when loaded, and a function body is read
-  on each load. Resources need `useFrameServer`'s model context (MCP-B's `BrowserMcpServer`): the bare WebMCP
+  hyphens); `description` is always shown to the agent, `body` only when loaded. The body is a string, sent with
+  the page's tools: a skill whose text should change is registered again. Resources need `useFrameServer`'s model context (MCP-B's `BrowserMcpServer`): the bare WebMCP
   polyfill has none, so without it the composable warns once and does nothing.
 - **Gathered by the aggregator with the tools** (`FrameClientAggregator`, `ui/src/transports/frame-client-aggregator.ts`).
   On each refresh of a frame server that declares resources, it lists them, reads every `skill://<name>/SKILL.md`
@@ -380,10 +380,10 @@ listed and loads when it needs it, such as how to fill a large form.
   call mounts is folded in by `settled()` before that call's result, like a tool.
 - **Sent in the frames that carry the tools.** `hello` and `tools-changed` take an optional `skills` array of
   `{ name, description, uri, body }`, bodies included (`shared/agent-session-client-frame/schema.js`). The bounds
-  (`CLIENT_FRAME_LIMITS`: at most 20 skills, descriptions ≤ 1,024 characters, bodies ≤ 30,000) keep the whole
-  frame under the socket's 1 MiB payload cap, and the server refuses a frame with a duplicate URI. Since a
+  (`CLIENT_FRAME_LIMITS`: at most 20 skills, descriptions ≤ 1,024 characters, bodies ≤ 30,000, and `skillsBytes`, 600,000 bytes
+  for all of them as sent) keep the whole frame under the socket's 1 MiB payload cap, and the server refuses a frame with a duplicate URI. Since a
   refused frame would cost the page its tools as well, the browser trims first (`fitPageSkills`,
-  `shared/agent-session-protocol.ts`): it drops what the schema would refuse (a non-`skill://` URI, a bad name,
+  `shared/agent-session-protocol.ts`): it drops what the schema would refuse (a URI other than `skill://<name>/SKILL.md`, a bad name,
   a duplicate), cuts descriptions, cuts bodies with a `[truncated]` marker and stops at 20.
 - **Held by the session, replaced with the tools** (`skills()` in `api/src/agent-session/session.ts`): every
   `hello` or `tools-changed` replaces the list, and one without `skills` empties it.

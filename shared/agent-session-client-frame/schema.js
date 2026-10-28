@@ -48,7 +48,8 @@ const pageSkillDescriptor = {
     // The Agent Skills name format, as MCP skills have it.
     name: { type: 'string', pattern: '^[a-z0-9]+(-[a-z0-9]+)*$', maxLength: 64 },
     description: { type: 'string', maxLength: L.skillDescription },
-    uri: { type: 'string', pattern: '^skill://', maxLength: L.id },
+    // skill://<name>/SKILL.md, as useAgentSkill builds it: what reaches the model's Skills index is this shape only.
+    uri: { type: 'string', pattern: '^skill://[a-z0-9]+(-[a-z0-9]+)*/SKILL\\.md$', maxLength: L.id },
     body: { type: 'string', maxLength: L.skillBody }
   }
 }

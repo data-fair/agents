@@ -80,7 +80,8 @@ const SKILLS_NOTE = 'Skills are procedures a server publishes for its tools. Whe
 /** The system-prompt block for a turn's servers, in the given order; undefined when none publishes anything. */
 export function renderGuidesBlock (guides: ServerGuide[]): string | undefined {
   const withInstructions = guides.filter(g => g.instructions)
-  const skillLines = guides.flatMap(g => g.skills.map(s => `- ${oneLine(g.server)} · ${oneLine(s.name)} — ${oneLine(s.description)} (${oneLine(s.uri)})`))
+  // A description is defused like any server text: a page's (the-page) is written by whatever page or iframe is open.
+  const skillLines = guides.flatMap(g => g.skills.map(s => `- ${oneLine(g.server)} · ${oneLine(s.name)} — ${oneLine(defuseEnvelopes(s.description))} (${oneLine(s.uri)})`))
   const parts: string[] = []
   if (withInstructions.length) {
     parts.push('# Instructions from tool servers', INSTRUCTIONS_NOTE,

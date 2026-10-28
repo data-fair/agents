@@ -145,6 +145,9 @@ test.describe('parseClientMessage', () => {
     assert.equal(parse({ type: 'tools-changed', tools: [], skills: [skill] }).type, 'tools-changed')
     assert.equal(parse({ type: 'hello', tools: [], skills: [{ ...skill, uri: 'https://x/SKILL.md' }] }).type, 'invalid')
     assert.equal(parse({ type: 'hello', tools: [], skills: [{ ...skill, name: 'Fill Form' }] }).type, 'invalid')
+    // The URI is skill://<a skill name>/SKILL.md, as useAgentSkill builds it: nothing else is listed to the model.
+    assert.equal(parse({ type: 'hello', tools: [], skills: [{ ...skill, uri: 'skill://fill-form/other.md' }] }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [], skills: [{ ...skill, uri: 'skill://Fill Form/SKILL.md' }] }).type, 'invalid')
   })
 
   test('a duplicate skill URI is refused, like a duplicate tool name', () => {
@@ -212,6 +215,14 @@ test.describe('parseClientMessage — bounded', () => {
     assert.ok(fitted[0].body.endsWith('[truncated]'))
     assert.ok(fitted[0].description.length <= CLIENT_FRAME_LIMITS.skillDescription)
     assert.equal(parse({ type: 'hello', tools: [], skills: fitted }).type, 'hello')
+  })
+
+  test('fitPageSkills keeps the skills of a frame within a byte budget, whatever their characters', () => {
+    // 3 bytes per character in UTF-8: 20 bodies at the character bound would be 1.8 MB, over the socket's cap.
+    const heavy = Array.from({ length: CLIENT_FRAME_LIMITS.skills }, (_, i) => ({ name: `s${i}`, description: 'd', uri: `skill://s${i}/SKILL.md`, body: '€'.repeat(CLIENT_FRAME_LIMITS.skillBody) }))
+    const fitted = fitPageSkills(heavy)
+    assert.ok(fitted.length > 0 && fitted.length < heavy.length)
+    assert.ok(new TextEncoder().encode(JSON.stringify(fitted)).length <= CLIENT_FRAME_LIMITS.skillsBytes)
   })
 
   test('host events come in bounded batches of bounded events', () => {

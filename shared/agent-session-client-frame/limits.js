@@ -25,7 +25,10 @@ export const CLIENT_FRAME_LIMITS = {
   // (fitPageSkills), so a page with oversized skills still gets its tools across.
   skills: 20,
   skillDescription: 1024,
-  skillBody: 30_000
+  skillBody: 30_000,
+  // What the skills of one frame may weigh as sent (UTF-8 JSON): the character bounds alone would allow 1.8 MB
+  // of 3-byte characters. fitPageSkills stops adding skills once this is spent.
+  skillsBytes: 600_000
 }
 
 const L = CLIENT_FRAME_LIMITS
