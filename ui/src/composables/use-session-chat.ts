@@ -24,6 +24,7 @@
 import { ref, shallowRef, computed, watch, onScopeDispose, readonly, type Ref } from 'vue'
 import type { Tool } from 'ai'
 import type { ChatActivity } from '@agents/shared/agent-activity'
+import type { PageSkillDescriptor } from '@agents/shared/agent-session-protocol'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
 import { PORTAL_ASSISTANT_ID } from '@agents/shared/agent-audit'
 import Debug from 'debug'
@@ -91,6 +92,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
   const error = ref<string | null>(null)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
+  // The page's skills, discovered with its tools: refreshed by the same callback.
+  const skills = ref<PageSkillDescriptor[]>([])
 
   /**
    * Sub-agent transcripts, keyed by the delegating tool call id.
@@ -152,6 +155,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
   const agent = useAgentSession({
     url: `${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}${$apiPath}/agent-session`,
     tools,
+    skills,
     account: { type: options.accountType as 'user' | 'organization', id: options.accountId },
     ...(options.anonymous ? { anonymousToken: () => anonymousToken } : {}),
     // The cookie is the browser's memory of the answer; the server is told it, never reads it.
@@ -418,6 +422,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       channelId: getTabChannelId(),
       onToolsChanged: discovered => {
         tools.value = { ...discovered }
+        skills.value = aggregator?.getAggregatedSkills() ?? []
         toolsVersion.value++
         // Only meaningful once the socket is up; before that `hello` carries the set anyway.
         agent.toolsChanged()

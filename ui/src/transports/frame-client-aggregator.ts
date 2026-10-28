@@ -1,8 +1,9 @@
-import { Client, ToolListChangedNotificationSchema, PolyfillJsonSchemaValidator, CallToolResultSchema } from '@mcp-b/webmcp-ts-sdk'
+import { Client, ToolListChangedNotificationSchema, ResourceListChangedNotificationSchema, PolyfillJsonSchemaValidator, CallToolResultSchema } from '@mcp-b/webmcp-ts-sdk'
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import { FrameClientTransport } from './frame-client-transport'
 import { formatMcpToolResult, type McpCallResult } from '@agents/shared/tool-result'
+import type { PageSkillDescriptor } from '@agents/shared/agent-session-protocol'
 import Debug from 'debug'
 
 const debug = Debug('df-agents:frame-client-aggregator')
@@ -19,6 +20,8 @@ interface ConnectedServer {
   client: Client
   transport: FrameClientTransport
   tools: Record<string, Tool>
+  /** The server's `skill://` resources, bodies read: the page's skills (lib-vue's useAgentSkill). */
+  skills: PageSkillDescriptor[]
 }
 
 interface FrameClientAggregatorOptions {
@@ -86,8 +89,13 @@ export class FrameClientAggregator {
       debug('tools/list_changed from server=%s', serverId)
       await this.trackRefresh(serverId)
     })
+    // The page's skills are resources: a skill registered or removed is a resources/list_changed.
+    client.setNotificationHandler(ResourceListChangedNotificationSchema, async () => {
+      debug('resources/list_changed from server=%s', serverId)
+      await this.trackRefresh(serverId)
+    })
 
-    const server: ConnectedServer = { client, transport, tools: {} }
+    const server: ConnectedServer = { client, transport, tools: {}, skills: [] }
     this._servers.set(serverId, server)
 
     try {
@@ -126,9 +134,33 @@ export class FrameClientAggregator {
     while (this._pendingRefreshes.size) await Promise.all([...this._pendingRefreshes])
   }
 
+  /**
+   * The server's skills: its `skill://` resources, read. A server without resources (the bare WebMCP
+   * polyfill) has none, which is not an error.
+   */
+  private async listServerSkills (server: ConnectedServer): Promise<PageSkillDescriptor[]> {
+    if (!server.client.getServerCapabilities()?.resources) return []
+    try {
+      const { resources } = await server.client.listResources()
+      const skills: PageSkillDescriptor[] = []
+      for (const resource of resources) {
+        const name = /^skill:\/\/([^/]+)\/SKILL\.md$/.exec(resource.uri)?.[1]
+        if (!name) continue
+        const { contents } = await server.client.readResource({ uri: resource.uri })
+        const body = contents.map(content => ('text' in content && typeof content.text === 'string') ? content.text : '').join('')
+        skills.push({ name, description: resource.description ?? '', uri: resource.uri, body })
+      }
+      return skills
+    } catch (err) {
+      debug('failed to list skills %O', err)
+      return []
+    }
+  }
+
   private async refreshServerTools (serverId: string): Promise<void> {
     const server = this._servers.get(serverId)
     if (!server) return
+    server.skills = await this.listServerSkills(server)
 
     try {
       const result = await server.client.listTools()
@@ -190,6 +222,20 @@ export class FrameClientAggregator {
     const aggregated = this.getAggregatedTools()
     debug('after disconnect, aggregated tools=%o', Object.keys(aggregated))
     this._onToolsChanged?.(aggregated)
+  }
+
+  /** Every server's skills, the first of a duplicate URI kept (a parent page and an iframe may share one). */
+  getAggregatedSkills (): PageSkillDescriptor[] {
+    const seen = new Set<string>()
+    const skills: PageSkillDescriptor[] = []
+    for (const server of this._servers.values()) {
+      for (const skill of server.skills) {
+        if (seen.has(skill.uri)) continue
+        seen.add(skill.uri)
+        skills.push(skill)
+      }
+    }
+    return skills
   }
 
   getAggregatedTools (): Record<string, Tool> {

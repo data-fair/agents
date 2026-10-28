@@ -122,6 +122,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/_dev/chat-page-skills': RouteRecordInfo<
+      '/_dev/chat-page-skills',
+      '/_dev/chat-page-skills',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/_dev/chat-stale-frame': RouteRecordInfo<
       '/_dev/chat-stale-frame',
       '/_dev/chat-stale-frame',
@@ -325,6 +332,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/chat-menu.vue': {
       routes:
         | '/_dev/chat-menu'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/_dev/chat-page-skills.vue': {
+      routes:
+        | '/_dev/chat-page-skills'
       views:
         | never
       pathParamNames:

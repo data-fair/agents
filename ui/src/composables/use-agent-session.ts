@@ -28,7 +28,9 @@ import type { Tool } from 'ai'
 import Debug from 'debug'
 import {
   parseServerMessageForClient,
+  fitPageSkills,
   type BrowserToolDescriptor,
+  type PageSkillDescriptor,
   type ClientMessage,
   type ServerMessage
 } from '@agents/shared/agent-session-protocol'
@@ -46,6 +48,8 @@ export interface AgentSessionClientOptions {
   url: string
   /** This page's contextual tools, as the aggregator produces them. */
   tools: Ref<Record<string, Tool>>
+  /** This page's skills, as the aggregator produces them: sent with the tools. */
+  skills?: Ref<PageSkillDescriptor[]>
   /** The account a fresh thread is started on. */
   account: { type: 'user' | 'organization', id: string }
   /**
@@ -131,6 +135,12 @@ export function useAgentSession (options: AgentSessionClientOptions) {
    * Say hello for the current target. It carries the tool set as it is NOW, and the consent answer as
    * the browser holds it now.
    */
+  /** The page's skills, trimmed to what a frame carries (a refused frame would lose the tools too); absent when none. */
+  const skillsField = () => {
+    const skills = fitPageSkills(options.skills?.value ?? [])
+    return skills.length ? { skills } : {}
+  }
+
   const hello = () => {
     if (!target) return
     const token = options.anonymousToken?.()
@@ -138,6 +148,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     send({
       type: 'hello',
       tools: toDescriptors(options.tools.value),
+      ...skillsField(),
       ...('conversationId' in target
         ? { conversationId: target.conversationId }
         : { account: options.account, agentId: target.agentId }),
@@ -311,7 +322,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
 
     /** Called when the aggregator's set changes — a navigation, or a frame appearing or going away. */
     toolsChanged () {
-      send({ type: 'tools-changed', tools: toDescriptors(options.tools.value) })
+      send({ type: 'tools-changed', tools: toDescriptors(options.tools.value), ...skillsField() })
     },
 
     /**

@@ -200,12 +200,14 @@ test.describe('parseClientMessage — bounded', () => {
       skill(0, { body: long(CLIENT_FRAME_LIMITS.skillBody + 10), description: long(CLIENT_FRAME_LIMITS.skillDescription + 10) }),
       skill(0, { body: 'the duplicate' }),
       skill(1, { uri: 'https://elsewhere/SKILL.md' }),
+      skill(1, { name: 'Not A Skill Name', uri: 'skill://bad/SKILL.md' }),
       ...Array.from({ length: CLIENT_FRAME_LIMITS.skills + 5 }, (_, i) => skill(i + 2))
     ])
     // The first of a duplicate URI is kept, a non-skill:// URI is dropped, the count is bounded.
     assert.equal(fitted.length, CLIENT_FRAME_LIMITS.skills)
     assert.equal(fitted[0].uri, 'skill://s0/SKILL.md')
     assert.ok(!fitted.some(s => s.uri.startsWith('https:')))
+    assert.ok(!fitted.some(s => s.uri === 'skill://bad/SKILL.md'), 'a name the server would refuse is dropped, not sent')
     assert.ok(fitted[0].body.length <= CLIENT_FRAME_LIMITS.skillBody)
     assert.ok(fitted[0].body.endsWith('[truncated]'))
     assert.ok(fitted[0].description.length <= CLIENT_FRAME_LIMITS.skillDescription)

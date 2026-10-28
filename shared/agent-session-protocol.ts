@@ -59,6 +59,8 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
 }
 
 const TRUNCATED = '\n\n[truncated]'
+/** The Agent Skills name format, as the frame schema states it. */
+const SKILL_NAME = /^(?=.{1,64}$)[a-z0-9]+(-[a-z0-9]+)*$/
 
 /**
  * What a page publishes, made to fit the frame: the first of a duplicate URI, `skill://` URIs only, at
@@ -70,7 +72,8 @@ export function fitPageSkills (skills: PageSkillDescriptor[]): PageSkillDescript
   const seen = new Set<string>()
   const fitted: PageSkillDescriptor[] = []
   for (const skill of skills) {
-    if (!skill.uri.startsWith('skill://') || seen.has(skill.uri)) continue
+    // What the schema would refuse is dropped here: one refused skill would cost the whole frame.
+    if (!skill.uri.startsWith('skill://') || skill.uri.length > L.id || !SKILL_NAME.test(skill.name) || seen.has(skill.uri)) continue
     seen.add(skill.uri)
     fitted.push({
       ...skill,

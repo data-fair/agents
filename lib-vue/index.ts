@@ -1,6 +1,8 @@
 export { FrameServerTransport } from './frame-server-transport.js'
 export type { FrameServerTransportOptions } from './frame-server-transport.js'
 export { useAgentTool } from './use-agent-tools.js'
+export { useAgentSkill } from './use-agent-skill.js'
+export type { AgentSkillOptions } from './use-agent-skill.js'
 export { useFrameServer } from './use-frame-server.js'
 export { getTabChannelId } from './get-tab-channel-id.js'
 export { setAgentInitConfig, getAgentInitConfig, hostInitConfig } from './agent-init-config.js'
