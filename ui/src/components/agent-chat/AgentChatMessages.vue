@@ -504,10 +504,20 @@ const updateAtBottom = () => {
 }
 watch(() => streamedLength(props.messages), updateAtBottom, { flush: 'post' })
 
+const pinToBottom = () => {
+  const el = messagesContainer.value
+  if (el) el.scrollTop = el.scrollHeight
+  updateAtBottom()
+}
+
 let resizeObserver: ResizeObserver | null = null
 onMounted(() => {
-  updateAtBottom()
-  resizeObserver = new ResizeObserver(() => updateAtBottom())
+  pinToBottom()
+  // While following, any growth stays pinned, as stick-to-bottom chats do: the composable follows streamed
+  // text only, but a conversation opens on its latest exchange (its messages arriving after it opens, its
+  // diagrams rendering after its text), and the activity line ("Thinking…") or an error are not streamed
+  // text. Someone who scrolled up to read is not following, and keeps their place.
+  resizeObserver = new ResizeObserver(() => following.value ? pinToBottom() : updateAtBottom())
   // content height changes (messages/panels growing or collapsing) and viewport
   // height changes (resize) both move the "am I at the bottom" answer
   if (messagesContent.value) resizeObserver.observe(messagesContent.value)
@@ -533,10 +543,7 @@ watch(() => props.isStreaming, (streaming) => {
     if (atBottom.value) following.value = true
     return
   }
-  if (!following.value) return
-  const el = messagesContainer.value
-  if (el) el.scrollTop = el.scrollHeight
-  updateAtBottom()
+  if (following.value) pinToBottom()
 }, { flush: 'post' })
 
 // Jump back to the live tail; the smooth scroll fires scroll events that re-arm

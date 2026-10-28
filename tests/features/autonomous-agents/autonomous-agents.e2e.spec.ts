@@ -433,6 +433,28 @@ test.describe('Agent switcher and conversation history', () => {
     await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('History agent', { timeout: 20000 })
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
   })
+
+  test('a reopened conversation shows its latest exchange', async ({ page, goToWithAuth }) => {
+    await page.setViewportSize({ width: 600, height: 500 })
+    const openUnnamed = async () => await goToWithAuth('/agents/organization/test1/chat?agents=1', 'test1-admin1', { org: 'test1' })
+    await openBackOfficeChat(goToWithAuth)
+    await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
+    for (const answers of [1, 2, 3]) {
+      await fillAndSend(page, 'long answer')
+      await expect(page.getByTestId('agent-chat-transcript').getByText('deliberately long answer', { exact: false })).toHaveCount(answers, { timeout: 15000 })
+      await expect(page.getByTestId('agent-chat-stop')).toHaveCount(0, { timeout: 15000 })
+    }
+    await fillAndSend(page, 'hello')
+    await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    await openUnnamed()
+    const transcript = page.getByTestId('agent-chat-transcript')
+    await expect(transcript).toContainText('world', { timeout: 15000 })
+    // Long enough to scroll, and opened at its bottom rather than its top.
+    const scroller = transcript.locator('.agent-chat-message').first()
+    expect(await scroller.evaluate(el => el.scrollHeight > el.clientHeight + 100)).toBe(true)
+    await expect.poll(() => scroller.evaluate(el => el.scrollHeight - el.scrollTop - el.clientHeight)).toBeLessThan(24)
+  })
 })
 
 // simple-directory's scope list, stubbed: this dev stack's simple-directory knows no platform scopes
