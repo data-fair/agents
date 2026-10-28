@@ -9,12 +9,12 @@
       class="text-body-large"
       data-testid="approval-title"
     >
-      {{ t('heading', { name: heading }) }}
+      {{ access ? t(access.heading) : t('heading', { name: heading }) }}
     </v-card-title>
-    <!-- Not for a planning call: the task below says what it does, and the description and server are
-         written for the model. -->
+    <!-- Not for a planning call or an access request: the card below says what it does, and the
+         description and server are written for the model. -->
     <v-card-subtitle
-      v-if="!taskSections && (clippedDescription || serverId)"
+      v-if="!taskSections && !access && (clippedDescription || serverId)"
       class="approval-card__subtitle"
     >
       <div
@@ -31,17 +31,29 @@
       </div>
     </v-card-subtitle>
     <v-card-text>
-      <v-alert
-        v-if="serverId === WEB_SERVER_ID"
-        type="warning"
-        variant="tonal"
-        density="compact"
-        class="mb-2"
-        :text="t('webWarning')"
-        data-testid="approval-web-warning"
-      />
+      <div
+        v-if="access"
+        data-testid="approval-access"
+      >
+        <div
+          v-for="url in access.urls"
+          :key="url"
+          class="text-body-medium font-weight-medium approval-card__url"
+        >
+          {{ url }}
+        </div>
+        <div
+          v-if="access.reason"
+          class="text-body-medium mt-2"
+        >
+          {{ access.reason }}
+        </div>
+        <div class="text-body-small text-medium-emphasis mt-2">
+          {{ t(access.warning) }}
+        </div>
+      </div>
       <v-row
-        v-if="taskSections"
+        v-else-if="taskSections"
         dense
         data-testid="approval-task"
       >
@@ -191,7 +203,10 @@ fr:
   unitByte: o
   unitKilo: ko
   unitMega: Mo
-  webWarning: "L'agent pourra lire ces adresses, et un texte peut contenir des instructions : leurs auteurs pourront de fait lui en donner, avec son identité et tous ses outils. Seul un administrateur de l'organisation peut approuver."
+  webHeading: Autoriser l'agent à lire ces adresses ?
+  webWarning: "Un texte lu à ces adresses pourra donner des instructions à l'agent, qui agit avec son identité et tous ses outils."
+  mcpHeading: Connecter ce serveur MCP à l'agent ?
+  mcpWarning: "Les réponses de ce serveur pourront donner des instructions à l'agent, qui agit avec son identité et tous ses outils."
 en:
   heading: "Approve \"{name}\"?"
   server: "Server: {server}"
@@ -214,7 +229,10 @@ en:
   unitByte: B
   unitKilo: kB
   unitMega: MB
-  webWarning: "The agent will be able to read these addresses, and text can contain instructions: their authors will in effect be able to instruct it, with its identity and all its tools. Only an administrator of the organization can approve."
+  webHeading: Let the agent read these addresses?
+  webWarning: "Text read at these addresses can give the agent instructions, and it acts with its identity and all its tools."
+  mcpHeading: Connect this MCP server to the agent?
+  mcpWarning: "This server's responses can give the agent instructions, and it acts with its identity and all its tools."
 </i18n>
 
 <script lang="ts" setup>
@@ -244,9 +262,13 @@ const props = defineProps<{
 const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
 
 const { t, locale } = useI18n()
-// The source the service's web tools record (WEB_SERVER_ID in api/src/web/operations.ts): the only one of
-// them that asks for approval is the request to allow more of the web.
-const WEB_SERVER_ID = 'agent-web'
+// The access requests, by the source they record (WEB_SERVER_ID in api/src/web/operations.ts,
+// EXTERNAL_MCP_SERVER_ID in api/src/mcp-servers/operations.ts): shown as the addresses they open and the
+// agent's reason.
+const ACCESS_REQUESTS: Record<string, { tool: string, heading: string, warning: string }> = {
+  'agent-web': { tool: 'request_web_access', heading: 'webHeading', warning: 'webWarning' },
+  'agent-external-mcp': { tool: 'request_mcp_access', heading: 'mcpHeading', warning: 'mcpWarning' }
+}
 // The agent's writes to its own tasks (SELF_KNOWLEDGE_SERVER_ID and PLANNING_TOOL_NAMES in
 // api/src/self-knowledge/operations.ts): shown as the task they create, change or delete.
 const SELF_SERVER_ID = 'agent-self'
@@ -275,6 +297,16 @@ const clippedDescription = computed(() => {
 
 const inputObject = computed<Record<string, unknown>>(() =>
   props.input && typeof props.input === 'object' && !Array.isArray(props.input) ? props.input as Record<string, unknown> : {})
+
+// The model's input, not a validated request: a malformed one falls back to the generic arguments list.
+const access = computed(() => {
+  const kind = props.serverId ? ACCESS_REQUESTS[props.serverId] : undefined
+  if (kind?.tool !== props.toolName) return null
+  const { add, url, reason } = inputObject.value
+  const urls = (Array.isArray(add) ? add : [url]).filter((u): u is string => typeof u === 'string')
+  if (!urls.length) return null
+  return { ...kind, urls, reason: typeof reason === 'string' ? reason : undefined }
+})
 // The arguments as the model sent them — what the person approves is this exact call — one line each.
 // A file argument reads as the file it sends: path, type and size (spec §4.3), never a URL.
 const formatSize = (bytes: number) => {
@@ -353,6 +385,9 @@ const taskSections = computed<TaskSection[] | null>(() => {
   grid-template-columns: max-content 1fr;
   column-gap: 12px;
   row-gap: 2px;
+}
+.approval-card__url {
+  word-break: break-all;
 }
 .approval-card__args dd {
   word-break: break-word;

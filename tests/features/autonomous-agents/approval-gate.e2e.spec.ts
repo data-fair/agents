@@ -100,4 +100,20 @@ test.describe('Approval card', () => {
     await expect(page.getByTestId('approval-reject')).toHaveCount(0)
     expect(fixture.invokedTools()).toEqual([])
   })
+
+  test('a request for more of the web reads as the addresses and the reason, not the tool\'s description', async ({ page, goToWithAuth }) => {
+    const webAgentId = (await admin.post('/api/autonomous-agents/organization/test1', {
+      title: 'Web probe', persona: 'You answer briefly.', mcpServers: [], enabled: true, web: { enabled: true, allowedUrls: [] }
+    })).data.id
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: webAgentId })
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${webAgentId}`, 'test1-admin1', { org: 'test1' })
+    await ask(page, 'call tool request_web_access {"add":["https://github.com/data-fair"],"reason":"the release notes"}')
+    const card = page.getByTestId('approval-card')
+    await expect(card).toBeVisible({ timeout: 15000 })
+    await expect(card.getByTestId('approval-title')).toHaveText('Let the agent read these addresses?')
+    await expect(card.getByTestId('approval-access')).toContainText('https://github.com/data-fair')
+    await expect(card.getByTestId('approval-access')).toContainText('the release notes')
+    await expect(card.getByTestId('approval-description')).toHaveCount(0)
+    expect(await card.innerText()).not.toContain('[')
+  })
 })
