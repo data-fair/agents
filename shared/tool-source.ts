@@ -6,7 +6,7 @@
  * - `catalog`: an MCP server of the platform's catalog, used with the agent's (or the person's) identity;
  * - `external`: a public MCP server an admin listed for the agent, used anonymously;
  * - `page`: a WebMCP tool the page in front of the person registered, run in their browser;
- * - `service`: this service's own (waiting for the person, web access, files, memory, planning, sub-agents,
+ * - `service`: this service's own (waiting for the person, web access, files, memory, planning,
  *   scripts…).
  *
  * `server` is the catalog server's id, the external server's host, or the service's own label for a group

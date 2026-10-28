@@ -44,11 +44,8 @@ export interface ChatMessage {
    * renderer shows the text, then the calls.
    */
   blocks?: ChatMessageBlock[]
-  // Per delegating tool-call id: the sub-agent's transcript. Keyed by toolCallId so
-  // concurrent sub-agent calls under one assistant message render in separate panels
-  // instead of clobbering one shared array. Workers are stateless (single-shot), so
-  // there is no cross-call turn index — each delegation stands alone.
-  subAgentPanels?: Record<string, { messages: ChatMessage[] }>
+  // Per code_mode call id: the calls its script made (api/src/code-mode/code-tools.ts), one panel each.
+  tracePanels?: Record<string, { messages: ChatMessage[] }>
 }
 
 /** A run of text, or the tool calls made between two runs of text (named by their call ids). */

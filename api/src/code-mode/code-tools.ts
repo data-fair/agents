@@ -7,8 +7,8 @@
  *   envelope (code_mode's own, model-loop.ts), since it may quote tool output verbatim.
  * - Data, not text (SourcedTool.codeExecute).
  * - Recorded: the package has no event for nested calls (vercel/ai#18144), so each call is recorded here, into a
- *   `data-subagent` trace under the code_mode call — streamed while the script runs, stored when it ends, left
- *   out of replay like a worker's trace.
+ *   `data-trace` part under the code_mode call — streamed while the script runs, stored when it ends, left
+ *   out of replay.
  * - A failure is rethrown as CodeModeToolError: the package replaces any other error with "Host tool failed."
  */
 import { jsonSchema, type Tool } from 'ai'

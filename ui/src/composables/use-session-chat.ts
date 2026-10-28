@@ -9,10 +9,9 @@
  * frames into the reactive transcript the renderer wants, and turns the renderer's actions into frames.
  * That asymmetry is the whole measurement: compare this file's length to the 1229 lines it replaces.
  *
- * ONE THING IT DOES NOT SUPPORT, deliberately and visibly: `setToolExploration` /
- * `setFlattenSubAgents`. Tool exploration is shelved, and sub-agent flattening is a server decision
- * now. They are absent from the returned object rather than present as no-ops, so a caller that needs
- * them fails to type-check instead of silently toggling nothing.
+ * ONE THING IT DOES NOT SUPPORT, deliberately and visibly: `setToolExploration`. Tool exploration is
+ * shelved; it is absent from the returned object rather than present as a no-op, so a caller that needs
+ * it fails to type-check instead of silently toggling nothing.
  *
  * An anonymous visitor is served too (`anonymous`), on a thread that lives as long as the socket.
  *
@@ -96,15 +95,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
   const skills = ref<PageSkillDescriptor[]>([])
 
   /**
-   * Sub-agent transcripts, keyed by the delegating tool call id.
+   * Script traces, keyed by the code_mode call id.
    *
    * Held OUTSIDE the turns, and merged in when the transcript is read. A `message` frame replaces a
    * turn wholesale (it is the authoritative stored form), so panels written into the turn itself would
-   * be wiped by the next frame — which is exactly how they first disappeared mid-run.
+   * be wiped by the next frame.
    */
-  const subAgentPanels = shallowRef<Record<string, { messages: ChatMessage[] }>>({})
-  /** Each panel's own phase line, keyed by the delegating call: they used to overwrite the main one. */
-  const subAgentActivities = ref<Record<string, ChatActivity>>({})
+  const tracePanels = shallowRef<Record<string, { messages: ChatMessage[] }>>({})
 
   /**
    * The transcript the renderer reads.
@@ -116,13 +113,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
     if (!turns.value.length) return options.initialMessages ?? []
     return turns.value.map(turn => {
       const panels = (turn.message.toolInvocations ?? [])
-        .filter(invocation => subAgentPanels.value[invocation.toolCallId])
+        .filter(invocation => tracePanels.value[invocation.toolCallId])
         .reduce<Record<string, { messages: ChatMessage[] }>>((acc, invocation) => {
-          acc[invocation.toolCallId] = subAgentPanels.value[invocation.toolCallId]
+          acc[invocation.toolCallId] = tracePanels.value[invocation.toolCallId]
           return acc
         }, {})
-      // Over the panels the stored message already carries (data-subagent parts): live frames win.
-      return Object.keys(panels).length ? { ...turn.message, subAgentPanels: { ...turn.message.subAgentPanels, ...panels } } : turn.message
+      // Over the panels the stored message already carries (data-trace parts): live frames win.
+      return Object.keys(panels).length ? { ...turn.message, tracePanels: { ...turn.message.tracePanels, ...panels } } : turn.message
     })
   })
 
@@ -225,23 +222,16 @@ export function useSessionChat (options: UseSessionChatOptions) {
         : localized ? { ...chat, content: localized, blocks: undefined } : chat
     },
 
-    onSubAgentActivity: (parentToolCallId, activity) => {
-      const next = { ...subAgentActivities.value }
-      if (activity) next[parentToolCallId] = activity
-      else delete next[parentToolCallId]
-      subAgentActivities.value = next
-    },
-
-    onSubAgent: frame => {
+    onTrace: frame => {
       const chat = autonomousAgentMessageToChat({
         seq: 0,
         role: 'assistant',
         parts: frame.parts,
         pending: frame.pending
       })
-      // Replaced, not appended: each frame is the worker's transcript so far, so appending would
-      // render the same partial answer once per update.
-      subAgentPanels.value = { ...subAgentPanels.value, [frame.parentToolCallId]: { messages: [chat] } }
+      // Replaced, not appended: each frame is the trace so far, so appending would render the same calls
+      // once per update.
+      tracePanels.value = { ...tracePanels.value, [frame.parentToolCallId]: { messages: [chat] } }
     },
 
     onCost: cost => { conversationCost.value = cost },
@@ -341,8 +331,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     agent.abort()
     conversationId.value = undefined
     turns.value = []
-    subAgentPanels.value = {}
-    subAgentActivities.value = {}
+    tracePanels.value = {}
     conversationCost.value = 0
     error.value = null
     status.value = 'ready'
@@ -460,7 +449,6 @@ export function useSessionChat (options: UseSessionChatOptions) {
     error,
     activity: agent.activity as Ref<ChatActivity | null>,
     isWaitingForUser: agent.isWaitingForUser,
-    subAgentActivities,
     tools,
     toolsVersion,
     conversationId,

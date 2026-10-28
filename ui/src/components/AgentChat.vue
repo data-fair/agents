@@ -75,13 +75,11 @@
       :messages="messages"
       :is-streaming="isStreaming"
       :activity="activity"
-      :sub-agent-activities="subAgentActivities"
       :chat-error="chatError"
       :welcome-text="t('welcome')"
       :tool-title="toolTitle"
       :action-visible-prompt="actionVisiblePrompt"
       :mermaid-enabled="mermaidEnabled"
-      :simple-sub-agents="simpleSubAgentsEnabled"
       :show-reasoning="showReasoningEnabled"
       :agent-path="agentPath"
       @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
@@ -136,13 +134,11 @@
       :audited="audited"
       :account-type="accountType"
       :account-id="accountId"
-      :simple-sub-agents="simpleSubAgentsEnabled"
       :mermaid="mermaidEnabled"
       :show-reasoning="showReasoningEnabled"
       :conversation-cost="chat.conversationCost.value"
       :usage-version="chat.usageVersion.value"
       :fetch-self-usage="chat.fetchSelfUsage"
-      @update:simple-sub-agents="handleSimpleSubAgents"
       @update:mermaid="handleMermaid"
       @update:show-reasoning="handleShowReasoning"
     />
@@ -312,7 +308,6 @@ const hostContext = computed<Record<string, string | null>>(() => {
 // Experimental chat flags, persisted in a service-scoped cookie (see agent-flags.ts)
 // and toggled from the debug dialog's Settings tab.
 const initialFlags = readFlags()
-const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
 const showReasoningEnabled = ref(initialFlags.showReasoning)
 
@@ -456,7 +451,6 @@ const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
 const activity = computed(() => chat.activity.value)
 const isWaitingForUser = computed(() => chat.isWaitingForUser.value)
-const subAgentActivities = computed(() => chat.subAgentActivities.value)
 const chatError = computed(() => chat.error.value)
 
 const showDebugDialog = ref(false)
@@ -552,16 +546,9 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 
 function persistFlags () {
   writeFlags({
-    simpleSubAgents: simpleSubAgentsEnabled.value,
     mermaid: mermaidEnabled.value,
     showReasoning: showReasoningEnabled.value
   }, $apiPath)
-}
-
-function handleSimpleSubAgents (enabled: boolean) {
-  simpleSubAgentsEnabled.value = enabled
-  persistFlags()
-  // Presentation-only: no conversation reset (unlike mermaid).
 }
 
 function handleMermaid (enabled: boolean) {

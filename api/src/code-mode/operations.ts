@@ -192,7 +192,7 @@ export const describeScriptTool = (packageDescription: string): string => {
     'Have the script read its data itself (call the tool, read_file the path it returned), never paste in what an earlier call showed you: the script must work on what is there when it runs.',
     `Everything a script passes to and gets from its tools counts toward ${transferLimit}; a larger file belongs in a tool that takes the file itself.`,
     'Dates: a script\'s local time zone is the server\'s, not the task\'s. Work in UTC: a date-only string ("2026-10-21") is UTC midnight, so compare YYYY-MM-DD strings, or give every date-time a trailing Z; new Date("2026-10-14T00:00:00") without Z is the server\'s local midnight.',
-    'Tools that need approval, wait_for_user_action, the access and planning requests, read_skill and sub-agents can only be called directly.'
+    'Tools that need approval, wait_for_user_action, the access and planning requests and read_skill can only be called directly.'
   ].join('\n\n')
 }
 
@@ -207,8 +207,7 @@ const DIRECT_ONLY = new Set([WAIT_TOOL_NAME, 'request_web_access', 'request_mcp_
 /**
  * Whether a script may call this tool. Never one needing approval: the package refuses it without an approval
  * callback (and its docs say not to expose one), and a script cannot pause for a person — lifting this goes
- * through `run`'s signed continuations, upstream vercel/ai#18143. Never a sub-agent delegation: a model loop
- * inside a script (vercel/ai#18145), and its trace is keyed on the model's own call.
+ * through `run`'s signed continuations, upstream vercel/ai#18143.
  */
 /**
  * A script's tool input without the keys that pollute a prototype: `__proto__`, and a `constructor` carrying a
@@ -228,4 +227,4 @@ export const withoutPrototypeKeys = (value: unknown): unknown => {
 }
 
 export const codeCallable = (name: string, tool: { needsApproval?: unknown }): boolean =>
-  !tool.needsApproval && !DIRECT_ONLY.has(name) && !name.startsWith('subagent_')
+  !tool.needsApproval && !DIRECT_ONLY.has(name)

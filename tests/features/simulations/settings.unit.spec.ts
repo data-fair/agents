@@ -23,7 +23,7 @@ test.describe('bridge settings', () => {
   })
 
   test('runs the background roles on the cheaper model, as a deployment would', () => {
-    // Sub-agents, compaction and the moderation guard are where a deployment
+    // Memory consolidation, compaction and the moderation guard are where a deployment
     // puts a small model, so a case that only works on the assistant's tier is
     // a case that does not work.
     const s = bridgeSettings('sonnet', 'haiku') as any

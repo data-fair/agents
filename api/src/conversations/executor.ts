@@ -245,7 +245,7 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       if (external && name in external.tools) toolOrigins[name] = 'external'
       else if (name in listedTools) toolOrigins[name] = listedTools[name].server === PLATFORM_MCP_SERVER_ID ? 'platform' : 'catalog'
     }
-    const loop = { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead: readSkill }
+    const loop = { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides }
     const result = await runModelLoop(loop)
     // A PLANNED TASK'S RUN THAT DID NOT REPORT is reminded, once: a second pass of the same turn, offered only
     // report_outcome, whose record continues the first's. Only after a turn that finished — a turn cut short

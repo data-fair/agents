@@ -270,7 +270,7 @@
         :tool-title="toolTitle"
         :action-visible-prompt="null"
         :mermaid-enabled="false"
-        :simple-sub-agents="false"
+        show-traces
         :show-reasoning="true"
         show-tool-details
         readonly

@@ -3,8 +3,7 @@
  *
  * A turn must never end with no visible outcome. These exercise the two ways the
  * conversation used to stop silently:
- *  - an empty model completion (no text, no tool call) — e.g. a sub-agent or the
- *    main model returning nothing — now shows a fallback assistant message;
+ *  - an empty model completion (no text, no tool call) — the model returning nothing — now shows a fallback assistant message;
  *  - a mid-stream provider/gateway error, surfaced as an in-band SSE error chunk
  *    that the AI SDK reports without throwing, now shows an error alert.
  *

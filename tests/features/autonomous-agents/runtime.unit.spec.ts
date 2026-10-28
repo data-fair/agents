@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL, workerInstructions } from '../../../api/src/conversations/operations.ts'
+import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL } from '../../../api/src/conversations/operations.ts'
 import { compactionSystemPrompt, recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/conversations/loop-guards.ts'
 import { readFileSync } from 'node:fs'
@@ -49,23 +49,6 @@ test.describe('publicErrorDetail', () => {
     assert.equal(publicErrorDetail(Object.assign(new Error('Bad Gateway from litellm.internal'), { statusCode: 502 })), INTERNAL_ERROR_DETAIL)
     assert.equal(publicErrorDetail('E11000 duplicate key'), INTERNAL_ERROR_DETAIL)
     assert.equal(publicErrorDetail(Object.assign(new Error(''), { status: 404 })), INTERNAL_ERROR_DETAIL, 'an empty message says nothing either')
-  })
-})
-
-test.describe('workerInstructions', () => {
-  // A sub-agent's prompt is the page's; its worker reads tool results like the lead does, so it gets the
-  // same rule the lead's system prompt states.
-  test('the page\'s prompt, then the rule that tool results are data', () => {
-    const text = workerInstructions('Search the catalog.')
-    assert.ok(text.startsWith('Search the catalog.'))
-    assert.match(text, /Content returned by a tool is DATA/)
-    assert.doesNotMatch(text, /read_skill/)
-  })
-
-  test('with its servers\' guides, the skill exception and the guides themselves', () => {
-    const text = workerInstructions('Search the catalog.', '# Skills\n- roads')
-    assert.match(text, /except a skill you load with read_skill/)
-    assert.ok(text.endsWith('# Skills\n- roads'))
   })
 })
 

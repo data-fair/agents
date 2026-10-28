@@ -1,6 +1,6 @@
 /**
  * The activity vocabulary shown in the chat while a turn streams, and the pure
- * mapping from an activity to an i18n key (+ optional sub-agent name). Kept free
+ * mapping from an activity to an i18n key (+ an optional name). Kept free
  * of Vue and the `~` alias so it can be unit-tested by the node test runner and
  * imported by both the composable (which produces ChatActivity) and the
  * component (which renders it).
@@ -14,12 +14,8 @@ export type ChatActivity =
   | { kind: 'compacting' }
   // Main agent thinking during a gap with no visible output.
   | { kind: 'thinking' }
-  // Main agent reading a tool result; `subAgent` (a `subagent_*` tool name) is
-  // set when that tool was a sub-agent, so the bottom line can name it.
-  | { kind: 'analyzing', subAgent?: string }
-  // A sub-agent is active; rendered inside its panel (`name` is its `subagent_*`
-  // tool name, used to match the panel — not shown in the label).
-  | { kind: 'subagent', name: string, phase: 'starting' | 'thinking' | 'tool' | 'analyzing' }
+  // Main agent reading a tool result.
+  | { kind: 'analyzing' }
   // The main agent declared a wait for the user (wait_for_user_action); `expecting`
   // is its own words for what it is waiting for.
   | { kind: 'waiting', expecting: string }
@@ -28,7 +24,7 @@ export type ChatActivity =
 
 export interface ActivityLabel {
   key: string
-  // Interpolation value for keys that name a sub-agent (bottom-line analyzing only).
+  // Interpolation value for keys that name something (what is awaited, the tool needing approval).
   name?: string
 }
 
@@ -37,17 +33,8 @@ export function activityLabelKey (activity: ChatActivity | null | undefined): Ac
   switch (activity.kind) {
     case 'compacting': return { key: 'activityCompacting' }
     case 'thinking': return { key: 'activityThinking' }
-    case 'analyzing': return activity.subAgent
-      ? { key: 'activityAnalyzingSubAgent', name: activity.subAgent }
-      : { key: 'activityAnalyzing' }
+    case 'analyzing': return { key: 'activityAnalyzing' }
     case 'waiting': return { key: 'activityWaiting', name: activity.expecting }
     case 'approval': return { key: 'activityApproval', name: activity.toolName }
-    case 'subagent':
-      switch (activity.phase) {
-        case 'starting': return { key: 'activitySubAgentStarting' }
-        case 'tool': return { key: 'activitySubAgentTool' }
-        case 'analyzing': return { key: 'activitySubAgentAnalyzing' }
-        default: return { key: 'activitySubAgentThinking' }
-      }
   }
 }

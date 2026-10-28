@@ -172,18 +172,18 @@ test.describe('approval states', () => {
   })
 })
 
-test.describe('a sub-agent transcript stored on the message', () => {
-  test('becomes the panel of its delegating call', () => {
+test.describe('a script trace stored on the message', () => {
+  test('becomes the panel of its code_mode call', () => {
     const chat = autonomousAgentMessageToChat({
       seq: 2,
       role: 'assistant',
       parts: [
-        { type: 'dynamic-tool', toolCallId: 'd1', toolName: 'subagent_analyst', state: 'output-available', input: {}, output: 'summary' },
+        { type: 'dynamic-tool', toolCallId: 'd1', toolName: 'code_mode', state: 'output-available', input: {}, output: 'summary' },
         {
-          type: 'data-subagent',
+          type: 'data-trace',
           data: {
             parentToolCallId: 'd1',
-            name: 'subagent_analyst',
+            name: 'code_mode',
             parts: [
               { type: 'dynamic-tool', toolCallId: 'w1', toolName: 'query_data', state: 'output-available', input: {}, output: 'rows' },
               { type: 'text', text: 'Analysis complete' }
@@ -192,12 +192,12 @@ test.describe('a sub-agent transcript stored on the message', () => {
         } as any
       ]
     })
-    const panel = chat.subAgentPanels?.d1?.messages[0]
+    const panel = chat.tracePanels?.d1?.messages[0]
     assert.equal(panel?.content, 'Analysis complete')
     assert.deepEqual(panel?.toolInvocations?.map(call => call.toolName), ['query_data'])
     // and the transcript part is not mistaken for anything of the lead's own
     assert.equal(chat.content, '')
-    assert.deepEqual(chat.toolInvocations?.map(call => call.toolName), ['subagent_analyst'])
+    assert.deepEqual(chat.toolInvocations?.map(call => call.toolName), ['code_mode'])
   })
 
   test('a gated call carries the files its card shows', () => {

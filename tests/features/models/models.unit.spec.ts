@@ -151,15 +151,15 @@ test.describe('mock directives survive a prepended host block', () => {
   // A page that publishes host state puts a <host-state> block ahead of the
   // visible message on the activation turn. Directives anchored on the whole
   // message stop matching the moment their dev page starts publishing — adding
-  // one useAgentState call to the sub-agent dev page made its chaining test fail
-  // with "what do you mean ?" instead of calling the sub-agent. `hello` had
+  // one useAgentState call to a dev page made its chaining test fail
+  // with "what do you mean ?" instead of calling the tool. `hello` had
   // already been fixed this way; the tool directives had not.
   const withHostState = (command: string) =>
     `<host-state>\nCurrent state of the application…\n- dataset: {"id":"air-quality"}\n</host-state>\n\n${command}`
 
   test('reads the directive the test typed, not the block above it', () => {
-    assert.equal(commandLine(withHostState('call tool subagent_data_analyst {"task":"x"}')),
-      'call tool subagent_data_analyst {"task":"x"}')
+    assert.equal(commandLine(withHostState('call tool select_row {"id":7}')),
+      'call tool select_row {"id":7}')
   })
 
   test('is unchanged for a plain single-line message', () => {
@@ -167,7 +167,7 @@ test.describe('mock directives survive a prepended host block', () => {
   })
 
   test('tolerates trailing blank lines', () => {
-    assert.equal(commandLine('parallel subagents\n\n'), 'parallel subagents')
+    assert.equal(commandLine('call tools a b\n\n'), 'call tools a b')
   })
 
   test('is empty for a message that is only a host block', () => {

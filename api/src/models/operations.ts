@@ -36,7 +36,7 @@ export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openaiCompatible'
 
 /**
  * Asks for prompt caching, for the calls that send a growing prefix again: the lead loop's steps,
- * sub-agent workers, memory consolidation. Passed by those call sites only.
+ * memory consolidation. Passed by those call sites only.
  *
  * Anthropic is the one provider that caches only when asked. A request-level `cacheControl` becomes
  * its top-level `cache_control` (automatic mode): the cache point is the request's last block, so a
@@ -45,7 +45,7 @@ export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openaiCompatible'
  * prefixes on its own (OpenAI, Gemini, DeepSeek, vLLM-served models behind openai-compatible), so
  * the call sites pass it without looking at the provider.
  *
- * One-off calls (compaction, title, summary, sub-agent close-out, moderation) do not pass it: a cache
+ * One-off calls (compaction, title, summary, moderation) do not pass it: a cache
  * write costs 1.25x the input price at Anthropic, and they would not read it back. Not asking is how
  * an Anthropic call is kept out of the cache.
  */
@@ -54,7 +54,7 @@ export const CACHED_PREFIX_PROVIDER_OPTIONS = { anthropic: { cacheControl: { typ
 /**
  * The model for a provider entry, with the one serving workaround applied where it is needed.
  *
- * Every model is built here, so every role gets it — the turn, sub-agent workers, compaction.
+ * Every model is built here, so every role gets it — the turn, memory consolidation, compaction.
  */
 export function createModel (provider: Provider, modelId: string): LanguageModel {
   const model = buildProviderModel(provider, modelId)

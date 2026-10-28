@@ -13,20 +13,12 @@
 <script lang="ts" setup>
 import AgentChat from '~/components/AgentChat.vue'
 import type { ChatMessage } from '~/utils/chat-message'
-import { useAgentSubAgent, useFrameServer } from '@data-fair/lib-vue-agents'
+import { useFrameServer } from '@data-fair/lib-vue-agents'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 
 const session = useSessionAuthenticated()
 
 useFrameServer('self')
-
-// Register a demo sub-agent for testing
-useAgentSubAgent({
-  name: 'data_analyst',
-  description: 'Analyzes datasets and produces summaries with statistics',
-  prompt: 'You are a data analyst specialized in exploring and summarizing datasets. Answer concisely with key statistics.',
-  tools: ['queryDataset', 'getSchema']
-})
 
 const mockMessages: ChatMessage[] = [
   {
@@ -58,28 +50,11 @@ const mockMessages: ChatMessage[] = [
   },
   {
     role: 'assistant',
-    content: 'Je délègue l\'analyse au sous-agent spécialisé.',
+    content: 'Je récupère le schéma et lance la requête.',
     toolInvocations: [
-      { toolCallId: 'call_sub_1', toolName: 'subagent_data_analyst', state: 'done' }
-    ],
-    subAgentPanels: {
-      call_sub_1: {
-        messages: [
-          {
-            role: 'assistant',
-            content: 'Je récupère le schéma et lance la requête.',
-            toolInvocations: [
-              { toolCallId: 'call_sub_t1', toolName: 'getSchema', state: 'done' },
-              { toolCallId: 'call_sub_t2', toolName: 'queryDataset', state: 'done' }
-            ]
-          },
-          {
-            role: 'assistant',
-            content: 'Analyse terminée. Moyennes de PM2.5 : ST-001 = 12.3, ST-002 = 18.7, ST-003 = 9.1, ST-004 = 15.4 µg/m³.'
-          }
-        ]
-      }
-    }
+      { toolCallId: 'call_t1', toolName: 'getSchema', state: 'done' },
+      { toolCallId: 'call_t2', toolName: 'queryDataset', state: 'done' }
+    ]
   },
   {
     role: 'assistant',

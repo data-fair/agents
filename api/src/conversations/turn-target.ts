@@ -41,7 +41,7 @@ import { livePartsOf } from './live-runs.ts'
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
 export interface TurnFrames {
   delta: (kind: 'text' | 'reasoning', text: string) => void
-  activity: (value: ChatActivity | null, parentToolCallId?: string) => void
+  activity: (value: ChatActivity | null) => void
   /**
    * This turn's message as it stands, mid-turn (`pending`). The SETTLED frame is not the loop's: `close`
    * and `fail` send exactly one, once the message is closed in the store. One end-of-turn frame is a
@@ -50,7 +50,8 @@ export interface TurnFrames {
    * decideApproval).
    */
   message: (parts: MessagePart[]) => void
-  subAgent: (frame: { parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }) => void
+  /** A code_mode script's nested calls, as stored parts, under the call that ran it (api/src/code-mode/code-tools.ts). */
+  trace: (frame: { parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }) => void
 }
 
 export interface TurnHistoryRequest {
@@ -222,9 +223,9 @@ export const conversationTarget = (
     persist: async (parts) => { await updateMessage(run.conversationId, messageSeq, { parts, pending: true }) },
     frames: {
       delta: (kind, text) => { watcher()?.send({ type: 'delta', kind, text }) },
-      activity: (value, parentToolCallId) => { notifyActivity(run.conversationId, value, parentToolCallId) },
+      activity: (value) => { notifyActivity(run.conversationId, value) },
       message: (parts) => { notifyMessage(run.conversationId, { seq: messageSeq, parts }, true) },
-      subAgent: (frame) => { watcher()?.send({ type: 'subagent', ...frame }) }
+      trace: (frame) => { watcher()?.send({ type: 'trace', ...frame }) }
     },
     settleEarlierCall: async (toolCallId, settled) => {
       const message = await settleStoredToolPart(run.conversationId, toolCallId, settled)

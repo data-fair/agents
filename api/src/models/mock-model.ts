@@ -89,7 +89,7 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
     // The client's loop guard injects a per-step "you have called X with the same
     // arguments N times in a row" user message before it stops a runaway. The mock
     // deliberately ignores it (a runaway model would too), so the seams below keep
-    // reading the real user message and the guard's stop + close-out path is exercised.
+    // reading the real user message and the guard's stop path is exercised.
     const userMessages = options.prompt.filter((p: any) => p.role === 'user' &&
       !isLoopGuardNudge(p.content))
     const lastUserMsg = userMessages[userMessages.length - 1]
@@ -154,7 +154,7 @@ function endsWithCommand (lastMessage: string, command: string): boolean {
  * visible message on the activation turn, so a directive anchored on the whole
  * message stops matching the moment its dev page starts publishing — which is
  * how `hello` came to use endsWithCommand. Adding one `useAgentState` call to
- * the sub-agent dev page broke its chaining test exactly that way.
+ * a dev page broke its chaining test exactly that way.
  */
 export function commandLine (lastMessage: string): string {
   const lines = lastMessage.trim().split('\n').map(l => l.trim()).filter(Boolean)
@@ -310,20 +310,6 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     }
   }
 
-  // "parallel subagents" → delegate to two DIFFERENT sub-agents in one step, each with a
-  // task its own reserved tools handle, to exercise concurrent sub-agent panels. The two
-  // tasks diverge so the rendered panels are distinguishable (no-clobber regression).
-  if (/^parallel subagents$/i.test(commandLine(lastMessage))) {
-    return {
-      type: 'tool-call',
-      toolCalls: [
-        { toolName: 'subagent_data_analyst', toolArgs: JSON.stringify({ task: 'analyze' }) },
-        // task arg is inert: data_summarizer pins model:'summarizer'→mock-summarizer, which ignores input and always returns "Summary: …"
-        { toolName: 'subagent_data_summarizer', toolArgs: JSON.stringify({ task: 'hello' }) }
-      ]
-    }
-  }
-
   const callToolMatch = commandLine(lastMessage).match(/^call tool (\w+)(.*)$/i)
   if (callToolMatch) {
     return {
@@ -355,7 +341,7 @@ function getCalledToolNames (prompt: string | Array<any>): Set<string> {
 }
 
 /**
- * mock-tools: context-aware tool chaining for subagent testing.
+ * mock-tools: the `tools` seat's mock, context-aware tool chaining.
  * Inspects conversation history to deterministically chain: get_schema → query_data → text summary.
  * Also supports "call tool" syntax and "hello" → "world" as overrides.
  */
@@ -527,18 +513,11 @@ function processForModel (modelId: string, options: { prompt: string | Array<any
   const longText = 'This is a deliberately long answer used to exercise streaming throughput. '.repeat(6)
   if (directive === 'long answer') return { type: 'text', text: longText }
   if (directive === 'slow long answer') return { type: 'text', text: longText, chunk: 1 }
-  // Loop-guard close-out seams (exercise the sub-agent loop → close-out path).
-  // A task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
-  // step (ignoring prior tool results and the injected nudge), so a sub-agent's
-  // ToolLoopAgent is stopped by the repeated-call guard and finishes on 'tool-calls'.
-  // The harness then issues a no-tools close-out turn; the second seam recognizes that
-  // prompt and returns a distinctive best-effort answer the test asserts was recovered
-  // (not a bare truncation notice).
+  // Loop-guard seam: a task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
+  // step (ignoring prior tool results and the injected nudge), so the loop is stopped by the
+  // repeated-call guard and finishes on 'tool-calls'.
   if (directive === 'loop forever') {
     return { type: 'tool-call', toolName: 'get_schema', toolArgs: '{"dataset":"test"}' }
-  }
-  if (/reached your step budget/i.test(lastMessage)) {
-    return { type: 'text', text: 'Closed-out best-effort summary from gathered data.' }
   }
   switch (modelId) {
     case 'mock-tools':

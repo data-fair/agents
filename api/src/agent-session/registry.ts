@@ -63,6 +63,6 @@ export const notifyMessage = (conversationId: string, message: { seq: number, pa
 }
 
 /** Tell whoever watches this conversation what the assistant is doing; null when nothing. */
-export const notifyActivity = (conversationId: string, activity: ChatActivity | null, parentToolCallId?: string) => {
-  sessionFor(conversationId)?.send({ type: 'activity', activity, ...(parentToolCallId ? { parentToolCallId } : {}) })
+export const notifyActivity = (conversationId: string, activity: ChatActivity | null) => {
+  sessionFor(conversationId)?.send({ type: 'activity', activity })
 }

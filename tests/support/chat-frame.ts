@@ -38,7 +38,7 @@ export async function waitForChatFrame (page: Page): Promise<Frame> {
  * cookie set by one test leaks into the next: a test that depends on a flag must seed it explicitly.
  * Flags left out take their default; `mermaid` is off unless given.
  */
-export const seedFlagsCookie = (page: Page, flags: { mermaid?: boolean, simpleSubAgents?: boolean, showReasoning?: boolean }) =>
+export const seedFlagsCookie = (page: Page, flags: { mermaid?: boolean, showReasoning?: boolean }) =>
   page.addInitScript((f) => {
     document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(f))}; path=/`
   }, { mermaid: false, ...flags })

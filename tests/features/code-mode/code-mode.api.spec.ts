@@ -15,7 +15,7 @@ const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 // Not a member of user/test-standalone1: 'external' there.
 const outsider = await axiosAuth('test1-user1')
 const offered = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
-const trace = (message: any) => message.parts.find((p: any) => p.type === 'data-subagent' && p.data?.name === 'code_mode')?.data
+const trace = (message: any) => message.parts.find((p: any) => p.type === 'data-trace' && p.data?.name === 'code_mode')?.data
 const script = (js: string) => `call tool code_mode ${JSON.stringify({ js })}`
 let fixture: McpFixture
 
@@ -52,7 +52,7 @@ test.describe('code_mode', () => {
     assert.doesNotMatch(JSON.stringify(assistant), /sig=/, 'no signed URL in the record')
   })
 
-  test('a gated tool and a sub-agent\'s reserved tool are not in a script\'s API', async () => {
+  test('a gated tool is not in a script\'s API', async () => {
     const agent = await createFilesAgent()
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: agent.id }, script('try { await tools.wipe_everything({}) } catch (e) { return e.message }'))
     assert.match(outputOf(callPart(assistant, 'code_mode')), /Unknown tool: wipe_everything/)

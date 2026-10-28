@@ -12,7 +12,6 @@ import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../../../api/src/web/operations.ts
 import { REQUEST_MCP_ACCESS_TOOL_NAME, codeOutputSchemaFor } from '../../../api/src/mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../../../api/src/self-knowledge/operations.ts'
 import { READ_SKILL_TOOL_NAME } from '../../../api/src/mcp-servers/read-skill.ts'
-import { SUBAGENT_PREFIX } from '../../../api/src/agent-session/sub-agents.ts'
 import { FILE_CODE_SIGNATURES, createFileTools } from '../../../api/src/files/tools.ts'
 
 const plain = (execute: (input: any) => Promise<unknown>) => tool({ description: 'd', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute })
@@ -22,8 +21,8 @@ const trace = () => createCodeTrace(t => { traces.push(t) })
 test.describe('code-facing tools', () => {
   test.beforeEach(() => { traces.length = 0 })
 
-  test('codeCallable excludes gates, handovers, admin requests, skills, delegations and itself', () => {
-    for (const name of ['wait_for_user_action', 'request_web_access', 'request_mcp_access', 'plan_task', 'update_task', 'delete_task', 'read_skill', 'subagent_search', 'code_mode']) {
+  test('codeCallable excludes gates, handovers, admin requests, skills and itself', () => {
+    for (const name of ['wait_for_user_action', 'request_web_access', 'request_mcp_access', 'plan_task', 'update_task', 'delete_task', 'read_skill', 'code_mode']) {
       assert.equal(codeCallable(name, {}), false, name)
     }
     assert.equal(codeCallable('wipe_everything', { needsApproval: true }), false)
@@ -133,7 +132,7 @@ test.describe('code-facing tools', () => {
   })
 
   test('the direct-only names are the service\'s own constants', () => {
-    for (const name of [REQUEST_WEB_ACCESS_TOOL_NAME, REQUEST_MCP_ACCESS_TOOL_NAME, ...PLANNING_TOOL_NAMES, READ_SKILL_TOOL_NAME, `${SUBAGENT_PREFIX}x`]) assert.equal(codeCallable(name, {}), false, name)
+    for (const name of [REQUEST_WEB_ACCESS_TOOL_NAME, REQUEST_MCP_ACCESS_TOOL_NAME, ...PLANNING_TOOL_NAMES, READ_SKILL_TOOL_NAME]) assert.equal(codeCallable(name, {}), false, name)
   })
 })
 

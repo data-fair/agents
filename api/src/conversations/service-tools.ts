@@ -7,7 +7,7 @@
  * Provenance and annotations come from the entry, so a stored call names its source like a catalog call
  * does. Service tools are outside the approval POLICY (approval-policy.ts covers catalog tools) — those
  * that must always be approved, `request_web_access` and the planning tools, set `needsApproval`
- * themselves and go through the same gate. No page tool or sub-agent config can displace them (./service-tool-names.ts).
+ * themselves and go through the same gate. No page tool can displace them (./service-tool-names.ts).
  */
 import { tool, jsonSchema } from 'ai'
 import type { AutonomousAgent, ConversationRun } from '#types'

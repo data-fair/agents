@@ -2,16 +2,15 @@
  * A frame that goes away (navigating from the portals manager to a dataset page) must
  * stop offering its tools.
  *
- * The portals manager runs in an iframe and registers its own sub-agent tools through
+ * The portals manager runs in an iframe and registers its own tools through
  * `useFrameServer`. When the host navigates away that iframe is destroyed: its Vue scope
  * is never disposed, so `FrameServerTransport.close()` never runs and no
- * `mcp-server-stopped` is broadcast. The chat's aggregator keeps the dead server and its
- * tools; on the next turn `resolveSubAgents` calls each sub-agent tool's execute, the call
- * to the dead server never answers, and the MCP client raises `-32001 Request timed out`
- * after its 60s default — so the completion request is never sent.
+ * `mcp-server-stopped` is broadcast. The chat's aggregator must still drop the dead server and its
+ * tools: a call to it never answers, and the MCP client raises `-32001 Request timed out`
+ * after its 60s default.
  *
- * `chat-stale-frame` dev page reproduces the shape: the host keeps its own live sub-agent
- * (the dataset page's tools) and mounts a removable frame that exposes `Portals config`.
+ * `chat-stale-frame` dev page reproduces the shape: the host keeps its own live tool
+ * (the dataset page's) and mounts a removable frame that exposes `read_portal_form`.
  * `?portals=off` is the direct-to-dataset control.
  */
 import { expect } from '@playwright/test'
@@ -29,19 +28,19 @@ test.describe('Tools from a frame that goes away', () => {
     await putMockSettings(admin, `user/${USER}`)
   })
 
-  test('removing the frame removes its sub-agent tool, and a turn after leaving still reaches the model', async ({ page, goToWithAuth }) => {
+  test('removing the frame removes its tool, and a turn after leaving still reaches the model', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-stale-frame', USER)
 
-    // Discovery is asynchronous: wait until BOTH the live host sub-agent and the one
+    // Discovery is asynchronous: wait until BOTH the live host tool and the one
     // from the removable frame are part of the aggregate.
-    await waitForPageTools(page, 'subagent_dataset_notes', 'subagent_portals_config')
+    await waitForPageTools(page, 'read_dataset_notes', 'read_portal_form')
 
     // Navigating away destroys the portals iframe document — no Vue scope disposal, no
     // `mcp-server-stopped`.
     await page.getByTestId('leave-portals').click()
 
-    await expectNoPageTool(page, 'subagent_portals_config')
-    await waitForPageTools(page, 'subagent_dataset_notes')
+    await expectNoPageTool(page, 'read_portal_form')
+    await waitForPageTools(page, 'read_dataset_notes')
 
     await page.getByPlaceholder('Type your message...').fill('hello')
     await page.getByRole('button', { name: 'Send' }).click()

@@ -110,14 +110,14 @@ export function parseServerMessageForClient (raw: string): ServerMessage | undef
 
 /**
  * Whether a frame is replaced whole by a later one of the same turn, so a socket whose browser is not
- * reading fast enough may skip it: an in-progress message or sub-agent transcript (every one carries
+ * reading fast enough may skip it: an in-progress message or script trace (every one carries
  * all its parts, and the final one is never skipped) and a text delta (the final message carries the
  * text). Anything else says something nothing later repeats — a call to the page, an activity, the
  * turn's end, an error — and is always sent.
  */
 export function isSupersededFrame (message: ServerMessage): boolean {
   if (message.type === 'delta') return true
-  if (message.type === 'message' || message.type === 'subagent') return message.pending === true
+  if (message.type === 'message' || message.type === 'trace') return message.pending === true
   return false
 }
 

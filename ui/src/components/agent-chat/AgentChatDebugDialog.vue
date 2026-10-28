@@ -97,18 +97,6 @@
                 </div>
 
                 <df-tutorial-alert
-                  id="agent-settings-simple-subagents"
-                  :text="t('simpleSubAgentsHint')"
-                  :initial="false"
-                  persistent
-                />
-                <v-switch
-                  :model-value="simpleSubAgents"
-                  :label="t('simpleSubAgents')"
-                  @update:model-value="(v: boolean | null) => $emit('update:simpleSubAgents', v ?? true)"
-                />
-
-                <df-tutorial-alert
                   id="agent-settings-mermaid"
                   :text="t('mermaidHint')"
                   :initial="false"
@@ -164,8 +152,6 @@ fr:
   reviewConsent: Enregistrer mes conversations pour relecture
   reviewConsentHint: "Vos conversations seront enregistrées sur le serveur pendant 30 jours afin qu'un administrateur puisse les relire. Vous pouvez retirer votre consentement à tout moment."
   experimental: Expérimental
-  simpleSubAgents: Affichage simplifié des sous-agents
-  simpleSubAgentsHint: "Affiche les sous-agents délégués sous forme d'une simple puce de statut, au lieu d'un panneau de trace dépliable. Ce réglage ne réinitialise pas la conversation."
   mermaid: Diagrammes Mermaid
   mermaidHint: "Affiche les blocs de code Mermaid sous forme de diagrammes (graphiques XY, organigrammes, etc.). Changer ce réglage réinitialise la conversation."
   showReasoning: Affichage complet du raisonnement
@@ -181,8 +167,6 @@ en:
   reviewConsent: Store my conversations for review
   reviewConsentHint: "Your conversations will be stored on the server for 30 days so an administrator can review them. You can withdraw your consent at any time."
   experimental: Experimental
-  simpleSubAgents: Simplify sub-agent display
-  simpleSubAgentsHint: "Shows delegated sub-agents as a simple status chip instead of an expandable trace panel. This setting does not reset the conversation."
   mermaid: Mermaid diagrams
   mermaidHint: "Renders Mermaid code blocks as diagrams (XY charts, flowcharts, etc.). Changing this setting resets the conversation."
   showReasoning: Full reasoning display
@@ -218,7 +202,6 @@ const props = defineProps<{
   audited?: boolean
   accountType: string
   accountId: string
-  simpleSubAgents?: boolean
   mermaid?: boolean
   showReasoning?: boolean
   // The Consumption tab is shown only when the chat can report usage: optional rather than required,
@@ -230,7 +213,6 @@ const props = defineProps<{
 
 defineEmits<{
   'update:modelValue': [value: boolean]
-  'update:simpleSubAgents': [value: boolean]
   'update:mermaid': [value: boolean]
   'update:showReasoning': [value: boolean]
 }>()

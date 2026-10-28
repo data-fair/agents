@@ -1,9 +1,8 @@
 /**
  * operations-style module: pure, no #mongo / #config.
  *
- * A model stream recorded as stored message parts: the bookkeeping the lead's loop (executor.ts) and a
- * sub-agent's worker loop (../agent-session/sub-agents.ts) share. What each loop does AROUND it — the
- * lead's waits, approvals and provenance, the worker's panel — stays in the loop.
+ * A model stream recorded as stored message parts: the bookkeeping of the agent's loop (model-loop.ts).
+ * What the loop does AROUND it — waits, approvals and provenance — stays in the loop.
  */
 import type { JSONObject } from '@ai-sdk/provider'
 import type { MessagePart } from '@agents/shared/message-parts'

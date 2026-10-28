@@ -143,13 +143,6 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
-    '/_dev/chat-subagent': RouteRecordInfo<
-      '/_dev/chat-subagent',
-      '/_dev/chat-subagent',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
     '/_dev/chat-vjsf': RouteRecordInfo<
       '/_dev/chat-vjsf',
       '/_dev/chat-vjsf',
@@ -356,14 +349,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/chat-stale-tools.vue': {
       routes:
         | '/_dev/chat-stale-tools'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/_dev/chat-subagent.vue': {
-      routes:
-        | '/_dev/chat-subagent'
       views:
         | never
       pathParamNames:

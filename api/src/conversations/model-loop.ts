@@ -12,15 +12,14 @@ import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import { withCallPath, describeFileArguments, type CallPathContext } from '../files/call-path.ts'
-import { buildSystemPrompt, workerInstructions, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
+import { buildSystemPrompt, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
 import type { TurnTarget, TurnResult } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
 import { setRunInputs } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { CACHED_PREFIX_PROVIDER_OPTIONS, type ModelRole } from '../models/operations.ts'
+import { CACHED_PREFIX_PROVIDER_OPTIONS } from '../models/operations.ts'
 import { securityKey } from '../cipher/service.ts'
-import { partitionSubAgents, subAgentDelegation } from '../agent-session/sub-agents.ts'
 import { WAIT_TOOL_NAME, type ChatActivity } from '@agents/shared/agent-activity'
 import { toolDescription } from '@agents/shared/tool-description'
 import type { ToolSource } from '@agents/shared/tool-source'
@@ -39,8 +38,7 @@ import type { MemoryDocument } from '../memory/operations.ts'
 import { mayBePageTool } from './service-tool-names.ts'
 import { createStepContext } from './step-context.ts'
 import { liveRuns } from './live-runs.ts'
-import { renderGuidesBlock, workerGuides, type ServerGuide } from '../mcp-servers/guides.ts'
-import { createReadSkillTool, READ_SKILL_TOOL_NAME } from '../mcp-servers/read-skill.ts'
+import type { ServerGuide } from '../mcp-servers/guides.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -76,8 +74,6 @@ export interface ModelLoopContext {
    * Read live: the page's skills can change mid-turn, and the prompt follows them (prepareStep below).
    */
   guides?: () => ServerGuide[]
-  /** How a skill of one of those servers is read: what a sub-agent worker's read_skill uses. */
-  guidesRead?: (server: string, uri: string) => Promise<string>
   /**
    * A second pass of the same turn (executor.ts performTurn): the first pass's parts, replayed to the model and
    * kept at the head of the record, then `note` as the next user message, recorded as a `data-outcome-reminder`
@@ -88,7 +84,7 @@ export interface ModelLoopContext {
 }
 
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
-  const { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath, guides, guidesRead } = ctx
+  const { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory, anonymousOn, unconfirmedOn, callPath, guides } = ctx
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target). Its tools only for an agent that works through its page (usesPageTools).
   const pageSession = usesPageTools(autonomousAgent.id) ? target.session : undefined
@@ -154,117 +150,19 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   }
   const startedAt = Date.now()
 
-  /**
-   * Sub-agents, discovered in the tool set and replaced by delegations that run HERE.
-   *
-   * This was the missing half of moving the loop: `partitionSubAgents` and `subAgentDelegation`
-   * existed and were unit-tested, and nothing called them — so a `subagent_*` page tool went to the
-   * model as an ordinary tool, the model called it, the browser answered with the sub-agent's JSON
-   * CONFIG, and the lead treated that config as the result. No worker ever ran, the reserved tools
-   * stayed reachable by the lead, and the panel showed "Sub-agent finished." over nothing.
-   *
-   * Inside the loop body rather than beside the other tools, because a worker's spend has to land in
-   * the same accumulators as the lead's: `credits` bounds the whole run, and `budgetExceeded` stops
-   * it. Those live here.
-   *
-   * WORKERS RUN ON THE `tools` SEAT by default: a worker exists to chain tool calls and hand back a
-   * summary, which is that seat's definition, and a deployment maps it to its cheaper
-   * structured-output model.
-   *
-   * A config may PIN A ROLE instead (`model: 'summarizer'`, as lib-vue's `useAgentSubAgent` writes
-   * it), and that is honoured — the value names a ROLE, not a model, so which model serves it stays
-   * the organization's choice and the pin only says what kind of work this worker does. An unknown
-   * value falls back to `tools` rather than failing the turn. Whichever seat it lands on, the spend is
-   * billed and recorded under THAT role, so a pinned worker is as accounted for as any other call.
-   */
-  // One resolution per seat, reused across delegations: resolving walks the catalog and a turn may
-  // delegate several times.
-  const seats = new Map<ModelRole, ReturnType<typeof resolveRoleModel>>()
-  const seatFor = (role: ModelRole) => {
-    const held = seats.get(role)
-    if (held) return held
-    const resolved = resolveRoleModel(settings, role)
-    seats.set(role, resolved)
-    return resolved
-  }
-  // `moderator` is excluded: it is the gate's own seat, internal to this service, and not something a
-  // page may send work to.
-  const WORKER_SEATS: ModelRole[] = ['assistant', 'tools', 'summarizer']
-  // Aborts a worker that is still looping when a ceiling is crossed. `budgetExceeded` stops the LEAD
-  // between its steps, which does nothing for a worker mid-delegation — so the overshoot would be
-  // bounded only by the worker's own step limit. Composed with the run's signal, so a worker also dies
-  // with the turn; once it is aborted every later delegation in this turn fails immediately, which is
-  // correct when the turn is already stopping.
-  const workerAbort = new AbortController()
-  /** A worker's final transcript, onto the lead's message: its results are already bounded as it records them. */
-  const storeSubAgentTrace = (trace: { parentToolCallId: string, name: string, parts: MessagePart[] }) => {
-    const stored = { type: 'data-subagent', data: { parentToolCallId: trace.parentToolCallId, name: trace.name, parts: trace.parts } } as MessagePart
-    const at = parts.findIndex(part => part.type === 'data-subagent' && (part as any).data?.parentToolCallId === trace.parentToolCallId)
+  /** A script's final trace, onto the lead's message: its results are already bounded as it records them. */
+  const storeTrace = (trace: { parentToolCallId: string, name: string, parts: MessagePart[] }) => {
+    const stored = { type: 'data-trace', data: { parentToolCallId: trace.parentToolCallId, name: trace.name, parts: trace.parts } } as MessagePart
+    const at = parts.findIndex(part => part.type === 'data-trace' && (part as any).data?.parentToolCallId === trace.parentToolCallId)
     if (at === -1) parts.push(stored)
     else parts[at] = stored
   }
-  // A script's nested calls, as a trace under its code_mode call (api/src/code-mode/code-tools.ts): streamed like a
-  // worker's, stored on the message when the script ends, left out of replay.
+  // A script's nested calls, as a trace under its code_mode call (api/src/code-mode/code-tools.ts): streamed while
+  // the script runs, stored on the message when it ends, left out of replay.
   const codeTrace = createCodeTrace(trace => {
-    if (!trace.pending) storeSubAgentTrace(trace)
-    target.frames.subAgent(trace)
+    if (!trace.pending) storeTrace(trace)
+    target.frames.trace(trace)
   })
-  const buildDelegation: Parameters<typeof partitionSubAgents>[1] = (name, workerConfig, workerTools) => {
-    const pinned = workerConfig.model as ModelRole | undefined
-    const seat: ModelRole = pinned && WORKER_SEATS.includes(pinned) ? pinned : 'tools'
-    const worker = seatFor(seat)
-    // The worker uses the tools it reserves, so it reads what their servers say about them, and may load
-    // their skills — its read_skill limited to those servers. Added unwrapped: workerTools are already the
-    // model's tools, and read_skill envelopes its own result.
-    const own = workerGuides(guides?.() ?? [], Object.keys(workerTools), tools)
-    const block = renderGuidesBlock(own)
-    const config = { ...workerConfig, prompt: workerInstructions(workerConfig.prompt, block) }
-    const ownTools = block && guidesRead
-      ? { ...workerTools, [READ_SKILL_TOOL_NAME]: createReadSkillTool({ guides: own, read: guidesRead }) }
-      : workerTools
-    return subAgentDelegation({
-      name,
-      config,
-      workerTools: ownTools,
-      model: worker.model,
-      abortSignal: AbortSignal.any([abortSignal, workerAbort.signal]),
-      // The worker's transcript, streamed to its panel. The lead never sees it — it gets the summary.
-      onTrace: trace => {
-        // The FINAL transcript is also STORED, on the lead's message, so a reloaded thread and the
-        // review page show what the worker did, where a streamed-only transcript would be
-        // empty after a reload. As a `data-subagent` part, which the replay leaves out of what the
-        // model is sent — the lead keeps seeing only the summary, the point of delegating.
-        if (!trace.pending) storeSubAgentTrace(trace)
-        target.frames.subAgent({ parentToolCallId: trace.parentToolCallId, name: trace.name, parts: trace.parts, pending: trace.pending })
-      },
-      onPhase: (parentToolCallId, phase) => {
-        target.frames.activity(phase ? { kind: 'subagent', name, phase } : null, parentToolCallId)
-      },
-      // EVERY worker step is billed, exactly as a lead step is: against the run's budget, against the
-      // account's credit cap, and into the usage histogram under the seat that served it (`tools`
-      // unless the sub-agent pins another), so the spend is attributable to it. A delegated turn is often most of the work; leaving it
-      // unmetered would have let any page with a sub-agent spend without limit.
-      onUsage: async (usage, finishReason) => {
-        // 0 steps: the spend is real, but a worker step is not a step of the LEAD's loop. With its own
-        // telemetry entry, so review and the export show the delegated work rather than a turn whose
-        // cost exceeds the calls that explain it.
-        const stepCredits = await chargeModelCall({
-          owner: run.owner,
-          identity,
-          modelRole: seat,
-          entry: worker.entry,
-          usage,
-          finishReason,
-          run: { run, durationMs: Date.now() - startedAt }
-        })
-        credits += stepCredits.total
-        // The two ceilings, checked where the money was just spent. The lead's own `onStepEnd` does
-        // this between ITS steps, which is too late to stop a worker that is still looping.
-        await checkCeilings(true)
-        if (budgetExceeded) workerAbort.abort()
-      }
-    })
-  }
 
   /**
    * THE TOOL SET IS LIVE FOR THE WHOLE TURN, not frozen when it starts.
@@ -281,10 +179,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    * do nothing; mutating it is the mechanism (pinned by tests/features/autonomous-agents/live-tool-set.unit.spec.ts).
    *
    * Only the PAGE's part moves. The catalog's MCP tools and the loop-provided wait tool are fixed for
-   * the turn, so they are set aside once and the page's current tools are laid over them. The
-   * sub-agent partition is re-run on the result, because a newly mounted component may declare a
-   * sub-agent or a tool one reserves — and it is re-run only when the page's tool NAMES changed,
-   * because each pass reads every sub-agent's config over the socket.
+   * the turn, so they are set aside once and the page's current tools are laid over them, again
+   * only when the page's tool NAMES changed.
    */
   const pageToolNames = () => (pageSession?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
   const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath))
@@ -303,9 +199,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // (./service-tool-names.ts): the page's would answer under the service's name.
     const pageTools = pageSession ? Object.fromEntries(Object.entries(browserToolSet(pageSession)).filter(([name]) => mayBePageTool(name))) : {}
     pageNames = new Set(Object.keys(pageTools))
-    const mainTools = await partitionSubAgents({ ...fixedTools, ...pageTools }, buildDelegation)
+    const mainTools: Record<string, Tool> = { ...fixedTools, ...pageTools }
     // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
-    // page tools that appeared mid-turn included, a worker's reserved tools excluded (the partition ran above).
+    // page tools that appeared mid-turn included.
     // A page tool shadows a catalog tool of the same name for the model ({ ...fixedTools, ...page } above), so
     // it does for a script too. Not offered to an anonymous visitor nor an outsider (codeModeOfferedTo).
     if (codeModeOfferedTo(run.triggeredByRole)) {
@@ -557,7 +453,6 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         // show the chip after the work it describes.
         sendMessageFrame()
         await persistStructure()
-        if (part.toolName.startsWith('subagent_')) activity({ kind: 'subagent', name: part.toolName, phase: 'starting' })
       }
       // THE GATE STOPPED A CALL. The SDK has not executed it and will not this turn; it ends the turn
       // itself (finishReason 'other'). The call part already exists (the 'tool-call' part came first):
@@ -615,12 +510,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         recorder.settleCall(part.toolCallId, settled)
         sendMessageFrame()
         await persistStructure()
-        // The model now has a result to read. `subAgent` is set when the tool WAS a delegation, so the
-        // label can name it — the one case where the bottom line says more than "analyzing".
-        activity({
-          kind: 'analyzing',
-          ...(part.toolName.startsWith('subagent_') ? { subAgent: part.toolName } : {})
-        })
+        // The model now has a result to read.
+        activity({ kind: 'analyzing' })
       }
       // A tool that failed does not stop the turn — the model sees the error and usually keeps
       // talking — so without recording it a failed call reads exactly like a successful one.

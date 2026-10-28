@@ -1,5 +1,5 @@
 /**
- * stateless unit tests: the service's own tool names, which no page tool or sub-agent config may take.
+ * stateless unit tests: the service's own tool names, which no page tool may take.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'

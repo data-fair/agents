@@ -231,9 +231,9 @@ test.describe('parseClientMessage — bounded', () => {
 test.describe('isSupersededFrame — what a backlogged socket may skip', () => {
   // A frame the next one replaces whole can be skipped when the browser is not reading fast enough;
   // one that says something nothing later repeats cannot.
-  test('an in-progress message or sub-agent transcript and a delta are superseded by the final message', () => {
+  test('an in-progress message or script trace and a delta are superseded by the final message', () => {
     assert.equal(isSupersededFrame({ type: 'message', seq: 2, role: 'assistant', parts: [], pending: true }), true)
-    assert.equal(isSupersededFrame({ type: 'subagent', parentToolCallId: 'c', name: 'n', parts: [], pending: true }), true)
+    assert.equal(isSupersededFrame({ type: 'trace', parentToolCallId: 'c', name: 'n', parts: [], pending: true }), true)
     assert.equal(isSupersededFrame({ type: 'delta', kind: 'text', text: 'hi' }), true)
   })
 
@@ -241,7 +241,7 @@ test.describe('isSupersededFrame — what a backlogged socket may skip', () => {
     // An activity is not repeated: a 'waiting' or 'approval' line sent as a turn ends would be lost.
     assert.equal(isSupersededFrame({ type: 'activity', activity: null }), false)
     assert.equal(isSupersededFrame({ type: 'message', seq: 2, role: 'assistant', parts: [], pending: false }), false)
-    assert.equal(isSupersededFrame({ type: 'subagent', parentToolCallId: 'c', name: 'n', parts: [], pending: false }), false)
+    assert.equal(isSupersededFrame({ type: 'trace', parentToolCallId: 'c', name: 'n', parts: [], pending: false }), false)
     assert.equal(isSupersededFrame({ type: 'tool-call', callId: 'c', name: 'n', input: {} }), false)
     assert.equal(isSupersededFrame({ type: 'turn-end', stopReason: 'completed' }), false)
     assert.equal(isSupersededFrame({ type: 'error', status: 403, message: 'no' }), false)

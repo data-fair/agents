@@ -66,7 +66,7 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
     // Conditional on the run still running, so a late write from an abandoned turn cannot overwrite the
     // parts its close already wrote.
     persist: async (parts) => { await mongo.runs.updateOne({ id: run.id, status: 'running' }, { $set: { parts } }) },
-    frames: { delta: () => {}, activity: () => {}, message: () => {}, subAgent: () => {} },
+    frames: { delta: () => {}, activity: () => {}, message: () => {}, trace: () => {} },
     settleEarlierCall: async () => {
       // Unreachable: only a replayed approval produces a result for an earlier call, and nothing in a task
       // run asks for approval.

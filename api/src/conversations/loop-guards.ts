@@ -1,5 +1,5 @@
 /**
- * Loop guards for the two agent loops (the main chat turn and each delegated sub-agent).
+ * Loop guards for the agent loop.
  *
  * The problem: agents whose tools are deliberately fine-grained legitimately need many
  * steps (a json-layout form is filled one `setFieldValue` per field, plus suggestion
@@ -19,9 +19,7 @@
  *     the model is told so (one injected reminder, per-step, never stored in the
  *     transcript); at REPEATED_CALL_LIMIT the loop is stopped.
  *
- * Either guard ends the loop on a tool-call step, and the sub-agent orchestration then
- * runs one no-tools close-out turn so the work gathered so far is reported rather than
- * dropped (see docs/architecture/loop-guards.md).
+ * Either guard ends the loop on a tool-call step (see docs/architecture/loop-guards.md).
  */
 
 import type { ModelMessage } from 'ai'

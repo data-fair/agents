@@ -66,24 +66,23 @@ export default {
     },
     {
       title: 'Activity frame',
-      description: 'What the assistant is doing right now, in the vocabulary the chat renders; null means idle. `parentToolCallId` marks a sub-agent panel\'s phase line, keyed by the delegating call.',
+      description: 'What the assistant is doing right now, in the vocabulary the chat renders; null means idle.',
       type: 'object',
       additionalProperties: false,
       required: ['type', 'activity'],
       properties: {
         type: { const: 'activity' },
-        activity: { tsType: 'import("@agents/shared/agent-activity").ChatActivity | null' },
-        parentToolCallId: { type: 'string' }
+        activity: { tsType: 'import("@agents/shared/agent-activity").ChatActivity | null' }
       }
     },
     {
-      title: 'Subagent frame',
-      description: 'A worker\'s trace, as stored parts, for its panel. Never something the model reads.',
+      title: 'Trace frame',
+      description: 'A code_mode script\'s nested calls, as stored parts, under the call that ran it. Never something the model reads.',
       type: 'object',
       additionalProperties: false,
       required: ['type', 'parentToolCallId', 'name', 'parts', 'pending'],
       properties: {
-        type: { const: 'subagent' },
+        type: { const: 'trace' },
         parentToolCallId: { type: 'string' },
         name: { type: 'string' },
         parts,

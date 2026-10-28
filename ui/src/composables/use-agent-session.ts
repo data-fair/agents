@@ -75,16 +75,14 @@ export interface AgentSessionClientOptions {
    */
   onMessage?: (message: { seq: number, role: 'user' | 'assistant', parts: MessagePart[], pending: boolean }) => void
   /**
-   * A sub-agent's transcript, as it runs, keyed by the delegating tool call.
+   * A code_mode script's trace, as it runs, keyed by the code_mode call.
    *
    * Separate from `onMessage` because it is not a message of the conversation: it belongs INSIDE the
-   * assistant turn that delegated, which is also how it renders (a panel under the tool call).
+   * assistant turn that ran the script, which is also how it renders (a panel under the call).
    */
-  onSubAgent?: (frame: { parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }) => void
+  onTrace?: (frame: { parentToolCallId: string, name: string, parts: MessagePart[], pending: boolean }) => void
   /** What the assistant is doing, in the vocabulary `activityLabelKey` already renders. */
   onActivity?: (activity: ChatActivity | null) => void
-  /** A sub-agent panel's phase line, keyed by the delegating call. Never the main activity line. */
-  onSubAgentActivity?: (parentToolCallId: string, activity: ChatActivity | null) => void
   onTurnEnd?: (stopReason: string, detail?: string) => void
   /**
    * The server closed the socket — a restart, a deploy — or a reopen failed. No frame of the turn in
@@ -235,16 +233,10 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       case 'message':
         options.onMessage?.(message)
         return
-      case 'subagent':
-        options.onSubAgent?.(message)
+      case 'trace':
+        options.onTrace?.(message)
         return
       case 'activity':
-        // A PANEL's phase line is its own: it used to land in the main activity line, so a worker's
-        // "thinking" overwrote — and its end cleared — what the lead was doing.
-        if (message.parentToolCallId) {
-          options.onSubAgentActivity?.(message.parentToolCallId, message.activity)
-          return
-        }
         activity.value = message.activity
         options.onActivity?.(message.activity)
         return
