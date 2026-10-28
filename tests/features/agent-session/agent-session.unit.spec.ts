@@ -8,7 +8,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { parseClientMessage, parseServerMessageForClient, isAgentSessionPath, isSupersededFrame, CLIENT_FRAME_LIMITS, TOOLS_MESSAGE } from '@agents/shared/agent-session-protocol'
+import { parseClientMessage, parseServerMessageForClient, isAgentSessionPath, isSupersededFrame, fitPageSkills, CLIENT_FRAME_LIMITS, TOOLS_MESSAGE, SKILLS_MESSAGE } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, holdingSender, BROWSER_CALL_TIMEOUT_MS, DELTA_FLUSH_MS } from '../../../api/src/agent-session/session.ts'
 import type { ServerMessage } from '@agents/shared/agent-session-protocol'
 
@@ -139,6 +139,19 @@ test.describe('parseClientMessage', () => {
     assert.equal(parse({ type: 'hello', tools: [{ name: 'x' }, { name: 'x' }] }).type, 'invalid')
   })
 
+  test('a page declares skills beside its tools, each a skill:// resource', () => {
+    const skill = { name: 'fill-form', description: 'How to fill the form', uri: 'skill://fill-form/SKILL.md', body: '# Fill the form' }
+    assert.deepEqual(parse({ type: 'hello', tools: [], skills: [skill] }), { type: 'hello', tools: [], skills: [skill] })
+    assert.equal(parse({ type: 'tools-changed', tools: [], skills: [skill] }).type, 'tools-changed')
+    assert.equal(parse({ type: 'hello', tools: [], skills: [{ ...skill, uri: 'https://x/SKILL.md' }] }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [], skills: [{ ...skill, name: 'Fill Form' }] }).type, 'invalid')
+  })
+
+  test('a duplicate skill URI is refused, like a duplicate tool name', () => {
+    const skill = { name: 'a', description: 'd', uri: 'skill://a/SKILL.md', body: 'b' }
+    assert.deepEqual(parse({ type: 'hello', tools: [], skills: [skill, skill] }), { type: 'invalid', reason: SKILLS_MESSAGE })
+  })
+
   test('a blank prompt is refused rather than started', () => {
     assert.equal(parse({ type: 'prompt', content: '   ' }).type, 'invalid')
     assert.equal(parse({ type: 'prompt', content: 'go' }).type, 'prompt')
@@ -172,6 +185,31 @@ test.describe('parseClientMessage — bounded', () => {
     assert.equal(parse({ type: 'hello', tools: many }).type, 'invalid')
     assert.equal(parse({ type: 'tools-changed', tools: many }).type, 'invalid')
     assert.equal(parse({ type: 'hello', tools: [{ name: 't', description: long(CLIENT_FRAME_LIMITS.toolDescription + 1) }] }).type, 'invalid')
+  })
+
+  test('a page declares a bounded number of skills, each with a bounded description and body', () => {
+    const skill = (i: number) => ({ name: `s${i}`, description: 'd', uri: `skill://s${i}/SKILL.md`, body: 'b' })
+    assert.equal(parse({ type: 'hello', tools: [], skills: Array.from({ length: CLIENT_FRAME_LIMITS.skills + 1 }, (_, i) => skill(i)) }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [], skills: [{ ...skill(0), description: long(CLIENT_FRAME_LIMITS.skillDescription + 1) }] }).type, 'invalid')
+    assert.equal(parse({ type: 'hello', tools: [], skills: [{ ...skill(0), body: long(CLIENT_FRAME_LIMITS.skillBody + 1) }] }).type, 'invalid')
+  })
+
+  test('fitPageSkills makes what a page publishes fit the frame, rather than lose the frame', () => {
+    const skill = (i: number, over = {}) => ({ name: `s${i}`, description: 'd', uri: `skill://s${i}/SKILL.md`, body: 'b', ...over })
+    const fitted = fitPageSkills([
+      skill(0, { body: long(CLIENT_FRAME_LIMITS.skillBody + 10), description: long(CLIENT_FRAME_LIMITS.skillDescription + 10) }),
+      skill(0, { body: 'the duplicate' }),
+      skill(1, { uri: 'https://elsewhere/SKILL.md' }),
+      ...Array.from({ length: CLIENT_FRAME_LIMITS.skills + 5 }, (_, i) => skill(i + 2))
+    ])
+    // The first of a duplicate URI is kept, a non-skill:// URI is dropped, the count is bounded.
+    assert.equal(fitted.length, CLIENT_FRAME_LIMITS.skills)
+    assert.equal(fitted[0].uri, 'skill://s0/SKILL.md')
+    assert.ok(!fitted.some(s => s.uri.startsWith('https:')))
+    assert.ok(fitted[0].body.length <= CLIENT_FRAME_LIMITS.skillBody)
+    assert.ok(fitted[0].body.endsWith('[truncated]'))
+    assert.ok(fitted[0].description.length <= CLIENT_FRAME_LIMITS.skillDescription)
+    assert.equal(parse({ type: 'hello', tools: [], skills: fitted }).type, 'hello')
   })
 
   test('host events come in bounded batches of bounded events', () => {
@@ -305,6 +343,17 @@ test.describe('the session', () => {
     h.session.handle(hello(['a', 'b']))
     h.session.handle({ type: 'tools-changed', tools: [{ name: 'c' }] })
     assert.deepEqual(h.session.tools().map(t => t.name), ['c'])
+  })
+
+  test('the page\'s skills come with its tools, and are replaced with them', () => {
+    const h = harness()
+    const skill = { name: 'fill-form', description: 'd', uri: 'skill://fill-form/SKILL.md', body: 'b' }
+    assert.deepEqual(h.session.skills(), [])
+    h.session.handle({ ...hello(), skills: [skill] })
+    assert.deepEqual(h.session.skills(), [skill])
+    // A tools-changed that names no skills means the page has none any more, as with tools.
+    h.session.handle({ type: 'tools-changed', tools: [{ name: 'c' }] })
+    assert.deepEqual(h.session.skills(), [])
   })
 
   test('calling a browser tool asks the page and resolves with its answer', async () => {

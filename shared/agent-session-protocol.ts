@@ -18,13 +18,13 @@
  */
 
 import { validate } from './agent-session-client-frame/index.ts'
-import type { AgentSessionClientFrame, BrowserToolDescriptor, HostEventFrame } from './agent-session-client-frame/index.ts'
+import type { AgentSessionClientFrame, BrowserToolDescriptor, PageSkillDescriptor, HostEventFrame } from './agent-session-client-frame/index.ts'
 import type { AgentSessionServerFrame } from './agent-session-server-frame/index.ts'
 import serverFrameSchema from './agent-session-server-frame/schema.js'
-import { CLIENT_FRAME_LIMITS, TOOLS_MESSAGE } from './agent-session-client-frame/limits.js'
+import { CLIENT_FRAME_LIMITS, TOOLS_MESSAGE, SKILLS_MESSAGE } from './agent-session-client-frame/limits.js'
 
-export type { BrowserToolDescriptor, HostEventFrame }
-export { CLIENT_FRAME_LIMITS, TOOLS_MESSAGE }
+export type { BrowserToolDescriptor, PageSkillDescriptor, HostEventFrame }
+export { CLIENT_FRAME_LIMITS, TOOLS_MESSAGE, SKILLS_MESSAGE }
 export type ClientMessage = AgentSessionClientFrame
 export type ServerMessage = AgentSessionServerFrame
 
@@ -51,7 +51,35 @@ export function parseClientMessage (raw: string): ClientMessage | InvalidMessage
   if ('tools' in parsed && new Set(parsed.tools.map(tool => tool.name)).size !== parsed.tools.length) {
     return { type: 'invalid', reason: TOOLS_MESSAGE }
   }
+  // Likewise for skills: the model loads one by URI, so two with the same URI could not be told apart.
+  if ('skills' in parsed && parsed.skills && new Set(parsed.skills.map(skill => skill.uri)).size !== parsed.skills.length) {
+    return { type: 'invalid', reason: SKILLS_MESSAGE }
+  }
   return parsed
+}
+
+const TRUNCATED = '\n\n[truncated]'
+
+/**
+ * What a page publishes, made to fit the frame: the first of a duplicate URI, `skill://` URIs only, at
+ * most CLIENT_FRAME_LIMITS.skills, descriptions and bodies cut to their bounds. Called by the browser
+ * before sending, because a frame the server refuses would lose the page's tools as well.
+ */
+export function fitPageSkills (skills: PageSkillDescriptor[]): PageSkillDescriptor[] {
+  const L = CLIENT_FRAME_LIMITS
+  const seen = new Set<string>()
+  const fitted: PageSkillDescriptor[] = []
+  for (const skill of skills) {
+    if (!skill.uri.startsWith('skill://') || seen.has(skill.uri)) continue
+    seen.add(skill.uri)
+    fitted.push({
+      ...skill,
+      description: skill.description.slice(0, L.skillDescription),
+      body: skill.body.length > L.skillBody ? skill.body.slice(0, L.skillBody - TRUNCATED.length) + TRUNCATED : skill.body
+    })
+    if (fitted.length === L.skills) break
+  }
+  return fitted
 }
 
 /** Every frame type the server sends, read off the schema so a frame added there is never ignored. */

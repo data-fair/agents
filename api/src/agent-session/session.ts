@@ -12,7 +12,7 @@
  */
 
 import { nanoid } from 'nanoid'
-import type { BrowserToolDescriptor, ClientMessage, ServerMessage } from '@agents/shared/agent-session-protocol'
+import type { BrowserToolDescriptor, PageSkillDescriptor, ClientMessage, ServerMessage } from '@agents/shared/agent-session-protocol'
 import { HostEventStore } from './host-events.ts'
 
 /**
@@ -141,6 +141,8 @@ export interface AgentSession {
   callBrowserTool: (name: string, input: unknown) => Promise<unknown>
   /** The page's current contextual tools. Replaced wholesale by `tools-changed`. */
   tools: () => BrowserToolDescriptor[]
+  /** The page's skills, declared with its tools and replaced with them. */
+  skills: () => PageSkillDescriptor[]
   attached: () => boolean
   /** Fail everything in flight. Called when the socket closes. */
   close: (reason: string) => void
@@ -167,6 +169,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
   let reviewConsent = false
   let boundTo: string | undefined
   let tools: BrowserToolDescriptor[] = []
+  let skills: PageSkillDescriptor[] = []
   let attached = false
   let closed: string | undefined
   const pending = new Map<string, PendingCall>()
@@ -223,6 +226,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
     hostEvents,
     chatFactKeys,
     tools: () => [...tools],
+    skills: () => [...skills],
     attached: () => attached,
     sessionCookie: () => options.sessionCookie,
     siteUrl: () => options.siteUrl,
@@ -239,6 +243,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           // Idempotent rather than an error: a reconnecting client re-says hello, and the tool set it
           // declares is the authority for the page it is on now.
           tools = message.tools
+          skills = message.skills ?? []
           attached = true
           if (message.reviewConsent !== undefined) reviewConsent = message.reviewConsent
           // A re-hello naming a DIFFERENT conversation, or none (a fresh thread), is a reset. The retained
@@ -249,6 +254,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
           return bind(message.conversationId)
         case 'tools-changed':
           tools = message.tools
+          skills = message.skills ?? []
           return
         case 'prompt':
           if (!attached) {

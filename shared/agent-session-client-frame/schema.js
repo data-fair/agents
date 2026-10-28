@@ -9,7 +9,7 @@
 // The generated validator (.type/validate.js, ajv standalone) is ESM-only and imports ajv's runtime and
 // @data-fair/lib-validation, hence those dependencies of the shared workspace: import it, never require it.
 
-import { CLIENT_FRAME_LIMITS as L, TOOLS_MESSAGE } from './limits.js'
+import { CLIENT_FRAME_LIMITS as L, TOOLS_MESSAGE, SKILLS_MESSAGE } from './limits.js'
 
 /** @param {string} name */
 const ID_MESSAGE = (name) => `${name} must be a string of at most ${L.id} characters when present`
@@ -38,6 +38,28 @@ const tools = {
   errorMessage: TOOLS_MESSAGE
 }
 
+const pageSkillDescriptor = {
+  title: 'Page skill descriptor',
+  description: 'A skill the page publishes beside its tools: an MCP `skill://…/SKILL.md` resource, body included, listed to the model like an MCP server\'s skills.',
+  type: 'object',
+  additionalProperties: false,
+  required: ['name', 'description', 'uri', 'body'],
+  properties: {
+    // The Agent Skills name format, as MCP skills have it.
+    name: { type: 'string', pattern: '^[a-z0-9]+(-[a-z0-9]+)*$', maxLength: 64 },
+    description: { type: 'string', maxLength: L.skillDescription },
+    uri: { type: 'string', pattern: '^skill://', maxLength: L.id },
+    body: { type: 'string', maxLength: L.skillBody }
+  }
+}
+
+const skills = {
+  type: 'array',
+  maxItems: L.skills,
+  items: pageSkillDescriptor,
+  errorMessage: SKILLS_MESSAGE
+}
+
 const hostEventFrame = {
   title: 'Host event frame',
   description: 'One thing that happened on the page, as it travels. Structurally lib-vue\'s `AgentEvent`, pinned here because it is a wire type.',
@@ -59,6 +81,8 @@ export default {
   // `discriminator`: only the branch named by `type` is evaluated, so its errors are the ones reported
   // and `removeAdditional` strips against that branch alone.
   'x-ajv': { discriminator: true, removeAdditional: true },
+  // Arrays as arrays: bounded lists (maxItems ≤ 20) would otherwise be typed as tuples of every length.
+  'x-jstt': { ignoreMinAndMaxItems: true },
   title: 'Agent session client frame',
   type: 'object',
   discriminator: { propertyName: 'type' },
@@ -95,7 +119,9 @@ export default {
         // The person's answer to the consent sheet, as the browser holds it. Strictly boolean: a
         // truthy string would make "no" read as consent.
         reviewConsent: { type: 'boolean', errorMessage: 'reviewConsent must be a boolean when present' },
-        tools
+        tools,
+        // Absent means the page publishes none.
+        skills
       }
     },
     {
@@ -108,7 +134,8 @@ export default {
       properties: {
         type: { const: 'tools-changed' },
         // the same list as hello's, under the same type name
-        tools: { ...tools, tsType: 'BrowserToolDescriptor[]' }
+        tools: { ...tools, tsType: 'BrowserToolDescriptor[]' },
+        skills: { ...skills, tsType: 'PageSkillDescriptor[]' }
       }
     },
     {
