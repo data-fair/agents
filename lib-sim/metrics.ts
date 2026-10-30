@@ -26,6 +26,15 @@ export type RunMetrics = {
    */
   textlessAssistantBubbles: number
   avgVisibleReplyChars: number | null
+  /**
+   * Mean words of the LAST prose bubble of each user turn: the answer the turn ended on. A turn of tool
+   * chips only is skipped, not counted as a reply of zero words. Null when no turn had prose.
+   */
+  finalReplyWords: number | null
+  /** Prose bubbles that are not the last of their turn: what the assistant said between tool calls. */
+  interimProseBubbles: number
+  /** Every prose word the person had to read, per message they sent, to one decimal. */
+  visibleWordsPerUserMessage: number | null
   /** Conversations exported for this run (the person may have started more than one). */
   conversations: number
   /** Model calls the server recorded, every role included. */
@@ -52,6 +61,19 @@ export type RunMetrics = {
   credits: number | null
 }
 
+const words = (text: string): number => text.trim().split(/\s+/).filter(Boolean).length
+const oneDecimal = (n: number): number => Math.round(n * 10) / 10
+
+/** The prose bubbles of each user turn, in order: what the assistant said after one message and before the next. */
+function proseByTurn (conversation: Transcript['conversation']): string[][] {
+  const turns: string[][] = []
+  for (const message of conversation) {
+    if (message.role === 'user') turns.push([])
+    else if (message.role === 'assistant' && message.text.trim() && turns.length) turns[turns.length - 1].push(message.text)
+  }
+  return turns.filter(turn => turn.length)
+}
+
 const countDuplicates = (calls: Array<{ toolName: string, input: unknown }>): number =>
   calls.length - new Set(calls.map(call => JSON.stringify([call.toolName, call.input]))).size
 
@@ -59,6 +81,9 @@ export function computeMetrics (transcript: Pick<Transcript, 'conversation'>, ex
   const userMessages = transcript.conversation.filter(m => m.role === 'user').length
   const assistant = transcript.conversation.filter(m => m.role === 'assistant')
   const visible = assistant.filter(m => m.text.trim().length > 0)
+
+  const turns = proseByTurn(transcript.conversation)
+  const totalWords = turns.flat().reduce((sum, text) => sum + words(text), 0)
 
   const measured = exports.length > 0
   const calls = exports.flatMap(exported => exported.runs.flatMap(run => run.calls))
@@ -77,6 +102,9 @@ export function computeMetrics (transcript: Pick<Transcript, 'conversation'>, ex
     avgVisibleReplyChars: visible.length
       ? Math.round(visible.reduce((sum, m) => sum + m.text.trim().length, 0) / visible.length)
       : null,
+    finalReplyWords: turns.length ? oneDecimal(turns.reduce((sum, turn) => sum + words(turn[turn.length - 1]), 0) / turns.length) : null,
+    interimProseBubbles: turns.reduce((sum, turn) => sum + turn.length - 1, 0),
+    visibleWordsPerUserMessage: userMessages ? oneDecimal(totalWords / userMessages) : null,
     conversations: exports.length,
     modelRequests: measured ? calls.length : null,
     requestsByRole: measured ? requestsByRole : null,

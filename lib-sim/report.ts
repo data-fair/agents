@@ -36,6 +36,8 @@ function metricsLine (run: RunSidecar | null): string {
     m.requestsByRole ? `(${Object.entries(m.requestsByRole).map(([role, n]) => `${role} ${n}`).join(', ')})` : '',
     `· ${m.textlessAssistantBubbles}/${m.assistantBubbles} bubbles tool-chips only`,
     m.avgVisibleReplyChars === null ? '' : `· avg reply ${m.avgVisibleReplyChars} chars`,
+    m.finalReplyWords == null ? '' : `· final reply ${m.finalReplyWords} words`,
+    m.interimProseBubbles ? `· ${m.interimProseBubbles} interim notes` : '',
     m.toolCalls === null ? '' : `· ${m.toolCalls} tool call(s)${m.failedToolCalls ? `, ${m.failedToolCalls} failed` : ''}`,
     m.duplicateToolCalls ? `· ${m.duplicateToolCalls} repeated tool calls` : '',
     m.hostBlockChars ? `· ${m.hostBlockChars} chars of host blocks` : '',
