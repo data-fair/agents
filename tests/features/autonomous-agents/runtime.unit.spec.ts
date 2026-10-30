@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL } from '../../../api/src/conversations/operations.ts'
+import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL, REPLY_STYLE_NOTE } from '../../../api/src/conversations/operations.ts'
 import { compactionSystemPrompt, recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/conversations/loop-guards.ts'
 import { readFileSync } from 'node:fs'
@@ -56,6 +56,15 @@ test.describe('buildSystemPrompt', () => {
   // Carries an `nhi`, because that is what selects the identity clause below: this fixture is a
   // CONFIGURED agent, which is the kind that has a service identity of its own.
   const agent = { id: 'a1', title: 'Support triage', persona: 'You triage support questions.', instructions: 'Answer in French.', nhi: { clientId: 'c1' } }
+
+  test('a chat turn carries the reply-style clause, for an agent with or without an identity', () => {
+    assert.ok(buildSystemPrompt(agent, undefined, 'chat').includes(REPLY_STYLE_NOTE))
+    assert.ok(buildSystemPrompt({ ...agent, nhi: undefined }, undefined, 'chat').includes(REPLY_STYLE_NOTE))
+  })
+
+  test('a task run does not: nobody watches it, so there are no tool calls on screen to refer to', () => {
+    assert.ok(!buildSystemPrompt(agent, undefined, 'task').includes(REPLY_STYLE_NOTE))
+  })
 
   test('server guides go after the identity clauses and before memory', () => {
     const memory = [{ path: 'MEMORY.md', description: '', content: 'remembered note', version: 1, updatedAt: '2026-10-13T00:00:00.000Z' }]

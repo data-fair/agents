@@ -27,6 +27,10 @@ test.describe('the personal assistant', () => {
     assert.doesNotMatch(portal().persona, /permissions|never more|not permitted/i)
   })
 
+  test('the persona does not invite a note while working, which the reply-style clause governs', () => {
+    assert.doesNotMatch(portal().persona, /while you work/)
+  })
+
   test('is shaped like any other agent the tool gatherer accepts', () => {
     // The structural claim. If this needed its own branch in the tool path, there would be two loops
     // again by another name.

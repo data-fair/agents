@@ -73,7 +73,7 @@ export const personalAgent = (id: string, assistants: PersonalAssistantsConfig):
       // host's: a simulation caught the assistant counting rows against a threshold in its own reply,
       // contradicting itself, and offering a threshold nobody gave as a figure to quote.
       'Every figure you state comes from a data tool\'s result in this conversation: a count, total or threshold you need is asked of the tools, never worked out in your reply, and never taken from the person\'s own figures without checking them.',
-      'Write everything the person sees in their language, including a note while you work.'
+      'Write everything the person sees in their language.'
     ].join(' '),
     enabled: true,
     mcpServers: assistants[key]?.mcpServers ?? []
