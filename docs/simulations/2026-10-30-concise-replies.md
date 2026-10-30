@@ -102,3 +102,32 @@ After the fix (2 runs, `fix3-r*`): both satisfied, no post-approval confusion.
 - A cancelled request was not said to be cancelled (1 run).
 
 These are rule-following on Sonnet, not length. Further wording would need its own rounds; deferred.
+
+## In data-fair
+
+6 cases of `~/data-fair/data-fair_chore-prompt-concise` (4 back-office pages, 2 autonomous agents), twice each, on
+`agents:before` (`2b94383`, the branch base) and `agents` (`8c9b2fd`), Sonnet through the bridge. Both seeded agents
+were first reduced to their role (`739e903`): the old seed said « réponds brièvement » and « dis clairement quand tu
+ne peux pas », which is what the product prompt now decides; with it, autonomous replies ran about 20 % shorter.
+
+| | before | after |
+|---|---|---|
+| satisfied | 11/12 | 12/12 |
+| substance kept | 0.92 | 0.92 |
+| tight / acceptable / padded | 1/10/1 | 1/11/0 |
+| final reply words (mean per turn) | 117 | 93 |
+| visible words per user message | 138 | 125 |
+| user messages, all runs | 26 | 17 |
+| padding items, all runs | 39 | 26 |
+| padding per user message | 1.60 | 1.64 |
+
+Closing recaps fell most (15 → 7), narration 7 → 4. The rate per message is flat because the people needed a third
+fewer messages: shorter, more direct turns left less to ask again. Final replies were shorter in 5 of 6 cases; the
+search-terms case went both ways (121/139 → 162/98).
+
+The gain is smaller than in this repo (−21 % final words against −47 %), as expected: data-fair's pages carry their
+own guidance and Sonnet is already terse there. The defects judges flagged in data-fair are mostly not length:
+claimed screen state no tool reported (« surligné »), limits stated unchecked (« je ne vois que ce qui appartient à
+votre organisation » with a portal-wide search offered; « aucun outil » without opening the editing page the tool
+pointed to), a count worked out in prose (32 for 33), and `search_data` returning a server stack trace as a
+successful result.
