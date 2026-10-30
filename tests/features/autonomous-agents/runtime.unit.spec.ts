@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL, REPLY_STYLE_NOTE } from '../../../api/src/conversations/operations.ts'
+import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL, REPLY_STYLE_NOTE, APPROVAL_NOTE } from '../../../api/src/conversations/operations.ts'
 import { compactionSystemPrompt, recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/conversations/loop-guards.ts'
 import { readFileSync } from 'node:fs'
@@ -64,6 +64,20 @@ test.describe('buildSystemPrompt', () => {
 
   test('a task run does not: nobody watches it, so there are no tool calls on screen to refer to', () => {
     assert.ok(!buildSystemPrompt(agent, undefined, 'task').includes(REPLY_STYLE_NOTE))
+  })
+
+  test('a chat turn says how approvals read from the conversation; a task run, where nothing is approved, does not', () => {
+    // Judged runs: the person typed while a call awaited approval, which declines it, and was never told; and
+    // the run an approval started wrote « a fresh approval prompt should be waiting » over the call's result.
+    assert.ok(buildSystemPrompt(agent, undefined, 'chat').includes(APPROVAL_NOTE))
+    assert.match(APPROVAL_NOTE, /cancelled/)
+    assert.match(APPROVAL_NOTE, /result is in front of you/)
+    assert.ok(!buildSystemPrompt(agent, undefined, 'task').includes(APPROVAL_NOTE))
+  })
+
+  test('the date line asks for dates in the data to be compared with it', () => {
+    // Every judged closures run called closures starting tomorrow « current ».
+    assert.match(buildSystemPrompt(agent, undefined, 'chat'), /Today is [^\n]*\. Compare the dates in what you read with it/)
   })
 
   test('server guides go after the identity clauses and before memory', () => {
@@ -147,6 +161,9 @@ test.describe('buildSystemPrompt', () => {
     for (const prompt of [buildSystemPrompt(agent), buildSystemPrompt(standard as any)]) {
       assert.match(prompt, /does not see how you are built/)
       assert.match(prompt, /never mention servers, MCP, tools or identifiers/)
+      // Judged runs refused with « my tools only cover… » and leaked slugs like « city-center ».
+      assert.match(prompt, /what you can and cannot help with/)
+      assert.match(prompt, /shown on the page/)
     }
   })
 
