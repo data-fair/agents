@@ -50,7 +50,7 @@ function metricsLine (run: RunSidecar | null): string {
   // would state the opposite of the truth.
   const measured = m.modelRequests !== null
   const parts = [
-    run?.toolsModel ? `[${run.assistantModel} / tools ${run.toolsModel}]` : '',
+    run?.toolsModel ? `[${run.assistantModel} / tools ${run.toolsModel}${run.personaVariant ? ` / persona ${run.personaVariant}` : ''}]` : '',
     measured
       ? `${m.modelRequests} model requests for ${m.userMessages} user messages`
       : `${m.userMessages} user messages (no conversation export: model activity not measured)`,
