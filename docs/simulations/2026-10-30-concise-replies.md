@@ -71,3 +71,34 @@ All present in the baseline, reported consistently by the judges, and each a can
 
 Keep the clause as written. The gain is large and consistent, the anti-goals held (no substance lost, no silence
 finding), and the remaining defects are not about length. Next: the same comparison in data-fair (goal 4).
+
+## Follow-up: the other defects
+
+Two wording passes (`186c323`, `195e500`), each validated on `autonomous-agent-approval`, `autonomous-agent-tool-use`
+and `register-person`, twice, at `SIM_ASSISTANT_MODEL=sonnet`:
+
+| Defect | Change | Result |
+|---|---|---|
+| Reply language | persona: the language the person writes in, else the page's | no French reply since |
+| Naming internals | `AUDIENCE_NOTE`: say what you can help with by subject; titles or plain words for coded values, a value shown on the page excepted | "my tools" gone; a district slug still slips through at times |
+| "Current" for upcoming closures | `todayLine`: say which dated items apply today, which are past or to come | fixed after the second wording (the first, "compare them", changed nothing) |
+| Invented "save the form" | persona: mention a further step only when the page or its tools show one | 1 of 2 runs, was every run |
+| Approval | `APPROVAL_NOTE`: one sentence, the approval's title, in the same reply as the call; a cancelled request said and offered again; a result means it ran | explanation before approving holds; see below |
+
+Left as is: `get_my_configuration` before refusing — the refusals were right in every run.
+
+**A harness bug, not a prompt one.** Every judged approval run, under every prompt, ended with the assistant
+writing "the prompt is up, awaiting your decision" over a call already approved. The bridge's replay path
+(`renderTranscript`) wrote an assistant message's tool calls *before* its text, so "I'll put the prompt up now"
+read as said after the call. Fixed in `8c9b2fd`. A real provider receives structured messages and never had it.
+After the fix (2 runs, `fix3-r*`): both satisfied, no post-approval confusion.
+
+**Still open,** each seen in both `fix3` runs:
+
+- "Before saying that data is unchanged, read it again" is not followed: the tool's own "wiped nothing" is taken
+  as proof, and the person asks for the re-read themselves. Ignored in 3 of 3 runs since it was added.
+- The approval sentence does not use the card's title (1 run), and asked what the card says, the model answered
+  it could not see it — the prompt does not tell it the card shows the action's title and description (1 run).
+- A cancelled request was not said to be cancelled (1 run).
+
+These are rule-following on Sonnet, not length. Further wording would need its own rounds; deferred.
