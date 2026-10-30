@@ -159,8 +159,10 @@ export interface SimulatedAgentConfig {
 /** The agent a case gets when it configures nothing. */
 export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
   title: 'Simulated autonomous agent',
-  persona: 'You are a helpful data assistant. You answer briefly and you say plainly when you cannot do something.',
-  instructions: 'Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
+  // The role alone, as an admin would write it. Style or honesty rules here (« answer briefly », « say so rather
+  // than inventing ») would hide whether the product's own prompt carries them: they did, until 2026-10-30.
+  persona: 'You are the organization\'s data assistant.',
+  instructions: '',
   // None: its tools are data-fair's built-in server, dev-mcp's /platform/ stand-in (privateMcpUrl). A case
   // needing a tool the stand-in lacks references the long-running review server for it, never the
   // per-spec fixture: a simulation is not a spec and nothing would be listening on the fixture's port.
