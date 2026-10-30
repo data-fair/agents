@@ -162,6 +162,50 @@ does the root-causing. Describe the defect precisely enough for them to find it.
 Report nothing you cannot point at in the record. A short `findings` list from a
 clean run is worth more than a padded one.
 
+## `brevity` — what the person had to read
+
+Users of this assistant say one thing more than any other: it talks too much.
+Not wrong, too much — it announces its tool calls, says what came back,
+restates the plan, explains its method, recaps at the end. This block measures
+that, and it has two halves you judge apart, **substance first**.
+
+**`substanceKept`** — did every reply give the person what they needed from
+it? The figures, names and dates they asked for; an error or a limit that
+changes what they can do; a correction when they assumed something false; what
+an action will do, before they are asked to approve it. `missing` names each
+omission, with its turn (« turn 2: no reopening dates »). A short reply that
+drops one of these is not tight, it is lossy, and it is the worse failure.
+
+**`padding`** — then, every passage the person read that did nothing for them.
+Each item is a VERBATIM quote, its turn (counted as for frictions), and one kind:
+
+- `narration` — describing a tool call or its raw result. The chat already
+  shows a chip for every call, so this is said twice.
+- `restated-plan` — repeating the request back, or announcing the steps.
+- `unrequested-explanation` — method, background or reasoning nobody asked for.
+- `closing-recap` — a summary of what was just said, or an opt-in offer
+  (« Would you like me to… », « Let me know if… »).
+- `idle-caveat` — a caveat that changes nothing the person does next.
+- `heavy-formatting` — headers, tables or bullet lists for a two-line answer.
+
+Not padding: one short sentence before a long piece of work, an update when
+the assistant found something or changed course, and anything `substanceKept`
+relies on. Silence where a word was owed is a `conversation` finding, not
+tightness.
+
+**Length is not quality, in either direction.** Do not prefer the longer
+reply; do not reward the shorter one. `metrics.finalReplyWords`,
+`metrics.interimProseBubbles` and `metrics.visibleWordsPerUserMessage` are
+counts to check your impression against, not a score.
+
+**`rating`** — `tight` when there is no padding item and substance was kept;
+`padded` when padding appears in most turns, or in any reply where it outweighs
+the answer; `acceptable` otherwise. An unattended run is judged the same way,
+on the outcome it reported.
+
+`brevity` never decides `satisfied`. A person can get what they came for from a
+padded conversation, and the run is still padded.
+
 ## Output
 
 Return ONLY raw JSON, no code fence, in exactly this shape:
@@ -176,6 +220,14 @@ Return ONLY raw JSON, no code fence, in exactly this shape:
   "findings": [
     { "area": "cost" | "conversation" | "tools" | "product" | "harness" | "<your own>", "severity": "high" | "medium" | "low", "what": "<the defect>", "evidence": "<where in the record>" }
   ],
+  "brevity": {
+    "substanceKept": true | false,
+    "missing": ["<turn N: what the person needed and did not get>"],
+    "padding": [
+      { "turn": <number>, "kind": "narration" | "restated-plan" | "unrequested-explanation" | "closing-recap" | "idle-caveat" | "heavy-formatting", "quote": "<verbatim>" }
+    ],
+    "rating": "tight" | "acceptable" | "padded"
+  },
   "notes": "<the overall opinion a maintainer should hear, or empty>"
 }
 

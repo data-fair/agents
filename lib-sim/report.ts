@@ -8,12 +8,34 @@ import type { SimulationCase, RunSidecar } from './types.ts'
 import { selectCases, simCaseNames } from './cases.ts'
 import { evidenceDir } from './transcript.ts'
 
-type Verdict = {
+export type PaddingKind = 'narration' | 'restated-plan' | 'unrequested-explanation' | 'closing-recap' | 'idle-caveat' | 'heavy-formatting'
+
+/** What the person had to read, judged in two halves: what they needed and got, then what padded it. */
+export type Brevity = {
+  substanceKept: boolean
+  missing: string[]
+  padding: Array<{ turn: number, kind: PaddingKind, quote: string }>
+  rating: 'tight' | 'acceptable' | 'padded'
+}
+
+export type Verdict = {
   case: string
   satisfied: boolean
   summary: string
   frictions: Array<{ turn: number, what: string, effect: string }>
   findings?: Array<{ area: string, severity: string, what: string, evidence: string }>
+  /** Absent from verdicts written before the judge had it: those still report, without this line. */
+  brevity?: Brevity
+}
+
+function brevityLine (brevity: Brevity): string {
+  const kinds: Record<string, number> = {}
+  for (const item of brevity.padding) kinds[item.kind] = (kinds[item.kind] ?? 0) + 1
+  const substance = brevity.substanceKept ? 'substance kept' : `substance MISSING (${brevity.missing.join('; ')})`
+  const padding = brevity.padding.length
+    ? `${brevity.padding.length} padding (${Object.entries(kinds).map(([kind, n]) => `${kind} ${n}`).join(', ')})`
+    : 'no padding'
+  return `brevity: ${brevity.rating}, ${substance}, ${padding}`
 }
 
 /**
@@ -49,7 +71,7 @@ function metricsLine (run: RunSidecar | null): string {
 // The verdict is written by a model and is untrusted by construction — a
 // well-known slip is a stringified boolean ("false" instead of false), which
 // would otherwise pass truthiness checks and silently report success.
-function isValidVerdict (v: unknown, caseName: string): v is Verdict {
+export function isValidVerdict (v: unknown, caseName: string): v is Verdict {
   if (typeof v !== 'object' || v === null) return false
   const o = v as Record<string, unknown>
   return o.case === caseName &&
@@ -87,11 +109,12 @@ export function reportCases (cases: SimulationCase[], evidenceDir: string): numb
     const run = read(`sim-${c.name}.run.json`)
     const verdict = read(`sim-${c.name}.verdict.json`)
     const line = metricsLine(run)
-    const hasDetail = isValidVerdict(verdict, c.name) && (verdict.frictions.length > 0 || (verdict.findings?.length ?? 0) > 0)
+    const hasDetail = isValidVerdict(verdict, c.name) && (verdict.frictions.length > 0 || (verdict.findings?.length ?? 0) > 0 || !!verdict.brevity)
     if (!line && !hasDetail) continue
     console.log(`\n${c.name}${isValidVerdict(verdict, c.name) ? `: ${verdict.summary}` : ''}`)
     if (line) console.log(`  ${line}`)
     if (!isValidVerdict(verdict, c.name)) continue
+    if (verdict.brevity) console.log(`  ${brevityLine(verdict.brevity)}`)
     for (const f of verdict.frictions) console.log(`  - turn ${f.turn}: ${f.what} → ${f.effect}`)
     for (const f of verdict.findings ?? []) console.log(`  · [${f.severity}] ${f.area}: ${f.what} (${f.evidence})`)
   }
