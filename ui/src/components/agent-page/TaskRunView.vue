@@ -57,7 +57,6 @@
         :action-visible-prompt="null"
         :mermaid-enabled="false"
         show-traces
-        :show-reasoning="true"
         show-tool-details
         readonly
       />

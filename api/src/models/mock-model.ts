@@ -273,6 +273,14 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create' }) }
   }
 
+  // "preface and call tool <name>" → a step that reasons, says something, then calls: text before a call,
+  // and reasoning in each step — what the activity line and the chat's step-by-step reasoning are tested on.
+  const prefaceMatch = commandLine(lastMessage).match(/^preface and call tool (\w+)(.*)$/i)
+  if (prefaceMatch) {
+    if (toolResult !== undefined) return { type: 'text', text: `Tool said: ${toolResult}`, reasoning: 'Reading the result.' }
+    return { type: 'tool-call', text: 'Let me check.', reasoning: 'Planning the call.', toolName: prefaceMatch[1], toolArgs: prefaceMatch[2].trim() || '{}' }
+  }
+
   // If the most recent message in the prompt is a tool result, we already called a tool
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {
@@ -562,6 +570,16 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
         const callIdSalt = Array.isArray(options.prompt) ? options.prompt.length : 0
         const stream = new ReadableStream<LanguageModelV3StreamPart>({
           start (controller) {
+            if (result.reasoning) {
+              controller.enqueue({ type: 'reasoning-start', id: 'mock-reason' })
+              controller.enqueue({ type: 'reasoning-delta', id: 'mock-reason', delta: result.reasoning })
+              controller.enqueue({ type: 'reasoning-end', id: 'mock-reason' })
+            }
+            if (result.text) {
+              controller.enqueue({ type: 'text-start', id: 'mock-id' })
+              controller.enqueue({ type: 'text-delta', id: 'mock-id', delta: result.text })
+              controller.enqueue({ type: 'text-end', id: 'mock-id' })
+            }
             calls.forEach((call, idx) => {
               const toolCallId = `mock-tool-call-id-${callIdSalt}-${idx}`
               controller.enqueue({ type: 'tool-input-start', id: toolCallId, toolName: call.toolName })

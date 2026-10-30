@@ -27,7 +27,11 @@
           <v-tab value="tools">
             {{ t('tools') }}
           </v-tab>
-          <v-tab value="settings">
+          <!-- Its one setting is the consent to a review: nothing to show where none is asked. -->
+          <v-tab
+            v-if="showConsentToggle"
+            value="settings"
+          >
             {{ t('settings') }}
           </v-tab>
           <v-tab
@@ -73,51 +77,24 @@
             />
           </v-window-item>
 
-          <v-window-item value="settings">
+          <v-window-item
+            v-if="showConsentToggle"
+            value="settings"
+          >
             <v-defaults-provider
               :defaults="{ VSwitch: { hideDetails: true, density: 'compact', color: 'primary' } }"
             >
               <div class="pa-3">
-                <template v-if="showConsentToggle">
-                  <df-tutorial-alert
-                    id="agent-settings-review-consent"
-                    :text="t('reviewConsentHint')"
-                    :initial="false"
-                    persistent
-                  />
-                  <v-switch
-                    :model-value="consentRef === 'yes'"
-                    :label="t('reviewConsent')"
-                    @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
-                  />
-                </template>
-
-                <div class="text-caption font-weight-bold text-medium-emphasis mt-4 mb-1">
-                  {{ t('experimental') }}
-                </div>
-
                 <df-tutorial-alert
-                  id="agent-settings-mermaid"
-                  :text="t('mermaidHint')"
+                  id="agent-settings-review-consent"
+                  :text="t('reviewConsentHint')"
                   :initial="false"
                   persistent
                 />
                 <v-switch
-                  :model-value="mermaid"
-                  :label="t('mermaid')"
-                  @update:model-value="(v: boolean | null) => $emit('update:mermaid', v ?? false)"
-                />
-
-                <df-tutorial-alert
-                  id="agent-settings-show-reasoning"
-                  :text="t('showReasoningHint')"
-                  :initial="false"
-                  persistent
-                />
-                <v-switch
-                  :model-value="showReasoning"
-                  :label="t('showReasoning')"
-                  @update:model-value="(v: boolean | null) => $emit('update:showReasoning', v ?? false)"
+                  :model-value="consentRef === 'yes'"
+                  :label="t('reviewConsent')"
+                  @update:model-value="(v: boolean | null) => writeConsent(v ? 'yes' : 'no')"
                 />
               </div>
             </v-defaults-provider>
@@ -151,11 +128,6 @@ fr:
   consumption: Consommation
   reviewConsent: Enregistrer mes conversations pour relecture
   reviewConsentHint: "Vos conversations seront enregistrées sur le serveur pendant 30 jours afin qu'un administrateur puisse les relire. Vous pouvez retirer votre consentement à tout moment."
-  experimental: Expérimental
-  mermaid: Diagrammes Mermaid
-  mermaidHint: "Affiche les blocs de code Mermaid sous forme de diagrammes (graphiques XY, organigrammes, etc.). Changer ce réglage réinitialise la conversation."
-  showReasoning: Affichage complet du raisonnement
-  showReasoningHint: "Affiche la réflexion des modèles de raisonnement dans un panneau dépliable au-dessus de chaque réponse. Désactivé, une brève ligne « Réflexion… » apparaît pendant que le modèle raisonne, sans rien conserver ensuite."
 en:
   close: Close
   tools: Tools
@@ -166,11 +138,6 @@ en:
   consumption: Consumption
   reviewConsent: Store my conversations for review
   reviewConsentHint: "Your conversations will be stored on the server for 30 days so an administrator can review them. You can withdraw your consent at any time."
-  experimental: Experimental
-  mermaid: Mermaid diagrams
-  mermaidHint: "Renders Mermaid code blocks as diagrams (XY charts, flowcharts, etc.). Changing this setting resets the conversation."
-  showReasoning: Full reasoning display
-  showReasoningHint: "Shows reasoning models' thinking as a foldable panel above each answer. When off, a brief 'Thinking…' line appears while the model reasons and nothing is kept afterward."
 </i18n>
 
 <script lang="ts" setup>
@@ -202,8 +169,6 @@ const props = defineProps<{
   audited?: boolean
   accountType: string
   accountId: string
-  mermaid?: boolean
-  showReasoning?: boolean
   // The Consumption tab is shown only when the chat can report usage: optional rather than required,
   // so the dialog does not demand a capability from every host that embeds it.
   conversationCost?: number
@@ -213,8 +178,6 @@ const props = defineProps<{
 
 defineEmits<{
   'update:modelValue': [value: boolean]
-  'update:mermaid': [value: boolean]
-  'update:showReasoning': [value: boolean]
 }>()
 
 const { t } = useI18n()

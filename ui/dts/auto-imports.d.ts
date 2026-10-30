@@ -23,6 +23,7 @@ declare global {
   const HOST_STATE_CLOSE: typeof import('../src/composables/host-events').HOST_STATE_CLOSE
   const HOST_STATE_OPEN: typeof import('../src/composables/host-events').HOST_STATE_OPEN
   const HostEventStore: typeof import('../src/composables/host-events').HostEventStore
+  const LABELLED_BUILTIN_TOOLS: typeof import('../src/utils/builtin-tool-labels').LABELLED_BUILTIN_TOOLS
   const LOCATION_KEY: typeof import('../src/composables/host-events').LOCATION_KEY
   const MERMAID_AUTO_FIX_BUDGET: typeof import('../src/utils/mermaid-fix').MERMAID_AUTO_FIX_BUDGET
   const NOT_BEFORE_MARGIN_MS: typeof import('../src/utils/anonymous-token').NOT_BEFORE_MARGIN_MS
@@ -36,6 +37,7 @@ declare global {
   const ajvUcs2length: typeof import('../src/utils/ajv-ucs2length').default
   const apiErrorMessage: typeof import('../src/utils/api-error').apiErrorMessage
   const appendHostEvents: typeof import('../src/composables/host-events').appendHostEvents
+  const appendStreamedReasoning: typeof import('../src/utils/chat-message').appendStreamedReasoning
   const appendStreamedText: typeof import('../src/utils/chat-message').appendStreamedText
   const appendStreamingCaret: typeof import('../src/utils/markdown').appendStreamingCaret
   const applyStreamPart: typeof import('../src/composables/agent-stream-parts').applyStreamPart
@@ -45,6 +47,7 @@ declare global {
   const breadcrumbs: typeof import('../src/utils/breadcrumbs').default
   const breakdownDatasets: typeof import('../src/utils/usage-breakdown').breakdownDatasets
   const buildMermaidThemeVariables: typeof import('../src/utils/mermaid').buildMermaidThemeVariables
+  const builtinToolLabel: typeof import('../src/utils/builtin-tool-labels').builtinToolLabel
   const canSendNow: typeof import('../src/composables/chat-send').canSendNow
   const canonical: typeof import('../src/composables/use-settings-form').canonical
   const computed: typeof import('vue').computed
@@ -142,6 +145,7 @@ declare global {
   const shallowReadonly: typeof import('vue').shallowReadonly
   const shallowRef: typeof import('vue').shallowRef
   const shouldAutoFixMermaid: typeof import('../src/utils/mermaid-fix').shouldAutoFixMermaid
+  const skillName: typeof import('../src/utils/builtin-tool-labels').skillName
   const streamingSafeBuffer: typeof import('../src/utils/markdown').streamingSafeBuffer
   const subscribeHostEvents: typeof import('../src/composables/use-host-events').subscribeHostEvents
   const toDescriptors: typeof import('../src/composables/use-agent-session').toDescriptors
@@ -206,14 +210,14 @@ declare global {
   export type { Component, Slot, Slots, ComponentPublicInstance, ComputedRef, DirectiveBinding, ExtractDefaultPropTypes, ExtractPropTypes, ExtractPublicPropTypes, InjectionKey, PropType, Ref, ShallowRef, MaybeRef, MaybeRefOrGetter, VNode, WritableComputedRef } from 'vue'
   import('vue')
   // @ts-ignore
-  export type { AgentFlags } from '../src/utils/agent-flags'
-  import('../src/utils/agent-flags')
-  // @ts-ignore
   export type { StoredConversationMessage, AutonomousAgentPart } from '../src/utils/autonomous-agent-chat-message'
   import('../src/utils/autonomous-agent-chat-message')
   // @ts-ignore
   export type { AutonomousAgentExampleKey, ExampleLocale, ExampleFields } from '../src/utils/autonomous-agent-examples'
   import('../src/utils/autonomous-agent-examples')
+  // @ts-ignore
+  export type { BuiltinToolLabel } from '../src/utils/builtin-tool-labels'
+  import('../src/utils/builtin-tool-labels')
   // @ts-ignore
   export type { AgentOption, ConversationSummary } from '../src/utils/chat-agents'
   import('../src/utils/chat-agents')
@@ -258,13 +262,13 @@ declare module 'vue' {
     readonly $uiConfig: UnwrapRef<typeof import('~/context')['$uiConfig']>
     readonly AUTONOMOUS_AGENT_EXAMPLE_KEYS: UnwrapRef<typeof import('../src/utils/autonomous-agent-examples')['AUTONOMOUS_AGENT_EXAMPLE_KEYS']>
     readonly AUTONOMOUS_AGENT_WRITABLE_KEYS: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['AUTONOMOUS_AGENT_WRITABLE_KEYS']>
-    readonly DEFAULT_FLAGS: UnwrapRef<typeof import('../src/utils/agent-flags')['DEFAULT_FLAGS']>
     readonly EffectScope: UnwrapRef<typeof import('vue')['EffectScope']>
-    readonly FLAGS_COOKIE: UnwrapRef<typeof import('../src/utils/agent-flags')['FLAGS_COOKIE']>
+    readonly LABELLED_BUILTIN_TOOLS: UnwrapRef<typeof import('../src/utils/builtin-tool-labels')['LABELLED_BUILTIN_TOOLS']>
     readonly MERMAID_AUTO_FIX_BUDGET: UnwrapRef<typeof import('../src/utils/mermaid-fix')['MERMAID_AUTO_FIX_BUDGET']>
     readonly NOT_BEFORE_MARGIN_MS: UnwrapRef<typeof import('../src/utils/anonymous-token')['NOT_BEFORE_MARGIN_MS']>
     readonly ajvUcs2length: UnwrapRef<typeof import('../src/utils/ajv-ucs2length')['default']>
     readonly apiErrorMessage: UnwrapRef<typeof import('../src/utils/api-error')['apiErrorMessage']>
+    readonly appendStreamedReasoning: UnwrapRef<typeof import('../src/utils/chat-message')['appendStreamedReasoning']>
     readonly appendStreamedText: UnwrapRef<typeof import('../src/utils/chat-message')['appendStreamedText']>
     readonly appendStreamingCaret: UnwrapRef<typeof import('../src/utils/markdown')['appendStreamingCaret']>
     readonly autonomousAgentEditDraft: UnwrapRef<typeof import('../src/utils/autonomous-agent-draft')['autonomousAgentEditDraft']>
@@ -273,6 +277,7 @@ declare module 'vue' {
     readonly breadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['default']>
     readonly breakdownDatasets: UnwrapRef<typeof import('../src/utils/usage-breakdown')['breakdownDatasets']>
     readonly buildMermaidThemeVariables: UnwrapRef<typeof import('../src/utils/mermaid')['buildMermaidThemeVariables']>
+    readonly builtinToolLabel: UnwrapRef<typeof import('../src/utils/builtin-tool-labels')['builtinToolLabel']>
     readonly canSendNow: UnwrapRef<typeof import('../src/composables/chat-send')['canSendNow']>
     readonly canonical: UnwrapRef<typeof import('../src/composables/use-settings-form')['canonical']>
     readonly computed: UnwrapRef<typeof import('vue')['computed']>
@@ -340,12 +345,12 @@ declare module 'vue' {
     readonly sanitizeEvent: UnwrapRef<typeof import('../src/composables/use-host-events')['sanitizeEvent']>
     readonly scopeRows: UnwrapRef<typeof import('../src/utils/nhi-scopes')['scopeRows']>
     readonly scopesPatchValue: UnwrapRef<typeof import('../src/utils/nhi-scopes')['scopesPatchValue']>
-    readonly serializeFlagsCookie: UnwrapRef<typeof import('../src/utils/agent-flags')['serializeFlagsCookie']>
     readonly setBreadcrumbs: UnwrapRef<typeof import('../src/utils/breadcrumbs')['setBreadcrumbs']>
     readonly shallowReactive: UnwrapRef<typeof import('vue')['shallowReactive']>
     readonly shallowReadonly: UnwrapRef<typeof import('vue')['shallowReadonly']>
     readonly shallowRef: UnwrapRef<typeof import('vue')['shallowRef']>
     readonly shouldAutoFixMermaid: UnwrapRef<typeof import('../src/utils/mermaid-fix')['shouldAutoFixMermaid']>
+    readonly skillName: UnwrapRef<typeof import('../src/utils/builtin-tool-labels')['skillName']>
     readonly streamingSafeBuffer: UnwrapRef<typeof import('../src/utils/markdown')['streamingSafeBuffer']>
     readonly subscribeHostEvents: UnwrapRef<typeof import('../src/composables/use-host-events')['subscribeHostEvents']>
     readonly toDescriptors: UnwrapRef<typeof import('../src/composables/use-agent-session')['toDescriptors']>
@@ -396,6 +401,5 @@ declare module 'vue' {
     readonly watchPostEffect: UnwrapRef<typeof import('vue')['watchPostEffect']>
     readonly watchSyncEffect: UnwrapRef<typeof import('vue')['watchSyncEffect']>
     readonly withUiNotif: UnwrapRef<typeof import('@data-fair/lib-vue/ui-notif.js')['withUiNotif']>
-    readonly writeFlags: UnwrapRef<typeof import('../src/utils/agent-flags')['writeFlags']>
   }
 }

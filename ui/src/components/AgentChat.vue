@@ -79,8 +79,7 @@
       :welcome-text="t('welcome')"
       :tool-title="toolTitle"
       :action-visible-prompt="actionVisiblePrompt"
-      :mermaid-enabled="mermaidEnabled"
-      :show-reasoning="showReasoningEnabled"
+      mermaid-enabled
       :agent-path="agentPath"
       @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
       @fix-mermaid="handleFixMermaid"
@@ -134,13 +133,9 @@
       :audited="audited"
       :account-type="accountType"
       :account-id="accountId"
-      :mermaid="mermaidEnabled"
-      :show-reasoning="showReasoningEnabled"
       :conversation-cost="chat.conversationCost.value"
       :usage-version="chat.usageVersion.value"
       :fetch-self-usage="chat.fetchSelfUsage"
-      @update:mermaid="handleMermaid"
-      @update:show-reasoning="handleShowReasoning"
     />
 
     <review-consent-sheet :audited="audited" />
@@ -200,7 +195,6 @@ import AgentChatInput from './agent-chat/AgentChatInput.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
 import ReviewConsentSheet from './agent-chat/ReviewConsentSheet.vue'
 import AgentMemoryDialog from './AgentMemoryDialog.vue'
-import { readFlags, writeFlags } from '~/utils/agent-flags'
 import { canSendNow } from '~/composables/chat-send'
 import type { AgentOption, ConversationSummary } from '~/utils/chat-agents'
 import { $apiPath, $fetch } from '~/context'
@@ -301,15 +295,9 @@ const hostContext = computed<Record<string, string | null>>(() => {
     // Null WITHDRAWS the fact, which is the difference between "this chat is a wide page" and "nobody
     // said how wide it is" — only the first should make the assistant stop keeping its answers narrow.
     surface: props.narrowViewport ? NARROW_SURFACE : null,
-    diagrams: mermaidEnabled.value ? MERMAID_SUPPORT : null
+    diagrams: MERMAID_SUPPORT
   }
 })
-
-// Experimental chat flags, persisted in a service-scoped cookie (see agent-flags.ts)
-// and toggled from the debug dialog's Settings tab.
-const initialFlags = readFlags()
-const mermaidEnabled = ref(initialFlags.mermaid)
-const showReasoningEnabled = ref(initialFlags.showReasoning)
 
 const chat = useSessionChat({
   accountType: props.accountType,
@@ -542,29 +530,6 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   // instead of mutating the session system prompt, so it stays scoped to the turn
   // and surfaces in the trace reviewer.
   chat.sendMessage(visiblePrompt, { hiddenContext })
-}
-
-function persistFlags () {
-  writeFlags({
-    mermaid: mermaidEnabled.value,
-    showReasoning: showReasoningEnabled.value
-  }, $apiPath)
-}
-
-function handleMermaid (enabled: boolean) {
-  mermaidEnabled.value = enabled
-  persistFlags()
-  // No reset: the mermaid instruction used to be part of the client-built system prompt, so the
-  // conversation had to restart for it to be uniform. The prompt is the server's now and this flag is
-  // render-only here.
-}
-
-function handleShowReasoning (enabled: boolean) {
-  // Render-only preference: reasoning is always captured onto the message, so this
-  // just toggles the panel's visibility. No conversation reset — existing reasoning
-  // panels appear/disappear reactively and the change is fully reversible.
-  showReasoningEnabled.value = enabled
-  persistFlags()
 }
 
 function handleReset () {
