@@ -86,10 +86,12 @@ export function renderTranscript (messages: OpenAIMessage[]): string {
       continue
     }
     if (m.role === 'assistant') {
+      // Text first: it is what the model wrote before calling. Calls-first made « I'll put the prompt up
+      // now » read as said after the call, and the model continued it over an already-approved result.
+      if (m.content) lines.push(`<assistant_message>\n${m.content}\n</assistant_message>`)
       for (const c of m.tool_calls ?? []) {
         lines.push(`<tool_call id="${c.id}" name="${c.function.name}">\n${c.function.arguments}\n</tool_call>`)
       }
-      if (m.content) lines.push(`<assistant_message>\n${m.content}\n</assistant_message>`)
       continue
     }
     lines.push(`<user_message>\n${m.content ?? ''}\n</user_message>`)
