@@ -87,6 +87,8 @@ export type RunSidecar = {
    *  when the host pins it separately from the assistant's. */
   toolsModel?: string
   userModel: string
+  /** The persona variant the seeded agent ran with (SIM_PERSONA_VARIANT), when not its own. */
+  personaVariant?: string
   turns: number
   durationMs: number
   finishedAt: string
