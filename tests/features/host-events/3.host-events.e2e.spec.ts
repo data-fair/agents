@@ -3,31 +3,25 @@
  * retained state at activation, events in the next turn, events appended to the causing
  * tool's result, and wait_for_user_action resuming the same turn on the next event.
  */
+// WHAT MOVED DOWN TO api, and why (§10.7 of the one-server-loop review):
+//
+// Six tests were removed from this file. Four of them asserted the browser loop's ACTIVATION model —
+// retained state sent only on turns where the model had no history to integrate from, with keyed
+// events deduped against it. The server sends state on every turn and drains events: simpler by a
+// whole concept, and `host-context.api.spec.ts` asserts that contract in ~1s per case against ~17s
+// here. The other two (a coalesced action between turns, a wait resumed by a click) are covered by
+// `host-context.api.spec.ts` and `wait-tool.api.spec.ts`.
+//
+// What stays here is what genuinely needs a browser: the PAGE emitting events — a dialog opening, a
+// navigation, a click — and the chat rendering the result. The loop's half does not.
+
 import { expect } from '@playwright/test'
 import assert from 'node:assert/strict'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { createChatDriver } from '../../../lib-sim/chat-driver.ts'
-import { mockProvider, mockModelRef, putMockSettings } from '../../support/settings.ts'
-
-// The dedicated mock summarizer is mapped explicitly so the compaction round-trip
-// (used by the compaction-dedupe test below) actually runs instead of failing for
-// want of a summarizer model.
-const summarizerModelRef = {
-  id: 'mock-summarizer',
-  name: 'Mock Summarizer',
-  provider: { type: 'mock', name: mockProvider.name, id: mockProvider.id }
-}
-
-const settingsOverrides = {
-  models: [
-    { model: mockModelRef, usage: ['assistant', 'tools', 'evaluator', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
-    { model: summarizerModelRef, usage: ['summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
-  ],
-  modelMapping: {
-    summarizer: { provider: mockProvider.id, id: summarizerModelRef.id, name: summarizerModelRef.name }
-  }
-}
+import { putMockSettings } from '../../support/settings.ts'
+import { waitForPageTools } from '../../support/page-tools.ts'
 
 const USER = 'test-standalone1'
 
@@ -35,17 +29,14 @@ test.describe('Host events', () => {
   test.beforeEach(async () => {
     await clean()
     const admin = await superAdmin
-    await putMockSettings(admin, `user/${USER}`, settingsOverrides)
+    await putMockSettings(admin, `user/${USER}`)
   })
 
   async function open (page: any, goToWithAuth: any) {
     await goToWithAuth('/agents/_dev/chat-workflow', USER)
     // Discovery is asynchronous; a turn sent before the page tools land would be built
     // with an empty tool set (same guard as 3.live-tools.e2e.spec.ts).
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.getByRole('button', { name: 'select_type' })).toBeVisible({ timeout: 10000 })
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
+    await waitForPageTools(page, 'select_type')
   }
 
   async function send (page: any, text: string) {
@@ -62,131 +53,16 @@ test.describe('Host events', () => {
     await expect(page.getByRole('button', { name: 'Create' })).toBeVisible()
   }
 
-  function countGatewayRequests (page: any) {
-    let n = 0
-    page.on('request', (r: any) => { if (r.url().includes('/chat/completions')) n++ })
-    return () => n
-  }
-
-  test('retained state reaches the model at activation', async ({ page, goToWithAuth }) => {
-    await open(page, goToWithAuth)
-    await send(page, 'where am i')
-    await expect(lastAnswer(page)).toContainText('state:', { timeout: 15000 })
-    // useAgentLocation derives the absolute url alongside the path — that is the
-    // whole reason the helper exists over a bare useAgentState, so assert both.
-    await expect(lastAnswer(page)).toContainText('"path":"/workflow"')
-    await expect(lastAnswer(page)).toContainText('"url":"http://localhost:')
-    await expect(lastAnswer(page)).toContainText('wizard: {"step":"type","type":"none","title":""}')
-  })
-
-  test('activation sends host-state once and does not also drain the same keyed facts into host-events', async ({ page, goToWithAuth }) => {
-    await open(page, goToWithAuth)
-    const bodies: string[] = []
-    page.on('request', (r: any) => { if (r.url().includes('/chat/completions')) bodies.push(r.postData() ?? '') })
-    await send(page, 'where am i')
-    await expect(lastAnswer(page)).toContainText('state:', { timeout: 15000 })
-    // 'where am i' never triggers a tool call, so the activation turn is one request.
-    expect(bodies).toHaveLength(1)
-    const body = bodies[0]
-    // The mock model echoes <host-state> in preference to <host-events> when both are
-    // present, so it cannot tell duplication apart from the fix — assert on the request
-    // the browser actually sent instead. Without the activation dedupe, `location` and
-    // `wizard` (both keyed, both already in retention from mount) would still be sitting
-    // in the pending buffer and would ride along a second time in a <host-events> block.
-    expect(body).toContain('<host-state>')
-    expect(body).not.toContain('<host-events>')
-    expect(body.match(/\blocation:/g) ?? []).toHaveLength(1)
-    expect(body.match(/\bwizard:/g) ?? []).toHaveLength(1)
-  })
-
-  test('compaction re-activates and dedupes the same keyed facts as the first-turn path', async ({ page, goToWithAuth }) => {
-    // Force compaction on an ordinary conversation: sendMessage reads this key live
-    // each turn (see COMPACTION_THRESHOLD's test seam in use-agent-chat.ts), falling
-    // back to the 24000-char default otherwise. addInitScript sets it before the
-    // page's own scripts run, so it's already in place for the very first navigation
-    // — no reload needed (unlike the evaluate()+reload() pattern other compaction
-    // tests use).
-    await page.addInitScript(() => sessionStorage.setItem('agent-chat-compaction-threshold', '50'))
-    await open(page, goToWithAuth)
-    await send(page, 'hello')
-    await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
-
-    // A keyed event lands between turns — the fact that must not be duplicated once
-    // compaction re-activates the next turn (this turn is NOT an activation turn when
-    // it's sent, only becomes one once compaction fires inside it).
-    await page.getByRole('button', { name: 'Note', exact: true }).click()
-    await page.getByLabel('Title').fill('Weekly groceries')
-
-    const turnBodies: string[] = []
-    page.on('request', (r: any) => {
-      if (!r.url().includes('/chat/completions')) return
-      // Exclude the compaction round-trip itself (a separate summarizer call, tagged
-      // 'compaction:' in its trace header) — only the actual turn's request matters here.
-      if ((r.headers()['x-trace-ctx'] ?? '').startsWith('compaction:')) return
-      turnBodies.push(r.postData() ?? '')
-    })
-    // History is now well past the 50-char threshold, so this turn triggers compaction.
-    await send(page, 'hello')
-    await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
-    expect(turnBodies).toHaveLength(1)
-    const body = turnBodies[0]
-    // Same property as the first-turn activation test: a state snapshot, no
-    // undeduped events block, and the keyed fact appearing exactly once. Without the
-    // compaction-branch dedupe, `wizard` (pending when this turn was sent, before it
-    // became an activation turn) would ride a second time in an undeduped
-    // <host-events> block alongside the freshly-added <host-state> snapshot.
-    expect(body).toContain('<host-state>')
-    expect(body).not.toContain('<host-events>')
-    expect(body.match(/\bwizard:/g) ?? []).toHaveLength(1)
-  })
-
-  test('a user action between turns arrives coalesced in the next turn, without any tool call', async ({ page, goToWithAuth }) => {
-    await open(page, goToWithAuth)
-    await send(page, 'hello')
-    await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Note', exact: true }).click()
-    await page.getByLabel('Title').fill('Weekly groceries')
-    await send(page, 'what happened')
-    await expect(lastAnswer(page)).toContainText('events:', { timeout: 15000 })
-    // Clicking Note and filling the title each push a keyed `wizard` event; coalescing
-    // must collapse them into ONE line carrying the LAST value, not one line per event —
-    // so assert the collapse itself (exactly one `wizard:` line) and the stale
-    // intermediate value's absence, not just that the final value is present somewhere.
-    await expect(lastAnswer(page)).toContainText('wizard: {"step":"title","type":"note","title":"Weekly groceries"}', { timeout: 15000 })
-    const answerText = await lastAnswer(page).innerText()
-    expect(answerText.match(/wizard:/g)).toHaveLength(1)
-    expect(answerText).not.toContain('wizard: {"step":"title","type":"note","title":""}')
-    await expect(page.getByTestId('tool-chip')).toHaveCount(0)
-  })
-
   test('events caused by a tool call ride in that tool result', async ({ page, goToWithAuth }) => {
     await open(page, goToWithAuth)
     await send(page, 'select note')
-    await expect(lastAnswer(page)).toContainText('Tool said: Type set to note.', { timeout: 15000 })
+    // The mock echoes the tool result verbatim, and a result now arrives inside the provenance
+    // envelope with the host-event block appended — so the answer contains the tool's own words and
+    // the event it caused, with the envelope's notice between them. Asserted as two substrings rather
+    // than as one line: the exact framing is the envelope's business (and it changed when the loop
+    // moved server-side), while what must be true is that BOTH reached the model.
+    await expect(lastAnswer(page)).toContainText('Type set to note.', { timeout: 15000 })
     await expect(lastAnswer(page)).toContainText('wizard: {"step":"title","type":"note","title":""}')
-  })
-
-  test('wait_for_user_action resumes the same turn when the user clicks Create', async ({ page, goToWithAuth }) => {
-    await open(page, goToWithAuth)
-    await reachConfirmation(page)
-    const requests = countGatewayRequests(page)
-    await send(page, 'wait for me')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
-    await expect(page.getByTestId('tool-chip')).toContainText('Waiting for: you to click Create')
-    await page.getByRole('button', { name: 'Create' }).click()
-    await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
-    await expect(lastAnswer(page)).toContainText('item-created: {"id":"item-')
-    await expect(lastAnswer(page)).toContainText('"title":"Weekly groceries"')
-    await expect(page.getByTestId('workflow-detail')).toBeVisible()
-    // The chip stays in history as a record of the step, so it must stop reading
-    // as a live instruction the moment the wait settles. A judged run watched a
-    // person read a resolved "Waiting for: User clicks Create" as current page
-    // state, decide the assistant had lied about creating their list, and spend
-    // four turns hunting a button that no longer existed.
-    await expect(page.getByTestId('tool-chip')).toContainText('Waited for: you to click Create')
-    await expect(page.getByTestId('tool-chip')).not.toContainText('Waiting for')
-    // One user message, two model requests: the tool call, then the continuation.
-    expect(requests()).toBe(2)
   })
 
   test('a keyed refresh during a wait is context, not the answer', async ({ page, goToWithAuth }) => {
@@ -215,44 +91,20 @@ test.describe('Host events', () => {
     await expect(lastAnswer(page)).toContainText('"title":"Weekly groceries"')
   })
 
-  test('a wait resolves with the departure when the user leaves the page', async ({ page, goToWithAuth }) => {
+  test('the waiting label outlives the handover turn, and the wait resolves with the departure when the user leaves the page', async ({ page, goToWithAuth }) => {
+    // The label is what tells the person the move is theirs — and what drives the embedding host's
+    // waiting-user signal. The handover ENDS its turn, so the label has to stay up between turns, with
+    // Stop on screen to decline; and once the person acts, it goes.
     await open(page, goToWithAuth)
     await reachConfirmation(page)
     await send(page, 'wait for me')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
+    await expect(page.getByRole('button', { name: /Stop|Arrêter/ })).toBeVisible()
     await page.getByRole('button', { name: 'Leave page' }).click()
     await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
     await expect(lastAnswer(page)).toContainText('"path":"/elsewhere"')
+    await expect(page.getByTestId('chat-activity')).toHaveCount(0, { timeout: 15000 })
     await expect(page.getByPlaceholder('Type your message...')).toBeEditable()
-  })
-
-  test('a wait times out with the plain text and the turn ends', async ({ page, goToWithAuth }) => {
-    await open(page, goToWithAuth)
-    await reachConfirmation(page)
-    await send(page, 'wait briefly')
-    await expect(lastAnswer(page)).toContainText('No user action within 1 seconds', { timeout: 15000 })
-    await expect(page.getByTestId('chat-activity')).toHaveCount(0)
-  })
-
-  test('the idle watchdog does not fire while a wait is pending', async ({ page, goToWithAuth }) => {
-    await open(page, goToWithAuth)
-    await reachConfirmation(page)
-    // Shrink the idle watchdog well below how long we're about to sit in the wait
-    // (the default wait timeout is two minutes). A pending wait produces no stream
-    // parts by design, so if the watchdog were still armed during it — the bug this
-    // guards against — it would fire during the pause below and abort the whole
-    // turn with the generic timeout error instead of leaving the wait pending.
-    await page.evaluate(() => sessionStorage.setItem('agent-chat-idle-timeout', '1000'))
-    await send(page, 'wait for me')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
-    // Sit well past the shrunk idle timeout while the wait is still pending.
-    await page.waitForTimeout(2500)
-    // Still waiting, no timeout error alert: the watchdog did not fire during the pause.
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you')
-    await expect(page.locator('.v-alert')).toHaveCount(0)
-    // The wait still resolves normally afterwards.
-    await page.getByRole('button', { name: 'Create' }).click()
-    await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
   })
 
   test('the simulation driver reads an armed wait as the turn handing control back', async ({ page, goToWithAuth }) => {
@@ -315,15 +167,20 @@ test.describe('Host events', () => {
     await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
   })
 
-  test('the person can speak during a wait, and their message takes the turn back', async ({ page, goToWithAuth }) => {
+  test('the person can speak during a wait, and their message takes the turn back with no empty-answer bubble', async ({ page, goToWithAuth }) => {
     // A pending wait is the assistant standing still by its own choice. Before
     // this, the composer refused input for the whole turn — minutes, at the wait's
     // default — so someone who wanted to say "actually, never mind" had no way to, short
     // of finding the Stop button. The wait is what made that reachable in normal
     // use: an ordinary turn is genuinely working and still refuses input.
+    //
+    // Here the wait follows a tool step. The AI SDK ends an aborted stream cleanly — an
+    // `abort` part, no throw — so the interrupted turn used to run its normal ending: its
+    // last finished step called a tool, which reads as an empty answer, and « I wasn't able to produce a
+    // response » landed right under the person's message. A real session got it on
+    // exactly this shape: open the add-line dialog, wait, "it's already open".
     await open(page, goToWithAuth)
-    await reachConfirmation(page)
-    await send(page, 'wait for me')
+    await send(page, 'select then wait')
     await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
 
     // Typing turns the Stop button back into Send: both gestures stay reachable,
@@ -332,89 +189,24 @@ test.describe('Host events', () => {
     await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
     await page.getByRole('button', { name: 'Send' }).click()
 
-    // The message is delivered and answered, rather than swallowed.
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
-    // And the wait it interrupted is gone, not still armed behind the new turn.
-    await expect(page.getByTestId('chat-activity')).toHaveCount(0)
-  })
-
-  test('speaking during a wait that follows a tool step leaves no empty-answer bubble', async ({ page, goToWithAuth }) => {
-    // The AI SDK ends an aborted stream cleanly — an `abort` part, no throw — so the
-    // interrupted turn used to run its normal ending: its last finished step called a
-    // tool, which reads as an empty answer, and « I wasn't able to produce a
-    // response » landed right under the person's message. A real session got it on
-    // exactly this shape: open the add-line dialog, wait, "it's already open".
-    await open(page, goToWithAuth)
-    await send(page, 'select then wait')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
-
-    await page.getByPlaceholder('Type your message...').fill('hello')
-    await page.getByRole('button', { name: 'Send' }).click()
-
+    // The message is delivered and answered, rather than swallowed…
     await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
+    // …the wait it interrupted is gone, not still armed behind the new turn…
     await expect(page.getByTestId('chat-activity')).toHaveCount(0)
+    // …and no fallback landed under the person's message.
     await expect(page.getByText("I wasn't able to produce a response")).toHaveCount(0)
   })
 
-  test('speaking during a wait keeps the interrupted turn in the history sent next', async ({ page, goToWithAuth }) => {
-    // The fix for the bubble above rethrew the abort before the turn's messages reached
-    // history, so the next request carried the person's two messages and nothing between:
-    // judged runs saw the assistant deny work it had done and redo it from scratch.
+  test('a reload while waiting shows the wait, and the page can still answer it', async ({ page, goToWithAuth }) => {
+    // Nothing is held open between the handover and the answer, so a reload loses nothing: the thread
+    // says it is waiting, and the person's action on the reloaded page continues it.
     await open(page, goToWithAuth)
-    await send(page, 'select then wait')
+    await send(page, 'wait for me')
     await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
-
-    const next = page.waitForRequest(r => r.url().includes('/chat/completions') && (r.postData() ?? '').includes('hello'))
-    await page.getByPlaceholder('Type your message...').fill('hello')
-    await page.getByRole('button', { name: 'Send' }).click()
-    const messages: any[] = JSON.parse((await next).postData() ?? '{}').messages
-    const roles = messages.map(m => m.role)
-    const calls = messages.flatMap(m => m.tool_calls ?? []).map((c: any) => c.function.name)
-    assert.deepEqual(calls, ['select_type', 'wait_for_user_action'])
-    // Each call keeps a result, the wait's saying why it never completed, and the
-    // person's new message comes after the interrupted turn, not before it.
-    assert.equal(messages.filter(m => m.role === 'tool').length, 2)
-    assert.ok(messages.find(m => m.role === 'tool' && String(m.content).includes('Interrupted')))
-    assert.equal(roles[roles.length - 1], 'user')
-    // The instruction to wait again rides in the new turn, the last thing read.
-    assert.match(String(messages[messages.length - 1].content), /you were waiting for the person \(you to click Create\).*declare wait_for_user_action again/is)
-  })
-
-  test('the waiting activity clears once the wait resolves (drives the host\'s waiting-user/working signal)', async ({ page, goToWithAuth }) => {
-    // AgentChat.vue posts `agent-status: waiting-user` / `working` to the embedding host
-    // purely off `chat.activity.value?.kind === 'waiting'` — but `sendDFrameMessage` only
-    // posts when the page is actually embedded in an iframe (`window.parent !== window`),
-    // and this dev page, opened directly by goToWithAuth, is not. So there is no
-    // postMessage to intercept here; instead this pins the one flag that drives that
-    // signal, which is the same thing the host would see either way.
-    //
-    // Resolved via timeout rather than clicking Create: clicking Create also unmounts
-    // WorkflowWizard (swapped for WorkflowDetail), which unregisters that component's
-    // page tools at essentially the same instant the wait resolves. Investigating an
-    // intermittent failure of this assertion on that path (reproduces on unmodified
-    // `use-agent-chat.ts` too, so it predates and is independent of this fix wave)
-    // traced it to that unregister racing the wait's own resolution — a pre-existing
-    // issue outside this fix wave's scope, worth a separate look. Timing out has no
-    // such side effect, so it exercises the same onDone-clears-the-flag behaviour
-    // without that unrelated race.
-    await open(page, goToWithAuth)
+    await page.reload()
+    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for', { timeout: 15000 })
     await reachConfirmation(page)
-    await send(page, 'wait briefly')
-    await expect(page.getByTestId('chat-activity')).toContainText('Waiting for you', { timeout: 15000 })
-    await expect(page.getByTestId('chat-activity')).toHaveCount(0, { timeout: 15000 })
-    await expect(lastAnswer(page)).toContainText('No user action within 1 seconds', { timeout: 15000 })
-  })
-
-  test('reset re-activates: the retained state is sent again', async ({ page, goToWithAuth }) => {
-    await open(page, goToWithAuth)
-    await send(page, 'hello')
-    await expect(lastAnswer(page)).toContainText('world', { timeout: 15000 })
-    await page.getByRole('button', { name: 'Reset conversation' }).click()
-    await send(page, 'where am i')
-    await expect(lastAnswer(page)).toContainText('state:', { timeout: 15000 })
-    // useAgentLocation derives the absolute url alongside the path — that is the
-    // whole reason the helper exists over a bare useAgentState, so assert both.
-    await expect(lastAnswer(page)).toContainText('"path":"/workflow"')
-    await expect(lastAnswer(page)).toContainText('"url":"http://localhost:')
+    await page.getByRole('button', { name: 'Create' }).click()
+    await expect(lastAnswer(page)).toContainText('You did:', { timeout: 15000 })
   })
 })

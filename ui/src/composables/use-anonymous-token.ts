@@ -18,7 +18,8 @@ export async function getAnonymousToken (): Promise<string> {
     const token = (await res.text()).trim()
     // Cached as soon as issued, returned once valid: SD issues it with a notBefore delay, and
     // a judged run's first message, sent before it, failed with « not yet valid » — as did the
-    // retry, with a new token as young. Callers prefetch on init, so the wait is usually over.
+    // retry, with a new token as young. Callers prefetch on init, so the wait is usually over;
+    // use-session-chat also resets and refetches it before each hello that starts a thread.
     cached = token
     await new Promise(resolve => setTimeout(resolve, msUntilValid(token)))
     return token

@@ -12,7 +12,6 @@
     "check-types": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@ai-sdk/openai-compatible": "^2.0.52",
     "@data-fair/agent-tools-data-fair": "^0.6.3",
     "@data-fair/frame": "^0.18.0",
     "@data-fair/lib-utils": "^1.13.1",
@@ -25,7 +24,7 @@
     "@mcp-b/webmcp-ts-sdk": "^2.3.2",
     "@mdi/js": "^7.4.47",
     "@unhead/vue": "^3.4.0",
-    "ai": "^6.0.116",
+    "ai": "7.0.137",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.19",
     "debug": "^4.4.3",

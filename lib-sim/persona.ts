@@ -17,6 +17,13 @@ import type { McpServerConfig } from '@anthropic-ai/claude-agent-sdk'
 export const DONE = 'DONE'
 
 /**
+ * The role of the transcript entry that opens a new conversation, in a case with several
+ * (`SimulationCase.conversations`). An entry rather than a second transcript, so the person, the
+ * judge and the metrics read one ordered record, and the boundary is where it happened.
+ */
+export const NEW_CONVERSATION_ROLE = 'new-conversation'
+
+/**
  * The model the simulated person runs on unless the caller overrides it.
  *
  * Exported because hosts record which model ran, in a sidecar whose whole point
@@ -68,7 +75,7 @@ an image. A link may open a new browser tab: you are then looking at it, and swi
 Before you say anything about what is or is not on the screen, look.
 Never claim you cannot see something you have not looked for.
 Your tools are the only way you act on the page: never say you did something (reload, scroll, save…)
-that is not in the list of what you did.
+that the conversation does not show you doing on the page.
 When a click says it hit text that is "not a button or a link", you have not found the control yet:
 look again for it rather than saying the page did nothing.
 When the screen says a list holds more options than it shows, click the option you want by its name
@@ -127,6 +134,14 @@ export function personaSystemPrompt (c: SimulationCase, perceptionEnabled = fals
     'Reply with ONLY the message you would type next — no quotes, no narration, no stage directions.',
     `When you have what you wanted, or you are convinced you will not get it, reply with exactly ${DONE} and nothing else.`
   ]
+  // Said up front: otherwise the person reads DONE as the end of everything, and a run built to
+  // test what outlives a conversation ends with the first one.
+  if ((c.conversations ?? 1) > 1) {
+    lines.push('', `You will have ${c.conversations} separate conversations with this assistant, one after the other. ` +
+      `Reply ${DONE} to end the current one: a new, empty conversation is then opened for you and you go on with what ` +
+      'you want in it. You remember the earlier conversations; the chat on screen does not show them any more. ' +
+      `Reply ${DONE} in the last one when you are finished.`)
+  }
   if (perceptionEnabled) {
     lines.push('', PERCEPTION_INSTRUCTIONS)
     if (offLimitsActive) lines.push('', COMPOSER_OFF_LIMITS_INSTRUCTIONS)
@@ -147,36 +162,49 @@ export type PersonaQuery = (typeof import('@anthropic-ai/claude-agent-sdk'))['qu
  * whose only memory is the chat transcript, so it could not tell what it had done from
  * what the assistant had told it to do: judged runs had it say « J'ai actualisé la
  * page » after being told to reload, with no reload among its actions.
+ *
+ * Each action is placed in the transcript where it happened (`Observation.at`), not listed
+ * after it. Listed after, a judged run read its own Approve click — made before the reply
+ * that followed it, in a pass whose message the runner then dropped — as the latest event,
+ * told the assistant "you say you already clicked Approve twice yourself", and went hunting
+ * for an approval card it had already decided. "Twice" was the line itself: the click's
+ * result repeated the action, so it is only shown when it says something else.
  */
-export function actionRecap (observations: Observation[]): string | null {
-  const acts = observations.filter(o => o.tool !== 'look' && o.tool !== 'screenshot').slice(-10).map(o => {
-    const args = (o.args ?? {}) as { name?: unknown, text?: unknown, key?: unknown, tab?: unknown }
-    const what = o.tool === 'click'
-      ? `clicked "${args.name}"`
-      : o.tool === 'type'
-        ? `typed "${args.text}" into "${args.name}"`
-        : o.tool === 'press'
-          ? (args.name ? `pressed ${args.key} in "${args.name}"` : `pressed ${args.key}`)
-          : o.tool === 'switch_tab' ? `switched to tab ${args.tab}` : o.tool
-    return `- ${what} → ${o.result.slice(0, 120)}`
-  })
-  return acts.length ? ['What you have done on the page so far (nothing else):', ...acts].join('\n') : null
+const actionLine = (o: Observation) => {
+  const args = (o.args ?? {}) as { name?: unknown, text?: unknown, key?: unknown, tab?: unknown }
+  const what = o.tool === 'click'
+    ? `clicked "${args.name}"`
+    : o.tool === 'type'
+      ? `typed "${args.text}" into "${args.name}"`
+      : o.tool === 'press'
+        ? (args.name ? `pressed ${args.key} in "${args.name}"` : `pressed ${args.key}`)
+        : o.tool === 'switch_tab' ? `switched to tab ${args.tab}` : o.tool
+  return `(you, on the page: ${what}${o.result === what ? '' : ` → ${o.result.slice(0, 120)}`})`
 }
 
 export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number, observations: Observation[] = []): string {
   if (conversation.length === 0) return 'Write your first message to the assistant.'
-  const transcript = conversation.map(m => `${m.role === 'user' ? 'you' : 'assistant'}: ${m.text}`).join('\n\n')
+  const acts = observations.filter(o => o.tool !== 'look' && o.tool !== 'screenshot').slice(-10)
+  // An action with no position (a caller that does not stamp it) goes after the last entry.
+  const actsAt = (index: number) => acts.filter(o => (o.at ?? conversation.length) === index).map(actionLine)
+  const transcript = conversation.flatMap((m, index) => [
+    ...actsAt(index),
+    m.role === NEW_CONVERSATION_ROLE ? `--- ${m.text} ---` : `${m.role === 'user' ? 'you' : 'assistant'}: ${m.text}`
+  ]).concat(actsAt(conversation.length)).join('\n\n')
+  // A conversation just opened: the person writes its first message, not a reply to the last one.
+  const fresh = conversation[conversation.length - 1].role === NEW_CONVERSATION_ROLE
   const warning = turnsLeft <= 1
     ? '\n\nThis is your last message. If you already have what you needed, reply ' + DONE + '.'
     : ''
-  const recap = actionRecap(observations)
   return [
     'The conversation so far:',
     '',
     transcript,
     '',
-    ...(recap ? [recap, ''] : []),
-    `Write your next message, or ${DONE} if you are finished.${warning}`
+    ...(acts.length ? ['The lines starting with "(you, on the page:" are what you did on the page yourself, where you did it — and nothing else.', ''] : []),
+    fresh
+      ? `You are in a new, empty conversation. Write your first message in it.${warning}`
+      : `Write your next message, or ${DONE} if you are finished.${warning}`
   ].join('\n')
 }
 
@@ -203,6 +231,9 @@ export async function nextUserMessage (
   }
 
   neutralCwd ??= createNeutralCwd()
+  // What this pass does on the page happens after the transcript it was given: stamped below, so
+  // the next pass reads each action where it happened (personaPrompt).
+  const acted = opts?.perception?.observations.length ?? 0
   let text = ''
   for await (const msg of runQuery({
     prompt: personaPrompt(conversation, turnsLeft, opts?.perception?.observations),
@@ -243,5 +274,6 @@ export async function nextUserMessage (
       if (said.length) text = said.join('')
     }
   }
+  for (const o of opts?.perception?.observations.slice(acted) ?? []) o.at = conversation.length
   return text.trim()
 }

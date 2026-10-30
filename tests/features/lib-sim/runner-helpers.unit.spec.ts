@@ -1,39 +1,15 @@
 /**
- * The runner helpers host repos used to copy: gateway errors, bridge settings,
- * silent passes, case selection from the environment. No model and no network.
+ * The runner helpers host repos used to copy: bridge settings, the review consent,
+ * run errors from the conversation export, case selection from the environment.
+ * No model and no network.
  */
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { errorsInSseBody, errorsInResponse } from '../../../lib-sim/gateway-errors.ts'
-import { bridgeSettings, MODEL_ROLES } from '../../../lib-sim/bridge-settings.ts'
-import { passActions, withSilentPasses } from '../../../lib-sim/silent-passes.ts'
+import { bridgeSettings, MODEL_ROLES, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES } from '../../../lib-sim/bridge-settings.ts'
+import { runErrors } from '../../../lib-sim/conversation-export.ts'
 import { simCaseNames } from '../../../lib-sim/cases.ts'
-
-test.describe('gateway errors', () => {
-  test('errorsInSseBody keeps only error chunks', () => {
-    const body = [
-      'data: {"choices":[{"delta":{"content":"Bonjour"}}]}',
-      'data: not json',
-      'data: {"error":{"message":"rate limited"}}',
-      'data: [DONE]'
-    ].join('\n')
-    assert.deepEqual(errorsInSseBody(body), ['rate limited'])
-  })
-
-  test('errorsInResponse treats a refused request as an error, with its reason', () => {
-    assert.deepEqual(errorsInResponse(429, '{"allowed":false,"reason":"Account credit limit exceeded"}'), ['HTTP 429: Account credit limit exceeded'])
-    assert.deepEqual(errorsInResponse(502, '<html>Bad Gateway</html>'), ['HTTP 502'])
-    assert.deepEqual(errorsInResponse(200, 'data: {"choices":[]}\n\ndata: [DONE]\n'), [])
-  })
-
-  test('errorsInResponse leaves auth refusals to the judge', () => {
-    // The agents service refusing a visitor (e.g. an anonymous action token not yet
-    // valid) is product behaviour the person sees, not a provider failure.
-    assert.deepEqual(errorsInResponse(401, '{"reason":"anonymous action token not yet valid"}'), [])
-    assert.deepEqual(errorsInResponse(403, 'forbidden'), [])
-  })
-})
+import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
 
 test.describe('bridge settings', () => {
   test('declares the provider openai-compatible in compatible mode', () => {
@@ -55,10 +31,10 @@ test.describe('bridge settings', () => {
     }
   })
 
-  test('runs the background roles on the tools model, the evaluator on the assistant model', () => {
+  test('runs the background roles on the tools model', () => {
     const { org } = bridgeSettings('sonnet', 'haiku')
+    assert.deepEqual([...MODEL_ROLES].sort(), ['assistant', 'moderator', 'summarizer', 'tools'])
     assert.equal(org.modelMapping.assistant.id, 'sonnet')
-    assert.equal(org.modelMapping.evaluator.id, 'sonnet')
     assert.equal(org.modelMapping.tools.id, 'haiku')
     assert.equal(org.modelMapping.summarizer.id, 'haiku')
     assert.equal(org.modelMapping.moderator.id, 'haiku')
@@ -71,49 +47,40 @@ test.describe('bridge settings', () => {
     assert.deepEqual([...models[0].usage].sort(), [...MODEL_ROLES].sort())
   })
 
-  test('prices the run at zero, stores no traces, and quotas no role', () => {
+  test('prices the run at zero, opens the review the export sits behind, and quotas no role', () => {
     const { superadmin, org } = bridgeSettings('sonnet', 'haiku')
     for (const entry of superadmin.models) {
       assert.equal(entry.inputPricePerMillion, 0)
       assert.equal(entry.outputPricePerMillion, 0)
     }
-    assert.equal(org.storeTraces, false)
+    // the run is read back through the conversation export, which the review gate guards
+    assert.equal(org.reviewPersonalAssistant, true)
     // portal visitors are anonymous, back-office cases admins
     for (const quota of Object.values(org.quotas)) assert.equal(quota.unlimited, true)
   })
 })
 
-test.describe('silent passes', () => {
-  // A judged run: the person clicked « Valider le brouillon » in the pass that resolved the
-  // assistant's wait, the message they wrote then was dropped, and the next pass read a
-  // conversation where the assistant validated with nothing from them in between. They told
-  // it « Vous avez validé à ma place ».
-  test('passActions names what the person did in one pass, not what they looked at', () => {
-    const observations = [
-      { turn: 1, tool: 'click', args: { name: 'Apparence' }, result: 'clicked "Apparence"' },
-      { turn: 2, tool: 'look', args: {}, result: '…' },
-      { turn: 2, tool: 'click', args: { name: 'Valider le brouillon' }, result: 'clicked "Valider le brouillon"' },
-      { turn: 2, tool: 'type', args: { name: 'Titre', text: 'Agenda' }, result: 'typed' },
-      { turn: 2, tool: 'screenshot', args: {}, result: 'screenshot of tab 1' }
-    ]
-    assert.deepEqual(passActions(observations, 2), ['clicked "Valider le brouillon"', 'typed "Agenda" into "Titre"'])
+// The consent the export route requires, set by the runner before the chat loads: the same cookie
+// the chat's consent sheet writes, so the two cannot drift.
+test('the review consent cookie is the chat\'s own', () => {
+  assert.equal(REVIEW_CONSENT_COOKIE, CONSENT_COOKIE)
+  assert.equal(REVIEW_CONSENT_YES, CONSENT_YES)
+})
+
+// A provider failure does not throw: the turn "completes" and the run's own record says it ended in error.
+test.describe('run errors from the conversation export', () => {
+  const parsed = (runs: any[]) => [{ conversationId: 'c', messages: [], runs, blobs: new Map() }] as any
+
+  test('a run that ended in error makes the case unjudgeable', () => {
+    assert.deepEqual(runErrors(parsed([{ status: 'done', calls: [] }, { status: 'error', stopReason: 'provider: rate limited', calls: [] }])), ['provider: rate limited'])
   })
 
-  test('withSilentPasses puts what the person did where they did it', () => {
-    const conversation = [
-      { role: 'user', text: 'Mets le portail en vert' },
-      { role: 'assistant', text: 'Vérifiez, puis cliquez sur « Valider le brouillon »' },
-      { role: 'assistant', text: 'Le brouillon a été validé' },
-      { role: 'user', text: 'Merci' }
-    ]
-    const merged = withSilentPasses(conversation, [{ at: 2, actions: ['clicked "Valider le brouillon"'] }])
-    assert.deepEqual(merged.map(m => m.role), ['user', 'assistant', 'user', 'assistant', 'user'])
-    assert.match(merged[2].text, /clicked "Valider le brouillon"/)
-    assert.match(merged[2].text, /without writing a message/)
-    // the conversation read from the chat is left as it is
-    assert.equal(conversation.length, 4)
-    // a pass with no action leaves nothing
-    assert.deepEqual(withSilentPasses(conversation, [{ at: 2, actions: [] }]), conversation)
+  test('reports the run\'s own error over its stop reason', () => {
+    assert.deepEqual(runErrors(parsed([{ status: 'error', stopReason: 'error', error: 'credit cap reached', calls: [] }])), ['credit cap reached'])
+  })
+
+  test('finished and aborted runs report nothing', () => {
+    assert.deepEqual(runErrors(parsed([{ status: 'done', calls: [] }, { status: 'aborted', calls: [] }])), [])
   })
 })
 

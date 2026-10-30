@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { checkQuota, computeCredits, computeCreditBreakdown, priceTokens, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
+import { checkQuota, computeCreditBreakdown, priceTokensBreakdown, toCredits, firstQuotaViolation, isUntrustedRole, encodeBreakdownKey, decodeBreakdownKey, quotaWindows, quotaErrorBody, quotaStopText, type UsageInfo, type UsageLimits } from '../../../api/src/usage/operations.ts'
 
 function mkUsage (daily: number, weekly: number, monthly: number): UsageInfo {
   return {
@@ -86,51 +86,51 @@ test.describe('isUntrustedRole', () => {
   })
 })
 
-test.describe('priceTokens', () => {
+test.describe('priceTokensBreakdown rules', () => {
   const prices = { inputPricePerMillion: 3, outputPricePerMillion: 15, cachedInputPricePerMillion: 0.3 }
 
   test('prices input and output per million', () => {
-    const cost = priceTokens({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 })
+    const cost = priceTokensBreakdown({ inputTokens: 500_000, outputTokens: 100_000 }, { inputPricePerMillion: 2, outputPricePerMillion: 6 })
     assert.equal(cost.input, 1)
     assert.equal(cost.output, 0.6)
     assert.equal(cost.total, 1.6)
   })
 
   test('zero tokens cost zero', () => {
-    assert.equal(priceTokens({ inputTokens: 0, outputTokens: 0 }, prices).total, 0)
+    assert.equal(priceTokensBreakdown({ inputTokens: 0, outputTokens: 0 }, prices).total, 0)
   })
 
   test('no cache details bills the whole input at the input price', () => {
-    assert.equal(priceTokens({ inputTokens: 1_000_000, outputTokens: 0 }, prices).total, 3)
+    assert.equal(priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0 }, prices).total, 3)
   })
 
   test('noCacheTokens is taken verbatim, never recomputed', () => {
-    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices)
     assert.equal(cost.total, 0.3 + 0.27)
   })
 
   test('falls back to subtraction when noCacheTokens is absent', () => {
-    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0, cacheReadTokens: 900_000 }, prices)
     assert.equal(cost.total, 0.3 + 0.27)
   })
 
   test('the subtraction fallback never goes negative', () => {
-    const cost = priceTokens({ inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 100, outputTokens: 0, cacheReadTokens: 900 }, prices)
     assert.equal(cost.total, 900 * 0.3 / 1_000_000)
   })
 
   test('cache writes bill at the input price, never free', () => {
-    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheWriteTokens: 1_000_000 }, prices)
     assert.equal(cost.total, 3)
   })
 
   test('cache writes are added to the non-cached portion, not substituted for it', () => {
-    const cost = priceTokens({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }, prices)
+    const cost = priceTokensBreakdown({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }, prices)
     assert.equal(cost.total, 2.4 + 0.06)
   })
 
   test('an absent cache price bills cache reads at 0 \u2014 the catalog resolves it, not this function', () => {
-    const cost = priceTokens(
+    const cost = priceTokensBreakdown(
       { inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 0, cacheReadTokens: 1_000_000 },
       { inputPricePerMillion: 3, outputPricePerMillion: 15 }
     )
@@ -151,21 +151,21 @@ test.describe('toCredits', () => {
   })
 })
 
-test.describe('computeCredits', () => {
+test.describe('computeCreditBreakdown total', () => {
   test('prices the tokens then converts to credits, in one call', () => {
     // 1M fresh input at 0.40 EUR/M = 0.40 EUR = exactly 1 credit at the 0.40 peg
-    const credits = computeCredits(
+    const credits = computeCreditBreakdown(
       { inputTokens: 1_000_000, outputTokens: 0 },
       { inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 },
       0.4
     )
-    assert.equal(credits, 1)
+    assert.equal(credits.total, 1)
   })
 
   test('a cached turn costs strictly less than the same turn uncached', () => {
     const prices = { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
-    const uncached = computeCredits({ inputTokens: 1_000_000, outputTokens: 0 }, prices, 0.4)
-    const cached = computeCredits({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices, 0.4)
+    const uncached = computeCreditBreakdown({ inputTokens: 1_000_000, outputTokens: 0 }, prices, 0.4).total
+    const cached = computeCreditBreakdown({ inputTokens: 1_000_000, outputTokens: 0, noCacheTokens: 100_000, cacheReadTokens: 900_000 }, prices, 0.4).total
     assert.equal(uncached, 1)
     // 100k @0.40 + 900k @0.08 = 0.112 EUR = 0.28 credits
     assert.ok(cached < uncached)
@@ -195,22 +195,14 @@ test.describe('priceTokensBreakdown', () => {
     assert.equal(breakdown.input, (400_000 + 400_000) * 3 / 1_000_000)
     assert.equal(breakdown.cachedInput, 0.06)
   })
-
-  test('the classes always sum to the historical priceTokens total', () => {
-    const counts = { inputTokens: 1_000_000, outputTokens: 100_000, noCacheTokens: 400_000, cacheReadTokens: 200_000, cacheWriteTokens: 400_000 }
-    const breakdown = priceTokensBreakdown(counts, prices)
-    const historical = priceTokens(counts, prices)
-    assert.equal(breakdown.total, historical.total)
-    assert.equal(breakdown.input + breakdown.cachedInput, historical.input)
-  })
 })
 
 test.describe('computeCreditBreakdown', () => {
-  test('splits credits by token class and totals like computeCredits', () => {
+  test('splits credits by token class and totals like the priced euros converted', () => {
     const counts = { inputTokens: 1_000_000, outputTokens: 100_000, noCacheTokens: 500_000, cacheReadTokens: 500_000, cacheWriteTokens: 0 }
     const prices = { inputPricePerMillion: 0.4, cachedInputPricePerMillion: 0.08, outputPricePerMillion: 0.8 }
     const breakdown = computeCreditBreakdown(counts, prices, 0.4)
-    assert.equal(breakdown.total, computeCredits(counts, prices, 0.4))
+    assert.equal(breakdown.total, toCredits(priceTokensBreakdown(counts, prices).total, 0.4))
     // 500k @0.40 = 0.20 EUR = 0.5 credit, 500k @0.08 = 0.04 EUR = 0.1 credit, 100k @0.80 = 0.08 EUR = 0.2 credit
     assert.equal(Number(breakdown.input.toFixed(10)), 0.5)
     assert.equal(Number(breakdown.cachedInput.toFixed(10)), 0.1)
@@ -293,6 +285,23 @@ test.describe('quotaErrorBody', () => {
       const shown = quotaErrorBody(violation(scope), true)
       assert.equal(shown.usage, 5)
       assert.equal(shown.limit, 4)
+    }
+  })
+})
+
+test.describe('quotaStopText', () => {
+  // The sentence a turn stopped by a quota ends on, at the gate or mid-turn: what quotaErrorBody
+  // discloses, never the shared budgets' numbers to someone who is not an admin.
+  const violation = (scope: string) => ({ allowed: false as const, reason: 'Daily cost quota exceeded', scope, period: 'daily' as const, usage: 5, limit: 4, resetsAt: 'R' })
+
+  test('a person reads their own numbers', () => {
+    assert.equal(quotaStopText(violation('user'), false), 'Daily cost quota exceeded (user, daily limit 4, used 5). Resets at R.')
+  })
+
+  test('a shared budget\'s numbers only to an admin', () => {
+    for (const scope of ['account', 'untrusted']) {
+      assert.equal(quotaStopText(violation(scope), false), `Daily cost quota exceeded (${scope}, daily). Resets at R.`)
+      assert.match(quotaStopText(violation(scope), true), /limit 4, used 5/)
     }
   })
 })

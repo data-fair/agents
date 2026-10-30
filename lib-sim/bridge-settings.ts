@@ -5,20 +5,26 @@
 
 export const BRIDGE_URL = process.env.BRIDGE_URL ?? `http://localhost:${process.env.BRIDGE_PORT ?? 3194}/v1`
 
-export const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'] as const
+export const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'moderator'] as const
 export type ModelRole = typeof MODEL_ROLES[number]
 
 /**
- * Roles a deployment puts on a small model: sub-agents, compaction, the
+ * Roles a deployment puts on a small model: memory consolidation, compaction, the
  * moderation guard. Running them on the assistant's model would both cost more
- * per case and flatter the product — a sub-agent prompt that only a large model
+ * per case and flatter the product — a prompt that only a large model
  * can follow reads as working until a real deployment runs it on the cheap tier.
- * The evaluator is a trace-review role no run exercises, so it follows the
- * assistant rather than earning a third setting.
  */
 export const BACKGROUND_ROLES: readonly ModelRole[] = ['tools', 'summarizer', 'moderator']
 
 export type SimOwner = { type: string, id: string }
+
+/**
+ * The person's consent to having their conversation reviewed, which the export route requires. The
+ * runner answers it before the chat loads (the consent sheet is not what a case is about). The same
+ * cookie as the chat's own consent sheet (ui/src/review/review-consent.ts; a unit test pins them).
+ */
+export const REVIEW_CONSENT_COOKIE = 'agent-chat-trace-consent'
+export const REVIEW_CONSENT_YES = 'yes'
 
 /** The subset of an axios instance the seeding uses. */
 export type HttpClient = {
@@ -33,8 +39,11 @@ const quotas = { admin: unlimited, contrib: unlimited, user: unlimited, external
 /**
  * The two bodies the agents API takes since settings were split by author:
  * `superadmin` (the provider and the model catalog, each model listing the
- * roles it may serve) and `org` (which model each role uses, quotas, traces).
+ * roles it may serve) and `org` (which model each role uses, quotas, review).
  * The org body is validated against the catalog, so it is written second.
+ *
+ * Review is on: the run is read back through the conversation export, which sits behind
+ * it — a simulation is judged on the same file a real session is debugged with.
  */
 export function bridgeSettings (assistantModelId: string, toolsModelId: string, bridgeUrl = BRIDGE_URL) {
   const bridge = { type: 'openai-compatible', id: 'bridge', name: 'Claude Code Bridge' }
@@ -61,7 +70,7 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string, 
         MODEL_ROLES.map(role => [role, { provider: bridge.id, id: modelFor(role), name: modelFor(role) }])
       ) as Record<ModelRole, { provider: string, id: string, name: string }>,
       quotas,
-      storeTraces: false
+      reviewPersonalAssistant: true
     }
   }
 }

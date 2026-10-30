@@ -15,7 +15,7 @@ export interface UsageEntry {
 // The API stores keys percent-encoded for Mongo field paths, but only decodes
 // them on read; the UI always receives the original value.
 const VALUE_ORDER: Partial<Record<UsageDimension, string[]>> = {
-  modelRole: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
+  modelRole: ['assistant', 'tools', 'summarizer', 'moderator'],
   profile: ['admin', 'contrib', 'user', 'external', 'anonymous'],
   tokenType: ['input', 'cachedInput', 'output']
 }

@@ -2,19 +2,25 @@
 
 The chat UI is designed to be **embedded as an iframe** in any data-fair application. `lib-vuetify` provides ready-made container components: a floating `DfAgentChatDrawer`, a popover `DfAgentChatMenu`, and a flat in-page `DfAgentChatBlock` (always visible, for embedding a custom chat directly in a portal page).
 
+The iframe is only the chat's UI. The agent loop runs on the server (`api/src/conversations/executor.ts`); the iframe talks to it over a websocket **agent session** (`ui/src/composables/use-session-chat.ts` / `use-agent-session.ts`, protocol in `shared/agent-session-protocol.ts`). The host page's tools never leave the browser: the iframe discovers them, declares them to the server, and runs them when the server asks.
+
 ```mermaid
 graph TB
   subgraph Host Application
     Toggle[DfAgentChatToggle<br/>FAB button]
     Drawer[DfAgentChatDrawer<br/>VNavigationDrawer]
-    Frame[d-frame<br/>iframe src=/agents/chat]
-    Tools[useFrameServer<br/>MCP tools]
+    Frame[d-frame<br/>iframe src=/agents/:type/:id/chat]
+    Tools[useFrameServer<br/>WebMCP tools]
   end
 
   subgraph Chat iframe
     ChatUI[AgentChat component]
     Agg[FrameClientAggregator]
-    Core[use-agent-chat]
+    Session[use-session-chat<br/>agent-session socket]
+  end
+
+  subgraph Agents API
+    Loop[server loop<br/>runTurn / runModelLoop]
   end
 
   Toggle -->|toggle open/close| Drawer
@@ -22,20 +28,23 @@ graph TB
   Frame --> ChatUI
 
   Tools -->|BroadcastChannel| Agg
-  Agg --> Core
+  Agg --> Session
+  ChatUI --> Session
+  Session <-->|"hello / prompt / tool-result<br/>delta / message / tool-call / turn-end"| Loop
 
-  ChatUI -.->|postMessage: status, unread| Drawer
+  ChatUI -.->|postMessage: status, unread, navigate| Drawer
   Drawer -.->|BroadcastChannel: start-session| ChatUI
 
   style Frame fill:#e8f4fd
 ```
 
 **Communication channels:**
-- **BroadcastChannel** — Tool discovery (MCP), session lifecycle (`agent-start-session`, `agent-chat-ready`, ping/pong)
-- **postMessage (d-frame)** — Status updates (`agent-status`), unread indicators, tools-changed notifications
-- **sessionStorage init-config** — One-shot host→iframe handoff of `systemPrompt` and `title` (keyed by a `?initConfig=<key>` URL param). Replaces URL query params so prompts can be arbitrarily long and stay out of logs/history. See [Initial Configuration](#initial-configuration-systemprompt--title).
+- **BroadcastChannel** — Tool discovery (MCP), host events, session lifecycle (`agent-start-session`, `agent-chat-ready`, ping/pong)
+- **postMessage (d-frame)** — Status updates (`agent-status`), unread indicators, tools-changed notifications, link navigation
+- **sessionStorage init-config** — One-shot host→iframe handoff of `title` and `agentId` (keyed by a `?initConfig=<key>` URL param). See [Initial Configuration](#initial-configuration-agentid--title).
+- **Agent-session websocket** — iframe ↔ server: the conversation itself, and the server's calls back into the page's tools.
 
-**Singleton composables** (`useAgentChatDrawer`, `useAgentChatMenu`, `useAgentChatBlock`) ensure a single instance across the host app. Drawer/menu open state persists to `localStorage`; the block is always open and persists nothing.
+**Singleton composables** (`useAgentChatDrawer`, `useAgentChatMenu`, `useAgentChatBlock`) ensure a single instance across the host app. Only the drawer's open state persists to `localStorage`; the menu always starts closed (it persists only its expanded size), and the block is always open.
 
 ---
 
@@ -51,7 +60,7 @@ A floating side drawer (Vuetify `VNavigationDrawer`) that embeds the chat iframe
     account-type="organization"
     account-id="my-org"
     chat-title="Data Assistant"
-    system-prompt="You help users explore datasets."
+    agent-id="personal"
   />
   <DfAgentChatToggle />
 </template>
@@ -87,7 +96,7 @@ Renders the chat iframe **flat inside the page** (no drawer, no popover, no FAB)
       account-type="organization"
       account-id="my-org"
       chat-title="Data Assistant"
-      system-prompt="You help users explore datasets."
+      agent-id="personal"
     />
   </v-card>
 </template>
@@ -105,11 +114,13 @@ All three components (drawer, menu, block) accept:
 | `accountId` | `string` | Account ID for the chat session |
 | `src` | `string` | Custom iframe URL (overrides account-based URL resolution) |
 | `chatTitle` | `string` | Title displayed in the chat header |
-| `systemPrompt` | `string` | System prompt passed to the LLM (no length limit — see [Initial Configuration](#initial-configuration-systemprompt--title)) |
+| `agentId` | `string` | Which agent to talk to: a built-in personal assistant (`portal-assistant`, `back-office-assistant`; `api/src/agent-session/personal-agent.ts`) or a configured agent's id. Unset, the back-office assistant with `agents`, the portal assistant otherwise — the office is the client's to say, as the back office is a path on the main portal's domain. Replaces `systemPrompt` |
+| `agents` | `boolean` | **Back-office mode**: the chat offers the agent switcher (the personal assistant plus every autonomous agent the caller may instruct in the account). Off — the front-office shape — embeds stay mono-agent. The conversation history is offered to every signed-in person either way |
+| `systemPrompt` | `string` | **Deprecated, ignored** — logs a one-time console warning (`hostInitConfig`) |
 | `initConfigKey` | `string` | Override the per-variant init-config key. Only needed when mounting several instances of the same variant in one tab (defaults to `'drawer'` / `'menu'` / `'block'`) |
 
 Drawer-specific: `drawerProps` (pass-through to `VNavigationDrawer`).
-Menu-specific: `btnProps`, `menuProps`, `cardProps` (pass-through to Vuetify components).
+Menu-specific: `title`, `btnProps`, `menuProps`, `cardProps` (pass-through to Vuetify components).
 
 ---
 
@@ -124,7 +135,7 @@ const state = useAgentChatDrawer()
 // state.drawerOpen, state.agentStatus, state.hasUnread, state.fabIcon, state.fabColor
 ```
 
-Open/close state is persisted to `localStorage` (`df-agent-chat-open` / `df-agent-menu-open`), so the drawer remembers its position across page navigations. The block has no open/close state (it is always visible) and so persists nothing.
+The drawer's open state is persisted to `localStorage` (`df-agent-chat-open`), so it stays open across page navigations. The menu's open state is deliberately not persisted — restoring it made the menu pop up on its own — only its expanded size (`df-agent-menu-expanded`). The block has no open/close state (it is always visible) and so persists nothing.
 
 ---
 
@@ -136,7 +147,7 @@ The FAB button reflects the chat agent's current state:
 |--------|------|-------|
 | `idle` | robot | secondary |
 | `working` | robot (loading spinner) | accent |
-| `waiting-user` | question mark | warning |
+| `waiting-user` | question mark | warning (an answer is waiting, or the agent declared `wait_for_user_action`) |
 | `error` | alert circle | error |
 
 When tools change dynamically, the button flashes `accent` for 3 seconds (`toolsJustChanged`).
@@ -158,6 +169,7 @@ The iframe sends `AgentChatMessage` events to the host via the `d-frame` custom 
 | `{ type: 'agent-status', status }` | Updates FAB icon/color |
 | `{ type: 'tools-changed' }` | Triggers accent flash |
 | `{ type: 'unread', unread: boolean }` | Shows/hides unread badge |
+| `{ type: 'navigate', url }` | A link clicked in the chat: the host navigates in-SPA when the URL maps to one of its routes, otherwise does a full navigation (another origin opens in a new tab) |
 
 ### BroadcastChannel (tab-wide)
 
@@ -165,11 +177,13 @@ Used for session lifecycle — any frame on the same origin can interact:
 
 | Message | Direction | Purpose |
 |---------|-----------|---------|
-| `agent-chat-ready` | Drawer → all | Announces drawer presence |
-| `agent-start-session` | Action → drawer | Opens drawer and starts a chat with `visiblePrompt` + `hiddenContext` |
-| `agent-session-cleared` | Action → all | Signals that an action button was unmounted |
-| `agent-chat-ping` | Action → drawer | Discovery probe |
-| `agent-chat-pong` | Drawer → action | Presence response |
+| `agent-chat-ready` | Container → all | Announces drawer/menu/block presence |
+| `agent-start-session` | Action → container + iframe | Opens the container; the iframe starts a chat with `visiblePrompt` + `hiddenContext` |
+| `agent-session-cleared` | Action → iframe | Signals that an action button was unmounted |
+| `agent-chat-ping` | Action → container | Discovery probe |
+| `agent-chat-pong` | Container → action | Presence response |
+
+Host events (`agent-event`, `agent-state-withdrawn`, `agent-state-request`) travel on the same tab channel; see [Host events](./host-events.md).
 
 ---
 
@@ -205,37 +219,36 @@ useAgentTool({
 
 Tools are automatically unregistered when the component unmounts (via `onScopeDispose`).
 
-The chat iframe's `FrameClientAggregator` discovers the server and makes the tools available to the LLM. See [MCP tool integration](./mcp-tools.md) for the full protocol.
+The chat iframe's `FrameClientAggregator` discovers the server, and the iframe declares its tools to the agent session (`hello`, then `tools-changed` whenever the set changes). The model runs on the server, so a call comes back down the socket as a `tool-call` frame; the iframe executes the tool through the aggregator and answers with a `tool-result` carrying either `result` or `error`. The implementation never leaves the page. See [MCP tool integration](./mcp-tools.md) for the full protocol.
 
 ---
 
-## Declaring Sub-Agents
+## Publishing Page Skills
 
-Host applications can also declare sub-agents that have exclusive access to specific tools:
+A page can publish a **skill** beside its tools: a procedure the agent sees listed (name and description)
+and loads only when it needs it, such as how to fill a large form:
 
 ```vue
 <script setup>
-import { useFrameServer, useAgentTool, useAgentSubAgent } from '@data-fair/lib-vue-agents'
+import { useFrameServer, useAgentTool, useAgentSkill } from '@data-fair/lib-vue-agents'
 
 useFrameServer('parent')
 
-// Register tools
 useAgentTool({ name: 'query_data', ... })
-useAgentTool({ name: 'get_schema', ... })
 
-// Declare a sub-agent that owns those tools
-useAgentSubAgent({
-  name: 'analyst',
-  title: 'Data Analyst',
-  description: 'Analyzes datasets using SQL queries',
-  prompt: 'You are a data analyst. Use query_data and get_schema to answer questions.',
-  tools: ['query_data', 'get_schema'],
-  model: 'tools'
+useAgentSkill({
+  name: 'query-guide',
+  description: 'How to query this dataset. Load it before using query_data.',
+  body: '# Querying the dataset\n\nAlways read the schema before writing a query.'
 })
 </script>
 ```
 
-The main agent will delegate to `subagent_analyst` rather than calling `query_data` directly. See [Sub-agent orchestration](./sub-agents.md) for details.
+The skill is an MCP resource `skill://query-guide/SKILL.md` on the page's model context, so it needs
+`useFrameServer` (the bare WebMCP polyfill has no resources); it is unregistered when the component
+unmounts. The chat sends it to the session with the tools, and an agent that works through its page lists
+it in its Skills index under the server `the-page` and loads it with `read_skill`, like a skill an MCP
+server publishes. Bounds and details: [MCP tool integration → Page skills](./mcp-tools.md#page-skills).
 
 ---
 
@@ -280,7 +293,7 @@ bc.postMessage({
 })
 ```
 
-The drawer composable listens for `agent-start-session` and automatically opens. The `visiblePrompt` is shown to the user; `hiddenContext` is passed to the agent without displaying it.
+The container composable listens for `agent-start-session` and automatically opens. The `visiblePrompt` is shown to the user; `hiddenContext` is passed to the agent without displaying it: the iframe sends it as its own field of the `prompt` frame and the server does the `<hidden-context>` wrapping, so a client cannot place the sentinels itself.
 
 To check if a drawer is available before sending:
 
@@ -291,7 +304,7 @@ bc.postMessage({ channel: channelId, type: 'agent-chat-ping' })
 
 ### Inline action button
 
-`DfAgentChatAction` is a button a host app drops directly into a page (for example a contextual "ask the assistant" help action next to a creation or configuration form — this is how it is used in data-fair on creation/config pages). On mount it pings over BroadcastChannel for a live drawer and only shows itself once one answers (`agent-chat-pong` / `agent-chat-ready`). On click it broadcasts an `agent-start-session` message carrying a `visiblePrompt` (shown to the user) and a `hiddenContext` (page context passed to the agent silently), which opens the drawer and starts the conversation. It is the declarative, in-page counterpart to the programmatic `agent-start-session` snippet above.
+`DfAgentChatAction` is a button a host app drops directly into a page (for example a contextual "ask the assistant" help action next to a creation or configuration form — this is how it is used in data-fair on creation/config pages). On mount it pings over BroadcastChannel for a live drawer and only shows itself once one answers (`agent-chat-pong` / `agent-chat-ready`). On click it broadcasts an `agent-start-session` message carrying a `visiblePrompt` (shown to the user) and a `hiddenContext` (page context passed to the agent silently), which opens the drawer and starts the conversation. It also stores the message in sessionStorage (`df-agent-pending-action`), which the iframe reads on mount, for when the iframe was not loaded yet to hear the broadcast. It is the declarative, in-page counterpart to the programmatic `agent-start-session` snippet above.
 
 ---
 
@@ -301,22 +314,33 @@ The iframe URL is resolved as follows:
 1. If `src` prop is provided → use it directly
 2. Otherwise → `{origin}/agents/{accountType}/{accountId}/chat`
 
-The drawer/menu/block components then append a single `?initConfig=<key>` query parameter (see next section). The `chatTitle` and `systemPrompt` are **no longer encoded in the URL** — they are passed through same-origin sessionStorage instead.
+The drawer/menu/block components then append `?initConfig=<key>` (see next section) and, when the `agents` prop is set, `&agents=1`.
 
-> **Legacy / direct-URL embeds:** the chat page still reads `?title=` and `?systemPrompt=` query params directly. This path is kept for backward compatibility (e.g. linking straight to the chat URL), but it is subject to URL length limits — prefer the init-config mechanism for anything but a short prompt.
+> **Direct-URL embeds:** the chat page reads `?title=`, `?agentId=` and `?agents=1` query params directly. The former `?systemPrompt=` is gone: it let anyone who could craft a link set the model's instructions. An unknown agent id is refused by the server.
+
+### Back-office mode (`agents`)
+
+The same chat window serves both offices. In the front office (portals) it is embedded with no `agents` prop: one agent. In the back office (data-fair) the host sets `agents`, and the header gains an **agent picker** fed by `GET /api/conversations/:type/:id/agents` — the back-office assistant when the caller may use it, plus every enabled configured agent they may instruct (`canInstruct`), so the list cannot offer one the first message would be refused for — and a **New conversation** button in place of Reset.
+
+Both offices, for any signed-in person:
+
+- the **history** menu is fed by `GET /api/conversations/:type/:id` without an `agentId` — the caller's own threads across the agents they may still use, newest first (at most 50), each labelled with its agent. Selecting one rebinds the socket to it and the server replays its stored transcript. It is always the caller's own threads, a superadmin's included: reading other people's is the review page's job.
+- opening the chat **resumes** the agent's thread with the latest activity (`?agentId=…&size=1`) rather than starting another.
+
+Selecting a different agent starts a new conversation with it, as picking a project or a GPT does elsewhere; its earlier threads are in the history. The panel is the one place people talk to their agents: this service's admin pages link to no chat of their own, and tell someone who is not an admin to open the panel and pick the agent. A conversation never changes agent, since its identity is the agent that answered in it. Both offices create a conversation on its first message (the socket's `hello` names the agent, the first prompt creates the thread), so opening the chat, switching agent or asking for a new conversation leaves nothing behind. The `hello` is also answered with a refusal when the person may not talk to that agent (a revoked grant), so the chat says so as it opens rather than at the first message.
 
 ---
 
-## Initial Configuration (systemPrompt & title)
+## Initial Configuration (agentId & title)
 
-The `systemPrompt` and `chatTitle` props are handed to the iframe through **same-origin sessionStorage**, not the URL. This is a one-shot "set then get" handoff: the host writes the config before the iframe loads, and the iframe reads it once on mount. It is **not** a reactive channel — changing the prop after the iframe is running does not update the live agent.
+The `agentId` and `chatTitle` props are handed to the iframe through **same-origin sessionStorage**, not the URL. This is a one-shot "set then get" handoff: the host writes the config before the iframe loads, and the iframe reads it once on mount. It is **not** a reactive channel — changing the prop after the iframe is running does not update the live agent.
 
-**Why not the URL?** The iframe URL passes through nginx, whose default request-line buffer (~8 KB) returns HTTP 414 above it. After percent-encoding (accented text expands ~3×), the safe ceiling for a URL-borne system prompt is only ~2 KB — too small for real custom-agent prompts. URL params also leak into nginx logs, browser history, and `Referer` headers. sessionStorage has no practical size limit and no such exposure, so **custom local chats (e.g. embedded in a portal) can carry an arbitrarily long system prompt.**
+The mechanism was introduced to carry an arbitrarily long `systemPrompt` past nginx's request-line limit and out of logs and `Referer` headers. A host no longer supplies prose: with the loop on the server, a host-supplied prompt would be the one remaining client-controlled instruction, so a host names an agent instead and its persona lives server-side (the personal assistant's in `api/src/agent-session/personal-agent.ts`, a configured agent's in its document). The deprecated `prompt` field is ignored.
 
 How it works:
-1. Each component writes `{ prompt, title }` to sessionStorage under a per-variant key via `setAgentInitConfig(key, config)`.
+1. Each component writes `{ agentId, title }` to sessionStorage under a per-variant key via `setAgentInitConfig(key, hostInitConfig(props))` (`hostInitConfig` drops `systemPrompt` with a one-time warning).
 2. The component appends `?initConfig=<key>` to the iframe URL.
-3. The chat iframe (`AgentChat.vue`) reads its key from the URL and loads the config via `getAgentInitConfig(key)`, which takes precedence over its props.
+3. The chat iframe (`AgentChat.vue`) reads its key from the URL and loads the config via `getAgentInitConfig(key)`. It takes both fields: the title (init config wins over props) and the agent id (the page's `?agentId=` wins, then the init config), which is what makes an embedded chat actually talk to the agent its host named.
 
 The key defaults to the variant name (`'drawer'` / `'menu'` / `'block'`), so one of each can coexist in a tab without clobbering. Mounting several of the **same** variant in one tab requires distinct `initConfigKey` props.
 
@@ -325,7 +349,7 @@ You can also use the helpers directly when building a custom embed:
 ```typescript
 import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
 
-setAgentInitConfig('my-chat', { prompt: 'You are a portal assistant…', title: 'Portal Help' })
+setAgentInitConfig('my-chat', { agentId: 'personal', title: 'Portal Help' })
 // then load the iframe with `…/chat?initConfig=my-chat`
 ```
 

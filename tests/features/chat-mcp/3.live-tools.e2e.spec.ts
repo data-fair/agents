@@ -15,13 +15,14 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { waitForPageTools, expectNoPageTool } from '../../support/page-tools.ts'
 
 test.describe('Live tool set (mid-turn refresh)', () => {
   test.beforeEach(async () => {
     await clean()
   })
 
-  test('a tool registered by a panel opened mid-turn is callable in the same turn', async ({ page, goToWithAuth }) => {
+  test('a tool registered by a panel opened mid-turn is callable in the same turn, and stops being offered once unmounted', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await putMockSettings(admin, 'user/test-standalone1')
 
@@ -29,11 +30,8 @@ test.describe('Live tool set (mid-turn refresh)', () => {
 
     // Wait for the initial aggregate: open_panel is there, set_display is NOT — the panel
     // is closed, so nothing has registered it yet.
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.getByRole('button', { name: 'open_panel' })).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('button', { name: 'set_display' })).toHaveCount(0)
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
+    await waitForPageTools(page, 'open_panel')
+    await expectNoPageTool(page, 'set_display')
 
     // One turn, two steps: open_panel (which mounts the panel and registers set_display),
     // then set_display itself.
@@ -47,73 +45,12 @@ test.describe('Live tool set (mid-turn refresh)', () => {
 
     // And the tool really ran against the newly mounted component.
     await expect(page.getByLabel('Display')).toHaveValue('Displayed by set_display')
-  })
 
-  test('a tool whose component unmounts stops being offered', async ({ page, goToWithAuth }) => {
     // The mirror case: reconciliation must remove as well as add, or the model keeps being
-    // offered tools that no longer have a component behind them.
-    const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
-
-    await goToWithAuth('/agents/_dev/chat-live-tools', 'test-standalone1')
-
-    // Discovery is asynchronous; sending before it lands would start the turn with an
-    // empty tool set and test nothing.
-    await expect(page.getByRole('button', { name: 'open_panel' })).toBeHidden()
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.getByRole('button', { name: 'open_panel' })).toBeVisible({ timeout: 5000 })
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
-
-    await page.getByPlaceholder('Type your message...').fill('chain open_panel set_display')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last())
-      .toContainText('chained open_panel then set_display', { timeout: 15000 })
-
-    // Reload with the panel closed again: set_display must be gone from the aggregate.
+    // offered tools that no longer have a component behind them. Reload with the panel closed
+    // again: set_display must be gone from the aggregate.
     await page.reload()
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(page.getByRole('button', { name: 'open_panel' })).toBeVisible({ timeout: 5000 })
-    await expect(page.getByRole('button', { name: 'set_display' })).toHaveCount(0)
-  })
-
-  test('exploration mode announces a mid-turn tool in the same turn', async ({ page, goToWithAuth }) => {
-    // With exploration on, a tool that appears mid-turn is not immediately callable (it
-    // has to be promoted first) — but the model must still be TOLD about it within the
-    // turn, otherwise it has no reason to go looking. The notice cannot ride on `history`
-    // mid-run (the SDK re-reads it only as a prefix, so it would land before the work
-    // already done), so it is injected through prepareStep; this is what covers that path.
-    const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
-
-    await page.addInitScript(() => {
-      const flags = { toolExploration: true, subAgents: true, mermaid: false }
-      document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(flags))}; path=/`
-    })
-    await goToWithAuth('/agents/_dev/chat-live-tools', 'test-standalone1')
-
-    // Under exploration this wait is not just politeness: explore_tools has no candidates
-    // if the registry is still empty when it runs, so nothing is promoted and the next
-    // turn finds the tool inactive (same guard as 3.tool-exploration.e2e.spec.ts).
-    await page.getByRole('button', { name: /Settings|Paramètres/ }).click()
-    await page.getByRole('tab', { name: 'Info' }).click()
-    await expect(
-      page.locator('.v-dialog .v-window-item--active').getByRole('button', { name: 'open_panel' })
-    ).toBeVisible({ timeout: 10000 })
-    await page.getByRole('button', { name: /Close|Fermer/ }).click()
-
-    // Turn 1: promote open_panel so it is callable at all under exploration gating.
-    await page.getByPlaceholder('Type your message...').fill('call tool explore_tools {"intent":"open the panel"}')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last()).toContainText('done', { timeout: 20000 })
-
-    // Turn 2: open_panel runs and registers set_display mid-turn. set_display stays
-    // un-callable (not promoted) — the assertion is that the model was told about it on
-    // the very next step, not that it could call it.
-    await page.getByPlaceholder('Type your message...').fill('chain open_panel set_display')
-    await page.getByRole('button', { name: 'Send' }).click()
-    await expect(page.locator('.assistant-content').last())
-      .toContainText('tool set_display is not available (announced: yes)', { timeout: 20000 })
+    await waitForPageTools(page, 'open_panel')
+    await expectNoPageTool(page, 'set_display')
   })
 })

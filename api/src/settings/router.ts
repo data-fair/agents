@@ -11,7 +11,7 @@ import eventsLog from '@data-fair/lib-express/events-log.js'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
 import * as orgPutReqBody from '#doc/settings/org-put-req/index.ts'
 import { encryptProviderApiKeys, obfuscateProviderApiKeys } from './operations.ts'
-import { defaultQuotas, defaultModeration, emptySettings, getSettings } from './service.ts'
+import { defaultQuotas, defaultModeration, emptySettings, getSettings, invalidateSettings } from './service.ts'
 import { getCatalog } from '../models/service.ts'
 import type { ModelRole } from '../models/operations.ts'
 import { securityKey } from '../cipher/service.ts'
@@ -49,7 +49,7 @@ router.put('/:type/:id', async (req, res, next) => {
 
   // A partial update, not a whole-document replace: this route owns only
   // providers/models, so it must only ever touch those two fields (plus
-  // updatedAt). Anything else — modelMapping/quotas/moderation/storeTraces —
+  // updatedAt). Anything else — modelMapping/quotas/moderation/reviewPersonalAssistant —
   // is owned by the org PUT and must survive untouched here, including one
   // that lands concurrently between this handler's read and write above.
   await mongo.settings.updateOne(
@@ -63,10 +63,11 @@ router.put('/:type/:id', async (req, res, next) => {
       // load (it strips the hidden, empty value). Readers treat an absent
       // `models` as an empty catalog contribution.
       ...(body.models ? {} : { $unset: { models: '' } }),
-      $setOnInsert: { owner, createdAt: now, quotas: defaultQuotas, moderation: defaultModeration, storeTraces: false }
+      $setOnInsert: { owner, createdAt: now, quotas: defaultQuotas, moderation: defaultModeration, reviewPersonalAssistant: false }
     },
     { upsert: true }
   )
+  invalidateSettings(owner)
 
   eventsLog.info('agents.settings.update', `settings updated for owner ${owner.type}/${owner.id}`, { req })
 
@@ -100,13 +101,14 @@ router.put('/:type/:id/org', async (req, res, next) => {
           modelMapping: body.modelMapping ?? {},
           quotas: body.quotas ?? defaultQuotas,
           moderation: body.moderation ?? defaultModeration,
-          storeTraces: body.storeTraces ?? false,
+          reviewPersonalAssistant: body.reviewPersonalAssistant ?? false,
           updatedAt: now
         },
         $setOnInsert: { owner, createdAt: now, providers: [], models: [] }
       },
       { upsert: true }
     )
+    invalidateSettings(owner)
     eventsLog.info('agents.settings.org-update', `org settings updated for owner ${owner.type}/${owner.id}`, { req })
     const updated = await getSettings(owner)
     updated.providers = obfuscateProviderApiKeys(updated.providers)

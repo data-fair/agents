@@ -1,0 +1,370 @@
+/**
+ * Connects to the MCP servers an autonomous agent is configured with, as that agent's
+ * own identity, and exposes their tools as AI SDK tools.
+ */
+
+import { Client } from '@modelcontextprotocol/sdk/client/index.js'
+import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js'
+import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
+import { tool, jsonSchema } from 'ai'
+import memoize from 'memoizee'
+import config from '#config'
+import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
+import { httpError } from '@data-fair/lib-express'
+import Debug from 'debug'
+import { callHeaders, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, platformMcpServer, type SiteCredentials, type SiteCredential, type GlobalMcpServer, type McpServerRef } from './operations.ts'
+import { formatMcpToolResult } from '@agents/shared/tool-result'
+import { credentialScopes } from '../nhi/operations.ts'
+import { toolDescription } from '@agents/shared/tool-description'
+import { withPublicMessage, type ToolSet } from '../conversations/operations.ts'
+import { boundGuide, visibleSkills, type ServerGuide, type GuideSkill } from './guides.ts'
+import { MCP_CLIENT_CAPABILITIES, listServerSkills, readServerSkill } from './skills-client.ts'
+
+const debug = Debug('agents:mcp-client')
+
+/**
+ * A connection to one catalog server, for one site. The credential headers are computed for EVERY request
+ * rather than fixed when it connects: `credential` is asked each time, so a token renewed during a long turn
+ * (agentSiteCredentials) reaches the calls already holding this connection.
+ */
+export const connectMcpServer = async (server: GlobalMcpServer, siteUrl?: string, credential: () => Promise<SiteCredential | undefined> = async () => undefined, clientIp?: string) => {
+  const transport = new StreamableHTTPClientTransport(new URL(server.url), {
+    fetch: async (url, init) => {
+      const headers = new Headers(init?.headers)
+      for (const [name, value] of Object.entries(callHeaders(server, siteUrl, await credential(), clientIp))) headers.set(name, value)
+      return await fetch(url, { ...init, headers })
+    }
+  })
+  const client = new Client({ name: 'data-fair-agents', version: '1.0.0' }, { capabilities: MCP_CLIENT_CAPABILITIES as any })
+  await client.connect(transport)
+  return { client, close: async () => { await client.close() } }
+}
+
+export interface AutonomousAgentForTools {
+  id: string
+  nhi?: { clientId: string, siteUrl?: string, issuer?: string }
+  mcpServers?: McpServerRef[]
+}
+
+/** A catalog entry that could not be reached, when the caller asked to skip rather than fail. */
+export interface SkippedServer {
+  id: string
+  reason: string
+}
+
+/** A listed MCP tool, as returned by client.listTools(). */
+export interface ListedMcpTool {
+  name: string
+  description?: string
+  inputSchema?: unknown
+  /** What the tool's structuredContent follows, when the server declares it: a script's return type (SourcedTool.codeOutputSchema). */
+  outputSchema?: unknown
+  annotations?: unknown
+  /** The display name (MCP 2025-06-18), beside the older annotations.title. */
+  title?: string
+}
+
+/**
+ * The tool set for one autonomous agent: every tool of every catalog entry it
+ * references, narrowed by that reference's optional toolFilter, as executable AI SDK tools.
+ */
+export interface OpenAutonomousAgentTools {
+  /**
+   * Each tool with the server it actually came from and the MCP `annotations` it declared —
+   * `readOnlyHint`, `destructiveHint` and the rest: recorded per call on the stored message, because they
+   * are what makes a write auditable after the fact, and the input the approval gate reads.
+   */
+  tools: ToolSet
+  /** Catalog entries that could not be reached; always empty unless the caller asked to skip. */
+  skippedServers: SkippedServer[]
+  /** Tools a server listed that the reference's toolFilter excluded: what the agent reads about itself. */
+  filteredOut: { name: string, server: string }[]
+  /** Tools that take a file, left out because files are off this turn. */
+  needsFiles: { name: string, server: string }[]
+  /** A configured agent's identity on its home site, when a site-bound entry was listed there with its session. */
+  identity?: { scopes?: string[] }
+  /** What each listed server says about its tools — instructions and skills — in reference order (./guides.ts). */
+  guides: ServerGuide[]
+  /** A skill's SKILL.md, read over this turn's connection to that server (as its tools are called). */
+  readSkill: (server: string, uri: string) => Promise<string>
+  /** MUST be called when the turn is over: until then the connections stay open. */
+  close: () => Promise<void>
+}
+
+/** A server as one listing reads it: its tools, its instructions and its skills. Cached together (below). */
+export interface ServerListing { tools: ListedMcpTool[], instructions?: string, skills: GuideSkill[] }
+
+/**
+ * How long a server's tool LISTING is reused before it is fetched again.
+ *
+ * Listing used to happen on every turn: connect, initialize, list, for every catalog entry the agent
+ * references — the whole catalog, for the personal assistant. Measured on the dev stack it was half of
+ * an unloaded turn's time to first token (65 of 135ms), and with turns starting together it was the
+ * MCP SDK, zod, ajv and undici share of a CPU-bound burst. A tool set changes when a server is
+ * deployed, not between two turns, so a minute of staleness is the price: a tool added upstream shows
+ * up within it, and one removed fails at call time with the server's own error.
+ */
+export const TOOL_LISTING_TTL_MS = 60_000
+
+/**
+ * Listings by server and identity. The promise itself is cached, so turns starting together share
+ * ONE listing rather than each racing its own — which is the case that mattered under load. A FAILURE
+ * is not cached: the next turn tries again, so a server coming back is noticed at once, and a
+ * configured agent keeps failing loudly while its server is down.
+ *
+ * Keyed on who asks as well as the server, because what a session-authenticated server lists may
+ * depend on it (SiteCredentials.listingIdentity): two identities never share a listing. On the
+ * identity, not the credential, which is renewed every few minutes for a configured agent — keyed
+ * on it, its listings would rarely hit. The credential is asked for only on a miss, so a cached listing costs no
+ * token request.
+ */
+const listing = memoize(async (_key: string, server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials): Promise<ServerListing> => {
+  // the listing is shared across turns: it carries the IP of the turn that lists (tools/list costs the stack nothing)
+  const { client, close } = await connectMcpServer(server, siteUrl, credentialOf(server, siteUrl, sites), sites.clientIp)
+  try {
+    const tools = (await client.listTools()).tools as ListedMcpTool[]
+    // What the server says about its own tools comes with the same connection, so a cached listing
+    // costs no extra request (docs/architecture/mcp-tools.md, "Server instructions and skills").
+    const instructions = client.getInstructions()?.trim() || undefined
+    return { tools, ...(instructions ? { instructions } : {}), skills: await listServerSkills(client, server.id) }
+  } finally {
+    await close().catch(() => {})
+  }
+}, { promise: true, maxAge: TOOL_LISTING_TTL_MS, max: 1000, length: 1 })
+
+/** What a call to this server, on this site, authenticates with: the site's session for a site-bound entry, else nothing. */
+const credentialOf = (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials) =>
+  async () => server.auth === 'nhi-session' && siteUrl ? await sites.credentialFor(siteUrl) : undefined
+
+/** Forget every cached listing. The test environment's reset calls it, so specs stay independent. */
+export const clearToolListings = () => { listing.clear() }
+
+/**
+ * `fresh` lists again, and keeps that answer for the next turns.
+ *
+ * A site-bound listing is also keyed on the scopes of the session it is listed with: a scope-filtered server
+ * lists by them, and an administrator changing an identity's scopes must not leave its turns on the old tool
+ * set for the cache's lifetime. Reading them asks for the session, which the broker reuses until it nears
+ * its expiry (../nhi/service.ts): no exchange per turn.
+ */
+const listServer = async (server: GlobalMcpServer, siteUrl: string | undefined, sites: SiteCredentials, fresh?: boolean): Promise<ServerListing> => {
+  const scopes = server.auth === 'nhi-session' && siteUrl ? credentialScopes(await sites.credentialFor(siteUrl)) : undefined
+  const key = listingKey(server, siteUrl, scopedListingIdentity(sites.listingIdentity, scopes))
+  if (fresh) listing.delete(key, server, siteUrl, sites)
+  return listing(key, server, siteUrl, sites)
+}
+
+/**
+ * The executable tool set for one autonomous agent: every tool of every catalog entry it references,
+ * narrowed by that reference's optional toolFilter.
+ *
+ * WHO it acts as, and WHERE, is injected (`SiteCredentials`; see performTurn in conversations/executor.ts)
+ * rather than derived from the agent. That is the one seam a personal assistant needs: it has no
+ * non-human identity, and acts as the person using it through their forwarded session. Everything else
+ * about gathering tools is identical, which is the point — one loop serves both.
+ *
+ * Listings come from the cache above; CONNECTIONS are opened lazily, on a tool's first call in the
+ * turn, and shared by the turn's later calls to the same server — so a turn that calls no catalog tool
+ * opens none. The caller owns the returned `close` and must call it when the turn ends: until then a
+ * connection opened by a call stays open, because each tool's `execute` reuses it.
+ */
+export const openAutonomousAgentTools = async (
+  autonomousAgent: AutonomousAgentForTools,
+  sites: SiteCredentials,
+  // `platform`: data-fair's built-in server is gathered too (operations.ts, platformMcpServer) — for an agent
+  // with an identity only, whose scopes are what it may do there.
+  opts?: { onServerError?: 'throw' | 'skip', fresh?: boolean, files?: boolean, platform?: boolean }
+): Promise<OpenAutonomousAgentTools> => {
+  const filesOn = opts?.files ?? !!config.files
+  const needsFiles: { name: string, server: string }[] = []
+  const tools: ToolSet = {}
+  const skippedServers: SkippedServer[] = []
+  const filteredOut: { name: string, server: string }[] = []
+
+  const catalog = config.mcpServers ?? []
+  const refs = autonomousAgent.mcpServers ?? []
+  const home = sites.homeSite
+  const portalByHost = new Map(sites.portals.map(origin => [new URL(origin).host, origin]))
+  const portalHosts = [...portalByHost.keys()]
+
+  // This turn's connections, opened by the first call to each server — and each SITE, for a
+  // site-bound server: the site is the connection's; its session is read again on every request.
+  const connections = new Map<string, ReturnType<typeof connectMcpServer>>()
+  const clientFor = async (server: GlobalMcpServer, siteUrl: string | undefined) => {
+    const key = connectionKey(server, siteUrl)
+    let connection = connections.get(key)
+    if (!connection) {
+      // The promise is stored before connecting, so two concurrent first calls to the same site share one
+      // connection (and one token request: credentialFor shares it too) instead of each connecting.
+      connection = connectMcpServer(server, siteUrl, credentialOf(server, siteUrl, sites), sites.clientIp)
+      connections.set(key, connection)
+      // A failed connect is forgotten, so the next call retries rather than replaying the failure.
+      connection.catch(() => { if (connections.get(key) === connection) connections.delete(key) })
+    }
+    try {
+      return (await connection).client
+    } catch (err: any) {
+      // Named, like a listing failure: "fetch failed" alone does not say which of several servers.
+      // Its name is for the reader (publicErrorDetail); the network error under it stays on the run.
+      throw withPublicMessage(new Error(`MCP server "${server.id}" failed: ${err.message}`), `MCP server "${server.id}" failed`)
+    }
+  }
+
+  // The agent's references, then data-fair's built-in server: LAST, so on a name collision its tool is the
+  // one kept (below) and no catalog entry can stand in for a platform tool. No toolFilter: its scopes are the filter.
+  const platform = opts?.platform ? platformMcpServer(config.privateMcpUrl) : undefined
+  const entries = [
+    ...refs.map(ref => ({ ref, server: catalog.find(s => s.id === ref.serverId) })),
+    ...(platform ? [{ ref: { serverId: platform.id } as McpServerRef, server: platform }] : [])
+  ]
+  // Listed together: a turn waits for its slowest server, not for the sum of them.
+  const listed = await Promise.all(entries.map(async ({ ref, server }) => {
+    if (!server) throw httpError(400, `unknown MCP server "${ref.serverId}"`)
+    const listedOn = server.auth !== 'nhi-session' ? undefined : home
+    try {
+      return { ref, server, listedOn, listing: await listServer(server, listedOn, sites, opts?.fresh) }
+    } catch (err: any) {
+      // THROW or SKIP — see forEachListedTool, whose rule this is.
+      if (opts?.onServerError !== 'skip') throw withPublicMessage(httpError(502, `MCP server "${server.id}" failed: ${err.message}`), `MCP server "${server.id}" failed`)
+      debug('skipping server=%s %s', server.id, err.message)
+      skippedServers.push({ id: server.id, reason: err.message })
+      return undefined
+    }
+  }))
+
+  // In reference order, so a name collision resolves exactly as before.
+  for (const entry of listed) {
+    if (!entry) continue
+    const { ref, server } = entry
+    for (const t of entry.listing.tools) {
+      if (ref.toolFilter?.length && !ref.toolFilter.includes(t.name)) {
+        filteredOut.push({ name: t.name, server: server.id })
+        continue
+      }
+      // Last-write-wins on a name collision across servers, matching the browser
+      // aggregator's Object.assign semantics — the provenance travels with the tool, so the recorded
+      // server is the one whose tool will actually run.
+      const siteBound = server.auth === 'nhi-session'
+      const { schema: portalSchema, injected } = siteBound
+        ? withPortalArgument(t.inputSchema, portalHosts)
+        : { schema: (t.inputSchema as any) ?? { type: 'object', properties: {} }, injected: false }
+      // A file argument is a path of the turn's files (api/src/files/call-path.ts). Without files the model
+      // could not fill it — the MCP server fetches only our signed URLs — so the tool is not offered (spec §2).
+      const { schema, fileArgs } = fileArgumentsOf(portalSchema)
+      if (fileArgs.length && !filesOn) {
+        needsFiles.push({ name: t.name, server: server.id })
+        continue
+      }
+      // The call's abort signal reaches the request, so Stop, the deadline or a script's end cancels it rather
+      // than letting it complete unseen; what the server already did is not undone.
+      const callMcp = async (rawArgs: any, signal?: AbortSignal) => {
+        const { portal, args } = splitPortalArgument(rawArgs, injected)
+        const site = portal === undefined ? home : portalByHost.get(portal)
+        if (portal !== undefined && !site) throw new Error(`"${portal}" is not a portal of your organization (${portalHosts.join(', ') || 'none'})`)
+        debug('call tool=%s server=%s site=%s', t.name, server.id, siteBound ? site : '-')
+        const client = await clientFor(server, siteBound ? site : undefined)
+        // request() rather than callTool(): the latter also validates the result's structuredContent against
+        // the declared outputSchema, and a server without one (openapi-mcp emits structured content without)
+        // or with a drifting one would reject an otherwise usable call. The model's text form discards
+        // structuredContent; a script gets it (codeExecute below), and an outputSchema validation of a value
+        // only scripts read would add a failure mode, not a guarantee.
+        const callResult = await client.request({ method: 'tools/call', params: { name: t.name, arguments: args } }, CallToolResultSchema, signal ? { signal } : undefined)
+        const formatted = formatMcpToolResult(callResult as any)
+        // An MCP tool reports its OWN failure with `isError`, which is not a transport error and so
+        // does not reject on its own. Rethrown as one, because that is the only thing the model loop
+        // treats as a failure: returned as a value, the turn recorded a failed call in the exact shape
+        // of a successful one — the conflation that hid a broken tool path for a whole plan. The AI SDK
+        // turns this into a `tool-error` part, so the call is stored `output-error` and the model is
+        // handed it as `error-text` rather than as data.
+        if ((callResult as { isError?: boolean }).isError) {
+          throw new Error(hideLinkUris(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed', callResult as any))
+        }
+        // Links stay links until the call path (api/src/files/call-path.ts) stores them; it needs to know the
+        // call came from the catalog and which site it was bound to — the credential rule (spec §4.2).
+        return { callResult, formatted, origin: { catalog: true, ...(siteBound && site ? { site } : {}) } }
+      }
+      const mcpTool = tool({
+        description: t.description ?? '',
+        inputSchema: jsonSchema(schema as any),
+        execute: async (rawArgs: any, options) => {
+          const { callResult, formatted, origin } = await callMcp(rawArgs, options?.abortSignal)
+          return withResourceLinks(formatted, callResult as any, origin)
+        }
+      })
+      // A script gets the data (spec §6.4): structuredContent when the server sent one — data-fair's MCP does —
+      // its text otherwise. A result with links is the text, so the call path stores them (records, for code).
+      // A media result reaches a script as its text only: the images are for the model, not for code.
+      const codeExecute = async (rawArgs: any, options?: { abortSignal?: AbortSignal }) => {
+        const { callResult, formatted, origin } = await callMcp(rawArgs, options?.abortSignal)
+        const text = typeof formatted === 'string' ? formatted : formatted.text ?? ''
+        const structured = (callResult as { structuredContent?: unknown }).structuredContent
+        return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, origin) : structured
+      }
+      // The declared outputSchema is what structuredContent follows: a script's return type when the server has one.
+      // A top-level title (openapi-mcp declares one) joins the annotations, where the run records them and the
+      // chat reads its chip label: without it the person saw « datafair_list_account_datasets ».
+      const annotations = typeof t.title === 'string' && t.title ? { title: t.title, ...(t.annotations as Record<string, unknown> | undefined) } : t.annotations as Record<string, unknown> | undefined
+      tools[t.name] = { tool: mcpTool, codeExecute, codeOutputSchema: codeOutputSchemaFor(t.outputSchema), server: server.id, ...(annotations ? { annotations } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
+    }
+  }
+
+  const close = async () => {
+    const open = [...connections.values()]
+    connections.clear()
+    for (const connection of open) await connection.then(c => c.close()).catch(() => {})
+  }
+  // What each server says about its tools, in reference order; a skill whose every tool the reference's
+  // toolFilter removed is hidden, as the agent could not follow it (./guides.ts, visibleSkills).
+  const guides: ServerGuide[] = listed.flatMap(entry => {
+    if (!entry) return []
+    const kept = (name: string) => !entry.ref.toolFilter?.length || entry.ref.toolFilter.includes(name)
+    const guide = boundGuide({ server: entry.server.id, ...(entry.listing.instructions ? { instructions: entry.listing.instructions } : {}), skills: visibleSkills(entry.listing.skills, kept) })
+    return guide.instructions || guide.skills.length ? [guide] : []
+  })
+
+  const readSkill = async (serverId: string, uri: string): Promise<string> => {
+    const entry = listed.find(e => e?.server.id === serverId)
+    if (!entry) throw new Error(`"${serverId}" is not one of your tool servers this turn`)
+    const client = await clientFor(entry.server, entry.listedOn)
+    return await readServerSkill(client, entry.listing.skills, uri)
+  }
+
+  // What its identity was granted, as the session of its home site says: what the agent reads about itself.
+  let identity: { scopes?: string[] } | undefined
+  if (autonomousAgent.nhi && home && listed.some(entry => entry?.server.auth === 'nhi-session' && entry.listedOn === home)) {
+    const credential = await sites.credentialFor(home)
+    const scopes = credentialScopes(credential)
+    if (credential) identity = scopes ? { scopes } : {}
+  }
+
+  return { tools, skippedServers, filteredOut, needsFiles, guides, readSkill, close, ...(identity ? { identity } : {}) }
+}
+
+export interface McpToolDescriptor {
+  name: string
+  description: string
+  server: string
+  annotations?: Record<string, unknown>
+}
+
+/**
+ * The tool list an autonomous agent would actually receive, as descriptors, listed FRESH: an admin
+ * checking a fix wants the servers' answer now, not up to a minute old. A failing server is an error,
+ * as it is for the agent's turns. The annotations let an admin see the write surface — what the
+ * approval gate reads — before the agent ever runs.
+ */
+export const listAutonomousAgentToolDescriptors = async (
+  autonomousAgent: AutonomousAgentForTools,
+  sites: SiteCredentials,
+  opts?: { platform?: boolean }
+): Promise<{ descriptors: McpToolDescriptor[] }> => {
+  const { tools, close } = await openAutonomousAgentTools(autonomousAgent, sites, { fresh: true, ...opts })
+  await close()
+  const descriptors = Object.entries(tools).map(([name, { tool, server, annotations }]) => ({
+    name,
+    description: toolDescription(tool),
+    server: server!,
+    ...(annotations ? { annotations } : {})
+  }))
+  return { descriptors }
+}

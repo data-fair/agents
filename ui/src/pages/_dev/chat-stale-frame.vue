@@ -46,31 +46,30 @@
 <i18n lang="yaml">
 fr:
   title: Chat Frame Disparu Dev
-  instructions: "Cette page simule data-fair après un passage par la gestion des portails : une iframe « portails » expose son propre sous-agent. Cliquez sur « Quitter les portails » pour retirer cette iframe (comme une navigation vers une page de jeu de données) puis envoyez un message au chat."
+  instructions: "Cette page simule data-fair après un passage par la gestion des portails : une iframe « portails » expose son propre outil. Cliquez sur « Quitter les portails » pour retirer cette iframe (comme une navigation vers une page de jeu de données) puis envoyez un message au chat."
   leave: Quitter les portails
 en:
   title: Stale Frame Chat Dev
-  instructions: "This page mimics data-fair after visiting the portals manager: a 'portals' iframe exposes its own sub-agent. Click 'Leave portals' to remove that iframe (like navigating to a dataset page), then send a chat message."
+  instructions: "This page mimics data-fair after visiting the portals manager: a 'portals' iframe exposes its own tool. Click 'Leave portals' to remove that iframe (like navigating to a dataset page), then send a chat message."
   leave: Leave portals
 </i18n>
 
 <script lang="ts" setup>
 /**
- * Dev page for the stale-frame bug: a sibling frame exposes a sub-agent tool, then
+ * Dev page for the stale-frame bug: a sibling frame exposes a tool, then
  * goes away the way an iframe does when the host navigates to another route — its
  * document is destroyed without Vue unmount hooks running and without a clean
  * `mcp-server-stopped` broadcast.
  *
- * The chat's aggregator must drop that frame's tools. Otherwise the next turn's
- * `resolveSubAgents` round-trips to the dead server and waits the MCP request
- * timeout (60s, "MCP error -32001"), so no completion request is ever sent.
+ * The chat's aggregator must drop that frame's tools: a call to the dead server waits the MCP request
+ * timeout (60s, "MCP error -32001").
  *
- * The host frame itself stays alive and keeps its own sub-agent, the way data-fair's
+ * The host frame itself stays alive and keeps its own tool, the way data-fair's
  * dataset page keeps its tools after the portals iframe is gone.
  */
 import { ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useFrameServer, useAgentTool, useAgentSubAgent } from '@data-fair/lib-vue-agents'
+import { useFrameServer, useAgentTool } from '@data-fair/lib-vue-agents'
 import AgentChat from '~/components/AgentChat.vue'
 import { useSessionAuthenticated } from '@data-fair/lib-vue/session.js'
 
@@ -85,14 +84,6 @@ useAgentTool({
   inputSchema: { type: 'object', properties: {} } as any,
   execute: () => ({ content: [{ type: 'text' as const, text: 'No notes yet.' }] })
 } as any)
-
-useAgentSubAgent({
-  name: 'dataset_notes',
-  title: 'Dataset notes',
-  description: 'Summarize notes about the dataset currently open',
-  prompt: 'You summarize notes about the dataset the person is looking at.',
-  tools: ['read_dataset_notes']
-})
 
 // `?portals=off` is the "went to the dataset page directly" control: the portals
 // frame never existed, so nothing can go stale.

@@ -68,7 +68,7 @@ test.describe('Catalog API', () => {
     assert.equal(res.status, 200)
     // only assistant has a global default in the dev config; every other role
     // walks its fallback chain down to it
-    for (const role of ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']) {
+    for (const role of ['assistant', 'tools', 'summarizer', 'moderator']) {
       assert.equal(res.data.defaults[role]?.id, 'mock-model', `default for ${role}`)
       assert.equal(res.data.defaults[role]?.provider.id, 'global-mock', `default provider for ${role}`)
     }

@@ -52,7 +52,7 @@ export function isReasoningEffortRejected (err: unknown): boolean {
 // scoping decisions.
 export function buildModerationSystemPrompt (): string {
   return `${MODERATION_TASK_MARKER}
-You are a content moderation classifier guarding an AI assistant embedded in a data platform (data exploration, data visualization, open-data questions and answers). The assistant works with the platform's datasets, APIs and data-related content, and it delegates focused data tasks to automated sub-agents. Data exploration, analysis, visualization, summarization, working with file/dataset content, and small scripts or queries that consume the platform's data or API are all legitimate in-scope use, even when detailed, technical, or a delegated sub-agent task.
+You are a content moderation classifier guarding an AI assistant embedded in a data platform (data exploration, data visualization, open-data questions and answers). The assistant works with the platform's datasets, APIs and data-related content. Data exploration, analysis, visualization, summarization, working with file/dataset content, and small scripts or queries that consume the platform's data or API are all legitimate in-scope use, even when detailed or technical.
 
 Authoring or editing the metadata of the platform's own resources is ALWAYS a legitimate in-scope operation — for example writing or rewriting the title, description, summary, topics, tags or keywords of an application, dataset, processing or catalog. This is resource metadata management: never treat such text as "writing an essay" or as off-platform general-purpose writing, even when it spans several paragraphs of prose.
 
@@ -155,10 +155,24 @@ export function isInCooldown (strike: StrikeState | null | undefined, now: Date)
 
 /**
  * Whether the input-moderation gate applies to a request, given the account
- * settings and the caller's effective role. Pure: drives the gateway and the
- * summary endpoint identically. Off unless the org enabled moderation AND the
+ * settings and the caller's effective role. Pure: the conversation executor reads
+ * it to decide whether a turn goes through the moderation gate (moderateTurn in
+ * conversations/turn-gates.ts). Off unless the org enabled moderation AND the
  * caller's role is in the configured category list.
  */
 export function moderationApplies (settings: Settings, role: string): boolean {
   return !!settings.moderation?.enabled && ((settings.moderation.categories ?? []) as string[]).includes(role)
 }
+
+/**
+ * What a person is told when their message is refused by input moderation.
+ *
+ * It lives here, and in English, because the refusal IS the turn's stored answer, so the text has to
+ * exist server-side.
+ *
+ * The English text is what the model, review and the export read. The person reads it in their own
+ * language: the refused turn also stores a `data-refusal` part, which the chat localizes (see
+ * `RefusalInfo` in api/src/conversations/turn-gates.ts).
+ */
+export const MODERATION_REFUSAL =
+  'This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake.'

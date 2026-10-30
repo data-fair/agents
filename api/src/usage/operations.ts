@@ -3,6 +3,38 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  */
 
+import type { LanguageModelUsage } from 'ai'
+import type { AccountKeys } from '@data-fair/lib-express'
+import type { EffectiveRole } from '../auth.ts'
+
+/** Who a model call's spend is attributed to, and which quotas and pool apply to it. */
+export interface UsageIdentity {
+  trackPerUser: boolean
+  usageUserId?: string
+  usageUserName?: string
+  role: EffectiveRole
+  isUntrusted: boolean
+  // sentinel userId of the shared pool this request contributes to, if any
+  poolId?: string
+}
+
+/**
+ * A PERSON's usage identity on an account — signed in or anonymous, on a request or in a chat turn: the
+ * one rule for both. Tracked per user on an organization, and on a personal account for anyone but its
+ * owner (whose spend the account's own totals already are); an untrusted role joins the shared pool.
+ */
+export function personUsageIdentity (person: { id?: string, name?: string }, role: EffectiveRole, owner: AccountKeys): UsageIdentity {
+  const trackPerUser = owner.type === 'organization' || person.id !== owner.id
+  const isUntrusted = isUntrustedRole(role)
+  return {
+    trackPerUser,
+    ...(trackPerUser ? { usageUserId: person.id, usageUserName: person.name } : {}),
+    role,
+    isUntrusted,
+    ...(isUntrusted ? { poolId: UNTRUSTED_POOL_ID } : {})
+  }
+}
+
 export interface UsageLimits {
   unlimited?: boolean
   monthlyLimit?: number
@@ -92,6 +124,16 @@ export function quotaErrorBody (violation: QuotaExceeded, isAdmin: boolean) {
   }
 }
 
+/**
+ * The sentence a turn stopped by a quota ends on, at the gate or between steps: the fields
+ * `quotaErrorBody` discloses, so a shared budget's numbers only to an admin.
+ */
+export function quotaStopText (violation: QuotaExceeded, isAdmin: boolean): string {
+  const body = quotaErrorBody(violation, isAdmin)
+  const numbers = body.limit !== undefined ? `, ${body.period} limit ${body.limit}, used ${body.usage}` : `, ${body.period}`
+  return `${body.message} (${body.scope}${numbers}). Resets at ${body.resets_at}.`
+}
+
 export function checkQuota (usage: UsageInfo, limits: UsageLimits, scope: string): QuotaExceeded | null {
   const windows = quotaWindows(usage, limits)
   if (windows.unlimited) return null
@@ -126,6 +168,18 @@ export interface TokenCounts {
   cacheWriteTokens?: number
 }
 
+/** The AI SDK's usage report as token counts: the one place its shape is read. */
+export function tokenCountsOf (usage: LanguageModelUsage | undefined): TokenCounts {
+  const details = usage?.inputTokenDetails
+  return {
+    inputTokens: usage?.inputTokens ?? 0,
+    outputTokens: usage?.outputTokens ?? 0,
+    ...(details?.noCacheTokens !== undefined ? { noCacheTokens: details.noCacheTokens } : {}),
+    ...(details?.cacheReadTokens !== undefined ? { cacheReadTokens: details.cacheReadTokens } : {}),
+    ...(details?.cacheWriteTokens !== undefined ? { cacheWriteTokens: details.cacheWriteTokens } : {})
+  }
+}
+
 /** Cost in euros per token class, so the stacked histograms can attribute credits. */
 export interface TokenPriceBreakdown {
   /** Non-cached input tokens plus cache writes (billed at the plain input price). */
@@ -151,11 +205,11 @@ export function priceTokensBreakdown (counts: TokenCounts, prices: TokenPrices):
   const cacheWrite = counts.cacheWriteTokens ?? 0
   const noCache = counts.noCacheTokens ?? Math.max(counts.inputTokens - cacheRead - cacheWrite, 0)
   // Cache WRITES bill at the plain input price. There is no separate write tariff to
-  // configure: this codebase never sets `cache_control`, so no provider reports write
-  // tokens today. They are still billed rather than dropped — both @ai-sdk/anthropic
-  // and @ai-sdk/openai exclude cacheWrite from `noCache`, so omitting the term would
-  // silently make them free if a provider ever did report them. Anthropic's real rate
-  // is 1.25x input; billing at 1x under-bills slightly rather than not at all.
+  // configure: only Anthropic reports writes, and only on the loop calls that ask for
+  // caching (CACHED_PREFIX_PROVIDER_OPTIONS). Both @ai-sdk/anthropic and @ai-sdk/openai
+  // exclude cacheWrite from `noCache`, so omitting the term would make them free.
+  // Anthropic's real rate is 1.25x input; billing at 1x under-bills slightly rather
+  // than not at all.
   const atInputPrice = noCache + cacheWrite
   // Divide each term individually rather than summing first and dividing once: the two
   // are not equivalent in floating point, and the test expectations are built from
@@ -164,12 +218,6 @@ export function priceTokensBreakdown (counts: TokenCounts, prices: TokenPrices):
   const cachedInput = (cacheRead * (prices.cachedInputPricePerMillion ?? 0)) / 1_000_000
   const output = (counts.outputTokens * prices.outputPricePerMillion) / 1_000_000
   return { input, cachedInput, output, total: input + cachedInput + output }
-}
-
-/** Historical shape kept for the trace view: `input` includes cache reads. */
-export function priceTokens (counts: TokenCounts, prices: TokenPrices): { input: number, output: number, total: number } {
-  const breakdown = priceTokensBreakdown(counts, prices)
-  return { input: breakdown.input + breakdown.cachedInput, output: breakdown.output, total: breakdown.total }
 }
 
 /** Euros to the billed unit. The peg is deployment-global config (`eurosPerCredit`). */
@@ -193,11 +241,6 @@ export function computeCreditBreakdown (counts: TokenCounts, prices: TokenPrices
     output: toCredits(breakdown.output, eurosPerCredit),
     total: toCredits(breakdown.total, eurosPerCredit)
   }
-}
-
-/** The single entry point every call site uses: token counts to billed credits. */
-export function computeCredits (counts: TokenCounts, prices: TokenPrices, eurosPerCredit: number): number {
-  return computeCreditBreakdown(counts, prices, eurosPerCredit).total
 }
 
 /**
@@ -239,6 +282,15 @@ export function firstQuotaViolation (checks: (QuotaCheckInput | null | undefined
  * Untrusted roles are those that share the aggregate "untrusted pool" budget:
  * anonymous (public, per-IP) and external (authenticated but on a different account).
  */
+/**
+ * Sentinel userId of the shared pool that anonymous and external usage both contribute to.
+ *
+ * Lives in the PURE module so a caller that only needs to label a usage identity does not have to
+ * import `enforce.ts`, which reaches mongo and config through its own imports and so cannot be
+ * reached from a unit test.
+ */
+export const UNTRUSTED_POOL_ID = 'pool:untrusted'
+
 export function isUntrustedRole (role: string): boolean {
   return role === 'anonymous' || role === 'external'
 }

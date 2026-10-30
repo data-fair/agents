@@ -1,7 +1,7 @@
 /**
  * Shared wiring for the two write-scoped settings forms:
  *  - the superadmin form (providers / models), PUT /api/settings/:type/:id
- *  - the org-admin form (modelMapping / quotas / moderation / storeTraces),
+ *  - the org-admin form (modelMapping / quotas / moderation / reviewPersonalAssistant),
  *    PUT /api/settings/:type/:id/org
  *
  * Both read the same whole document from GET /api/settings/:type/:id but are
@@ -46,7 +46,7 @@ export type SettingsFormParams<T> = {
  * content in a different key order. It also drops `undefined` values, which vjsf
  * leaves behind on cleared optional fields, on both sides alike.
  */
-const canonical = (value: any): any => {
+export const canonical = (value: any): any => {
   if (Array.isArray(value)) return value.map(canonical)
   if (value && typeof value === 'object') return Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])]))
   return value

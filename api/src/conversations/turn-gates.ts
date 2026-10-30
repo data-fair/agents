@@ -1,0 +1,151 @@
+/**
+ * What a turn has to get past before any model is called.
+ *
+ * Split out of the executor, which had grown to own the gates, the history, the telemetry, the
+ * compaction and the model loop. The gates are one concern and they share one shape: each returns a
+ * finished turn when the answer is "no", or undefined to carry on — so `runTurn` reads as a list of
+ * them rather than as a sequence of early returns buried in a thousand lines.
+ *
+ * A refused turn must cost nothing, which is why they all run BEFORE the model call rather than
+ * racing it.
+ */
+
+import mongo from '#mongo'
+import type { ConversationRun } from '#types'
+import type { UsageIdentity } from '../usage/operations.ts'
+import { enforceQuotas } from '../usage/enforce.ts'
+import { quotaStopText } from '../usage/operations.ts'
+import {
+  extractLastUserMessage,
+  buildModerationContext,
+  MODERATION_CONTEXT_MAX_MESSAGES,
+  MODERATION_REFUSAL
+} from '../moderation/operations.ts'
+import { startModeration, isStrikeCooldownActive, recordStrikeRefusal } from '../moderation/service.ts'
+import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
+import { partsText, textPart, type RunStopReason, type MessagePart } from './operations.ts'
+import type { getSettings } from '../settings/service.ts'
+
+/** What every gate returns when it refuses: a finished turn carrying the reason, and no spend. */
+export interface RefusedTurn {
+  parts: MessagePart[]
+  steps: number
+  credits: number
+  stopReason: RunStopReason
+}
+
+type Settings = Awaited<ReturnType<typeof getSettings>>
+
+/**
+ * What the chat needs to say a refusal in the person's language, stored beside the English text.
+ *
+ * A `data-refusal` part: the AI SDK validates it without a schema and leaves it out of what the
+ * model is sent, so the model, review and the export read the English text while the chat renders
+ * its own localized sentence. The refusal is stored text, and without this every person would read it
+ * in English.
+ *
+ * For a quota, the same fields `quotaErrorBody` discloses: never the shared budgets' numbers.
+ */
+export type RefusalInfo =
+  | { kind: 'moderation' }
+  | { kind: 'quota', scope: string, period: 'daily' | 'weekly' | 'monthly', resetsAt: string }
+
+const refuse = (text: string, stopReason: RunStopReason, info?: RefusalInfo): RefusedTurn => ({
+  parts: [...(info ? [{ type: 'data-refusal', data: info } as MessagePart] : []), textPart(text)],
+  steps: 0,
+  credits: 0,
+  stopReason
+})
+
+/**
+ * The quota and credit-cap gate.
+ *
+ * `reason`/`scope`/`period` name WHAT was exceeded, because an org admin needs that to act — and the
+ * wording follows the agent, since the personal assistant uses this path too and "this autonomous
+ * agent could not run" is a confusing thing to say to a person who just asked a question.
+ */
+export const checkQuotas = async (
+  run: ConversationRun,
+  settings: Settings,
+  identity: UsageIdentity,
+  agentId: string
+): Promise<RefusedTurn | undefined> => {
+  const violation = await enforceQuotas(run.owner, settings.quotas ?? {} as any, identity)
+  if (!violation) return undefined
+  const lead = isPersonalAgentId(agentId) ? 'I could not answer' : 'This autonomous agent could not run'
+  // REDACTED like main's 429 body (#74), through the same function: the account and the untrusted
+  // pool are budgets shared with everyone else, and an external or anonymous caller has no business
+  // reading their numbers. The text named them for every caller until this port.
+  return refuse(
+    `${lead}: ${quotaStopText(violation, identity.role === 'admin')}`,
+    'error',
+    { kind: 'quota', scope: violation.scope, period: violation.period, resetsAt: violation.resetsAt }
+  )
+}
+
+/**
+ * Classify this turn's user message and refuse it when the verdict says so.
+ *
+ * Returns a turn result when the turn must not proceed, or undefined to carry on. A fail-open
+ * (timeout or classifier error) carries on by design: the gate must not take the service down with
+ * it, which is why the event records WHY it opened.
+ */
+export const moderateTurn = async (
+  run: ConversationRun,
+  settings: Awaited<ReturnType<typeof getSettings>>,
+  // Who pays for the classifier call.
+  identity: UsageIdentity,
+  // Who wrote the message: judged, recorded and struck (see speakerIdentityFor).
+  speaker: UsageIdentity,
+  // Called when the verdict is a block that lands AFTER the gate failed open: the turn is running by
+  // then, so refusing it means stopping it (the executor aborts it with the 'late-block' StopCause).
+  onLateBlock?: () => void
+): Promise<RefusedTurn | undefined> => {
+  // 'completed', not 'error', at both refusal points below. A turn that stopped for any reason other
+  // than finishing has runStopReasonMessage's notice APPENDED to whatever it produced, and "This turn
+  // failed and could not be completed" is false here and unhelpful: the turn did finish, and
+  // declining was its answer. The block is recorded as a moderation event, which is where an admin
+  // looks for it.
+  // A standing cooldown refuses WITHOUT calling the classifier, let alone the model: someone who has
+  // just been blocked five times should not be able to keep spending the account's moderator budget.
+  if (speaker.isUntrusted && speaker.usageUserId && await isStrikeCooldownActive(run.owner, speaker.usageUserId)) {
+    // Recorded as its own action, distinct from a block: an admin reading the events needs to see
+    // that this one cost no classifier call, rather than it looking like a sixth verdict.
+    recordStrikeRefusal(run.owner, speaker, 'assistant')
+    return refuse(MODERATION_REFUSAL, 'completed', { kind: 'moderation' })
+  }
+
+  // The last few turns, oldest first — enough for the classifier to read a short follow-up in
+  // context. Reference only: the judged unit is the latest user message (see moderation/operations).
+  const recent = (await mongo.messages
+    .find({ conversationId: run.conversationId }, { projection: { _id: 0 } })
+    .sort({ seq: -1 })
+    .limit(MODERATION_CONTEXT_MAX_MESSAGES)
+    .toArray())
+    .reverse()
+    .map(message => ({ role: message.role, content: partsText(message.parts ?? []) }))
+
+  const message = extractLastUserMessage(recent)
+  if (!message) return undefined
+
+  const moderation = startModeration({
+    settings,
+    owner: run.owner,
+    identity,
+    speaker,
+    message,
+    context: buildModerationContext(recent),
+    modelRole: 'assistant',
+    // The classifier call is charged to this turn's run too (see startModeration).
+    run
+  })
+
+  const result = await moderation.gate
+  if (result.timedOut && onLateBlock) moderation.onLateBlock(onLateBlock)
+
+  if (result.action !== 'block') return undefined
+
+  // The strike itself is armed by startModeration, which owns strike accounting and swallows its own
+  // failures so that accounting can never turn a refusal into an answer.
+  return refuse(MODERATION_REFUSAL, 'completed', { kind: 'moderation' })
+}

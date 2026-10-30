@@ -22,7 +22,7 @@
 import { computed } from 'vue'
 import { VNavigationDrawer } from 'vuetify/components/VNavigationDrawer'
 import('@data-fair/frame/lib/d-frame.js')
-import { setAgentInitConfig } from '@data-fair/lib-vue-agents'
+import { setAgentInitConfig, hostInitConfig } from '@data-fair/lib-vue-agents'
 import { useAgentChatDrawer } from './useAgentChatDrawer.js'
 import { resolveAgentChatUrl, registerAgentChatRouter } from './useAgentChatBase.js'
 
@@ -37,7 +37,15 @@ const props = withDefaults(defineProps<{
   accountId?: string
   src?: string
   chatTitle?: string
+  /** Which agent to talk to: `personal` (the personal assistant, the default) or a configured agent's id. Replaces `systemPrompt`. */
+  agentId?: string
+  /** @deprecated Use `agentId`. Ignored, with a one-time console warning. */
   systemPrompt?: string
+  /**
+   * Back-office: show the agent switcher and the person's conversation history. The back-office host
+   * (data-fair) sets it; portals leave it off and keep the mono-agent assistant.
+   */
+  agents?: boolean
   initConfigKey?: string
   drawerProps?: DrawerProps
 }>(), {
@@ -50,7 +58,7 @@ const state = useAgentChatDrawer()
 // variant without clobbering, while keeping sessionStorage bounded — only pass a
 // custom key when mounting several drawers in the same tab.
 const initConfigKey = props.initConfigKey ?? 'drawer'
-setAgentInitConfig(initConfigKey, { prompt: props.systemPrompt, title: props.chatTitle })
+setAgentInitConfig(initConfigKey, hostInitConfig(props))
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))
 </script>

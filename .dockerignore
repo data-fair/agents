@@ -9,3 +9,7 @@ shared/node_modules
 coverage/
 .nyc_output/
 ui/src/pages/_dev
+# Development only, and never shipped: it holds the dev NHI private key (api/config/development.js),
+# and probes or scratch files left in the tree would be ADDed with api/.
+api/config/development.js
+**/*.tmp.*

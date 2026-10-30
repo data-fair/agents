@@ -7,101 +7,154 @@
       :is-admin="isAdmin"
       :title="chatTitle"
       :elevated="headerElevated"
+      :agents="agents"
+      :agent-picker-enabled="multiAgent"
+      :active-agent-id="chat.activeAgentId.value"
+      :conversations="conversations"
+      :active-conversation-id="chat.conversationId.value"
+      :history-enabled="signedIn"
       @show-debug="showDebugDialog = true"
       @reset="handleReset"
+      @select-agent="handleSelectAgent"
+      @select-conversation="handleSelectConversation"
+      @new-conversation="handleNewConversation"
     />
 
-    <template v-if="messages.length">
-      <agent-chat-messages
-        :messages="messages"
-        :is-streaming="isStreaming"
-        :activity="activity"
-        :sub-agent-activities="subAgentActivities"
-        :chat-error="chatError"
-        :welcome-text="t('welcome')"
-        :tool-title="toolTitle"
-        :action-visible-prompt="actionVisiblePrompt"
-        :mermaid-enabled="mermaidEnabled"
-        :simple-sub-agents="simpleSubAgentsEnabled"
-        :show-reasoning="showReasoningEnabled"
-        @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
-        @fix-mermaid="handleFixMermaid"
-        @mermaid-error="handleMermaidError"
-        @update:scrolled="value => headerElevated = value"
+    <!-- Not dismissible: it states a standing fact about every message sent here (shared/agent-audit.ts).
+         One line whatever the width, as chat products state such a fact; the explanation is a click away. -->
+    <div
+      v-if="audited"
+      data-testid="agent-chat-audited-notice"
+      class="d-flex align-center ga-1 px-3 pb-1 text-caption text-medium-emphasis text-no-wrap"
+    >
+      <v-icon
+        :icon="mdiEyeOutline"
+        size="small"
       />
+      <span class="text-truncate">{{ t('auditedShort') }}</span>
+      <v-menu
+        location="bottom"
+        max-width="320"
+      >
+        <template #activator="{ props: menuProps }">
+          <a
+            href="#"
+            data-testid="agent-chat-audited-details"
+            v-bind="menuProps"
+            @click.prevent
+          >{{ t('details') }}</a>
+        </template>
+        <v-card class="pa-3 text-body-2">
+          {{ t('auditedNotice') }}
+          <!-- What it remembers is what it may repeat: instructors read it, admins change it on the agent's page. -->
+          <div
+            v-if="signedIn"
+            class="mt-2"
+          >
+            <a
+              href="#"
+              data-testid="agent-chat-memory"
+              @click.prevent="memoryDialog = true"
+            >{{ t('seeMemory') }}</a>
+          </div>
+        </v-card>
+      </v-menu>
+    </div>
+    <agent-memory-dialog
+      v-if="audited && signedIn"
+      v-model="memoryDialog"
+      :agent="memoryAgent"
+      :account-type="accountType"
+      :account-id="accountId"
+      :can-configure="false"
+    />
 
-      <agent-chat-input
-        :is-streaming="isStreaming"
-        :waiting-for-user="isWaitingForUser"
-        @send="handleSend"
-        @abort="handleAbort"
-      />
-    </template>
+    <agent-chat-messages
+      v-if="messages.length"
+      data-testid="agent-chat-transcript"
+      :messages="messages"
+      :is-streaming="isStreaming"
+      :activity="activity"
+      :chat-error="chatError"
+      :welcome-text="t('welcome')"
+      :tool-title="toolTitle"
+      :action-visible-prompt="actionVisiblePrompt"
+      :mermaid-enabled="mermaidEnabled"
+      :show-reasoning="showReasoningEnabled"
+      :agent-path="agentPath"
+      @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
+      @fix-mermaid="handleFixMermaid"
+      @mermaid-error="handleMermaidError"
+      @decide-approval="d => chat.decideApproval(d.approvalId, d.approved, d.reason)"
+      @update:scrolled="value => headerElevated = value"
+    />
 
+    <!-- The empty state: centered with the composer, by the spacer below it. -->
     <div
       v-else
-      class="flex-grow-1 d-flex flex-column align-center justify-center"
+      class="flex-grow-1 d-flex flex-column align-center justify-end"
       style="min-height: 0"
     >
+      <v-alert
+        v-if="chatError"
+        type="error"
+        variant="tonal"
+        density="comfortable"
+        class="mx-4 mb-4"
+        data-testid="agent-chat-error"
+        :text="chatError"
+      />
       <p
         v-if="showWelcome"
         class="text-body-medium text-medium-emphasis text-center mb-4"
       >
         {{ t('welcome') }}
       </p>
-      <agent-chat-input
-        :is-streaming="isStreaming"
-        style="width: 100%"
-        @send="handleSend"
-        @abort="handleAbort"
-      />
     </div>
+
+    <!-- ONE composer, outside the branches: the first message arriving (a restored conversation, the first
+         answer) does not replace it, so nothing typed, focused or being filled in is lost. -->
+    <agent-chat-input
+      :is-streaming="isStreaming"
+      :waiting-for-user="isWaitingForUser"
+      @send="handleSend"
+      @abort="handleAbort"
+    />
+    <div
+      v-if="!messages.length"
+      class="flex-grow-1"
+    />
 
     <agent-chat-debug-dialog
       v-model="showDebugDialog"
-      :system-prompt="finalSystemPrompt"
-      :debug-tools-partition="debugToolsPartition"
+      :page-tools="chat.tools.value"
       :conversation-id="chat.conversationId.value"
+      :agent-id="chat.activeAgentId.value"
       :is-admin="isAdmin"
+      :audited="audited"
       :account-type="accountType"
       :account-id="accountId"
-      :tool-exploration="explorationEnabled"
-      :sub-agents="subAgentsEnabled"
-      :simple-sub-agents="simpleSubAgentsEnabled"
       :mermaid="mermaidEnabled"
       :show-reasoning="showReasoningEnabled"
       :conversation-cost="chat.conversationCost.value"
       :usage-version="chat.usageVersion.value"
       :fetch-self-usage="chat.fetchSelfUsage"
-      @update:tool-exploration="handleToolExploration"
-      @update:sub-agents="handleSubAgents"
-      @update:simple-sub-agents="handleSimpleSubAgents"
       @update:mermaid="handleMermaid"
       @update:show-reasoning="handleShowReasoning"
     />
 
-    <trace-consent-sheet />
+    <review-consent-sheet :audited="audited" />
   </v-card>
 </template>
 
 <i18n lang="yaml">
 fr:
+  auditedShort: Conversation non privée
+  details: Détails
+  auditedNotice: Les conversations avec cet agent ne sont pas privées. Les administrateurs de l'organisation peuvent les consulter, et l'agent peut se souvenir de ce qui est dit ici et le répéter aux autres personnes avec qui il échange.
+  seeMemory: Voir ce dont il se souvient
+  defaultTitle: Assistant
   welcome: Comment puis-je vous aider ?
-  systemPromptBase: Tu es un assistant IA utile pour la plateforme Data Fair.
-  systemPromptLang: La langue de l'utilisateur est {lang}.
-  systemPromptOrg: "L'utilisateur actuel est membre de l'organisation {orgName}{depPart}."
-  systemPromptDep: ", département {depName}"
-  systemPromptCompact: "Tes réponses sont affichées dans un widget de chat étroit. Garde un formatage compact : utilise des paragraphes courts et des listes à puces simples. Évite les tableaux, les blocs de code larges et les sorties verbeuses. Sois concis."
-  systemPromptMermaid: |
-    Tu peux afficher des diagrammes et graphiques en émettant des blocs de code Mermaid (```mermaid). Privilégie les graphiques XY simples (xychart-beta) pour visualiser des données quantitatives (tendances, comparaisons). N'utilise un diagramme que s'il aide vraiment à la compréhension ; sinon réponds en texte ou avec un tableau. Les valeurs d'un graphique doivent provenir de données réellement interrogées via les outils — ne les invente jamais, ne les estime pas et n'utilise pas de nombres d'exemple ; si tu n'as pas les valeurs, ne trace pas le graphique. Pour un graphique XY, suis exactement cette syntaxe :
-    ```mermaid
-    xychart-beta
-      title "Chiffre d'affaires"
-      x-axis [jan, fev, mar]
-      y-axis "EUR" 0 --> 100
-      bar [20, 50, 90]
-      line [20, 50, 90]
-    ```
   moderationRefusal: "Ce message a été refusé par la modération de contenu — il semble sortir du cadre de ce que cet assistant peut faire. Reformulez votre demande si vous pensez qu'il s'agit d'une erreur."
   fixMermaidVisible: "Corrige le diagramme qui n'a pas pu s'afficher."
   fixMermaidAuto: "Le diagramme n'a pas pu s'afficher, correction automatique en cours…"
@@ -111,22 +164,12 @@ fr:
   quotaShared: "Le quota IA partagé par les visiteurs est épuisé. Il sera réinitialisé le {date}."
   quotaAccount: "Le budget IA de ce compte est épuisé jusqu'au {date}."
 en:
+  auditedShort: Conversation not private
+  details: Details
+  auditedNotice: Conversations with this agent are not private. Administrators of the organization can review them, and the agent may remember what is said here and repeat it to the other people it talks with.
+  seeMemory: See what it remembers
+  defaultTitle: Assistant
   welcome: How can I help you?
-  systemPromptBase: You are a helpful AI assistant for the Data Fair platform.
-  systemPromptLang: The user's language is {lang}.
-  systemPromptOrg: "The current user is a member of the organization {orgName}{depPart}."
-  systemPromptDep: ", department {depName}"
-  systemPromptCompact: "Your responses are displayed in a narrow chat widget. Keep formatting compact: use short paragraphs and simple bullet lists. Avoid tables, wide code blocks, and verbose output. Be concise."
-  systemPromptMermaid: |
-    You can render diagrams and charts by emitting Mermaid fenced code blocks (```mermaid). Prefer simple XY charts (xychart-beta) to visualize quantitative data such as trends and comparisons. Only use a diagram when it genuinely aids understanding; otherwise answer with prose or a table. A chart's values must come from data you actually queried with the tools — never invent or estimate them, and never use placeholder numbers; if you don't have the values, don't draw the chart. When you draw an XY chart, follow this exact syntax:
-    ```mermaid
-    xychart-beta
-      title "Revenue"
-      x-axis [jan, feb, mar]
-      y-axis "USD" 0 --> 100
-      bar [20, 50, 90]
-      line [20, 50, 90]
-    ```
   moderationRefusal: "This message was declined by content moderation — it appears to fall outside what this assistant is meant to help with. Try rephrasing if you think this is a mistake."
   fixMermaidVisible: "Please fix the diagram that failed to render."
   fixMermaidAuto: "The diagram failed to render, fixing it automatically…"
@@ -140,10 +183,13 @@ en:
 <script lang="ts" setup>
 import { createToolTitleMemo } from '../composables/tool-titles'
 import { ref, computed, watch, onMounted, onUnmounted } from 'vue'
+import { mdiEyeOutline } from '@mdi/js'
 import { useI18n } from 'vue-i18n'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { useVueRouterDFrameContent } from '@data-fair/frame/lib/vue-router/d-frame-content.js'
-import { useAgentChat, type ChatMessage } from '~/composables/use-agent-chat'
+import { isAuditedAgentId, isPersonalAgentId, PORTAL_ASSISTANT_ID, BACK_OFFICE_ASSISTANT_ID } from '@agents/shared/agent-audit'
+import { useSessionChat } from '~/composables/use-session-chat'
+import type { ChatMessage } from '~/utils/chat-message'
 import { formatMermaidFix, shouldAutoFixMermaid, MERMAID_AUTO_FIX_BUDGET } from '~/utils/mermaid-fix'
 import type { MermaidFailure } from '~/utils/mermaid'
 import { getTabChannelId, getAgentInitConfig } from '@data-fair/lib-vue-agents'
@@ -152,19 +198,33 @@ import AgentChatHeader from './agent-chat/AgentChatHeader.vue'
 import AgentChatMessages from './agent-chat/AgentChatMessages.vue'
 import AgentChatInput from './agent-chat/AgentChatInput.vue'
 import AgentChatDebugDialog from './agent-chat/AgentChatDebugDialog.vue'
-import TraceConsentSheet from './agent-chat/TraceConsentSheet.vue'
+import ReviewConsentSheet from './agent-chat/ReviewConsentSheet.vue'
+import AgentMemoryDialog from './AgentMemoryDialog.vue'
 import { readFlags, writeFlags } from '~/utils/agent-flags'
 import { canSendNow } from '~/composables/chat-send'
-import { $apiPath } from '~/context'
+import type { AgentOption, ConversationSummary } from '~/utils/chat-agents'
+import { $apiPath, $fetch } from '~/context'
 
 const props = defineProps<{
   isAdmin?: boolean
   title?: string
-  systemPrompt?: string
+  /**
+   * Which agent to talk to: a personal assistant (`portal-assistant`, `back-office-assistant`) or a
+   * configured agent's id. Unset: the back-office assistant in back-office mode, the portal one otherwise.
+   * The server resolves its persona and instructions.
+   */
+  agentId?: string
   narrowViewport?: boolean
   initialMessages?: ChatMessage[]
   accountType: string
   accountId: string
+  /**
+   * Back-office mode: offer the agent switcher and the person's conversation history.
+   *
+   * The host sets it (the embeddable components carry an `agents` prop that lands here as a query
+   * parameter). Front-office embeds leave it off and stay exactly as they were: one agent, one thread.
+   */
+  multiAgent?: boolean
 }>()
 
 // Initial configuration written by the host page (drawer/menu) before this iframe
@@ -172,80 +232,211 @@ const props = defineProps<{
 // several chats in one tab don't clobber each other. Takes precedence over props.
 const initConfigKey = new URLSearchParams(window.location.search).get('initConfig')
 const initConfig = initConfigKey ? getAgentInitConfig(initConfigKey) : undefined
-const initSystemPrompt = initConfig?.prompt
-const chatTitle = computed(() => initConfig?.title ?? props.title)
 
 const { t, locale } = useI18n()
 const session = useSession()
 
-const finalSystemPrompt = computed(() => {
-  const lang = session.state.lang || 'fr'
+/**
+ * The name of the agent this chat was opened on, read from the server.
+ *
+ * Without it a page pointed at an autonomous agent still says "Assistant": the header had only the
+ * host's window title, and the back-office picker's titles come from a list only the multi-agent mode
+ * loads. The title is not merely cosmetic — it is how a person confirms WHICH agent answered.
+ *
+ * Precedence stays host-first (`initConfig.title`, then `?title=`), because a host that named its
+ * window meant it; only when nobody named it does the agent name the chat.
+ */
+const resolvedAgentTitle = ref<string | null>(null)
+// `||`, not `??`: the page's search-param helper yields '' when the parameter is absent, so a nullish
+// check would stop at an empty host title and never reach the agent's name.
+const chatTitle = computed(() => {
+  const named = initConfig?.title?.trim() || props.title?.trim()
+  return named || resolvedAgentTitle.value || t('defaultTitle')
+})
+
+/**
+ * Facts about this surface, in ENGLISH and not through i18n.
+ *
+ * They are addressed to the model, not to the person, and they used to be localized — which meant the
+ * assistant's instructions themselves differed by UI language, so a French user and an English user
+ * got measurably different behaviour from the same build. The person's language travels as its own
+ * fact (`language` below) and the model answers in it; how it should format is one instruction for
+ * everyone.
+ */
+const NARROW_SURFACE = 'a narrow chat widget: keep answers compact, with short paragraphs and simple bullet lists, and avoid tables, wide code blocks and verbose output'
+
+const MERMAID_SUPPORT = [
+  'this host renders Mermaid fenced code blocks (```mermaid), so diagrams and charts may be used in answers.',
+  'Prefer simple XY charts (xychart-beta) for quantitative data such as trends and comparisons, and only use a diagram when it genuinely aids understanding — otherwise answer with prose or a table.',
+  // The guardrail, carried over verbatim in substance: it is the part that stops a chart from
+  // inventing its own data, which is the failure that makes a chart worse than no chart.
+  "A chart's values must come from data actually queried with the tools — never invented, estimated, or placeholder numbers; without the values, do not draw the chart.",
+  'XY charts follow this exact syntax:\n```mermaid\nxychart-beta\n  title "Revenue"\n  x-axis [jan, feb, mar]\n  y-axis "USD" 0 --> 100\n  bar [20, 50, 90]\n  line [20, 50, 90]\n```'
+].join(' ')
+
+/**
+ * The context this chat's surroundings add, reported as HOST STATE rather than spliced into a prompt.
+ *
+ * It used to be concatenated onto a client-built system prompt. The prompt is the server's now, and
+ * the server does not know any of this — the person's language, which organization they are in, that
+ * the chat is a narrow strip rather than a page, whether this host renders diagrams. So it travels on
+ * the channel that exists for exactly this: facts the page knows and the model needs.
+ *
+ * This is a better home than the prompt was, for a reason worth recording: these are OBSERVATIONS
+ * about the situation, and they change while a conversation is open. Someone widening the drawer or
+ * switching language used to need a conversation reset for the prompt to be uniform; as state, the
+ * next turn simply sees the new value.
+ *
+ * The user's NAME stays out, as it did before: it has no bearing on the assistant's behaviour and it
+ * is a privacy concern to hand to a provider.
+ */
+const hostContext = computed<Record<string, string | null>>(() => {
   const orgName = session.state.account?.name
   const depName = session.state.account?.departmentName
-
-  // The user's name is deliberately omitted: it has no bearing on the assistant's
-  // behaviour, it is a privacy concern to send to providers, and keeping it out
-  // makes the system prompt prefix homogeneous across users (better prompt caching).
-  const parts = [
-    (initSystemPrompt ?? props.systemPrompt) || t('systemPromptBase')
-  ]
-
-  if (props.accountType === 'organization' && orgName) {
-    const depPart = depName ? t('systemPromptDep', { depName }) : ''
-    parts.push(t('systemPromptOrg', { orgName, depPart }))
+  return {
+    language: session.state.lang || 'fr',
+    organization: props.accountType === 'organization' && orgName
+      ? (depName ? `${orgName}, department ${depName}` : orgName)
+      : null,
+    // Null WITHDRAWS the fact, which is the difference between "this chat is a wide page" and "nobody
+    // said how wide it is" — only the first should make the assistant stop keeping its answers narrow.
+    surface: props.narrowViewport ? NARROW_SURFACE : null,
+    diagrams: mermaidEnabled.value ? MERMAID_SUPPORT : null
   }
-
-  parts.push(t('systemPromptLang', { lang }))
-
-  if (props.narrowViewport) {
-    parts.push(t('systemPromptCompact'))
-  }
-
-  if (mermaidEnabled.value) {
-    parts.push(t('systemPromptMermaid'))
-  }
-
-  return parts.join(' ')
 })
 
 // Experimental chat flags, persisted in a service-scoped cookie (see agent-flags.ts)
-// and toggled from the debug dialog's Settings tab. subAgents is ON by default;
-// turning it off is the "flatten" mode (every sub-agent tool exposed directly).
+// and toggled from the debug dialog's Settings tab.
 const initialFlags = readFlags()
-const explorationEnabled = ref(initialFlags.toolExploration)
-const subAgentsEnabled = ref(initialFlags.subAgents)
-const simpleSubAgentsEnabled = ref(initialFlags.simpleSubAgents)
 const mermaidEnabled = ref(initialFlags.mermaid)
 const showReasoningEnabled = ref(initialFlags.showReasoning)
 
-const chatResult = useAgentChat({
+const chat = useSessionChat({
   accountType: props.accountType,
   accountId: props.accountId,
-  systemPrompt: finalSystemPrompt.value,
+  // The page's `?agentId=` first, then the embedding component's init config: the drawer, menu and
+  // block write `agentId` there, and it used to be read for `title` only, so an embedded chat always
+  // talked to the personal assistant whatever agent its host had named.
+  // Unnamed (the page passes `''` without `?agentId=`), the office decides which personal assistant: the
+  // host cannot, as the back office is a path on the main portal's domain.
+  agentId: props.agentId || initConfig?.agentId || (props.multiAgent ? BACK_OFFICE_ASSISTANT_ID : PORTAL_ASSISTANT_ID),
+  // In the back office, a reload reopens the last conversation even when it was with another agent.
+  resumeAnyAgent: !!props.multiAgent && !props.agentId && !initConfig?.agentId,
   initialMessages: props.initialMessages,
-  refusalMessage: t('moderationRefusal'),
-  toolExploration: explorationEnabled.value,
-  flattenSubAgents: !subAgentsEnabled.value,
-  formatQuotaError: (q) => {
-    // without a reset date the localized sentences would read "resets on ."
-    if (!q.resetsAt) return q.message
-    const date = new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(q.resetsAt))
-    if (q.scope === 'account') return t('quotaAccount', { date })
-    if (q.scope === 'untrusted') return t('quotaShared', { date })
-    return t(`quota_${q.period ?? 'monthly'}`, { date })
+  // The picker's own conversations are titled by the date; a host chat title would name every
+  // thread of an agent identically, which is exactly what a history list cannot afford.
+  ...(chatTitle.value && !props.multiAgent ? { title: chatTitle.value } : {}),
+  anonymous: !session.state.user,
+  // Main's #74 quota sentences, and the moderation refusal, in the chat's language. The server stores
+  // the English text beside these fields, so anything this cannot phrase stays readable.
+  formatRefusal: (refusal) => {
+    if (refusal.kind === 'moderation') return t('moderationRefusal')
+    // Without a reset date the sentences would read "resets on ."
+    if (!refusal.resetsAt) return undefined
+    const date = new Intl.DateTimeFormat(locale.value, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(refusal.resetsAt))
+    if (refusal.scope === 'account') return t('quotaAccount', { date })
+    if (refusal.scope === 'untrusted') return t('quotaShared', { date })
+    return t(`quota_${refusal.period ?? 'monthly'}`, { date })
   }
 })
 
-if (!chatResult) {
-  throw new Error('Chat not supported in SSR')
-}
-// chatResult is guaranteed to be defined after the throw guard above
-// but TypeScript doesn't narrow across script setup scope, so we re-bind
-const chat = chatResult
-
-watch(finalSystemPrompt, (prompt) => {
-  chat.setSystemPrompt(prompt)
+const audited = computed(() => isAuditedAgentId(chat.activeAgentId.value))
+const memoryDialog = ref(false)
+const memoryAgent = computed(() => {
+  const id = chat.activeAgentId.value
+  return id ? { id, title: agents.value.find(agent => agent.id === id)?.title ?? chatTitle.value } : null
 })
+// Where an approval card reads the task a planning call would change. The personal assistant has no tasks.
+const agentPath = computed(() => isPersonalAgentId(chat.activeAgentId.value)
+  ? undefined
+  : `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${chat.activeAgentId.value}`)
+
+/**
+ * The header's agent list and the person's conversation history.
+ *
+ * History is offered to every signed-in person, front office included: it costs nothing to a visitor
+ * who never opens it, and "where was I with this agent" is the same question whatever the embed. The
+ * PICKER stays back-office — portals keep the mono-agent shape.
+ *
+ * Both are conveniences over the chat itself: a failure to read either leaves the chat usable, so
+ * neither is allowed to surface as the chat's error.
+ */
+const agents = ref<AgentOption[]>([])
+const conversations = ref<ConversationSummary[]>([])
+
+// History is for people, not visitors: an anonymous thread lives only as long as its socket, so
+// there is never one to list. The agent list doubles as the history's label source.
+const signedIn = computed(() => !!session.state.user)
+
+const loadConversations = async () => {
+  if (!signedIn.value) return
+  try {
+    const res = await $fetch<{ results: ConversationSummary[] }>(
+      `${$apiPath}/conversations/${props.accountType}/${props.accountId}`,
+      { credentials: 'include' })
+    conversations.value = res.results ?? []
+  } catch { /* history is convenience, not a gate */ }
+}
+
+const loadAgents = async () => {
+  if (!signedIn.value) return
+  try {
+    const res = await $fetch<{ results: AgentOption[] }>(
+      `${$apiPath}/conversations/${props.accountType}/${props.accountId}/agents`,
+      { credentials: 'include' })
+    agents.value = res.results ?? []
+    // The chat may have been opened naming an agent the caller can no longer use (a revoked grant, a
+    // host link built by an admin). With no conversation open yet, land on one that is actually
+    // offered rather than letting the first message fail on a creation the picker said was possible.
+    // A conversation already resumed from the server names its own agent and must not be relabelled.
+    const active = chat.activeAgentId.value
+    if (props.multiAgent && !chat.conversationId.value && agents.value.length && !agents.value.some(agent => agent.id === active)) {
+      chat.setActiveAgent(agents.value[0].id)
+    }
+  } catch { /* the single agent the chat was opened with stays the fallback */ }
+}
+
+/**
+ * Who was this chat opened on?
+ *
+ * The picker's list carries titles too, but only for the agents it offers — a chat may have been
+ * pointed at one disabled agent (the admin's Open link), which still has a name even though it must
+ * not run, and the list drops it. The configured-agent route answers for both. The personal assistant
+ * has no document there; its name is the built-in one the fallback title uses, so it is not asked.
+ */
+const resolveAgentTitle = async () => {
+  const agentId = props.agentId ?? initConfig?.agentId
+  if (!agentId || isPersonalAgentId(agentId) || !session.state.user) return
+  try {
+    const agent = await $fetch<{ title: string }>(
+      `${$apiPath}/autonomous-agents/${props.accountType}/${props.accountId}/${agentId}`,
+      { credentials: 'include' })
+    resolvedAgentTitle.value = agent.title
+  } catch { /* not a configured agent on this account, or not ours to read: the default stands */ }
+}
+
+const handleSelectAgent = async (agentId: string) => {
+  await chat.switchAgent(agentId)
+  await loadConversations()
+}
+
+const handleNewConversation = async () => {
+  await chat.reset()
+  await loadConversations()
+}
+
+const handleSelectConversation = (conversation: ConversationSummary) => {
+  chat.openConversation(conversation.agentId, conversation.id)
+}
+
+// A thread becomes history once its first message is stored. The composed transcript arrives as
+// frames, so the end of a turn is the moment the list can gain a row (a thread's first message) or
+// change order — and it is the only moment either can happen.
+watch(() => chat.status.value, status => { if (status === 'ready') loadConversations() })
+
+// Reported on attach and whenever it changes. `immediate` matters: the first turn is the one most
+// likely to ask "what is this?", and a report that only fired on CHANGE would leave that turn blind.
+watch(hostContext, context => { chat.reportHostState(context) }, { immediate: true, deep: true })
 
 const actionVisiblePrompt = ref<string | null>(null)
 
@@ -260,7 +451,6 @@ const messages = computed(() => chat.messages.value)
 const isStreaming = computed(() => chat.status.value === 'streaming')
 const activity = computed(() => chat.activity.value)
 const isWaitingForUser = computed(() => chat.isWaitingForUser.value)
-const subAgentActivities = computed(() => chat.subAgentActivities.value)
 const chatError = computed(() => chat.error.value)
 
 const showDebugDialog = ref(false)
@@ -286,6 +476,11 @@ onMounted(() => {
     welcomeTimeout = setTimeout(() => {
       welcomeDelayDone.value = true
     }, 200)
+  }
+  if (signedIn.value) {
+    loadAgents()
+    loadConversations()
+    resolveAgentTitle()
   }
 })
 
@@ -343,7 +538,7 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   actionVisiblePrompt.value = visiblePrompt
   mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET
 
-  // The hidden context rides inside this user turn (see use-agent-chat sendMessage)
+  // The hidden context rides inside this user turn (see startActionSession)
   // instead of mutating the session system prompt, so it stays scoped to the turn
   // and surfaces in the trace reviewer.
   chat.sendMessage(visiblePrompt, { hiddenContext })
@@ -351,41 +546,17 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
 
 function persistFlags () {
   writeFlags({
-    toolExploration: explorationEnabled.value,
-    subAgents: subAgentsEnabled.value,
-    simpleSubAgents: simpleSubAgentsEnabled.value,
     mermaid: mermaidEnabled.value,
     showReasoning: showReasoningEnabled.value
   }, $apiPath)
 }
 
-function handleToolExploration (enabled: boolean) {
-  explorationEnabled.value = enabled
-  persistFlags()
-  chat.setToolExploration(enabled)
-  // Reset the conversation so the new tool set applies from a clean state.
-  handleReset()
-}
-
-function handleSubAgents (enabled: boolean) {
-  subAgentsEnabled.value = enabled
-  persistFlags()
-  chat.setFlattenSubAgents(!enabled)
-  // Reset the conversation so the new tool set applies from a clean state.
-  handleReset()
-}
-
-function handleSimpleSubAgents (enabled: boolean) {
-  simpleSubAgentsEnabled.value = enabled
-  persistFlags()
-  // Presentation-only: no conversation reset (unlike mermaid/subAgents/toolExploration).
-}
-
 function handleMermaid (enabled: boolean) {
   mermaidEnabled.value = enabled
   persistFlags()
-  // Reset so the system prompt is uniform across the whole conversation.
-  handleReset()
+  // No reset: the mermaid instruction used to be part of the client-built system prompt, so the
+  // conversation had to restart for it to be uniform. The prompt is the server's now and this flag is
+  // render-only here.
 }
 
 function handleShowReasoning (enabled: boolean) {
@@ -398,7 +569,7 @@ function handleShowReasoning (enabled: boolean) {
 
 function handleReset () {
   chat.abort()
-  chat.reset(finalSystemPrompt.value)
+  chat.reset()
   actionVisiblePrompt.value = null
   sessionStarted.value = false
   // The transcript is gone; drop the scroll-driven header shadow until it scrolls again.
@@ -428,26 +599,21 @@ watch(() => chat.status.value, (status) => {
   }
 })
 
-// A declared wait is the user's turn even though the stream is still open: tell the
-// host so its FAB shows the same "your move" colour as a finished turn.
-watch(() => chat.activity.value?.kind === 'waiting', (waiting) => {
-  if (chat.status.value !== 'streaming') return
-  sendDFrameMessage({ type: 'agent-status', status: waiting ? 'waiting-user' : 'working' })
-})
-
 watch(() => chat.toolsVersion.value, () => {
   sendDFrameMessage({ type: 'tools-changed' })
 })
 
-watch(() => chat.messages.value.length, () => {
+// Unread once the reply has something to read, not when its turn opens: the server announces an
+// empty pending message at the start of every run, which arrives while the person who just sent is
+// still looking — and the parent ignores an unread raised while it is open.
+watch(() => {
   const msgs = chat.messages.value
   const lastMsg = msgs[msgs.length - 1]
-  if (lastMsg && lastMsg.role === 'assistant') {
-    sendDFrameMessage({ type: 'unread', unread: true })
-  }
+  const readable = lastMsg?.role === 'assistant' && !!(lastMsg.content || lastMsg.toolInvocations?.length)
+  return readable ? msgs.length : 0
+}, (readableAt) => {
+  if (readableAt) sendDFrameMessage({ type: 'unread', unread: true })
 })
-
-const debugToolsPartition = computed(() => chat.resolvedPartition.value)
 
 // Memoised: a page's tools are unregistered when it unmounts, and without this
 // a chip already in the scrollback would turn back into its raw snake_case name,
@@ -456,10 +622,10 @@ const toolTitle = createToolTitleMemo((toolName: string) => (chat.tools.value[to
 
 // What someone typed while the turn was busy, waiting for it to stop being busy.
 // Dropping it is what this replaces: a judged simulation lost six of its nine
-// turns to messages that went nowhere and said nothing. The composer only offers
-// Send while a wait is armed, so a person rarely meets the guard — but the flag
-// can flip between the button being found and the click landing, and the message
-// fell into that gap.
+// turns to messages that went nowhere and said nothing. The composer offers Send
+// during a turn only once it hands over, so a person rarely meets the guard — but
+// the handover's label can arrive before its turn has ended, and a message sent in
+// that gap is queued rather than dropped.
 const queuedUserMessage = ref<string | null>(null)
 
 const deliver = (userMessage: string) => {

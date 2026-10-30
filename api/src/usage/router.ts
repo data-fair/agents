@@ -1,7 +1,7 @@
 import { Router } from 'express'
-import { type AccountKeys, assertAccountRole, httpError, isValidAccountType, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
+import { type AccountKeys, assertAccountRole, httpError, isAuthenticated, isValidAccountType, reqAdminMode, reqSession, reqSessionAuthenticated } from '@data-fair/lib-express'
 import {
-  getOwnerUsage,
+  getUsage,
   getAccountDailyHistory,
   getAccountMonthlyHistory,
   getUsersDailyHistory,
@@ -12,7 +12,8 @@ import {
   type UsageDimension,
   type PlatformDimension
 } from './service.ts'
-import { getRawSettings, defaultQuotas } from '../settings/service.ts'
+import { getRawSettings, getSettings, defaultQuotas } from '../settings/service.ts'
+import { resolveUsageIdentity, getSelfUsage } from './enforce.ts'
 import { getCreditInfo } from '../limits/service.ts'
 
 const router = Router()
@@ -60,6 +61,27 @@ router.get('/history', async (req, res, next) => {
   }
 })
 
+/**
+ * The caller's OWN consumption on this account: their quota windows, and the shared budgets as a
+ * status — with numbers only for an admin of the owner (`getSelfUsage`).
+ *
+ * Same identity resolution as a turn — anonymous action token included — so it reports exactly the usage the turn gate enforces, and
+ * refuses exactly whom the gate refuses.
+ */
+router.get('/:type/:id/self', async (req, res, next) => {
+  try {
+    const sessionState = reqSession(req)
+    const owner = { type: req.params.type, id: req.params.id } as AccountKeys
+    if (!isValidAccountType(owner.type)) throw httpError(400, 'invalid account type')
+    const settings = await getSettings(owner)
+    const quotas = settings.quotas ?? defaultQuotas
+    const identity = await resolveUsageIdentity(req, owner, quotas, sessionState, isAuthenticated(sessionState))
+    res.json(await getSelfUsage(owner, quotas, identity))
+  } catch (err) {
+    next(err)
+  }
+})
+
 router.get('/:type/:id', async (req, res, next) => {
   try {
     const session = reqSessionAuthenticated(req)
@@ -69,7 +91,7 @@ router.get('/:type/:id', async (req, res, next) => {
     const period = req.query.period as string | undefined
 
     const [usage, settings, credits] = await Promise.all([
-      getOwnerUsage(owner),
+      getUsage(owner),
       getRawSettings(owner),
       getCreditInfo(owner)
     ])

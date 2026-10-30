@@ -1,0 +1,227 @@
+/**
+ * router.ts contains the HTTP layer logic and stateful logic
+ * it should not be imported anywhere else than app.ts
+ * it is tested by api integration tests
+ */
+
+import { Router, type Request } from 'express'
+import { nanoid } from 'nanoid'
+import mongo from '#mongo'
+import { httpError, reqSiteUrl } from '@data-fair/lib-express'
+import eventsLog from '@data-fair/lib-express/events-log.js'
+import { getAccountRole } from '@data-fair/lib-common-types/session/index.js'
+import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
+import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/schema.js'
+import { reqAgent, reqAgentOwner, getMcpServerCatalog, describeAutonomousAgentSession, assertEnrolmentWorks, describeAutonomousAgentTools, forgetAgentSessions, assertMcpServerRefs, deleteAutonomousAgentData } from './service.ts'
+import { nhiIssuerUrl } from '../nhi/operations.ts'
+import { buildNhi, type StoredNhi } from './operations.ts'
+import { abortRunsOfAgent } from '../conversations/live-runs.ts'
+import { normalizeAllowedUrls } from '../web/operations.ts'
+import { normalizeExternalMcpServers } from '../mcp-servers/operations.ts'
+
+const WRITABLE_KEYS = Object.keys(writeReqSchema.properties)
+
+/**
+ * Splits a write body into the server-built `nhi` and the rest.
+ *
+ * Captured, not configured: this request came through the proxy from an admin who was browsing this
+ * service, so reqSiteUrl(req) is a site url that demonstrably resolves here. Everything the exchange
+ * needs — the signed audience, the declared x-forwarded-*, and the path it posts to — derives from this
+ * one value, so they cannot drift apart. See api/src/nhi/operations.ts.
+ *
+ * `nhi` is NEVER taken from the body. `readOnly` is not enforced by ajv, and siteUrl/issuer are KNOWN
+ * keys so `additionalProperties: false` does not reject them either — so the ONLY protection is that we
+ * strip the client's object and rebuild it. Stripping unconditionally matters: a present-but-falsy
+ * clientId (e.g. '') used to skip the rebuild and let the whole client-supplied nhi through.
+ */
+const rebuildNhi = <B extends { nhi?: { clientId?: string } }>(body: B, req: Request, existing?: StoredNhi) => {
+  const { nhi: clientNhi, ...writable } = body
+  const nhi = buildNhi(clientNhi?.clientId, existing, () => ({
+    siteUrl: reqSiteUrl(req).replace(/\/+$/, ''),
+    issuer: nhiIssuerUrl(reqSiteUrl(req))
+  }))
+  return { nhi, writable }
+}
+
+/**
+ * The web allowlist as the matcher compares it (https assumed, lowercase host, dot segments resolved),
+ * so what an admin reads back is what is enforced. An invalid entry is the admin's to fix: a 400.
+ */
+const normalizeWeb = <B extends { web?: { enabled: boolean, allowedUrls?: string[] } }>(body: B): B => {
+  if (!body.web?.allowedUrls) return body
+  try {
+    return { ...body, web: { ...body.web, allowedUrls: normalizeAllowedUrls(body.web.allowedUrls) } }
+  } catch (err: any) {
+    throw httpError(400, `web.allowedUrls: ${err.message}`)
+  }
+}
+
+/** The external MCP servers as the client connects to them (see normalizeExternalMcpServers). */
+const normalizeExternal = <B extends { externalMcpServers?: { url: string }[] }>(body: B): B => {
+  if (!body.externalMcpServers) return body
+  try {
+    return { ...body, externalMcpServers: normalizeExternalMcpServers(body.externalMcpServers) }
+  } catch (err: any) {
+    throw httpError(400, `externalMcpServers: ${err.message}`)
+  }
+}
+
+const router = Router()
+export default router
+
+// The literal `mcp-servers` segment MUST stay registered before the `/:agentId`
+// param route below, or Express matches it as an autonomous agent id.
+router.get('/:type/:id/mcp-servers', async (req, res, next) => {
+  try {
+    reqAgentOwner(req, 'admin')
+    const results = getMcpServerCatalog()
+    res.json({ results, count: results.length })
+  } catch (err) { next(err) }
+})
+
+router.get('/:type/:id', async (req, res, next) => {
+  try {
+    const { owner } = reqAgentOwner(req, 'admin')
+    const results = await mongo.autonomousAgents
+      .find({ 'owner.type': owner.type, 'owner.id': owner.id }, { projection: { _id: 0 } })
+      .sort({ updatedAt: -1 })
+      .toArray()
+    res.json({ results, count: results.length })
+  } catch (err) { next(err) }
+})
+
+router.post('/:type/:id', async (req, res, next) => {
+  try {
+    const { session, owner } = reqAgentOwner(req, 'write')
+    const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
+    assertMcpServerRefs(body.mcpServers)
+
+    const { nhi, writable } = rebuildNhi(body, req)
+
+    const now = new Date().toISOString()
+    const autonomousAgent = {
+      ...writable,
+      ...(nhi ? { nhi } : {}),
+      id: nanoid(),
+      owner,
+      createdAt: now,
+      updatedAt: now,
+      createdBy: { id: session.user.id, name: session.user.name }
+    }
+    if (autonomousAgent.nhi?.clientId) await assertEnrolmentWorks(autonomousAgent)
+    await mongo.autonomousAgents.insertOne({ ...autonomousAgent })
+
+    eventsLog.info('agents.autonomous-agent.create', `autonomous agent ${autonomousAgent.id} created for owner ${owner.type}/${owner.id}`, { req })
+    res.json(autonomousAgent)
+  } catch (err) { next(err) }
+})
+
+/**
+ * Read one autonomous agent.
+ *
+ * Gated on canInstruct, NOT on the owner's admin role: a listed instructor — including one from
+ * another account, which is the cross-account grant this feature exists to support — has to be able
+ * to open the agent's thread, and this is the first request that page makes. An admin gate here made
+ * the whole instructor grant unreachable.
+ *
+ * A non-admin instructor gets a PROJECTION. They may drive the autonomous agent, which does not mean
+ * they may see the identity it acts as or who else was granted access, so `nhi` and `instructors` are
+ * withheld from them. The persona and instructions are not withheld: they describe what the agent
+ * will do with an instruction, which is exactly what someone about to instruct it should be able to
+ * read.
+ */
+router.get('/:type/:id/:agentId', async (req, res, next) => {
+  try {
+    const { session, owner, agent: autonomousAgent } = await reqAgent(req, 'instruct')
+    // The account's own rule, department included: an admin of one department of the organization is
+    // not an admin of an agent owned by the organization itself (the same reason as in canInstruct).
+    if (getAccountRole(session, owner) === 'admin') { res.json(autonomousAgent); return }
+    const { nhi, instructors, ...instructable } = autonomousAgent
+    res.json(instructable)
+  } catch (err) { next(err) }
+})
+
+router.get('/:type/:id/:agentId/session', async (req, res, next) => {
+  try {
+    const { agent: autonomousAgent } = await reqAgent(req, 'admin')
+    res.json(await describeAutonomousAgentSession(autonomousAgent))
+  } catch (err) { next(err) }
+})
+
+router.get('/:type/:id/:agentId/tools', async (req, res, next) => {
+  try {
+    const { agent: autonomousAgent } = await reqAgent(req, 'admin')
+
+    const { results, skipped } = await describeAutonomousAgentTools(autonomousAgent)
+    res.json({ results, count: results.length, skipped })
+  } catch (err) { next(err) }
+})
+
+router.put('/:type/:id/:agentId', async (req, res, next) => {
+  try {
+    const { owner, agent: existing } = await reqAgent(req, 'write')
+    const body = normalizeExternal(normalizeWeb(writeReqBody.returnValid(req.body, { name: 'body' })))
+    assertMcpServerRefs(body.mcpServers)
+
+    // Keeps the captured site of an unchanged identity (see buildNhi): an admin saving from another of
+    // the organization's hosts does not move the agent's home.
+    const { nhi, writable } = rebuildNhi(body, req, existing.nhi)
+
+    // The body replaces the WRITABLE subset only: a writable field it omits is removed, and everything
+    // the server owns (id, owner, createdBy, memoryConsolidation…) is never touched, so it needs no list.
+    const $set = { ...writable, ...(nhi ? { nhi } : {}), updatedAt: new Date().toISOString() }
+    const $unset: Record<string, ''> = Object.fromEntries(WRITABLE_KEYS.filter(key => !(key in $set)).map(key => [key, '']))
+    const updated: typeof existing = { ...existing, ...$set }
+    for (const key of Object.keys($unset)) delete (updated as Record<string, unknown>)[key]
+    // Re-verify whenever any part of the enrolment changed, not just the clientId: siteUrl/issuer
+    // feed the signed audience and the exchange path, so an unverified change breaks the agent at
+    // its first tool call. buildNhi only changes them on a new clientId or a missing capture, but
+    // the comparison stays field-by-field so that invariant is not what this relies on. An unchanged
+    // enrolment is deliberately NOT re-verified: exchanges spend a rate-limit budget every agent of
+    // the service shares (nhi/session-broker.ts), and an edit of the persona needs none.
+    const enrolmentChanged = !!updated.nhi?.clientId && (
+      updated.nhi.clientId !== existing.nhi?.clientId ||
+      updated.nhi.siteUrl !== existing.nhi?.siteUrl ||
+      updated.nhi.issuer !== existing.nhi?.issuer
+    )
+    if (enrolmentChanged) await assertEnrolmentWorks(updated)
+    await mongo.autonomousAgents.updateOne({ id: existing.id, 'owner.type': owner.type, 'owner.id': owner.id }, { $set, ...(Object.keys($unset).length ? { $unset } : {}) })
+    // Any save starts the agent's identity afresh: an admin saving after fixing its NHI in simple-directory gets
+    // a new exchange at once, not the rejection back-off nor a session obtained before (nhi/session-broker.ts).
+    forgetAgentSessions(existing.id)
+
+    // The kill switch has to act NOW, not at the next turn. It was only read at the start of a turn, so
+    // disabling an agent left whatever it was already doing running to completion — tool calls included.
+    // Its cached NHI sessions were dropped just above, or a turn already inside the loop could keep acting
+    // as the agent with credentials obtained before it was disabled.
+    if (updated.enabled === false && existing.enabled !== false) {
+      const stopped = await abortRunsOfAgent(existing.id)
+      if (stopped) {
+        eventsLog.info('agents.autonomous-agent.disable-stopped-runs', `disabling autonomous agent ${existing.id} stopped ${stopped} live run(s)`, { req })
+      }
+    }
+
+    eventsLog.info('agents.autonomous-agent.update', `autonomous agent ${existing.id} updated for owner ${owner.type}/${owner.id}`, { req })
+    res.json(updated)
+  } catch (err) { next(err) }
+})
+
+router.delete('/:type/:id/:agentId', async (req, res, next) => {
+  try {
+    const { owner } = reqAgentOwner(req, 'write')
+
+    const result = await mongo.autonomousAgents.deleteOne({ id: req.params.agentId, 'owner.type': owner.type, 'owner.id': owner.id })
+    if (!result.deletedCount) throw httpError(404, 'unknown autonomous agent')
+    // Stop before deleting: a turn still in flight would otherwise keep calling tools as an agent that
+    // no longer exists, and would write messages into a conversation on its way out.
+    await abortRunsOfAgent(req.params.agentId)
+    forgetAgentSessions(req.params.agentId)
+    // CASCADE. Every read path resolves through the agent, so its conversations, messages and runs
+    // left behind would be orphaned data an admin cannot see, cannot export and
+    // cannot erase, which is not a defensible state for a store that now holds whole tool results.
+    const removed = await deleteAutonomousAgentData(req.params.agentId)
+
+    eventsLog.info('agents.autonomous-agent.delete', `autonomous agent ${req.params.agentId} deleted for owner ${owner.type}/${owner.id} with ${removed.conversations} conversation(s), ${removed.messages} message(s), ${removed.runs} run(s)`, { req })
+    res.status(204).send()
+  } catch (err) { next(err) }
+})

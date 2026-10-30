@@ -11,8 +11,8 @@ import { createToolServer, TOOL_TIMEOUT_MS } from './tool-server.ts'
 import { SessionStore, continuationOf, hashMessages, sameToolSet } from './sessions.ts'
 import { Conversation, type TurnOutcome, type SdkMessage } from './conversation.ts'
 import {
-  extractSystemPrompt, renderTranscript, toolNameToMcp, textChunk, toolCallsChunk,
-  finalChunk, errorBody, MCP_SERVER_NAME,
+  systemPromptFor, renderTranscript, toolNameToMcp, textChunk, toolCallsChunk,
+  finalChunk, errorBody, completionOf, MCP_SERVER_NAME,
   type OpenAIMessage, type OpenAIToolDef
 } from './openai.ts'
 
@@ -51,6 +51,8 @@ type CompletionRequest = {
   model?: string
   messages?: OpenAIMessage[]
   tools?: OpenAIToolDef[]
+  /** The AI SDK's streamText sends true; its generateText sends nothing, and expects one JSON body. */
+  stream?: boolean
 }
 
 /**
@@ -150,14 +152,32 @@ async function handleCompletion (
   const model = body.model ?? 'sonnet'
   const id = `chatcmpl-${crypto.randomUUID()}`
 
-  res.writeHead(200, {
-    'content-type': 'text/event-stream',
-    'cache-control': 'no-cache',
-    connection: 'keep-alive'
-  })
+  // The turn writes stream chunks either way. Streaming, they go out as they come; otherwise they are
+  // kept and folded into one completion when the turn ends (completionOf).
+  const streaming = body.stream === true
+  const kept: object[] = []
+  if (streaming) {
+    res.writeHead(200, {
+      'content-type': 'text/event-stream',
+      'cache-control': 'no-cache',
+      connection: 'keep-alive'
+    })
+  }
   const send = (payload: object) => {
+    if (!streaming) { kept.push(payload); return }
     if (res.writableEnded || res.destroyed) return
     res.write(`data: ${JSON.stringify(payload)}\n\n`)
+  }
+  const close = () => {
+    if (res.writableEnded || res.destroyed) return
+    if (streaming) {
+      res.write('data: [DONE]\n\n')
+      res.end()
+      return
+    }
+    const folded = completionOf(id, model, kept)
+    res.writeHead('error' in folded ? 500 : 200, { 'content-type': 'application/json' })
+    res.end(JSON.stringify('error' in folded ? folded.error : folded.completion))
   }
   const sink = (text: string) => { send(textChunk(id, model, text)) }
 
@@ -182,7 +202,7 @@ async function handleCompletion (
       store.rekey(continuation.key, hashMessages(messages))
       const turn = live.beginTurn(sink)
       live.deliverToolResults(continuation.toolResults)
-      finish(await withCeiling(turn), live, store, res, send, id, model)
+      finish(await withCeiling(turn), live, store, send, close, id, model)
       return
     }
     // Diverged, expired, dead, answering calls this session never made, or
@@ -201,7 +221,8 @@ async function handleCompletion (
     options: {
       ...isolationOptions(getNeutralCwd()),
       model,
-      systemPrompt: extractSystemPrompt(messages),
+      // Plus the whole description of any tool Claude Code would cut (openai.ts, MCP_DESCRIPTION_LIMIT).
+      systemPrompt: systemPromptFor(messages, tools),
       // The tool server deliberately holds the LOW-LEVEL MCP `Server` (see
       // tool-server.ts: the high-level `McpServer` helper rejects raw JSON
       // Schema, which is exactly what an OpenAI request hands us). The SDK's
@@ -216,17 +237,19 @@ async function handleCompletion (
     }
   })
   store.set(conv)
-  finish(await withCeiling(conv.beginTurn(sink, iterator)), conv, store, res, send, id, model)
+  finish(await withCeiling(conv.beginTurn(sink, iterator)), conv, store, send, close, id, model)
 }
 
 function finish (
   outcome: TurnOutcome, conv: Conversation, store: SessionStore,
-  res: http.ServerResponse, send: (payload: object) => void, id: string, model: string
+  send: (payload: object) => void, close: () => void, id: string, model: string
 ) {
   if (outcome.type === 'tools') {
     send(toolCallsChunk(id, model, outcome.calls))
     conv.handedBack(outcome.calls.length)
-    send(finalChunk(id, model, 'tool_calls'))
+    // With the usage of the model calls that made them: a turn stopped here for good (an approval
+    // gate) has no later request to carry it, and recorded a real model call as zero tokens.
+    send(finalChunk(id, model, 'tool_calls', outcome.usage))
     // The session stays alive: its handlers are suspended, waiting for the
     // results the client is about to compute.
   } else {
@@ -234,7 +257,5 @@ function finish (
     send(finalChunk(id, model, 'stop', outcome.type === 'done' ? outcome.usage : undefined))
     store.delete(conv.key)
   }
-  if (res.writableEnded || res.destroyed) return
-  res.write('data: [DONE]\n\n')
-  res.end()
+  close()
 }

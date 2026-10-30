@@ -1,0 +1,259 @@
+/**
+ * stateless unit tests for mapping a stored autonomous agent message onto the ChatMessage
+ * shape the existing transcript component renders
+ */
+import { test } from 'playwright/test'
+import assert from 'node:assert/strict'
+import { autonomousAgentMessageToChat, type StoredConversationMessage } from '../../../ui/src/utils/autonomous-agent-chat-message.ts'
+import { appendStreamedText } from '../../../ui/src/utils/chat-message.ts'
+
+const base: StoredConversationMessage = {
+  seq: 1,
+  role: 'user'
+}
+
+test.describe('autonomousAgentMessageToChat', () => {
+  test('carries role and content through', () => {
+    const chat = autonomousAgentMessageToChat({ ...base, parts: [{ type: 'text', text: 'hello' }] })
+    assert.equal(chat.role, 'user')
+    assert.equal(chat.content, 'hello')
+  })
+
+  test('a message with no parts maps to an empty string, never undefined', () => {
+    // ChatMessage.content is required and the renderer indexes into it; a pending assistant
+    // message legitimately has none yet.
+    const chat = autonomousAgentMessageToChat({ ...base, role: 'assistant' })
+    assert.equal(chat.content, '')
+  })
+
+  test('reasoning is carried so the foldable panel can show it', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base, parts: [{ type: 'text', text: 'x' }, { type: 'reasoning', text: 'thinking' }]
+    })
+    assert.equal(chat.reasoning, 'thinking')
+  })
+
+  test('a tool call that has produced its output is done', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      pending: false,
+      parts: [
+        { type: 'text', text: 'x' },
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'output-available', input: {}, output: 'r' }
+      ]
+    })
+    assert.deepEqual(chat.toolInvocations, [{ toolCallId: 't1', toolName: 'echo', state: 'done', input: {}, output: 'r' }])
+  })
+
+  test('a call carries what went wrong: the error of a failed one, the reason a denied one was refused', () => {
+    // What the review page opens a call to read. Both used to stop at the conversion.
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'output-error', input: {}, errorText: 'boom' },
+        { type: 'dynamic-tool', toolCallId: 't2', toolName: 'drop', state: 'output-denied', input: {}, approval: { id: 'a1', approved: false, reason: 'not today' } }
+      ]
+    })
+    assert.equal(chat.toolInvocations?.[0].errorText, 'boom')
+    assert.equal(chat.toolInvocations?.[1].deniedReason, 'not today')
+  })
+
+  test('a call carries its arguments, so a wait chip can say what it waits for', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [{ type: 'dynamic-tool', toolCallId: 'w1', toolName: 'wait_for_user_action', state: 'input-available', input: { message: 'Ready.', expecting: 'you to click Create' } }]
+    })
+    assert.equal((chat.toolInvocations?.[0].input as any).expecting, 'you to click Create')
+  })
+
+  test('text from separate steps reads as separate paragraphs, not one run-on sentence', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'step-start' },
+        { type: 'text', text: 'I found the levels.' },
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'set_display', state: 'output-available', input: {}, output: 'ok' },
+        { type: 'step-start' },
+        { type: 'text', text: 'It is on screen now.' }
+      ]
+    })
+    assert.equal(chat.content, 'I found the levels.\n\nIt is on screen now.')
+  })
+
+  test('a call still waiting for its output is pending, so the spinner is honest', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      pending: true,
+      parts: [{ type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'input-available', input: {} }]
+    })
+    assert.equal(chat.toolInvocations?.[0].state, 'pending')
+  })
+
+  test('each call of a parallel step reports its OWN progress', () => {
+    // The distinction the AI SDK's per-call states bought. Progress used to be read off the MESSAGE,
+    // so every chip in a step waited on the slowest call in it — a finished call kept spinning until
+    // the whole turn ended.
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      pending: true,
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'fast', state: 'output-available', input: {}, output: 'r' },
+        { type: 'dynamic-tool', toolCallId: 't2', toolName: 'slow', state: 'input-available', input: {} }
+      ]
+    })
+    assert.deepEqual(chat.toolInvocations?.map(i => i.state), ['done', 'pending'])
+  })
+
+  test('a FAILED tool call is still shown as done, not as running forever', () => {
+    // ChatMessage has no failure state for a tool call. Reporting 'pending' would leave a
+    // spinner turning for a call that will never return; the failure is surfaced outside the
+    // transcript instead, where its arguments and error can be read.
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      pending: true,
+      parts: [
+        { type: 'text', text: 'x' },
+        { type: 'dynamic-tool', toolCallId: 't1', toolName: 'echo', state: 'output-error', input: {}, errorText: 'boom' }
+      ]
+    })
+    assert.equal(chat.toolInvocations?.[0].state, 'done')
+  })
+})
+
+test.describe('approval states', () => {
+  test('a call awaiting approval carries its approval id; a rejected one reads as denied', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'wipe', state: 'approval-requested', input: {}, approval: { id: 'ap1' }, toolMetadata: { serverId: 'dev', annotations: { title: 'Wipe it all' }, description: 'Wipes.' } } as any,
+        { type: 'dynamic-tool', toolCallId: 'b', toolName: 'wipe', state: 'output-denied', input: {}, approval: { id: 'ap2', approved: false } } as any
+      ]
+    })
+    assert.equal(chat.toolInvocations?.[0].state, 'awaiting-approval')
+    assert.equal(chat.toolInvocations?.[0].approvalId, 'ap1')
+    assert.equal(chat.toolInvocations?.[0].serverId, 'dev')
+    // What the card reads: the tool's declared title and the description recorded on the gated call.
+    assert.equal(chat.toolInvocations?.[0].toolTitle, 'Wipe it all')
+    assert.equal(chat.toolInvocations?.[0].description, 'Wipes.')
+    assert.equal(chat.toolInvocations?.[1].state, 'denied')
+    assert.equal(chat.toolInvocations?.[0].approvalLocked, undefined, 'a closed message is decidable')
+  })
+
+  test('a call someone approved says so; a rejected or never-gated one does not', () => {
+    const decided = (approved: boolean) => ({ userId: 'u1', userName: 'Una', approved, at: '2026-10-08T00:00:00.000Z' })
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'plan_task', state: 'output-available', input: {}, output: 'ok', approval: { id: 'ap1', approved: true }, toolMetadata: { decision: decided(true) } } as any,
+        { type: 'dynamic-tool', toolCallId: 'b', toolName: 'plan_task', state: 'output-denied', input: {}, approval: { id: 'ap2', approved: false }, toolMetadata: { decision: decided(false) } } as any,
+        { type: 'dynamic-tool', toolCallId: 'c', toolName: 'echo', state: 'output-available', input: {}, output: 'ok' } as any
+      ]
+    })
+    assert.deepEqual(chat.toolInvocations?.map(i => [i.state, i.approved]), [['done', true], ['denied', undefined], ['done', undefined]])
+  })
+
+  test('a card is locked while the message asking is still being written, and unlocked once it is closed', () => {
+    // The server refuses a decision on a pending message (it would be overwritten by the turn's last writes).
+    const parts = [{ type: 'dynamic-tool', toolCallId: 'a', toolName: 'wipe', state: 'approval-requested', input: {}, approval: { id: 'ap1' } } as any]
+    const finishing = autonomousAgentMessageToChat({ ...base, role: 'assistant', pending: true, parts })
+    assert.equal(finishing.toolInvocations?.[0].state, 'awaiting-approval')
+    assert.equal(finishing.toolInvocations?.[0].approvalLocked, true)
+    const closed = autonomousAgentMessageToChat({ ...base, role: 'assistant', pending: false, parts })
+    assert.equal(closed.toolInvocations?.[0].approvalLocked, undefined)
+  })
+})
+
+test.describe('a script trace stored on the message', () => {
+  test('becomes the panel of its code_mode call', () => {
+    const chat = autonomousAgentMessageToChat({
+      seq: 2,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 'd1', toolName: 'code_mode', state: 'output-available', input: {}, output: 'summary' },
+        {
+          type: 'data-trace',
+          data: {
+            parentToolCallId: 'd1',
+            name: 'code_mode',
+            parts: [
+              { type: 'dynamic-tool', toolCallId: 'w1', toolName: 'query_data', state: 'output-available', input: {}, output: 'rows' },
+              { type: 'text', text: 'Analysis complete' }
+            ]
+          }
+        } as any
+      ]
+    })
+    const panel = chat.tracePanels?.d1?.messages[0]
+    assert.equal(panel?.content, 'Analysis complete')
+    assert.deepEqual(panel?.toolInvocations?.map(call => call.toolName), ['query_data'])
+    // and the transcript part is not mistaken for anything of the lead's own
+    assert.equal(chat.content, '')
+    assert.deepEqual(chat.toolInvocations?.map(call => call.toolName), ['code_mode'])
+  })
+
+  test('a gated call carries the files its card shows', () => {
+    const chat = autonomousAgentMessageToChat({
+      seq: 2,
+      role: 'assistant',
+      pending: false,
+      parts: [{
+        type: 'dynamic-tool',
+        toolCallId: 'c1',
+        toolName: 'import_table',
+        state: 'approval-requested',
+        input: { file: '/clean.csv', title: 'Clean' },
+        approval: { id: 'a1' },
+        toolMetadata: { serverId: 'dev-public-mcp', files: { file: { path: '/clean.csv', mimeType: 'text/csv', size: 52 } } }
+      } as any]
+    })
+    assert.deepEqual(chat.toolInvocations?.[0].files, { file: { path: '/clean.csv', mimeType: 'text/csv', size: 52 } })
+  })
+})
+
+test.describe('the order of a message', () => {
+  test('blocks keep the order of the parts: calls show between the text around them', () => {
+    const call = (id: string) => ({ type: 'dynamic-tool', toolCallId: id, toolName: 'echo', state: 'output-available', input: {}, output: 'ok' }) as any
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'step-start' } as any,
+        { type: 'text', text: 'Let me look.' },
+        call('c1'), call('c2'),
+        { type: 'step-start' } as any,
+        { type: 'text', text: 'Found it.' },
+        call('c3'),
+        { type: 'text', text: 'Done.' }
+      ]
+    })
+    assert.deepEqual(chat.blocks, [
+      { type: 'text', text: 'Let me look.' },
+      { type: 'tools', toolCallIds: ['c1', 'c2'] },
+      { type: 'text', text: 'Found it.' },
+      { type: 'tools', toolCallIds: ['c3'] },
+      { type: 'text', text: 'Done.' }
+    ])
+    // the flat views are unchanged
+    assert.equal(chat.content, 'Let me look.\n\nFound it.\n\nDone.')
+    assert.deepEqual(chat.toolInvocations?.map(i => i.toolCallId), ['c1', 'c2', 'c3'])
+  })
+
+  test('streamed text goes after the last calls, or onto the last text', () => {
+    const afterCalls = appendStreamedText({ role: 'assistant', content: 'A', blocks: [{ type: 'text', text: 'A' }, { type: 'tools', toolCallIds: ['c1'] }] }, 'B')
+    assert.deepEqual(afterCalls.blocks, [{ type: 'text', text: 'A' }, { type: 'tools', toolCallIds: ['c1'] }, { type: 'text', text: 'B' }])
+    assert.equal(afterCalls.content, 'AB')
+    const onText = appendStreamedText(afterCalls, 'C')
+    assert.deepEqual(onText.blocks?.at(-1), { type: 'text', text: 'BC' })
+    // a message without blocks only grows its content
+    assert.equal(appendStreamedText({ role: 'assistant', content: 'x' }, 'y').blocks, undefined)
+  })
+})

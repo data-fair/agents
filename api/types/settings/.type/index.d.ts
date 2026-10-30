@@ -3,9 +3,9 @@ export const schemaExports: string[]
 
 // see https://github.com/bcherny/json-schema-to-typescript/issues/439 if some types are not exported
 /**
- * When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.
+ * When enabled, conversations of consenting users with the personal assistant are stored on the server for 30 days for admin review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent.
  */
-export type StoreConversationTraces = boolean;
+export type ReviewPersonalAssistantConversations = boolean;
 export type Provider = OpenAI | Anthropic | Google | Mistral | OpenRouter | Ollama | Scaleway | OpenAICompatible | Mock;
 export type ProviderType = "openai";
 export type ProviderID = string;
@@ -79,19 +79,12 @@ export type CachedInputPricePer1MTokens = number;
  * @minItems 1
  */
 export type AppropriateUsages = [
-  (Assistant | Tools | Summarizer | Evaluator | Moderator) &
-    string &
-    (Assistant | Tools | Summarizer | Evaluator | Moderator) &
-    string,
-  ...((Assistant | Tools | Summarizer | Evaluator | Moderator) &
-    string &
-    (Assistant | Tools | Summarizer | Evaluator | Moderator) &
-    string)[]
+  (Assistant | Tools | Summarizer | Moderator) & string & (Assistant | Tools | Summarizer | Moderator) & string,
+  ...((Assistant | Tools | Summarizer | Moderator) & string & (Assistant | Tools | Summarizer | Moderator) & string)[]
 ];
 export type Assistant = "assistant";
 export type Tools = "tools";
 export type Summarizer = "summarizer";
-export type Evaluator = "evaluator";
 export type Moderator = "moderator";
 /**
  * Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.
@@ -139,7 +132,7 @@ export type MonthlyLimit = number;
 export type Settings = {
   createdAt?: string;
   updatedAt?: string;
-  storeTraces?: StoreConversationTraces;
+  reviewPersonalAssistant?: ReviewPersonalAssistantConversations;
   owner: {
     type: "user" | "organization";
     id: string;
@@ -256,11 +249,10 @@ export type ModelPerRole = {
   assistant?: Assistant1;
   tools?: Tools1;
   summarizer?: Summarizer1;
-  evaluator?: Evaluator1;
   moderator?: Moderator1;
 }
 /**
- * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.
+ * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools.
  */
 export type Assistant1 = {
   provider: string;
@@ -279,14 +271,6 @@ export type Tools1 = {
  * A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.
  */
 export type Summarizer1 = {
-  provider: string;
-  id: string;
-  name?: string;
-}
-/**
- * The "quality controller." Analyzes the assistant's logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.
- */
-export type Evaluator1 = {
   provider: string;
   id: string;
   name?: string;

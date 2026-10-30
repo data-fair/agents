@@ -1,6 +1,11 @@
 export default {
   privateDirectoryUrl: 'http://simple-directory:8080',
+  // simple-directory's MCP_PATH: an autonomous agent's token on a site is asked for <site><mcpPath>
+  mcpPath: '/mcp-server',
   privateEventsUrl: undefined,
+  // data-fair's MCP endpoint, built into every autonomous agent with an identity (mcp-servers/operations.ts,
+  // platformMcpServer). Unset: no built-in server, agents have their catalog servers only.
+  privateMcpUrl: undefined,
   mongoUrl: 'mongodb://localhost:27017/data-fair-agents',
   port: 8080,
   tmpDir: '/tmp',
@@ -15,10 +20,20 @@ export default {
   cipherPassword: undefined,
   upgradeRoot: '/app/',
   requireAnonymousActionToken: true,
-  evaluatorAccount: null,
-  github: { token: undefined },
   providers: [],
   models: [],
+  mcpServers: [],
+  // Each personal assistant's servers, by reference into mcpServers. Unset: none.
+  personalAssistants: {},
+  // Progressive exposure: while true, configuring an autonomous agent additionally
+  // requires admin mode. This is a rollout control, not an ownership boundary —
+  // nothing in the document is durably superadmin-owned, and flipping this to false
+  // opens configuration to org admins with no schema change and no migration.
+  autonomousAgentsRequireAdminMode: true,
+  // Planned tasks: the scheduler polls every pollSeconds, a schedule may not fire more often than
+  // minIntervalSeconds, an agent holds at most maxPerAgent tasks, and a task is paused after
+  // maxConsecutiveFailures failed runs in a row.
+  tasks: { minIntervalSeconds: 3600, maxPerAgent: 20, pollSeconds: 10, maxConsecutiveFailures: 5 },
   defaultModels: {},
   // Euros of inference cost per credit. 0.008 EUR lets a credit resell for about a
   // euro cent with an implicit 20% margin. It MUST match the credit cost in
@@ -33,5 +48,29 @@ export default {
   // compacts conversation history. Global rather than per-account: it is a
   // safety/efficiency tuning knob, not something an org should have to reason
   // about. See docs/architecture/compaction.md.
-  compactionPercent: 70
+  compactionPercent: 70,
+  // Bounds one autonomous agent turn. Global rather than per-agent: nothing has asked for
+  // per-agent tuning, and the account credit cap still applies on top of this.
+  //
+  // Scale matters: with eurosPerCredit 0.008 this is ~€4 of model spend per turn. The
+  // first value here was 5 credits — €0.04 — which a single step against a €2.50/M model
+  // with a 30k-token context blows immediately, so every multi-tool turn would have ended
+  // at 'budget' on step one. This is a ceiling for a runaway, not a per-turn allowance.
+  turnCredits: 500,
+  liveTurnsPerCaller: 5,
+  // Wall-clock ceiling for one chat turn. A model or MCP server that hangs must not hold a
+  // conversation's lock until the lock's own TTL expires. A planned task's run uses
+  // taskTimeoutSeconds instead (below).
+  turnTimeoutSeconds: 300,
+  // On SIGTERM, running turns get this long to finish before being stopped as "the server restarted"
+  // (api/src/conversations/live-runs.ts, drainLiveRuns). Short of both run deadlines on purpose: a
+  // deploy should not wait for one long run (a task run still going is stopped, and runs at its next slot).
+  // The pod's terminationGracePeriodSeconds must exceed it, or the kubelet kills the process mid-drain.
+  shutdownGraceSeconds: 90,
+  // A planned task's run: nobody waits on it, and code mode and files make runs of many steps the normal case.
+  // Session renewal (api/src/nhi) means no credential bounds it any more; the per-run credit budget bounds its spend.
+  taskTimeoutSeconds: 1800,
+  // code_mode scripts running at once in this process: one QuickJS worker each (64 MiB heap). The pool refuses
+  // rather than queues when full (api/src/code-mode).
+  codeModeMaxWorkers: 4
 }

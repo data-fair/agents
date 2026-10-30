@@ -5,17 +5,16 @@
  * served the person is the judge's call, from the transcript.
  *
  * The host keeps what only it knows: its cases, seeding, login, and which page a
- * case runs on (`setup`), and what the person can see (`perceptionRoots`).
+ * case runs on (`setup`), what the person can see (`perceptionRoots`), and how the
+ * run's conversations are read back (`fetchExports`).
  */
 import type { Locator, Page } from '@playwright/test'
-import type { SimulationCase, Transcript } from './types.ts'
-import { captureGateway } from './gateway-capture.ts'
-import { captureGatewayErrors } from './gateway-errors.ts'
-import { assertBridgeUp } from './bridge-settings.ts'
+import type { SimulationCase, TranscriptInput } from './types.ts'
+import { assertBridgeUp, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES } from './bridge-settings.ts'
 import { createChatDriver, chatDriverStrings, type ChatDriverLocale } from './chat-driver.ts'
+import { parseConversationExport, runErrors, type ConversationExport } from './conversation-export.ts'
 import { createPagePerception, type PerceptionRoot } from './page-perception.ts'
 import { nextUserMessage, isDone, resolveUserModel } from './persona.ts'
-import { passActions, withSilentPasses, type SilentPass } from './silent-passes.ts'
 import { writeEvidence } from './transcript.ts'
 
 /** The agents chat frame, whose src is /agents/<type>/<id>/chat?… — not a bare 'iframe': hosts embed other frames beside it. */
@@ -51,7 +50,7 @@ export async function ensureChatOpen (page: Page, composer: Locator) {
 export type SimulationModels = { assistantModel: string, toolsModel: string }
 
 export type SimulationOptions = {
-  /** The agents service's base URL, for the chat's flags cookie (SIM_SUB_AGENTS=0). */
+  /** The agents service's base URL, for the chat's cookies: the review consent, and its flags (SIM_SUB_AGENTS=0). */
   agentsUrl: string
   /** Seed the case's data and settings, then bring the page to the case's route. Runs inside the run, so a failure is recorded as an invalid run. */
   setup: (models: SimulationModels) => Promise<void>
@@ -63,11 +62,19 @@ export type SimulationOptions = {
   chatFrame?: string
   /** Defaults to ensureChatOpen on the page. */
   ensureChatOpen?: (composer: Locator) => Promise<void>
+  /**
+   * The conversation exports of what the person said during the run, oldest first: the agents
+   * service's review export (`/api/review/<owner>/<conversation>/export`), the same file a real
+   * session is debugged with. Every chat surface runs its loop on the server, so this is the only
+   * record of what the model was sent and what it called. `bridgeSettings` turns the review on, and
+   * the runner gives the consent it needs.
+   */
+  fetchExports: (since: Date) => Promise<ConversationExport[]>
 }
 
 export async function runSimulation (page: Page, simCase: SimulationCase, opts: SimulationOptions): Promise<void> {
   const assistantModel = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
-  // The sub-agent, compaction and moderation roles, pinned separately and lower: that
+  // The memory, compaction and moderation roles, pinned separately and lower: that
   // is where a deployment puts a small model, so that is where the product has to
   // work. See BACKGROUND_ROLES.
   const toolsModel = process.env.SIM_TOOLS_MODEL ?? 'haiku'
@@ -85,17 +92,7 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     consoleErrors.push(`dialog accepted by the runner: ${dialog.type()} « ${dialog.message()} »`)
     await dialog.accept()
   })
-  // The chat iframe POSTs to the agents service's gateway route, so the browser
-  // sees the full message array and tool definitions. page.on covers sub-frames,
-  // which is why capturing on the top-level page is enough.
-  const gateway = captureGateway(page)
-  // Requests say what the assistant was offered; responses say whether the model
-  // actually answered. Only the second can tell a provider failure from a product one.
-  const gatewayErrors = captureGatewayErrors(page)
-
   const conversation: Array<{ role: string, text: string }> = []
-  // What the person did in a pass whose message was dropped (see silent-passes.ts)
-  const silentPasses: SilentPass[] = []
   let perception: ReturnType<typeof createPagePerception> | undefined
 
   const sidecar = () => ({
@@ -119,9 +116,9 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     persona: simCase.persona,
     route: simCase.route,
     conversation: [],
-    gateway: [],
     consoleErrors: [],
-    observations: []
+    observations: [],
+    exports: []
   }, { ...sidecar(), valid: false, error: 'run did not complete (timed out or was killed)', durationMs: 0 })
 
   try {
@@ -129,16 +126,10 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     // seeding rejected) must still write an invalid sidecar naming the error.
     await assertBridgeUp()
 
-    // SIM_SUB_AGENTS=0 runs the chat in its experimental flattened mode: sub-agents
-    // that do not pin a model hand their tools to the assistant itself. Set through
-    // the chat's own flags cookie, as its settings page does, before the chat loads.
-    if (process.env.SIM_SUB_AGENTS === '0') {
-      await page.context().addCookies([{
-        name: 'agent-chat-flags',
-        value: encodeURIComponent(JSON.stringify({ toolExploration: false, subAgents: false, simpleSubAgents: true, mermaid: false, showReasoning: false })),
-        url: opts.agentsUrl
-      }])
-    }
+    // Consent answered up front: the run is read back through the conversation export, which only
+    // covers threads the person agreed to have reviewed — and the consent sheet is not what a case
+    // is about, so the persona is not asked.
+    await page.context().addCookies([{ name: REVIEW_CONSENT_COOKIE, value: REVIEW_CONSENT_YES, url: new URL(opts.agentsUrl).origin }])
 
     await opts.setup({ assistantModel, toolsModel })
 
@@ -166,7 +157,7 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
 
     for (let i = 0; i < simCase.maxTurns; i++) {
       perception.setTurn(i + 1)
-      const message = await nextUserMessage(simCase, withSilentPasses(conversation, silentPasses), simCase.maxTurns - i, { perception })
+      const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
       if (handedOver) {
         // The pass above was the person's chance to act on the wait. If they took it,
         // the wait resolved and the assistant is finishing the turn it paused — let it,
@@ -175,16 +166,12 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
         handedOver = (await chat.waitForTurn(TURN_CEILING_MS)) === 'waiting'
         const resumed = await chat.readConversation()
         const changed = resumed.length !== conversation.length
-        const before = conversation.length
         conversation.length = 0
         conversation.push(...resumed)
         // Whatever the person wrote in that pass, they wrote it before the reply
-        // their action caused. Drop it and let them read the reply first, but keep
-        // what they did, where they did it.
-        if (changed) {
-          silentPasses.push({ at: before, actions: passActions(perception.observations, i + 1) })
-          continue
-        }
+        // their action caused. Drop it and let them read the reply first; what they
+        // did stays where they did it (the persona stamps each action's place).
+        if (changed) continue
       }
       if (isDone(message)) break
       if (message === '') {
@@ -215,9 +202,6 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     // first message produces one while looking like a clean run.
     if (turns === 0 && !error) error = 'no turns completed — the simulated user stopped before saying anything'
     if (conversation.length === 0 && !error) error = 'transcript is empty — messages were sent but readConversation matched nothing, so the chat markup has probably moved'
-    // Zero exchanges means the capture missed the path entirely (or the chat never
-    // reached the agents service), not that the assistant was idle.
-    if (gateway.length === 0 && !error) error = 'no gateway exchanges captured — the chat never reached the agents service, or the capture path changed'
   } catch (err) {
     error = err instanceof Error ? err.message : String(err)
   }
@@ -228,22 +212,38 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
   // dependencies: the run then measures the dev server.
   const devServerError = consoleErrors.find(e => e.includes('Outdated Optimize Dep') || e.includes('Failed to fetch dynamically imported module'))
   if (devServerError) error = `dev server failure, warm it up and re-run (run is not judgeable): ${devServerError}`
-  // A provider failure does not throw either: the gateway answers 200 and writes the
-  // failure into the SSE body, so the turn "completes".
-  await gatewayErrors.settle()
-  if (gatewayErrors.messages.length) {
-    error = `provider error from the agents gateway (run is not judgeable): ${gatewayErrors.messages[0]}`
+
+  // Read after the conversation, and outside the try so an invalid run still carries whatever the
+  // assistant managed to do — usually the most informative part of a failure. Never allowed to turn
+  // a good run into a failed one: this is evidence gathering, not a check.
+  let exports: ConversationExport[] = []
+  const evidenceErrors: string[] = []
+  try {
+    exports = await opts.fetchExports(new Date(started))
+  } catch (err) {
+    evidenceErrors.push(`could not export the run's conversations: ${err instanceof Error ? err.message : String(err)}`)
+  }
+  // Every turn leaves a record: a run with no export reached nothing the judge can read.
+  if (!error && !evidenceErrors.length && exports.length === 0) error = 'no conversation was exported — the chat never reached the agents service, or the review is off'
+  // A provider failure does not throw either: the turn "completes" and the run's own record says it
+  // ended in error. It overrides, because every other symptom is downstream of it.
+  try {
+    const failures = runErrors(exports.map(parseConversationExport))
+    if (failures.length) error = `provider or run error (run is not judgeable): ${failures[0]}`
+  } catch (err) {
+    evidenceErrors.push(`could not read the exported runs: ${err instanceof Error ? err.message : String(err)}`)
   }
 
-  const transcript: Transcript = {
+  const transcript: TranscriptInput = {
     case: simCase.name,
     goal: simCase.goal,
     persona: simCase.persona,
     route: simCase.route,
-    conversation: withSilentPasses(conversation, silentPasses),
-    gateway,
+    conversation,
     consoleErrors,
-    observations: perception?.observations ?? []
+    observations: perception?.observations ?? [],
+    exports,
+    ...(evidenceErrors.length ? { evidenceErrors } : {})
   }
   // `valid` is derived, never hardcoded, so that reportCases says "invalid (…)"
   // instead of re-reporting the previous run's verdict.

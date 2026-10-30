@@ -46,7 +46,7 @@ Ask the user to start anything that is down. Never start or stop dev processes y
    ```
 
    Models are pinned by `SIM_ASSISTANT_MODEL` (default `sonnet`),
-   `SIM_TOOLS_MODEL` (default `haiku`, for sub-agents, compaction and the
+   `SIM_TOOLS_MODEL` (default `haiku`, for memory consolidation, compaction and the
    moderation guard) and `SIM_USER_MODEL` (default `sonnet`), and recorded per
    run, so verdicts from different tiers are never compared silently.
 
@@ -102,7 +102,7 @@ Ask the user to start anything that is down. Never start or stop dev processes y
    `simulations/tmp/sim-<case>.run.json` for the recorded error instead.
 
 5. **Dispatch one `simulation-judge` subagent per valid case.** Give it paths, not
-   pasted content — transcripts carry every gateway request:
+   pasted content — a run's conversation exports can run to megabytes:
 
    - the case name and its goal
    - the transcript path, `simulations/tmp/sim-<case>.json`

@@ -14,18 +14,16 @@ test.describe('package barrel', () => {
     // a disappearance is a breaking change for two other repositories.
     const expected: string[] = [
       'createNeutralCwd', 'scrubEnv', 'isolationOptions',
-      'captureGateway', 'summariseRequest',
-      'captureGatewayErrors', 'errorsInSseBody', 'errorsInResponse',
-      'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE',
+      'parseConversationExport', 'recordedToolCalls', 'runErrors',
+      'nextUserMessage', 'personaSystemPrompt', 'personaPrompt', 'isDone', 'DONE', 'NEW_CONVERSATION_ROLE',
       'PERSONA_MAX_TURNS', 'PERCEPTION_INSTRUCTIONS', 'DEFAULT_USER_MODEL', 'resolveUserModel',
-      'writeEvidence', 'evidenceDir',
+      'writeEvidence', 'evidenceDir', 'exportFileName',
       'computeMetrics',
       'selectCases', 'simCaseNames',
       'reportCases', 'reportCli',
-      'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS', 'WAITING_SELECTOR',
+      'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS', 'WAITING_SELECTOR', 'APPROVAL_SELECTOR',
       'createPagePerception', 'truncate', 'SNAPSHOT_CAP', 'ACTION_TIMEOUT_MS', 'PAGE_MCP_SERVER_NAME',
-      'passActions', 'withSilentPasses',
-      'BRIDGE_URL', 'MODEL_ROLES', 'BACKGROUND_ROLES', 'bridgeSettings', 'seedAgentsSettings', 'assertBridgeUp',
+      'BRIDGE_URL', 'MODEL_ROLES', 'BACKGROUND_ROLES', 'REVIEW_CONSENT_COOKIE', 'REVIEW_CONSENT_YES', 'bridgeSettings', 'seedAgentsSettings', 'assertBridgeUp',
       'runSimulation', 'ensureChatOpen', 'CHAT_FRAME', 'TURN_CEILING_MS',
       'defineSimConfig'
     ]

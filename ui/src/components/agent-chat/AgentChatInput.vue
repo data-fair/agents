@@ -3,6 +3,7 @@
     <v-form @submit.prevent="handleSend">
       <v-textarea
         v-model="localInput"
+        data-testid="agent-chat-input"
         :placeholder="t('placeholder')"
         color="secondary"
         variant="outlined"
@@ -25,12 +26,13 @@
 
         <template #append-inner>
           <v-btn
-            v-if="isStreaming && !(waitingForUser && localInput.trim())"
+            v-if="(isStreaming || waitingForUser) && !(waitingForUser && localInput.trim())"
             :icon="mdiStop"
             variant="flat"
             size="x-small"
             color="error"
             class="composer-action"
+            data-testid="agent-chat-stop"
             :title="t('stop')"
             @click="$emit('abort')"
           />
@@ -41,6 +43,7 @@
             size="x-small"
             color="secondary"
             class="composer-action"
+            data-testid="agent-chat-send"
             :disabled="!localInput.trim()"
             :title="t('send')"
             @click="handleSend"
@@ -70,9 +73,9 @@ import { mdiSend, mdiStop, mdiCreation } from '@mdi/js'
 defineProps<{
   isStreaming: boolean
   /**
-   * The assistant is paused on a declared wait. It is streaming, but it is not
-   * working — it is the person's move — so the composer stays usable and a
-   * message takes the turn back.
+   * The assistant handed the turn over (wait_for_user_action): it is the person's
+   * move. A message answers the wait, and Stop — kept on screen while the composer is
+   * empty — declines it.
    */
   waitingForUser?: boolean
 }>()

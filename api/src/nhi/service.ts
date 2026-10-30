@@ -1,0 +1,233 @@
+/**
+ * service.ts contains stateful logic (config, mongo) built on top of operations.ts
+ */
+
+import memoize from 'memoizee'
+import config from '#config'
+import { httpError, reqSiteUrl, type AccountKeys } from '@data-fair/lib-express'
+import type { Request } from 'express'
+import { SignJWT, importJWK } from 'jose'
+// The private instance: simple-directory is reached at a configured address (privateDirectoryUrl), which the
+// default instance's SSRF guard refuses as non public.
+import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
+import mongo from '#mongo'
+import { cipher, decipher } from '../cipher/operations.ts'
+import { securityKey } from '../cipher/service.ts'
+import { toPublicJwk, nhiIssuerUrl, buildAssertionClaims, autonomousAgentSubject, tokenRequestHeaders, tokenRequestBody, nhiTokenUrl, mcpResource, tokenRequestError, accountPlacement, generateNhiKey, signingNhiKey, nhiKeysNeedRotation, rotateNhiKeys, type NhiKey, type StoredNhiKey, type NhiPublicJwk, ASSERTION_TTL_SECONDS } from './operations.ts'
+import { siteOrigin, forwardedSiteHeaders, accountSites, type ListedSite } from '../sites/operations.ts'
+import { createSessionBroker } from './session-broker.ts'
+
+import { credentialHeaders, getsPlatformServer, type SiteCredentials } from '../mcp-servers/operations.ts'
+
+/**
+ * The signing keys live in mongo, the private halves ciphered with CIPHER_PASSWORD, as simple-directory
+ * keeps its own: generated on a fresh deployment, rotated every NHI_KEY_ROTATION_DAYS, never handled by
+ * an operator. Nothing outside this service needs them: simple-directory reads the public halves through
+ * discovery, so a lost key is only a new one.
+ */
+const NHI_KEYS_ID = 'nhi-signing-keys'
+
+const storeKey = (key: NhiKey): StoredNhiKey => ({ kid: key.jwk.kid, jwk: cipher(JSON.stringify(key.jwk), securityKey), createdAt: key.createdAt })
+const loadKey = (stored: StoredNhiKey): NhiKey => ({ jwk: JSON.parse(decipher(stored.jwk, securityKey)), createdAt: stored.createdAt })
+
+/**
+ * Creates the first key, or the next one when due. Every instance runs it at boot and periodically; the
+ * writes are conditional on what was read, so instances racing each other write one key, not two.
+ */
+export const maintainNhiKeys = async (now = new Date()) => {
+  const doc = await mongo.secrets.findOne({ _id: NHI_KEYS_ID })
+  if (!doc) {
+    try {
+      await mongo.secrets.insertOne({ _id: NHI_KEYS_ID, keys: [storeKey(generateNhiKey(now))] })
+    } catch (err: any) {
+      if (err.code !== 11000) throw err
+    }
+  } else if (nhiKeysNeedRotation(doc.keys, now)) {
+    console.log('[nhi] rotating the signing key')
+    await mongo.secrets.updateOne(
+      { _id: NHI_KEYS_ID, 'keys.0.kid': doc.keys[0].kid },
+      { $set: { keys: rotateNhiKeys(doc.keys, storeKey(generateNhiKey(now))) } }
+    )
+  }
+  readNhiKeys.clear()
+}
+
+// A minute is far inside the publication delay, so an instance that missed another's rotation still
+// publishes the new key long before anyone signs with it.
+const readNhiKeys = memoize(async (): Promise<NhiKey[]> => {
+  const doc = await mongo.secrets.findOne({ _id: NHI_KEYS_ID })
+  if (!doc) throw new Error('the NHI signing keys were not initialized')
+  return doc.keys.map(loadKey)
+}, { promise: true, maxAge: 60_000 })
+
+/**
+ * Built from the request rather than config, so the `issuer` we echo is always exactly
+ * the url simple-directory fetched — it rejects a discovery document that claims a
+ * different issuer, and a config value could drift from reality.
+ */
+export const getNhiDiscovery = (req: Request): { issuer: string, jwks_uri: string } => {
+  const issuer = nhiIssuerUrl(reqSiteUrl(req))
+  return { issuer, jwks_uri: `${issuer}/jwks` }
+}
+
+export const getNhiJwks = async (): Promise<{ keys: NhiPublicJwk[] }> => ({ keys: (await readNhiKeys()).map(key => toPublicJwk(key.jwk)) })
+
+/** The shape the token request needs off an autonomous agent document. */
+export interface EnrolledAutonomousAgent {
+  id: string
+  nhi?: { clientId: string, siteUrl?: string, issuer?: string }
+}
+
+/**
+ * An autonomous agent can only obtain a token once all three captured values
+ * are present. siteUrl/issuer are written by the write routes from reqSiteUrl(req); an
+ * agent enrolled before that capture existed would have clientId alone, so check all three
+ * rather than assuming.
+ */
+const requireEnrolment = (autonomousAgent: EnrolledAutonomousAgent) => {
+  const nhi = autonomousAgent.nhi
+  if (!nhi?.clientId || !nhi.siteUrl || !nhi.issuer) {
+    throw httpError(400, `autonomous agent ${autonomousAgent.id} has no enrolled non-human identity`)
+  }
+  return { clientId: nhi.clientId, siteUrl: nhi.siteUrl, issuer: nhi.issuer }
+}
+
+export const mintAssertion = async (autonomousAgent: EnrolledAutonomousAgent): Promise<string> => {
+  const key = signingNhiKey(await readNhiKeys(), new Date()).jwk
+  const { issuer, siteUrl } = requireEnrolment(autonomousAgent)
+  const claims = buildAssertionClaims({
+    issuer,
+    subject: autonomousAgentSubject(autonomousAgent.id),
+    // The audience is the token endpoint's site, the enrolment site, whatever site the token is for:
+    // simple-directory recomputes it from the headers we send (requestAgentToken).
+    audience: siteOrigin(siteUrl),
+    ttlSeconds: ASSERTION_TTL_SECONDS,
+    nowSeconds: Math.floor(Date.now() / 1000)
+  })
+  return await new SignJWT({ jti: claims.jti })
+    .setProtectedHeader({ alg: 'ES256', kid: key.kid })
+    .setIssuer(claims.iss)
+    .setSubject(claims.sub)
+    .setAudience(claims.aud)
+    .setIssuedAt(claims.iat)
+    .setExpirationTime(claims.exp)
+    .sign(await importJWK(key, 'ES256'))
+}
+
+/**
+ * An access token of this agent for one site: the JWT bearer grant (RFC 7523) on the enrolment site's token
+ * endpoint, over the PRIVATE directory url so the call never leaves the internal network, for the resource
+ * `<site><mcpPath>` (RFC 8707). simple-directory gives that resource the audience [<site>/mcp-server, <site>],
+ * so the one token covers the site's MCP servers and its own APIs.
+ */
+const requestAgentToken = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl: string): Promise<{ value: string, ttlSeconds: number }> => {
+  const { clientId, siteUrl: enrolledSite } = requireEnrolment(autonomousAgent)
+  const site = siteOrigin(siteUrl)
+  const issuerSite = siteOrigin(enrolledSite)
+  const assertion = await mintAssertion(autonomousAgent)
+  let res
+  try {
+    res = await axios.post(
+      nhiTokenUrl(config.privateDirectoryUrl, issuerSite),
+      tokenRequestBody({ clientId, assertion, resource: mcpResource(site, config.mcpPath) }),
+      { headers: tokenRequestHeaders(issuerSite), maxRedirects: 0 }
+    )
+  } catch (err) {
+    // lib-node's axios interceptor attaches the request body (which carries the
+    // assertion) to the rejected error — see sanitizeExchangeError, which tokenRequestError applies. Never let the raw
+    // error escape this call.
+    throw tokenRequestError(err, site)
+  }
+  const { access_token: value, expires_in: ttlSeconds } = res.data ?? {}
+  if (typeof value !== 'string' || !value) throw new Error('nhi token request returned no access token')
+  return { value, ttlSeconds: typeof ttlSeconds === 'number' && ttlSeconds > 0 ? ttlSeconds : ASSERTION_TTL_SECONDS }
+}
+
+/**
+ * An access token of this agent FOR ONE SITE (default: the site it was enrolled on). simple-directory refuses
+ * a resource outside the issuer's realm or the agent's organization, so callers only ask for an account site
+ * (see listAccountSites).
+ */
+// The process's exchanges: reused while valid, bounded in flight, a rejected identity backed off (./session-broker.ts).
+const broker = createSessionBroker()
+
+export const getAgentToken = async (autonomousAgent: EnrolledAutonomousAgent, siteUrl?: string): Promise<string> => {
+  const { clientId, siteUrl: enrolledSite } = requireEnrolment(autonomousAgent)
+  const site = siteOrigin(siteUrl ?? enrolledSite)
+  // Reused across turns until it nears its expiry (its own expires_in), rather than requested per turn:
+  // simple-directory's token budget is shared by every agent of the service.
+  return await broker.session({ agentId: autonomousAgent.id, clientId, site }, () => requestAgentToken(autonomousAgent, site))
+}
+
+/** How long the list of an agent's account sites is reused: a site is created far less often than a turn starts. */
+export const ACCOUNT_SITES_TTL_MS = 60_000
+
+/**
+ * The agent's authentication space as origins: its enrolment site, then the non-temporary sites
+ * simple-directory lists for its organization in its issuer's realm (sites/operations.ts accountSites) —
+ * asked AS the agent, on its enrolment site, which is always inside its account. The organization's sites in
+ * another realm are `unreachable`: no token is issued for them, so the agent is there as on a foreign site.
+ * A failure is not cached, and is the caller's to degrade.
+ */
+export const listAccountSites = memoize(async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys }): Promise<{ reachable: string[], unreachable: string[] }> => {
+  const { siteUrl } = requireEnrolment(autonomousAgent)
+  const token = await getAgentToken(autonomousAgent)
+  const res = await axios.get(`${config.privateDirectoryUrl.replace(/\/+$/, '')}/simple-directory/api/sites`, {
+    params: { owner: `${autonomousAgent.owner.type}:${autonomousAgent.owner.id}`, tmp: false },
+    headers: { ...credentialHeaders({ bearer: token }), ...forwardedSiteHeaders(siteOrigin(siteUrl)) }
+  })
+  const listed: ListedSite[] = (res.data?.results ?? []).filter((s: Partial<ListedSite>) => typeof s?.host === 'string' && s.host)
+  return accountSites(siteUrl, listed)
+}, { promise: true, maxAge: ACCOUNT_SITES_TTL_MS, max: 1000, normalizer: ([autonomousAgent]) => autonomousAgent.id })
+
+/**
+ * Forget what is known of this agent's identity — its account sites, its sessions, a rejection being backed
+ * off — when it is saved or deleted: a changed enrolment is tried at once, with nothing of the old one reused.
+ */
+export const forgetAgentSessions = (agentId: string) => {
+  listAccountSites.delete({ id: agentId } as Parameters<typeof listAccountSites>[0])
+  broker.forget(agentId)
+}
+
+/**
+ * Where an autonomous agent's turn acts, and as whom. Home: the site the caller names (the conversation's
+ * own, else the socket's), else the site it was enrolled on (a planned task, a chat turn nobody watches). Its own session on its account sites — an
+ * exchange that fails there is an error — and no credential anywhere else.
+ *
+ * When the account cannot be listed (`home: 'unconfirmed'` off the enrolment site), it degrades to the enrolment site alone: no portal is
+ * offered, and a chat on another site runs anonymously for that turn without claiming that site is foreign.
+ */
+export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAgent & { owner: AccountKeys, mcpServers?: { serverId: string }[] }, socketSite?: string, clientIp?: string): Promise<SiteCredentials> => {
+  const { siteUrl } = requireEnrolment(autonomousAgent)
+  const enrolled = siteOrigin(siteUrl)
+  const home = socketSite ? siteOrigin(socketSite) : enrolled
+  // Listing the account costs a token request. An agent none of whose servers is site-bound (`nhi-session`)
+  // never asks for a credential or a portal, so it must not pay for, nor depend on, a request it does not
+  // use: a turn on public tools stays as fast as before sites existed. data-fair's built-in server is
+  // site-bound: an agent that gets it asks, or it would call data-fair anonymously, outside its scopes.
+  const catalog = config.mcpServers ?? []
+  if (!getsPlatformServer(autonomousAgent, config.privateMcpUrl) && autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
+    return { homeSite: home, clientIp, portals: [], home: 'account', credentialFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
+  }
+  let listed: string[] | undefined
+  try {
+    listed = (await listAccountSites(autonomousAgent)).reachable
+  } catch (err: any) {
+    // Its own state, not "the account is just the enrolment site": see accountPlacement.
+    console.warn(`could not list the account sites of autonomous agent ${autonomousAgent.id}: ${err.message}`)
+  }
+  const { account, portals, home: placement } = accountPlacement(enrolled, home, listed)
+  return {
+    homeSite: home,
+    clientIp,
+    portals,
+    home: placement,
+    credentialFor: async site => {
+      const origin = siteOrigin(site)
+      if (!account.includes(origin)) return undefined
+      // Renewed by the broker when it nears its expiry: a turn may outlast a session.
+      return { bearer: await getAgentToken(autonomousAgent, origin) }
+    },
+    listingIdentity: `agent:${autonomousAgent.id}`
+  }
+}

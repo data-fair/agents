@@ -49,4 +49,25 @@ test.describe('mock model token estimation (unit)', () => {
     assert.equal(finishUsage.outputTokens.total, 2) // 'world'
     assert.equal(finishUsage.inputTokens.total, estimateMockTokens(JSON.stringify(prompt)))
   })
+
+  test('a stream cancelled mid-text stops pushing, instead of crashing the process', async () => {
+    // AI SDK 7 cancels the model stream when a turn is aborted; the pending character timer then
+    // enqueued into a closed controller, an uncaught exception that took the whole dev server down.
+    const crashes: Error[] = []
+    const onCrash = (err: Error) => { crashes.push(err) }
+    process.on('uncaughtException', onCrash)
+    try {
+      const model = createMockLanguageModel('mock-model')
+      const prompt = [{ role: 'user', content: [{ type: 'text', text: 'slow long answer' }] }]
+      const { stream } = await (model as any).doStream({ prompt })
+      const reader = stream.getReader()
+      await reader.read()
+      await reader.read()
+      await reader.cancel()
+      await new Promise(resolve => setTimeout(resolve, 60))
+    } finally {
+      process.off('uncaughtException', onCrash)
+    }
+    assert.deepEqual(crashes.map(e => e.message), [])
+  })
 })

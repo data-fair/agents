@@ -21,7 +21,9 @@
     "build-types": "mkdir -p ui/src/components/vjsf && df-build-types . --vjsf-dir ui/src/components/vjsf",
     "prepare": "husky || true",
     "check-types": "tsc && npm -w ui run check-types",
-    "quality": "npm run lint && npm run build-types && npm run check-types && npm run test"
+    "quality": "npm run lint && npm run build-types && npm run check-types && npm run test",
+    "dev-mcp": "dotenv run -- node dev/mcp-server.ts",
+    "dev-load-check": "dotenv run -- node dev/load-check.ts"
   },
   "repository": {
     "type": "git",
@@ -49,16 +51,17 @@
   "devDependencies": {
     "@anthropic-ai/claude-agent-sdk": "^0.3.269",
     "@commitlint/config-conventional": "^19.2.2",
-    "@data-fair/lib-express": "^1.29.0",
+    "@data-fair/lib-express": "^1.30.0",
     "@data-fair/lib-node": "^2.15.0",
     "@koumoul/vjsf-compiler": "^1.2.3",
-    "@modelcontextprotocol/sdk": "^1.30.0",
     "@playwright/test": "^1.58.2",
     "@types/config": "^3.3.5",
     "@types/express": "^5.0.6",
     "@types/memoizee": "^0.4.12",
+    "@types/mime-types": "^3.0.1",
     "@types/node": "^24.0.0",
     "@types/ws": "^8.18.1",
+    "aws-sdk-client-mock": "^4.1.0",
     "axios": "^1.7.7",
     "commitlint": "^19.2.2",
     "dayjs": "^1.11.20",
@@ -73,7 +76,7 @@
     "typescript": "~5.9.3"
   },
   "dependencies": {
-    "@data-fair/lib-types-builder": "^1.8.3",
+    "@data-fair/lib-types-builder": "^1.14.3",
     "@types/debug": "^4.1.12",
     "tough-cookie": "^5.1.2",
     "ufo": "^1.6.3"

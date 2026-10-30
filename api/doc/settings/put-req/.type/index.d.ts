@@ -79,19 +79,12 @@ export type CachedInputPricePer1MTokens = number;
  * @minItems 1
  */
 export type AppropriateUsages = [
-  (Assistant | Tools | Summarizer | Evaluator | Moderator) &
-    string &
-    (Assistant | Tools | Summarizer | Evaluator | Moderator) &
-    string,
-  ...((Assistant | Tools | Summarizer | Evaluator | Moderator) &
-    string &
-    (Assistant | Tools | Summarizer | Evaluator | Moderator) &
-    string)[]
+  (Assistant | Tools | Summarizer | Moderator) & string & (Assistant | Tools | Summarizer | Moderator) & string,
+  ...((Assistant | Tools | Summarizer | Moderator) & string & (Assistant | Tools | Summarizer | Moderator) & string)[]
 ];
 export type Assistant = "assistant";
 export type Tools = "tools";
 export type Summarizer = "summarizer";
-export type Evaluator = "evaluator";
 export type Moderator = "moderator";
 /**
  * Used to size history compaction. Leave empty to use the value reported by the provider; only OpenRouter reports one, so for other providers set it here or the 128000 default applies. Set it explicitly for small self-hosted models, which would otherwise overflow.

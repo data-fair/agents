@@ -17,6 +17,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import os from 'node:os'
 import fs from 'node:fs'
+import path from 'node:path'
 import type { AddressInfo } from 'node:net'
 import { createServer, type BridgeQuery } from '../../../lib-sim/bridge/server.ts'
 
@@ -48,6 +49,7 @@ async function captureQueryOptions (): Promise<Captured> {
       headers: { 'content-type': 'application/json' },
       body: JSON.stringify({
         model: 'haiku',
+        stream: true,
         messages: [
           { role: 'system', content: 'be brief' },
           { role: 'user', content: 'what is the weather' }
@@ -89,10 +91,21 @@ test.describe('bridge call site', () => {
     assert.deepEqual(options.settingSources, [], 'no project/user settings may be loaded')
     assert.deepEqual(options.tools, [], 'the SDK\'s built-in tools must not be offered')
     assert.equal(options.strictMcpConfig, true, 'only the bridge tool server may be reachable')
+    // The parent Claude Code session's env must be scrubbed; the one CLAUDE_CODE_
+    // variable present is the bridge's own.
     assert.deepEqual(
-      Object.keys(options.env).filter(k => k.startsWith('CLAUDE_CODE_')), [],
+      Object.keys(options.env).filter(k => k.startsWith('CLAUDE_CODE_')), ['CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC'],
       'the parent Claude Code session\'s env must be scrubbed'
     )
+
+    // The CLI's global config — where it reads the operator's email from and puts it in
+    // front of the model — is a private one inside the neutral cwd, with no email in it.
+    const configDir = options.env.CLAUDE_CONFIG_DIR
+    assert.ok(configDir, 'CLAUDE_CONFIG_DIR must be set, or the CLI reads the operator\'s own')
+    assert.ok(configDir.startsWith(options.cwd + path.sep), `CLAUDE_CONFIG_DIR ${configDir} must be the neutral one`)
+    const seeded = JSON.parse(fs.readFileSync(path.join(configDir, '.claude.json'), 'utf8'))
+    assert.equal(seeded.oauthAccount?.emailAddress, undefined, 'the operator\'s email must not reach the CLI')
+    assert.equal(options.env.CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC, '1')
 
     // Without this the query is unabortable and every eviction — TTL, LRU,
     // divergence, client disconnect — leaks a claude subprocess.
@@ -110,5 +123,38 @@ test.describe('bridge call site', () => {
     // Importing server.ts creates the process-wide neutral cwd at module load;
     // remove it so the suite does not leave a bridge-* dir behind per run.
     fs.rmSync(options.cwd, { recursive: true, force: true })
+  })
+})
+
+test.describe('bridge without streaming', () => {
+  // The AI SDK's generateText — memory consolidation, for one — sends no `stream` and parses the body as
+  // one JSON value: an event stream failed it with "Invalid JSON response".
+  test('answers a request that did not ask to stream with one JSON completion', async () => {
+    const fakeQuery: BridgeQuery = () => (async function * () {
+      yield { type: 'assistant', message: { content: [{ type: 'text', text: 'ok' }] } }
+      yield { type: 'result', subtype: 'success', usage: { input_tokens: 1, output_tokens: 2 } }
+    })()
+    const server = createServer({ port: 0, query: fakeQuery })
+    try {
+      await new Promise<void>((resolve, reject) => {
+        server.once('listening', resolve)
+        server.once('error', reject)
+      })
+      const { port } = server.address() as AddressInfo
+      const res = await fetch(`http://127.0.0.1:${port}/v1/chat/completions`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ model: 'haiku', messages: [{ role: 'user', content: 'hello' }] })
+      })
+      assert.equal(res.status, 200)
+      assert.match(res.headers.get('content-type') ?? '', /application\/json/)
+      const body = await res.json()
+      assert.equal(body.object, 'chat.completion')
+      assert.equal(body.choices[0].message.content, 'ok')
+      assert.equal(body.choices[0].finish_reason, 'stop')
+      assert.equal(body.usage.completion_tokens, 2)
+    } finally {
+      server.close()
+    }
   })
 })

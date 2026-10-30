@@ -12,15 +12,15 @@
 <i18n lang="yaml">
 fr:
   title: Frame Portails
-  description: "Cette iframe expose le sous-agent portals_config via BroadcastChannel. Elle est retirée du DOM pour simuler une navigation hors de la gestion des portails."
+  description: "Cette iframe expose l'outil read_portal_form via BroadcastChannel. Elle est retirée du DOM pour simuler une navigation hors de la gestion des portails."
 en:
   title: Portals Frame
-  description: "This iframe exposes the portals_config sub-agent via BroadcastChannel. It is removed from the DOM to simulate navigating away from the portals manager."
+  description: "This iframe exposes the read_portal_form tool via BroadcastChannel. It is removed from the DOM to simulate navigating away from the portals manager."
 </i18n>
 
 <script lang="ts" setup>
 import { useI18n } from 'vue-i18n'
-import { useFrameServer, useAgentTool, useAgentSubAgent } from '@data-fair/lib-vue-agents'
+import { useFrameServer, useAgentTool } from '@data-fair/lib-vue-agents'
 
 const { t } = useI18n()
 
@@ -32,12 +32,4 @@ useAgentTool({
   inputSchema: { type: 'object', properties: {} } as any,
   execute: () => ({ content: [{ type: 'text' as const, text: 'Form is empty.' }] })
 } as any)
-
-useAgentSubAgent({
-  name: 'portals_config',
-  title: 'Portals config',
-  description: 'Configure forms of the portals manager',
-  prompt: 'You configure forms in the portals manager.',
-  tools: ['read_portal_form']
-})
 </script>

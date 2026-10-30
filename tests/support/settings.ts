@@ -22,7 +22,7 @@ export const mockModelRef = { id: 'mock-model', name: 'Mock Model', provider: { 
  * 400_000 EUR/M which at the 0.40 EUR/credit peg is exactly one credit per token. */
 export const mockModels = (prices: { inputPricePerMillion: number, outputPricePerMillion: number, cachedInputPricePerMillion?: number } = { inputPricePerMillion: 0, outputPricePerMillion: 0 }) => [{
   model: mockModelRef,
-  usage: ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator'],
+  usage: ['assistant', 'tools', 'summarizer', 'moderator'],
   ...prices
 }]
 
@@ -39,7 +39,7 @@ export const mockSettings = {
   models: mockModels(),
   modelMapping: mockModelMapping,
   quotas: defaultQuotas,
-  storeTraces: false
+  reviewPersonalAssistant: false
 }
 
 /**
@@ -57,7 +57,7 @@ export const mockOrgSettings = {
   modelMapping: { assistant: { provider: 'global-mock', id: 'mock-model', name: 'Global Mock Model' } },
   quotas: defaultQuotas,
   moderation: { enabled: false, categories: ['anonymous', 'external'] },
-  storeTraces: false
+  reviewPersonalAssistant: false
 }
 
 const isPlainObject = (v: any): v is Record<string, any> => !!v && typeof v === 'object' && !Array.isArray(v)
@@ -73,13 +73,13 @@ export function deepMerge<T extends Record<string, any>> (base: T, overrides: Re
 
 /** Fields owned by the org-admin PUT (as opposed to the superadmin PUT, which
  * owns everything else: `providers` and `models`). */
-const ORG_OWNED_KEYS = ['modelMapping', 'quotas', 'moderation', 'storeTraces']
+const ORG_OWNED_KEYS = ['modelMapping', 'quotas', 'moderation', 'reviewPersonalAssistant']
 
 /**
  * Splits a full-shape settings body across the two write-scoped endpoints and
  * writes each half through its own PUT. Settings authorship used to be a
  * single PUT before it was split between superadmin (providers/models) and
- * org-admin (modelMapping/quotas/moderation/storeTraces); this keeps specs
+ * org-admin (modelMapping/quotas/moderation/reviewPersonalAssistant); this keeps specs
  * that still build one full body working unchanged aside from the call site.
  */
 export async function putSettings (adminAx: AxiosInstance, owner: string, body: Record<string, any>) {

@@ -1,13 +1,8 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import {
-  HostEventStore, RECENT_MAX, PENDING_MAX, STATE_MAX_KEYS,
-  formatHostEvents, formatHostState, hasHostState, appendHostEvents,
-  HOST_EVENTS_OPEN, HOST_EVENTS_CLOSE, HOST_STATE_OPEN, HOST_STATE_CLOSE, createWaitTool,
-  LOCATION_KEY, resolvesWait
-} from '../../../ui/src/composables/host-events.ts'
+import { HostEventStore, RECENT_MAX, PENDING_MAX, STATE_MAX_KEYS, formatHostEvents, formatHostState, hasHostState, appendHostEvents, HOST_EVENTS_OPEN, HOST_EVENTS_CLOSE, HOST_STATE_OPEN, HOST_STATE_CLOSE, createWaitTool, WAIT_ACCEPTED, LOCATION_KEY, resolvesWait } from '../../../api/src/agent-session/host-events.ts'
 import { AGENT_LOCATION_KEY } from '../../../lib-vue/agent-location.ts'
-import { wrapHiddenContext, splitHiddenContext } from '../../../ui/src/traces/hidden-context.ts'
+import { wrapHiddenContext, splitHiddenContext } from '../../../shared/hidden-context.ts'
 
 const ev = (name: string, detail?: string, key?: string, at = 1000) => ({ name, ...(detail ? { detail } : {}), ...(key ? { key } : {}), at })
 
@@ -84,122 +79,36 @@ test.describe('HostEventStore pending buffer', () => {
     assert.equal(pending.filter(e => e.key === 'wizard').length, 1)
     assert.equal(pending.filter(e => !e.key).length, PENDING_MAX)
   })
-
-  test('peekPending reads the buffer without draining it', () => {
-    const s = new HostEventStore()
-    s.push(ev('item-created', '1'))
-    s.push(ev('wizard', 'a', 'wizard'))
-    const peeked = s.peekPending()
-    assert.deepEqual(peeked.map(e => e.name), ['item-created', 'wizard'])
-    // Still there afterwards, and still there for a real drain.
-    assert.equal(s.hasPending(), true)
-    assert.deepEqual(s.peekPending().map(e => e.name), ['item-created', 'wizard'])
-    assert.deepEqual(s.takePending().map(e => e.name), ['item-created', 'wizard'])
-    assert.equal(s.hasPending(), false)
-  })
 })
 
-test.describe('HostEventStore waits', () => {
-  test('resolves on the next push and does not buffer it', async () => {
-    const s = new HostEventStore()
-    const p = s.waitForEvent({ timeoutMs: 1000 })
-    assert.equal(s.isWaiting(), true)
-    s.push(ev('item-created', '1'))
-    const out = await p
-    assert.equal((out as any).name, 'item-created')
-    assert.equal(s.hasPending(), false)
-    assert.equal(s.isWaiting(), false)
-  })
-
-  test('resolves immediately with the oldest pending event', async () => {
-    const s = new HostEventStore()
-    s.push(ev('a'))
-    s.push(ev('b'))
-    const out = await s.waitForEvent({ timeoutMs: 1000 })
-    assert.equal((out as any).name, 'a')
-    assert.deepEqual(s.takePending().map(e => e.name), ['b'])
-  })
-
-  test('an event of the gesture that settled a wait does not settle the next one', async () => {
-    // A judged run: one click on a portal produced breadcrumbs then location, the first
-    // settled a wait, and the location left in the buffer ended the next wait at once —
-    // the person had done nothing, and got three instructions in a row.
-    const s = new HostEventStore()
-    const first = s.waitForEvent({ timeoutMs: 1000 })
-    const settledAt = Date.now()
-    s.push({ name: 'breadcrumbs', detail: 'Portail', at: settledAt })
-    await first
-    s.push({ name: LOCATION_KEY, key: LOCATION_KEY, detail: '/portals/x', at: settledAt + 300 })
-    assert.equal(await s.waitForEvent({ timeoutMs: 50 }), 'timeout')
-    assert.ok(s.peekPending().some(e => e.key === LOCATION_KEY), 'it is still reported to the model')
-  })
-
-  test('a later action still settles a wait from the buffer', async () => {
-    const s = new HostEventStore()
-    const first = s.waitForEvent({ timeoutMs: 1000 })
-    const settledAt = Date.now()
-    s.push({ name: 'clicked', at: settledAt })
-    await first
-    s.push({ name: 'saved', at: settledAt + 5000 })
-    assert.equal(((await s.waitForEvent({ timeoutMs: 1000 })) as any).name, 'saved')
-  })
-
-  test('times out', async () => {
-    const s = new HostEventStore()
-    assert.equal(await s.waitForEvent({ timeoutMs: 10 }), 'timeout')
-    assert.equal(s.isWaiting(), false)
-  })
-
-  test('aborts through the signal', async () => {
-    const s = new HostEventStore()
-    const ac = new AbortController()
-    const p = s.waitForEvent({ timeoutMs: 1000, signal: ac.signal })
-    ac.abort()
-    assert.equal(await p, 'aborted')
-    assert.equal(s.isWaiting(), false)
-  })
-
-  test('a second concurrent wait rejects', async () => {
-    const s = new HostEventStore()
-    const p = s.waitForEvent({ timeoutMs: 50 })
-    await assert.rejects(s.waitForEvent({ timeoutMs: 50 }), /already-waiting/)
-    await p
-  })
-
-  test('a wait declared on an already-aborted signal resolves aborted without consuming a pending event', async () => {
-    const s = new HostEventStore()
-    s.push(ev('item-created', '1'))
-    const ac = new AbortController()
-    ac.abort()
-    const out = await s.waitForEvent({ timeoutMs: 1000, signal: ac.signal })
-    assert.equal(out, 'aborted')
-    // The immediate-resolution path (a pending event ready to hand back) must not run
-    // ahead of the abort check, or the event would be silently consumed here instead
-    // of staying owed to the model.
-    assert.equal(s.hasPending(), true)
-    assert.deepEqual(s.takePending().map(e => e.name), ['item-created'])
-  })
-
-  test('cancelWait settles an outstanding wait as aborted and is idempotent', async () => {
-    const s = new HostEventStore()
-    // A no-op when nothing is waiting.
-    s.cancelWait()
-    const p = s.waitForEvent({ timeoutMs: 1000 })
-    s.cancelWait()
-    assert.equal(await p, 'aborted')
-    assert.equal(s.isWaiting(), false)
-    // Calling it again afterwards, and with no wait ever having started, must not throw.
-    s.cancelWait()
-    s.cancelWait()
-  })
-
-  test('cancelWait leaves the pending buffer and retention untouched', () => {
+test.describe('HostEventStore wait answers', () => {
+  // A pending wait is answered from the buffer, by the first thing the person did: the store no
+  // longer holds a waiter, because the wait no longer blocks a turn (see api/src/conversations/waits.ts).
+  test('takes the first thing the person did, then everything else pending as followers', () => {
     const s = new HostEventStore()
     s.push(ev('wizard', 'a', 'wizard'))
     s.push(ev('item-created', '1'))
-    s.cancelWait()
-    assert.equal(s.hasPending(), true)
-    assert.equal(s.snapshot().state.length, 1)
+    s.push(ev('navigated', '/x', 'location'))
+    assert.equal(s.hasWaitAnswer(), true)
+    assert.deepEqual(s.takeWaitAnswer()?.map(e => e.name), ['item-created', 'wizard', 'navigated'])
+    assert.equal(s.hasPending(), false)
+  })
+
+  test('nothing the person did means no answer, and the buffer is left alone', () => {
+    const s = new HostEventStore()
+    s.push(ev('wizard', 'a', 'wizard'))
+    assert.equal(s.hasWaitAnswer(), false)
+    assert.equal(s.takeWaitAnswer(), null)
+    assert.deepEqual(s.takePending().map(e => e.key), ['wizard'])
+  })
+
+  test('restorePending puts an answer back ahead of anything newer', () => {
+    const s = new HostEventStore()
+    s.push(ev('item-created', '1'))
+    const taken = s.takeWaitAnswer()!
+    s.push(ev('later', '2'))
+    s.restorePending(taken)
+    assert.deepEqual(s.takePending().map(e => e.name), ['item-created', 'later'])
   })
 
   test('clearPending drops the buffer and keeps retention', () => {
@@ -208,14 +117,6 @@ test.describe('HostEventStore waits', () => {
     s.clearPending()
     assert.equal(s.hasPending(), false)
     assert.equal(s.snapshot().state.length, 1)
-  })
-
-  test('clearPending settles an outstanding wait as aborted', async () => {
-    const s = new HostEventStore()
-    const p = s.waitForEvent({ timeoutMs: 1000 })
-    s.clearPending()
-    assert.equal(await p, 'aborted')
-    assert.equal(s.isWaiting(), false)
   })
 })
 
@@ -280,131 +181,24 @@ test.describe('wait_for_user_action advertising gate', () => {
 })
 
 test.describe('createWaitTool', () => {
-  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
+  // It does not block: it accepts the handover, and the executor ends the turn on that.
+  const exec = (t: any, args: any) => t.execute(args, {})
 
-  test('refuses a wait with no message for the person, without waiting', async () => {
-    const store = new HostEventStore()
-    const waiting: string[] = []
-    const t = createWaitTool({ store, onWaiting: e => waiting.push(e) })
+  test('refuses a wait with no message for the person, so the model retries with one', async () => {
+    const t = createWaitTool()
     assert.match(await exec(t, {}), /message is required/)
     assert.match(await exec(t, { message: '  ', expecting: 'a click' }), /message is required/)
-    assert.deepEqual(waiting, [], 'no wait was armed')
-    assert.equal(store.isWaiting(), false)
   })
 
-  test('resolves with the event block and drains followers', async () => {
-    const store = new HostEventStore()
-    const waiting: string[] = []
-    let done = 0
-    const t = createWaitTool({ store, onWaiting: e => waiting.push(e), onDone: () => done++ })
-    const p = exec(t, { message: 'Ready.', expecting: 'a click' })
-    store.push(ev('item-created', '{"id":"1"}'))
-    store.push(ev('navigated', '/x', 'location'))
-    const out = await p as string
-    assert.deepEqual(waiting, ['a click'])
-    assert.equal(done, 1)
-    assert.match(out, /item-created/)
-    assert.match(out, /navigated: \/x/)
-    assert.equal(store.hasPending(), false)
-  })
-
-  test('lists the event that resolved it and its followers in the order they happened', async () => {
-    // a judged portal run: the result listed « draft-validated » first, then the older
-    // « unpublished changes: the person must press « Valider le brouillon » » state, which reads
-    // as the current state once the validation is past
-    const store = new HostEventStore()
-    const t = createWaitTool({ store })
-    store.push(ev('draft', 'unpublished changes', 'draft', 1000))
-    const p = exec(t, { message: 'Ready.', expecting: 'a click' })
-    store.push(ev('draft-validated', '{"page":"x"}', undefined, 2000))
-    const out = await p as string
-    assert.ok(out.indexOf('unpublished changes') < out.indexOf('draft-validated'), out)
-  })
-
-  test('times out with the verbatim text', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store })
-    const out = await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
-    assert.equal(out, 'No user action within 1 seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.')
-  })
-
-  test('abort returns the cancel text', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store })
-    const ac = new AbortController()
-    const p = exec(t, { message: 'Ready.', expecting: 'x' }, { abortSignal: ac.signal })
-    ac.abort()
-    assert.equal(await p, 'Wait cancelled.')
-  })
-
-  test('a second call while pending returns immediately', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store })
-    const p = exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
-    assert.equal(await exec(t, { message: 'Ready.', expecting: 'y' }), 'Already waiting for the user.')
-    await p
-  })
-})
-
-test.describe('createWaitTool refuses only a wait that can achieve nothing', () => {
-  // This used to cap a reply at one blocking wait, on the premise that "the
-  // person cannot act while the turn is still open, so a second block can only
-  // ever time out". That premise is what wait_for_user_action exists to falsify:
-  // the composer stays usable during a wait, and the application reports what the
-  // person did. A workflow needs several waits in one reply — a dialog reports
-  // itself, the person saves, the next dialog reports itself — and capping it
-  // refused the third, ending the reply while the person waited to be told a
-  // button was ready.
-  //
-  // What the two judged runs behind the old cap actually cost was waiting again
-  // after a timeout with nothing having happened. That is what is refused now,
-  // and it is refused on the event sequence rather than on a count.
-  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
-
-  test('a second blocking wait in one reply is allowed when something happened', async () => {
-    const store = new HostEventStore()
-    const turn = 'turn-1'
-    const t = createWaitTool({ store, turnId: () => turn })
-    const first = exec(t, { message: 'Ready.', expecting: 'a click' })
-    store.push(ev('item-created', '{"id":"1"}'))
-    await first
-    const second = exec(t, { message: 'Ready.', expecting: 'the next dialog' })
-    store.push(ev('dialog-opened', '{"mode":"edit"}'))
-    assert.match(await second as string, /dialog-opened/)
-  })
-
-  test('a new turn may wait again', async () => {
-    const store = new HostEventStore()
-    let turn = 'turn-1'
-    const t = createWaitTool({ store, turnId: () => turn })
-    const first = exec(t, { message: 'Ready.', expecting: 'a click' })
-    store.push(ev('item-created', '{"id":"1"}'))
-    await first
-    turn = 'turn-2'
-    const second = exec(t, { message: 'Ready.', expecting: 'another click' })
-    store.push(ev('navigated', '/x', 'location'))
-    assert.match(await second as string, /navigated/)
-  })
-
-  test('a timed-out wait is not retried while the person has done nothing', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
+  test('accepts a handover at once', async () => {
     const started = Date.now()
-    await exec(t, { message: 'Ready.', expecting: 'x again', timeoutSeconds: 30 })
-    assert.ok(Date.now() - started < 1000, 'must not block twice')
+    assert.equal(await exec(createWaitTool(), { message: 'Ready.', expecting: 'a click' }), WAIT_ACCEPTED)
+    assert.ok(Date.now() - started < 100)
   })
 
-  test('without a turnId the tool keeps its old unlimited behaviour', async () => {
-    // Hosts that never wired turnId must not silently lose the ability to wait.
-    const store = new HostEventStore()
-    const t = createWaitTool({ store })
-    const first = exec(t, { message: 'Ready.', expecting: 'a' })
-    store.push(ev('item-created', '{"id":"1"}'))
-    await first
-    const second = exec(t, { message: 'Ready.', expecting: 'b' })
-    store.push(ev('navigated', '/x', 'location'))
-    assert.match(await second as string, /navigated/)
+  test('offers no clock: a wait lasts until the person acts, writes or declines', () => {
+    const schema = (createWaitTool() as any).inputSchema.jsonSchema
+    assert.deepEqual(Object.keys(schema.properties).sort(), ['expecting', 'message'])
   })
 })
 
@@ -434,158 +228,7 @@ test.describe('the host blocks admit what they do not cover', () => {
   })
 })
 
-test.describe('a refusal needs a timed-out wait and no action since', () => {
-  // What is refused is a repeat after a timeout with nothing having happened
-  // since. A wait satisfied instantly by an event already in the pending buffer
-  // — including a keyed state re-emission caused by the assistant's OWN tool
-  // call — is neither a block nor progress, so it must not refuse the follow-up:
-  // a judged run had the decisive wait for a Create click eaten by a
-  // `wizard ready:true` transition, the real wait refused, and the person told
-  // three times to click a button the assistant had no way to observe, through
-  // two 120s timeouts.
-  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
-
-  test('a wait answered from the pending buffer does not block, and does not refuse the next one', async () => {
-    // The person clicked before the wait was armed: the transition is already
-    // pending, so the wait is answered at once without ever blocking — and must
-    // not be mistaken for the person acting, leaving the next wait free to block.
-    // (A pending keyed REFRESH is a different thing:
-    // it is context, never an answer — see resolvesWait.)
-    const store = new HostEventStore()
-    const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    store.push(ev('item-created', '{"id":"1"}'))
-    const first = await exec(t, { message: 'Ready.', expecting: 'the user clicks Create' }) as string
-    assert.match(first, /item-created/)
-    assert.equal(store.lastWaitBlocked, false)
-
-    // The next wait must still be available, and must actually block.
-    const second = exec(t, { message: 'Ready.', expecting: 'the user reaches the detail page' })
-    store.push(ev('navigated', '{"path":"/detail"}', 'location'))
-    assert.match(await second as string, /navigated/)
-  })
-
-  test('a wait that blocked and was then answered does not refuse the next one: the person acted', async () => {
-    // This used to be refused, and it is the shape a real workflow has. A judged
-    // run opened the add-line dialog (wait, answered by the dialog reporting
-    // itself), had the person save it (wait, blocked until they clicked, then
-    // answered), then opened the edit dialog — and THAT third wait was refused
-    // with "you already waited in this reply". The assistant ended its reply, the
-    // person was waiting to be told a button was ready, and the run drained to
-    // its turn cap with the correction never made.
-    //
-    // A wait that blocked and then resolved is progress: something happened. What
-    // must not repeat is a wait that timed out while the person did nothing, and
-    // that is caught exactly, below, by the event-sequence rule.
-    const store = new HostEventStore()
-    const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    const first = exec(t, { message: 'Ready.', expecting: 'a click' })
-    store.push(ev('item-created', '{"id":"1"}'))
-    await first
-
-    const second = exec(t, { message: 'Ready.', expecting: 'the dialog to open' })
-    store.push(ev('dialog-opened', '{"mode":"edit"}'))
-    assert.match(await second as string, /dialog-opened/)
-  })
-
-  test('a repeat after a timeout, with nothing having happened, is still refused', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
-    const started = Date.now()
-    const out = await exec(t, { message: 'Ready.', expecting: 'x again', timeoutSeconds: 30 }) as string
-    assert.ok(Date.now() - started < 1000)
-    assert.match(out, /timed out/i)
-  })
-
-  test('but once the person does something, waiting again is allowed', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
-    store.push(ev('item-created', '{"id":"1"}'))
-    const out = await exec(t, { message: 'Ready.', expecting: 'x again', timeoutSeconds: 30 }) as string
-    assert.match(out, /item-created/)
-  })
-})
-
-test.describe('a timed-out wait does not block again until something happens', () => {
-  // A per-turn count could not reach this anyway: each new turn would get a
-  // fresh allowance, so an assistant that waits, times out, and waits again on
-  // the next turn blocks for the full timeout every time. A judged data-fair run
-  // spent 480s of a 567s run in four such timeouts, writing a new "I'm still
-  // waiting" line after each one — while the timeout result already told it to
-  // end its reply and let the user act. Blocking again before the person has done
-  // ANYTHING cannot help.
-  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
-
-  test('refuses to block again while the application has reported nothing', async () => {
-    const store = new HostEventStore()
-    let turn = 1
-    const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
-    await exec(t, { message: 'Ready.', expecting: 'the user clicks Create', timeoutSeconds: 1 })
-
-    turn = 2
-    const started = Date.now()
-    const out = await exec(t, { message: 'Ready.', expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
-    assert.ok(Date.now() - started < 1000, 'must not block a second time')
-    assert.match(out, /not acted|nothing|no action/i)
-  })
-
-  test('waits again once the person has actually done something', async () => {
-    const store = new HostEventStore()
-    let turn = 1
-    const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
-    await exec(t, { message: 'Ready.', expecting: 'a click', timeoutSeconds: 1 })
-
-    // The person acts; that event is delivered by the normal path.
-    store.push(ev('item-created', '{"id":"1"}'))
-    store.takePending()
-
-    turn = 2
-    const second = exec(t, { message: 'Ready.', expecting: 'the next step', timeoutSeconds: 30 })
-    store.push(ev('navigated', '/detail', 'location'))
-    assert.match(await second as string, /navigated/)
-  })
-
-  test('a keyed refresh between turns does not re-arm the blocking', async () => {
-    // The guard counts by kind, like the wait itself. A late async refresh with
-    // nobody involved — advance_to_confirmation flipping ready:false to true when
-    // a title-conflict check comes back — would otherwise say the person had acted
-    // and buy the next wait a full timeout on someone who is still away. Whether
-    // that refresh lands just before or just after the timeout is network latency,
-    // so it cannot be what decides.
-    const store = new HostEventStore()
-    let turn = 1
-    const t = createWaitTool({ store, turnId: () => `turn-${turn}` })
-    await exec(t, { message: 'Ready.', expecting: 'the user clicks Create', timeoutSeconds: 1 })
-
-    store.push(ev('wizard', '{"ready":true}', 'wizard'))
-
-    turn = 2
-    const started = Date.now()
-    const out = await exec(t, { message: 'Ready.', expecting: 'the user clicks Create', timeoutSeconds: 30 }) as string
-    assert.ok(Date.now() - started < 1000, 'a refresh is not the person acting')
-    assert.match(out, /not acted/i)
-  })
-
-  test('the very first wait of a conversation still blocks', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store, turnId: () => 'turn-1' })
-    const first = exec(t, { message: 'Ready.', expecting: 'a click' })
-    store.push(ev('item-created', '{"id":"1"}'))
-    assert.match(await first as string, /item-created/)
-  })
-
-  test('a host that wires no turnId is unaffected', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store })
-    await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
-    const second = exec(t, { message: 'Ready.', expecting: 'y', timeoutSeconds: 30 })
-    store.push(ev('item-created', '{"id":"1"}'))
-    assert.match(await second as string, /item-created/)
-  })
-})
-
-test.describe('what resolves a wait is a kind of event, not a moment', () => {
+test.describe('what answers a wait is a kind of event, not a moment', () => {
   // A wait means "tell me when the person does something". The store already
   // separates the two kinds of event: an unkeyed transition is something that
   // happened, keyed state is what is true now — and state refreshes for many
@@ -593,59 +236,40 @@ test.describe('what resolves a wait is a kind of event, not a moment', () => {
   // had advance_to_confirmation report {ready:false} on its result, then
   // {ready:true} once a title-conflict API check came back; the wait took that
   // refresh as the user acting, the model retried, and the retry blocked 120s.
-  // Timing cannot tell those apart — the refresh lands before or after the wait
-  // depending on network latency — so the rule is by kind. `location` is the one
-  // keyed change that means the person left, and it cancels a wait.
-  const wait = (s: HostEventStore, ms = 5000) => s.waitForEvent({ timeoutMs: ms })
-
-  test('a keyed refresh already pending is context, and the wait keeps waiting', async () => {
+  // Timing cannot tell those apart — the refresh lands before or after the
+  // handover depending on network latency — so the rule is by kind. `location` is
+  // the one keyed change that means the person left, and it answers a wait.
+  test('a keyed refresh is context, not an answer', () => {
     const s = new HostEventStore()
-    s.push(ev('wizard', '{"ready":true}', 'wizard'))
-    const p = wait(s)
-    s.push(ev('dataset-created', '{"id":"d1"}'))
-    const out = await p
-    assert.equal((out as any).name, 'dataset-created', 'the transition resolves it, not the refresh')
-    // The refresh is still owed to the model, as a follower.
-    assert.deepEqual(s.takePending().map(e => e.key), ['wizard'])
-  })
-
-  test('a transition already pending resolves at once — the person acted early', async () => {
-    const s = new HostEventStore()
-    s.push(ev('dataset-created', '{"id":"d1"}'))
-    const out = await wait(s)
-    assert.equal((out as any).name, 'dataset-created')
-    assert.equal(s.lastWaitBlocked, false)
-  })
-
-  test('a keyed refresh arriving mid-wait does not resolve it either', async () => {
-    const s = new HostEventStore()
-    const p = wait(s)
-    s.push(ev('wizard', '{"ready":true}', 'wizard'))
-    s.push(ev('item-created', '{"id":"1"}'))
-    assert.equal((await p as any).name, 'item-created')
-    assert.deepEqual(s.takePending().map(e => e.key), ['wizard'])
-  })
-
-  test('a navigation cancels a wait, whatever it expected', async () => {
-    const s = new HostEventStore()
-    const p = wait(s)
-    s.push(ev('navigated', '{"path":"/elsewhere"}', 'location'))
-    assert.equal((await p as any).key, 'location')
-  })
-
-  test('a navigation already pending resolves at once too', async () => {
-    const s = new HostEventStore()
-    s.push(ev('navigated', '{"path":"/elsewhere"}', 'location'))
-    assert.equal((await wait(s) as any).key, 'location')
-  })
-
-  test('only refreshes, and the wait runs to its timeout', async () => {
-    const s = new HostEventStore()
-    const p = wait(s, 300)
     s.push(ev('wizard', '{"ready":true}', 'wizard'))
     s.push(ev('detail', '{"id":"1"}', 'detail'))
-    assert.equal(await p, 'timeout')
-    assert.deepEqual(s.takePending().map(e => e.key), ['wizard', 'detail'])
+    assert.equal(s.takeWaitAnswer(), null)
+  })
+
+  test('a transition answers it, with the refreshes delivered as followers', () => {
+    const s = new HostEventStore()
+    s.push(ev('wizard', '{"ready":true}', 'wizard'))
+    s.push(ev('dataset-created', '{"id":"d1"}'))
+    const answer = s.takeWaitAnswer()!
+    assert.equal(answer[0].name, 'dataset-created', 'the transition answers it, not the refresh')
+    assert.deepEqual(answer.slice(1).map(e => e.key), ['wizard'])
+  })
+
+  test('a navigation answers it, whatever it expected', () => {
+    const s = new HostEventStore()
+    s.push(ev('navigated', '{"path":"/elsewhere"}', 'location'))
+    assert.equal(s.takeWaitAnswer()?.[0].key, 'location')
+  })
+
+  test('an event the caller rules out as not news is passed over, and stays as context', () => {
+    // A reloaded page re-announcing the location it was already at is not the person leaving.
+    const s = new HostEventStore()
+    s.push(ev('navigated', '/same', 'location'))
+    const notNews = (e: { key?: string, detail?: string }) => e.key === 'location' && e.detail === '/same'
+    assert.equal(s.hasWaitAnswer(notNews), false)
+    assert.equal(s.takeWaitAnswer(notNews), null)
+    s.push(ev('item-created', '1'))
+    assert.deepEqual(s.takeWaitAnswer(notNews)?.map(e => e.name), ['item-created', 'navigated'])
   })
 })
 
@@ -665,31 +289,16 @@ test.describe('the location key is one string on both sides of the channel', () 
   })
 })
 
-test.describe('a timed-out wait carries what the application reported meanwhile', () => {
-  // A keyed refresh arriving during a wait is context, not the answer, so it
-  // stays pending. If the wait then times out, the tool used to return bare
-  // text and leave that refresh in the buffer for the next carrier — in a judged
-  // run the wizard's ready:true, emitted one second after the wait was armed,
-  // reached the model two minutes later, folded into the person's next message.
-  // The timeout is a carrier too.
-  const exec = (t: any, args: any, options?: any) => t.execute(args, options ?? {})
-
-  test('delivers pending refreshes with the timeout, and empties the buffer', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store })
-    const p = exec(t, { message: 'Ready.', expecting: 'a click', timeoutSeconds: 1 })
-    store.push(ev('wizard', '{"ready":true}', 'wizard'))
-    const out = await p as string
-    assert.match(out, /No user action within 1 seconds/)
-    assert.match(out, /wizard/)
-    assert.match(out, /ready/)
-    assert.equal(store.hasPending(), false)
-  })
-
-  test('a bare timeout is unchanged when nothing arrived', async () => {
-    const store = new HostEventStore()
-    const t = createWaitTool({ store })
-    const out = await exec(t, { message: 'Ready.', expecting: 'x', timeoutSeconds: 1 })
-    assert.equal(out, 'No user action within 1 seconds. End your reply now and let the user act; you will be told what they did when the conversation continues.')
+test.describe('sanitizeEvent — what the chat forwards fits the socket', () => {
+  // A host posts on the tab's channel without going through lib-vue's serializeDetail: an event the
+  // server's frame schema would refuse must be fitted here, not lost with an error.
+  test('a long detail is truncated, a long name or key is not forwarded', async () => {
+    const { sanitizeEvent } = await import('../../../ui/src/composables/use-host-events.ts')
+    const { CLIENT_FRAME_LIMITS } = await import('../../../shared/agent-session-protocol.ts')
+    const detail = sanitizeEvent({ name: 'saved', at: 1, detail: 'x'.repeat(5000) })!.detail!
+    assert.equal(detail.length, CLIENT_FRAME_LIMITS.eventDetail)
+    assert.match(detail, /\[truncated\]$/)
+    assert.equal(sanitizeEvent({ name: 'n'.repeat(CLIENT_FRAME_LIMITS.eventName + 1), at: 1 }), null)
+    assert.equal(sanitizeEvent({ name: 'saved', at: 1, key: 'k'.repeat(CLIENT_FRAME_LIMITS.eventName + 1) })!.key, undefined)
   })
 })

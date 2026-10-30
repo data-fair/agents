@@ -1,17 +1,15 @@
 /**
  * service.ts contains stateful moderation logic: strike accounting, event
- * recording, the gateway-facing moderation run and the admin probe.
+ * recording, the moderation run behind the turn gate and the admin probe.
  */
 import mongo from '#mongo'
 import { generateObject } from 'ai'
 import type { AccountKeys } from '@data-fair/lib-express'
-import type { Settings } from '#types'
-import type { UsageIdentity } from '../usage/enforce.ts'
-import config from '#config'
+import type { ConversationRun, Settings } from '#types'
+import type { UsageIdentity } from '../usage/operations.ts'
 import { OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
 import { resolveRoleModel } from '../models/service.ts'
-import { recordUsage } from '../usage/service.ts'
-import { computeCreditBreakdown } from '../usage/operations.ts'
+import { chargeModelCall } from '../usage/charge.ts'
 import {
   buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
   verdictSchema, isInCooldown, isReasoningEffortRejected,
@@ -20,7 +18,6 @@ import {
   type ModerationVerdict
 } from './operations.ts'
 import type { ModerationEvent, ModerationEventAction } from './types.ts'
-import type { TraceModeration } from '../traces/types.ts'
 
 // Run a moderator generateObject call with thinking disabled: reasoning_effort:none is
 // honoured by OpenAI-compatible reasoning models (Scaleway/GLM, …) so the short token
@@ -95,7 +92,7 @@ export function recordStrikeRefusal (owner: AccountKeys, identity: UsageIdentity
   })
 }
 
-// ---- the gateway-facing moderation run ----
+// ---- the moderation run behind the turn gate (conversations/turn-gates.ts) ----
 
 export interface ModerationGateResult {
   action: 'allow' | 'block'
@@ -107,38 +104,44 @@ export interface ModerationRun {
   gate: Promise<ModerationGateResult>
   // fired if a block verdict arrives after the gate already failed open
   onLateBlock: (cb: () => void) => void
-  // best-known verdict info for trace embedding (undefined until the check settles)
-  traceInfo: () => TraceModeration | undefined
-  // credits of the classifier call once it settled (0 before, or when it failed)
-  cost: () => number
 }
 
 export function startModeration (params: {
   settings: Settings
   owner: AccountKeys
+  /** Who pays for the classifier call. */
   identity: UsageIdentity
+  /** Who wrote the message, when not the payer (a configured agent's instructor): its events and strikes. */
+  speaker?: UsageIdentity
   message: string
   context: string
   modelRole: string
+  /**
+   * The turn this check gates. The classifier call belongs to its spend (port of main's #74): onto the
+   * run, so the per-run budget and the conversation's total see it, and into the run's telemetry like
+   * every other model call — a run whose credits exceeded its calls left the difference unexplained,
+   * and a blocked turn looked free. Not when the verdict lands AFTER the gate failed open: the run has
+   * moved on by then, so that call is in the usage ledger only.
+   */
+  run?: ConversationRun
 }): ModerationRun {
   const { settings, owner, identity, modelRole } = params
+  const speaker = params.speaker ?? identity
   const startedAt = Date.now()
   const message = truncateForModeration(params.message)
   const moderationInput = formatModerationInput(params.context, message)
   const eventBase = {
     owner: { type: owner.type, id: owner.id },
-    role: identity.role,
-    userId: identity.usageUserId ?? '',
+    role: speaker.role,
+    userId: speaker.usageUserId ?? '',
     modelRole
   }
 
   let lateBlockCb: (() => void) | undefined
   let timedOut = false
-  let trace: TraceModeration | undefined
-  let cost = 0
 
   // Exactly one event per check, written when the check settles.
-  const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict, opts?: { failOpen?: 'timeout' | 'error' }) => {
+  const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict) => {
     const latencyMs = Date.now() - startedAt
     recordEvent({
       ...eventBase,
@@ -148,17 +151,10 @@ export function startModeration (params: {
       latencyMs,
       ...(action === 'block' || action === 'late-block' ? { messageExcerpt: truncateExcerpt(params.message) } : {})
     })
-    trace = {
-      action: verdict?.action ?? 'allow',
-      ...(verdict?.category ? { category: verdict.category } : {}),
-      ...(verdict?.reason ? { reason: verdict.reason } : {}),
-      latencyMs,
-      ...(opts?.failOpen ? { failOpen: opts.failOpen } : {})
-    }
     // Strikes accrue for untrusted callers only — they drive the cooldown
     // lockout, which must never apply to trusted (org-member) callers even when
     // their category is moderated. Their messages are still blocked one by one.
-    if (identity.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
+    if (speaker.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
   }
 
   const verdictPromise: Promise<ModerationVerdict> = (async () => {
@@ -177,32 +173,19 @@ export function startModeration (params: {
       schema: verdictSchema,
       temperature: 0,
       maxOutputTokens: 100,
-      system: buildModerationSystemPrompt(),
+      instructions: buildModerationSystemPrompt(),
       messages: [{ role: 'user' as const, content: moderationInput }],
       abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
     }
     const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...baseArgs, ...extra }))
-    const details = usage?.inputTokenDetails
-    const credits = computeCreditBreakdown(
-      { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+    await chargeModelCall({
+      owner,
+      identity,
+      modelRole: 'moderator',
       entry,
-      config.eurosPerCredit
-    )
-    cost = credits.total
-    if (credits.total > 0) {
-      await recordUsage(owner, {
-        cost: credits.total,
-        userId: identity.usageUserId,
-        userName: identity.usageUserName,
-        poolId: identity.poolId,
-        dimensions: {
-          modelRole: 'moderator',
-          model: entry.id,
-          profile: identity.role,
-          tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
-        }
-      })
-    }
+      usage,
+      ...(params.run && !timedOut ? { run: { run: params.run, durationMs: Date.now() - startedAt } } : {})
+    })
     return object
   })()
 
@@ -213,10 +196,10 @@ export function startModeration (params: {
       finalize('late-block', verdict)
       lateBlockCb?.()
     } else {
-      finalize('fail-open-timeout', verdict, { failOpen: 'timeout' })
+      finalize('fail-open-timeout', verdict)
     }
   }, () => {
-    finalize('fail-open-error', undefined, { failOpen: 'error' })
+    finalize('fail-open-error')
   })
 
   const gate: Promise<ModerationGateResult> = Promise.race([
@@ -227,12 +210,6 @@ export function startModeration (params: {
     new Promise<ModerationGateResult>(resolve => {
       const timer = setTimeout(() => {
         timedOut = true
-        // Publish a provisional trace verdict now: the response (and its trace)
-        // is recorded the instant the gate opens, which is before the real
-        // verdict settles and runs finalize(). Without this, the fail-open —
-        // the verdict an admin most needs to see — is silently dropped from the
-        // trace. finalize() overwrites it later for the event/late-block paths.
-        trace = { action: 'allow', failOpen: 'timeout', latencyMs: Date.now() - startedAt }
         resolve({ action: 'allow', timedOut: true })
       }, MODERATION_TIMEOUT_MS)
       // do not keep the process alive for the gate timer alone
@@ -240,7 +217,7 @@ export function startModeration (params: {
     })
   ])
 
-  return { gate, onLateBlock: (cb) => { lateBlockCb = cb }, traceInfo: () => trace, cost: () => cost }
+  return { gate, onLateBlock: (cb) => { lateBlockCb = cb } }
 }
 
 // ---- admin probe ----
@@ -273,27 +250,19 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
         schema: verdictSchema,
         temperature: 0,
         maxOutputTokens: 100,
-        system: buildModerationSystemPrompt(),
+        instructions: buildModerationSystemPrompt(),
         messages: [{ role: 'user' as const, content: probe.message }],
         abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
       }
       const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...probeArgs, ...extra }))
-      const details = usage?.inputTokenDetails
-      const credits = computeCreditBreakdown(
-        { inputTokens: usage?.inputTokens ?? 0, outputTokens: usage?.outputTokens ?? 0, noCacheTokens: details?.noCacheTokens, cacheReadTokens: details?.cacheReadTokens, cacheWriteTokens: details?.cacheWriteTokens },
+      // The account's own call: no caller identity, so no per-user record and no profile.
+      await chargeModelCall({
+        owner,
+        identity: null,
+        modelRole: 'moderator',
         entry,
-        config.eurosPerCredit
-      )
-      if (credits.total > 0) {
-        await recordUsage(owner, {
-          cost: credits.total,
-          dimensions: {
-            modelRole: 'moderator',
-            model: entry.id,
-            tokenCosts: { input: credits.input, cachedInput: credits.cachedInput, output: credits.output }
-          }
-        })
-      }
+        usage
+      })
       results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })
     } catch (err: any) {
       results.push({ key: probe.key, message: probe.message, error: err?.message ?? 'moderation call failed', latencyMs: Date.now() - startedAt })

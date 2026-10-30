@@ -48,7 +48,7 @@ test.describe('Chat consumption tab', () => {
     await expect(page.getByTestId('consumption-conversation')).toContainText('0 credits')
   })
 
-  test('a quota 429 reads as which limit and when it resets', async ({ page, goToWithAuth }) => {
+  test('a quota refusal reads as which limit and when it resets', async ({ page, goToWithAuth }) => {
     // seed the member's daily usage past the daily limit (1000 / 4 = 250)
     await anonymousAx.post(`http://localhost:${process.env.DEV_API_PORT}/api/test-env/usage`, {
       owner: { type: 'organization', id: 'test1' }, userId: 'test1-contrib1', cost: 300

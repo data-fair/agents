@@ -7,19 +7,25 @@ shows otherwise: the tools, links, and user intent all come from the host.
 
 ## How it is embedded
 
-- The chat runs in a **browser iframe** beside the host application and shares
-  the user's session (the authenticated user or organization is the owner).
-- Tools are provided by the host and execute **client-side** over **WebMCP via a
-  BroadcastChannel** between the iframe and the host frame. The agents service
-  itself never calls the host's API directly — it only orchestrates the model
-  and forwards tool calls back to the host frame.
+- The chat UI runs in a **browser iframe** beside the host application and shares
+  the user's session (the authenticated user or organization is the owner). The
+  agent loop itself runs **on the agents server**; the iframe is connected to it
+  by a websocket agent session (see [Embedding](./embedding.md)).
+- The host's page tools execute **client-side**: the host exposes them over
+  **WebMCP via a BroadcastChannel**, the iframe declares them to the server, and
+  the server sends each call back down the socket for the page to run. The
+  agents service never calls the host's API for those tools.
+- The personal assistant also receives the tools of the deployment's MCP server
+  catalog (`config.mcpServers`, empty by default), called **server-side** with
+  the person's forwarded session. Every tool result reaches the model inside a
+  provenance envelope naming its source; for page tools that name is `the-page`.
 - Integration is enabled per account, so not every account exposes host tools.
 
 ## Tools the agent typically encounters
 
 ### data-fair back-office
 
-A rich tool surface (dozens of tools across sub-agents). The main families:
+A rich tool surface (dozens of tools). The main families:
 
 - **Navigation:** `navigate`, `list_pages`, `get_current_location`.
 - **Dataset exploration:** `list_datasets`, `describe_dataset`,
@@ -36,9 +42,9 @@ A rich tool surface (dozens of tools across sub-agents). The main families:
 
 ### portals manager
 
-A narrow surface: VJSF form sub-agents only — `pageConfig_form` and
-`portalConfig_form` — which translate natural-language requests into form
-mutations. The user still reviews and saves the form.
+A narrow surface: the tools of its VJSF configuration forms (page and portal
+configuration), with which the agent turns natural-language requests into form
+mutations, guided by the form's page skill. The user still reviews and saves the form.
 
 ## Domain vocabulary
 
@@ -49,7 +55,7 @@ mutations. The user still reviews and saves the form.
 - **Users** are typically back-office administrators, dataset owners, or portal
   designers exploring or configuring data — not anonymous end-users.
 
-## Quirks an evaluator should weigh
+## Quirks a reviewer should weigh
 
 - **Absolute URLs are intentional.** Tool responses carry full absolute URLs and
   the assistant is told to use them verbatim; relative links break inside the
@@ -67,7 +73,11 @@ mutations. The user still reviews and saves the form.
   commit changes autonomously, so "nothing was saved" can be expected behaviour.
 - **`<host-state>` and `<host-events>` blocks are host-reported, not user-written.** They
   appear inside a user turn's hidden context or appended to a tool result, and say so.
+  The user-turn blocks decorate the model request only and are not stored, so a
+  reviewer sees host events only where a tool or wait result carried them. The chat
+  itself reports some host state too: the person's language, organization, whether
+  the widget is narrow, whether diagrams render.
   An assistant acting on them ("I see you created the dataset") is reading the
-  application, not inventing; an assistant calling `wait_for_user_action` and resuming
+  application, not inventing; an assistant calling `wait_for_user_action` and continuing
   on the user's click is the intended hand-back, not a stall. See
   [Host events](./host-events.md).

@@ -2,7 +2,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { personaSystemPrompt, personaPrompt, DONE, isDone, nextUserMessage, PERSONA_MAX_TURNS, DEFAULT_USER_MODEL, resolveUserModel, type PersonaQuery } from '../../../lib-sim/persona.ts'
+import { personaSystemPrompt, personaPrompt, DONE, NEW_CONVERSATION_ROLE, isDone, nextUserMessage, PERSONA_MAX_TURNS, DEFAULT_USER_MODEL, resolveUserModel, type PersonaQuery } from '../../../lib-sim/persona.ts'
 import type { PagePerception } from '../../../lib-sim/page-perception.ts'
 import { cases } from '../../../simulations/cases/index.ts'
 
@@ -40,7 +40,53 @@ test.describe('persona prompting', () => {
     ])
     assert.ok(p.includes('clicked "Enregistrer"'))
     assert.ok(!p.includes('## page'), 'looks are not actions')
-    assert.ok(!personaPrompt([{ role: 'assistant', text: 'x' }], 3).includes('What you have done'))
+    assert.ok(!personaPrompt([{ role: 'assistant', text: 'x' }], 3).includes('you, on the page'))
+  })
+
+  // A judged run: the persona approved a card, its message of that pass was dropped (the reply its
+  // click caused had arrived), and the next pass read the click listed AFTER the assistant's reply as
+  // `clicked "Approve" → clicked "Approve"` — it told the assistant "you say you already clicked
+  // Approve twice yourself" and went looking for the card it had decided.
+  test('places each action where it happened, and does not echo it as a second one', () => {
+    const p = personaPrompt([
+      { role: 'user', text: 'plan a weekly check' },
+      { role: 'assistant', text: '' },
+      { role: 'assistant', text: 'Done, the task is planned.' }
+    ], 3, [
+      { turn: 2, tool: 'look', args: {}, result: '## page Approve "Plan a task"?', at: 2 },
+      { turn: 2, tool: 'click', args: { name: 'Approve' }, result: 'clicked "Approve"', at: 2 }
+    ])
+    const click = p.indexOf('(you, on the page: clicked "Approve")')
+    assert.ok(click > p.indexOf('you: plan a weekly check'), 'after the message it answered')
+    assert.ok(click < p.indexOf('assistant: Done, the task is planned.'), 'before the reply it caused')
+    assert.equal(p.split('Approve').length - 1, 1, 'one click reads as one click')
+  })
+
+  test('an action whose result says something else keeps its result', () => {
+    const p = personaPrompt([{ role: 'assistant', text: 'x' }], 3, [
+      { turn: 1, tool: 'click', args: { name: 'Save' }, result: 'could not find anything called "Save" to click', at: 1 }
+    ])
+    assert.ok(p.includes('clicked "Save" → could not find anything called "Save" to click'))
+  })
+
+  test('a case with several conversations says so, and DONE ends only the current one', () => {
+    const p = personaSystemPrompt({ ...c, conversations: 2 })
+    assert.ok(p.includes('2 separate conversations'))
+    assert.ok(!personaSystemPrompt(c).includes('separate conversations'), 'a one-conversation case is unchanged')
+  })
+
+  test('after a new conversation is opened, the persona writes its first message in it', () => {
+    const p = personaPrompt([
+      { role: 'user', text: 'always list streets first' },
+      { role: 'assistant', text: 'noted' },
+      { role: NEW_CONVERSATION_ROLE, text: 'you opened a new conversation' }
+    ], 4)
+    // The earlier conversation is still the person's memory, the boundary is visible, and the ask is
+    // an opening message rather than a reply to the last assistant line.
+    assert.ok(p.includes('always list streets first'))
+    assert.ok(p.includes('--- you opened a new conversation ---'))
+    assert.ok(p.includes('new, empty conversation'))
+    assert.ok(!p.includes('assistant: you opened'), 'the boundary is not put in the assistant\'s mouth')
   })
 
   test('tells keys and tab switches apart, and leaves screenshots out like looks', () => {
@@ -51,7 +97,8 @@ test.describe('persona prompting', () => {
       { turn: 1, tool: 'screenshot', args: {}, result: 'screenshot of tab 2' }
     ])
     assert.ok(p.includes('pressed Enter in "Recherche"'))
-    assert.ok(p.includes('pressed Escape →'))
+    // a result that only repeats the action is not shown twice
+    assert.ok(p.includes('(you, on the page: pressed Escape)'))
     assert.ok(p.includes('switched to tab 2'))
     assert.ok(!p.includes('screenshot'), 'a screenshot is a look, not an action')
   })
@@ -157,6 +204,16 @@ test.describe('nextUserMessage MCP wiring', () => {
     assert.deepEqual(options.tools, [])
     assert.deepEqual(options.settingSources, [])
     assert.equal(options.strictMcpConfig, true)
+  })
+
+  test('stamps what the pass did with the transcript it had read', async () => {
+    const observations: PagePerception['observations'] = [{ turn: 1, tool: 'click', args: { name: 'Old' }, result: 'clicked "Old"', at: 0 }]
+    const query = ((args: any) => {
+      observations.push({ turn: 2, tool: 'click', args: { name: 'Approve' }, result: 'clicked "Approve"' })
+      return fakeReply('ok')
+    }) as unknown as PersonaQuery
+    await nextUserMessage(c, [{ role: 'user', text: 'a' }, { role: 'assistant', text: 'b' }], 5, { perception: { ...fakePerception, observations }, query })
+    assert.deepEqual(observations.map(o => o.at), [0, 2], 'only this pass\'s actions, at the transcript it was given')
   })
 
   test('without perception there is no mcp wiring', async () => {

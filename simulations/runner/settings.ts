@@ -3,7 +3,18 @@
  * test runs on a real model.
  */
 
-export const BRIDGE_URL = process.env.BRIDGE_URL ?? 'http://localhost:3194/v1'
+import type { ConversationExport } from '@data-fair/lib-agents-sim'
+
+// Derived from the SEEDED BRIDGE_PORT, never a fixed default. dev/init-env.sh randomises the port per
+// worktree precisely so two checkouts cannot collide; a hardcoded 3194 reintroduced the collision in
+// the one place it is least visible — another worktree's bridge answers assertBridgeUp(), the run is
+// recorded valid, and the cases are driven against the wrong process. Fail loudly when it is unset
+// rather than guessing a port that probably belongs to someone else.
+const bridgePort = process.env.BRIDGE_PORT
+export const BRIDGE_URL = process.env.BRIDGE_URL ??
+  (bridgePort
+    ? `http://localhost:${bridgePort}/v1`
+    : (() => { throw new Error('BRIDGE_PORT is not set — simulations load .env via playwright.sim.config.ts, so re-run dev/init-env.sh if it predates the seeded bridge port') })())
 export const OWNER = { type: 'user', id: 'test-standalone1' } as const
 
 const provider = {
@@ -18,12 +29,10 @@ const provider = {
 }
 
 /**
- * Roles a deployment puts on a small model: sub-agents, compaction, the
+ * Roles a deployment puts on a small model: memory consolidation, compaction, the
  * moderation guard. Running them on the assistant's model costs more per case
- * and flatters the product — a sub-agent prompt only a large model can follow
- * reads as working until a real deployment runs it on the cheap tier. The
- * evaluator is a trace-review role no case exercises, so it follows the
- * assistant rather than earning a third setting.
+ * and flatters the product — a prompt only a large model can follow
+ * reads as working until a real deployment runs it on the cheap tier.
  */
 export function bridgeSettings (assistantModelId: string, toolsModelId: string) {
   const modelRef = (id: string) => ({
@@ -44,9 +53,9 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
   // The catalog is keyed by model, not by role, so the two ids collapse to one entry
   // when a run pins the same model to both tiers (SIM_TOOLS_MODEL=sonnet).
   const models = assistantModelId === toolsModelId
-    ? [priced(assistantModelId, ['assistant', 'evaluator', 'tools', 'summarizer', 'moderator'])]
+    ? [priced(assistantModelId, ['assistant', 'tools', 'summarizer', 'moderator'])]
     : [
-        priced(assistantModelId, ['assistant', 'evaluator']),
+        priced(assistantModelId, ['assistant']),
         priced(toolsModelId, ['tools', 'summarizer', 'moderator'])
       ]
   const ref = (id: string) => ({ provider: 'bridge', id, name: id })
@@ -55,7 +64,6 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
   // instead of the bridge and the case would prove nothing.
   const modelMapping = {
     assistant: ref(assistantModelId),
-    evaluator: ref(assistantModelId),
     tools: ref(toolsModelId),
     summarizer: ref(toolsModelId),
     moderator: ref(toolsModelId)
@@ -77,12 +85,15 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
     models,
     modelMapping,
     quotas,
-    storeTraces: false
+    // ON, so the run can be read back through the conversation export (fetchConversationExports): the
+    // review gate is what that route sits behind, and a simulation is judged on the same file a real
+    // session is debugged with.
+    reviewPersonalAssistant: true
   }
 }
 
 /** Fields the org-admin PUT owns; everything else belongs to the superadmin PUT. */
-const ORG_OWNED_KEYS = ['modelMapping', 'quotas', 'moderation', 'storeTraces']
+const ORG_OWNED_KEYS = ['modelMapping', 'quotas', 'moderation', 'reviewPersonalAssistant']
 
 /**
  * Settings authorship is split across two write-scoped endpoints: `providers`/`models`
@@ -100,12 +111,102 @@ export function splitSettingsBody (body: Record<string, any>): { superadminBody:
   return { superadminBody, orgBody }
 }
 
-export async function seedSettings (assistantModelId: string, toolsModelId: string) {
+export async function seedSettings (assistantModelId: string, toolsModelId: string, owner: { type: string, id: string } = OWNER) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
   const { superadminBody, orgBody } = splitSettingsBody(bridgeSettings(assistantModelId, toolsModelId))
-  await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}`, superadminBody)
-  await admin.put(`/api/settings/${OWNER.type}/${OWNER.id}/org`, orgBody)
+  // Owner-parameterised because a case may drive a surface that belongs to a DIFFERENT account than
+  // the default one. Seeding only OWNER while driving another account is silent and total: that
+  // account keeps whatever mapping it had — for organization/dev1 the dev fixtures' mock model — so
+  // assertBridgeUp() still passes, the run is recorded valid, and the judge grades the mock's
+  // "what do you mean ?" as if it were the product.
+  await admin.put(`/api/settings/${owner.type}/${owner.id}`, superadminBody)
+  await admin.put(`/api/settings/${owner.type}/${owner.id}/org`, orgBody)
+}
+
+/**
+ * The account and autonomous agent a chat route addresses, e.g.
+ * `/agents/organization/test1/chat?agentId=test-fixture`.
+ *
+ * Parsed from the route rather than restated as extra case fields, so the account whose settings get
+ * seeded and the page actually opened cannot disagree. It points at the chat page the autonomous
+ * agent's thread was merged into; the standalone thread page no longer exists.
+ */
+export function parseAutonomousAgentRoute (route: string) {
+  const url = new URL(route, 'http://localhost')
+  const match = url.pathname.match(/^\/agents\/(user|organization)\/([^/]+)\/chat\/?$/)
+  const agentId = url.searchParams.get('agentId')
+  if (!match || !agentId) throw new Error(`an autonomous-agent case's route must look like /agents/organization/<id>/chat?agentId=<agentId>, got ${route}`)
+  return { owner: { type: match[1], id: match[2] }, agentId }
+}
+
+/** What a case may set about the autonomous agent it drives; anything it leaves out is the default's. */
+export interface SimulatedAgentConfig {
+  title?: string
+  persona?: string
+  instructions?: string
+  /** Catalog entries from `api/config/development.js`, each optionally narrowed by a toolFilter: beside data-fair's built-in server. */
+  mcpServers?: Array<{ serverId: string, toolFilter?: string[] }>
+  /** Whether the agent keeps a memory across conversations (off unless a case turns it on). */
+  memory?: { enabled: boolean }
+  /**
+   * Web access (docs/architecture/web-access.md). Seeded as is, past the write route's normalization:
+   * give the prefixes in their normalized form (`https://`, a trailing `/` on a bare host).
+   */
+  web?: { enabled: boolean, allowedUrls?: string[] }
+}
+
+/** The agent a case gets when it configures nothing. */
+export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
+  title: 'Simulated autonomous agent',
+  persona: 'You are a helpful data assistant. You answer briefly and you say plainly when you cannot do something.',
+  instructions: 'Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
+  // None: its tools are data-fair's built-in server, dev-mcp's /platform/ stand-in (privateMcpUrl). A case
+  // needing a tool the stand-in lacks references the long-running review server for it, never the
+  // per-spec fixture: a simulation is not a spec and nothing would be listening on the fixture's port.
+  mcpServers: [],
+  // Off, as the product's own default: a case not about memory must not have its later conversations
+  // shaped by what an earlier one wrote.
+  memory: { enabled: false },
+  // Off too: a case not about the web must not reach it.
+  web: { enabled: false }
+}
+
+/**
+ * Create the autonomous agent a case drives, enrolled with the fixture NHI and granting `instructor`.
+ *
+ * Configured per case: what an agent is given — its persona, its instructions, which servers and tools —
+ * is what shapes its behaviour, so it is what a case should be able to vary. Each field the case sets
+ * replaces the default's; the identity, the instructor grant and `enabled` are the runner's.
+ *
+ * The sim seeds its own rather than relying on `npm run dev-fixtures`: that would be an unstated
+ * prerequisite, it would point the run at organization/dev1 whose settings are deliberately the mock
+ * model, and seeding the bridge over them would break the fixtures a human reviews by hand.
+ *
+ * The NHI's subject is pinned to `autonomous-agent:<agentId>`, so the agent id is not free — it must
+ * be the one the fixture identity names (dev-fixtures.unit.spec.ts pins that pairing).
+ */
+export async function seedAutonomousAgent (route: string, instructorUserId: string, agent: SimulatedAgentConfig = {}) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const { owner, agentId } = parseAutonomousAgentRoute(route)
+  const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+  await admin.post('/api/test-env/autonomous-agent', {
+    id: agentId,
+    owner,
+    clientId: 'test-autonomous-agent-nhi',
+    siteUrl,
+    issuer: `${siteUrl}/agents/api/nhi`,
+    autonomousAgent: {
+      ...DEFAULT_SIMULATED_AGENT,
+      ...agent,
+      // A listed instructor, so a case can be driven by someone who is NOT an org admin. A case that plans
+      // tasks is driven by an org admin (test1-admin1), who may instruct anyway: listing them is harmless.
+      instructors: [{ mode: 'member', type: 'user', id: instructorUserId }],
+      enabled: true
+    }
+  })
+  return { owner, agentId }
 }
 
 /** Fail loudly and early: without the bridge every case dies as an opaque timeout. */
@@ -120,4 +221,132 @@ export async function assertBridgeUp () {
       'Start it with: npm run dev-bridge'
     )
   }
+}
+
+/**
+ * The conversation exports of everything `userId` said on `owner` during the run.
+ *
+ * The SAME file a maintainer downloads to debug a real session, through the same route and the same
+ * gates: the account must offer review (`bridgeSettings` turns it on) and the person must have
+ * consented (the runner sets the consent cookie before the page loads). Every chat surface runs its
+ * loop on the server, so this is the only record of what the model was sent and what it called — a
+ * capture of the browser's requests sees nothing.
+ *
+ * `clean()` ran before the case, so every reviewable thread of this person on this account is this
+ * run's.
+ */
+export async function fetchConversationExports (owner: { type: string, id: string }, userId: string): Promise<ConversationExport[]> {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const base = `/api/review/${owner.type}/${owner.id}`
+  const listed = (await admin.get(`${base}?size=200`)).data.results as Array<{ conversationId: string, userId?: string, agentId?: string, startedAt?: string }>
+  const exports: ConversationExport[] = []
+  // OLDEST FIRST, whatever order review lists them in (latest activity first): a case with several
+  // conversations has a premise about which came first — memory written in the first one, read in the
+  // next — and that must not hang on a listing order chosen for an admin's screen.
+  const mine = listed.filter(c => c.userId === userId).sort((a, b) => (a.startedAt ?? '').localeCompare(b.startedAt ?? ''))
+  for (const conversation of mine) {
+    // responseType text: the body is JSONL, and axios would otherwise try to parse it as one JSON value.
+    const res = await admin.get(`${base}/${conversation.conversationId}/export`, { responseType: 'text', transformResponse: [(data: string) => data] })
+    exports.push({ conversationId: conversation.conversationId, agentId: conversation.agentId, jsonl: res.data })
+  }
+  return exports
+}
+
+/** What an unattended case plans: a task as an admin would write it (the task-write-req body). */
+export interface SimulatedTask {
+  title: string
+  prompt: string
+  /** data-fair processings' rule array; a rule here must respect the deployment's minimum interval. */
+  scheduling: Array<Record<string, unknown>>
+}
+
+/** Long enough for a slow multi-step turn; a task run has its own deadline well under this. */
+export const TASK_RUN_TIMEOUT_MS = 10 * 60 * 1000
+
+/**
+ * Plan the task on the agent a route names, press "run now", and wait for the run to end.
+ *
+ * Through the product's own routes, as an admin presses the button: the run is the same one a
+ * scheduled slot starts (trigger `manual`), so nothing about its content depends on how it was
+ * started. Not through the scheduler: in development its poll leaves `test*` accounts alone, and an
+ * injected-clock pass would add a seam to a case whose subject is the run, not the schedule.
+ *
+ * Returns the run as it ended. A `skipped` start (the account's credit cap) is refused by the route
+ * with a 409, so it surfaces here as a thrown error and the case is recorded invalid.
+ */
+export async function runPlannedTask (route: string, task: SimulatedTask, timeoutMs = TASK_RUN_TIMEOUT_MS) {
+  const { runs, ...rest } = await runPlannedTaskRepeatedly(route, task, 1, timeoutMs)
+  return { ...rest, run: runs[0] }
+}
+
+type TaskRun = { id: string, status: string, error?: string }
+
+/** Successive runs of a case are a weekly task's successive slots. */
+const DAYS_BETWEEN_RUNS = 7
+
+/**
+ * Plan the task once and run it `times` times in a row, as successive scheduled slots would — so a
+ * later run starts with whatever the earlier ones left in the agent's memory.
+ *
+ * Between runs, a week passes: the agent's history is aged by DAYS_BETWEEN_RUNS (its runs, its memory,
+ * today's date written in them; the web does not move), then its memory is consolidated as the daily
+ * sweep would have done meanwhile. Without the ageing, the second run started two minutes after the
+ * first, and a sensible agent concluded nothing could have changed and re-reported the first run's
+ * findings — the case then measured reuse of a run, not memory-guided searching. An agent without
+ * memory answers the consolidation `memory-off` and nothing happens.
+ */
+export async function runPlannedTaskRepeatedly (route: string, task: SimulatedTask, times: number, timeoutMs = TASK_RUN_TIMEOUT_MS) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const { owner, agentId } = parseAutonomousAgentRoute(route)
+  const base = `/api/autonomous-agents/${owner.type}/${owner.id}/${agentId}`
+  const created = (await admin.post(`${base}/tasks`, task)).data as { id: string }
+  const runs: TaskRun[] = []
+  for (let i = 0; i < times; i++) {
+    const runId = (await admin.post(`${base}/tasks/${created.id}/run`)).data.runId as string
+    const deadline = Date.now() + timeoutMs
+    let run: TaskRun
+    for (;;) {
+      run = (await admin.get(`${base}/runs/${runId}`)).data as TaskRun
+      if (run.status !== 'running') break
+      if (Date.now() > deadline) throw new Error(`task run ${runId} was still running after ${Math.round(timeoutMs / 1000)}s`)
+      await new Promise(resolve => setTimeout(resolve, 1000))
+    }
+    runs.push(run)
+    if (i < times - 1) {
+      await admin.post('/api/test-env/age-agent-history', { agentId, days: DAYS_BETWEEN_RUNS })
+      await admin.post('/api/test-env/consolidate-memory', { agentId })
+    }
+  }
+  return { owner, agentId, taskId: created.id, runs }
+}
+
+/**
+ * The agent's memory after the run, for the judge: every document and the change history (who wrote
+ * what: a run's tool call, a consolidation, a person). Undefined for an agent without memory.
+ */
+export async function fetchAgentMemory (owner: { type: string, id: string }, agentId: string) {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const base = `/api/memory/${owner.type}/${owner.id}/${agentId}`
+  const listing = (await admin.get(base)).data as { enabled: boolean, documents: { path: string }[] }
+  if (!listing.enabled && !listing.documents?.length) return undefined
+  const documents = []
+  for (const { path } of listing.documents ?? []) documents.push((await admin.get(`${base}/document`, { params: { path } })).data)
+  const history = (await admin.get(`${base}/versions`, { params: { size: 100 } })).data.results
+  return { documents, history }
+}
+
+/**
+ * A task run's export: the SAME file format as a conversation's (meta, outline, the prompt and the
+ * answer as two messages, the run with its calls), from the route an admin downloads it with. So the
+ * judge reads an unattended run exactly as it reads a chat, and the premise and the metrics parse it
+ * with the same code. `conversationId` is the run's id: the evidence file is named after it.
+ */
+export async function fetchTaskRunExport (owner: { type: string, id: string }, agentId: string, runId: string): Promise<ConversationExport> {
+  const { superAdmin } = await import('../../tests/support/axios.ts')
+  const admin = await superAdmin
+  const res = await admin.get(`/api/autonomous-agents/${owner.type}/${owner.id}/${agentId}/runs/${runId}/export`, { responseType: 'text', transformResponse: [(data: string) => data] })
+  return { conversationId: runId, agentId, jsonl: res.data }
 }

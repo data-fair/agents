@@ -6,35 +6,11 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import dayjs from 'dayjs'
-import { putSettings } from '../../support/settings.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 const user = await axiosAuth('test-standalone1')
 const admin = await superAdmin
 const otherUser = await axiosAuth('test1-user1')
-
-const settingsData = {
-  providers: [
-    { id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }
-  ],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: {
-    admin: { unlimited: true, monthlyLimit: 0 },
-    contrib: { unlimited: false, monthlyLimit: 0 },
-    user: { unlimited: false, monthlyLimit: 0 },
-    external: { unlimited: false, monthlyLimit: 0 },
-    anonymous: { unlimited: false, monthlyLimit: 0 }
-  }
-}
 
 const owner = { type: 'user', id: 'test-standalone1' }
 
@@ -59,7 +35,7 @@ function monthlyPeriod (monthsAgo: number): string {
 test.describe('Monitoring History API', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
   })
 
   test('should return account daily history with zero-filled entries', async () => {

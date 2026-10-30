@@ -24,20 +24,22 @@ type Verdict = {
 function metricsLine (run: RunSidecar | null): string {
   const m = run?.metrics
   if (!m) return ''
+  // Null, not zero, when no export was read: "0 model requests" for a run whose evidence is missing
+  // would state the opposite of the truth.
+  const measured = m.modelRequests !== null
   const parts = [
     run?.toolsModel ? `[${run.assistantModel} / tools ${run.toolsModel}]` : '',
-    `${m.modelRequests} model requests for ${m.userMessages} user messages`,
+    measured
+      ? `${m.modelRequests} model requests for ${m.userMessages} user messages`
+      : `${m.userMessages} user messages (no conversation export: model activity not measured)`,
     m.requestsPerUserMessage === null ? '' : `(${m.requestsPerUserMessage}/message)`,
-    m.requestsByModel
-      ? `(${Object.entries(m.requestsByModel).map(([role, n]) => `${role} ${n}`).join(', ')})`
-      : (m.nonLeadRequests ? `· ${m.nonLeadRequests} non-lead` : ''),
-    m.largestNonLeadPromptChars
-      ? `· largest ${m.largestNonLeadPromptModel ?? 'non-lead'} prompt ${m.largestNonLeadPromptChars} chars`
-      : '',
+    m.requestsByRole ? `(${Object.entries(m.requestsByRole).map(([role, n]) => `${role} ${n}`).join(', ')})` : '',
     `· ${m.textlessAssistantBubbles}/${m.assistantBubbles} bubbles tool-chips only`,
     m.avgVisibleReplyChars === null ? '' : `· avg reply ${m.avgVisibleReplyChars} chars`,
+    m.toolCalls === null ? '' : `· ${m.toolCalls} tool call(s)${m.failedToolCalls ? `, ${m.failedToolCalls} failed` : ''}`,
     m.duplicateToolCalls ? `· ${m.duplicateToolCalls} repeated tool calls` : '',
-    m.hostBlockChars === null ? '' : `· ${m.hostBlockChars} chars of host blocks`
+    m.hostBlockChars ? `· ${m.hostBlockChars} chars of host blocks` : '',
+    m.credits === null ? '' : `· ${m.credits} credits`
   ]
   return parts.filter(Boolean).join(' ')
 }
@@ -71,7 +73,9 @@ export function reportCases (cases: SimulationCase[], evidenceDir: string): numb
       if (verdict.satisfied !== true) failures++
       frictions = String(verdict.frictions.length)
     }
-    rows.push([c.name, run?.assistantModel ?? '-', String(run?.turns ?? '-'), state, frictions, run ? `${Math.round(run.durationMs / 1000)}s` : '-'])
+    // 'unattended', not 0: nobody was there to take a turn, which is not a person who never spoke.
+    const turns = c.surface === 'unattended' ? 'unattended' : String(run?.turns ?? '-')
+    rows.push([c.name, run?.assistantModel ?? '-', turns, state, frictions, run ? `${Math.round(run.durationMs / 1000)}s` : '-'])
   }
 
   const widths = rows[0].map((_, i) => Math.max(...rows.map(r => r[i].length)))

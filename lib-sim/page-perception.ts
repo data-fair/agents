@@ -71,7 +71,11 @@ export async function settledRead (read: () => Promise<string>, opts: { interval
  * absent one cost a timeout per look. Acting inside frames needs a Page root.
  */
 export type PerceptionRoot = { label: string, root: ChatRoot, cap?: number, frames?: boolean }
-export type Observation = { turn: number, tool: string, args: unknown, result: string }
+/**
+ * `at`: how many transcript entries the person had read when it acted — where the action goes when
+ * it is told back to them (persona.ts). Stamped by the persona once its pass ends.
+ */
+export type Observation = { turn: number, tool: string, args: unknown, result: string, at?: number }
 
 export type PerceptionContent = { type: 'text', text: string } | { type: 'image', data: string, mimeType: string }
 

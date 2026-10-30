@@ -1,7 +1,7 @@
 /**
  * The Agent SDK and MCP SDK are optional peers (see package.json) so a
  * consumer who only wants the harness primitives (createChatDriver,
- * captureGateway, selectCases, reportCases, ...) is not forced to install
+ * selectCases, reportCases, ...) is not forced to install
  * them. Two places load the Agent SDK lazily, inside the function that needs
  * it rather than at module top level, so importing the barrel never requires
  * it: `persona.ts`'s `nextUserMessage` (the simulated user) and the

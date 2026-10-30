@@ -1,5 +1,6 @@
 import type { LanguageModel } from 'ai'
 import type { LanguageModelV3StreamPart, LanguageModelV3Usage } from '@ai-sdk/provider'
+import { OUTCOME_REMINDER } from '../conversations/outcome-reminder.ts'
 
 interface MockPromptResult {
   type: 'text' | 'tool-call' | 'error'
@@ -12,7 +13,16 @@ interface MockPromptResult {
   delayMs?: number
   /** When set, emit these reasoning ("thinking") tokens before the answer */
   reasoning?: string
+  /** Characters per text-delta, one delta every 10ms (default STREAM_CHUNK) */
+  chunk?: number
 }
+
+/**
+ * Text streams in deltas of this many characters, one every 10ms. Not one per character: answers
+ * echoing a prompt block run to hundreds of characters, and a character every 10ms made every such
+ * turn cost seconds across the suite. The seam that needs many deltas ('slow long answer') asks for 1.
+ */
+const STREAM_CHUNK = 8
 
 /**
  * Minimal stand-in token estimator: ~4 characters per token, rounded up. The
@@ -31,7 +41,7 @@ function serializePrompt (prompt: string | Array<any>): string {
 /**
  * `cache <n>` anywhere in the prompt makes the mock report n of its input tokens as
  * cache reads (clamped to the total). The mock is the only way any test can reach the
- * gateway's cache-pricing branch — real providers are never called from the suite.
+ * cache-pricing branch of the credit computation — real providers are never called from the suite.
  *
  * Matched against the WHOLE prompt rather than commandLine() on purpose: a caller
  * keeps its real directive on the last line (`cache 100000\nhello` still answers
@@ -71,17 +81,6 @@ function isLoopGuardNudge (content: unknown): boolean {
   return /with the same arguments \d+ times in a row/i.test(messageText(content))
 }
 
-/** The client's exploration mode injects <tools-available> notices as user messages. */
-function isToolsAvailableNotice (content: unknown): boolean {
-  return /<tools-available>/.test(messageText(content))
-}
-
-/** Whether the prompt carries a <tools-available> notice naming this tool. */
-function wasAnnounced (prompt: string | Array<any>, toolName: string): boolean {
-  if (!Array.isArray(prompt)) return false
-  return prompt.some((p: any) => isToolsAvailableNotice(p.content) && messageText(p.content).includes(toolName))
-}
-
 function getLastUserMessage (options: { prompt: string | Array<any> }): string {
   if (typeof options.prompt === 'string') {
     return options.prompt
@@ -90,9 +89,9 @@ function getLastUserMessage (options: { prompt: string | Array<any> }): string {
     // The client's loop guard injects a per-step "you have called X with the same
     // arguments N times in a row" user message before it stops a runaway. The mock
     // deliberately ignores it (a runaway model would too), so the seams below keep
-    // reading the real user message and the guard's stop + close-out path is exercised.
+    // reading the real user message and the guard's stop path is exercised.
     const userMessages = options.prompt.filter((p: any) => p.role === 'user' &&
-      !isLoopGuardNudge(p.content) && !isToolsAvailableNotice(p.content))
+      !isLoopGuardNudge(p.content))
     const lastUserMsg = userMessages[userMessages.length - 1]
     if (lastUserMsg) {
       const content = lastUserMsg.content
@@ -124,6 +123,25 @@ function lastToolResultText (prompt: string | Array<any>): string | undefined {
   return typeof output.value === 'string' ? output.value : JSON.stringify(output.value)
 }
 
+/**
+ * Text of the FIRST tool result anywhere in the prompt, not only at its end.
+ *
+ * `lastToolResultText` reads the answer of the step just taken. This reads what a tool returned on an
+ * EARLIER TURN, which is only in the prompt if the stored conversation replayed its tool results — the
+ * property the storage model exists for, and one no seam could observe before: the mock answered from
+ * the last user message alone, so a history that had silently lost its tool results looked identical.
+ */
+function priorToolResultText (prompt: string | Array<any>): string | undefined {
+  if (!Array.isArray(prompt)) return undefined
+  for (const message of prompt) {
+    if (message.role !== 'tool' || !Array.isArray(message.content)) continue
+    const output = message.content.find((c: any) => c.type === 'tool-result')?.output
+    if (!output) continue
+    return typeof output.value === 'string' ? output.value : JSON.stringify(output.value)
+  }
+  return undefined
+}
+
 /** The visible prompt ends the user message; hidden context (if any) precedes it. */
 function endsWithCommand (lastMessage: string, command: string): boolean {
   return new RegExp(`(^|\\n)${command}\\s*$`, 'i').test(lastMessage.trim())
@@ -136,7 +154,7 @@ function endsWithCommand (lastMessage: string, command: string): boolean {
  * visible message on the activation turn, so a directive anchored on the whole
  * message stops matching the moment its dev page starts publishing — which is
  * how `hello` came to use endsWithCommand. Adding one `useAgentState` call to
- * the sub-agent dev page broke its chaining test exactly that way.
+ * a dev page broke its chaining test exactly that way.
  */
 export function commandLine (lastMessage: string): string {
   const lines = lastMessage.trim().split('\n').map(l => l.trim()).filter(Boolean)
@@ -148,18 +166,22 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return { type: 'text', text: 'what do you mean ?' }
   }
 
-  if (lastMessage.toLowerCase() === 'help' || lastMessage === '?') {
+  // endsWithCommand, like every other seam: see the note on the `hello` seam below. Exact equality
+  // stops matching the moment the caller publishes host state, because the fold prepends a block.
+  if (endsWithCommand(lastMessage, 'help') || commandLine(lastMessage) === '?') {
     return { type: 'text', text: 'I respond to:\n- "hello" → returns "world"\n- "call tool <name> <args>" → triggers a tool call\n- Any other text → "what do you mean?"\n- "where am i" / "what happened" → echoes host state/events\n- "select note", "wait for me", "wait briefly" → host-events tool seams' }
   }
 
-  // endsWithCommand (not exact equality): an activation turn on a page that publishes
-  // host state (tests/features/host-events) prepends a hidden-context block ahead of
-  // the visible "hello" — same reason the host-events seams below use endsWithCommand.
+  // endsWithCommand, never exact equality. A page that publishes host state has a hidden-context
+  // block prepended to the visible message, so an exact match stops working the moment that page
+  // reports anything. This bit twice: once when a dev page gained a `useAgentState` call, and again
+  // when the server-held loop's host-context fold started working at all — the real chat publishes
+  // language and surface facts, so EVERY message on it now arrives with a block in front.
   if (endsWithCommand(lastMessage, 'hello')) {
     return { type: 'text', text: 'world' }
   }
 
-  if (lastMessage.toLowerCase() === 'markdown') {
+  if (endsWithCommand(lastMessage, 'markdown')) {
     return { type: 'text', text: 'See [the docs](https://example.com/docs) for details.\n\n' }
   }
 
@@ -180,19 +202,63 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     const events = sentinelBody(lastMessage, 'host-events')
     return { type: 'text', text: state ? `state:\n${state}` : events ? `events:\n${events}` : 'nothing' }
   }
+  // Cross-TURN recall: answers from a tool result of an earlier turn, so a test can assert that the
+  // stored conversation really replayed it rather than trusting that it did.
+  if (endsWithCommand(lastMessage, 'recall')) {
+    const prior = priorToolResultText(prompt)
+    return { type: 'text', text: prior === undefined ? 'nothing earlier' : `Earlier the tool said: ${prior}` }
+  }
   if (endsWithCommand(lastMessage, 'what happened')) {
     const events = sentinelBody(lastMessage, 'host-events')
     return { type: 'text', text: events ? `events:\n${events}` : 'nothing' }
+  }
+  // What the model was SENT, as JSON: the tool calls in its history, how many results they have, the
+  // ones that say they were interrupted, and whether the reminder to wait again reached the last user
+  // message. The server-side counterpart of reading the browser's /chat/completions request, which
+  // is how main tested interrupted turns (#73, #75) and which no longer exists.
+  if (endsWithCommand(lastMessage, 'what did you see')) {
+    const messages = Array.isArray(prompt) ? prompt : []
+    const content = (role: string) => messages
+      .filter((m: any) => m.role === role && Array.isArray(m.content))
+      .flatMap((m: any) => m.content)
+    const calls = content('assistant').filter((c: any) => c.type === 'tool-call').map((c: any) => c.toolName)
+    const results = content('tool').filter((c: any) => c.type === 'tool-result')
+      .map((c: any) => typeof c.output?.value === 'string' ? c.output.value : JSON.stringify(c.output?.value ?? c.output ?? ''))
+    // Images a tool result delivered AS images (content parts), not as base64 inside text. A v3 model, as
+    // this one is, receives them from AI SDK 7 as `file-data` with an image media type (6 passed
+    // `image-data` through), so both shapes count.
+    const images = content('tool').filter((c: any) => c.type === 'tool-result' && c.output?.type === 'content')
+      .flatMap((c: any) => c.output.value)
+      .filter((item: any) => item?.type === 'image-data' || (item?.type === 'file-data' && String(item.mediaType ?? '').startsWith('image/'))).length
+    return {
+      type: 'text',
+      text: JSON.stringify({
+        calls,
+        results: results.length,
+        images,
+        // How many of the person's messages reached the model: a moderation-struck exchange must not.
+        userMessages: messages.filter((m: any) => m.role === 'user').length,
+        interrupted: results.filter((r: string) => r.startsWith('Interrupted')),
+        reminder: /You were waiting for the person/.test(lastMessage)
+      })
+    }
   }
   const toolResult = lastToolResultText(prompt)
   if (toolResult !== undefined && endsWithCommand(lastMessage, 'select note')) {
     return { type: 'text', text: `Tool said: ${toolResult}` }
   }
-  if (toolResult !== undefined && (endsWithCommand(lastMessage, 'wait for me') || endsWithCommand(lastMessage, 'wait briefly'))) {
+  if (toolResult !== undefined && endsWithCommand(lastMessage, 'wait for me')) {
     return { type: 'text', text: `You did: ${toolResult}` }
   }
   if (endsWithCommand(lastMessage, 'select note')) {
     return { type: 'tool-call', toolName: 'select_type', toolArgs: JSON.stringify({ type: 'note' }) }
+  }
+  // "read page skill <uri>": load a skill the page published, then say what it said — the page-skills path
+  // end to end (tests/features/chat-mcp/page-skills.e2e.spec.ts).
+  const readPageSkill = commandLine(lastMessage).match(/^read page skill (skill:\/\/\S+)$/i)
+  if (readPageSkill) {
+    if (toolResult !== undefined) return { type: 'text', text: `Skill said: ${toolResult}` }
+    return { type: 'tool-call', toolName: 'read_skill', toolArgs: JSON.stringify({ server: 'the-page', uri: readPageSkill[1] }) }
   }
   // A page tool, THEN a wait: the shape of a turn that opens something and waits on
   // the person. Interrupting it exercises an abort after a completed tool step.
@@ -206,14 +272,33 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   if (endsWithCommand(lastMessage, 'wait for me')) {
     return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create' }) }
   }
-  if (endsWithCommand(lastMessage, 'wait briefly')) {
-    return { type: 'tool-call', toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create', timeoutSeconds: 1 }) }
-  }
 
   // If the most recent message in the prompt is a tool result, we already called a tool
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {
     return { type: 'text', text: 'done' }
+  }
+
+  // The reminder a planned task's run gets when it ended without report_outcome (executor.ts performTurn): the
+  // mock reports, as a model told to would. After the tool-result guard above, so it answers the call with text.
+  // A task prompt saying "ignore the reminder" makes it answer in text instead: a model may, and the run then ends
+  // with no outcome.
+  if (lastMessage === OUTCOME_REMINDER) {
+    if (JSON.stringify(prompt).includes('ignore the reminder')) return { type: 'text', text: 'reminder ignored' }
+    return { type: 'tool-call', toolName: 'report_outcome', toolArgs: JSON.stringify({ status: 'done', summary: 'reported when reminded' }) }
+  }
+
+  // "wait and call <name>" → a wait AND another call in one step: the handover wins and ends the turn,
+  // leaving the other call (a gated one, stopped for approval) beside it.
+  const waitAndCallMatch = commandLine(lastMessage).match(/^wait and call (\S+)$/i)
+  if (waitAndCallMatch) {
+    return {
+      type: 'tool-call',
+      toolCalls: [
+        { toolName: 'wait_for_user_action', toolArgs: JSON.stringify({ message: 'Ready: click Create.', expecting: 'you to click Create' }) },
+        { toolName: waitAndCallMatch[1], toolArgs: '{}' }
+      ]
+    }
   }
 
   // "call tools <name> <name> ..." → several parallel tool calls in one step
@@ -222,20 +307,6 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     return {
       type: 'tool-call',
       toolCalls: callToolsMatch[1].trim().split(/\s+/).map(toolName => ({ toolName, toolArgs: '{}' }))
-    }
-  }
-
-  // "parallel subagents" → delegate to two DIFFERENT sub-agents in one step, each with a
-  // task its own reserved tools handle, to exercise concurrent sub-agent panels. The two
-  // tasks diverge so the rendered panels are distinguishable (no-clobber regression).
-  if (/^parallel subagents$/i.test(commandLine(lastMessage))) {
-    return {
-      type: 'tool-call',
-      toolCalls: [
-        { toolName: 'subagent_data_analyst', toolArgs: JSON.stringify({ task: 'analyze' }) },
-        // task arg is inert: data_summarizer pins model:'summarizer'→mock-summarizer, which ignores input and always returns "Summary: …"
-        { toolName: 'subagent_data_summarizer', toolArgs: JSON.stringify({ task: 'hello' }) }
-      ]
     }
   }
 
@@ -270,13 +341,13 @@ function getCalledToolNames (prompt: string | Array<any>): Set<string> {
 }
 
 /**
- * mock-tools: context-aware tool chaining for subagent testing.
+ * mock-tools: the `tools` seat's mock, context-aware tool chaining.
  * Inspects conversation history to deterministically chain: get_schema → query_data → text summary.
  * Also supports "call tool" syntax and "hello" → "world" as overrides.
  */
 function processMockToolsPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
-  // Support explicit overrides first
-  if (lastMessage.toLowerCase() === 'hello') {
+  // Support explicit overrides first. endsWithCommand for the same reason the assistant seam uses it.
+  if (endsWithCommand(lastMessage, 'hello')) {
     return { type: 'text', text: 'world' }
   }
 
@@ -320,7 +391,7 @@ function processMockSummarizerPrompt (): MockPromptResult {
 
 /**
  * mock-moderator: returns a deterministic moderation verdict as JSON text
- * (parseable by generateObject). When the gateway wraps conversation context,
+ * (parseable by generateObject). When the moderation run wraps conversation context,
  * it judges ONLY the <message_to_moderate> portion — mirroring the real prompt's
  * isolation rule. Messages containing "jailbreak" or an "ignore (all/previous)
  * instructions" phrase are blocked as prompt-injection, "fuck" as profanity;
@@ -345,26 +416,6 @@ function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
 }
 
 /**
- * Exploration test seam: when the request advertises a `select_tools` tool, emit a
- * deterministic select_tools call choosing every tool named inside the prompt's
- * <candidate-tools> block. Lets the explore_tools flow be tested with the mock.
- */
-function processSelectToolsSeam (lastMessage: string, tools: Array<any> | undefined): MockPromptResult | null {
-  const offersSelectTools = Array.isArray(tools) &&
-    tools.some((t: any) => (t?.name ?? t?.function?.name) === 'select_tools')
-  if (!offersSelectTools) return null
-  const block = lastMessage.match(/<candidate-tools>([\s\S]*?)<\/candidate-tools>/)
-  const names = block
-    ? block[1].split('\n').map((l: string) => l.trim()).filter(Boolean).map((l: string) => l.split(':')[0].trim())
-    : []
-  return {
-    type: 'tool-call',
-    toolName: 'select_tools',
-    toolArgs: JSON.stringify({ summary: 'mock selection', toolNames: names })
-  }
-}
-
-/**
  * Mid-turn tool refresh seam: "chain <first> <then>" calls <first>, then <then> — but only
  * if <then> was actually advertised on that later step. The point is that <first> is a tool
  * whose execution registers <then> (a page mounting components), so the second call is
@@ -373,7 +424,11 @@ function processSelectToolsSeam (lastMessage: string, tools: Array<any> | undefi
  * what the pre-fix behaviour looks like.
  */
 function processChainSeam (lastMessage: string, prompt: string | Array<any>, tools: Array<any> | undefined): MockPromptResult | null {
-  const match = lastMessage.match(/^chain (\w+) (\w+)$/i)
+  // `commandLine`, not the whole message — the THIRD seam to need this. The page under test publishes
+  // host state, so the fold prepends a `<host-state>` block to the visible text and an anchored match
+  // on the whole message silently stops matching: the mock answered "what do you mean ?" and the test
+  // read it as "the live tool set regressed".
+  const match = commandLine(lastMessage).match(/^chain (\w+) (\w+)$/i)
   if (!match) return null
   const [, first, then] = match
   const called = getCalledToolNames(prompt)
@@ -381,45 +436,88 @@ function processChainSeam (lastMessage: string, prompt: string | Array<any>, too
   if (called.has(then)) return { type: 'text', text: `chained ${first} then ${then}` }
   const advertised = Array.isArray(tools) &&
     tools.some((t: any) => (t?.name ?? t?.function?.name) === then)
-  if (!advertised) {
-    // Exploration mode gates tools behind explore_tools, so a tool that appeared mid-turn
-    // is announced before it is callable. Report both facts so a test can tell "the model
-    // was never told" apart from "the model was told but has not promoted it yet".
-    return { type: 'text', text: `tool ${then} is not available (announced: ${wasAnnounced(prompt, then) ? 'yes' : 'no'})` }
-  }
+  if (!advertised) return { type: 'text', text: `tool ${then} is not available` }
   return { type: 'tool-call', toolName: then, toolArgs: '{}' }
+}
+
+/**
+ * The mock's artificial latency, abortable.
+ *
+ * A bare setTimeout would make the mock the ONE provider that ignores abortSignal, so a
+ * test could never observe a caller's abort taking effect — the turn would only end when
+ * the delay elapsed. Real fetch-based providers reject on abort; the mock does too.
+ */
+const mockDelay = async (ms: number, signal?: AbortSignal): Promise<void> => {
+  if (signal?.aborted) throw signal.reason ?? new Error('aborted')
+  await new Promise<void>((resolve, reject) => {
+    const timer = setTimeout(resolve, ms)
+    signal?.addEventListener('abort', () => {
+      clearTimeout(timer)
+      reject(signal.reason ?? new Error('aborted'))
+    }, { once: true })
+  })
 }
 
 function processForModel (modelId: string, options: { prompt: string | Array<any>, tools?: Array<any> }): MockPromptResult {
   const lastMessage = getLastUserMessage(options)
-  const seam = processSelectToolsSeam(lastMessage, options.tools)
-  if (seam) return seam
+  // The classifier only ever JUDGES: its prompt wraps the person's message, so a directive meant for
+  // the assistant ('stall', 'stream error'…) would otherwise hit the moderator too — a message ending in
+  // 'stall' stalled the classifier itself for 30s, and no late verdict could ever be tested.
+  if (modelId === 'mock-moderator') return processMockModeratorPrompt(lastMessage)
+  // Memory consolidation seam (tests/features/memory/consolidation.api.spec.ts). A consolidation's user
+  // message carries the conversations since the last pass; a line `remember: <fact>` in them makes the
+  // model record that fact in MEMORY.md once, with who said it, then finish. Deterministic stand-in for a model that judges
+  // what is durable. Before every other seam, so a directive quoted in a transcript (`stall`…) cannot
+  // trigger one.
+  if (lastMessage.includes('<conversations-since-last-pass>')) {
+    const last = Array.isArray(options.prompt) ? options.prompt[options.prompt.length - 1] : undefined
+    if (last?.role === 'tool') return { type: 'text', text: 'DONE' }
+    // Each fact keeps the speaker its line names, as the prompt asks a real model to.
+    const facts = [...lastMessage.matchAll(/\] ([^\n]*?): remember: ([^\n]+)/g)].map(m => `${m[2].trim()} (said by ${m[1]})`)
+    if (!facts.length) return { type: 'text', text: 'DONE' }
+    return {
+      // `consolidate slowly` in a message holds the call back, so a test can act while it is in flight.
+      ...(lastMessage.includes('consolidate slowly') ? { delayMs: 1500 } : {}),
+      type: 'tool-call',
+      toolName: 'memory',
+      toolArgs: JSON.stringify({ command: 'create', path: 'MEMORY.md', file_text: facts.map(f => `- ${f}`).join('\n') })
+    }
+  }
   const chained = processChainSeam(lastMessage, options.prompt, options.tools)
   if (chained) return chained
   // Silent-drop test seams (apply to every model role): "empty" makes the model
   // return an empty completion (no text, no tool call), "stream error" makes the
   // stream fail mid-flight. Both previously ended the conversation silently.
-  if (lastMessage.toLowerCase() === 'empty') return { type: 'text', text: '' }
-  if (lastMessage.toLowerCase() === 'stream error') return { type: 'error' }
+  // commandLine(), not whole-message equality: anything the caller prepends ahead of the
+  // visible directive — a <host-state> block, or the autonomous runtime's <message from=...>
+  // attribution envelope — would otherwise stop these seams matching. Exactly the failure the
+  // comment on commandLine() describes.
+  const directive = commandLine(lastMessage).toLowerCase()
+  if (directive === 'empty') return { type: 'text', text: '' }
+  if (directive === 'stream error') return { type: 'error' }
   // Hang seam: "stall" holds the response open far longer than any test idle-watchdog
-  // timeout, simulating a provider/gateway that keeps the socket open but emits
-  // nothing — the client's watchdog must abort the turn with a recoverable timeout.
-  if (lastMessage.toLowerCase() === 'stall') return { type: 'text', text: 'too late', delayMs: 30_000 }
-  // Reasoning seam: emit reasoning tokens before the answer (exercises the gateway's
-  // reasoning_content forwarding and the client's reasoning capture).
-  if (lastMessage.toLowerCase() === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
-  // Loop-guard close-out seams (exercise the sub-agent loop → close-out path).
-  // A task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
-  // step (ignoring prior tool results and the injected nudge), so a sub-agent's
-  // ToolLoopAgent is stopped by the repeated-call guard and finishes on 'tool-calls'.
-  // The harness then issues a no-tools close-out turn; the second seam recognizes that
-  // prompt and returns a distinctive best-effort answer the test asserts was recovered
-  // (not a bare truncation notice).
-  if (lastMessage.trim().toLowerCase() === 'loop forever') {
+  // timeout, simulating a provider that keeps the socket open but emits
+  // nothing — the server loop's idle watchdog (createIdleWatchdog) must abort the turn
+  // with a recoverable timeout.
+  if (directive === 'stall') return { type: 'text', text: 'too late', delayMs: 30_000 }
+  // Late-reply seam: "slow hello" answers like "hello", but only after the page has had time to
+  // do something first (close the chat drawer, say) — the model loop runs on the server, so a
+  // browser-side route can no longer hold the reply back.
+  if (directive === 'slow hello') return { type: 'text', text: 'world', delayMs: 2000 }
+  // Reasoning seam: emit reasoning tokens before the answer (exercises the loop's
+  // reasoning capture and its streaming to the page).
+  if (directive === 'reason') return { type: 'text', text: 'world', reasoning: 'Let me think about it.' }
+  // Long-text seams: 'long answer' fills a small context window in a turn or two; 'slow long answer'
+  // streams the same text one CHARACTER per 10ms delta (~4.5s), long enough for a test to reliably
+  // catch the turn mid-stream (attach a second tab, stop it).
+  const longText = 'This is a deliberately long answer used to exercise streaming throughput. '.repeat(6)
+  if (directive === 'long answer') return { type: 'text', text: longText }
+  if (directive === 'slow long answer') return { type: 'text', text: longText, chunk: 1 }
+  // Loop-guard seam: a task of exactly "loop forever" makes the model emit the SAME tool call on EVERY
+  // step (ignoring prior tool results and the injected nudge), so the loop is stopped by the
+  // repeated-call guard and finishes on 'tool-calls'.
+  if (directive === 'loop forever') {
     return { type: 'tool-call', toolName: 'get_schema', toolArgs: '{"dataset":"test"}' }
-  }
-  if (/reached your step budget/i.test(lastMessage)) {
-    return { type: 'text', text: 'Closed-out best-effort summary from gathered data.' }
   }
   switch (modelId) {
     case 'mock-tools':
@@ -441,7 +539,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
     supportedUrls: {},
     doStream: async (options) => {
       const result = processForModel(modelId, options)
-      if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
+      if (result.delayMs) await mockDelay(result.delayMs, options.abortSignal)
       const promptText = serializePrompt(options.prompt)
 
       if (result.type === 'error') {
@@ -473,7 +571,11 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
                 type: 'tool-call',
                 toolCallId,
                 toolName: call.toolName,
-                input: call.toolArgs ? JSON.parse(call.toolArgs) : {}
+                // A JSON STRING, not a parsed object: LanguageModelV3's tool-call part is the
+                // raw provider payload, and the SDK parses and validates it itself (it calls
+                // .trim() on this). Emitting an object made every SDK-side tool execution
+                // fail with "toolCall.input.trim is not a function".
+                input: call.toolArgs || '{}'
               } as any)
             })
             controller.enqueue({
@@ -488,7 +590,11 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
       }
 
       const usage = buildUsage(promptText, result.text ?? '')
+      let timer: ReturnType<typeof setTimeout> | undefined
       const stream = new ReadableStream<LanguageModelV3StreamPart>({
+        // A cancelled stream (an aborted turn) must stop its own timer: enqueuing into a closed
+        // controller throws from a timeout callback, which is an uncaught exception.
+        cancel () { clearTimeout(timer) },
         start (controller) {
           if (result.reasoning) {
             controller.enqueue({ type: 'reasoning-start', id: 'mock-reason' })
@@ -496,11 +602,12 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
             controller.enqueue({ type: 'reasoning-end', id: 'mock-reason' })
           }
           let i = 0
+          const chunk = result.chunk ?? STREAM_CHUNK
           const pushChar = () => {
             if (i < result.text!.length) {
-              controller.enqueue({ type: 'text-delta', id: 'mock-id', delta: result.text![i] })
-              i++
-              setTimeout(pushChar, 10)
+              controller.enqueue({ type: 'text-delta', id: 'mock-id', delta: result.text!.slice(i, i + chunk) })
+              i += chunk
+              timer = setTimeout(pushChar, 10)
             } else {
               controller.enqueue({ type: 'text-end', id: 'mock-id' })
               controller.enqueue({ type: 'finish', usage, finishReason: { unified: 'stop' as const, raw: undefined } })
@@ -516,7 +623,7 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
     },
     doGenerate: async (options) => {
       const result = processForModel(modelId, options)
-      if (result.delayMs) await new Promise(resolve => setTimeout(resolve, result.delayMs))
+      if (result.delayMs) await mockDelay(result.delayMs, options.abortSignal)
       const promptText = serializePrompt(options.prompt)
 
       if (result.type === 'error') {
@@ -531,7 +638,9 @@ export function createMockLanguageModel (modelId: string = 'mock-model'): Langua
             type: 'tool-call' as const,
             toolCallId: `mock-tool-call-id-${callIdSalt}-${idx}`,
             toolName: call.toolName,
-            input: call.toolArgs ? JSON.parse(call.toolArgs) : {}
+            // A JSON STRING, as in doStream above: the SDK parses it itself. A parsed object made every
+            // generateText tool call fail as invalid — first exercised by memory reflection (now consolidation).
+            input: call.toolArgs || '{}'
           })),
           finishReason: { unified: 'tool-calls' as const, raw: undefined },
           usage: buildUsage(promptText, JSON.stringify(calls)),

@@ -1,0 +1,89 @@
+/**
+ * The page's contextual tools, as a tool set the model can call.
+ *
+ * This is the bridge's server half: a `BrowserToolDescriptor` the page declared becomes an AI SDK
+ * `Tool` whose `execute` asks that browser over the socket and waits. From the loop's point of view a
+ * page tool and an MCP tool are the same thing, which is the property that lets one loop serve both.
+ *
+ * The tool set is built PER TURN, from what the page declares at that moment. Freezing it for the turn
+ * is the same rule the MCP catalog follows — nothing a tool returns can add a tool — and it also means
+ * a navigation mid-turn cannot change what the model was told it had. A tool that disappears in that
+ * window fails at the call, which `session.callBrowserTool` already handles by checking the current
+ * declaration.
+ */
+
+import { tool, jsonSchema, type Tool } from 'ai'
+import { withProvenance } from '../conversations/operations.ts'
+import type { BrowserToolDescriptor } from '@agents/shared/agent-session-protocol'
+import type { AgentSession } from './session.ts'
+import { appendHostEvents } from './host-events.ts'
+import type { ServerGuide } from '../mcp-servers/guides.ts'
+
+/**
+ * The server name a page tool's provenance envelope carries.
+ *
+ * Deliberately not the page's URL, even though that would be more informative: the envelope's content
+ * reaches the model, and a URL is attacker-influenced text on a shared surface. The page is identified
+ * as a page; which page it was is in the conversation's own record.
+ */
+export const BROWSER_TOOL_SERVER = 'the-page'
+
+/**
+ * The page's skills as one more tool server's guide, so they land in the same Skills index and the same
+ * read_skill as an MCP server's (docs/architecture/mcp-tools.md, "Page skills"). Bodies stay out: they are
+ * loaded on demand, as an MCP skill's are. Undefined when there is no page or it publishes none.
+ */
+export function pageGuide (session: AgentSession | undefined): ServerGuide | undefined {
+  const skills = session?.skills() ?? []
+  return skills.length ? { server: BROWSER_TOOL_SERVER, skills: skills.map(({ name, description, uri }) => ({ name, description, uri })) } : undefined
+}
+
+/** A page skill's body, as the page last declared it: read_skill's reader for the page's server label. */
+export function readPageSkill (session: AgentSession | undefined, uri: string): string {
+  const skill = session?.skills().find(s => s.uri === uri)
+  if (!skill) throw new Error(`${uri} is not one of this page's skills`)
+  return skill.body
+}
+
+/**
+ * The declared tools, made callable.
+ *
+ * `inputSchema` is passed through as the page gave it. It is not validated here: it came from a
+ * WebMCP server in the page, the model's provider is what has to accept it, and a schema this service
+ * rejected would silently cost the user a capability their page legitimately offers.
+ *
+ * Unwrapped: a script's page tools (code mode) are these, with `drainEvents: false`. A script could not pass
+ * host events on to the model, so they stay pending for the model's next page call or its next turn.
+ */
+export function rawBrowserToolSet (session: AgentSession, descriptors?: BrowserToolDescriptor[], { drainEvents = true }: { drainEvents?: boolean } = {}): Record<string, Tool> {
+  const tools: Record<string, Tool> = {}
+  for (const descriptor of descriptors ?? session.tools()) {
+    tools[descriptor.name] = tool({
+      description: descriptor.description ?? '',
+      inputSchema: jsonSchema((descriptor.inputSchema as any) ?? { type: 'object', properties: {} }),
+      execute: async (input: unknown) => {
+        const output = await session.callBrowserTool(descriptor.name, input)
+        if (!drainEvents) return output
+        // The events the call CAUSED ride back with its result, so they land in history exactly
+        // where they happened — the Playwright shape, where an action returns the resulting page.
+        //
+        // This is why it matters: a tool that changes the page (selecting a type, opening a step)
+        // produces keyed state the model needs in order to decide what to do next. Delivered on the
+        // NEXT turn instead, the model would act on what the page looked like before its own call.
+        // Drained here for the same reason they are drained anywhere: being told twice is worse than
+        // being told late.
+        return appendHostEvents(output, session.hostEvents.takePending())
+      }
+    })
+  }
+  return tools
+}
+
+/**
+ * The page's tools as the model is offered them: the declared tools, in the same envelope an MCP tool's result
+ * gets, from the same implementation. A page's result is untrusted input in exactly the same way: it is content
+ * the model will read, arriving from somewhere that is not this service.
+ */
+export function browserToolSet (session: AgentSession, descriptors?: BrowserToolDescriptor[]): Record<string, Tool> {
+  return withProvenance(rawBrowserToolSet(session, descriptors), () => BROWSER_TOOL_SERVER)
+}

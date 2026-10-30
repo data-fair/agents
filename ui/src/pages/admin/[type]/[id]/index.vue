@@ -87,7 +87,7 @@
             />
           </v-tabs-window-item>
           <v-tabs-window-item value="traces">
-            <traces-section
+            <review-list
               :account-type="accountType"
               :account-id="accountId"
               :base="`/admin/${accountType}/${accountId}`"
@@ -161,7 +161,7 @@ import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
 import ModerationSection from '~/components/ModerationSection.vue'
-import TracesSection from '~/components/TracesSection.vue'
+import ReviewList from '~/components/ReviewList.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t, locale } = useI18n()
@@ -184,7 +184,7 @@ watchEffect(() => {
 
 /**
  * The subset of the settings document this (superadmin) form owns. The rest —
- * modelMapping/quotas/moderation/storeTraces — belongs to the org admin and is
+ * modelMapping/quotas/moderation/reviewPersonalAssistant — belongs to the org admin and is
  * written through PUT /api/settings/:type/:id/org (see OrgConfigSection.vue).
  *
  * The projection mirrors the form's own normalization: `models` is hidden — and

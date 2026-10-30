@@ -37,8 +37,10 @@ test.describe('Usage UI', () => {
 
     await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
 
-    // Verify usage card title is visible; the activity tabs also have a « Usage » tab
-    await expect(page.locator('.v-card-title', { hasText: /^Usage$/ })).toBeVisible()
+    // Verify usage card title is visible — the card's own title: the Activity section's "Usage" tab
+    // carries the same word, and matched alone while the card's fetch was pending (or both matched
+    // once it landed, a strict-mode violation)
+    await expect(page.locator('.v-card-title').getByText('Usage', { exact: true })).toBeVisible()
     // With no usage, should show "No usage recorded"
     await expect(page.getByText('No usage recorded')).toBeVisible()
     // An account with no pushed allowance has no cap: limit -1 reads "unlimited"
@@ -59,28 +61,5 @@ test.describe('Usage UI', () => {
 
     await expect(page.getByText('Credits consumed')).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('12 / 100 credits')).toBeVisible()
-  })
-
-  test('Shows no usage message when no requests made', async ({ page, goToWithAuth }) => {
-    const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', {
-      providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: [
-        {
-          model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-          usage: ['assistant'],
-          inputPricePerMillion: 0,
-          outputPricePerMillion: 0
-        }
-      ],
-      modelMapping: {
-        assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-      },
-      quotas: defaultQuotas
-    })
-
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-
-    await expect(page.getByText('No usage recorded')).toBeVisible()
   })
 })

@@ -1,0 +1,118 @@
+/**
+ * The planning tools of a configured autonomous agent: it plans, changes and deletes its own tasks, through
+ * the same task service as the admin routes (caps, minimum interval and next slot included).
+ *
+ * Every call needs the person's approval in the chat (`needsApproval` on the tool itself: service tools are
+ * outside the approval policy, so no policy can unset it). An approved call runs inside the continuation
+ * run, which the decider triggered: the task records them, and the conversation it came from, as its actor.
+ * Registered by the service-tool registry (conversations/service-tools.ts), chat surface only.
+ */
+import { tool, jsonSchema, type Tool } from 'ai'
+import type { AccountKeys } from '@data-fair/lib-express'
+import type { EventLogContext } from '@data-fair/lib-express/events-log.js'
+import type { Account } from '@data-fair/lib-common-types/session/index.js'
+import type { ServiceToolContext } from '../conversations/service-tools.ts'
+import { createTask, updateTask, deleteTask, getTask, type TaskActor } from '../tasks/service.ts'
+import * as taskWriteReq from '#doc/autonomous-agents/task-write-req/index.ts'
+import taskWriteReqSchema from '#doc/autonomous-agents/task-write-req/schema.js'
+import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
+import { asToolError } from './tools.ts'
+
+// The `title` is the person's name for the call: it heads the approval card and labels the chip, where
+// the description is written for the model.
+export const PLANNING_TOOL_ANNOTATIONS: Record<string, Record<string, unknown>> = {
+  plan_task: { title: 'Plan a task', readOnlyHint: false, destructiveHint: false },
+  update_task: { title: 'Change a task', readOnlyHint: false, destructiveHint: false },
+  delete_task: { title: 'Delete a task', destructiveHint: true }
+}
+
+/** The admin form's schema, without what only the form reads (i18n titles, layouts, ids): what the model reads. */
+const forModel = (value: any): any => {
+  if (Array.isArray(value)) return value.map(forModel)
+  if (!value || typeof value !== 'object') return value
+  return Object.fromEntries(Object.entries(value)
+    .filter(([key]) => !key.startsWith('x-') && !['$id', 'layout', 'oneOfLayout'].includes(key))
+    .map(([key, child]) => [key, forModel(child)]))
+}
+const taskSchema = forModel(taskWriteReqSchema)
+
+// Both halves: before the call, the person decides; once its result is in, it is done. Told only the
+// first, a judged run kept saying an approved and stored task still awaited approval, invented a
+// missing approval screen, and the person had the task deleted.
+const APPROVAL_NOTE = 'The person in this chat will see the task and approve or reject it; nothing changes until they approve. ' +
+  'When you receive this tool\'s result, the person has already approved it and the change is done: tell them it is done, never that it still needs approval.'
+// How a run's findings reach anyone. A judged run accepted "report back to me" and wrote a task whose
+// findings would have ended `done`, which notifies nobody (docs/architecture/planned-tasks.md): the
+// promise was kept in words only. Told this, the agent can write the prompt so findings are flagged.
+const DELIVERY_NOTE = 'Nobody watches a task run. People hear about it only through the notifications they subscribed to for the task, from its admin page: when a run is done (with your report_outcome summary, or your final answer when you reported none), needs attention, fails, or when the task is paused. A run that reports nothing-to-do notifies nobody. ' +
+  'When the person wants to hear about what a task finds, tell them to subscribe to its notifications; and for anything a person must act on, say in its prompt when to report needs-attention (for example: "if there are closures, report needs-attention with the list"). Never promise to report back in any other way.'
+const REFUSAL_NOTE = 'A refusal for the schedule, the minimum interval or the task cap is final: do not retry the same input, tell the person.'
+const SCHEDULE_NOTE = 'Schedules use the rule format of data-fair processings (see the schema): monthly, weekly, daily or every-N-hours rules, each at a time in a time zone. An empty schedule is allowed for a task that should run only when something happens: an administrator then wires its trigger URL (for example to a dataset\'s update events) from the task\'s admin page, which you cannot do yourself; until then it runs only when an administrator runs it now.'
+
+/** An HTTP error from the task service (400 cap or interval, invalid input, 404) keeps its status in the text. */
+const guarded = <T>(write: () => Promise<T>): Promise<T> => write().catch(asToolError)
+
+// The result names the approval and the state the task is now in, so the model reports an outcome
+// rather than a request still in flight.
+const approvedBy = (actor: TaskActor) => `Approved by ${actor.userName ?? actor.userId}.`
+const planned = (actor: TaskActor, verb: 'planned' | 'updated', task: { id: string, title: string, scheduling: unknown, nextRunAt?: string, enabled: boolean }) => {
+  const when = `${describeScheduling(task.scheduling as ScheduleRule[], 'en')}, next run ${task.nextRunAt ?? 'none'}`
+  return `${approvedBy(actor)} Task "${task.title}" is ${verb} (id ${task.id}) and ${task.enabled ? `active: ${when}` : 'disabled: it will not run until it is enabled'}.`
+}
+
+export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<string, Tool> => {
+  const owner = run.owner as AccountKeys
+  // The continuation run's trigger: the person who approved the call. An approved call only ever runs in
+  // such a run, so a missing one is refused rather than recorded as nobody. When two calls of one step are
+  // decided by different people, the run is triggered by the LAST decider (conversations/approvals.ts), so
+  // the recorded approver of the other call is that person: rare (a second instructor deciding in someone
+  // else's conversation) and accepted.
+  const actor = (): TaskActor => {
+    const { userId, userName } = run.triggeredBy ?? {}
+    if (!userId) throw new Error('no person approved this change')
+    return { userId, ...(userName ? { userName } : {}), ...(run.conversationId ? { conversationId: run.conversationId } : {}) }
+  }
+  // The same events-log entry as the admin route's, for the account and the approver (no request here).
+  const log = (): EventLogContext => {
+    const { userId, userName } = actor()
+    return { account: run.owner as Account, user: { id: userId, name: userName ?? userId } }
+  }
+
+  return {
+    plan_task: tool({
+      description: `Plan a new task of yours: an instruction you will run on a schedule or when triggered, with nobody present. ${APPROVAL_NOTE} ${DELIVERY_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
+      inputSchema: jsonSchema<unknown>(taskSchema),
+      needsApproval: true,
+      execute: async (input: unknown) => {
+        const task = await guarded(async () => createTask(owner, agent, taskWriteReq.returnValid(input, { name: 'input' }), actor(), log()))
+        return planned(actor(), 'planned', task)
+      }
+    }),
+    update_task: tool({
+      description: `Change one of your planned tasks: give its id and the whole new task (title, prompt, scheduling, enabled), not only what changes. ${APPROVAL_NOTE} ${DELIVERY_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
+      inputSchema: jsonSchema<unknown>({
+        ...taskSchema,
+        required: ['taskId', ...taskSchema.required],
+        properties: { taskId: { type: 'string' }, ...taskSchema.properties }
+      }),
+      needsApproval: true,
+      execute: async (input: any) => {
+        const { taskId, ...body } = input ?? {}
+        const task = await guarded(async () => updateTask(owner, agent, String(taskId ?? ''), taskWriteReq.returnValid(body, { name: 'input' }), actor(), log()))
+        return planned(actor(), 'updated', task)
+      }
+    }),
+    delete_task: tool({
+      description: `Delete one of your planned tasks, by id. ${APPROVAL_NOTE}`,
+      inputSchema: jsonSchema<unknown>({ type: 'object', additionalProperties: false, required: ['taskId'], properties: { taskId: { type: 'string' } } }),
+      needsApproval: true,
+      execute: async (input: any) => {
+        const taskId = String(input?.taskId ?? '')
+        // Read first: a task deleted since the call was asked is a 404 here, not a silent success.
+        const { title } = await guarded(() => getTask(owner, agent.id, taskId))
+        await guarded(async () => deleteTask(owner, agent.id, taskId, log()))
+        return `${approvedBy(actor())} Task "${title}" is deleted.`
+      }
+    })
+  }
+}

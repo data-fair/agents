@@ -1,0 +1,60 @@
+<template>
+  <v-bottom-sheet
+    :model-value="show"
+    :max-width="600"
+    persistent
+    inset
+  >
+    <v-sheet
+      rounded
+      class="text-center pa-6"
+    >
+      <p>{{ t('message') }}</p>
+      <p class="text-medium-emphasis text-caption">
+        {{ t('details') }}
+      </p>
+      <div class="d-flex justify-center ga-3 mt-4">
+        <v-btn
+          variant="text"
+          @click="choose('no')"
+        >
+          {{ t('decline') }}
+        </v-btn>
+        <v-btn
+          color="primary"
+          @click="choose('yes')"
+        >
+          {{ t('accept') }}
+        </v-btn>
+      </div>
+    </v-sheet>
+  </v-bottom-sheet>
+</template>
+
+<i18n lang="yaml">
+en:
+  message: This assistant can store your conversation on the server so an administrator can review it.
+  details: An administrator can review it for 30 days after the last message. If you delete the conversation during that time, it stays available to them until those 30 days are up and is then removed completely. Your choice is remembered for 1 year and you can change it anytime in the chat settings.
+  accept: Accept
+  decline: Decline
+fr:
+  message: Cet assistant peut enregistrer votre conversation sur le serveur afin qu'un administrateur puisse la consulter.
+  details: Un administrateur peut la consulter pendant 30 jours après le dernier message. Si vous supprimez la conversation durant cette période, elle lui reste accessible jusqu'à la fin de ces 30 jours, puis elle est entièrement supprimée. Votre choix est conservé pendant 1 an et vous pouvez le modifier à tout moment dans les paramètres du chat.
+  accept: Accepter
+  decline: Refuser
+</i18n>
+
+<script lang="ts" setup>
+import { computed } from 'vue'
+import { useI18n } from 'vue-i18n'
+import { reviewOffered, consentRef, writeConsent, type Consent } from '~/review/review-consent'
+
+// Never asked on an audited chat: consent is meaningless where the conversation is reviewable anyway.
+const props = defineProps<{ audited?: boolean }>()
+const { t } = useI18n()
+const show = computed(() => !props.audited && reviewOffered.value && consentRef.value === undefined)
+
+const choose = (value: Consent) => {
+  writeConsent(value)
+}
+</script>

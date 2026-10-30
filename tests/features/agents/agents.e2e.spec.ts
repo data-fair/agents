@@ -4,67 +4,19 @@
 
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
-import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
-import { putSettings } from '../../support/settings.ts'
+import { clean, superAdmin } from '../../support/axios.ts'
+import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
-
-const settingsData = {
-  providers: [
-    {
-      id: 'mock-provider',
-      type: 'mock',
-      name: 'Mock Provider',
-      enabled: true
-    }
-  ],
-  models: [
-    {
-      model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant'],
-      inputPricePerMillion: 0,
-      outputPricePerMillion: 0
-    }
-  ],
-  modelMapping: {
-    assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' }
-  },
-  quotas: defaultQuotas
-}
 
 test.describe('Chat UI', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putMockSettings(admin, 'user/test-standalone1')
   })
 
-  test('Page loads with input field', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
-    await expect(page.getByPlaceholder('Type your message...')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Send' })).toBeVisible()
-  })
-
-  test('Can send a message and receive response', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
-
-    // Wait for chat to be ready
-    const input = page.getByPlaceholder('Type your message...')
-    await expect(input).toBeEnabled({ timeout: 10000 })
-
-    // Type a message
-    await input.fill('hello')
-    await expect(input).toHaveValue('hello')
-
-    // Click send
-    await page.getByRole('button', { name: 'Send' }).click()
-
-    // Verify user message appears
-    await expect(page.getByText('hello', { exact: true })).toBeVisible()
-
-    // Wait for loading to complete and assistant response
-    await expect(page.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
-  })
-
+  // The plain hello → world exchange is covered by compaction.e2e.spec.ts (same user, same page,
+  // three of them); this file keeps what that one does not render.
   test('Renders markdown links without error', async ({ page, goToWithAuth }) => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
@@ -79,7 +31,8 @@ test.describe('Chat UI', () => {
     const link = page.locator('.assistant-content a', { hasText: 'the docs' }).last()
     await expect(link).toBeVisible({ timeout: 10000 })
     await expect(link).toHaveAttribute('href', 'https://example.com/docs')
-    await expect(link).toHaveAttribute('target', '_top')
+    // a chat on a page of its own: a link must not replace the conversation
+    await expect(link).toHaveAttribute('target', '_blank')
 
     expect(errors.filter(e => e.includes('parseInline'))).toEqual([])
   })

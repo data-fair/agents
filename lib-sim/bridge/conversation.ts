@@ -26,15 +26,25 @@ export const ABORTED_TOOL_RESULT =
   'ERROR: the conversation was aborted before this tool call could be answered. No result is available.'
 
 export type TurnOutcome =
-  | { type: 'tools', calls: OpenAIToolCall[] }
+  | { type: 'tools', calls: OpenAIToolCall[], usage?: object }
   | { type: 'done', usage?: object }
   | { type: 'error', message: string }
+
+/** Anthropic's usage fields, as the SDK reports them on a message and, summed over the query, on its result. */
+export type SdkUsage = {
+  input_tokens?: number
+  output_tokens?: number
+  cache_read_input_tokens?: number
+  cache_creation_input_tokens?: number
+}
+
+const USAGE_FIELDS = ['input_tokens', 'output_tokens', 'cache_read_input_tokens', 'cache_creation_input_tokens'] as const
 
 export type SdkMessage = {
   type: string
   subtype?: string
-  message?: { content?: Array<{ type: string, text?: string }> }
-  usage?: { input_tokens?: number, output_tokens?: number }
+  message?: { id?: string, content?: Array<{ type: string, text?: string }>, usage?: SdkUsage }
+  usage?: SdkUsage
   result?: unknown
 }
 
@@ -57,6 +67,15 @@ export class Conversation {
   #controller = new AbortController()
   #consuming = false
   #terminal: TurnOutcome | null = null
+  /**
+   * The latest usage seen on each model call (assistant message id) of the query, and what has
+   * already been reported to the client. One query spans several HTTP requests — one per tool
+   * hand-back — and each must report the model calls it covered: the SDK's `result` arrives only at
+   * the very end, so a turn that never came back (a call stopped by an approval gate, whose results
+   * are not sent) reported none at all.
+   */
+  #usageByMessage = new Map<string, SdkUsage>()
+  #reported: Required<SdkUsage> = { input_tokens: 0, output_tokens: 0, cache_read_input_tokens: 0, cache_creation_input_tokens: 0 }
 
   constructor (key: string, toolNames: string[] = []) {
     this.key = key
@@ -149,31 +168,67 @@ export class Conversation {
   }
 
   async #consume (iterator: AsyncIterable<SdkMessage>) {
-    let usage: object | undefined
+    let usage: SdkUsage | undefined
     try {
       for await (const msg of iterator) {
         if (msg.type === 'assistant') {
+          // Overwritten, not summed: the SDK emits one message per content block, all sharing the
+          // call's id, and the later ones carry the more complete count.
+          if (msg.message?.id && msg.message.usage) this.#usageByMessage.set(msg.message.id, msg.message.usage)
           for (const block of msg.message?.content ?? []) {
             if (block.type === 'text' && block.text) this.#sink?.(block.text)
           }
         }
         if (msg.type === 'result') {
-          usage = mapUsage(msg.usage)
+          usage = msg.usage
           if (msg.subtype !== 'success') {
             this.#endTurn({ type: 'error', message: String(msg.result ?? msg.subtype) })
             return
           }
         }
       }
-      this.#endTurn({ type: 'done', usage })
+      this.#endTurn({ type: 'done', usage: mapUsage(this.#unreported(usage ?? this.#seenUsage())) })
     } catch (err) {
       this.#endTurn({ type: 'error', message: err instanceof Error ? err.message : String(err) })
     }
   }
 
+  /**
+   * What `total` adds to the usage already reported, which is then counted as reported.
+   *
+   * A difference of cumulative counters rather than a per-message sum, so the two sources reconcile:
+   * a hand-back reports the calls seen so far (whose output count may still be partial), and the
+   * final `result` — the SDK's own total for the query — reports exactly the rest. The query's usage
+   * is thereby reported once, whichever request it ends up on.
+   */
+  #unreported (total: SdkUsage): SdkUsage {
+    const delta: SdkUsage = {}
+    for (const field of USAGE_FIELDS) {
+      const value = Math.max(0, (total[field] ?? 0) - this.#reported[field])
+      if (value) delta[field] = value
+      this.#reported[field] += value
+    }
+    return delta
+  }
+
+  /** The usage of every model call seen so far, summed. */
+  #seenUsage (): SdkUsage {
+    const total: SdkUsage = {}
+    for (const usage of this.#usageByMessage.values()) {
+      for (const field of USAGE_FIELDS) total[field] = (total[field] ?? 0) + (usage[field] ?? 0)
+    }
+    return total
+  }
+
   #endTurn (outcome: TurnOutcome) {
     if (this.#settle) { clearTimeout(this.#settle); this.#settle = null }
     const resolve = this.#resolveTurn
+    // A hand-back reports the model calls that led to it. Only when a request is attached to carry
+    // it: with none, the calls are handed back — and the usage reported — by the next beginTurn.
+    if (outcome.type === 'tools' && resolve) {
+      const usage = this.#unreported(this.#seenUsage())
+      if (Object.keys(usage).length) outcome = { ...outcome, usage: mapUsage(usage) }
+    }
     this.#resolveTurn = null
     this.#sink = null
     // Anything but a hand-back means the query is over. Remember it: between two

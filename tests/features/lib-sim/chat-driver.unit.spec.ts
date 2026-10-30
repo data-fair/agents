@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { chatDriverStrings, createChatDriver, WAITING_SELECTOR } from '../../../lib-sim/chat-driver.ts'
+import { chatDriverStrings, createChatDriver, WAITING_SELECTOR, APPROVAL_SELECTOR } from '../../../lib-sim/chat-driver.ts'
 
 test.describe('chat driver composer strings', () => {
   test('serves the French strings', () => {
@@ -72,20 +72,30 @@ test.describe('chat driver composer strings', () => {
     assert.ok(source.includes('data-testid="chat-activity"'), 'the activity element lost its test id')
     assert.ok(source.includes(':data-activity="activity?.kind"'), 'the activity element no longer exposes its kind')
     // And the kind the selector names is one the activity vocabulary still has.
-    const activity = readFileSync('ui/src/composables/agent-activity.ts', 'utf8')
+    const activity = readFileSync('shared/agent-activity.ts', 'utf8')
     assert.match(WAITING_SELECTOR, /data-activity="waiting"/)
     assert.ok(activity.includes("kind: 'waiting'"), "the 'waiting' activity kind is gone")
   })
 
-  test('the runner keeps the reset button off-limits to the persona', () => {
-    // Drift guard on the harness side, complementing page-perception's own
-    // off-limits tests: the runner is where the actual list is assembled, and
-    // a future edit dropping `strings.reset` from it would silently let the
-    // persona wipe the transcript mid-run, with nothing here to catch it.
-    const source = readFileSync('simulations/simulate.sim.spec.ts', 'utf8')
-    const offLimitsLine = source.match(/offLimits:\s*\[[^\]]*\]/)?.[0]
-    assert.ok(offLimitsLine, 'could not find the offLimits array in simulate.sim.spec.ts')
-    assert.match(offLimitsLine!, /strings\.reset/)
+  test('the approval selector names a kind the activity vocabulary has, sent when a turn stops on one', () => {
+    // An approval request ends the turn on the person, like a wait; the driver tells the two apart from
+    // a finished turn by this kind alone, so a renamed kind would silently turn every approval back
+    // into an "ended" turn and the runner would type over the continuation.
+    assert.match(APPROVAL_SELECTOR, /data-activity="approval"/)
+    assert.ok(readFileSync('shared/agent-activity.ts', 'utf8').includes("kind: 'approval'"), "the 'approval' activity kind is gone")
+    assert.ok(readFileSync('api/src/conversations/turn-target.ts', 'utf8').includes("kind: 'approval'"), 'the turn no longer announces an approval request')
+  })
+
+  test('the chat keeps the composer and the reset button off-limits', () => {
+    // Drift guard on the harness side, complementing page-perception's own off-limits tests. The list
+    // lives on the driver, beside the controls it names, so the two cannot disagree about what "the
+    // composer" is. Asserted from the driver's value rather than by scanning the runner's source,
+    // which broke the moment the list moved.
+    const driver = createChatDriver({} as any)
+    const strings = chatDriverStrings('en')
+    for (const name of [strings.input, strings.send, strings.stop, strings.reset]) {
+      assert.ok(driver.offLimits.includes(name), `${name} must stay off-limits to the persona`)
+    }
   })
 })
 
@@ -160,7 +170,16 @@ test.describe('sendMessage: bounded, honest recovery from a wedged composer', ()
   test('a click the chat never took is an error, not a sent message', async () => {
     const { root } = fakeSendRoot({ neverTaken: true })
     const chat = createChatDriver(root as any)
-    await assert.rejects(() => chat.sendMessage('hello'), /never sent/)
+    // Time runs a minute per reading, so each attempt's deadline (SENT_TIMEOUT_MS) passes at its
+    // first poll instead of costing the real seconds twice over.
+    const realNow = Date.now
+    let readings = 0
+    Date.now = () => realNow() + 60_000 * readings++
+    try {
+      await assert.rejects(() => chat.sendMessage('hello'), /never sent/)
+    } finally {
+      Date.now = realNow
+    }
   })
 
   test('never forces through — no force option on the click/fill calls', () => {

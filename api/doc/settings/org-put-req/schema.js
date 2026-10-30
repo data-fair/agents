@@ -5,7 +5,7 @@ import SettingsSchema from '#types/settings/schema.js'
  * superadmin-only providers / models catalog). Created ahead of the endpoint
  * that will consume it, so wiring the router is all that is left.
  */
-/** @param {'modelMapping' | 'quotas' | 'moderation' | 'storeTraces'} key */
+/** @param {'modelMapping' | 'quotas' | 'moderation' | 'reviewPersonalAssistant'} key */
 const pick = (key) => {
   const picked = JSON.parse(JSON.stringify(SettingsSchema.properties[key]))
   // These sections are hidden in the superadmin form until the account has at
@@ -33,6 +33,6 @@ export default {
     modelMapping: pick('modelMapping'),
     quotas: pick('quotas'),
     moderation: pick('moderation'),
-    storeTraces: pick('storeTraces')
+    reviewPersonalAssistant: pick('reviewPersonalAssistant')
   }
 }

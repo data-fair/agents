@@ -1,22 +1,21 @@
 // The roles a model can be bound to. Each org may pick, per role, any model of
 // its catalog (global models + its own `models` entries); an unmapped role falls
 // back to the global default, then along the role's fallback chain.
-const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'evaluator', 'moderator']
+const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'moderator']
 
 /** @type {Record<string, { en: string, fr: string }>} */
 const MODEL_ROLE_TITLES = {
   assistant: { en: 'Assistant', fr: 'Assistant' },
   tools: { en: 'Tools', fr: 'Outils' },
   summarizer: { en: 'Summarizer', fr: 'Résumeur' },
-  evaluator: { en: 'Evaluator', fr: 'Évaluateur' },
   moderator: { en: 'Moderator', fr: 'Modérateur' }
 }
 
 /** @type {Record<string, { en: string, fr: string }>} */
 const MODEL_ROLE_DESCRIPTIONS = {
   assistant: {
-    en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the high-level flow and delegates complex tasks to subagents.',
-    fr: "L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle gère le flux de haut niveau et délègue les tâches complexes aux sous-agents."
+    en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools.',
+    fr: "L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle mène la conversation et appelle les outils."
   },
   tools: {
     en: 'The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.',
@@ -25,10 +24,6 @@ const MODEL_ROLE_DESCRIPTIONS = {
   summarizer: {
     en: 'A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.',
     fr: "Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas."
-  },
-  evaluator: {
-    en: 'The "quality controller." Analyzes the assistant\'s logic and tool outputs for accuracy and safety. It requires the highest reasoning capabilities to act as a reliable ground truth for system performance.',
-    fr: "Le « contrôleur qualité ». Analyse la logique de l'assistant et les sorties des outils pour vérifier la précision et la sécurité. Il nécessite les capacités de raisonnement les plus élevées pour servir de référence fiable pour les performances du système."
   },
   moderator: {
     en: 'The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform\'s custom policy.',
@@ -146,17 +141,17 @@ export default {
       format: 'date-time',
       readOnly: true,
     },
-    storeTraces: {
+    reviewPersonalAssistant: {
       type: 'boolean',
-      title: 'Store conversation traces',
+      title: 'Review personal assistant conversations',
       'x-i18n-title': {
-        en: 'Store conversation traces',
-        fr: 'Enregistrer les traces de conversation'
+        en: 'Review personal assistant conversations',
+        fr: "Relire les conversations avec l'assistant personnel"
       },
-      description: 'When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.',
+      description: 'When enabled, conversations of consenting users with the personal assistant are stored on the server for 30 days for admin review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent.',
       'x-i18n-description': {
-        en: 'When enabled, conversations of consenting users are stored on the server for 30 days for admin review. Each user must explicitly accept.',
-        fr: 'Si activé, les conversations des utilisateurs consentants sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter.'
+        en: 'When enabled, conversations of consenting users with the personal assistant are stored on the server for 30 days for admin review. Each user must explicitly accept. Conversations with autonomous agents are always reviewable and need no consent.',
+        fr: "Si activé, les conversations des utilisateurs consentants avec l'assistant personnel sont enregistrées sur le serveur pendant 30 jours pour relecture par un administrateur. Chaque utilisateur doit explicitement accepter. Les conversations avec les agents autonomes sont toujours consultables et ne demandent pas de consentement."
       },
       default: false
     },
@@ -714,7 +709,6 @@ export default {
                 { const: 'assistant', title: 'Assistant' },
                 { const: 'tools', title: 'Tools', 'x-i18n-title': { en: 'Tools', fr: 'Outils' } },
                 { const: 'summarizer', title: 'Summarizer', 'x-i18n-title': { en: 'Summarizer', fr: 'Résumeur' } },
-                { const: 'evaluator', title: 'Evaluator', 'x-i18n-title': { en: 'Evaluator', fr: 'Évaluateur' } },
                 { const: 'moderator', title: 'Moderator', 'x-i18n-title': { en: 'Moderator', fr: 'Modérateur' } }
               ]
             }

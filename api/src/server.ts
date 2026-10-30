@@ -10,6 +10,18 @@ import { app } from './app.ts'
 import config from '#config'
 import mongo from '#mongo'
 import { cleanupOldUsage } from './usage/cleanup.ts'
+import { recoverOwnerlessRuns } from './conversations/executor.ts'
+import { maintainNhiKeys } from './nhi/service.ts'
+import { recoverOwnerlessTaskRuns } from './tasks/execution.ts'
+import { purgeExpiredArchives, purgeAbandonedAnonymous } from './conversations/service.ts'
+import { startAgentSessions } from './agent-session/service.ts'
+import { sessionFor } from './agent-session/registry.ts'
+import { liveRuns } from './conversations/live-runs.ts'
+import { stopAcceptingTurns, drainLiveRuns } from './conversations/shutdown.ts'
+import { sweepConsolidations } from './memory/consolidation.ts'
+import { fileStore, sweepFilesOnce } from './files/service.ts'
+import { runSchedulerPass } from './tasks/scheduler.ts'
+import { configureCodeMode } from './code-mode/tool.ts'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -53,18 +65,37 @@ const runUpgradeScripts = async () => {
 
 const server = createServer(app)
 const httpTerminator = createHttpTerminator({ server })
-let cleanupInterval: ReturnType<typeof setInterval> | undefined
+const intervals: ReturnType<typeof setInterval>[] = []
+let agentSessions: ReturnType<typeof startAgentSessions> | undefined
 
 server.keepAliveTimeout = (60 * 1000) + 1000
 server.headersTimeout = (60 * 1000) + 2000
 
+/** A background job: every `ms`, and once at start when `now`. A failed pass is logged, never thrown. */
+const every = (ms: number, name: string, job: () => Promise<unknown>, opts: { now?: boolean } = {}) => {
+  const run = () => { job().catch(err => console.error(`${name} failed`, err)) }
+  if (opts.now) run()
+  intervals.push(setInterval(run, ms))
+}
+
+/**
+ * In development, the real-clock jobs leave `test*` owners alone: the api specs drive those owners'
+ * scheduler and consolidation passes through the test-env seams, with an injected clock, and a real
+ * pass would claim their slots first.
+ */
+const realClockScope = process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test/ } } : {}
+
 export const start = async () => {
   if (config.observer?.active) await startObserver(config.observer.port)
   session.init(config.privateDirectoryUrl)
+  // code_mode's worker pool is per process and refuses when full (api/src/code-mode/tool.ts).
+  configureCodeMode(config.codeModeMaxWorkers)
   await mongo.init()
   await locks.start(mongo.db)
   await runUpgradeScripts()
 
+  // BEFORE the recovery pass: a task run it interrupts is notified (tasks/follow-up.ts, afterTaskRun),
+  // and pushing to a queue not yet started throws.
   if (config.privateEventsUrl) {
     if (!config.secretKeys?.events) {
       internalError('agents', 'Missing secretKeys.events in config')
@@ -73,10 +104,55 @@ export const start = async () => {
     }
   }
 
-  cleanupOldUsage().catch(err => console.error('initial usage cleanup failed', err))
-  cleanupInterval = setInterval(() => {
-    cleanupOldUsage().catch(err => console.error('usage cleanup failed', err))
-  }, 24 * 60 * 60 * 1000)
+  // The NHI signing keys: created on a fresh deployment before the issuer routes can be asked for them,
+  // then rotated when due (api/src/nhi/service.ts).
+  await maintainNhiKeys()
+  every(10 * 60 * 1000, 'nhi key rotation', () => maintainNhiKeys())
+
+  // A restart cannot resume a run (the executor is in-process and non-resumable), so any
+  // run still marked running belongs to a dead process. Mark it interrupted so a reader
+  // sees an honest terminal state instead of a turn that appears to be thinking forever.
+  await recoverOwnerlessRuns()
+  await recoverOwnerlessTaskRuns()
+
+  // A queued run whose holder died is only picked up when someone posts to that conversation
+  // again, which may be never. This reaper makes "running with nobody running it" recoverable
+  // without a restart. The interval is well inside the 60s lock TTL, so it does not fight a
+  // live holder.
+  // realClockScope: a spec inserts unlocked `running` runs on purpose and drives recovery through test-env; this
+  // pass closing one between two of its requests made the spec flaky.
+  every(30 * 1000, 'autonomous agent recovery', () => Promise.all([recoverOwnerlessRuns(realClockScope), recoverOwnerlessTaskRuns(realClockScope)]))
+
+  every(24 * 60 * 60 * 1000, 'usage cleanup', cleanupOldUsage, { now: true })
+
+  // Archived conversations past the review window. A sweep rather than a mongo TTL index because a
+  // TTL deletes only the document it indexes: this thread's messages and runs live in their own
+  // collections and would be left orphaned, still readable by id, which for data that was supposed
+  // to have expired is the whole failure. Daily is ample for a 30-day window.
+  every(24 * 60 * 60 * 1000, 'archive purge', () => purgeExpiredArchives(), { now: true })
+
+  // Anonymous threads whose socket never ran its close handler. Hourly, so one outlives its
+  // abandonment cutoff by an hour at most.
+  every(60 * 60 * 1000, 'anonymous purge', purgeAbandonedAnonymous, { now: true })
+
+  // Memory consolidation, at most daily per agent and only after activity (api/src/memory/consolidation.ts).
+  // Checked every 15 minutes; per-agent locks make concurrent instances harmless.
+  every(15 * 60 * 1000, 'memory consolidation sweep', () => sweepConsolidations(new Date(), realClockScope))
+
+  // AGENT FILES (api/src/files): a store that cannot be reached fails the boot, as data-fair's does; then
+  // the one cleanup, hourly — a file outlives its 7 days by an hour at most.
+  const files = fileStore()
+  if (files) {
+    await files.checkAccess()
+    every(60 * 60 * 1000, 'file sweep', sweepFilesOnce, { now: true })
+  }
+
+  // PLANNED TASKS: every pollSeconds, claim and fire the tasks that are due (api/src/tasks/scheduler.ts).
+  // Every instance polls; the claim is an atomic advance of nextRunAt, so exactly one fires a slot.
+  every(config.tasks.pollSeconds * 1000, 'task scheduler pass', () => runSchedulerPass(new Date(), realClockScope))
+
+  // Before server.listen, so the socket endpoint exists when the http server starts accepting connections.
+  agentSessions = startAgentSessions(server)
 
   server.listen(config.port)
   await eventPromise(server, 'listening')
@@ -92,13 +168,31 @@ export const start = async () => {
   if (config.defaultLimits?.credits === 0 && globalAiConfigured && !config.secretKeys?.limits) {
     console.log('[credits] DEFAULT_CREDITS is 0 (accounts start capped) but no SECRET_LIMITS is configured, so the customers service cannot push allowances: every account will be refused until an allowance is set manually via POST /api/v1/limits/:type/:id in admin mode. Set DEFAULT_CREDITS to -1 for an uncapped deployment, or configure SECRET_LIMITS.')
   }
-  if (!config.github?.token) {
-    console.log('[github] No GITHUB_TOKEN configured: the trace evaluator\'s source exploration (explore_github) will use unauthenticated GitHub (60 requests/hour/IP). To raise the limit to 5000/hour, create a fine-grained personal access token with public read-only access at https://github.com/settings/tokens and set the GITHUB_TOKEN environment variable on the container.')
-  }
 }
 
 export const stop = async () => {
-  if (cleanupInterval) clearInterval(cleanupInterval)
+  for (const interval of intervals.splice(0)) clearInterval(interval)
+  // Let the running turns finish instead of dying with the process (live-runs.ts, SHUTDOWN): no new turn
+  // begins here, sessions with nothing running are closed so their next message reaches a healthy
+  // instance, and the rest get the grace period before being stopped as "the server restarted".
+  stopAcceptingTurns()
+  // At each poll, so a person whose turn has just finished is moved on at once rather than refused until
+  // the others are done.
+  const closeIdleSessions = () => {
+    const watching = new Set([...liveRuns.values()].flatMap(live => {
+      const watcher = live.conversationId ? sessionFor(live.conversationId) : undefined
+      return watcher ? [watcher] : []
+    }))
+    agentSessions?.closeAllBut(watching)
+  }
+  const drained = await drainLiveRuns(liveRuns, config.shutdownGraceSeconds * 1000, { onTick: closeIdleSessions })
+  if (drained.finished || drained.stopped) console.log(`shutdown: ${drained.finished} turn(s) finished, ${drained.stopped} stopped at the end of the grace period`)
+  // After the drain: a task run closing in it notifies through the queue.
+  await eventsQueue.stop?.()
+  // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
+  // left with a socket that stops answering, and every pending browser tool call has to fail so the
+  // turn waiting on it can finish.
+  if (agentSessions) await agentSessions.close()
   await httpTerminator.terminate()
   if (config.observer?.active) await stopObserver()
   await locks.stop()

@@ -59,6 +59,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/_dev/chat-air-quality': RouteRecordInfo<
+      '/_dev/chat-air-quality',
+      '/_dev/chat-air-quality',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/_dev/chat-block': RouteRecordInfo<
       '/_dev/chat-block',
       '/_dev/chat-block',
@@ -122,6 +129,13 @@ declare module 'vue-router/auto-routes' {
       Record<never, never>,
       | never
     >,
+    '/_dev/chat-page-skills': RouteRecordInfo<
+      '/_dev/chat-page-skills',
+      '/_dev/chat-page-skills',
+      Record<never, never>,
+      Record<never, never>,
+      | never
+    >,
     '/_dev/chat-stale-frame': RouteRecordInfo<
       '/_dev/chat-stale-frame',
       '/_dev/chat-stale-frame',
@@ -132,13 +146,6 @@ declare module 'vue-router/auto-routes' {
     '/_dev/chat-stale-tools': RouteRecordInfo<
       '/_dev/chat-stale-tools',
       '/_dev/chat-stale-tools',
-      Record<never, never>,
-      Record<never, never>,
-      | never
-    >,
-    '/_dev/chat-subagent': RouteRecordInfo<
-      '/_dev/chat-subagent',
-      '/_dev/chat-subagent',
       Record<never, never>,
       Record<never, never>,
       | never
@@ -171,6 +178,13 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false>, type: ParamValue<false> },
       | never
     >,
+    '/[type]/[id]/agents/[agentId]': RouteRecordInfo<
+      '/[type]/[id]/agents/[agentId]',
+      '/:type/:id/agents/:agentId',
+      { agentId: ParamValue<true>, id: ParamValue<true>, type: ParamValue<true> },
+      { agentId: ParamValue<false>, id: ParamValue<false>, type: ParamValue<false> },
+      | never
+    >,
     '/[type]/[id]/chat': RouteRecordInfo<
       '/[type]/[id]/chat',
       '/:type/:id/chat',
@@ -178,9 +192,9 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false>, type: ParamValue<false> },
       | never
     >,
-    '/[type]/[id]/traces/[convId]': RouteRecordInfo<
-      '/[type]/[id]/traces/[convId]',
-      '/:type/:id/traces/:convId',
+    '/[type]/[id]/review/[convId]': RouteRecordInfo<
+      '/[type]/[id]/review/[convId]',
+      '/:type/:id/review/:convId',
       { convId: ParamValue<true>, id: ParamValue<true>, type: ParamValue<true> },
       { convId: ParamValue<false>, id: ParamValue<false>, type: ParamValue<false> },
       | never
@@ -199,9 +213,9 @@ declare module 'vue-router/auto-routes' {
       { id: ParamValue<false>, type: ParamValue<false> },
       | never
     >,
-    '/admin/[type]/[id]/traces/[convId]': RouteRecordInfo<
-      '/admin/[type]/[id]/traces/[convId]',
-      '/admin/:type/:id/traces/:convId',
+    '/admin/[type]/[id]/review/[convId]': RouteRecordInfo<
+      '/admin/[type]/[id]/review/[convId]',
+      '/admin/:type/:id/review/:convId',
       { convId: ParamValue<true>, id: ParamValue<true>, type: ParamValue<true> },
       { convId: ParamValue<false>, id: ParamValue<false>, type: ParamValue<false> },
       | never
@@ -246,6 +260,14 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/chat-action.vue': {
       routes:
         | '/_dev/chat-action'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
+    'src/pages/_dev/chat-air-quality.vue': {
+      routes:
+        | '/_dev/chat-air-quality'
       views:
         | never
       pathParamNames:
@@ -323,6 +345,14 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
+    'src/pages/_dev/chat-page-skills.vue': {
+      routes:
+        | '/_dev/chat-page-skills'
+      views:
+        | never
+      pathParamNames:
+        | never
+    }
     'src/pages/_dev/chat-stale-frame.vue': {
       routes:
         | '/_dev/chat-stale-frame'
@@ -334,14 +364,6 @@ declare module 'vue-router/auto-routes' {
     'src/pages/_dev/chat-stale-tools.vue': {
       routes:
         | '/_dev/chat-stale-tools'
-      views:
-        | never
-      pathParamNames:
-        | never
-    }
-    'src/pages/_dev/chat-subagent.vue': {
-      routes:
-        | '/_dev/chat-subagent'
       views:
         | never
       pathParamNames:
@@ -379,6 +401,14 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
+    'src/pages/[type]/[id]/agents/[agentId].vue': {
+      routes:
+        | '/[type]/[id]/agents/[agentId]'
+      views:
+        | never
+      pathParamNames:
+        | 'agentId'
+    }
     'src/pages/[type]/[id]/chat.vue': {
       routes:
         | '/[type]/[id]/chat'
@@ -387,9 +417,9 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
-    'src/pages/[type]/[id]/traces/[convId].vue': {
+    'src/pages/[type]/[id]/review/[convId].vue': {
       routes:
-        | '/[type]/[id]/traces/[convId]'
+        | '/[type]/[id]/review/[convId]'
       views:
         | never
       pathParamNames:
@@ -411,9 +441,9 @@ declare module 'vue-router/auto-routes' {
       pathParamNames:
         | never
     }
-    'src/pages/admin/[type]/[id]/traces/[convId].vue': {
+    'src/pages/admin/[type]/[id]/review/[convId].vue': {
       routes:
-        | '/admin/[type]/[id]/traces/[convId]'
+        | '/admin/[type]/[id]/review/[convId]'
       views:
         | never
       pathParamNames:

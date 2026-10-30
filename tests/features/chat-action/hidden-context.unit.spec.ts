@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { wrapHiddenContext, splitHiddenContext } from '../../../ui/src/traces/hidden-context.ts'
+import { wrapHiddenContext, splitHiddenContext } from '../../../shared/hidden-context.ts'
 
 test.describe('hidden-context wire format (unit)', () => {
   test('wrap then split round-trips visible + hidden', () => {

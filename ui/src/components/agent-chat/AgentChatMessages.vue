@@ -26,10 +26,7 @@
           v-for="(message, index) in messages"
           :key="index"
         >
-          <div
-            v-if="!isHiddenExploreStep(message)"
-            class="px-2 py-1 px-sm-4 py-sm-2"
-          >
+          <div class="px-2 py-1 px-sm-4 py-sm-2">
             <div
               v-if="message.role === 'user'"
               class="d-flex justify-end"
@@ -74,132 +71,167 @@
                   </v-expansion-panel-text>
                 </v-expansion-panel>
               </v-expansion-panels>
-              <markdown-content
-                class="assistant-content markdown-content"
-                :content="message.content"
-                :streaming="isStreaming && index === messages.length - 1"
-                :mermaid="mermaidEnabled"
-                @mermaid-error="failures => emit('mermaid-error', { index, failures })"
-              />
-              <div
-                v-if="hasVisibleTools(message) || isExploring(message)"
-                class="mt-2"
+              <!-- In the order it happened: the calls a step made show between the text before and after them. -->
+              <template
+                v-for="(block, blockIndex) in messageBlocks[index]"
+                :key="blockIndex"
               >
-                <template
-                  v-for="invocation in message.toolInvocations"
-                  :key="invocation.toolCallId"
-                >
-                  <v-chip
-                    v-if="invocation.toolName !== EXPLORE_TOOL_NAME && (simpleSubAgents || !invocation.toolName.startsWith('subagent_'))"
-                    size="small"
-                    :color="invocation.state === 'done' ? 'success' : 'warning'"
-                    variant="outlined"
-                    class="mr-1 mb-1"
-                    :data-testid="invocation.toolName.startsWith('subagent_') ? 'subagent-chip' : 'tool-chip'"
-                  >
-                    {{ chipLabel(invocation) }}
-                  </v-chip>
-                </template>
-                <!-- explore_tools is an internal step (deciding which tool to use): show a
-                   placeholder skeleton chip while it runs; the real tool's chip then takes
-                   its place in the next assistant message. The explore_tools name is never shown. -->
-                <v-skeleton-loader
-                  v-if="isExploring(message)"
-                  type="chip"
-                  :aria-label="t('findingTool')"
-                  data-testid="explore-skeleton"
-                  class="agent-chat__tool-skeleton d-inline-flex"
+                <markdown-content
+                  v-if="block.type === 'text'"
+                  class="assistant-content markdown-content"
+                  :content="block.text"
+                  :streaming="isStreaming && index === messages.length - 1 && blockIndex === messageBlocks[index].length - 1"
+                  :mermaid="mermaidEnabled"
+                  @mermaid-error="failures => emit('mermaid-error', { index, failures })"
                 />
-              </div>
-              <!-- Full sub-agent panels (when the simplify flag is off): each
-                   delegation is its own v-alert box, collapsed by default, with
-                   its live activity shown in the header even while collapsed. -->
-              <div
-                v-if="!simpleSubAgents && subAgentInvocations(message).length"
-                class="mt-2"
-              >
-                <div
-                  v-for="invocation in subAgentInvocations(message)"
-                  :key="invocation.toolCallId"
-                  class="agent-chat__subagent mb-2 px-3 py-2 border-sm rounded"
-                  :style="{ borderColor: `rgb(var(--v-theme-${invocation.state === 'done' ? 'success' : 'warning'}))` }"
-                  data-testid="subagent-panel"
-                >
+                <template v-else>
                   <div
-                    class="d-flex align-center agent-chat__subagent-header"
-                    data-testid="subagent-panel-header"
-                    @click="toggleExpanded(invocation.toolCallId)"
+                    v-if="hasVisibleTools(block.invocations)"
+                    class="mt-2"
                   >
-                    <v-icon
-                      :icon="mdiSubdirectoryArrowRight"
-                      size="small"
-                      class="mr-2 flex-shrink-0"
-                      :color="invocation.state === 'done' ? 'success' : 'warning'"
-                    />
-                    <span class="text-body-medium font-weight-medium">{{ subAgentTitle(invocation.toolName) }}</span>
-                    <span
-                      v-if="isStreaming && index === messages.length - 1 && subAgentActivityLabel(invocation.toolCallId)"
-                      class="d-flex align-center text-caption text-medium-emphasis font-italic ml-2"
-                      data-testid="subagent-activity"
+                    <template
+                      v-for="invocation in block.invocations"
+                      :key="invocation.toolCallId"
                     >
-                      <v-icon
-                        :icon="mdiLoading"
-                        size="x-small"
-                        class="agent-chat__spin mr-1"
+                      <approval-card
+                        v-if="invocation.state === 'awaiting-approval' && invocation.approvalId"
+                        :tool-name="invocation.toolName"
+                        :tool-title="invocation.toolTitle"
+                        :description="invocation.description"
+                        :files="invocation.files"
+                        :input="invocation.input"
+                        :server-id="invocation.serverId"
+                        :agent-path="agentPath"
+                        :locked="!!invocation.approvalLocked"
+                        :failure="chatError"
+                        :readonly="readonly"
+                        @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
                       />
-                      {{ subAgentActivityLabel(invocation.toolCallId) }}
-                    </span>
-                    <v-spacer />
-                    <v-icon
-                      :icon="expanded[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown"
-                      size="small"
-                    />
-                  </div>
-                  <v-expand-transition>
-                    <div
-                      v-show="expanded[invocation.toolCallId]"
-                      data-testid="subagent-panel-body"
-                      class="mt-2"
-                    >
-                      <div v-if="message.subAgentPanels?.[invocation.toolCallId]?.messages.length">
-                        <div
-                          v-for="(subMsg, subIdx) in message.subAgentPanels[invocation.toolCallId].messages"
-                          :key="subIdx"
-                          class="py-1"
-                        >
-                          <markdown-content
-                            class="text-body-medium markdown-content"
-                            :content="subMsg.content"
-                            :streaming="isStreaming && index === messages.length - 1 && subIdx === message.subAgentPanels[invocation.toolCallId].messages.length - 1 && invocation.state !== 'done'"
-                            :mermaid="mermaidEnabled"
-                          />
-                          <div
-                            v-if="subMsg.toolInvocations?.length"
-                            class="mt-1"
-                          >
-                            <v-chip
-                              v-for="subInv in subMsg.toolInvocations"
-                              :key="subInv.toolCallId"
-                              size="small"
-                              :color="subInv.state === 'done' ? 'success' : 'warning'"
-                              variant="outlined"
-                              class="mr-1 mb-1"
-                            >
-                              {{ toolTitle(subInv.toolName) }}
-                            </v-chip>
-                          </div>
-                        </div>
-                      </div>
+                      <!-- Where details are shown, one call per line, its detail right under its chip: listed
+                           after the whole row, several open calls could not be told apart. -->
                       <div
-                        v-else-if="invocation.state === 'done'"
-                        class="text-body-medium text-medium-emphasis"
+                        v-else-if="!showTraces || !isTraced(invocation.toolName)"
+                        :class="showToolDetails ? 'agent-chat__tool-call' : 'd-inline'"
                       >
-                        {{ t('subAgentDone') }}
+                        <v-chip
+                          size="small"
+                          :color="chipColor(invocation)"
+                          variant="outlined"
+                          class="mr-1 mb-1"
+                          data-testid="tool-chip"
+                          :append-icon="showToolDetails ? (detailOpen[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown) : undefined"
+                          @click="showToolDetails && toggleDetail(invocation.toolCallId)"
+                        >
+                          {{ chipLabel(invocation) }}
+                        </v-chip>
+                        <tool-call-detail
+                          v-if="showToolDetails && detailOpen[invocation.toolCallId]"
+                          class="agent-chat__tool-call-detail"
+                          :invocation="invocation"
+                        />
                       </div>
+                    </template>
+                  </div>
+                  <!-- Trace panels (where the transcript is read to audit it): each script
+                       is its own box, collapsed by default, with the calls it made inside. -->
+                  <div
+                    v-if="showTraces && tracedInvocations(block.invocations).length"
+                    class="mt-2"
+                  >
+                    <div
+                      v-for="invocation in tracedInvocations(block.invocations)"
+                      :key="invocation.toolCallId"
+                      class="agent-chat__trace mb-2 px-3 py-2 border-sm rounded"
+                      :style="{ borderColor: `rgb(var(--v-theme-${invocation.state === 'done' ? 'success' : 'warning'}))` }"
+                      data-testid="trace-panel"
+                    >
+                      <div
+                        class="d-flex align-center agent-chat__trace-header"
+                        data-testid="trace-panel-header"
+                        @click="toggleExpanded(invocation.toolCallId)"
+                      >
+                        <v-icon
+                          :icon="mdiSubdirectoryArrowRight"
+                          size="small"
+                          class="mr-2 flex-shrink-0"
+                          :color="invocation.state === 'done' ? 'success' : 'warning'"
+                        />
+                        <span class="text-body-medium font-weight-medium">{{ t('scriptTitle') }}</span>
+                        <v-spacer />
+                        <v-icon
+                          :icon="expanded[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown"
+                          size="small"
+                        />
+                      </div>
+                      <v-expand-transition>
+                        <div
+                          v-show="expanded[invocation.toolCallId]"
+                          data-testid="trace-panel-body"
+                          class="mt-2"
+                        >
+                          <tool-call-detail
+                            v-if="showToolDetails"
+                            :invocation="invocation"
+                            show="input"
+                          />
+                          <div v-if="message.tracePanels?.[invocation.toolCallId]?.messages.length">
+                            <div
+                              v-for="(subMsg, subIdx) in message.tracePanels[invocation.toolCallId].messages"
+                              :key="subIdx"
+                              class="py-1"
+                            >
+                              <markdown-content
+                                class="text-body-medium markdown-content"
+                                :content="subMsg.content"
+                                :streaming="isStreaming && index === messages.length - 1 && subIdx === message.tracePanels[invocation.toolCallId].messages.length - 1 && invocation.state !== 'done'"
+                                :mermaid="mermaidEnabled"
+                              />
+                              <div
+                                v-if="subMsg.toolInvocations?.length"
+                                class="mt-1"
+                              >
+                                <div
+                                  v-for="subInv in subMsg.toolInvocations"
+                                  :key="subInv.toolCallId"
+                                  :class="showToolDetails ? 'agent-chat__tool-call' : 'd-inline'"
+                                >
+                                  <v-chip
+                                    size="small"
+                                    :color="chipColor(subInv)"
+                                    variant="outlined"
+                                    class="mr-1 mb-1"
+                                    data-testid="nested-tool-chip"
+                                    :append-icon="showToolDetails ? (detailOpen[`${invocation.toolCallId}/${subInv.toolCallId}`] ? mdiChevronUp : mdiChevronDown) : undefined"
+                                    @click="showToolDetails && toggleDetail(`${invocation.toolCallId}/${subInv.toolCallId}`)"
+                                  >
+                                    {{ toolTitle(subInv.toolName) }}
+                                  </v-chip>
+                                  <tool-call-detail
+                                    v-if="showToolDetails && detailOpen[`${invocation.toolCallId}/${subInv.toolCallId}`]"
+                                    class="agent-chat__tool-call-detail"
+                                    :invocation="subInv"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                          <div
+                            v-else-if="invocation.state === 'done' && !showToolDetails"
+                            class="text-body-medium text-medium-emphasis"
+                          >
+                            {{ t('scriptDone') }}
+                          </div>
+                          <tool-call-detail
+                            v-if="showToolDetails"
+                            :invocation="invocation"
+                            show="output"
+                          />
+                        </div>
+                      </v-expand-transition>
                     </div>
-                  </v-expand-transition>
-                </div>
-              </div>
+                  </div>
+                </template>
+              </template>
             </div>
           </div>
         </template>
@@ -208,14 +240,23 @@
              (compacting / thinking / analyzing a tool result) instead of an
              ambiguous skeleton. Shown only during a gap with no visible output —
              while text streams, `activity` is null and the markdown cursor is the
-             progress signal. -->
+             progress signal. A pending wait is the exception that outlives the turn: the
+             handover ended it, and the label is what says the next move is the person's. -->
         <div
-          v-if="isStreaming && activityLabel"
+          v-if="(isStreaming || activity?.kind === 'waiting' || activity?.kind === 'approval') && activityLabel"
           class="px-2 py-1 px-sm-4 py-sm-2 d-flex align-center text-caption text-medium-emphasis"
           data-testid="chat-activity"
           :data-activity="activity?.kind"
         >
+          <!-- Still while the turn is stopped on the person: a spinner would say it is working. -->
           <v-icon
+            v-if="activity?.kind === 'waiting' || activity?.kind === 'approval'"
+            :icon="mdiAccountClock"
+            size="x-small"
+            class="mr-2"
+          />
+          <v-icon
+            v-else
             :icon="mdiLoading"
             size="x-small"
             class="agent-chat__spin mr-2"
@@ -256,35 +297,31 @@
 <i18n lang="yaml">
 fr:
   reasoning: Raisonnement
-  subAgentDone: Sous-agent terminé.
+  scriptTitle: Script
+  scriptDone: Script terminé.
   jumpToBottom: Aller en bas
-  findingTool: Recherche de l'outil adapté…
   activityCompacting: Compression de la conversation…
   activityThinking: Réflexion…
   activityAnalyzing: Analyse du résultat de l'outil…
-  activityAnalyzingSubAgent: Analyse du résultat de {name}…
-  activitySubAgentStarting: Démarrage…
-  activitySubAgentThinking: Réflexion…
-  activitySubAgentTool: Exécution d'un outil…
-  activitySubAgentAnalyzing: Analyse du résultat de l'outil…
   activityWaiting: "En attente de votre action…"
+  activityApproval: "En attente de votre approbation : {name}"
   waitingChip: "En attente : {name}"
+  declinedChip: "Refusé : {name}"
+  approvedChip: "Approuvé : {name}"
   waitedChip: "A attendu : {name}"
 en:
   reasoning: Reasoning
-  subAgentDone: Sub-agent finished.
+  scriptTitle: Script
+  scriptDone: Script finished.
   jumpToBottom: Jump to bottom
-  findingTool: Finding the right tool…
   activityCompacting: Compacting conversation…
   activityThinking: Thinking…
   activityAnalyzing: Analyzing tool result…
-  activityAnalyzingSubAgent: Analyzing {name}'s result…
-  activitySubAgentStarting: Starting…
-  activitySubAgentThinking: Thinking…
-  activitySubAgentTool: Running a tool…
-  activitySubAgentAnalyzing: Analyzing tool result…
   activityWaiting: "Waiting for you…"
+  activityApproval: "Awaiting your approval: {name}"
   waitingChip: "Waiting for: {name}"
+  declinedChip: "Declined: {name}"
+  approvedChip: "Approved: {name}"
   waitedChip: "Waited for: {name}"
 </i18n>
 
@@ -292,14 +329,15 @@ en:
 import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
-import { mdiLoading, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain } from '@mdi/js'
+import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain } from '@mdi/js'
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
-import { EXPLORE_TOOL_NAME } from '~/composables/tool-exploration'
-import { WAIT_TOOL_NAME } from '~/composables/host-events'
+import ApprovalCard from './ApprovalCard.vue'
+import ToolCallDetail from './ToolCallDetail.vue'
+import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import type { MermaidFailure } from '~/utils/mermaid'
-import type { ChatMessage } from '~/composables/use-agent-chat'
-import { activityLabelKey, type ChatActivity } from '~/composables/agent-activity'
+import type { ChatMessage } from '~/utils/chat-message'
+import { activityLabelKey, type ChatActivity } from '@agents/shared/agent-activity'
 
 const emit = defineEmits<{
   navigate: [url: string]
@@ -310,6 +348,7 @@ const emit = defineEmits<{
   // True once the transcript is scrolled down from the very top, so the header can
   // raise its elevation (mirrors v-app-bar's scroll-behavior="elevate").
   'update:scrolled': [scrolled: boolean]
+  'decide-approval': [payload: { approvalId: string, approved: boolean, reason?: string }]
 }>()
 
 const props = withDefaults(defineProps<{
@@ -318,65 +357,77 @@ const props = withDefaults(defineProps<{
   // Coarse phase of the current streaming turn, shown as a discreet muted line
   // during gaps with no visible output. null while text streams or when idle.
   activity?: ChatActivity | null
-  subAgentActivities?: Record<string, ChatActivity>
   chatError: string | null
   welcomeText: string
   toolTitle: (toolName: string) => string
   actionVisiblePrompt: string | null
   mermaidEnabled: boolean
-  // Default-on: render delegations as a plain tool chip. Callers that want the
-  // full expandable trace (e.g. the evaluator) pass false.
-  simpleSubAgents?: boolean
+  // A script (code_mode) as an expandable panel of the calls it made, where the transcript is read to
+  // audit it (the admin review, a task run); a plain tool chip in the chat.
+  showTraces?: boolean
   // Render reasoning-model "thinking" as a foldable panel; when false the panel is
   // omitted entirely (compact mode), leaving only the live "Thinking…" activity line.
   showReasoning?: boolean
+  // The configured agent's API path, where an approval card reads the task a planning call changes.
+  agentPath?: string
+  // A transcript read by someone who cannot answer it (the admin review, a task run): approval cards
+  // show no buttons.
+  readonly?: boolean
+  // A transcript read to audit it (the admin review, a task run): a call opens on what went in and what
+  // came back, and a script's panel shows its source and its value around the calls it made.
+  showToolDetails?: boolean
 }>(), {
   activity: null,
-  subAgentActivities: () => ({}),
-  simpleSubAgents: true,
-  showReasoning: false
+  showTraces: false,
+  showReasoning: false,
+  agentPath: undefined,
+  readonly: false,
+  showToolDetails: false
 })
 
 const isActionPrompt = (message: ChatMessage) => {
   return message.role === 'user' && props.actionVisiblePrompt === message.content
 }
 
-// explore_tools is an internal "which tool should I use?" step. It is never shown as a
-// named chip; instead a skeleton placeholder chip is shown while it runs, and the
-// resolved explore-only message bubble is hidden so the real tool chip (emitted in the
-// next assistant message) appears in its place.
-const isExploring = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => ti.toolName === EXPLORE_TOOL_NAME && ti.state !== 'done')
+type Invocation = NonNullable<ChatMessage['toolInvocations']>[number]
+type RenderedBlock = { type: 'text', text: string } | { type: 'tools', invocations: Invocation[] }
+/**
+ * Each message's blocks (ChatMessage.blocks), with each call resolved. Without blocks (a message not built
+ * from stored parts, like the welcome), the text and then the calls.
+ */
+const messageBlocks = computed<RenderedBlock[][]>(() => props.messages.map(message => {
+  const invocations = message.toolInvocations ?? []
+  if (!message.blocks?.length) {
+    return [{ type: 'text', text: message.content }, ...(invocations.length ? [{ type: 'tools' as const, invocations }] : [])]
+  }
+  return message.blocks.map(block => block.type === 'text'
+    ? block
+    : { type: 'tools', invocations: block.toolCallIds.map(id => invocations.find(i => i.toolCallId === id)).filter((i): i is Invocation => !!i) })
+}))
 
-const hasVisibleTools = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => ti.toolName !== EXPLORE_TOOL_NAME && (props.simpleSubAgents || !ti.toolName.startsWith('subagent_')))
-
-const hasSubAgents = (message: ChatMessage) =>
-  !!message.toolInvocations?.some(ti => ti.toolName.startsWith('subagent_'))
-
-// A finished explore-only step (no text, no other tool calls): hide the empty bubble.
-const isHiddenExploreStep = (message: ChatMessage) =>
-  message.role === 'assistant' &&
-  !message.content?.trim() &&
-  !!message.toolInvocations?.some(ti => ti.toolName === EXPLORE_TOOL_NAME) &&
-  !isExploring(message) &&
-  !hasVisibleTools(message) &&
-  !hasSubAgents(message)
+const hasVisibleTools = (invocations: Invocation[]) =>
+  invocations.some(ti => !props.showTraces || !isTraced(ti.toolName))
 
 const { t } = useI18n()
 
-// Bottom-line label: top-level phases only. Sub-agent phases (kind 'subagent')
-// render inside their panel via subAgentActivityLabel, not here.
+const pendingApprovalTitle = (toolName: string) => {
+  for (const message of props.messages) {
+    const pending = message.toolInvocations?.find(ti => ti.toolName === toolName && ti.state === 'awaiting-approval')
+    if (pending) return pending.toolTitle ?? props.toolTitle(toolName)
+  }
+  return props.toolTitle(toolName)
+}
+
+// The bottom line's label for the current phase.
 const activityLabel = computed(() => {
   const a = props.activity
-  if (!a || a.kind === 'subagent') return ''
+  if (!a) return ''
   const label = activityLabelKey(a)
   if (!label) return ''
-  // label.name is a subagent_* tool name for 'analyzing' (prettify it into a title) but
-  // the model's own free-text words for 'waiting' (show verbatim, don't title-case it).
-  return t(label.key, label.name
-    ? { name: a.kind === 'waiting' ? label.name : subAgentTitle(label.name) }
-    : {})
+  // A pending call is named by the title recorded on it, as its card and chip do — one name.
+  if (a.kind === 'approval') return t(label.key, { name: pendingApprovalTitle(a.toolName) })
+  // 'waiting' names what the model said it waits for, verbatim.
+  return t(label.key, label.name ? { name: label.name } : {})
 })
 
 const messagesContainer = ref<HTMLElement | null>(null)
@@ -389,8 +440,8 @@ const BOTTOM_THRESHOLD = 24
 // Stick-to-bottom autoscroll on the inner scroll container: follows the
 // streaming tail but lets the user scroll up to read history. Shared with
 // processings' run log via @data-fair/lib-vue. The growth signal must cover
-// sub-agent and tool-chip growth too, otherwise it freezes (and autoscroll
-// stops following) whenever a sub-agent — not the parent message — is streaming.
+// trace-panel and tool-chip growth too, otherwise it freezes (and autoscroll
+// stops following) whenever a script's trace — not the parent message — is streaming.
 const { following } = useAutoScrollBottom(
   () => messagesContainer.value,
   () => streamedLength(props.messages),
@@ -403,7 +454,7 @@ const { following } = useAutoScrollBottom(
 // that a wheel-up flips off even when there's nothing below, which would show the
 // button wrongly. Recomputed on scroll, on content growth, and — crucially — via
 // a ResizeObserver on the content, so it stays correct when the rendered height
-// SHRINKS without a scroll (a sub-agent panel collapsing, a turn ending): in that
+// SHRINKS without a scroll (a trace panel collapsing, a turn ending): in that
 // case neither a scroll event nor the growth signal fires, so without the
 // observer `atBottom` would stay stale-false and show the button with nothing to
 // scroll.
@@ -422,10 +473,20 @@ const updateAtBottom = () => {
 }
 watch(() => streamedLength(props.messages), updateAtBottom, { flush: 'post' })
 
+const pinToBottom = () => {
+  const el = messagesContainer.value
+  if (el) el.scrollTop = el.scrollHeight
+  updateAtBottom()
+}
+
 let resizeObserver: ResizeObserver | null = null
 onMounted(() => {
-  updateAtBottom()
-  resizeObserver = new ResizeObserver(() => updateAtBottom())
+  pinToBottom()
+  // While following, any growth stays pinned, as stick-to-bottom chats do: the composable follows streamed
+  // text only, but a conversation opens on its latest exchange (its messages arriving after it opens, its
+  // diagrams rendering after its text), and the activity line ("Thinking…") or an error are not streamed
+  // text. Someone who scrolled up to read is not following, and keeps their place.
+  resizeObserver = new ResizeObserver(() => following.value ? pinToBottom() : updateAtBottom())
   // content height changes (messages/panels growing or collapsing) and viewport
   // height changes (resize) both move the "am I at the bottom" answer
   if (messagesContent.value) resizeObserver.observe(messagesContent.value)
@@ -451,10 +512,7 @@ watch(() => props.isStreaming, (streaming) => {
     if (atBottom.value) following.value = true
     return
   }
-  if (!following.value) return
-  const el = messagesContainer.value
-  if (el) el.scrollTop = el.scrollHeight
-  updateAtBottom()
+  if (following.value) pinToBottom()
 }, { flush: 'post' })
 
 // Jump back to the live tail; the smooth scroll fires scroll events that re-arm
@@ -465,24 +523,24 @@ const jumpToBottom = () => {
   el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' })
 }
 
-// Sub-agent panels are collapsed by default and toggled manually, keyed by the
-// delegating toolCallId so concurrent sub-agents expand/collapse independently.
+// Trace panels are collapsed by default and toggled manually, keyed by the script's toolCallId so
+// several scripts in one message expand and collapse independently.
 const expanded = reactive<Record<string, boolean>>({})
 const toggleExpanded = (toolCallId: string) => { expanded[toolCallId] = !expanded[toolCallId] }
-const subAgentInvocations = (message: ChatMessage) =>
-  message.toolInvocations?.filter(ti => ti.toolName.startsWith('subagent_')) ?? []
+// A script's calls are shown in a panel under the call (api/src/code-mode/code-tools.ts).
+const isTraced = (toolName: string) => toolName === 'code_mode'
+const tracedInvocations = (invocations: Invocation[]) => invocations.filter(ti => isTraced(ti.toolName))
 
-const subAgentTitle = (toolName: string) => {
-  const title = props.toolTitle(toolName)
-  if (title !== toolName) return title
-  const name = toolName.replace(/^subagent_/, '')
-  return name.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-}
+// Open tool details, keyed like the panels; a call inside a panel is prefixed with the panel's call id.
+const detailOpen = reactive<Record<string, boolean>>({})
+const toggleDetail = (key: string) => { detailOpen[key] = !detailOpen[key] }
+// A failed call is 'done' (ChatMessage has no failure state); where details are shown, its chip says it failed.
+const chipColor = (ti: Invocation) => props.showToolDetails && ti.errorText !== undefined
+  ? 'error'
+  : ti.state === 'done' ? 'success' : ti.state === 'denied' ? 'error' : 'warning'
 
-// Chip label for the simplified tool-chip row: sub-agents use their display title,
-// plain tools the host-provided tool title, and the built-in wait shows what the
-// agent said it is waiting for.
-const chipLabel = (invocation: { toolName: string, input?: unknown, state?: string }) => {
+// Chip label: the tool's title, and for the built-in wait what the agent said it is waiting for.
+const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string, approved?: true }) => {
   if (invocation.toolName === WAIT_TOOL_NAME) {
     // Past tense once it settles. Every other chip is a noun, so this is the only
     // label that reads as a live instruction — and it stays in history forever. A
@@ -492,16 +550,11 @@ const chipLabel = (invocation: { toolName: string, input?: unknown, state?: stri
     const name = (invocation.input as any)?.expecting ?? ''
     return invocation.state === 'done' ? t('waitedChip', { name }) : t('waitingChip', { name })
   }
-  return invocation.toolName.startsWith('subagent_') ? subAgentTitle(invocation.toolName) : props.toolTitle(invocation.toolName)
-}
-
-// In-panel label for the sub-agent running under `toolCallId`. Reads the
-// per-call activity map so concurrent panels each show their own live phase.
-const subAgentActivityLabel = (toolCallId: string) => {
-  const a = props.subAgentActivities?.[toolCallId]
-  if (!a || a.kind !== 'subagent') return ''
-  const label = activityLabelKey(a)
-  return label ? t(label.key) : ''
+  // A title the tool declared (its MCP annotation) first: it is recorded on the call, so it survives a reload.
+  const title = invocation.toolTitle ?? props.toolTitle(invocation.toolName)
+  if (invocation.state === 'denied') return t('declinedChip', { name: title })
+  if (invocation.approved) return t('approvedChip', { name: title })
+  return title
 }
 
 const inIframe = window.parent !== window
@@ -573,18 +626,13 @@ function onContentClick (e: MouseEvent) {
   animation: agent-chat-spin 1s linear infinite;
 }
 
-/* explore_tools placeholder: a small chip-shaped skeleton sized to match the
-   x-small tool chips it stands in for. */
-.agent-chat-message .agent-chat__tool-skeleton {
-  vertical-align: middle;
+/* an open call's detail hangs under its chip, a rule on its left tying the two */
+.agent-chat__tool-call-detail {
+  margin: 0 0 8px 12px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.agent-chat-message .agent-chat__tool-skeleton .v-skeleton-loader__chip {
-  width: 72px;
-  height: 20px;
-  margin: 0 4px 4px 0;
-}
-
-.agent-chat-message .agent-chat__subagent-header {
+.agent-chat-message .agent-chat__trace-header {
   cursor: pointer;
 }
 

@@ -1,0 +1,72 @@
+/**
+ * Drive a real model turn over the chat's socket, for tests that need one as a SIDE EFFECT rather than as the
+ * thing under test — usage records, credit consumption, a conversation to review.
+ *
+ * It replaces pointing the AI SDK at `/api/gateway/.../v1` as an OpenAI endpoint, which is how these
+ * tests used to make a billable call. The gateway is gone, and the loop runs on the server now, so
+ * the way to cause a turn is to ask for one: create a conversation, prompt it, wait for the turn to end.
+ *
+ * Deliberately the same door the UI uses (see dev/socket-turn.ts). A test helper that reached into mongo to fabricate a usage
+ * record would keep passing after the thing that writes usage records broke.
+ */
+
+import type { AxiosInstance } from 'axios'
+import { turnOverSocket, runOf } from '../../dev/socket-turn.ts'
+import { CONSENT_COOKIE, CONSENT_YES } from '../../ui/src/review/review-consent.ts'
+
+const apiOrigin = `http://localhost:${process.env.NGINX_PORT}/agents`
+
+/**
+ * Give (or withhold) this caller's consent to admin review of their conversations.
+ *
+ * Set in the COOKIE JAR, as the browser keeps it: the same cookie the consent sheet writes. Like the
+ * chat, the socket helper reads it back and says it in its hello — the server never reads the cookie.
+ */
+export async function setReviewConsent (ax: AxiosInstance & { cookieJar?: any }, consented: boolean): Promise<void> {
+  await ax.cookieJar?.setCookie(`${CONSENT_COOKIE}=${consented ? CONSENT_YES : 'no'}; Path=/`, apiOrigin)
+}
+
+export interface RunTurnResult {
+  conversationId: string
+  runId: string
+}
+
+/**
+ * Run one turn: the first of a new conversation with the personal assistant, or one in `conversationId`.
+ *
+ * `owner` is the account path segment pair, e.g. `user/test-standalone1` or `organization/test1`.
+ * Returns once the turn has ended, so a caller can immediately assert on
+ * whatever the turn was supposed to produce.
+ */
+export async function runTurn (
+  ax: AxiosInstance,
+  owner: string,
+  content = 'hello',
+  opts?: { agentId?: string, conversationId?: string, title?: string }
+): Promise<RunTurnResult> {
+  const target = opts?.conversationId ?? { agentId: opts?.agentId ?? 'portal-assistant', title: opts?.title ?? 'test turn' }
+  const { runId, conversationId } = await turnOverSocket(ax, target, content, { owner })
+  return { conversationId, runId }
+}
+
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
+/** Wait for a conversation's run to reach a terminal status, and return it. */
+export async function awaitRun (ax: AxiosInstance, conversationId: string, runId: string, tries = 120) {
+  for (let i = 0; i < tries; i++) {
+    const run = await runOf(ax, conversationId, runId)
+    if (run.status !== 'running') return run
+    await sleep(100)
+  }
+  throw new Error(`run ${runId} never reached a terminal status`)
+}
+
+/** The same for any run of an agent of organization/test1 — a task run has no conversation. */
+export async function awaitAgentRun (ax: AxiosInstance, agentId: string, runId: string, tries = 150) {
+  for (let i = 0; i < tries; i++) {
+    const run = (await ax.get(`/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`)).data
+    if (run.status !== 'running') return run
+    await sleep(100)
+  }
+  throw new Error(`run ${runId} never reached a terminal status`)
+}

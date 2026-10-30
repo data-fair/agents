@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { resolveAgentLink, decideAgentNavigation, type AgentNavRouter } from '../../../lib-vuetify/link-utils.ts'
+import { resolveAgentChatUrl } from '../../../lib-vuetify/useAgentChatBase.ts'
 
 const ORIGIN = 'https://koumoul.com'
 const BASE = '/data-fair/'
@@ -65,6 +66,42 @@ test.describe('resolveAgentLink', () => {
     for (const raw of ['javascript:alert(document.cookie)', 'JavaScript:alert(1)', ' javascript:alert(1)', 'data:text/html,<script>alert(1)</script>', 'vbscript:x', 'http://[bad']) {
       assert.equal(resolveAgentLink(raw, ORIGIN, BASE).safe, false, raw)
     }
+  })
+})
+
+test.describe('resolveAgentChatUrl', () => {
+  // The builder reads window.location.origin; these run in node, which has no window.
+  const withWindow = (origin: string, fn: () => void) => {
+    const previous = (globalThis as any).window
+    ;(globalThis as any).window = { location: { origin } }
+    try { fn() } finally { (globalThis as any).window = previous }
+  }
+
+  test('the account chat route, with init config and no agent switcher by default', () => {
+    withWindow('https://koumoul.com', () => {
+      assert.equal(
+        resolveAgentChatUrl({ accountType: 'organization', accountId: 'abc' }, 'drawer'),
+        'https://koumoul.com/agents/organization/abc/chat?initConfig=drawer'
+      )
+    })
+  })
+
+  test('the agents flag asks the back-office for the switcher and history', () => {
+    withWindow('https://koumoul.com', () => {
+      const url = new URL(resolveAgentChatUrl({ accountType: 'organization', accountId: 'abc', agents: true }, 'drawer'))
+      assert.equal(url.searchParams.get('agents'), '1')
+      // The init-config key must survive the rewrite: dropping it would send the chat to the personal
+      // assistant whatever agent its host had named.
+      assert.equal(url.searchParams.get('initConfig'), 'drawer')
+    })
+  })
+
+  test('a custom src keeps its own query string', () => {
+    withWindow('https://koumoul.com', () => {
+      const url = new URL(resolveAgentChatUrl({ src: 'https://other.example/chat?title=x', agents: true }))
+      assert.equal(url.searchParams.get('title'), 'x')
+      assert.equal(url.searchParams.get('agents'), '1')
+    })
   })
 })
 

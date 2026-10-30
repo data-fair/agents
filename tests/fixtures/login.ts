@@ -8,8 +8,8 @@ const cookieCache = new Map<string, Awaited<ReturnType<import('@playwright/test'
 // everything the context holds, so caching it wholesale also captures the app-level
 // cookies a test sets for itself (agent-chat-flags, agent-chat-trace-consent, …) and
 // replays them into later tests reusing that login. That leak acts at a distance: a
-// test seeding toolExploration:true silently turns exploration on for a later test
-// that expects the default.
+// test seeding mermaid:true silently turns mermaid on for a later test that expects
+// the default.
 // id_token_ex has to stay in this list — a keepalive without it is refused outright
 // (sd.auth.keepalive.fail, "a user without a valid echange token") — but it is also the
 // one cookie here that does not hold still: simple-directory rotates it on every
@@ -56,18 +56,32 @@ export const test = base.extend<{
             await page.goto(withQuery('/simple-directory/login', query))
             await page.fill('input[name="email"]', user + '@test.com')
             await page.fill('input[name="password"]', 'passwd')
-            await page.getByText('login', { exact: true }).click()
+            // A login that fails leaves us on the login page, and waitForURL then simply
+            // waits out the whole test timeout with no indication why — 15 minutes of
+            // silence for a simulation. The usual cause is a `user` whose email is not
+            // `<id>@test.com` (dev/resources/users.template.json has several: albanm,
+            // dmeadus0), which simple-directory answers with a 400 no assertion sees.
+            // Fail on the response instead, naming the address actually tried.
+            const [loginResponse] = await Promise.all([
+              page.waitForResponse(res => res.url().includes('/api/auth/password')),
+              page.getByText('login', { exact: true }).click()
+            ])
+            if (!loginResponse.ok()) {
+              throw new Error(`login failed for ${user}@test.com (${loginResponse.status()}) — is that user's email really <id>@test.com in dev/resources/users.template.json?`)
+            }
             await page.waitForURL(url)
             // Simple-directory keeps a server-side session reference per user and drops
-            // the old one when a newer login supersedes it, so every entry cached before
-            // this login is now stale. Replaying a stale entry is silently destructive:
-            // the app's first keepalive gets a 401, simple-directory clears the id_token
-            // cookies, and every later request in that test is anonymous — which shows
-            // up much later, and far from here, as "You do not have permission to use
-            // this model". Keeping only the most recent login makes the cache always
-            // hold a session the server still recognises; runs of tests reusing the same
-            // user still hit it.
-            cookieCache.clear()
+            // the old one when a newer login supersedes it, so every entry cached for this
+            // user before this login — adminMode and org variants included — is now stale.
+            // Replaying a stale entry is silently destructive: the app's first keepalive
+            // gets a 401, simple-directory clears the id_token cookies, and every later
+            // request in that test is anonymous — which shows up much later, and far from
+            // here, as "You do not have permission to use this model". Other users' entries
+            // stay: clearing the whole cache made every spec alternating users log in
+            // through the form again at each switch.
+            for (const key of [...cookieCache.keys()]) {
+              if (key === user || key.startsWith(user + ':')) cookieCache.delete(key)
+            }
             cookieCache.set(cacheKey, (await context.cookies()).filter(c => SESSION_COOKIE.test(c.name)))
           }
         })

@@ -4,8 +4,13 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { scalewayBaseURL, streamedToolCallsBroken, errorMessage, describeFetchError, contextBudget, type CatalogModel } from '../../../api/src/models/operations.ts'
-import { commandLine } from '../../../api/src/models/mock-model.ts'
+import { scalewayBaseURL, streamedToolCallsBroken, nonStreamingWithTools, errorMessage, describeFetchError, contextBudget, OPENAI_COMPATIBLE_PROVIDER_NAME, CACHED_PREFIX_PROVIDER_OPTIONS, type CatalogModel } from '../../../api/src/models/operations.ts'
+import { MockLanguageModelV3, simulateReadableStream } from 'ai/test'
+import { streamText, generateText, wrapLanguageModel, tool, jsonSchema } from 'ai'
+import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
+import { createAnthropic } from '@ai-sdk/anthropic'
+import { tokenCountsOf } from '../../../api/src/usage/operations.ts'
+import { commandLine, createMockLanguageModel } from '../../../api/src/models/mock-model.ts'
 
 test.describe('Scaleway base URL', () => {
   test('uses the bare /v1 endpoint when no project is set', () => {
@@ -146,15 +151,15 @@ test.describe('mock directives survive a prepended host block', () => {
   // A page that publishes host state puts a <host-state> block ahead of the
   // visible message on the activation turn. Directives anchored on the whole
   // message stop matching the moment their dev page starts publishing — adding
-  // one useAgentState call to the sub-agent dev page made its chaining test fail
-  // with "what do you mean ?" instead of calling the sub-agent. `hello` had
+  // one useAgentState call to a dev page made its chaining test fail
+  // with "what do you mean ?" instead of calling the tool. `hello` had
   // already been fixed this way; the tool directives had not.
   const withHostState = (command: string) =>
     `<host-state>\nCurrent state of the application…\n- dataset: {"id":"air-quality"}\n</host-state>\n\n${command}`
 
   test('reads the directive the test typed, not the block above it', () => {
-    assert.equal(commandLine(withHostState('call tool subagent_data_analyst {"task":"x"}')),
-      'call tool subagent_data_analyst {"task":"x"}')
+    assert.equal(commandLine(withHostState('call tool select_row {"id":7}')),
+      'call tool select_row {"id":7}')
   })
 
   test('is unchanged for a plain single-line message', () => {
@@ -162,10 +167,164 @@ test.describe('mock directives survive a prepended host block', () => {
   })
 
   test('tolerates trailing blank lines', () => {
-    assert.equal(commandLine('parallel subagents\n\n'), 'parallel subagents')
+    assert.equal(commandLine('call tools a b\n\n'), 'call tools a b')
   })
 
   test('is empty for a message that is only a host block', () => {
     assert.equal(commandLine('   \n\n  '), '')
+  })
+})
+
+// The workaround itself, not only its predicate: it was left unapplied when the gateway went, so a
+// tool-using turn on GLM through Scaleway ended silently with its tool call dropped.
+test.describe('nonStreamingWithTools', () => {
+  const usage = { inputTokens: { total: 1, noCache: 1, cacheRead: 0, cacheWrite: 0 }, outputTokens: { total: 1, text: 1, reasoning: 0 } }
+  /** A model whose STREAM drops the tool call, as the upstream does, while generate returns it. */
+  const brokenUpstream = () => new MockLanguageModelV3({
+    doGenerate: async () => ({
+      content: [{ type: 'tool-call', toolCallId: 'c1', toolName: 'lookup', input: '{}' }],
+      finishReason: { unified: 'tool-calls', raw: undefined },
+      usage,
+      warnings: []
+    }) as any,
+    doStream: async () => ({
+      stream: simulateReadableStream({
+        chunks: [
+          { type: 'text-start', id: 't' },
+          { type: 'text-delta', id: 't', delta: 'streamed' },
+          { type: 'text-end', id: 't' },
+          { type: 'finish', finishReason: { unified: 'stop', raw: undefined }, usage }
+        ]
+      })
+    }) as any
+  })
+
+  test('a request offering tools is served non-streaming, so the tool call survives', async () => {
+    const model = wrapLanguageModel({ model: brokenUpstream(), middleware: nonStreamingWithTools })
+    const result = streamText({
+      model,
+      prompt: 'find it',
+      tools: { lookup: tool({ inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'found' }) },
+      stopWhen: () => true
+    })
+    const calls = await result.toolCalls
+    assert.deepEqual(calls.map(c => c.toolName), ['lookup'])
+  })
+
+  test('a request without tools still streams', async () => {
+    const model = wrapLanguageModel({ model: brokenUpstream(), middleware: nonStreamingWithTools })
+    const result = streamText({ model, prompt: 'hello' })
+    assert.equal(await result.text, 'streamed')
+  })
+})
+
+// The mock's `what did you see` seam reports what the model was SENT. It runs as a v3 model, and AI SDK
+// 7 hands a v3 model a tool result's image as `file-data` with an image media type, where 6 passed
+// `image-data` through — so a seam counting only `image-data` reported 0 images for a result that did
+// reach the model as one (tests/features/agent-session/tool-images.api.spec.ts).
+test.describe('mock model: what did you see', () => {
+  test('counts an image tool result as an image', async () => {
+    const result = streamText({
+      model: createMockLanguageModel('mock-model'),
+      messages: [
+        { role: 'user', content: 'show me' },
+        { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'c1', toolName: 'chart', input: {} }] },
+        {
+          role: 'tool',
+          content: [{
+            type: 'tool-result',
+            toolCallId: 'c1',
+            toolName: 'chart',
+            output: { type: 'content', value: [{ type: 'text', text: 'a chart' }, { type: 'image-data', data: 'iVBORw0KGgo=', mediaType: 'image/png' }] }
+          }]
+        },
+        { role: 'user', content: 'what did you see' }
+      ]
+    })
+    const report = JSON.parse(await result.text)
+    assert.equal(report.images, 1)
+  })
+})
+
+// The moderator turns thinking off with providerOptions keyed by this name. @ai-sdk/openai-compatible 3
+// reads camelCase keys and only warns, every call, on any other spelling ('openai-compatible' did), so
+// the key is pinned through the real provider and the real request body.
+test.describe('openai-compatible provider options key', () => {
+  test('reasoning_effort reaches the request, and no deprecation warning is raised', async () => {
+    let body: any
+    const fetch = async (_url: any, init: any) => {
+      body = JSON.parse(String(init.body))
+      return new Response(JSON.stringify({
+        id: 'r',
+        object: 'chat.completion',
+        created: 0,
+        model: 'm',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+      }), { headers: { 'content-type': 'application/json' } })
+    }
+    const model = createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, baseURL: 'http://compat.test/v1', fetch: fetch as any }).chatModel('m')
+    const result = await generateText({
+      model,
+      prompt: 'hi',
+      providerOptions: { [OPENAI_COMPATIBLE_PROVIDER_NAME]: { reasoningEffort: 'none' } }
+    })
+    assert.equal(body.reasoning_effort, 'none')
+    assert.deepEqual((result.warnings ?? []).filter(w => w.type === 'deprecated'), [])
+  })
+})
+
+// Anthropic caches only when a request asks for it; the loops ask through CACHED_PREFIX_PROVIDER_OPTIONS,
+// one-off calls do not. Pinned through the real providers and the real request bodies, so an SDK
+// upgrade renaming the option fails here rather than silently turning caching off.
+test.describe('prompt caching options', () => {
+  const anthropicWith = (onBody: (body: any) => void) => createAnthropic({
+    apiKey: 'k',
+    baseURL: 'http://anthropic.test/v1',
+    fetch: (async (_url: any, init: any) => {
+      onBody(JSON.parse(String(init.body)))
+      return new Response(JSON.stringify({
+        id: 'msg',
+        type: 'message',
+        role: 'assistant',
+        model: 'claude-sonnet-4-5',
+        content: [{ type: 'text', text: 'ok' }],
+        stop_reason: 'end_turn',
+        stop_sequence: null,
+        usage: { input_tokens: 10, output_tokens: 1, cache_read_input_tokens: 4000, cache_creation_input_tokens: 0 }
+      }), { headers: { 'content-type': 'application/json' } })
+    }) as any
+  })('claude-sonnet-4-5')
+
+  test('a loop call asks Anthropic to cache, and the cache read reaches the token counts', async () => {
+    let body: any
+    const result = await generateText({ model: anthropicWith(b => { body = b }), prompt: 'hi', providerOptions: CACHED_PREFIX_PROVIDER_OPTIONS })
+    assert.deepEqual(body.cache_control, { type: 'ephemeral' })
+    assert.equal(tokenCountsOf(result.usage).cacheReadTokens, 4000)
+  })
+
+  test('a one-off call does not ask, so Anthropic does not cache it', async () => {
+    let body: any
+    await generateText({ model: anthropicWith(b => { body = b }), prompt: 'hi' })
+    assert.equal(body.cache_control, undefined)
+    assert.ok(!JSON.stringify(body).includes('cache_control'))
+  })
+
+  test('other providers ignore the option', async () => {
+    let body: any
+    const fetch = async (_url: any, init: any) => {
+      body = JSON.parse(String(init.body))
+      return new Response(JSON.stringify({
+        id: 'r',
+        object: 'chat.completion',
+        created: 0,
+        model: 'm',
+        choices: [{ index: 0, message: { role: 'assistant', content: 'ok' }, finish_reason: 'stop' }],
+        usage: { prompt_tokens: 1, completion_tokens: 1, total_tokens: 2 }
+      }), { headers: { 'content-type': 'application/json' } })
+    }
+    const model = createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, baseURL: 'http://compat.test/v1', fetch: fetch as any }).chatModel('m')
+    await generateText({ model, prompt: 'hi', providerOptions: CACHED_PREFIX_PROVIDER_OPTIONS })
+    assert.ok(!JSON.stringify(body).includes('cache_control'))
   })
 })

@@ -1,6 +1,6 @@
 # Configuration: providers, models and credits
 
-AI configuration is split across **three layers**, each owned by a different actor and stored in a different place. A request resolves a role (`assistant`, `tools`, `summarizer`, `evaluator`, `moderator`) to a concrete model by walking the layers from the most specific (org mapping) down to the least specific (global default), then a per-role fallback chain.
+AI configuration is split across **three layers**, each owned by a different actor and stored in a different place. A request resolves a role (`assistant`, `tools`, `summarizer`, `moderator`) to a concrete model by walking the layers from the most specific (org mapping) down to the least specific (global default), then a per-role fallback chain.
 
 ```mermaid
 graph TD
@@ -15,7 +15,7 @@ graph TD
   end
   subgraph L3["Layer 3 — org-admin distribution (PUT /api/settings/:type/:id/org)"]
     MM[settings.modelMapping]
-    QT[settings.quotas]
+    QT[settings.quotas / moderation / reviewPersonalAssistant]
   end
 
   PROV --> CAT[Catalog\nGET /api/catalog/:type/:id]
@@ -57,7 +57,7 @@ JSON array of provider definitions. `type` is one of the 9 supported provider ty
 
 ### `MODELS`
 
-JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `evaluator`, `moderator` — at least one, no duplicates).
+JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `moderator` — at least one, no duplicates). These four are the only roles: the former `evaluator` role was removed with the trace evaluator, and `upgrade/0.12.2/remove-evaluator-role.js` strips it from stored settings.
 
 `inputPricePerMillion` and `outputPricePerMillion` are **mandatory**, in euros per million tokens, copied from the provider's own pricing page. `cachedInputPricePerMillion` is optional and means *unknown* when absent, not free — it falls back to the input price (see [Credits](#credits)). `assertGlobalAiConfig` rejects a model referencing an unknown provider id, rejects duplicate `provider/id` pairs, and **exits the process at boot** on a model missing either mandatory price, naming the offending `provider/id`. A price of `0` is legitimate; an absent one is not, because every account on this deployment can resolve a global model (see the [release note](#release-note-every-account-can-now-resolve-a-model-so-credits-are-the-gate) below) and a model free by omission would be an uncapped consumer of the deployment's own keys.
 
@@ -96,7 +96,6 @@ JSON object mapping each role to a `{ provider, id }` ref that must resolve to a
 }
 ```
 
-Note `evaluator` is intentionally omitted above — with no global default and no org mapping, resolution falls through the [fallback chain](#role-resolution-the-catalog) to `assistant`.
 
 ### `EUROS_PER_CREDIT`
 
@@ -127,11 +126,128 @@ A deployment left at `0` with no `SECRET_LIMITS` configured cannot receive allow
 
 ### `SECRET_LIMITS`
 
-Plain string, unset by default. Shared secret the external `customers` billing service presents as `?key=` on the `/api/v1/limits` endpoints (see [Limits contract](#limits-contract)). When unset, the `?key=` bypass is disabled entirely — `limitsKeyMatches()` (`api/src/limits/operations.ts`) fails **closed** (an unset secret can never match, including against an unset query param), so no secret means the endpoints fall back to normal session auth rather than opening up.
+Plain string, unset by default. Shared secret the external `customers` billing service presents as `?key=` on the `/api/v1/limits` endpoints (see [Limits contract](#limits-contract)). Compared in constant time by lib-express's `secretKeyMatches`, as data-fair's own limits router does. When unset, the `?key=` bypass is disabled entirely — it fails **closed** (an unset secret can never match, including against an unset query param), so no secret means the endpoints fall back to normal session auth rather than opening up.
 
 ```
 SECRET_LIMITS=a-long-random-shared-secret
 ```
+
+### Turn bounds: `TURN_CREDITS`, `LIVE_TURNS_PER_CALLER`, `TURN_TIMEOUT_SECONDS`, `TASK_TIMEOUT_SECONDS`, `COMPACTION_PERCENT`, `CODE_MODE_MAX_WORKERS`
+
+JSON-parsed numbers, global rather than per account. They bound **every** turn of the server loop (`api/src/conversations/executor.ts`, the loop in `model-loop.ts`), the in-page chat's personal assistant as much as an autonomous agent.
+
+| Variable | Default | Effect |
+| --- | --- | --- |
+| `TURN_CREDITS` | `500` | per-run credit ceiling; the turn stops with stop reason `budget` once crossed. A runaway ceiling, not a per-turn allowance — the account credit cap still applies on top. |
+| `LIVE_TURNS_PER_CALLER` | `5` | chat turns one person, or one anonymous visitor's address, may have running at once; a further prompt is refused (429) until one ends. |
+| `TURN_TIMEOUT_SECONDS` | `300` | wall-clock ceiling for one chat turn, so a hung model or MCP server cannot hold the conversation's lock. Independent of the NHI token lifetime: a longer turn renews its tokens. |
+| `TASK_TIMEOUT_SECONDS` | `1800` | the same ceiling for a planned task's run, which nobody waits on (see [planned tasks](./planned-tasks.md#the-turn)). A deploy still stops a run after `SHUTDOWN_GRACE_SECONDS`. |
+| `SHUTDOWN_GRACE_SECONDS` | `90` | on SIGTERM, how long running turns get to finish before being stopped as "the server restarted" (see [autonomous agents](./autonomous-agents.md#recovery)). The pod's `terminationGracePeriodSeconds` must exceed it by about 15 s. |
+| `COMPACTION_PERCENT` | `70` | share of the assistant model's context window above which history is compacted (see [Context management](./context-management.md)). |
+| `CODE_MODE_MAX_WORKERS` | `4` | `code_mode` scripts running at once in one process, one QuickJS worker (64 MiB heap) each; a script arriving when all are busy is refused, not queued (see [Code mode](./code-mode.md#engine-and-limits)). |
+
+### `MCP_SERVERS`
+
+JSON array of the MCP server catalog ops publishes for this deployment. Validated fail-fast at boot by `assertGlobalMcpConfig` (`api/src/mcp-servers/operations.ts`, called from `api/src/config.ts`), mirroring `assertGlobalAiConfig` above. Each entry has `id`, `name`, an optional `description`, `url` and `auth`.
+
+```json
+[
+  { "id": "docs-search", "name": "Docs search", "url": "https://mcp.internal/docs", "auth": "nhi-session" },
+  { "id": "weather", "name": "Weather", "url": "https://mcp.example.com", "auth": "none" },
+  { "id": "partner-crm", "name": "Partner CRM", "url": "https://crm.partner.example/mcp", "auth": "apiKey", "apiKeyHeader": "x-api-key", "apiKey": "..." }
+]
+```
+
+`auth` selects how the MCP client authenticates to that server:
+
+| `auth` | Behavior |
+| --- | --- |
+| `nhi-session` | Injects the site's credential: the calling autonomous agent's bearer token, or the person's cookie for a personal assistant (stack services). |
+| `none` | Sends no credential (public or network-trusted endpoints). |
+| `apiKey` | Sends a static, ops-owned header, from `apiKeyHeader`/`apiKey`. |
+
+**`apiKey` is a deployment secret.** It lives only in this env var and is never returned by any API response, never written into an autonomous agent document, never included in a prompt, and never persisted in a stored conversation — `listMcpServerCatalog()` (`api/src/mcp-servers/operations.ts`) strips it before the catalog is exposed to org admins (`GET /api/autonomous-agents/:type/:id/mcp-servers`).
+
+**This catalog IS the egress control for autonomous agents.** An org admin configuring an autonomous agent can only select MCP servers ops has already published here — there is no way to point an autonomous agent at an arbitrary URL from the org-admin side.
+
+Boot validation (`assertGlobalMcpConfig`) rejects:
+- a duplicate `id`;
+- a `url` that is not `http:`/`https:`;
+- an `auth: 'apiKey'` entry missing `apiKeyHeader` or `apiKey`;
+- a credential (`apiKey`/`apiKeyHeader`) on an entry whose `auth` is not `'apiKey'` — a configuration mistake worth naming at boot, since the operator believes that endpoint is authenticated when it will never send the credential;
+- the id `data-fair`, reserved for the built-in server below.
+
+A site-bound (`nhi-session`) entry is called on the home site — as the agent when it has a session there,
+anonymously otherwise — and on the account's portals through the `portal` argument.
+
+data-fair's MCP is **not** a catalog entry: it is built in (`PRIVATE_MCP_URL`, below).
+
+### `PRIVATE_MCP_URL`
+
+data-fair's MCP endpoint as this service reaches it, like `PRIVATE_DIRECTORY_URL` and `PRIVATE_EVENTS_URL`
+for the stack's other services. data-fair's deployment: `http://data-fair-mcp:8080/mcp-server/mcp`.
+
+Every configured autonomous agent **with an enrolled identity** calls it, without referencing it: it is not in
+`MCP_SERVERS`, an agent's `mcpServers` cannot name it, and it has no `toolFilter`. What an agent may do there
+is its identity's **scopes** and nothing else: the server lists by the scopes of the session it receives (the
+non-human identity's maximum scopes in simple-directory) and data-fair enforces them on every call. Two
+controls for one thing — pick the server, then the scopes — would leave an agent with scopes meaning nothing,
+which is what a catalog entry did to every agent created without it.
+
+It is called as any site-bound entry is (server id `data-fair`, `auth: nhi-session`): on the turn's home site
+and, through `portal`, on the account's portals, with the agent's token for that site. Its tools are gathered
+after the agent's catalog references, so on a name collision its tool is kept; they are recorded with the
+source kind `platform` ("Data Fair" in the tool lists). An agent without an identity does not get it: it has
+no scopes, and data-fair must never be reached with the session of whoever instructs it.
+
+Unset (the default), there is no built-in server and boot says so: agents have their catalog servers only.
+In dev, `api/config/development.js` points it at dev-mcp's `/platform/` stand-in (see AGENTS.md).
+
+### `PERSONAL_ASSISTANTS`
+
+JSON object: the servers of the two built-in personal assistants, `portal` (`portal-assistant`, what a front-office embed talks to) and `backOffice` (`back-office-assistant`, what a back-office embed with `agents` talks to). Each is `{ "mcpServers": [{ "serverId": "…" }] }` (with an optional `"toolFilter"`), references into `MCP_SERVERS` exactly like a configured agent's. data-fair's deployment leaves it unset: its assistants use their page's WebMCP tools only, and moving them to data-fair's MCP is a later step. Example, with a catalog publishing a read-only server for both:
+
+```json
+{ "portal": { "mcpServers": [{ "serverId": "docs-search" }] }, "backOffice": { "mcpServers": [{ "serverId": "docs-search" }] } }
+```
+
+Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write tools, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`). The built-in data-fair server is never a personal assistant's. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
+
+### `MCP_PATH` and simple-directory's authorization server
+
+An autonomous agent's tokens come from simple-directory's OAuth token endpoint, which is **off by default**: the simple-directory it uses must run with `OAUTH_SERVER_ENABLED=true` (with it off, the endpoint answers 404 and every enrolment is refused, naming that cause). For each site it acts on, the agent asks for the resource `<site><MCP_PATH>/mcp`; `MCP_PATH` (`mcpPath`, default `/mcp-server`) must equal simple-directory's own, which is where the stack's MCP servers are mounted. See [Autonomous agents](./autonomous-agents.md#identity-the-agent-acts-as-itself).
+
+### No signing key to configure
+
+The ES256 keys that sign the assertions an autonomous agent exchanges for its own access tokens (see [Autonomous agents](./autonomous-agents.md#identity-the-agent-acts-as-itself)) are the service's own state, managed as simple-directory manages its token keys (`api/src/tokens/keys-manager.ts` there): generated at the first boot, stored in mongo (`secrets`, `_id: 'nhi-signing-keys'`) with the private halves ciphered by `CIPHER_PASSWORD`, rotated every 30 days (`maintainNhiKeys`, `api/src/nhi/service.ts`). A new key is published in `/jwks` an hour before it signs, since simple-directory caches the JWKS, and the key it replaces stays published until the next rotation. Nothing outside this service holds a key: simple-directory reads the public halves through discovery, so a lost or suspect key is only a new one — delete that document and restart, and every enrolled agent keeps working.
+
+### Verifying an autonomous agent's identity and tools
+
+`GET /api/autonomous-agents/:type/:id/:agentId/tools` (`api/src/autonomous-agents/router.ts`) is the end-to-end proof that an autonomous agent's identity and MCP wiring actually work in a given deployment: it connects to every MCP server the agent references, as that agent's own identity, and returns the live tool list. It is a diagnostic, not the only path: the executor exists now (see [Autonomous agents](./autonomous-agents.md)) and reaches its tools the same way. This route plus the `/session` diagnostic below it are how an operator checks that wiring WITHOUT starting a turn. The procedure:
+
+1. **Nothing to configure** on this service: the keys are its own (see above), and the issuer identifier is not configured, it is *captured* from the real proxied request that creates or saves the autonomous agent (`reqSiteUrl(req)`, see `api/src/nhi/operations.ts`), so it is always a url that demonstrably resolves here.
+2. **Confirm discovery resolves** by requesting `<the site's own public url>/agents/api/nhi/.well-known/openid-configuration` through the reverse proxy (not directly on the API port — the issuer is meaningless without the proxy's `x-forwarded-*` headers).
+3. **Create an autonomous agent** (`POST /api/autonomous-agents/organization/:id`) through the admin UI, referencing the MCP servers to verify. Steps 4 and 5 are then **done by the creation dialog**, which enrols the NHI with the role chosen there; they remain as the manual fallback when enrolment fails (the agent page then offers a retry) or when the agent was created through the API.
+4. **Register the NHI in simple-directory**, with `provider.issuer` set to the `nhi.issuer` now stored on the autonomous agent (`GET /api/autonomous-agents/organization/:id/:agentId`) and `subject` set to `autonomous-agent:<agentId>` (`autonomousAgentSubject()`).
+5. **PUT the returned `nhi-…` id** onto the autonomous agent's `nhi.clientId`. The save performs a real token request before accepting it (`assertEnrolmentWorks`), so a bad id, a wrong subject or an unreachable issuer is refused immediately at configuration time rather than surfacing later as a confusing failure inside a run.
+6. **`GET …/:agentId/session`** to see which identity the token request actually obtained (user id, org, token TTL), and the organization's sites it cannot reach as itself (`unreachableSites`), without ever returning the token itself.
+7. **`GET …/:agentId/tools`** to see the live tool list fetched as that identity — the deliverable this section documents.
+
+**simple-directory must run with `manageNhis` enabled** (`MANAGE_NHIS=true`) for step 4 (or the dialog's enrolment) to work at all; it is what exposes `POST /api/organizations/:id/nhis`.
+
+**`allowedIps` and `ipBinding` must not be set on an autonomous agent's NHI.** Both key off the address this service *declares* on the token request (`DECLARED_CLIENT_IP`, a fixed `127.0.0.1` — see `api/src/nhi/operations.ts`) rather than any real client address, since the token request is server-to-server and every autonomous agent on this deployment shares that one declared egress address. Binding either setting to a real pod/node IP breaks the token request (a mismatched declared address) or the session it issues (a mismatched bound address on every subsequent call) — there is no real client IP here for either setting to usefully pin.
+
+Registering the NHI is a one-time UI action, not a per-rotation chore: because discovery (`.well-known/openid-configuration` + `/jwks`) is fetched live rather than pinned, simple-directory picks up a new signing key automatically on rotation (it refetches the JWKS on an unknown `kid`) without the NHI record ever needing to be touched again. `/jwks` publishes the next key before it signs, so a rotation is never refused by a verifier holding an older copy.
+
+### `AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE`
+
+Boolean, default `true`. `node-config`'s `__format: 'json'` parsing applies, so set it as `AUTONOMOUS_AGENTS_REQUIRE_ADMIN_MODE=false` to flip it, not `"false"` as a bare string.
+
+While `true`, configuring an autonomous agent (`POST`/`PUT`/`DELETE /api/autonomous-agents/:type/:id[/...]`) additionally requires the caller to be a **site superadmin acting in admin mode** (`reqWriteSession` in `api/src/autonomous-agents/service.ts`, gated via `reqAdminMode`). Reads are unaffected — an org admin can always read their org's autonomous agents and MCP catalog, regardless of this flag.
+
+This is a **progressive-rollout control, not an ownership boundary.** Nothing in the autonomous agent document is durably superadmin-owned: the flag only adds a session-level gate in front of the normal `assertAccountRole(session, owner, 'admin')` check every write route also performs. Setting it to `false` opens configuration to any admin of the owning organization, with no schema change and no migration — the same document shape, the same routes, just one fewer gate.
+
+**Flipping it to `false` makes `assertAccountRole` the only thing separating an org admin from an org member on writes.** There is no second line of defense once the rollout gate is gone. Keep the org-member write-path tests in `tests/features/autonomous-agents/autonomous-agents.api.spec.ts` (the ones asserting a `requires admin` role-check message, not merely a 403) green — they are what proves `assertAccountRole` is actually still there and doing the job, rather than the rollout gate incidentally producing the same status code.
 
 ## Layer 2 — per-org catalog additions (superadmin)
 
@@ -144,10 +260,16 @@ This route only ever touches `providers`/`models` (`+ updatedAt`) — it is a pa
 
 ## Layer 3 — org-admin distribution
 
-`PUT /api/settings/:type/:id/org` (`api/src/settings/router.ts`), gated by `assertAccountRole(..., 'admin')` — any admin of that specific account, org or superadmin alike. The body is the **full** org-owned representation (whole-document semantics for this subset of fields): `modelMapping`, `quotas`, `moderation`, `storeTraces`.
+`PUT /api/settings/:type/:id/org` (`api/src/settings/router.ts`), gated by `assertAccountRole(..., 'admin')` — any admin of that specific account, org or superadmin alike. The body is the **full** org-owned representation (whole-document semantics for this subset of fields): `modelMapping`, `quotas`, `moderation`, `reviewPersonalAssistant`.
 
 - `modelMapping`: `Partial<Record<Role, { provider, id, name? }>>`. Each ref is validated against `GET /api/catalog/:type/:id` at write time — the route 400s if the ref isn't in the catalog, or is in the catalog but not flagged for that role's usage.
-- `quotas`, `moderation`, `storeTraces`: unchanged shape from before this refactor (see [Quotas & usage](./quotas-usage.md) and [Moderation](./moderation.md)), except `quotas.global` no longer exists — the account-wide cap moved to the credits/limits system below.
+- `quotas`: per-role monthly caps plus the `untrusted` pool (see [Quotas & usage](./quotas-usage.md)); `quotas.global` no longer exists — the account-wide cap moved to the credits/limits system below.
+- `moderation`: `{ enabled, categories }`, the opt-in input-moderation gate and which caller categories it checks (see [Moderation](./moderation.md)).
+- `reviewPersonalAssistant`: whether the account offers [conversation review](./conversation-review.md) at all; each person must still consent per thread.
+
+Both routes upsert (`$setOnInsert` seeds the other layer's defaults on a first write). An account with no settings document reads as `emptySettings` (`api/src/settings/service.ts`).
+
+**Settings are cached in-process for 10s** (`getRawSettings`, `SETTINGS_TTL_MS`), because a single turn reads them several times and every read decrypts provider keys. Both PUT routes call `invalidateSettings(owner)`, so the writing instance sees its own write at once; the TTL only bounds how long another API instance takes to see it.
 
 ## Catalog
 
@@ -161,7 +283,6 @@ This route only ever touches `providers`/`models` (`+ updatedAt`) — it is a pa
 assistant:  assistant
 tools:      tools      -> assistant
 summarizer: summarizer -> assistant
-evaluator:  evaluator  -> assistant
 moderator:  moderator  -> summarizer -> assistant
 ```
 
@@ -169,7 +290,7 @@ So for role `tools`: try `modelMapping.tools`, then `defaultModels.tools`; if ne
 
 ## Credits
 
-Every LLM call — assistant/tools/summarizer/evaluator turns, moderator classification calls, and summary-endpoint calls — is priced in **credits**, not currency:
+Every LLM call — assistant turns, memory consolidation, the summarizer's compaction calls, moderator classification calls, and summary-endpoint calls — is priced in **credits**, not currency:
 
 ```
 euros   = (noCacheTokens + cacheWriteTokens) × inputPricePerMillion       / 1_000_000
@@ -178,7 +299,7 @@ euros   = (noCacheTokens + cacheWriteTokens) × inputPricePerMillion       / 1_0
 credits = euros / EUROS_PER_CREDIT
 ```
 
-(`priceTokens()` and `toCredits()`, joined by `computeCredits()`, in `api/src/usage/operations.ts`.) The three prices come from the resolved catalog entry — global `MODELS[]` or org `settings.models[]` — and the peg is the global env var above.
+(`priceTokensBreakdown()` and `toCredits()`, joined by `computeCreditBreakdown()`, in `api/src/usage/operations.ts`; every model call is charged through `chargeModelCall()` in `api/src/usage/charge.ts`.) The three prices come from the resolved catalog entry — global `MODELS[]` or org `settings.models[]` — and the peg is the global env var above.
 
 **Cache reads are the reason this is priced per class.** Providers charge them at a fraction of fresh input (Scaleway: 0.08 €/M against 0.40, a factor of 5) and claim a 50–90% hit ratio on agentic workloads, so billing them at the fresh rate over-states input cost by 1.67x to 3.57x.
 
@@ -186,7 +307,7 @@ Three rules worth knowing:
 
 - **An unset `cachedInputPricePerMillion` means unknown, not free.** It resolves to the entry's own value, then the snapshot the provider listing gave when the model was picked, then the input price — never to 0. OpenAI, Scaleway, LiteLLM and vLLM publish no cache tariff yet still cache implicitly, and 0 would bill those reads for free and silently loosen every credit cap.
 - **Cache writes bill at the plain input price.** There is no write tariff to configure: this codebase never sets `cache_control`, so no provider reports write tokens today. They are billed rather than dropped so they cannot become free if one ever does.
-- **`noCacheTokens` is taken verbatim** when the provider reports it (ai@6 normalizes this); the subtraction `inputTokens - cacheRead - cacheWrite` is only a fallback, clamped at 0.
+- **`noCacheTokens` is taken verbatim** when the provider reports it (the AI SDK normalizes it as `usage.inputTokenDetails.noCacheTokens`); the subtraction `inputTokens - cacheRead - cacheWrite` is only a fallback, clamped at 0.
 
 Credits, not euros, are what the account cap and every quota are denominated in, and what `limits.ai_credits` holds — the peg exists so a credit has a defined cost, not so the two become interchangeable in the API.
 
@@ -216,11 +337,15 @@ Doc shape (`api/types/limits/schema.js`):
 
 `ai_credits.limit === -1` means unlimited. `defaults: true` marks a doc this service created and is fully responsible for (customers has never pushed to it); `defaults` is absent/false once customers has pushed a real limit.
 
-**Enforcement.** `enforceQuotas()` (`api/src/usage/enforce.ts`) checks, in order:
+**Enforcement.** `enforceQuotas()` (`api/src/usage/enforce.ts`) is the first turn gate of the server loop (`checkQuotas` in `api/src/conversations/turn-gates.ts`, before any model call) and also guards the summary endpoint. It checks, in order:
 
-1. **Account credit cap** — `getCreditInfo(owner)` against `ai_credits.limit`/`ai_credits.consumption`. `limit >= 0 && consumption >= limit` short-circuits with a 429, even if the caller's own per-profile quota is unlimited.
+1. **Account credit cap** — `checkAccountCreditCap(owner)`: `getCreditInfo(owner)` against `ai_credits.limit`/`ai_credits.consumption`. `limit >= 0 && consumption >= limit` short-circuits, even if the caller's own per-profile quota is unlimited. A turn refused here is a stored refusal message (with a `data-refusal` part the chat localizes); the summary endpoint answers 429. The same check is re-run between steps of a long turn, since other runs can exhaust the shared cap meanwhile.
 2. **Untrusted pool** — combined `anonymous` + `external` usage against `quotas.untrusted`, only for untrusted callers.
 3. **Per-profile / per-user quota** — `quotas[role]` (`admin`/`contrib`/`user`/`external`/`anonymous`), only when usage is tracked per-user.
+
+**While a turn runs**, every quota above is checked again after each step that called tools (`checkCeilings`, `api/src/conversations/model-loop.ts`), not only the account cap: other runs spend the same budgets meanwhile. And one caller — a person, or an anonymous visitor's address — may have at most `LIVE_TURNS_PER_CALLER` (default 5) chat turns running at once; a further prompt is refused with 429 until one ends. Together they bound how far turns started at the same moment on a nearly spent quota can overshoot it: about one step each. The public summary endpoint caps its output at 1024 tokens for the same reason.
+
+The role is the stack's (`getEffectiveRole`, `api/src/auth.ts`, over lib-common-types' `getAccountRole`): the active account must match the owner, **department included**. Accounts here are organization roots, so a person whose active account is a department of the organization counts as `external` — a department role grants nothing implicitly on the root, an admin of a department included. Giving departments something (a quota of their own, a department wildcard) is a later extension of the quotas and of their settings UI, not an implicit rule.
 
 See [Quotas & usage](./quotas-usage.md) for the full flow and the daily/weekly = monthly/2/4 derivation, unchanged by this refactor.
 
@@ -262,3 +387,18 @@ Two consequences to plan for **before** upgrading:
 - **A self-hosted instance that wants accounts to just work must set `DEFAULT_CREDITS=-1`** (or a finite free-tier number). That restores the "works out of the box" posture, at the cost of every account being an uncapped consumer of the deployment's keys — the server logs a `[credits]` notice for that too.
 
 Existing orgs are unaffected by this default: the migration seeds each one an `ai_credits.limit` from its old `quotas.global` (see the previous section), so only accounts that never had a global quota fall through to `DEFAULT_CREDITS`.
+
+## Files
+
+The file store of autonomous agents ([Agent files](./agent-files.md)). Unset: files are off and nothing
+file-related is offered. Validated at boot (`assertFilesConfig`), and the store's access is checked at boot.
+
+| Env var | Config | |
+|---|---|---|
+| `FILES_STORAGE` | `files.storage` | `fs` or `s3` |
+| `FILES_DATA_DIR` | `files.dataDir` | `fs`: a directory on a volume shared by every node when scaled |
+| `FILES_S3_ENDPOINT`, `FILES_S3_REGION`, `FILES_S3_BUCKET`, `FILES_S3_ACCESS_KEY_ID`, `FILES_S3_SECRET_ACCESS_KEY`, `FILES_S3_FORCE_PATH_STYLE` | `files.s3.*` | `s3` (`bucket` required; path-style by default) |
+| `FILES_SECRET` | `files.secret` | at least 32 characters; signs the file URLs MCP servers fetch |
+| `FILES_PUBLIC_URL` | `files.publicUrl` | the agents API base URL as the MCP servers reach it; they set it as `FILE_URL_PREFIXES` |
+
+Dev: `fs` on the gitignored `dev/data/files`, `publicUrl` the API's own dev port.

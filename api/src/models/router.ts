@@ -4,8 +4,10 @@ import { getRawSettings } from '../settings/service.ts'
 import { Ollama } from 'ollama'
 import memoize from 'memoizee'
 // lib-node axios instance: shorter stack traces, request-context augmentation on
-// errors, and pooled http(s) agents tuned for nodejs.
-import axios from '@data-fair/lib-node/axios.js'
+// errors, and pooled http(s) agents tuned for nodejs. The PRIVATE one: a provider's base URL is
+// written by a superadmin (settings router, reqAdminMode), and is typically an in-cluster gateway
+// (LiteLLM) the default instance's SSRF guard would refuse.
+import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
 import type { Model, Provider, Settings } from '#types'
 import { scalewayBaseURL, describeFetchError } from './operations.ts'
 
@@ -125,7 +127,6 @@ async function fetchModelsForProvider (
       { id: 'mock-model', name: 'Mock Model', contextWindow: 128000 },
       { id: 'mock-tools', name: 'Mock Tools Model', contextWindow: 128000 },
       { id: 'mock-summarizer', name: 'Mock Summarizer Model', contextWindow: 128000 },
-      { id: 'evaluator-mock-model', name: 'Evaluator Mock Model', contextWindow: 128000 }
     ]
   }
 

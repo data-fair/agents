@@ -1,6 +1,6 @@
 /**
  * Verifies the simple-directory "anonymous action token" presented by anonymous
- * callers of cost-bearing endpoints (gateway, summary). The token is issued by
+ * callers of cost-bearing endpoints (the chat socket, summary). The token is issued by
  * SD's rate-limited /api/auth/anonymous-action endpoint and verified here via
  * the JWKS the session singleton was initialized with in server.ts.
  */
@@ -9,9 +9,16 @@ import { session, httpError } from '@data-fair/lib-express'
 import config from '#config'
 
 export async function assertAnonymousActionToken (req: Request): Promise<void> {
+  await verifyAnonymousActionToken(req.get('x-anonymous-token'))
+}
+
+/**
+ * The check itself, for a caller that has the token without a request carrying it: the agent session
+ * receives it in its `hello` frame, because a browser cannot set headers on a websocket upgrade.
+ */
+export async function verifyAnonymousActionToken (token: string | undefined): Promise<void> {
   if (!config.requireAnonymousActionToken) return
 
-  const token = req.get('x-anonymous-token')
   if (!token) throw httpError(401, 'anonymous action token required')
 
   let decoded: any

@@ -5,15 +5,21 @@ import helmet from 'helmet'
 import { uiConfig } from './ui-config.ts'
 import settingsRouter from './settings/router.ts'
 import adminRouter from './admin/router.ts'
-import modelsRouter, { getModelsForOwner } from './models/router.ts'
+import modelsRouter from './models/router.ts'
 import catalogRouter from './catalog/router.ts'
+import memoryRouter from './memory/router.ts'
+import filesRouter from './files/router.ts'
+import tasksRouter from './tasks/router.ts'
+import autonomousAgentsRouter from './autonomous-agents/router.ts'
+import autonomousAgentRuntimeRouter from './conversations/router.ts'
+import nhiRouter from './nhi/router.ts'
 import summaryRouter from './summary/router.ts'
-import gatewayRouter from './gateway/router.ts'
 import usageRouter from './usage/router.ts'
-import tracesRouter from './traces/router.ts'
+import reviewRouter from './review/router.ts'
 import moderationRouter from './moderation/router.ts'
 import limitsRouter from './limits/router.ts'
-import mongo from '#mongo'
+import { createTestEnvRouter } from './test-env/router.ts'
+import { SPA_CSP_DIRECTIVES } from './spa-csp.ts'
 import config from '#config'
 
 export const app = express()
@@ -41,66 +47,26 @@ app.use('/api/admin', adminRouter)
 app.use('/api/settings', settingsRouter)
 app.use('/api/models', modelsRouter)
 app.use('/api/catalog', catalogRouter)
-app.use('/api/gateway', gatewayRouter)
+// tasks first: see tasks/router.ts
+app.use('/api/autonomous-agents', tasksRouter)
+app.use('/api/autonomous-agents', autonomousAgentsRouter)
+app.use('/api/conversations', autonomousAgentRuntimeRouter)
+app.use('/api/nhi', nhiRouter)
 app.use('/api/summary', summaryRouter)
 app.use('/api/usage', usageRouter)
-app.use('/api/traces', tracesRouter)
+app.use('/api/review', reviewRouter)
+app.use('/api/memory', memoryRouter)
+app.use('/api/files', filesRouter)
 app.use('/api/moderation', moderationRouter)
 app.use('/api/v1/limits', limitsRouter)
 app.use('/api/ping', (req, res) => res.send('ok'))
 
-if (process.env.NODE_ENV === 'development') {
-  app.delete('/api/test-env', async (req, res) => {
-    getModelsForOwner.clear()
-    await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('trace-requests').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('moderation-events').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('moderation-strikes').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('limits').deleteMany({ id: /^test/ })
-    res.send()
-  })
-  app.post('/api/test-env/usage', async (req, res) => {
-    const { owner, cost, userId, userName, period: explicitPeriod, breakdown } = req.body
-    const now = new Date()
-    // Account-level records are the ones without a userId; the filter must say so
-    // explicitly, otherwise the upsert matches (and overwrites) a per-user record.
-    const userIdField = userId !== undefined ? { userId } : { userId: { $exists: false } }
-    const userNameField = userName !== undefined ? { userName } : {}
-    const breakdownField = breakdown !== undefined ? { breakdown } : {}
-    const doc = { owner, ...(userId !== undefined ? { userId } : {}), ...userNameField, cost, ...breakdownField, updatedAt: now.toISOString() }
-
-    const isoWeek = (d: Date) => {
-      const t = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()))
-      const dayNum = t.getUTCDay() || 7
-      t.setUTCDate(t.getUTCDate() + 4 - dayNum)
-      const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1))
-      const week = Math.ceil((((t.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)
-      return `weekly:${t.getUTCFullYear()}-W${String(week).padStart(2, '0')}`
-    }
-
-    if (explicitPeriod) {
-      const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...userIdField, period: explicitPeriod }
-      await mongo.db.collection('usage').updateOne(filter, { $set: { ...doc, period: explicitPeriod } }, { upsert: true })
-    } else {
-      const dailyPeriod = `daily:${now.toISOString().slice(0, 10)}`
-      const weeklyPeriod = isoWeek(now)
-      const monthlyPeriod = `monthly:${now.toISOString().slice(0, 7)}`
-      const filter = { 'owner.type': owner.type, 'owner.id': owner.id, ...userIdField }
-      await Promise.all([
-        mongo.db.collection('usage').updateOne({ ...filter, period: dailyPeriod }, { $set: { ...doc, period: dailyPeriod } }, { upsert: true }),
-        mongo.db.collection('usage').updateOne({ ...filter, period: weeklyPeriod }, { $set: { ...doc, period: weeklyPeriod } }, { upsert: true }),
-        mongo.db.collection('usage').updateOne({ ...filter, period: monthlyPeriod }, { $set: { ...doc, period: monthlyPeriod } }, { upsert: true })
-      ])
-    }
-    res.send()
-  })
-}
+if (process.env.NODE_ENV === 'development') app.use('/api/test-env', createTestEnvRouter())
 
 app.use('/api', (req, res) => res.status(404).send('unknown api endpoint'))
 
 app.use(await createSpaMiddleware(resolve(import.meta.dirname, '../../ui/dist'), uiConfig, {
-  csp: { nonce: true, header: true },
+  csp: { nonce: true, header: SPA_CSP_DIRECTIVES },
   privateDirectoryUrl: config.privateDirectoryUrl
 }))
 

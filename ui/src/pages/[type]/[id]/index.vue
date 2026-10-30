@@ -9,6 +9,17 @@
       :account-id="accountId"
     />
 
+    <!-- Organizations only: an autonomous agent's identity model rests on an NHI, which
+         simple-directory binds to exactly one organization, so the API 400s on a personal account.
+         Every user is admin of their own account, so without this guard every admin visiting
+         /user/<id> got an error toast and a TOC entry for a feature that cannot exist there. -->
+    <autonomous-agents-section
+      v-if="accountType === 'organization'"
+      id="autonomous-agents"
+      :account-type="accountType"
+      :account-id="accountId"
+    />
+
     <df-section-tabs
       id="activity"
       v-model="activityTab"
@@ -39,7 +50,7 @@
           />
         </v-tabs-window-item>
         <v-tabs-window-item value="traces">
-          <traces-section
+          <review-list
             :account-type="accountType"
             :account-id="accountId"
             :base="`/${accountType}/${accountId}`"
@@ -52,18 +63,23 @@
       <df-toc :sections="sections" />
     </df-navigation-right>
   </v-container>
+  <chat-panel-notice v-else />
 </template>
 
 <i18n lang="yaml">
 fr:
+  agents: Agents
   configuration: Configuration
+  autonomousAgents: Agents autonomes
   activity: Activité
   usage: Consommation
   usageIndividual: Par utilisateur
   moderation: Modération
   traces: Conversations enregistrées
 en:
+  agents: Agents
   configuration: Configuration
+  autonomousAgents: Autonomous agents
   activity: Activity
   usage: Usage
   usageIndividual: Per user
@@ -72,42 +88,41 @@ en:
 </i18n>
 
 <script lang="ts" setup>
-import { computed, onMounted, ref } from 'vue'
+import { computed, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
 import { mdiAccountMultiple, mdiChartBar, mdiForum, mdiShieldCheckOutline } from '@mdi/js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import DfNavigationRight from '@data-fair/lib-vuetify/navigation-right.vue'
 import DfToc from '@data-fair/lib-vuetify/toc.vue'
+import ChatPanelNotice from '~/components/ChatPanelNotice.vue'
 import OrgConfigSection from '~/components/OrgConfigSection.vue'
+import AutonomousAgentsSection from '~/components/AutonomousAgentsSection.vue'
 import UsageCard from '~/components/UsageCard.vue'
 import MonitoringGlobalSection from '~/components/MonitoringGlobalSection.vue'
 import MonitoringIndividualSection from '~/components/MonitoringIndividualSection.vue'
 import ModerationSection from '~/components/ModerationSection.vue'
-import TracesSection from '~/components/TracesSection.vue'
+import ReviewList from '~/components/ReviewList.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 
 const { t } = useI18n()
 const route = useRoute('/[type]/[id]/')
-const router = useRouter()
 const session = useSession()
 const accountType = route.params.type as string
 const accountId = route.params.id as string
 
-setBreadcrumbs([])
+// Host route: data-fair frames this page at /agents-activity, named Agents there. An empty
+// list would replace the host's own crumb with nothing.
+setBreadcrumbs([{ text: t('agents') }])
 
 // Every section of this page is admin-only (the settings, usage and traces
-// endpoints it consumes are all admin-gated), so a non-admin member is sent
-// back to the chat.
+// endpoints it consumes are all admin-gated), so a non-admin member is pointed
+// to the chat panel instead.
 const isAdmin = computed(() =>
   !!session.state.user?.isAdmin ||
   getAccountRole(session.state, { type: accountType as 'user' | 'organization', id: accountId }) === 'admin'
 )
-
-onMounted(() => {
-  if (!isAdmin.value) router.replace(`/${accountType}/${accountId}/chat`)
-})
 
 const activityTab = ref('usage')
 const activityTabs = computed(() => [
@@ -119,6 +134,7 @@ const activityTabs = computed(() => [
 
 const sections = computed(() => [
   { id: 'configuration', title: t('configuration') },
+  ...(accountType === 'organization' ? [{ id: 'autonomous-agents', title: t('autonomousAgents') }] : []),
   { id: 'activity', title: t('activity') }
 ])
 </script>

@@ -7,6 +7,7 @@ import { expect, type Page } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { waitForChatFrame } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
 
@@ -23,32 +24,13 @@ async function closeDrawer (page: Page) {
   await expect(page.locator(`${chatDrawerSelector}.v-navigation-drawer--active`)).not.toBeAttached({ timeout: 5000 })
 }
 
-// The iframe URL carries an `?initConfig=<key>` param, so match on the pathname
-// (which also avoids matching the parent `/_dev/chat-drawer` frame).
-function isChatFrameUrl (url: string): boolean {
-  try {
-    return new URL(url).pathname.endsWith('/_dev/chat')
-  } catch {
-    return false
-  }
-}
-
-async function waitForChatFrame (page: Page) {
-  await expect(async () => {
-    expect(page.frames().find(f => isChatFrameUrl(f.url()))).toBeTruthy()
-  }).toPass({ timeout: 10000 })
-  const frame = page.frames().find(f => isChatFrameUrl(f.url()))!
-  await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
-  return frame
-}
-
 test.describe('Chat Drawer Integration', () => {
   test.beforeEach(async () => {
     await clean()
     await putMockSettings(admin, 'user/test-standalone1')
   })
 
-  test('FAB is visible and opens the drawer', async ({ page, goToWithAuth }) => {
+  test('FAB opens the drawer, the chat works inside it, and stays alive with a waiting-user status once closed', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-drawer', 'test-standalone1')
 
     const fab = page.locator(fabSelector)
@@ -58,45 +40,9 @@ test.describe('Chat Drawer Integration', () => {
 
     const drawer = page.locator(chatDrawerSelector)
     await expect(drawer).toBeVisible()
+    await expect(drawer.locator('d-frame')).toBeAttached()
 
-    const dFrame = drawer.locator('d-frame')
-    await expect(dFrame).toBeAttached()
-  })
-
-  test('Chat works inside the drawer iframe', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-drawer', 'test-standalone1')
-
-    await clickFab(page)
     const frame = await waitForChatFrame(page)
-
-    await frame.getByPlaceholder('Type your message...').fill('hello')
-    await frame.getByRole('button', { name: 'Send' }).click()
-
-    await expect(frame.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
-  })
-
-  test('Iframe stays alive after closing drawer (keep-alive)', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-drawer', 'test-standalone1')
-
-    await clickFab(page)
-    const frame = await waitForChatFrame(page)
-
-    await frame.getByPlaceholder('Type your message...').fill('hello')
-    await frame.getByRole('button', { name: 'Send' }).click()
-    await expect(frame.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
-
-    await closeDrawer(page)
-    await clickFab(page)
-
-    await expect(frame.locator('.assistant-content').last()).toContainText('world')
-  })
-
-  test('FAB shows waiting-user status after agent responds', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-drawer', 'test-standalone1')
-
-    await clickFab(page)
-    const frame = await waitForChatFrame(page)
-
     await frame.getByPlaceholder('Type your message...').fill('hello')
     await frame.getByRole('button', { name: 'Send' }).click()
     await expect(frame.locator('.assistant-content').last()).toContainText('world', { timeout: 10000 })
@@ -104,8 +50,11 @@ test.describe('Chat Drawer Integration', () => {
     await closeDrawer(page)
 
     // The FAB button should reflect waiting-user status (warning color)
-    const fabBtn = page.locator(fabSelector)
-    await expect(fabBtn).toHaveClass(/bg-warning/, { timeout: 5000 })
+    await expect(fab).toHaveClass(/bg-warning/, { timeout: 5000 })
+
+    // Keep-alive: the iframe survived the close, conversation included.
+    await clickFab(page)
+    await expect(frame.locator('.assistant-content').last()).toContainText('world')
   })
 
   test('Unread badge appears for new messages when drawer is closed', async ({ page, goToWithAuth }) => {
@@ -115,33 +64,22 @@ test.describe('Chat Drawer Integration', () => {
     await clickFab(page)
     const frame = await waitForChatFrame(page)
 
-    await frame.getByPlaceholder('Type your message...').fill('hello')
+    // "slow hello" makes the mock answer only after a delay, so the reply provably
+    // arrives *after* the drawer is closed. The unread signal is emitted on the first
+    // streamed token; if that token lands while the drawer is still closing, the
+    // parent treats the message as "seen" and never raises the badge. The model loop
+    // runs on the server, so the delay has to be held there, not at a browser route.
+    await frame.getByPlaceholder('Type your message...').fill('slow hello')
 
     await closeDrawer(page)
 
     // No badge dot yet
     await expect(fab.locator('.v-badge__badge')).not.toBeVisible()
 
-    // Hold the assistant reply at the network layer so it provably arrives only
-    // *after* the drawer is closed. The unread signal is emitted on the first
-    // streamed token; if that token lands while the drawer is still closing, the
-    // parent treats the message as "seen" and never raises the badge. Gating the
-    // reply removes that race.
-    let releaseReply: () => void = () => {}
-    const replyGate = new Promise<void>(resolve => { releaseReply = resolve })
-    const completionsUrl = '**/v1/chat/completions'
-    await page.route(completionsUrl, async (route) => {
-      await replyGate
-      await route.continue()
-    })
-
-    // Re-open, send the message, then close — all before the reply is released.
+    // Re-open, send the message, then close — all before the reply arrives.
     await clickFab(page)
     await frame.getByRole('button', { name: 'Send' }).click()
     await closeDrawer(page)
-
-    // Now let the reply stream back, while the drawer is closed.
-    releaseReply()
 
     // Wait for the unread badge dot to appear
     await expect(fab.locator('.v-badge__badge')).toBeVisible({ timeout: 10000 })
@@ -149,7 +87,5 @@ test.describe('Chat Drawer Integration', () => {
     // Opening the drawer should clear the unread badge
     await clickFab(page)
     await expect(fab.locator('.v-badge__badge')).not.toBeVisible()
-
-    await page.unroute(completionsUrl)
   })
 })

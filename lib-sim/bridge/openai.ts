@@ -35,6 +35,32 @@ export function mcpNameToTool (name: string): string {
   return name.startsWith(PREFIX) ? name.slice(PREFIX.length) : name
 }
 
+/**
+ * Claude Code cuts an MCP tool's description at 2048 characters ("… [truncated]"), silently, and the bridge
+ * serves every tool to it as an MCP tool. A product whose descriptions run longer (code_mode lists every tool's
+ * signature, then its own conventions after them) was simulated without their end: scripts ignored a library and
+ * a time-zone rule they never saw, while the product sends them whole to a real provider. So a longer description
+ * is cut HERE, with a pointer, and given whole in the system prompt (systemPromptFor), which is not cut.
+ */
+export const MCP_DESCRIPTION_LIMIT = 2048
+const continuedNote = (name: string) => `… (continued in the system prompt, under "Full description of the ${name} tool")`
+
+/** A tool's description as the MCP listing carries it: whole, or cut to fit with a pointer to the rest. */
+export function listedDescription (name: string, description: string): string {
+  if (description.length <= MCP_DESCRIPTION_LIMIT) return description
+  const note = continuedNote(name)
+  return description.slice(0, MCP_DESCRIPTION_LIMIT - note.length) + note
+}
+
+/** The system prompt, then the whole description of every tool the listing had to cut. */
+export function systemPromptFor (messages: OpenAIMessage[], tools: OpenAIToolDef[]): string {
+  const long = tools.filter(t => (t.function.description ?? '').length > MCP_DESCRIPTION_LIMIT)
+  return [
+    extractSystemPrompt(messages),
+    ...long.map(t => `# Full description of the ${t.function.name} tool\n\n${t.function.description}`)
+  ].join('\n\n')
+}
+
 export function extractSystemPrompt (messages: OpenAIMessage[]): string {
   return messages
     .filter(m => m.role === 'system')
@@ -105,15 +131,62 @@ export function finalChunk (id: string, model: string, finishReason: 'stop' | 't
 }
 
 /**
+ * One whole `chat.completion`, folded from the chunks a streamed answer is made of — for a request that
+ * did not ask to stream. A client calling without streaming (the AI SDK's generateText: memory
+ * reflection, for one) parses the body as a single JSON value, and an event stream fails it with "Invalid
+ * JSON response". Folding keeps ONE turn logic for both: the turn writes chunks either way.
+ *
+ * An error chunk anywhere makes the whole answer that error.
+ */
+export function completionOf (id: string, model: string, chunks: object[]):
+  { completion: object } | { error: ReturnType<typeof errorBody> } {
+  let content = ''
+  const toolCalls: OpenAIToolCall[] = []
+  let finishReason: string | null = null
+  let usage: object | undefined
+  for (const chunk of chunks as any[]) {
+    if (chunk.error) return { error: chunk }
+    const choice = chunk.choices?.[0]
+    if (typeof choice?.delta?.content === 'string') content += choice.delta.content
+    for (const call of choice?.delta?.tool_calls ?? []) toolCalls.push({ id: call.id, type: 'function', function: call.function })
+    if (choice?.finish_reason) finishReason = choice.finish_reason
+    if (chunk.usage) usage = chunk.usage
+  }
+  return {
+    completion: {
+      id,
+      object: 'chat.completion',
+      created: Math.floor(Date.now() / 1000),
+      model,
+      choices: [{
+        index: 0,
+        message: { role: 'assistant', content: content || null, ...(toolCalls.length ? { tool_calls: toolCalls } : {}) },
+        finish_reason: finishReason ?? 'stop'
+      }],
+      ...(usage ? { usage } : {})
+    }
+  }
+}
+
+/**
  * The SDK also reports total_cost_usd, deliberately not forwarded: it is list-price
  * bookkeeping, while consumption is actually against the plan's rate limits. Showing
  * it in the usage UI would invite reading it as real spend.
  */
-export function mapUsage (usage: { input_tokens?: number, output_tokens?: number } | undefined) {
+export function mapUsage (usage: { input_tokens?: number, output_tokens?: number, cache_read_input_tokens?: number, cache_creation_input_tokens?: number } | undefined) {
   if (!usage) return undefined
-  const prompt = usage.input_tokens ?? 0
+  // Anthropic's `input_tokens` is only the UNCACHED remainder, and Claude Code caches nearly every
+  // prompt — so on its own it reported a handful of tokens for calls carrying a whole system prompt
+  // and tool list. OpenAI's `prompt_tokens` is the whole prompt, with the cached share broken out.
+  const cached = usage.cache_read_input_tokens ?? 0
+  const prompt = (usage.input_tokens ?? 0) + cached + (usage.cache_creation_input_tokens ?? 0)
   const completion = usage.output_tokens ?? 0
-  return { prompt_tokens: prompt, completion_tokens: completion, total_tokens: prompt + completion }
+  return {
+    prompt_tokens: prompt,
+    completion_tokens: completion,
+    total_tokens: prompt + completion,
+    ...(cached ? { prompt_tokens_details: { cached_tokens: cached } } : {})
+  }
 }
 
 export function errorBody (message: string, type = 'api_error') {

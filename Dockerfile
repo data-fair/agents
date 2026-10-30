@@ -47,6 +47,8 @@ FROM installer AS types
 ADD api/types api/types
 ADD api/doc api/doc
 ADD api/config api/config
+# the socket protocol's frame schemas live in shared/ (see shared/agent-session-protocol.ts)
+ADD shared shared
 ADD ui/src/components ui/src/components
 RUN npm run build-types
 
@@ -56,15 +58,16 @@ FROM installer AS ui
 COPY --from=types /app/api/config api/config
 COPY --from=types /app/api/types api/types
 COPY --from=types /app/api/doc api/doc
-ADD /shared shared
+COPY --from=types /app/shared shared
 ADD /lib-vue lib-vue
 ADD /lib-vuetify lib-vuetify
-ADD /api/src/config.ts api/src/config.ts
-ADD /api/src/ui-config.ts api/src/ui-config.ts
+# The WHOLE api source, not the two files vite's config literally imports: `api/src/config.ts` pulls
+# in the three boot validators (models/, mcp-servers/, nhi/ operations), each of which imports
+# further, and naming them one by one is a list that silently rots — it had already rotted, and the
+# image build failed with UNRESOLVED_IMPORT from the moment the MCP validator was added. It is 680K
+# of TypeScript and nothing but `ui/dist` leaves this stage.
+ADD /api/src api/src
 ADD /ui ui
-# the evaluator bundles the architecture docs via import.meta.glob('../../../docs/architecture/*.md');
-# they live outside the ui workspace, so they must be copied in or the glob matches nothing
-ADD /docs/architecture docs/architecture
 COPY --from=types /app/ui/src/components/vjsf ui/src/components/vjsf
 
 RUN npm -w ui run build
@@ -81,7 +84,7 @@ FROM native-deps AS main
 
 COPY --from=api-installer /app/node_modules node_modules
 ADD /api api
-ADD /shared shared
+COPY --from=types /app/shared shared
 COPY --from=types /app/api/types api/types
 COPY --from=types /app/api/doc api/doc
 COPY --from=types /app/api/config api/config

@@ -1,6 +1,15 @@
 {
   "name": "@agents/shared",
-  "main": "index.js",
+  "version": "0.0.0",
   "type": "module",
-  "license": "MIT"
+  "license": "MIT",
+  "exports": {
+    "./*": "./*.ts"
+  },
+  "dependencies": {
+    "@data-fair/lib-validation": "^1.0.2",
+    "ai": "7.0.137",
+    "ajv": "^8.17.1",
+    "debug": "^4.4.3"
+  }
 }

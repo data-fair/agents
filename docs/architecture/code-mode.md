@@ -1,0 +1,378 @@
+# Code mode
+
+One tool, `code_mode`, offered to **every agent** on every surface (chats and planned task runs, the
+personal assistant included) with no setting, except in a turn started by an anonymous visitor or someone
+outside the account (`codeModeOfferedTo`): scripts share a small per-process worker pool across tenants, a
+few that only wait could hold it for everyone, and orchestration is not what a visitor needs. The model writes one JavaScript script; the script returns a
+value, and that value is the call's result.
+
+- **Plain scripting**: a script that calls no tool transforms text and JSON (count, filter, reshape,
+  compute a date) more reliably than the model does in its head.
+- **Tool chaining**: a script calls the agent's own tools as `await tools.name(input)`, filters what they
+  return and calls the next. The intermediate results never enter the model's context; only the script's
+  return value does.
+
+This is the established pattern, not an invention: Anthropic's programmatic tool calling and "code
+execution with MCP", Cloudflare's Code Mode, and the AI SDK's own `@ai-sdk/code-mode`, which this service
+uses. A long chain of small calls is where round-tripping every result through the model costs the most
+tokens, latency and attention; one script replaces it.
+
+**It adds no authority.** A script calls only what the model could call directly in the same step, through
+the same call path, as the same identity, with the same per-tool bounds. Everything a script reaches outside
+its sandbox is a tool. **It reduces prompt-injection exposure** rather than adding to it: the data a script
+handles is not read by the model, so text planted in a tool's output can no longer steer the next call
+unless the script returns it. That is the control/data split CaMeL argues for (Debenedetti et al.,
+arXiv 2503.18813), in its cheapest form: our script is written by the model *before* it sees the data. The
+script's return value still reaches the model inside the provenance envelope (server `code-mode`), since it
+may quote tool output verbatim.
+
+The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-and-scripting-design.md`, §6.
+
+## The tool
+
+- Input `{ js }`, the package's own. JavaScript; TypeScript syntax is stripped, not checked. Top-level
+  `await` and `return`.
+- The description is the package's: the TypeScript signatures of every callable tool, generated from its
+  input schema, with its output schema as the return type (`Promise<unknown>` without one). The output schema
+  is the code-facing tool's only (`SourcedTool.codeOutputSchema`, set in `codeFacingTools`; the model's tools
+  are unchanged): the file tools declare a whole signature of their own (`FILE_CODE_SIGNATURES`, also
+  `SourcedTool.codeDescription` and `codeInputSchema`: `read_file` takes a path and returns the whole text, with no
+  paging and no line numbers; `write_file` takes 10 MB and returns a record with its `sha256`; `ls` an array of
+  records) — with the model's description and paging arguments, a script paged through a file it already had
+  whole and stripped line numbers it never got, and an MCP tool carries the `outputSchema` its server
+  declared, which is what its `structuredContent` follows. **An MCP tool that declares none** (openapi-mcp declares
+  none, and nothing in an MCP listing says a tool returns a file) reads as every shape the call path can return
+  (`codeOutputSchemaFor`, `MCP_CODE_OUTPUT_SCHEMA`): `Promise<string | { text: string; files: {…}[]; errors?: string[] }
+  | Record<string, unknown>>`. With `unknown` there, a script twice took a link tool's one-line text for the
+  file's content and imported it (the code-mode simulation, 2026-10-13 and 2026-10-14): a model that cannot see the
+  shape writes code that guesses keys. A union a script can branch on is truthful where an exact type is not
+  knowable; an exact one would need data-fair's MCP to mark its file tools in the listing. We also drop the
+  package's "Tool call examples" block and append a short paragraph of ours (`describeScriptTool`): console
+  output, failures as exceptions, **the conventions of what a tool returns** (an MCP tool its structured result
+  as an object when it has one, otherwise its text as a string to `JSON.parse`; a result carrying files
+  `{ text, files }`; `read_file` the whole text), "check what you got before writing or importing it", and which
+  tools can only be called directly. The conventions are there because a script that guesses a shape parses
+  nothing, silently: in the first simulation of an export-filter-import task, the model guessed `read_file`
+  returned `{ text }`, imported an empty table, and needed four scripts.
+- The `js` argument's description is ours too (`SCRIPT_ARGUMENT_DESCRIPTION`): the package's promises the
+  call examples we drop.
+- No `fetch`, filesystem, `require`, `process`, `eval`, `Function`, timers or crypto in the sandbox; built-in
+  prototypes are frozen (`run`'s security model). `Date.now` exists.
+- Annotations: not read-only, not destructive, not idempotent, open-world. A script may call writing tools;
+  each keeps its own annotations and its own gate.
+- Its calls are stored under the server `code-mode`, like any service tool's.
+- `code_mode` is a reserved service tool name (`service-tool-names.ts`): a page cannot register a tool by
+  that name.
+
+`get_my_configuration` reports it in a `## Code mode` section: what it is, what cannot be called from it,
+and its limits.
+
+## Engine and limits
+
+`@ai-sdk/code-mode` (1.0.94, exact-pinned with `ai` 7.0.137, see
+[providers](./providers.md#ai-sdk-version)) runs on vercel-labs `run`: QuickJS-ng compiled to WASM, in a
+pool of worker threads, a fresh context per run, a versioned serializer at the boundary, and workers
+retired when they cannot return to a clean state. The WASM is embedded in the package's worker source, so
+there is no native module, no file asset and nothing for the Docker image to do.
+
+**The pool is per process and refuses rather than queues when full.** Its size is `codeModeMaxWorkers`
+(`CODE_MODE_MAX_WORKERS`, default 4), set once at startup (`configureCodeMode`, `experimental_setMaxWorkers`).
+Without it the package sizes the pool from the pod's memory, up to 32 workers at 64 MiB each; four keeps the
+memory budget explicit. A full pool answers the model "too many scripts are running … try again in a moment,
+or call the tools directly", and the instance stays responsive.
+
+The policy (`CODE_MODE_POLICY`, `api/src/code-mode/operations.ts`):
+
+| Limit | Value | Why |
+|---|---|---|
+| `timeoutMs` | 120 s | **Wall clock, tool waits included.** The spec's 10 s predates scripts calling tools: a catalog query plus a download does not fit in it. The turn's own deadline still bounds the whole. |
+| CPU | 10 s | `run`'s own default (`cpuTimeoutMs`), which the package does not expose. Guest CPU only, so a busy loop dies at 10 s while a script waiting on tools does not. |
+| `memoryLimitBytes` | 64 MiB | QuickJS heap. Text and JSON need no more; it is the unit the pool is sized in. |
+| `maxStackSizeBytes` | 2 MiB | the package's default |
+| `maxSourceBytes` | 64 KiB | a script is a few dozen lines; anything longer is data that belongs in a file. The model's own source: checked before wrapping, so the console prelude and papaparse do not count (`WRAPPER_BYTES`) |
+| bracket nesting | 200 | ours (`MAX_BRACKET_DEPTH`, checked before wrapping). `run` strips TypeScript with Node's own stripper on the API's thread, outside the sandbox, and a few KB of nested brackets overflowed its WASM stack and left it broken for the whole process. Real code nests a few dozen deep |
+| `maxResultBytes` | 1 MiB | the model reads 20,000 characters of it anyway; a larger result is told to go to `write_file` |
+| `maxConsoleOutputBytes` | 64 KiB | the model reads 5,000 characters of it |
+| `maxToolInputBytes`, `maxToolOutputBytes` | 16 MiB | at least the 10 MB a script may read or write as a file, plus JSON escaping |
+| `maxBridgeRequests` | 100 | tool calls per script, equal to `STEP_LIMIT`: a script cannot make more calls than a turn could steps |
+| `maxInFlightBridgeRequests` | 8 | concurrent tool calls (`Promise.all`); the package's 32 would let one script fan out against one MCP server |
+| `SCRIPT_TRANSFER_BYTES` | 24 MiB | **everything a script passes to and gets from its tools, together** (ours, enforced in `codeFacingTools`; see below) |
+
+**Why a transfer budget.** `run` keeps every call's input and result until the script ends: it is the record a
+paused script is replayed from (each completed call answered from it, not run again). That record is bounded
+by `maxContinuationBytes`, 32 MiB, which the package neither sets nor exposes, and past it the script dies with
+"CodeModeProtocolError: Continuation state exceeds the 33554432 byte size limit" — reading a 10 MB file twice
+was enough. So each call is counted the way `run` counts its entry (the value's JSON, kept as a string inside
+the entry's JSON: escaped twice, so a CSV's quotes weigh four bytes each), and the call that would pass 24 MiB
+fails in words: refused before it runs when its input is what passes, or, when its result is, reported as
+having run (a write happened) with a result the script cannot have. The protocol error itself is translated too,
+should an entry outweigh the count. The consequence is deliberate: **a script is for orchestration and small
+data**, not for streaming large files through the sandbox. Every vendor of a light code mode (this package,
+Cloudflare's isolates, Anthropic's programmatic tool calling) ships a separate full runtime for bulk work; ours
+is data-fair itself — a temporary dataset, its API and filtered exports — and its processings for a
+transformation to repeat. Serializing a large input is also slow inside QuickJS: a 25 MiB string passed to a
+tool exhausted the 10 s of CPU before reaching it.
+
+Every invocation's abort signal is the turn's, so Stop, the deadline and a deploy's drain stop a script. The
+script's own timeout aborts its nested calls' signal too (`run` aborts the invocation's controller on any
+terminal failure). A nested call gets that signal, and the MCP clients pass it to the request (catalog and
+external, `{ signal }` on `client.request`), as the model's own calls do: a call is cancelled where it can be.
+**A call already sent may still complete** — a server that received a write does not undo it, and a tool that
+ignores its signal finishes on its own — so the timeout message says the script was stopped and that a call
+it had already sent may still have completed ("check before repeating a write"). Such a call is recorded as
+stopped (below), and its late answer is ignored.
+
+**Why this sandbox** (spec §6.6, restated briefly): `isolated-vm` is in maintenance mode and had a critical
+guest-to-host escape (GHSA-864f-rcv7-6rh4) — a V8 bug there escapes into the API process; `node:vm` is not a
+security boundary and `vm2` was abandoned after repeated escapes; hand-rolling `quickjs-emscripten` is what
+`run` already is, and that package's latest release bundles a QuickJS-ng in the range of CVE-2026-3979, so it
+would also mean tracking the engine's fixes ourselves; a micro-VM (Firecracker, gVisor, e2b) is only needed for packages, a filesystem, network or
+long processes, none of which text and JSON need. WASM QuickJS is defence in depth, as the package's docs put
+it: **the tools are the trust boundary**, each validating its input and enforcing its own bounds.
+
+## Why not `experimental_toolCallers`
+
+The package's headline form, `experimental_codeModeTool` with `streamText`'s `experimental_toolCallers`,
+binds the model's own tools into the script. We build the tool with `experimental_createCodeModeTool` over
+a map we pass instead (`api/src/code-mode/tool.ts`), for three reasons:
+
+1. **A script would get the model's tools unchanged**: enveloped, returning text. Moving the envelope into
+   `toModelOutput` so `execute` can return data is unsafe here: what is stored is `execute`'s return, and a
+   replay converts stored turns **without tools** (`storedTurnsToModelMessages`), so `toModelOutput` never
+   runs on replay and a replayed result would reach the model unwrapped.
+2. **The caller configuration is fixed when `streamText` is constructed**, against the initial `tools`, and
+   throws on an unknown name. The tool set is live within a turn ([MCP tools §7](./mcp-tools.md#7-the-tool-set-is-live-within-a-turn));
+   a page tool registered mid-turn could never be named in it.
+3. **Tool-caller messages move.** `loopGuardPrepareStep` rebuilds every step's messages, so the SDK would
+   re-append the caller's catalog message at the end of each request instead of carrying it in place
+   (upstream vercel/ai#20572 is about exactly this).
+
+`createCodeModeTool(tools, options)` is a plain tool over any map, and the package still generates the
+TypeScript signatures, so this costs nothing. `assembleTools` (`model-loop.ts`) rebuilds it with the set,
+on the first step and whenever the page's tools change, so a script reaches exactly what the model can reach
+at that step. The package is imported only in `api/src/code-mode/tool.ts` and `code-tools.ts`: its API is
+experimental.
+
+## What a script can call
+
+The turn's tool set, filtered by `codeCallable` (`api/src/code-mode/operations.ts`). Excluded, with the reason for each:
+
+| Excluded | Why |
+|---|---|
+| any tool with `needsApproval` | the package refuses a nested call needing approval without an approval callback, and its docs say not to expose such tools; a script cannot pause for a person. Lifting this goes through `run`'s signed continuations (upstream vercel/ai#18143). |
+| `wait_for_user_action` | it ends the turn |
+| `request_web_access`, `request_mcp_access`, `plan_task`, `update_task`, `delete_task` | they ask an administrator |
+| `read_skill` | a skill is guidance for the model; inside a script it is data nobody reads |
+| `code_mode` | itself |
+
+Everything else is callable: catalog and external MCP tools, the file and web tools, `memory`, and
+`report_outcome`. A unit test pins the excluded names against the service's own constants.
+
+- **Page tools** are the raw page set (`rawBrowserToolSet(session, …, { drainEvents: false })`): no envelope,
+  and **host events are not drained**. A script could not pass them on to the model, so they stay pending for
+  the model's next direct page call or its next turn. A page tool that shadows a catalog tool for the model
+  shadows it for a script too. A task run has no page, so none.
+- **Given to the agent that plans the work**, as every reference implementation does: no second model runs
+  the script.
+
+## Data for code, text for the model
+
+One tool, two `execute`s. `SourcedTool.codeExecute` (`api/src/conversations/operations.ts`) is what a
+script receives; when absent, the script receives what `tool.execute` returns. The model's tool, the
+record and replay never see it.
+
+| Tool | A script gets | The model gets |
+|---|---|---|
+| catalog / external MCP tool (`client.ts`, `external.ts`) | `structuredContent` when the server sent one (data-fair's MCP does), else the text | the text; `structuredContent` is dropped |
+| an MCP result with `resource_link`s | `{ text, files: [{ file_path, mimeType, size, sha256, etag?, lastModified? }] }`, plus `errors` for a link not saved | the text, with "Saved to your files: …" lines |
+| an MCP result with image content | its text only (or its `structuredContent`); the images are not passed | the text and the images |
+| `read_file` | the whole text file, up to 10 MB; an error beyond, naming the size | a page of numbered lines |
+| `ls` | records `{ file_path, mimeType, size, expiresAt }` | a rendered listing |
+| `write_file` | up to **10 MB** of text, answering a record with the content's `sha256` | at most 1 MB, answering a sentence with the same hash |
+| other service tools, page tools | what `execute` returns (usually text) | the same, enveloped |
+
+`structuredContent` is not validated against a declared `outputSchema`: openapi-mcp emits it without one,
+and a validation of a value only scripts read would add a failure mode, not a guarantee (the catalog client
+uses `client.request()` rather than `callTool()` for that reason, [MCP tools](./mcp-tools.md#result-formatting)).
+`write_file` is held to 1 MB for the model because it would have to write the content out in full as
+output tokens; a script writes what it computed, and the 10 MB matches what it can read back. The link
+records satisfy the seam spec §4.2 left for code: a script chains "export, then import" by passing
+`files[0].file_path` to the next tool's file argument.
+
+## Each call is a call
+
+A nested call goes through **the call path** (`withCallPath(sourced, ctx, 'code')`,
+`api/src/files/call-path.ts`): the same file handling as the model's calls — a file argument is a path
+signed for that call, a URL echoed back is scrubbed to the path, links become stored files — differing only
+in what it returns (records rather than lines, above). It is not wrapped in the provenance envelope: the
+script is not the model.
+
+**Recorded as a trace.** The package emits no event for nested calls (upstream vercel/ai#18144): `streamText`'s
+callbacks, telemetry and stream see only the outer `code_mode` call. So our code-facing wrapper
+(`codeFacingTools`, `api/src/code-mode/code-tools.ts`) records each call into a `data-trace` part under
+the `code_mode` call (`name: 'code_mode'`, `parentToolCallId` the outer call's id), keyed by the package's nested
+id `<outer>:tool-<n>`:
+
+- streamed as `trace` server frames (`target.frames.trace(...)`) while the script runs, coalesced within 25 ms (`TRACE_FLUSH_MS`, as the
+  session's text deltas): each frame carries the whole trace, so one per open and settle made the traffic
+  quadratic in the script's calls;
+- each call's input is recorded **bounded** (`boundRecordedInput`, `parts-recorder.ts`): every string cut at
+  10,000 characters with its length named, and an input still larger than a stored result kept as the head of
+  its JSON. A script passes tools megabytes (`write_file` takes 10 MB from code); verbatim, a few such calls
+  in a trace stored on one message would pass MongoDB's 16 MB document cap. Nothing replays these inputs, so
+  nothing is lost to the model; the model's own calls are stored unbounded, as before;
+- stored on the assistant message when the script ends: `finish` settles any call still open as "stopped: the
+  script ended before this call answered", sends the final frame, and ignores whatever answers after it — a
+  late frame would replace the finished trace in the chat with an empty pending one;
+- left out of replay — the point: the model never sees intermediate results;
+- shown where it is read: the chat shows the script as a tool chip like any call; the review page and the task
+  run view (`AgentChatMessages` with `show-traces`, from `ConversationReview.vue` and `TaskRunView.vue`) show an
+  expandable panel under the call, titled "Script", collapsed by default, listing the nested calls.
+
+Nested calls are not entries of the run's `calls` telemetry, which records model calls.
+
+**Open (todo): no bound on a message's traces as a whole.** Each nested call is bounded (input ~100 KB, result
+`TOOL_RESULT_LIMIT`), but a script makes up to 100 calls, so one trace can reach ~20 MB, and a turn may run
+several scripts into the same message — past MongoDB's 16 MB document cap, the message fails to save and the
+turn's record is lost. Unlikely (dozens of near-maximal calls), not yet seen. Intended fix: a per-message
+budget of a few MB across traces, past which a nested call is recorded with its name and state only and a
+note that its detail was dropped; the model's own calls and the script's result are untouched.
+
+**Guards.** A nested call is not a model step (spec §6.5 expected it to count; it cannot without SDK events):
+
+- the step limit and the repeated-call guard see the `code_mode` call, not what it does — five identical
+  scripts with identical results are a repeat like any other;
+- a script is bounded by its own policy (100 calls, 8 at once, 120 s, 10 s of CPU, above), and the scripts
+  of one turn together by `CODE_MODE_TURN_CALLS` (300 calls): one script per step would otherwise allow
+  about 10,000 calls into the catalog's servers in a turn. Past either limit the message says the calls
+  before it ran, so the model checks before repeating a write;
+- a script's tool input loses `__proto__` and a `constructor` carrying a `prototype` (`withoutPrototypeKeys`,
+  what secure-json-parse removes): the bridge hands a tool the script's JSON, where they are ordinary keys;
+- the per-tool caps inside `execute` count nested calls as they are: the web tools' 50 calls per run, the
+  external MCP servers' 50;
+- the idle watchdog is paused while `code_mode` runs, as for any tool;
+- tools cost no credits; the model steps around a script are billed as before, and the run's credit budget
+  and deadline apply.
+
+**The envelope** wraps the script's result as it wraps any tool result, under the server `code-mode`.
+
+**Errors the model can act on** (`scriptErrorMessage`):
+
+- A tool failure inside a script is rethrown as `CodeModeToolError(message)`, which the script can catch and
+  which, uncaught, fails the script with the tool's own message. Any other error the package replaces with
+  "Host tool failed.", which tells the model nothing. Each carries a **code of its own**
+  (`CODE_MODE_TOOL_ERROR:<nested call id>`): the package keeps every such error a script's calls threw and,
+  when the script fails, reports the first with the failure's code (`findPreservedCodeModeError`), so with the
+  class's shared code a script that caught one failure and died of a later one was reported as the first.
+- The package's and `run`'s limits are translated into sentences: CPU, wall clock, bridge limit, an
+  unawaited call ("await every tool call"), a full pool, a source too large, a result too large ("write the
+  data to a file with write_file and return its path"). A syntax error or the script's own `throw` keeps its
+  name and message.
+- An abort is passed through untouched: it is the turn's, not the script's, and the loop must recognise it.
+
+The failure reaches the model as the `code_mode` call's `output-error`, enveloped like any thrown failure.
+
+## One library: papaparse, for CSV
+
+A script gets one library, papaparse (`Papa`, exact-pinned 5.7.0), and the rule is that it stays the only one
+unless another has a case as strong.
+
+**Why CSV deserves one.** CSV is data-fair's own export format, and the format the others converge to: data-fair
+parses spreadsheets, GeoJSON and the rest, and its exports come out as CSV or JSON, with CSV the smaller and the
+more readable for a person and a model alike. JSON needs no library. CSV does: splitting on lines and commas, what a
+model writes by default, breaks on quoted fields — data-fair exports quote any field with a comma or a line break.
+
+**Why papaparse** (measured in `run`, 2026-10-14, on a 52 MB data-fair-like CSV):
+
+| Parser | Downloads/week | Gzip | Inside QuickJS |
+|---|---|---|---|
+| papaparse | 17M | 7.4 KB | 9.4 MB/s as rows, 5.2 MB/s as objects |
+| csv-parser (data-fair's reader) | 3M | - | does not run: needs Node streams |
+| csv-parse (used in data-fair once) | 21M | 14 KB | runs only as its browser build, at 0.38 MB/s (`Buffer` polyfilled) |
+| d3-dsv | 24M | 1.7 KB | `csvParseRows` 8 MB/s; `csvParse` refused (`new Function`) |
+
+papaparse is also the one a model knows best by name (`Papa.parse`, `Papa.unparse`). **Where it is announced
+matters**: as one sentence in the prose after the signatures, two scripts in three still hand-rolled a CSV parser
+(simulation, 2026-10-14). It is now declared in TypeScript right after the tools (`declare const Papa`, its two
+calls and their options), the API block a script's author reads, and `read_file` and `write_file` name it in their
+own descriptions, at the point of use.
+
+**Dates.** A script's local time zone is the server's (QuickJS takes the host's: Paris on a developer's machine, UTC
+in the image, which sets no `TZ`), never the task's. Scripts built "today at midnight" without a `Z` and compared it
+with date-only strings, which are UTC: a cutoff a day early. The description says to work in UTC — compare
+`YYYY-MM-DD` strings, or give every date-time a `Z`.
+
+**Why loading is explicit and costly on purpose.** A library is source added to every script that uses it, inside a
+sandbox that interprets it. So it is loaded only by a script that names `Papa`, declared below the script (a
+hoisted function) so line numbers stay the model's, and it does not count toward the script's 64 KiB. Each further
+library would need the same argument. Considered and declined:
+
+- **Dates.** QuickJS has neither `Intl` nor `Temporal`, and `toLocaleString` silently ignores a time zone. dayjs
+  fails on the sandbox's frozen intrinsics, luxon needs `Intl`, and date-fns's time-zone package needs `Intl` too.
+  UTC arithmetic on `Date` works and covers comparing dates; time-zone work would be a host function, when a case asks.
+- **Dataframes.** pandas is what full sandboxes preinstall (Anthropic's and Gemini's code execution), and it is
+  Python. The JavaScript ones do not run here (arquero needs `TextDecoder`, danfo.js pulls in TensorFlow.js,
+  data-forge depends on dayjs). Array methods over papaparse's rows are the idiom.
+- **A Node `fs` lookalike.** No module provides one over a custom store inside QuickJS (memfs needs Node built-ins,
+  ZenFS exceeds `run`'s source limit), no light code mode offers one, and the file tools a script shares with the
+  model are what it is told about. Bulk data goes through data-fair, not through the sandbox (see the transfer budget).
+
+## Console and result
+
+The package writes `console.*` to the worker's stdout — the **server's** logs — and returns only the value,
+so a script's diagnostics would leak into the logs and never reach the model. A prelude (`wrapScript`)
+shadows `console` inside the script, overwrites the methods of `globalThis.console` (a read-only global
+whose methods are writable; without it `globalThis.console.log` still reached the server's stdout), and
+returns `{ value, logs }`; it sits entirely on the script's first
+line, so a syntax error or a stack names the line the model wrote. Values are logged as `JSON.stringify`
+would, falling back to `String` for a circular value or a BigInt.
+
+What the model reads (`renderScriptResult`): the value (a string as is, anything else as indented JSON, or
+"The script returned nothing."), cut at **20,000** characters with the same truncation notice as any large
+result ([context management](./context-management.md)), then "Console output:" and the log, cut at 5,000.
+
+## Description cost
+
+The signatures repeat the direct tools' input schemas, so every turn pays for the tool set roughly twice.
+That cost is the spec's choice: no tool is code-only, because hiding a tool from the model is a context
+optimisation to decide with measurements, not by default. The package's examples block called every tool in
+one `Promise.all`, growing linearly with the set, and was dropped. Measuring the footprint is macro review
+R4, pending.
+
+## Code
+
+- `api/src/code-mode/operations.ts` — pure: the policy, the prelude, result rendering, error translation,
+  the description, `codeCallable`.
+- `api/src/code-mode/tool.ts` — the tool over `createCodeModeTool`; `configureCodeMode` (the pool, from
+  `api/src/server.ts`).
+- `api/src/code-mode/code-tools.ts` — the code-facing map (`codeFacingTools`) and the trace
+  (`createCodeTrace`).
+- `api/src/files/call-path.ts` — mode `'code'`: `codeExecute`, link records.
+- `api/src/files/tools.ts` — `createFileCodeExecutes`; `api/src/mcp-servers/client.ts`, `external.ts` —
+  the MCP `codeExecute`; `api/src/agent-session/browser-tools.ts` — `rawBrowserToolSet`.
+- `api/src/conversations/model-loop.ts` — `assembleTools` builds it with the live set; the trace is stored
+  as a `data-trace` part (`storeTrace`).
+
+Tests: `tests/features/code-mode/code-mode.unit.spec.ts` (the engine against the real package: sandbox,
+console, line numbers, errors, limits, abort, description), `code-tools.unit.spec.ts` (`codeCallable`, data
+and recording, failures, the uncaught failure reported as itself, bounded inputs, a trace closed after a
+timeout with nothing sent after it, coalesced frames, the file tools' return types),
+`tests/features/autonomous-agents/external-mcp.unit.spec.ts` (a call's abort signal reaches the MCP request), `code-mode.api.spec.ts` (through the mock model: `structuredContent` and nested
+records, files end to end, gated and reserved tools absent, errors, the personal assistant, self-knowledge),
+`code-mode.e2e.spec.ts` (a chip in the chat, the nested calls in a panel under the `code_mode` call on the review page),
+`tests/features/files/call-path.unit.spec.ts` (mode `'code'`). The fixture's `closure_stats` returns
+`structuredContent` without an `outputSchema`, as data-fair's MCP does. The unattended simulation case
+`code-mode-clean-and-import-task-run` does export, filter and import in one script.
+
+## Sources
+
+- `@ai-sdk/code-mode`: https://ai-sdk.dev/docs/ai-sdk-core/code-mode ; `run`: https://github.com/vercel-labs/run
+- vercel/ai#18143 (approvals in code mode): https://github.com/vercel/ai/issues/18143 ; #18144 (telemetry and
+  lifecycle hooks for nested calls): https://github.com/vercel/ai/issues/18144 ; #20572 (code-mode conversation messages):
+  https://github.com/vercel/ai/pull/20572
+- Anthropic, programmatic tool calling: https://platform.claude.com/docs/en/agents-and-tools/tool-use/programmatic-tool-calling ;
+  code execution with MCP: https://www.anthropic.com/engineering/code-execution-with-mcp
+- Cloudflare, Code Mode: https://blog.cloudflare.com/code-mode/
+- CaMeL, Defeating Prompt Injections by Design: https://arxiv.org/abs/2503.18813
+- isolated-vm escape GHSA-864f-rcv7-6rh4: https://endorlabs.com/learn/ghsa-864f-rcv7-6rh4-critical-type-confusion-vulnerability-in-isolated-vm
+- QuickJS-ng CVE-2026-3979: https://osv.dev/vulnerability/CVE-2026-3979

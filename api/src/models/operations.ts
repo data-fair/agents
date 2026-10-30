@@ -4,19 +4,18 @@
  */
 
 import type { Provider } from '#types'
-import type { LanguageModel } from 'ai'
+import { simulateStreamingMiddleware, wrapLanguageModel, type LanguageModel, type LanguageModelMiddleware } from 'ai'
 import { createOpenAI } from '@ai-sdk/openai'
 import { createOpenAICompatible } from '@ai-sdk/openai-compatible'
 import { createAnthropic } from '@ai-sdk/anthropic'
-import { createGoogleGenerativeAI } from '@ai-sdk/google'
+import { createGoogle } from '@ai-sdk/google'
 import { createMistral } from '@ai-sdk/mistral'
 import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
 import { createDebugFetch } from './debug-fetch.ts'
 import { createMockLanguageModel } from './mock-model.ts'
-import { createEvaluatorMockLanguageModel } from './evaluator-mock-model.ts'
 
-export { createMockLanguageModel, createEvaluatorMockLanguageModel }
+export { createMockLanguageModel }
 
 /**
  * Scaleway's Generative APIs are reached at https://api.scaleway.ai/v1, but an
@@ -29,12 +28,56 @@ export function scalewayBaseURL (projectId?: string): string {
   return trimmed ? `https://api.scaleway.ai/${trimmed}/v1` : 'https://api.scaleway.ai/v1'
 }
 
-// Shared @ai-sdk/openai-compatible provider name for the scaleway + openai-compatible
-// routes. It is the key under which callers pass providerOptions (e.g. reasoningEffort),
-// so keep it a single constant rather than per-provider names.
-export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openai-compatible'
+// Shared @ai-sdk/openai-compatible provider name for the scaleway + openai-compatible routes: the key under
+// which callers pass providerOptions (e.g. reasoningEffort), so a single constant rather than per-provider
+// names. camelCase, because @ai-sdk/openai-compatible 3 reads provider options under the camelCase form of
+// this name and flags any other spelling as deprecated on every call.
+export const OPENAI_COMPATIBLE_PROVIDER_NAME = 'openaiCompatible'
 
+/**
+ * Asks for prompt caching, for the calls that send a growing prefix again: the lead loop's steps,
+ * memory consolidation. Passed by those call sites only.
+ *
+ * Anthropic is the one provider that caches only when asked. A request-level `cacheControl` becomes
+ * its top-level `cache_control` (automatic mode): the cache point is the request's last block, so a
+ * step reads what the previous step wrote, and no call can exceed the four explicit cache points
+ * a request may carry. Every other provider ignores the `anthropic` key and caches identical
+ * prefixes on its own (OpenAI, Gemini, DeepSeek, vLLM-served models behind openai-compatible), so
+ * the call sites pass it without looking at the provider.
+ *
+ * One-off calls (compaction, title, summary, moderation) do not pass it: a cache
+ * write costs 1.25x the input price at Anthropic, and they would not read it back. Not asking is how
+ * an Anthropic call is kept out of the cache.
+ */
+export const CACHED_PREFIX_PROVIDER_OPTIONS = { anthropic: { cacheControl: { type: 'ephemeral' } } } as const
+
+/**
+ * The model for a provider entry, with the one serving workaround applied where it is needed.
+ *
+ * Every model is built here, so every role gets it — the turn, memory consolidation, compaction.
+ */
 export function createModel (provider: Provider, modelId: string): LanguageModel {
+  const model = buildProviderModel(provider, modelId)
+  if (!streamedToolCallsBroken(provider.type, modelId)) return model
+  return wrapLanguageModel({ model: model as any, middleware: nonStreamingWithTools })
+}
+
+/**
+ * A request that offers TOOLS is served by a non-streaming call, replayed as a stream; any other
+ * request streams as usual. See streamedToolCallsBroken: without it a tool-using turn on GLM through Scaleway ends
+ * silently, its tool call dropped by the upstream.
+ */
+export const nonStreamingWithTools: LanguageModelMiddleware = (() => {
+  const simulated = simulateStreamingMiddleware()
+  return {
+    specificationVersion: 'v4',
+    wrapStream: options => options.params.tools?.length
+      ? simulated.wrapStream!(options)
+      : options.doStream()
+  } as LanguageModelMiddleware
+})()
+
+function buildProviderModel (provider: Provider, modelId: string): LanguageModel {
   // Wrap the provider's fetch with the provider-scoped debug logger. When the
   // DEBUG namespace is off this returns the global fetch unchanged, so there is
   // no added cost.
@@ -46,7 +89,7 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
     case 'anthropic':
       return createAnthropic({ apiKey: provider.apiKey, ...f })(modelId)
     case 'google':
-      return createGoogleGenerativeAI({ apiKey: provider.apiKey, ...f })(modelId)
+      return createGoogle({ apiKey: provider.apiKey, ...f })(modelId)
     case 'mistral':
       return createMistral({ apiKey: provider.apiKey, ...f })(modelId)
     case 'openrouter':
@@ -70,14 +113,13 @@ export function createModel (provider: Provider, modelId: string): LanguageModel
       return createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL, ...f })(modelId)
     }
     case 'mock':
-      if (modelId === 'evaluator-mock-model') return createEvaluatorMockLanguageModel()
       return createMockLanguageModel(modelId)
     default:
       throw new Error(`Unknown provider type: ${(provider as Provider).type}`)
   }
 }
 
-export type ModelRole = 'assistant' | 'evaluator' | 'summarizer' | 'tools' | 'moderator'
+export type ModelRole = 'assistant' | 'summarizer' | 'tools' | 'moderator'
 
 /**
  * Used when neither the admin nor the provider listing supplies a window. Sized
@@ -94,9 +136,8 @@ export const UNKNOWN_CONTEXT_WINDOW = 128_000
  * while the identical `stream:false` request returns the tool call correctly. Every
  * other Scaleway model tested (qwen3.5-397b, qwen3-235b, gpt-oss-120b — itself a
  * reasoning model — and devstral-2-123b) streams tool calls fine, so this is a
- * model-specific serving bug, not a provider-wide one. The gateway works around it by
- * issuing the upstream call non-streaming when tools are present (it still streams SSE
- * to the client). Covers both the direct `scaleway` provider (model id "glm-5.2") and
+ * model-specific serving bug, not a provider-wide one. Worked around by serving a request that
+ * offers tools from a NON-streaming call (`nonStreamingWithTools`, applied by createModel) Covers both the direct `scaleway` provider (model id "glm-5.2") and
  * the `openai-compatible` → LiteLLM passthrough (model id "glm-5.2-scw").
  *
  * Re-check whether the upstream is still broken with `dev/scripts/scw-toolcall-probe.mjs`;
@@ -275,7 +316,7 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
 }
 
 /**
- * Token budget above which the chat client compacts history. Callers resolve the
+ * Token budget above which the server loop compacts history. Callers resolve the
  * seat whose history is actually compacted (the assistant) and pass its entry, so
  * the window is the one of the model that will have to swallow it. `percent` is
  * deployment-global config (`compactionPercent`), passed in rather than read here
@@ -289,7 +330,6 @@ const FALLBACK_CHAINS: Record<ModelRole, ModelRole[]> = {
   assistant: ['assistant'],
   tools: ['tools', 'assistant'],
   summarizer: ['summarizer', 'assistant'],
-  evaluator: ['evaluator', 'assistant'],
   moderator: ['moderator', 'summarizer', 'assistant']
 }
 

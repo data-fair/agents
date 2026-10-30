@@ -35,6 +35,27 @@ test.describe('getEffectiveRole', () => {
     assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'user')
   })
 
+  test('a superadmin in admin mode is an admin of any account', () => {
+    // As the library's getAccountRole has it: billed and quota'd as an admin there, and allowed to decide
+    // what only an admin decides (an approval of a planning call).
+    const session = { ...makeSession('user', 'superadmin', 'admin'), user: { id: 'superadmin', adminMode: true } }
+    assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'admin')
+  })
+
+  test('a department session has no role on its organization\'s root account', () => {
+    // The stack's rule (lib-common-types matchAccount): a department's role is the department's, and grants
+    // nothing implicitly on the organization itself. An admin of one department counted as the
+    // organization's admin: the admin quota, and the decisions only an admin makes.
+    const inDepartment = (role: string) => ({ ...makeSession('organization', 'org1', role), account: { type: 'organization', id: 'org1', department: 'dep1' } })
+    assert.equal(getEffectiveRole(inDepartment('admin') as any, makeOwner('organization', 'org1')), 'external')
+    assert.equal(getEffectiveRole(inDepartment('user') as any, makeOwner('organization', 'org1')), 'external')
+  })
+
+  test('a person is the admin of their own account, whichever organization they are switched to', () => {
+    const session = { ...makeSession('organization', 'org1', 'user'), user: { id: 'user1' } }
+    assert.equal(getEffectiveRole(session as any, makeOwner('user', 'user1')), 'admin')
+  })
+
   test('different account returns external', () => {
     const session = makeSession('user', 'user1', 'admin')
     assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'external')

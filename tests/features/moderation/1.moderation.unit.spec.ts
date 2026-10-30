@@ -16,10 +16,8 @@ test.describe('moderation prompt', () => {
     assert.ok(prompt.toLowerCase().includes('data platform'))
   })
 
-  test('keeps data/sub-agent tasks in scope but general software work out, biasing to allow', () => {
+  test('keeps data tasks in scope but general software work out, biasing to allow', () => {
     const prompt = buildModerationSystemPrompt().toLowerCase()
-    // legitimate data and delegated sub-agent work must not be treated as off-scope abuse
-    assert.ok(prompt.includes('sub-agent'))
     // small platform-data/API scripts are explicitly allowed...
     assert.ok(prompt.includes('script'))
     assert.ok(prompt.includes('api'))
