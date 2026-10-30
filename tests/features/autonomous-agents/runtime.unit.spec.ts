@@ -72,12 +72,14 @@ test.describe('buildSystemPrompt', () => {
     assert.ok(buildSystemPrompt(agent, undefined, 'chat').includes(APPROVAL_NOTE))
     assert.match(APPROVAL_NOTE, /cancelled/)
     assert.match(APPROVAL_NOTE, /result is in front of you/)
+    // A judged run announced the action and ended its turn without calling it: the sentence goes WITH the call.
+    assert.match(APPROVAL_NOTE, /in the same reply as the call/)
     assert.ok(!buildSystemPrompt(agent, undefined, 'task').includes(APPROVAL_NOTE))
   })
 
   test('the date line asks for dates in the data to be compared with it', () => {
     // Every judged closures run called closures starting tomorrow « current ».
-    assert.match(buildSystemPrompt(agent, undefined, 'chat'), /Today is [^\n]*\. Compare the dates in what you read with it/)
+    assert.match(buildSystemPrompt(agent, undefined, 'chat'), /Today is [^\n]*\. When what you report carries dates, say which apply today/)
   })
 
   test('server guides go after the identity clauses and before memory', () => {

@@ -39,7 +39,7 @@ test.describe('the personal assistant', () => {
 
   test('the persona keeps next steps to what is on the page', () => {
     // Judged runs told the person to « save the form » on a page with no save button.
-    assert.match(portal().persona, /only to buttons or steps you have seen on the page/)
+    assert.match(portal().persona, /mention saving, submitting or any further step only when the page or its tools show one/)
   })
 
   test('is shaped like any other agent the tool gatherer accepts', () => {

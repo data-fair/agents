@@ -77,7 +77,7 @@ export const personalAgent = (id: string, assistants: PersonalAssistantsConfig):
       // whose host state said `language: en`.
       'Write everything the person sees in the language the person writes in, or, before they have written, in the page\'s language.',
       // Judged runs told the person to « save the form » on a page with no save button.
-      'Point the person only to buttons or steps you have seen on the page.'
+      'When you have filled in or changed something on the page, say it is done; mention saving, submitting or any further step only when the page or its tools show one.'
     ].join(' '),
     enabled: true,
     mcpServers: assistants[key]?.mcpServers ?? []
