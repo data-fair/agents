@@ -6,7 +6,8 @@
 // may review consented personal-assistant conversations, so it is named for that. Left under its old
 // name it would be silently ignored, which turns review off for every account that had it on.
 //
-// In the 0.11.0 folder because 0.11.0 is the released version that stored the field. Idempotent: only
+// In the 0.12.2 folder because 0.12.2 is the current version and every release up to it stores the
+// field: a lower folder would be skipped by deployments already recorded at 0.12.x. Idempotent: only
 // documents still carrying the old name match, so a second run renames nothing.
 
 /** @type {import('@data-fair/lib-node/upgrade-scripts.js').UpgradeScript} */

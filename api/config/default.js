@@ -34,10 +34,6 @@ export default {
   // minIntervalSeconds, an agent holds at most maxPerAgent tasks, and a task is paused after
   // maxConsecutiveFailures failed runs in a row.
   tasks: { minIntervalSeconds: 3600, maxPerAgent: 20, pollSeconds: 10, maxConsecutiveFailures: 5 },
-  // ES256 private JWK used to sign NHI assertions. Absent = the autonomous agent NHI
-  // feature is off: the issuer routes 404 and no assertion can be minted. The issuer
-  // identifier is captured per-request from the proxied request that enrols an
-  // autonomous agent (reqSiteUrl) rather than configured here.
   defaultModels: {},
   // Euros of inference cost per credit. 0.008 EUR lets a credit resell for about a
   // euro cent with an implicit 20% margin. It MUST match the credit cost in
