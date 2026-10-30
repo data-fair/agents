@@ -25,6 +25,11 @@ jobs:
     - name: Build types
       run: npm run build-types
 
+    # their compiled .js is gitignored, and specs import them by package name: lib-vue/lib-vuetify for
+    # the chat composables, lib-sim for the simulation cases. lib-vue first, lib-vuetify builds on it.
+    - name: Build workspace packages
+      run: npm -w lib-vue run build && npm -w lib-vuetify run build && npm -w lib-sim run build
+
     - name: Build UI
       run: npm -w ui run build
 
