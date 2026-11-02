@@ -12,8 +12,8 @@ import { SKILLS_EXTENSION, skillsFromList, type GuideSkill } from './guides.ts'
 /** Every agents MCP client declares the skills extension (negotiated per SEP-2133). */
 export const MCP_CLIENT_CAPABILITIES = { extensions: { [SKILLS_EXTENSION]: {} } }
 
-const SkillsListResult = z.object({ skills: z.array(z.any()).optional(), nextCursor: z.string().optional() }).passthrough()
-const SkillsGetResult = z.object({ skill: z.any() }).passthrough()
+const SkillsListResult = z.object({ skills: z.array(z.any()).optional(), nextCursor: z.string().optional() }).loose()
+const SkillsGetResult = z.object({ skill: z.any() }).loose()
 
 /** Pages followed at most: a listing is bounded anyway (GUIDE_LIMITS.skills), this only stops a looping cursor. */
 const MAX_PAGES = 20

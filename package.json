@@ -29,11 +29,6 @@
     "type": "git",
     "url": "git+https://github.com/data-fair/agents.git"
   },
-  "overrides": {
-    "@anthropic-ai/claude-agent-sdk": {
-      "zod": "3.25.76"
-    }
-  },
   "workspaces": [
     "ui",
     "api",

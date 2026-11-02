@@ -7,7 +7,6 @@ import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
-import { z as z4 } from 'zod/v4'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
@@ -337,8 +336,8 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     {
       description: 'Imports a CSV file as a new table',
       inputSchema: {
-        file: z4.string().meta({ format: 'uri', 'x-mcp-file': { accept: ['text/csv'], maxSize: 10_000_000 } }).describe('The CSV file to import'),
-        title: z4.string().describe('The title of the new table')
+        file: z.string().meta({ format: 'uri', 'x-mcp-file': { accept: ['text/csv'], maxSize: 10_000_000 } }).describe('The CSV file to import'),
+        title: z.string().describe('The title of the new table')
       }
     },
     async ({ file, title }) => {

@@ -11,7 +11,6 @@
     "check-types": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@data-fair/agent-tools-data-fair": "^0.6.3",
     "@data-fair/frame": "^0.18.0",
     "@data-fair/lib-utils": "^1.13.1",
     "@data-fair/lib-vue": "^1.31.1",
