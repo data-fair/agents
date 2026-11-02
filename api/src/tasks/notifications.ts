@@ -4,6 +4,7 @@
 import config from '#config'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
 import type { TaskEvent } from './operations.ts'
+import log from '@data-fair/lib-node/log.js'
 
 /**
  * Never throws: a notification is best-effort, and what follows it (a task's pause) must not depend on
@@ -17,6 +18,6 @@ export const pushTaskEvent = (event: TaskEvent) => {
     // A copy: the queue stamps the event's date onto the object it is given.
     eventsQueue.pushEvent({ ...event })
   } catch (err) {
-    console.error(`the task notification ${event.topic.key} could not be pushed`, err)
+    log.error('a task notification could not be pushed', { code: 'task-notification-push', topic: event.topic.key, err })
   }
 }

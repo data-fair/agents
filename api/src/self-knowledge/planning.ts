@@ -9,7 +9,7 @@
  */
 import { tool, jsonSchema, type Tool } from 'ai'
 import type { AccountKeys } from '@data-fair/lib-express'
-import type { EventLogContext } from '@data-fair/lib-express/events-log.js'
+import { withLogContext } from '@data-fair/lib-node/log.js'
 import type { Account } from '@data-fair/lib-common-types/session/index.js'
 import type { ServiceToolContext } from '../conversations/service-tools.ts'
 import { createTask, updateTask, deleteTask, getTask, type TaskActor } from '../tasks/service.ts'
@@ -72,10 +72,12 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
     if (!userId) throw new Error('no person approved this change')
     return { userId, ...(userName ? { userName } : {}), ...(run.conversationId ? { conversationId: run.conversationId } : {}) }
   }
-  // The same events-log entry as the admin route's, for the account and the approver (no request here).
-  const log = (): EventLogContext => {
+  // The task service's audit line, attributed to the account and the approver as the admin route's is by
+  // its request context (there is no request here).
+  const asApprover = <T>(fn: () => Promise<T>): Promise<T> => {
     const { userId, userName } = actor()
-    return { account: run.owner as Account, user: { id: userId, name: userName ?? userId } }
+    const account = run.owner as Account
+    return withLogContext({ userId, userName: userName ?? userId, accountKey: `${account.type}.${account.id}`, accountName: account.name }, fn)
   }
 
   return {
@@ -84,7 +86,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       inputSchema: jsonSchema<unknown>(taskSchema),
       needsApproval: true,
       execute: async (input: unknown) => {
-        const task = await guarded(async () => createTask(owner, agent, taskWriteReq.returnValid(input, { name: 'input' }), actor(), log()))
+        const task = await guarded(async () => asApprover(() => createTask(owner, agent, taskWriteReq.returnValid(input, { name: 'input' }), actor())))
         return planned(actor(), 'planned', task)
       }
     }),
@@ -98,7 +100,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       needsApproval: true,
       execute: async (input: any) => {
         const { taskId, ...body } = input ?? {}
-        const task = await guarded(async () => updateTask(owner, agent, String(taskId ?? ''), taskWriteReq.returnValid(body, { name: 'input' }), actor(), log()))
+        const task = await guarded(async () => asApprover(() => updateTask(owner, agent, String(taskId ?? ''), taskWriteReq.returnValid(body, { name: 'input' }), actor())))
         return planned(actor(), 'updated', task)
       }
     }),
@@ -110,7 +112,7 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
         const taskId = String(input?.taskId ?? '')
         // Read first: a task deleted since the call was asked is a 404 here, not a silent success.
         const { title } = await guarded(() => getTask(owner, agent.id, taskId))
-        await guarded(async () => deleteTask(owner, agent.id, taskId, log()))
+        await guarded(async () => asApprover(() => deleteTask(owner, agent.id, taskId)))
         return `${approvedBy(actor())} Task "${title}" is deleted.`
       }
     })

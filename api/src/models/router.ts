@@ -10,6 +10,7 @@ import memoize from 'memoizee'
 import { privateAxiosInstance as axios } from '@data-fair/lib-node/axios.js'
 import type { Model, Provider, Settings } from '#types'
 import { scalewayBaseURL, describeFetchError } from './operations.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const router = Router()
 export default router
@@ -177,7 +178,7 @@ export const getModelsForOwner = memoize(
         // Log only the compact description: this is an expected, surfaced error
         // (returned in `errors` below), so dumping the full Axios object with its
         // request/stack just floods the logs without adding actionable detail.
-        console.warn(`Failed to fetch models for provider ${provider.type}/${provider.id}: ${status ? `[${status}] ` : ''}${message}`)
+        log.warn(`failed to fetch the models of a provider: ${status ? `[${status}] ` : ''}${message}`, { code: 'provider-models-fetch', providerType: provider.type, providerId: provider.id })
         errors.push({ providerId: provider.id, providerName: provider.name, providerType: provider.type, status, message })
       }
     }

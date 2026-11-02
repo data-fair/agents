@@ -1,6 +1,7 @@
 import type { ApiConfig } from '../config/type/index.ts'
 import { assertValid } from '../config/type/index.ts'
 import nodeConfig from 'config'
+import log from '@data-fair/lib-node/log.js'
 import { assertGlobalAiConfig } from './models/operations.ts'
 import { assertGlobalMcpConfig, assertPersonalAssistantsConfig } from './mcp-servers/operations.ts'
 import { assertFilesConfig } from './files/operations.ts'
@@ -12,7 +13,7 @@ assertValid(config, { lang: 'en', name: 'config', internal: true })
 
 assertGlobalAiConfig(config.providers ?? [], config.models ?? [], config.defaultModels ?? {})
 assertGlobalMcpConfig(config.mcpServers ?? [])
-if (!config.privateMcpUrl) console.log('[mcp] PRIVATE_MCP_URL is not set: autonomous agents have no built-in data-fair server, only their catalog servers')
+if (!config.privateMcpUrl) log.warn('PRIVATE_MCP_URL is not set: autonomous agents have no built-in data-fair server, only their catalog servers', { code: 'config-no-private-mcp' })
 assertPersonalAssistantsConfig(config.personalAssistants ?? {}, config.mcpServers ?? [])
 assertFilesConfig(config.files)
 

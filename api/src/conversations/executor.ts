@@ -48,6 +48,7 @@ import { agentGuide, readAgentSkill, AGENT_SKILLS_SERVER } from '../self-knowled
 import { runModelLoop } from './model-loop.ts'
 import { liveRuns, watchStopRequests, type LiveRun } from './live-runs.ts'
 import { acceptingTurns } from './shutdown.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -479,7 +480,7 @@ export const recoverOwnerlessRuns = async (scope: Record<string, unknown> = {}):
     if (!existing) {
       resumed++
       // Not awaited as a group: each acquires the conversation lock itself and drains from there.
-      startRun(run).catch(err => console.error('autonomous agent run failed to resume', err))
+      startRun(run).catch(err => log.error('autonomous agent run failed to resume', { code: 'run-resume', runId: run.id, err }))
       continue
     }
     // Only while the message is still PENDING. A turn can finish between the candidate read and the
@@ -500,8 +501,8 @@ export const recoverOwnerlessRuns = async (scope: Record<string, unknown> = {}):
     if (closed) interrupted++
   }
 
-  if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} started run(s) left behind by a dead process`)
-  if (resumed) console.log(`[autonomous-agents] resumed ${resumed} run(s) that had not started yet`)
-  if (skipped) console.log(`[autonomous-agents] left ${skipped} running run(s) alone: another instance holds their conversation`)
+  if (interrupted) log.info(`interrupted ${interrupted} started run(s) left behind by a dead process`)
+  if (resumed) log.info(`resumed ${resumed} run(s) that had not started yet`)
+  if (skipped) log.info(`left ${skipped} running run(s) alone: another instance holds their conversation`)
   return { interrupted, resumed, skipped }
 }

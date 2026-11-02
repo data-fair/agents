@@ -12,8 +12,8 @@
   },
   "dependencies": {
     "@data-fair/frame": "^0.18.0",
-    "@data-fair/lib-utils": "^1.13.1",
-    "@data-fair/lib-vue": "^1.31.1",
+    "@data-fair/lib-utils": "^1.14.1",
+    "@data-fair/lib-vue": "^1.33.0",
     "@data-fair/lib-vue-agents": "*",
     "@data-fair/lib-vuetify": "^2.5.3",
     "@data-fair/lib-vuetify-agents": "*",

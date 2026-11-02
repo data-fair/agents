@@ -14,6 +14,7 @@ import config from '#config'
 import { nextRunAfter, isScheduleSlot, earliestAfterRun } from './operations.ts'
 import { startTaskRun, isTaskRunning } from './execution.ts'
 import { acceptingTurns } from '../conversations/shutdown.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const BATCH = 50
 
@@ -64,7 +65,7 @@ export const runSchedulerPass = async (now: Date = new Date(), scope: Record<str
           { id: task.id, nextRunAt: slot },
           { $set: { pausedReason: `its schedule cannot be computed: ${err.message}` }, $unset: { nextRunAt: '' } }
         )
-        if (paused.modifiedCount === 1) console.error(`task scheduler: task ${task.id} paused, its schedule cannot be computed`, err)
+        if (paused.modifiedCount === 1) log.error('task paused, its schedule cannot be computed', { code: 'task-schedule-invalid', taskId: task.id, err })
         continue
       }
       // Shutdown: the slot is left unclaimed for another instance rather than spent on a refused start.
@@ -83,7 +84,7 @@ export const runSchedulerPass = async (now: Date = new Date(), scope: Record<str
       if ('refused' in started || started.run.status === 'skipped') skipped++
       else fired++
     } catch (err) {
-      console.error(`task scheduler: task ${task.id} failed`, err)
+      log.error('task scheduler failed on a task', { code: 'task-scheduler', taskId: task.id, err })
     }
   }
   return { fired, skipped }

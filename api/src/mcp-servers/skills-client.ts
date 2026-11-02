@@ -8,6 +8,7 @@
 import type { Client } from '@modelcontextprotocol/sdk/client/index.js'
 import { z } from 'zod'
 import { SKILLS_EXTENSION, skillsFromList, type GuideSkill } from './guides.ts'
+import log from '@data-fair/lib-node/log.js'
 
 /** Every agents MCP client declares the skills extension (negotiated per SEP-2133). */
 export const MCP_CLIENT_CAPABILITIES = { extensions: { [SKILLS_EXTENSION]: {} } }
@@ -38,7 +39,7 @@ export const listServerSkills = async (client: Client, serverLabel: string, time
       if (!cursor) break
     }
   } catch (err: any) {
-    console.warn(`MCP server "${serverLabel}": skills/list failed, its skills are left out: ${err.message}`)
+    log.warn('skills/list of an MCP server failed, its skills are left out', { code: 'mcp-skills-list', mcpServer: serverLabel, err })
     return []
   }
   return skills

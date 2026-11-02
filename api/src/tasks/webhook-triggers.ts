@@ -7,7 +7,8 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto'
 import mongo from '#mongo'
 import { type AccountKeys, httpError } from '@data-fair/lib-express'
-import eventsLog, { type EventLogContext } from '@data-fair/lib-express/events-log.js'
+import log from '@data-fair/lib-node/log.js'
+import { ownerLogFields } from '../log-fields.ts'
 import config from '#config'
 import { addPendingTrigger, triggerDecision } from './operations.ts'
 import { startTaskRun, isTaskRunning } from './execution.ts'
@@ -40,11 +41,11 @@ export const readWebhookKey = async (owner: AccountKeys, agentId: string, taskId
 }
 
 /** A new key; the old one stops working at once. */
-export const regenerateWebhookKey = async (owner: AccountKeys, agentId: string, taskId: string, log: EventLogContext): Promise<string> => {
+export const regenerateWebhookKey = async (owner: AccountKeys, agentId: string, taskId: string): Promise<string> => {
   const webhookKey = newWebhookKey()
   const result = await mongo.autonomousAgentTasks.updateOne(taskFilter(owner, agentId, taskId), { $set: { webhookKey } })
   if (!result.matchedCount) throw httpError(404, 'unknown task')
-  eventsLog.info('agents.task.webhook-key', `trigger key of planned task ${taskId} of agent ${agentId} of ${owner.type}/${owner.id} regenerated`, log)
+  log.info('trigger key of a planned task regenerated', { code: 'agents.task.webhook-key', taskId, agentId, ...ownerLogFields(owner) })
   return webhookKey
 }
 
@@ -56,7 +57,7 @@ const CAS_RETRIES = 5
  * stored, so a sender's retry never duplicates it. Then the payload joins the pending list and a run starts now
  * or waits (triggerDecision).
  */
-export const acceptTrigger = async (params: { owner: AccountKeys, agentId: string, taskId: string, key?: string, payload: () => string, log: EventLogContext }):
+export const acceptTrigger = async (params: { owner: AccountKeys, agentId: string, taskId: string, key?: string, payload: () => string }):
 Promise<{ status: 'started', runId: string } | { status: 'pending' }> => {
   const { owner, agentId, taskId } = params
   const task = await mongo.autonomousAgentTasks.findOne(taskFilter(owner, agentId, taskId), { projection: { _id: 0 } })
@@ -89,7 +90,7 @@ Promise<{ status: 'started', runId: string } | { status: 'pending' }> => {
     if (stored.modifiedCount === 1) break
     if (attempt >= CAS_RETRIES) throw httpError(503, 'too many simultaneous triggers, retry')
   }
-  eventsLog.info('agents.task.webhook', `planned task ${taskId} of agent ${agentId} of ${owner.type}/${owner.id} triggered by webhook`, params.log)
+  log.info('planned task triggered by webhook', { code: 'agents.task.webhook', taskId, agentId, ...ownerLogFields(owner) })
 
   const last = await mongo.runs.findOne({ kind: 'task', taskId, status: { $ne: 'skipped' } }, { projection: { _id: 0, startedAt: 1 }, sort: { startedAt: -1 } })
   const fresh = (await mongo.autonomousAgentTasks.findOne({ id: taskId }, { projection: { _id: 0 } }))!

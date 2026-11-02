@@ -29,6 +29,7 @@ import { resolveRoleModel } from '../models/service.ts'
 import { CACHED_PREFIX_PROVIDER_OPTIONS } from '../models/operations.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const debug = Debug('df-agents:memory-consolidation')
 const LOCK_ORIGIN = 'memory-consolidation'
@@ -75,7 +76,7 @@ export const maybeConsolidate = async (agentId: string, now = new Date()): Promi
     return await consolidate(agent, now)
   } catch (err) {
     if (err instanceof MemoryWithdrawnError) return { consolidated: false, reason: 'memory-off' }
-    console.error(`memory consolidation failed for agent ${agent.id}`, err)
+    log.error('memory consolidation failed', { code: 'memory-consolidation', agentId: agent.id, err })
     await mongo.autonomousAgents.updateOne({ id: agent.id }, { $set: { 'memoryConsolidation.failedAt': new Date().toISOString() } })
     return { consolidated: false, reason: 'failed' }
   } finally {
@@ -172,7 +173,7 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
       abortSignal: AbortSignal.any([withdrawn.signal, AbortSignal.timeout(CONSOLIDATION_TIMEOUT_MS)]),
       onStepEnd: async ({ usage }) => {
         await chargeModelCall({ owner: agent.owner, identity, modelRole: 'tools', entry, usage })
-          .catch(err => console.error(`memory consolidation usage not recorded for agent ${agent.id}`, err))
+          .catch(err => log.error('memory consolidation usage not recorded', { code: 'memory-consolidation-usage', agentId: agent.id, err }))
       }
     })
   } catch (err) {

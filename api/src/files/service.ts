@@ -13,6 +13,7 @@ import { S3Backend } from './s3.ts'
 import { createTurnFiles, type StoredFile, type TurnFiles } from './turn-files.ts'
 import { sweepBackend } from './sweep.ts'
 import { FILES_ROOT, isValidScope, scopeOfRun, scopePrefix, signedFileUrl, type FileScope } from './operations.ts'
+import log from '@data-fair/lib-node/log.js'
 
 let store: FileBackend | undefined | null = null
 
@@ -44,7 +45,7 @@ export const deleteConversationFiles = async (owner: { type: string, id: string 
   const backend = fileStore()
   const scope = { ownerType: owner.type, ownerId: owner.id, scopeId: conversationId }
   if (!backend || !isValidScope(scope)) return
-  await backend.removeDir(scopePrefix(scope)).catch(err => console.error(`could not delete the files of conversation ${conversationId}`, err))
+  await backend.removeDir(scopePrefix(scope)).catch(err => log.error('could not delete the files of a conversation', { code: 'files-delete', conversationId, err }))
 }
 
 /**
@@ -64,7 +65,7 @@ export const sweepFilesOnce = async (): Promise<void> => {
   if (!await locks.acquire(SWEEP_LOCK, 'files')) return
   try {
     const removed = await sweepFiles()
-    if (removed) console.log(`[files] swept ${removed} file(s) last written more than 7 days ago`)
+    if (removed) log.info(`swept ${removed} file(s) last written more than 7 days ago`, { code: 'files-sweep' })
   } finally {
     await locks.release(SWEEP_LOCK)
   }

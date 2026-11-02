@@ -4,5 +4,10 @@ import dfLibRecommended from '@data-fair/lib-utils/eslint/recommended.js'
 export default [
   { ignores: ['ui/*', '**/.type/', 'dev/*', 'node_modules/*', 'lib-vue/*.js', 'lib-vue/*.d.ts', 'lib-vuetify/*.js', 'lib-vuetify/*.d.ts', 'lib-sim/**/*.js', 'lib-sim/**/*.d.ts'] },
   ...dfLibRecommended,
-  ...neostandard({ ts: true })
+  ...neostandard({ ts: true }),
+  {
+    // server code logs through @data-fair/lib-node/log.js (its README, "Logging")
+    files: ['api/src/**/*.ts', 'api/index.ts'],
+    rules: { 'no-console': 'error' }
+  }
 ]

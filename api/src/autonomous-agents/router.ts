@@ -8,7 +8,8 @@ import { Router, type Request } from 'express'
 import { nanoid } from 'nanoid'
 import mongo from '#mongo'
 import { httpError, reqSiteUrl } from '@data-fair/lib-express'
-import eventsLog from '@data-fair/lib-express/events-log.js'
+import log from '@data-fair/lib-node/log.js'
+import { ownerLogFields } from '../log-fields.ts'
 import { getAccountRole } from '@data-fair/lib-common-types/session/index.js'
 import * as writeReqBody from '#doc/autonomous-agents/autonomous-agent-write-req/index.ts'
 import writeReqSchema from '#doc/autonomous-agents/autonomous-agent-write-req/schema.js'
@@ -111,7 +112,7 @@ router.post('/:type/:id', async (req, res, next) => {
     if (autonomousAgent.nhi?.clientId) await assertEnrolmentWorks(autonomousAgent)
     await mongo.autonomousAgents.insertOne({ ...autonomousAgent })
 
-    eventsLog.info('agents.autonomous-agent.create', `autonomous agent ${autonomousAgent.id} created for owner ${owner.type}/${owner.id}`, { req })
+    log.info('autonomous agent created', { code: 'agents.autonomous-agent.create', agentId: autonomousAgent.id, ...ownerLogFields(owner) })
     res.json(autonomousAgent)
   } catch (err) { next(err) }
 })
@@ -197,11 +198,11 @@ router.put('/:type/:id/:agentId', async (req, res, next) => {
     if (updated.enabled === false && existing.enabled !== false) {
       const stopped = await abortRunsOfAgent(existing.id)
       if (stopped) {
-        eventsLog.info('agents.autonomous-agent.disable-stopped-runs', `disabling autonomous agent ${existing.id} stopped ${stopped} live run(s)`, { req })
+        log.info(`disabling the autonomous agent stopped ${stopped} live run(s)`, { code: 'agents.autonomous-agent.disable-stopped-runs', agentId: existing.id, ...ownerLogFields(owner) })
       }
     }
 
-    eventsLog.info('agents.autonomous-agent.update', `autonomous agent ${existing.id} updated for owner ${owner.type}/${owner.id}`, { req })
+    log.info('autonomous agent updated', { code: 'agents.autonomous-agent.update', agentId: existing.id, ...ownerLogFields(owner) })
     res.json(updated)
   } catch (err) { next(err) }
 })
@@ -221,7 +222,7 @@ router.delete('/:type/:id/:agentId', async (req, res, next) => {
     // cannot erase, which is not a defensible state for a store that now holds whole tool results.
     const removed = await deleteAutonomousAgentData(req.params.agentId)
 
-    eventsLog.info('agents.autonomous-agent.delete', `autonomous agent ${req.params.agentId} deleted for owner ${owner.type}/${owner.id} with ${removed.conversations} conversation(s), ${removed.messages} message(s), ${removed.runs} run(s)`, { req })
+    log.info(`autonomous agent deleted with ${removed.conversations} conversation(s), ${removed.messages} message(s), ${removed.runs} run(s)`, { code: 'agents.autonomous-agent.delete', agentId: req.params.agentId, ...ownerLogFields(owner) })
     res.status(204).send()
   } catch (err) { next(err) }
 })
