@@ -12,7 +12,9 @@ import { apiLogs } from '../../support/api-logs.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
+// 12 hours from now, in UTC: a fixed hour put the scheduled slot before "last start + minimum interval" for
+// a run in the hour before it, and the minimum-interval assertions failed at that time of day.
+const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: (new Date().getUTCHours() + 12) % 24, minute: 0, timeZone: 'UTC' }
 const base = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
 // No session: a webhook sender is anonymous.
 const anonymous = axios.create({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
