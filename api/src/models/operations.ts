@@ -14,6 +14,7 @@ import { createOpenRouter } from '@openrouter/ai-sdk-provider'
 import { createOllama } from 'ai-sdk-ollama'
 import { createDebugFetch } from './debug-fetch.ts'
 import { createMockLanguageModel } from './mock-model.ts'
+import log from '@data-fair/lib-node/log.js'
 
 export { createMockLanguageModel }
 
@@ -343,7 +344,7 @@ export function getRoleModel (catalog: CatalogModel[], mapping: ModelMapping | u
       if (!ref) continue
       const entry = catalog.find(c => c.provider.id === ref.provider && c.id === ref.id)
       if (entry) return entry
-      console.warn(`model ref for role ${r} (${ref.provider}/${ref.id}) not found in catalog, falling back`)
+      log.warn(`model ref for role ${r} not found in catalog, falling back`, { code: 'model-ref-missing', role: r, providerId: ref.provider, model: ref.id })
     }
   }
   throw new Error(`No model configured for ${role}`)

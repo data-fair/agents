@@ -10,7 +10,8 @@
 
 import express, { Router, type Request } from 'express'
 import { httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
-import eventsLog from '@data-fair/lib-express/events-log.js'
+import log from '@data-fair/lib-node/log.js'
+import { ownerLogFields } from '../log-fields.ts'
 import * as writeReqBody from '#doc/autonomous-agents/task-write-req/index.ts'
 import { reqAgent } from '../autonomous-agents/service.ts'
 import mongo from '#mongo'
@@ -95,7 +96,7 @@ router.get('/:type/:id/:agentId/runs/:runId/export', async (req, res, next) => {
     const task = run.taskId ? await mongo.autonomousAgentTasks.findOne({ id: run.taskId }, { projection: { _id: 0, title: 1 } }) : null
     // The content travels as the two messages: left on the run record it would be written twice.
     const { prompt, parts, ...runWithoutContent } = run
-    eventsLog.info('agents.task.run-export', `task run ${run.id} of agent ${agent.id} of ${owner.type}/${owner.id} exported`, { req })
+    log.info('task run exported', { code: 'agents.task.run-export', runId: run.id, agentId: agent.id, ...ownerLogFields(owner) })
     res.attachment(`task-run-${run.id}.jsonl`)
     res.type('application/jsonl').send(buildConversationExport({
       conversation: { kind: 'task', id: run.id, taskId: run.taskId, agentId: agent.id, ...(task ? { title: task.title } : {}) },
@@ -116,7 +117,7 @@ router.post('/:type/:id/:agentId/runs/:runId/abort', async (req, res, next) => {
     // `aborted: true` when this process stopped the run or a stop was recorded on a still-running run
     // (another process holds it and stops it at its next poll); false for a run that has already ended.
     const aborted = await abortRun(run.id)
-    eventsLog.info('agents.run.abort', `abort requested for task run ${run.id} of agent ${agent.id} of ${owner.type}/${owner.id}`, { req })
+    log.info('abort requested for a task run', { code: 'agents.run.abort', runId: run.id, agentId: agent.id, ...ownerLogFields(owner) })
     res.json({ aborted })
   } catch (err) { next(err) }
 })
@@ -126,7 +127,7 @@ router.post('/:type/:id/:agentId/tasks', async (req, res, next) => {
   try {
     const { owner, agent } = await reqAgent(req, 'write')
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
-    const task = await createTask(owner, agent, body, actorOf(req), { req })
+    const task = await createTask(owner, agent, body, actorOf(req))
     res.status(201).json(task)
   } catch (err) { next(err) }
 })
@@ -135,7 +136,7 @@ router.put('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
   try {
     const { owner, agent } = await reqAgent(req, 'write')
     const body = writeReqBody.returnValid(req.body, { name: 'body' })
-    const task = await updateTask(owner, agent, req.params.taskId, body, actorOf(req), { req })
+    const task = await updateTask(owner, agent, req.params.taskId, body, actorOf(req))
     res.json(task)
   } catch (err) { next(err) }
 })
@@ -153,7 +154,7 @@ router.post('/:type/:id/:agentId/tasks/:taskId/run', async (req, res, next) => {
     // Skipped — the account's credit cap is exhausted, or another start won the lock: recorded, and
     // refused with the reason the run carries.
     if (started.run.status === 'skipped') throw httpError(409, started.run.error ?? PREVIOUS_RUN_STILL_RUNNING)
-    eventsLog.info('agents.task.run', `planned task ${task.id} of agent ${agent.id} of ${owner.type}/${owner.id} run now as ${started.run.id}`, { req })
+    log.info('planned task run now', { code: 'agents.task.run', taskId: task.id, runId: started.run.id, agentId: agent.id, ...ownerLogFields(owner) })
     res.status(202).json({ runId: started.run.id })
   } catch (err) { next(err) }
 })
@@ -169,7 +170,7 @@ router.get('/:type/:id/:agentId/tasks/:taskId/webhook-key', async (req, res, nex
 router.delete('/:type/:id/:agentId/tasks/:taskId/webhook-key', async (req, res, next) => {
   try {
     const { owner, agent } = await reqAgent(req, 'write')
-    res.type('text/plain').send(await regenerateWebhookKey(owner, agent.id, req.params.taskId, { req }))
+    res.type('text/plain').send(await regenerateWebhookKey(owner, agent.id, req.params.taskId))
   } catch (err) { next(err) }
 })
 
@@ -187,8 +188,7 @@ router.post('/:type/:id/:agentId/tasks/:taskId/_trigger', express.raw({ type: ()
       agentId: req.params.agentId,
       taskId: req.params.taskId,
       key,
-      payload: () => renderWebhookPayload(req.body, req.get('content-type'), empty),
-      log: { req }
+      payload: () => renderWebhookPayload(req.body, req.get('content-type'), empty)
     })
     res.status(202).json(result)
   } catch (err) { next(err) }
@@ -197,7 +197,7 @@ router.post('/:type/:id/:agentId/tasks/:taskId/_trigger', express.raw({ type: ()
 router.delete('/:type/:id/:agentId/tasks/:taskId', async (req, res, next) => {
   try {
     const { owner, agent } = await reqAgent(req, 'write')
-    await deleteTask(owner, agent.id, req.params.taskId, { req })
+    await deleteTask(owner, agent.id, req.params.taskId)
     res.status(204).send()
   } catch (err) { next(err) }
 })

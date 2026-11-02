@@ -18,6 +18,7 @@ import { taskTarget } from './task-target.ts'
 import { afterTaskRun } from './follow-up.ts'
 import { checkAccountCreditCap } from '../usage/enforce.ts'
 import { webhookPrompt, type PendingTrigger } from './operations.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const LOCK_ORIGIN = 'agents-task-run'
 
@@ -132,9 +133,9 @@ export const startTaskRun = async (
     throw err
   }
   executeTaskRun(run, task)
-    .catch(err => console.error(`task run ${run.id} failed to execute`, err))
+    .catch(err => log.error('task run failed to execute', { code: 'task-run-execute', runId: run.id, taskId: task.id, err }))
     // In a finally so a throw cannot wedge the task: its next slot would be skipped forever.
-    .finally(() => locks.release(lockId).catch(err => console.error(`the lock of task ${task.id} could not be released`, err)))
+    .finally(() => locks.release(lockId).catch(err => log.error('the lock of a task could not be released', { code: 'task-lock-release', taskId: task.id, err })))
   return { run }
 }
 
@@ -156,10 +157,10 @@ export const recoverOwnerlessTaskRuns = async (scope: Record<string, unknown> = 
     const patch = { status: 'interrupted', stopReason: 'error', error: 'interrupted by a restart' } as const
     if ((await finishRun(run, patch)).closed) {
       // Caught: one task's notification must not stop the others being recovered.
-      await afterTaskRun({ ...run, ...patch }).catch(err => console.error('an interrupted task run could not be followed up', err))
+      await afterTaskRun({ ...run, ...patch }).catch(err => log.error('an interrupted task run could not be followed up', { code: 'task-run-follow-up', runId: run.id, err }))
       interrupted++
     }
   }
-  if (interrupted) console.log(`[autonomous-agents] interrupted ${interrupted} task run(s) left behind by a dead process`)
+  if (interrupted) log.info(`interrupted ${interrupted} task run(s) left behind by a dead process`)
   return { interrupted, skipped }
 }

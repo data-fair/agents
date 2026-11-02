@@ -10,7 +10,7 @@ import type { Server, IncomingMessage } from 'node:http'
 import { reqIp } from '@data-fair/lib-express/req-origin.js'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { session as expressSession, httpError, type AccountKeys } from '@data-fair/lib-express'
-import eventsLog from '@data-fair/lib-express/events-log.js'
+import { sessionLogFields } from '@data-fair/lib-express/req-log-context.js'
 import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, isSupersededFrame, type ServerMessage, type ClientMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, holdingSender, type AgentSession } from './session.ts'
@@ -35,6 +35,8 @@ import { INTERRUPTED_RESULTS } from '../conversations/interrupted-turn.ts'
 import { getSettings } from '../settings/service.ts'
 import { siteOriginFromHeaders } from '../sites/operations.ts'
 import { upgradeRefusal, sessionExpiresAt } from './upgrade.ts'
+import log from '@data-fair/lib-node/log.js'
+import { ownerLogFields } from '../log-fields.ts'
 
 const debug = Debug('agents:agent-session')
 
@@ -45,7 +47,7 @@ const debug = Debug('agents:agent-session')
  */
 const errorFrame = (err: any, fallback: string): ServerMessage => {
   const status = (err?.status >= 400 && err?.status < 500) || err?.status === 503 ? err.status : 500
-  if (status === 500) console.error(`agent session: ${fallback}`, err)
+  if (status === 500) log.error(`agent session: ${fallback}`, { code: 'agent-session', err })
   return { type: 'error', status, message: status === 500 ? fallback : err?.message || fallback }
 }
 
@@ -179,7 +181,7 @@ export const startAgentSessions = (server: Server) => {
         const conversationId = boundConversationId
         if (!conversationId) return
         await wakeIfAnswered(conversationId, agentSession)
-          .catch(err => { console.error('could not wake a conversation on its pending wait', err) })
+          .catch(err => { log.error('could not wake a conversation on its pending wait', { code: 'conversation-wake', err }) })
       },
       onPrompt: async (content, hiddenContext) => {
         // Always bound by now: a prompt on a socket bound to nothing creates its thread first, or is
@@ -302,7 +304,7 @@ export const startAgentSessions = (server: Server) => {
       const conversation = await createConversation(newThread.owner, newThread.agentId, caller, title, siteOriginFromHeaders(req.headers))
       newThread = undefined
       if (caller.kind === 'anonymous') anonymousThread = { id: conversation.id, owner: conversation.owner, usageUserId: caller.usageUserId }
-      else eventsLog.info('agents.conversation.create', `conversation created for agent ${conversation.agentId}`, { account: caller.session.account, user: caller.session.user })
+      else log.info('conversation created', { code: 'agents.conversation.create', ...sessionLogFields(caller.session), conversationId: conversation.id, agentId: conversation.agentId, ...ownerLogFields(conversation.owner) })
       await agentSession.bind(conversation.id)
     }
 

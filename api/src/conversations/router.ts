@@ -8,7 +8,8 @@ import { isAuditedAgentId } from '@agents/shared/agent-audit'
 import { Router } from 'express'
 import mongo from '#mongo'
 import { type AccountKeys, httpError, reqSessionAuthenticated } from '@data-fair/lib-express'
-import eventsLog from '@data-fair/lib-express/events-log.js'
+import log from '@data-fair/lib-node/log.js'
+import { ownerLogFields } from '../log-fields.ts'
 import { getAutonomousAgent } from '../autonomous-agents/service.ts'
 import { assertMayStartConversation, assertOwnsConversation, requireAutonomousAgent, requireConversation, archiveConversation, purgeConversation, talkRefusal } from './service.ts'
 import { abortRunsOfConversation } from './live-runs.ts'
@@ -227,10 +228,10 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
       (conversation.consentedToReview === true && withinRetention(conversation.lastMessageAt))
     if (reviewable) {
       await archiveConversation(conversation.id)
-      eventsLog.info('agents.conversation.archive', `conversation ${conversation.id} archived: still reviewable`, { req })
+      log.info('conversation archived: still reviewable', { code: 'agents.conversation.archive', conversationId: conversation.id, agentId: conversation.agentId, ...ownerLogFields(conversation.owner) })
     } else {
       const purged = await purgeConversation(conversation.id)
-      eventsLog.info('agents.conversation.delete', `conversation ${conversation.id} deleted with ${purged.messages} message(s) and ${purged.runs} run(s)`, { req })
+      log.info(`conversation deleted with ${purged.messages} message(s) and ${purged.runs} run(s)`, { code: 'agents.conversation.delete', conversationId: conversation.id, agentId: conversation.agentId, ...ownerLogFields(conversation.owner) })
     }
     // 204 either way. The person asked for it to be gone and for them it is; telling them their
     // organization retained a copy is a disclosure decision for the consent sheet, which is where

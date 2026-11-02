@@ -17,6 +17,7 @@ import { livePartsOf } from '../conversations/live-runs.ts'
 import type { TurnTarget } from '../conversations/turn-target.ts'
 import type { TaskOutcome } from '../conversations/service-tools.ts'
 import { afterTaskRun } from './follow-up.ts'
+import log from '@data-fair/lib-node/log.js'
 
 /** Why a task run that ended on a wait or an approval request is recorded as failed. */
 export const CANNOT_WAIT = 'a task run cannot wait on a person'
@@ -47,7 +48,7 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
         await afterTaskRun({ ...run, ...patch }, task)
       }
     } catch (err) {
-      console.error(`task run ${run.id} could not be followed up`, err)
+      log.error('task run could not be followed up', { code: 'task-run-follow-up', runId: run.id, err })
     } finally {
       await finishRun(run, patch)
     }

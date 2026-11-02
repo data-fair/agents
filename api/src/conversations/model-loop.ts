@@ -39,6 +39,7 @@ import { mayBePageTool } from './service-tool-names.ts'
 import { createStepContext } from './step-context.ts'
 import { liveRuns } from './live-runs.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -494,7 +495,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         } else {
           // Unreachable while the stream announces a call before asking about it — LOUD if that ever
           // changes, because the person then has nothing on screen to decide.
-          console.error(`[approval gate] run ${run.id}: approval ${part.approvalId} names call ${part.toolCall.toolCallId}, which this turn never announced`)
+          log.error('an approval names a call this turn never announced', { code: 'approval-gate-unknown-call', runId: run.id, approvalId: part.approvalId, toolCallId: part.toolCall.toolCallId })
         }
         continue
       }
@@ -588,7 +589,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // The instructions and the page's context, recorded ONCE per run rather than on every call: they do
   // not change within a turn, and they are what a reviewer needs that the conversation does not contain.
   setRunInputs(run.id, systemPrompt, hostContext)
-    .catch(err => console.error('could not record the run inputs', err))
+    .catch(err => log.error('could not record the run inputs', { code: 'run-inputs-record', runId: run.id, err }))
   // A guard-stopped turn is a truncation, not a provider error: the model still wanted to
   // call tools when a cap cut it off. The budget is checked first because it is the reason
   // that is not otherwise visible from the finish reason.
@@ -620,8 +621,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // LOGGED, because it is a provider anomaly rather than a normal turn, and the person only ever
     // sees the generic fallback, so the operator's log is where it belongs. Ids only — no content, since
     // this line is for diagnosis, not for a second copy of the conversation.
-    const of = run.kind === 'task' ? `task ${run.taskId}` : `conversation ${run.conversationId}`
-    console.warn(`[empty completion] treated as a bug: ${run.kind} run ${run.id} of ${of} produced no text (model ${entry.id}, ${steps} step(s))`)
+    const of = run.kind === 'task' ? { taskId: run.taskId } : { conversationId: run.conversationId }
+    log.warn(`empty completion treated as a bug: the ${run.kind} run produced no text in ${steps} step(s)`, { code: 'empty-completion', runId: run.id, ...of, model: entry.id })
   }
   // No settled frame from here: the target's close sends the one a turn gets, once the message is
   // closed in the store (see TurnFrames).

@@ -7,7 +7,8 @@
 import mongo from '#mongo'
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
-import eventsLog from '@data-fair/lib-express/events-log.js'
+import log from '@data-fair/lib-node/log.js'
+import { ownerLogFields } from '../log-fields.ts'
 import * as putReqBody from '#doc/settings/put-req/index.ts'
 import * as orgPutReqBody from '#doc/settings/org-put-req/index.ts'
 import { encryptProviderApiKeys, obfuscateProviderApiKeys } from './operations.ts'
@@ -69,7 +70,7 @@ router.put('/:type/:id', async (req, res, next) => {
   )
   invalidateSettings(owner)
 
-  eventsLog.info('agents.settings.update', `settings updated for owner ${owner.type}/${owner.id}`, { req })
+  log.info('settings updated', { code: 'agents.settings.update', ...ownerLogFields(owner) })
 
   const updated = await getSettings(owner)
   updated.providers = obfuscateProviderApiKeys(updated.providers)
@@ -109,7 +110,7 @@ router.put('/:type/:id/org', async (req, res, next) => {
       { upsert: true }
     )
     invalidateSettings(owner)
-    eventsLog.info('agents.settings.org-update', `org settings updated for owner ${owner.type}/${owner.id}`, { req })
+    log.info('org settings updated', { code: 'agents.settings.org-update', ...ownerLogFields(owner) })
     const updated = await getSettings(owner)
     updated.providers = obfuscateProviderApiKeys(updated.providers)
     res.json(updated)

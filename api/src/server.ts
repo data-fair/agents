@@ -1,6 +1,7 @@
 import { createServer } from 'node:http'
 import { session } from '@data-fair/lib-express/index.js'
-import { startObserver, stopObserver, internalError } from '@data-fair/lib-node/observer.js'
+import { startObserver, stopObserver } from '@data-fair/lib-node/observer.js'
+import log from '@data-fair/lib-node/log.js'
 import eventPromise from '@data-fair/lib-utils/event-promise.js'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
 import locks from '@data-fair/lib-node/locks.js'
@@ -73,7 +74,7 @@ server.headersTimeout = (60 * 1000) + 2000
 
 /** A background job: every `ms`, and once at start when `now`. A failed pass is logged, never thrown. */
 const every = (ms: number, name: string, job: () => Promise<unknown>, opts: { now?: boolean } = {}) => {
-  const run = () => { job().catch(err => console.error(`${name} failed`, err)) }
+  const run = () => { job().catch(err => log.error(`${name} failed`, { code: 'background-job', job: name, err })) }
   if (opts.now) run()
   intervals.push(setInterval(run, ms))
 }
@@ -98,7 +99,7 @@ export const start = async () => {
   // and pushing to a queue not yet started throws.
   if (config.privateEventsUrl) {
     if (!config.secretKeys?.events) {
-      internalError('agents', 'Missing secretKeys.events in config')
+      log.error('missing secretKeys.events in config', { code: 'config-events-secret' })
     } else {
       await eventsQueue.start({ eventsUrl: config.privateEventsUrl, eventsSecret: config.secretKeys.events })
     }
@@ -157,16 +158,16 @@ export const start = async () => {
   server.listen(config.port)
   await eventPromise(server, 'listening')
 
-  console.log(`API server listening on port ${config.port}`)
+  log.info(`API server listening on port ${config.port}`)
   if (!config.secretKeys?.limits) {
-    console.log('[limits] No SECRET_LIMITS configured: the /api/v1/limits routes will reject every ?key= push/read and fall back to session auth only (fail-closed). Set SECRET_LIMITS if this instance is meant to receive credit allowances from the customers service.')
+    log.warn('No SECRET_LIMITS configured: the /api/v1/limits routes will reject every ?key= push/read and fall back to session auth only (fail-closed). Set SECRET_LIMITS if this instance is meant to receive credit allowances from the customers service.', { code: 'config-no-limits-secret' })
   }
   const globalAiConfigured = (config.providers?.length ?? 0) > 0 || (config.models?.length ?? 0) > 0
   if ((config.defaultLimits?.credits ?? 0) < 0 && globalAiConfigured) {
-    console.log('[credits] DEFAULT_CREDITS is negative (unlimited) while global PROVIDERS/MODELS are configured: EVERY account on this deployment — including every user\'s personal account, and any account no superadmin has ever configured — can consume the deployment\'s own provider API keys with no credit cap. Leave it at the default of 0 if accounts should stay capped until the customers service pushes them a real limit.')
+    log.warn('DEFAULT_CREDITS is negative (unlimited) while global PROVIDERS/MODELS are configured: EVERY account on this deployment — including every user\'s personal account, and any account no superadmin has ever configured — can consume the deployment\'s own provider API keys with no credit cap. Leave it at the default of 0 if accounts should stay capped until the customers service pushes them a real limit.', { code: 'config-credits-unlimited' })
   }
   if (config.defaultLimits?.credits === 0 && globalAiConfigured && !config.secretKeys?.limits) {
-    console.log('[credits] DEFAULT_CREDITS is 0 (accounts start capped) but no SECRET_LIMITS is configured, so the customers service cannot push allowances: every account will be refused until an allowance is set manually via POST /api/v1/limits/:type/:id in admin mode. Set DEFAULT_CREDITS to -1 for an uncapped deployment, or configure SECRET_LIMITS.')
+    log.warn('DEFAULT_CREDITS is 0 (accounts start capped) but no SECRET_LIMITS is configured, so the customers service cannot push allowances: every account will be refused until an allowance is set manually via POST /api/v1/limits/:type/:id in admin mode. Set DEFAULT_CREDITS to -1 for an uncapped deployment, or configure SECRET_LIMITS.', { code: 'config-credits-capped-no-limits-secret' })
   }
 }
 
@@ -186,7 +187,7 @@ export const stop = async () => {
     agentSessions?.closeAllBut(watching)
   }
   const drained = await drainLiveRuns(liveRuns, config.shutdownGraceSeconds * 1000, { onTick: closeIdleSessions })
-  if (drained.finished || drained.stopped) console.log(`shutdown: ${drained.finished} turn(s) finished, ${drained.stopped} stopped at the end of the grace period`)
+  if (drained.finished || drained.stopped) log.info(`shutdown: ${drained.finished} turn(s) finished, ${drained.stopped} stopped at the end of the grace period`)
   // After the drain: a task run closing in it notifies through the queue.
   await eventsQueue.stop?.()
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than

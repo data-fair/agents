@@ -20,6 +20,7 @@ import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/sess
 import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '../autonomous-agents/service.ts'
 import { getSettings } from '../settings/service.ts'
 import { deleteConversationFiles } from '../files/service.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const debug = Debug('df-agents:conversations')
 
@@ -639,7 +640,7 @@ export const finishRun = async (
   // reaching a provider bare.
   if (run.conversationId && run.trigger === 'approval' && await mongo.runs.countDocuments({ id: run.id, status: 'running' }, { limit: 1 })) {
     await settleApprovedWithoutResult(run.conversationId, approvedCallError(turn.approvedCalls ?? { ran: 'unknown', detail: patch.error ?? 'the turn ended' }))
-      .catch(err => console.error('approved calls could not be settled', err))
+      .catch(err => log.error('approved calls could not be settled', { code: 'approved-calls-settle', err }))
   }
   if (run.conversationId) {
     const updated = await mongo.conversations.findOneAndUpdate(
@@ -655,7 +656,7 @@ export const finishRun = async (
       await mongo.messages.updateOne(
         { conversationId: run.conversationId, seq: turn.message.seq, pending: true },
         { $set: { ...turn.message.patch, updatedAt: now } }
-      ).catch(err => console.error('autonomous agent message could not be finalised', err))
+      ).catch(err => log.error('autonomous agent message could not be finalised', { code: 'message-finalise', err }))
     }
   }
   const updated = await mongo.runs.updateOne(

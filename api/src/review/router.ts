@@ -23,7 +23,8 @@
 import mongo from '#mongo'
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, httpError, reqAdminMode, reqSessionAuthenticated } from '@data-fair/lib-express'
-import eventsLog from '@data-fair/lib-express/events-log.js'
+import log from '@data-fair/lib-node/log.js'
+import { ownerLogFields } from '../log-fields.ts'
 import { getSettings } from '../settings/service.ts'
 import { partsText } from '../conversations/operations.ts'
 import { purgeConversation } from '../conversations/service.ts'
@@ -187,7 +188,7 @@ router.get('/:type/:id/:conversationId/export', async (req, res, next) => {
     const scope = await assertMayReview(req, owner)
     const loaded = await loadForReview(owner, scope, req.params.conversationId)
 
-    eventsLog.info('agents.review.export', `reviewed conversation ${req.params.conversationId} exported`, { req })
+    log.info('reviewed conversation exported', { code: 'agents.review.export', conversationId: req.params.conversationId, ...ownerLogFields(owner) })
     // `attachment` with the filename: the UI follows this link rather than fetching and assembling a
     // blob, so the browser's own download handles a file of any size.
     res.attachment(exportFilename(req.params.conversationId))
@@ -200,7 +201,7 @@ router.delete('/:type/:id/:conversationId', async (req, res, next) => {
     const owner = reqOwner(req)
     const scope = await assertMayReview(req, owner)
     await deleteConversations({ ...reviewableFilter(owner, scope), id: req.params.conversationId })
-    eventsLog.info('agents.review.delete', `reviewed conversation ${req.params.conversationId} deleted`, { req })
+    log.info('reviewed conversation deleted', { code: 'agents.review.delete', conversationId: req.params.conversationId, ...ownerLogFields(owner) })
     res.status(204).send()
   } catch (err) { next(err) }
 })
@@ -218,7 +219,7 @@ router.delete('/:type/:id', async (req, res, next) => {
     const userId = typeof req.query.userId === 'string' ? req.query.userId : ''
     if (!userId) throw httpError(400, 'userId is required')
     await deleteConversations({ 'owner.type': owner.type, 'owner.id': owner.id, userId })
-    eventsLog.info('agents.review.erase', `conversations of user ${userId} erased`, { req })
+    log.info('conversations of a user erased', { code: 'agents.review.erase', erasedUserId: userId, ...ownerLogFields(owner) })
     res.status(204).send()
   } catch (err) { next(err) }
 })

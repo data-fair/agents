@@ -4,6 +4,7 @@
  */
 import type { FileBackend } from './types.ts'
 import { FILES_ROOT, FILE_TTL_MS } from './operations.ts'
+import log from '@data-fair/lib-node/log.js'
 
 export const sweepBackend = async (backend: FileBackend, now: Date, prefix: string): Promise<number> => {
   if (!prefix.startsWith(`${FILES_ROOT}/`)) throw new Error(`the sweep only reaches ${FILES_ROOT}/`)
@@ -18,7 +19,7 @@ export const sweepBackend = async (backend: FileBackend, now: Date, prefix: stri
       await backend.removeFile(`${listed}${file.path}`)
       removed++
     } catch (err) {
-      console.error('[files] could not sweep a file', err instanceof Error ? err.message : err)
+      log.error('could not sweep a file', { code: 'files-sweep-file', err })
     }
   }
   return removed
