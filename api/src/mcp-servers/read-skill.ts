@@ -50,10 +50,8 @@ export const createReadSkillTool = (opts: { guides: ServerGuide[] | (() => Serve
     const guides = typeof opts.guides === 'function' ? opts.guides() : opts.guides
     // a relative path is looked up among the named server's skills, else among the turn's
     if (/^[a-z][a-z0-9+.-]*:/i.test(asked) && !asked.startsWith('skill://')) throw new Error(`a skill URI starts with skill:// (got ${asked})`)
-    let uri = asked
     const scoped = guides.find(g => g.server === named)
-    const absolute = resolveSkillUri((scoped ? [scoped] : guides).flatMap(g => g.skills), asked)
-    uri = absolute
+    const uri = resolveSkillUri((scoped ? [scoped] : guides).flatMap(g => g.skills), asked)
     const server = resolveServer(guides, named, uri)
     let body: string
     try {

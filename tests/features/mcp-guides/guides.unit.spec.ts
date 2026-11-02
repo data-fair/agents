@@ -148,3 +148,21 @@ test.describe('attached files', () => {
     assert.deepEqual(requests, [])
   })
 })
+
+test.describe('skill envelope of files', () => {
+  test('frontmatter is stripped from a SKILL.md only; a file keeps its leading ---', () => {
+    const yaml = '---\na: 1\n---\nb: 2'
+    assert.match(skillEnvelope('s', 'skill://s/SKILL.md', '---\nname: x\n---\nbody'), /\nbody\n<\/skill>/)
+    assert.match(skillEnvelope('s', 'skill://s/ref/data.yaml', yaml), /\n---\na: 1\n---\nb: 2\n<\/skill>/)
+  })
+  test('a body cut at the bound says so', () => {
+    const out = skillEnvelope('s', 'skill://s/f.json', 'x'.repeat(GUIDE_LIMITS.skillBody + 5))
+    assert.match(out, new RegExp(`\\[truncated at ${GUIDE_LIMITS.skillBody} characters\\]\\n</skill>`))
+  })
+  test('the attached list is capped', () => {
+    const files = Array.from({ length: GUIDE_LIMITS.attachedFiles + 3 }, (_, i) => `skill://s/f${i}`)
+    const out = skillEnvelope('s', 'skill://s/SKILL.md', 'b', files)
+    assert.match(out, /… and 3 more\n<\/skill>/)
+    assert.doesNotMatch(out, new RegExp(`f${GUIDE_LIMITS.attachedFiles}\\b`))
+  })
+})

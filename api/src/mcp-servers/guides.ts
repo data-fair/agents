@@ -19,7 +19,7 @@ export interface ServerGuide { server: string, instructions?: string, skills: Gu
  * imported: conversations/operations.ts renders the prompt block from this module, and the import back
  * would make the two modules depend on each other.
  */
-export const GUIDE_LIMITS = { instructions: 8000, skills: 50, description: 1024, skillBody: 100_000 }
+export const GUIDE_LIMITS = { instructions: 8000, skills: 50, description: 1024, skillBody: 100_000, attachedFiles: 100 }
 
 const str = (value: unknown): string | undefined => typeof value === 'string' && value.trim() ? value.trim() : undefined
 
@@ -99,8 +99,13 @@ const stripFrontmatter = (text: string) => text.replace(/^---\r?\n[\s\S]*?\r?\n-
 
 /** A loaded skill as the model reads it: origin-tagged, defused, bounded, with the guidance note. */
 export function skillEnvelope (server: string, uri: string, body: string, attached: string[] = []): string {
-  const text = defuseEnvelopes(stripFrontmatter(body).slice(0, GUIDE_LIMITS.skillBody))
-  const content = attached.length ? `${text}\n\nAttached files:\n${attached.map(u => oneLine(defuseEnvelopes(u))).join('\n')}` : text
+  // only a SKILL.md has the frontmatter block of the spec: a file's own leading `---` is its content
+  const raw = /\/SKILL\.md$/.test(uri) ? stripFrontmatter(body) : body.trim()
+  const bounded = raw.length > GUIDE_LIMITS.skillBody ? `${raw.slice(0, GUIDE_LIMITS.skillBody)}\n[truncated at ${GUIDE_LIMITS.skillBody} characters]` : raw
+  const text = defuseEnvelopes(bounded)
+  const shown = attached.slice(0, GUIDE_LIMITS.attachedFiles).map(u => oneLine(defuseEnvelopes(u)))
+  if (attached.length > shown.length) shown.push(`… and ${attached.length - shown.length} more`)
+  const content = shown.length ? `${text}\n\nAttached files:\n${shown.join('\n')}` : text
   return [
     `<skill server="${attributeSafe(server)}" uri="${attributeSafe(uri)}">`,
     content,
