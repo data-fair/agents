@@ -20,7 +20,7 @@
     "@mcp-b/webmcp-polyfill": "^2.1.0",
     "@mcp-b/webmcp-ts-sdk": "^2.2.0",
     "@mcp-b/webmcp-types": "^2.3.2",
-    "zod": "^3.25.76",
+    "zod": "^4.6.7",
     "zod-to-json-schema": "^3.25.2"
   }
 }

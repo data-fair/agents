@@ -177,6 +177,7 @@ return (layout.defaultData)
 }
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/autonomous-agent/form-memory#",
+  agentGuide: undefined,
 
   skeletonTrees: {
     "https://github.com/data-fair/agents/autonomous-agent/form-memory#": {
@@ -294,6 +295,7 @@ const compiledLayout = {
     edit: "Edit",
     confirm: "Confirm",
     close: "Close",
+    actions: "Actions",
     duplicate: "Duplicate",
     insertAfter: "Insert after",
     copy: "Copy",
@@ -778,6 +780,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(emits)
+
 
 const { el, statefulLayout, stateTree } = useVjsf(
   null,

@@ -11,7 +11,6 @@
     "check-types": "vue-tsc --noEmit"
   },
   "dependencies": {
-    "@data-fair/agent-tools-data-fair": "^0.6.3",
     "@data-fair/frame": "^0.18.0",
     "@data-fair/lib-utils": "^1.14.1",
     "@data-fair/lib-vue": "^1.33.0",
@@ -23,7 +22,7 @@
     "@mcp-b/webmcp-ts-sdk": "^2.3.2",
     "@mdi/js": "^7.4.47",
     "@unhead/vue": "^3.4.0",
-    "ai": "7.0.137",
+    "ai": "7.0.159",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.19",
     "debug": "^4.4.3",
