@@ -11,7 +11,7 @@
 
 export const SKILLS_EXTENSION = 'io.modelcontextprotocol/skills'
 
-export interface GuideSkill { name: string, description: string, uri: string, tools?: string[] }
+export interface GuideSkill { name: string, description: string, uri: string, tools?: string[], /** The entry's resource URIs other than its SKILL.md: files attached to the skill. */ resources?: string[] }
 export interface ServerGuide { server: string, instructions?: string, skills: GuideSkill[] }
 
 /**
@@ -33,7 +33,11 @@ export function skillsFromList (result: unknown): GuideSkill[] {
     const name = str((entry as any)?.frontmatter?.name)
     if (!uri || !name || !uri.startsWith('skill://')) continue
     const tools = str((entry as any)?.frontmatter?.metadata?.tools)?.split(/\s+/)
-    skills.push({ name, description: str((entry as any)?.frontmatter?.description) ?? '', uri, ...(tools?.length ? { tools } : {}) })
+    const rawResources = (entry as any)?.resources
+    const resources = Array.isArray(rawResources)
+      ? rawResources.map(r => str(r?.uri)).filter((u): u is string => !!u && u.startsWith('skill://') && u !== uri)
+      : []
+    skills.push({ name, description: str((entry as any)?.frontmatter?.description) ?? '', uri, ...(tools?.length ? { tools } : {}), ...(resources.length ? { resources } : {}) })
   }
   return skills
 }
@@ -94,8 +98,9 @@ export function renderGuidesBlock (guides: ServerGuide[]): string | undefined {
 const stripFrontmatter = (text: string) => text.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '').trim()
 
 /** A loaded skill as the model reads it: origin-tagged, defused, bounded, with the guidance note. */
-export function skillEnvelope (server: string, uri: string, body: string): string {
-  const content = defuseEnvelopes(stripFrontmatter(body).slice(0, GUIDE_LIMITS.skillBody))
+export function skillEnvelope (server: string, uri: string, body: string, attached: string[] = []): string {
+  const text = defuseEnvelopes(stripFrontmatter(body).slice(0, GUIDE_LIMITS.skillBody))
+  const content = attached.length ? `${text}\n\nAttached files:\n${attached.map(u => oneLine(defuseEnvelopes(u))).join('\n')}` : text
   return [
     `<skill server="${attributeSafe(server)}" uri="${attributeSafe(uri)}">`,
     content,

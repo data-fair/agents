@@ -63,3 +63,28 @@ test('a skill published after the tool was built is still read: the guides are r
   const out = await (t.execute as any)({ uri: 'skill://fill-form/SKILL.md' }, {})
   assert.match(String(out), /the-page skill:\/\/fill-form\/SKILL.md/)
 })
+
+const filed = [{ server: 's', skills: [{ name: 'obs', description: '', uri: 'skill://obs/SKILL.md', resources: ['skill://obs/templates/page.json'] }] }]
+
+test('read_skill reads an attached file by absolute and by relative URI', async () => {
+  const calls: string[] = []
+  const t = createReadSkillTool({ guides: filed, read: async (server, uri) => { calls.push(`${server} ${uri}`); return '{"a":1}' } })
+  const abs = await run(t, { server: 's', uri: 'skill://obs/templates/page.json' })
+  const rel = await run(t, { uri: 'templates/page.json' })
+  assert.deepEqual(calls, ['s skill://obs/templates/page.json', 's skill://obs/templates/page.json'])
+  assert.match(abs, /^<skill server="s" uri="skill:\/\/obs\/templates\/page\.json">/)
+  assert.match(rel, /\{"a":1\}/)
+})
+
+test('reading a SKILL.md lists its attached files', async () => {
+  const t = createReadSkillTool({ guides: filed, read: async () => 'Use the template.' })
+  const out = await run(t, { server: 's', uri: 'skill://obs/SKILL.md' })
+  assert.match(out, /Use the template\.\n\nAttached files:\nskill:\/\/obs\/templates\/page\.json\n<\/skill>/)
+})
+
+test('a relative path no skill lists is refused, nothing is read', async () => {
+  let read = false
+  const t = createReadSkillTool({ guides: filed, read: async () => { read = true; return '' } })
+  await assert.rejects(run(t, { server: 's', uri: 'nope.json' }), /no listed skill has an attached file nope\.json/)
+  assert.equal(read, false)
+})

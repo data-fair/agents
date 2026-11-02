@@ -7,6 +7,7 @@
  * output (`selfEnveloped`), and a failure — the server's own words — is wrapped as tool output.
  */
 import { tool, jsonSchema, type Tool } from 'ai'
+import { resolveSkillUri } from './skills-client.ts'
 import { skillEnvelope, type ServerGuide } from './guides.ts'
 import { wrapToolResult } from '../conversations/operations.ts'
 
@@ -23,7 +24,7 @@ export const SKILLS_SERVER_ID = 'agent-skills'
 const resolveServer = (guides: ServerGuide[], server: string | undefined, uri: string): string => {
   const servers = guides.map(g => g.server)
   if (server && servers.includes(server)) return server
-  const listing = guides.filter(g => g.skills.some(s => s.uri === uri)).map(g => g.server)
+  const listing = guides.filter(g => g.skills.some(s => s.uri === uri || s.resources?.includes(uri))).map(g => g.server)
   if (listing.length === 1) return listing[0]
   if (listing.length > 1) throw new Error(`${uri} is listed by several of your tool servers (${listing.join(', ')}): name one`)
   if (server) throw new Error(`"${server}" is not one of your tool servers this turn (${servers.join(', ') || 'none'})`)
@@ -35,25 +36,32 @@ const resolveServer = (guides: ServerGuide[], server: string | undefined, uri: s
  * next step must be able to load what it now lists.
  */
 export const createReadSkillTool = (opts: { guides: ServerGuide[] | (() => ServerGuide[]), read: (server: string, uri: string) => Promise<string> }): Tool => tool({
-  description: 'Load a skill: a procedure for some of your tools, published by one of your tool servers or by the service itself. Pass the skill URI exactly as the Skills list in your instructions gives it (or as a server\'s instructions or another skill name a skill:// URI), and the server it is listed under. Load a matching skill before acting, then follow it.',
+  description: 'Load a skill: a procedure for some of your tools, published by one of your tool servers or by the service itself. Pass the skill URI exactly as the Skills list in your instructions gives it (or as a server\'s instructions or another skill name a skill:// URI), and the server it is listed under. A skill\'s attached files (templates, references) are read the same way: by their skill:// URI, or by their path relative to the skill, as the skill names them. Load a matching skill before acting, then follow it.',
   inputSchema: jsonSchema<{ server?: string, uri: string }>({
     type: 'object',
     additionalProperties: false,
     required: ['uri'],
     properties: {
-      uri: { type: 'string', description: 'The skill\'s SKILL.md URI (skill://…)' },
+      uri: { type: 'string', description: 'The skill\'s SKILL.md URI (skill://…), or the URI of one of its attached files, or such a file\'s path relative to the skill' },
       server: { type: 'string', description: 'The server the skill is listed under (the word before "·" in the Skills list). Optional when only one server lists the URI.' }
     }
   }),
-  execute: async ({ server: named, uri }) => {
-    if (!uri.startsWith('skill://')) throw new Error(`a skill URI starts with skill:// (got ${uri})`)
-    const server = resolveServer(typeof opts.guides === 'function' ? opts.guides() : opts.guides, named, uri)
+  execute: async ({ server: named, uri: asked }) => {
+    const guides = typeof opts.guides === 'function' ? opts.guides() : opts.guides
+    // a relative path is looked up among the named server's skills, else among the turn's
+    if (/^[a-z][a-z0-9+.-]*:/i.test(asked) && !asked.startsWith('skill://')) throw new Error(`a skill URI starts with skill:// (got ${asked})`)
+    let uri = asked
+    const scoped = guides.find(g => g.server === named)
+    const absolute = resolveSkillUri((scoped ? [scoped] : guides).flatMap(g => g.skills), asked)
+    uri = absolute
+    const server = resolveServer(guides, named, uri)
     let body: string
     try {
       body = await opts.read(server, uri)
     } catch (err) {
       throw new Error(wrapToolResult(server, READ_SKILL_TOOL_NAME, err instanceof Error ? err.message : String(err)))
     }
-    return skillEnvelope(server, uri, body)
+    const attached = guides.find(g => g.server === server)?.skills.find(s => s.uri === uri)?.resources
+    return skillEnvelope(server, uri, body, attached)
   }
 })

@@ -30,8 +30,12 @@ export const closuresCsv = (district: string) =>
 export const FIXTURE_INSTRUCTIONS = 'Road closures: always give the district a closure belongs to.'
 export const FIXTURE_SKILLS = {
   listed: { uri: 'skill://fixture/closures/SKILL.md', name: 'closures', description: 'How to answer questions about road closures. Read it before listing closures.', tools: 'list_road_closures', body: 'Call list_road_closures with the district, then quote the reopening date.' },
+  /** Listed, with one attached file (`FIXTURE_SKILL_FILE`) that `skills/list` shows after its SKILL.md. */
+  filed: { uri: 'skill://fixture/templates/SKILL.md', name: 'templates', description: 'Has an attached file.', tools: undefined as string | undefined, body: 'Start from the page template.' },
   unlisted: { uri: 'skill://fixture/hidden/SKILL.md', name: 'hidden', description: 'Reachable by URI only.', tools: undefined as string | undefined, body: 'Hidden procedure.' }
 }
+
+export const FIXTURE_SKILL_FILE = { uri: 'skill://fixture/templates/page.json', text: '{"title":"Page template"}' }
 
 /**
  * Under /platform/ the fixture stands in for data-fair's MCP, the built-in server of autonomous agents
@@ -88,12 +92,16 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
       contents: [{ uri: s.uri, mimeType: 'text/markdown', text: `---\nname: ${s.name}\ndescription: ${JSON.stringify(s.description)}\n---\n\n${s.body}\n` }]
     }))
   }
+  const fileUri = (skillUri: string) => skillUri.replace('SKILL.md', 'page.json')
+  mcp.registerResource('templates-file', fileUri(skills.filed.uri), { mimeType: 'application/json' }, async () => ({
+    contents: [{ uri: fileUri(skills.filed.uri), mimeType: 'application/json', text: FIXTURE_SKILL_FILE.text }]
+  }))
   const skillEntry = (s: { uri: string, name: string, description: string, tools?: string }) =>
-    ({ uri: s.uri, frontmatter: { name: s.name, description: s.description, ...(s.tools ? { metadata: { tools: s.tools } } : {}) }, resources: [{ uri: s.uri }] })
+    ({ uri: s.uri, frontmatter: { name: s.name, description: s.description, ...(s.tools ? { metadata: { tools: s.tools } } : {}) }, resources: [{ uri: s.uri }, ...(s.name === 'templates' ? [{ uri: fileUri(s.uri), digest: 'sha256:fixture', size: FIXTURE_SKILL_FILE.text.length }] : [])] })
   mcp.server.setRequestHandler(z.object({ method: z.literal('skills/list'), params: z.any().optional() }), async () => {
     if (failSkillsList()) throw new Error('skills/list is broken on purpose')
     if (skillsListDelay()) await new Promise(resolve => setTimeout(resolve, skillsListDelay()))
-    return { skills: [skillEntry(skills.listed)] } as any
+    return { skills: [skillEntry(skills.listed), skillEntry(skills.filed)] } as any
   })
   mcp.server.setRequestHandler(z.object({ method: z.literal('skills/get'), params: z.object({ uri: z.string() }) }), async (req) => {
     const s = Object.values(skills).find(x => x.uri === req.params.uri)
