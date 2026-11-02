@@ -22,16 +22,20 @@ test.describe('Panel of a code_mode call', () => {
     agentId = (await createFilesAgent()).id
   })
 
-  test('a script is a chip in the chat, and its calls a panel under it on the review page', async ({ page, goToWithAuth }) => {
+  test('a script is a chip in the chat with its calls under it, and a panel on the review page', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
     const js = 'const s = await tools.closure_stats({ district: "city-center" }); return s.count'
     await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill(`call tool code_mode ${JSON.stringify({ js })}`)
     await page.getByTestId('agent-chat-send').click()
 
-    // The chat names the script as a chip, as any call; the calls it made are the review page's to open.
-    await expect(page.getByTestId('tool-chip').filter({ hasText: 'code_mode' })).toBeVisible({ timeout: 15000 })
+    // The chat names the script by what it did, and the calls it made as chips under it — not its code,
+    // nor what the calls returned: those are the review page's to open.
+    const script = page.getByTestId('tool-chip').filter({ hasText: 'Run a script' })
+    await expect(script).toBeVisible({ timeout: 15000 })
     await expect.poll(() => fixture.invokedTools()).toEqual(['closure_stats'])
+    await expect(page.getByTestId('script-calls').getByTestId('nested-tool-chip')).toHaveText(['closure_stats'])
     await expect(page.getByTestId('trace-panel')).toHaveCount(0)
+    await expect(page.getByTestId('tool-call-detail')).toHaveCount(0)
 
     // The chat names the calls; the review page opens them. The script reads as its source and its value,
     // and the call it made as the arguments it was given and the result it returned — what knowing only

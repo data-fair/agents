@@ -20,7 +20,7 @@ test.describe('package barrel', () => {
       'writeEvidence', 'evidenceDir', 'exportFileName',
       'computeMetrics',
       'selectCases', 'simCaseNames',
-      'reportCases', 'reportCli',
+      'reportCases', 'reportCli', 'isValidVerdict', 'summarizeCondition', 'compareCli',
       'createChatDriver', 'chatDriverStrings', 'TURN_TIMEOUT_MS', 'SEND_TIMEOUT_MS', 'WAITING_SELECTOR', 'APPROVAL_SELECTOR',
       'createPagePerception', 'truncate', 'SNAPSHOT_CAP', 'ACTION_TIMEOUT_MS', 'PAGE_MCP_SERVER_NAME',
       'BRIDGE_URL', 'MODEL_ROLES', 'BACKGROUND_ROLES', 'REVIEW_CONSENT_COOKIE', 'REVIEW_CONSENT_YES', 'bridgeSettings', 'seedAgentsSettings', 'assertBridgeUp',

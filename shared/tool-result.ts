@@ -47,6 +47,18 @@ export function formatMcpToolResult (callResult: McpCallResult): FormattedToolRe
 }
 
 /**
+ * The formatted result, or a throw when the tool reported its own failure (`isError`). Throwing is what
+ * the model loop treats as a failure (a `tool-error`, stored `output-error`); returned as a value, a failed
+ * call looks exactly like a successful one. The page-tool path; the server's MCP clients do the same inline,
+ * with their link handling.
+ */
+export function toolOutputOrThrow (callResult: McpCallResult): FormattedToolResult {
+  const formatted = formatMcpToolResult(callResult)
+  if (callResult.isError) throw new Error(typeof formatted === 'string' ? formatted : formatted.text ?? 'Tool execution failed')
+  return formatted
+}
+
+/**
  * Replace the base64 payloads of a media envelope with small size placeholders.
  * Used wherever a tool result is embedded into text again (compaction prompts,
  * stored traces) — a base64 image there is pure token/storage waste.

@@ -294,6 +294,30 @@ test.describe('A turn over the agent session', () => {
     assert.ok(activities.includes(null), 'the label must be cleared when text starts arriving')
   })
 
+  test('a running call is named, and the label is cleared by every step\'s text, not only the first', async () => {
+    // Text, a call, then text again: the label used to be cleared on the turn's first text only, so
+    // "Analyzing tool result…" stayed under the answer while it streamed.
+    const session = await open(await cookieOf(orgAdmin))
+    session.send(newThreadHello('organization/test1', {
+      tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }]
+    }))
+    await session.next()
+    session.send({ type: 'prompt', content: 'preface and call tool select_row' })
+
+    const activities: any[] = []
+    for (;;) {
+      const frame = await session.next(15000)
+      if (frame.type === 'activity') activities.push(frame.activity)
+      if (frame.type === 'tool-call') session.send({ type: 'tool-result', callId: frame.callId, result: 'row selected' })
+      if (frame.type === 'turn-end') break
+    }
+
+    const kinds = activities.map(a => a?.kind ?? null)
+    assert.deepEqual(activities.find(a => a?.kind === 'tool'), { kind: 'tool', toolName: 'select_row' })
+    assert.ok(kinds.indexOf('tool') < kinds.indexOf('analyzing'), `the call runs before its result is read, got ${JSON.stringify(kinds)}`)
+    assert.equal(kinds[kinds.length - 1], null, `the answer's text clears the label, got ${JSON.stringify(kinds)}`)
+  })
+
   test('a second connection takes the conversation over, and the first is told', async () => {
     // A reload, a second tab, a reconnect — all look the same, and the newest connection is the one the
     // person is looking at. The displaced tab is told rather than silently going deaf.

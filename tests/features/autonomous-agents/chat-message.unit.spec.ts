@@ -5,7 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { autonomousAgentMessageToChat, type StoredConversationMessage } from '../../../ui/src/utils/autonomous-agent-chat-message.ts'
-import { appendStreamedText } from '../../../ui/src/utils/chat-message.ts'
+import { appendStreamedText, appendStreamedReasoning } from '../../../ui/src/utils/chat-message.ts'
 
 const base: StoredConversationMessage = {
   seq: 1,
@@ -26,11 +26,37 @@ test.describe('autonomousAgentMessageToChat', () => {
     assert.equal(chat.content, '')
   })
 
-  test('reasoning is carried so the foldable panel can show it', () => {
+  test('reasoning is carried where it happened, one block per step, so the chat folds it in place', () => {
     const chat = autonomousAgentMessageToChat({
-      ...base, parts: [{ type: 'text', text: 'x' }, { type: 'reasoning', text: 'thinking' }]
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'step-start' },
+        { type: 'reasoning', text: 'Planning ' },
+        { type: 'reasoning', text: 'the call.' },
+        { type: 'text', text: 'Let me check.' },
+        { type: 'dynamic-tool', toolCallId: 'c1', toolName: 'select_row', state: 'output-available', input: {}, output: 'ok' },
+        { type: 'step-start' },
+        // withheld by the provider: nothing to fold
+        { type: 'reasoning', text: '' },
+        { type: 'reasoning', text: 'Reading the result.' },
+        { type: 'text', text: 'Done.' }
+      ] as any
     })
-    assert.equal(chat.reasoning, 'thinking')
+    assert.deepEqual(chat.blocks, [
+      { type: 'reasoning', text: 'Planning the call.' },
+      { type: 'text', text: 'Let me check.' },
+      { type: 'tools', toolCallIds: ['c1'] },
+      { type: 'reasoning', text: 'Reading the result.' },
+      { type: 'text', text: 'Done.' }
+    ])
+  })
+
+  test('streamed reasoning lands after what the message already shows', () => {
+    let message = appendStreamedText({ role: 'assistant', content: '', blocks: [] }, 'Let me check.')
+    message = appendStreamedReasoning(message, 'Hmm, ')
+    message = appendStreamedReasoning(message, 'right.')
+    assert.deepEqual(message.blocks, [{ type: 'text', text: 'Let me check.' }, { type: 'reasoning', text: 'Hmm, right.' }])
   })
 
   test('a tool call that has produced its output is done', () => {

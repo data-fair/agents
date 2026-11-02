@@ -14,6 +14,7 @@
     "lint-fix": "eslint --fix . && npm -w ui run lint-fix",
     "simulate": "playwright test -c playwright.sim.config.ts --project=simulate",
     "simulate:report": "node simulations/report.ts",
+    "simulate:compare": "node simulations/compare.ts",
     "dev-zellij": "df-dev zellij",
     "stop-dev-deps": "docker compose --profile '*' stop",
     "dev-fixtures": "dotenv run -- node dev/fixtures.ts",

@@ -99,7 +99,32 @@ export const SELF_KNOWLEDGE_NOTE = 'Before telling someone you cannot do somethi
  * speak of servers, profiles and identifiers: a judged run asked a person who says « nos données » for
  * « l'adresse du serveur MCP ».
  */
-export const AUDIENCE_NOTE = 'The person you talk to does not see how you are built: answer in their words, naming things by their titles, and never mention servers, MCP, tools or identifiers unless they do first.'
+export const AUDIENCE_NOTE = 'The person you talk to does not see how you are built: answer in their words, naming things by their titles, and never mention servers, MCP, tools or identifiers unless they do first. Say what you can and cannot help with in terms of its subject ("I only have the library\'s opening hours"), not of your tools; for anything a tool names by a code, use its title or plain words — though a value shown on the page is fine to repeat.'
+
+/**
+ * How to write to the person, for every chat turn (measured in docs/simulations/2026-10-30-concise-replies.md).
+ *
+ * The one feedback every user gives is that the assistant talks too much: it announces its calls, says what
+ * came back, restates its plan, recaps. Written as the cadence to follow rather than a bare "be concise",
+ * after Anthropic's and OpenAI's published guidance for tool-using models (one sentence before work, an update
+ * only on a finding, the outcome first) and Claude Code's output styles — with the exemptions those keep,
+ * because a bare brevity rule measurably costs corrections of false premises (Giskard Phare, 2025). It says
+ * the chat already shows each call, which is the reason not to narrate it: a model never told that has every
+ * reason to. The example is in a domain no simulation case uses, so it cannot be copied into a graded reply.
+ * Not on a task run: nobody is watching, and its report is what an admin reads afterwards.
+ */
+export const REPLY_STYLE_NOTE = 'The chat shows the person each tool call you make as it happens, so do not describe your calls or what they returned. Before work that takes several steps, say in one short sentence what you are going to do; while working, write only when you find something that matters or change course. Then lead with the answer or the outcome, followed by only the detail they need to act on it. Do not restate their request or your plan, do not explain your method unless asked, and do not close with a recap or an offer of more help. Keep in full: an error or limit that changes what they can do, a correction when they assumed something false, and what an action will do before you ask them to approve it. For example, asked whether the library opens on Sunday: "Yes, from 10:00 to 13:00, except in August." — not "I will check the opening hours. I looked up the library\'s schedule, which lists…"'
+
+/**
+ * How an approval reads from the conversation, for every chat turn (not a task run: nothing is approved there).
+ *
+ * Judged runs showed the three ways it went wrong, none of them about length: the gated call was put up with no
+ * word of what it does; the person typed a question, which declines a pending approval
+ * (PENDING_APPROVAL_SUPERSEDED), and was never told; and the run the approval started — the SDK replays the
+ * call first, so its result is already in the model's history — wrote « a fresh approval prompt should be
+ * waiting ». The model receives the denial and the result; nothing told it what they mean.
+ */
+export const APPROVAL_NOTE = 'Some actions wait for the person to approve them on screen. Say in one sentence what it will do, calling it by the title the approval shows, in the same reply as the call: then make the call, which puts the approval in front of them. If the person writes instead of deciding, that request is cancelled: tell them so in a few words, and put it to them again if they still want it. Once an action\'s result is in front of you, it has run and any approval was given: say what it did, and never ask for an approval already given. Before saying that data is unchanged, read it again.'
 
 /** The subset of an autonomous agent that shapes its system prompt. */
 interface PromptableAutonomousAgent {
@@ -140,7 +165,9 @@ export const todayLine = (now: Date, timeZone: string): string => {
   const day = new Intl.DateTimeFormat('en-US', { timeZone, weekday: 'long' }).format(now)
   // en-CA formats as YYYY-MM-DD.
   const date = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
-  return `Today is ${day} ${date} (${timeZone}).`
+  // Asked where the date is: every judged closures run called a closure starting tomorrow « current », and
+  // "compare the dates" alone did not change that — naming what to say (today / past / to come) is what is asked.
+  return `Today is ${day} ${date} (${timeZone}). When what you report carries dates, say which apply today and which are past or still to come.`
 }
 
 /**
@@ -171,6 +198,8 @@ export function buildSystemPrompt (autonomousAgent: PromptableAutonomousAgent, m
     ...(autonomousAgent.nhi
       ? ['You are an autonomous agent acting under your own service identity, not on behalf of whoever wrote the last message. Your tools are limited to what that identity may do.', dataClause, SELF_KNOWLEDGE_NOTE, AUDIENCE_NOTE]
       : ['You act as the person using you, through their own session, and your tools are limited to what they may do. You never have more access than they do, so when something is not permitted, say so plainly rather than looking for another route to it.', dataClause, AUDIENCE_NOTE]),
+    surface === 'task' ? undefined : REPLY_STYLE_NOTE,
+    surface === 'task' ? undefined : APPROVAL_NOTE,
     // A chat on a site outside the agent's organization: its tools reach that site anonymously, so an
     // empty answer there says nothing about what the organization holds.
     opts?.anonymousOn

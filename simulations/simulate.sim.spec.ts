@@ -6,6 +6,7 @@
  */
 import { test } from '../tests/fixtures/login.ts'
 import { cases } from './cases/index.ts'
+import { resolvePersonaVariant } from './cases/persona-variants.ts'
 import { seedSettings, assertBridgeUp, seedAutonomousAgent, parseAutonomousAgentRoute, fetchConversationExports, runPlannedTaskRepeatedly, fetchTaskRunExport, fetchAgentMemory, OWNER } from './runner/settings.ts'
 import {
   createChatDriver,
@@ -23,6 +24,8 @@ const ASSISTANT_MODEL = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
 // has to work.
 const TOOLS_MODEL = process.env.SIM_TOOLS_MODEL ?? 'haiku'
 const USER_MODEL = resolveUserModel()
+// Resolved once, here: an unknown name fails the whole run before any case starts.
+const PERSONA_VARIANT = resolvePersonaVariant(process.env)
 const selected = selectCases(cases, (process.env.SIM_CASES ?? '').split(',').map(s => s.trim()).filter(Boolean))
 
 for (const simCase of selected) {
@@ -50,6 +53,8 @@ for (const simCase of selected) {
     let perception = undefined as ReturnType<typeof createPagePerception> | undefined
     // Set by an unattended case: the runs it started, whose exports are the whole of its evidence.
     let taskRuns: { agentId: string, runIds: string[] } | undefined
+    // Only the agent a chat case opens has a persona the runner seeds; the others run their own.
+    const personaVariant = simCase.surface === 'autonomous-agent' ? PERSONA_VARIANT : undefined
 
     /** The chat half of a case: a person, a page, and turns until they are done or out of turns. */
     const converse = async () => {
@@ -168,7 +173,7 @@ for (const simCase of selected) {
         await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL, owner)
         // Seeded here rather than assumed present: `npm run dev-fixtures` would be an unstated
         // prerequisite, and its agent lives on an account deliberately wired to the mock model.
-        await seedAutonomousAgent(simCase.route, user, simCase.agent)
+        await seedAutonomousAgent(simCase.route, user, personaVariant ? { ...simCase.agent, persona: personaVariant.persona } : simCase.agent)
       } else {
         await seedSettings(ASSISTANT_MODEL, TOOLS_MODEL)
       }
@@ -250,6 +255,7 @@ for (const simCase of selected) {
       assistantModel: ASSISTANT_MODEL,
       toolsModel: TOOLS_MODEL,
       userModel: USER_MODEL,
+      ...(personaVariant ? { personaVariant: personaVariant.name } : {}),
       turns,
       durationMs: Date.now() - started,
       finishedAt: new Date().toISOString()

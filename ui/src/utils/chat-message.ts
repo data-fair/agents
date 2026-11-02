@@ -8,8 +8,6 @@
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
-  // Reasoning ("thinking") tokens from reasoning models, shown collapsed in the UI.
-  reasoning?: string
   toolInvocations?: Array<{
     toolCallId: string
     toolName: string
@@ -48,20 +46,28 @@ export interface ChatMessage {
   tracePanels?: Record<string, { messages: ChatMessage[] }>
 }
 
-/** A run of text, or the tool calls made between two runs of text (named by their call ids). */
-export type ChatMessageBlock = { type: 'text', text: string } | { type: 'tools', toolCallIds: string[] }
+/**
+ * A run of text, a step's reasoning ("thinking", from reasoning models — shown folded where it happened),
+ * or the tool calls made between two runs of text (named by their call ids).
+ */
+export type ChatMessageBlock = { type: 'text', text: string } | { type: 'reasoning', text: string } | { type: 'tools', toolCallIds: string[] }
 
 /**
  * A streamed token, appended where the message is being written: to its last text, or as new text after
  * the calls it last made.
  */
 export function appendStreamedText (message: ChatMessage, text: string): ChatMessage {
-  const next: ChatMessage = { ...message, content: message.content + text }
-  if (message.blocks) {
-    const last = message.blocks[message.blocks.length - 1]
-    next.blocks = last?.type === 'text'
-      ? [...message.blocks.slice(0, -1), { type: 'text', text: last.text + text }]
-      : [...message.blocks, { type: 'text', text }]
-  }
-  return next
+  return { ...message, content: message.content + text, ...(message.blocks ? { blocks: appendToBlocks(message.blocks, 'text', text) } : {}) }
+}
+
+/** A streamed reasoning token, appended to the step's reasoning, or as new reasoning after what came before. */
+export function appendStreamedReasoning (message: ChatMessage, text: string): ChatMessage {
+  return { ...message, blocks: appendToBlocks(message.blocks ?? (message.content ? [{ type: 'text', text: message.content }] : []), 'reasoning', text) }
+}
+
+const appendToBlocks = (blocks: ChatMessageBlock[], type: 'text' | 'reasoning', text: string): ChatMessageBlock[] => {
+  const last = blocks[blocks.length - 1]
+  return last?.type === type
+    ? [...blocks.slice(0, -1), { type, text: last.text + text }]
+    : [...blocks, { type, text }]
 }

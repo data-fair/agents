@@ -52,7 +52,8 @@ test.describe('Audited chat notice', () => {
     await expect(page.getByText('This assistant can store your conversation on the server')).toHaveCount(0)
     await page.getByRole('button', { name: /^Settings$|^Paramètres$/ }).click()
     await expect(page.getByRole('button', { name: 'Open review' })).toBeVisible()
-    await page.getByRole('tab', { name: 'Settings' }).click()
+    // The consent toggle is the tab's one setting: with none to ask, there is no tab.
+    await expect(page.getByRole('tab', { name: 'Settings' })).toHaveCount(0)
     await expect(page.getByText('Store my conversations for review')).toHaveCount(0)
   })
 

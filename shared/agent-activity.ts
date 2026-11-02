@@ -14,6 +14,8 @@ export type ChatActivity =
   | { kind: 'compacting' }
   // Main agent thinking during a gap with no visible output.
   | { kind: 'thinking' }
+  // A call is running; the chat names it the way its chip does.
+  | { kind: 'tool', toolName: string }
   // Main agent reading a tool result.
   | { kind: 'analyzing' }
   // The main agent declared a wait for the user (wait_for_user_action); `expecting`
@@ -33,6 +35,7 @@ export function activityLabelKey (activity: ChatActivity | null | undefined): Ac
   switch (activity.kind) {
     case 'compacting': return { key: 'activityCompacting' }
     case 'thinking': return { key: 'activityThinking' }
+    case 'tool': return { key: 'activityTool', name: activity.toolName }
     case 'analyzing': return { key: 'activityAnalyzing' }
     case 'waiting': return { key: 'activityWaiting', name: activity.expecting }
     case 'approval': return { key: 'activityApproval', name: activity.toolName }

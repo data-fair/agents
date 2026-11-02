@@ -27,6 +27,21 @@ test.describe('the personal assistant', () => {
     assert.doesNotMatch(portal().persona, /permissions|never more|not permitted/i)
   })
 
+  test('the persona does not invite a note while working, which the reply-style clause governs', () => {
+    assert.doesNotMatch(portal().persona, /while you work/)
+  })
+
+  test('the persona says which language: the one the person writes in, else the page\'s', () => {
+    // Judged runs answered in French to a person writing English on a page reporting `language: en`.
+    assert.match(portal().persona, /language the person writes in/)
+    assert.match(portal().persona, /page's language/)
+  })
+
+  test('the persona keeps next steps to what is on the page', () => {
+    // Judged runs told the person to « save the form » on a page with no save button.
+    assert.match(portal().persona, /mention saving, submitting or any further step only when the page or its tools show one/)
+  })
+
   test('is shaped like any other agent the tool gatherer accepts', () => {
     // The structural claim. If this needed its own branch in the tool path, there would be two loops
     // again by another name.

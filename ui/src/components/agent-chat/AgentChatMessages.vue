@@ -43,34 +43,6 @@
               v-else
               class="text-body-medium"
             >
-              <!-- Reasoning ("thinking") from reasoning models: collapsed panel
-                   above the answer it produced. Only when the user opts into full
-                   reasoning display; otherwise the transient "Thinking…" activity
-                   line is the sole feedback and nothing persists. -->
-              <v-expansion-panels
-                v-if="showReasoning && message.reasoning && message.reasoning.trim()"
-                variant="accordion"
-                density="compact"
-                flat
-                tile
-                class="agent-chat__reasoning-panel mb-2 border-secondary border-s-sm border-opacity-100"
-              >
-                <v-expansion-panel>
-                  <v-expansion-panel-title class="text-caption text-medium-emphasis py-1">
-                    <v-icon
-                      size="x-small"
-                      :icon="mdiBrain"
-                      class="mr-2"
-                    />
-                    {{ t('reasoning') }}
-                  </v-expansion-panel-title>
-                  <v-expansion-panel-text>
-                    <div class="text-caption text-medium-emphasis agent-chat__reasoning-text">
-                      {{ message.reasoning }}
-                    </div>
-                  </v-expansion-panel-text>
-                </v-expansion-panel>
-              </v-expansion-panels>
               <!-- In the order it happened: the calls a step made show between the text before and after them. -->
               <template
                 v-for="(block, blockIndex) in messageBlocks[index]"
@@ -84,7 +56,39 @@
                   :mermaid="mermaidEnabled"
                   @mermaid-error="failures => emit('mermaid-error', { index, failures })"
                 />
-                <template v-else>
+                <!-- A step's reasoning, folded where it happened: one muted line that opens on a click, as
+                     other chat UIs keep it. Never open by default — some providers send it raw and long. -->
+                <div
+                  v-else-if="block.type === 'reasoning'"
+                  class="agent-chat__reasoning my-1"
+                  data-testid="reasoning"
+                >
+                  <button
+                    type="button"
+                    class="d-inline-flex align-center text-caption text-medium-emphasis"
+                    :aria-expanded="!!reasoningOpen[`${index}/${blockIndex}`]"
+                    @click="toggleReasoning(`${index}/${blockIndex}`)"
+                  >
+                    <v-icon
+                      :icon="mdiBrain"
+                      size="x-small"
+                      class="mr-1"
+                    />
+                    {{ t('reasoning') }}
+                    <v-icon
+                      :icon="reasoningOpen[`${index}/${blockIndex}`] ? mdiChevronUp : mdiChevronDown"
+                      size="x-small"
+                      class="ml-1"
+                    />
+                  </button>
+                  <div
+                    v-if="reasoningOpen[`${index}/${blockIndex}`]"
+                    class="text-caption text-medium-emphasis agent-chat__reasoning-text mt-1"
+                  >
+                    {{ block.text }}
+                  </div>
+                </div>
+                <template v-else-if="block.type === 'tools'">
                   <div
                     v-if="hasVisibleTools(block.invocations)"
                     class="mt-2"
@@ -96,7 +100,7 @@
                       <approval-card
                         v-if="invocation.state === 'awaiting-approval' && invocation.approvalId"
                         :tool-name="invocation.toolName"
-                        :tool-title="invocation.toolTitle"
+                        :tool-title="invocationTitle(invocation)"
                         :description="invocation.description"
                         :files="invocation.files"
                         :input="invocation.input"
@@ -111,19 +115,31 @@
                            after the whole row, several open calls could not be told apart. -->
                       <div
                         v-else-if="!showTraces || !isTraced(invocation.toolName)"
-                        :class="showToolDetails ? 'agent-chat__tool-call' : 'd-inline'"
+                        :class="showToolDetails || scriptCalls(message, invocation).length ? 'agent-chat__tool-call' : 'd-inline'"
                       >
-                        <v-chip
-                          size="small"
-                          :color="chipColor(invocation)"
-                          variant="outlined"
-                          class="mr-1 mb-1"
+                        <tool-chip
+                          :invocation="invocation"
+                          :label="chipLabel(invocation)"
+                          :expandable="showToolDetails"
+                          :open="!!detailOpen[invocation.toolCallId]"
                           data-testid="tool-chip"
-                          :append-icon="showToolDetails ? (detailOpen[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown) : undefined"
-                          @click="showToolDetails && toggleDetail(invocation.toolCallId)"
+                          @toggle="toggleDetail(invocation.toolCallId)"
+                        />
+                        <!-- What a script did is the calls it made: shown under it, without its code, which is
+                             for the review page. -->
+                        <div
+                          v-if="scriptCalls(message, invocation).length"
+                          class="agent-chat__script-calls"
+                          data-testid="script-calls"
                         >
-                          {{ chipLabel(invocation) }}
-                        </v-chip>
+                          <tool-chip
+                            v-for="call in scriptCalls(message, invocation)"
+                            :key="call.toolCallId"
+                            :invocation="call"
+                            :label="chipLabel(call)"
+                            data-testid="nested-tool-chip"
+                          />
+                        </div>
                         <tool-call-detail
                           v-if="showToolDetails && detailOpen[invocation.toolCallId]"
                           class="agent-chat__tool-call-detail"
@@ -195,17 +211,14 @@
                                   :key="subInv.toolCallId"
                                   :class="showToolDetails ? 'agent-chat__tool-call' : 'd-inline'"
                                 >
-                                  <v-chip
-                                    size="small"
-                                    :color="chipColor(subInv)"
-                                    variant="outlined"
-                                    class="mr-1 mb-1"
+                                  <tool-chip
+                                    :invocation="subInv"
+                                    :label="chipLabel(subInv)"
+                                    :expandable="showToolDetails"
+                                    :open="!!detailOpen[`${invocation.toolCallId}/${subInv.toolCallId}`]"
                                     data-testid="nested-tool-chip"
-                                    :append-icon="showToolDetails ? (detailOpen[`${invocation.toolCallId}/${subInv.toolCallId}`] ? mdiChevronUp : mdiChevronDown) : undefined"
-                                    @click="showToolDetails && toggleDetail(`${invocation.toolCallId}/${subInv.toolCallId}`)"
-                                  >
-                                    {{ toolTitle(subInv.toolName) }}
-                                  </v-chip>
+                                    @toggle="toggleDetail(`${invocation.toolCallId}/${subInv.toolCallId}`)"
+                                  />
                                   <tool-call-detail
                                     v-if="showToolDetails && detailOpen[`${invocation.toolCallId}/${subInv.toolCallId}`]"
                                     class="agent-chat__tool-call-detail"
@@ -237,7 +250,7 @@
         </template>
 
         <!-- Discreet activity line: one muted label naming the current phase
-             (compacting / thinking / analyzing a tool result) instead of an
+             (compacting / thinking / the call at work / analyzing its result) instead of an
              ambiguous skeleton. Shown only during a gap with no visible output —
              while text streams, `activity` is null and the markdown cursor is the
              progress signal. A pending wait is the exception that outlives the turn: the
@@ -303,12 +316,36 @@ fr:
   activityCompacting: Compression de la conversation…
   activityThinking: Réflexion…
   activityAnalyzing: Analyse du résultat de l'outil…
+  activityTool: "{name}…"
   activityWaiting: "En attente de votre action…"
   activityApproval: "En attente de votre approbation : {name}"
   waitingChip: "En attente : {name}"
   declinedChip: "Refusé : {name}"
   approvedChip: "Approuvé : {name}"
   waitedChip: "A attendu : {name}"
+  toolReadSkill: "Lire le guide : {name}"
+  toolReadSkillAny: Lire un guide
+  toolCodeMode: Exécuter un script
+  toolMemoryView: Consulter la mémoire
+  toolMemoryEdit: Mettre à jour la mémoire
+  toolFetchUrl: "Consulter {name}"
+  toolFetchUrlAny: Consulter une page web
+  toolListSitePages: "Lister les pages de {name}"
+  toolListSitePagesAny: Lister les pages d'un site
+  toolRequestWebAccess: Demander un accès web
+  toolRequestMcpAccess: Demander l'accès à des outils
+  toolLs: Lister les fichiers
+  toolReadFile: "Lire {name}"
+  toolReadFileAny: Lire un fichier
+  toolWriteFile: "Écrire {name}"
+  toolWriteFileAny: Écrire un fichier
+  toolGetMyConfiguration: Lire ma configuration
+  toolListMyRuns: Lister mes exécutions
+  toolReadConversation: Lire une conversation passée
+  toolPlanTask: Planifier une tâche
+  toolUpdateTask: Modifier une tâche
+  toolDeleteTask: Supprimer une tâche
+  toolReportOutcome: Rendre compte du résultat
 en:
   reasoning: Reasoning
   scriptTitle: Script
@@ -317,12 +354,36 @@ en:
   activityCompacting: Compacting conversation…
   activityThinking: Thinking…
   activityAnalyzing: Analyzing tool result…
+  activityTool: "{name}…"
   activityWaiting: "Waiting for you…"
   activityApproval: "Awaiting your approval: {name}"
   waitingChip: "Waiting for: {name}"
   declinedChip: "Declined: {name}"
   approvedChip: "Approved: {name}"
   waitedChip: "Waited for: {name}"
+  toolReadSkill: "Read guide: {name}"
+  toolReadSkillAny: Read a guide
+  toolCodeMode: Run a script
+  toolMemoryView: Read memory
+  toolMemoryEdit: Update memory
+  toolFetchUrl: "Fetch {name}"
+  toolFetchUrlAny: Fetch a web page
+  toolListSitePages: "List pages of {name}"
+  toolListSitePagesAny: List a site's pages
+  toolRequestWebAccess: Request web access
+  toolRequestMcpAccess: Request tool access
+  toolLs: List files
+  toolReadFile: "Read {name}"
+  toolReadFileAny: Read a file
+  toolWriteFile: "Write {name}"
+  toolWriteFileAny: Write a file
+  toolGetMyConfiguration: Read my configuration
+  toolListMyRuns: List my runs
+  toolReadConversation: Read a past conversation
+  toolPlanTask: Plan a task
+  toolUpdateTask: Update a task
+  toolDeleteTask: Delete a task
+  toolReportOutcome: Report the outcome
 </i18n>
 
 <script lang="ts" setup>
@@ -334,6 +395,8 @@ import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import ApprovalCard from './ApprovalCard.vue'
 import ToolCallDetail from './ToolCallDetail.vue'
+import ToolChip from './ToolChip.vue'
+import { builtinToolLabel } from '~/utils/builtin-tool-labels'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import type { MermaidFailure } from '~/utils/mermaid'
 import type { ChatMessage } from '~/utils/chat-message'
@@ -365,9 +428,6 @@ const props = withDefaults(defineProps<{
   // A script (code_mode) as an expandable panel of the calls it made, where the transcript is read to
   // audit it (the admin review, a task run); a plain tool chip in the chat.
   showTraces?: boolean
-  // Render reasoning-model "thinking" as a foldable panel; when false the panel is
-  // omitted entirely (compact mode), leaving only the live "Thinking…" activity line.
-  showReasoning?: boolean
   // The configured agent's API path, where an approval card reads the task a planning call changes.
   agentPath?: string
   // A transcript read by someone who cannot answer it (the admin review, a task run): approval cards
@@ -379,7 +439,6 @@ const props = withDefaults(defineProps<{
 }>(), {
   activity: null,
   showTraces: false,
-  showReasoning: false,
   agentPath: undefined,
   readonly: false,
   showToolDetails: false
@@ -390,7 +449,7 @@ const isActionPrompt = (message: ChatMessage) => {
 }
 
 type Invocation = NonNullable<ChatMessage['toolInvocations']>[number]
-type RenderedBlock = { type: 'text', text: string } | { type: 'tools', invocations: Invocation[] }
+type RenderedBlock = { type: 'text' | 'reasoning', text: string } | { type: 'tools', invocations: Invocation[] }
 /**
  * Each message's blocks (ChatMessage.blocks), with each call resolved. Without blocks (a message not built
  * from stored parts, like the welcome), the text and then the calls.
@@ -400,7 +459,7 @@ const messageBlocks = computed<RenderedBlock[][]>(() => props.messages.map(messa
   if (!message.blocks?.length) {
     return [{ type: 'text', text: message.content }, ...(invocations.length ? [{ type: 'tools' as const, invocations }] : [])]
   }
-  return message.blocks.map(block => block.type === 'text'
+  return message.blocks.map(block => block.type !== 'tools'
     ? block
     : { type: 'tools', invocations: block.toolCallIds.map(id => invocations.find(i => i.toolCallId === id)).filter((i): i is Invocation => !!i) })
 }))
@@ -410,12 +469,24 @@ const hasVisibleTools = (invocations: Invocation[]) =>
 
 const { t } = useI18n()
 
-const pendingApprovalTitle = (toolName: string) => {
-  for (const message of props.messages) {
-    const pending = message.toolInvocations?.find(ti => ti.toolName === toolName && ti.state === 'awaiting-approval')
-    if (pending) return pending.toolTitle ?? props.toolTitle(toolName)
+/**
+ * What a call is called — on its chip, its approval card and the activity line alike. The service's own
+ * tools by what they did and on what (builtin-tool-labels.ts), any other by the title it declared: recorded
+ * on the call, so it survives a reload, or else the live registry's.
+ */
+const invocationTitle = (invocation: { toolName: string, toolTitle?: string, input?: unknown }) => {
+  const builtin = builtinToolLabel(invocation.toolName, invocation.input)
+  if (builtin) return t(builtin.key, builtin.name ? { name: builtin.name } : {})
+  return invocation.toolTitle ?? props.toolTitle(invocation.toolName)
+}
+
+/** The title of the latest call by this name in the given state: the activity line names the call it is about. */
+const latestCallTitle = (toolName: string, state: Invocation['state']) => {
+  for (let i = props.messages.length - 1; i >= 0; i--) {
+    const call = [...(props.messages[i].toolInvocations ?? [])].reverse().find(ti => ti.toolName === toolName && ti.state === state)
+    if (call) return invocationTitle(call)
   }
-  return props.toolTitle(toolName)
+  return invocationTitle({ toolName })
 }
 
 // The bottom line's label for the current phase.
@@ -425,7 +496,8 @@ const activityLabel = computed(() => {
   const label = activityLabelKey(a)
   if (!label) return ''
   // A pending call is named by the title recorded on it, as its card and chip do — one name.
-  if (a.kind === 'approval') return t(label.key, { name: pendingApprovalTitle(a.toolName) })
+  if (a.kind === 'approval') return t(label.key, { name: latestCallTitle(a.toolName, 'awaiting-approval') })
+  if (a.kind === 'tool') return t(label.key, { name: latestCallTitle(a.toolName, 'pending') })
   // 'waiting' names what the model said it waits for, verbatim.
   return t(label.key, label.name ? { name: label.name } : {})
 })
@@ -534,10 +606,16 @@ const tracedInvocations = (invocations: Invocation[]) => invocations.filter(ti =
 // Open tool details, keyed like the panels; a call inside a panel is prefixed with the panel's call id.
 const detailOpen = reactive<Record<string, boolean>>({})
 const toggleDetail = (key: string) => { detailOpen[key] = !detailOpen[key] }
-// A failed call is 'done' (ChatMessage has no failure state); where details are shown, its chip says it failed.
-const chipColor = (ti: Invocation) => props.showToolDetails && ti.errorText !== undefined
-  ? 'error'
-  : ti.state === 'done' ? 'success' : ti.state === 'denied' ? 'error' : 'warning'
+
+// A step's reasoning is folded until opened, keyed by message and block.
+const reasoningOpen = reactive<Record<string, boolean>>({})
+const toggleReasoning = (key: string) => { reasoningOpen[key] = !reasoningOpen[key] }
+
+/** The calls a script made, in order, where the chat shows no trace panel: the chips under its own. */
+const scriptCalls = (message: ChatMessage, invocation: Invocation): Invocation[] => {
+  if (props.showTraces || !isTraced(invocation.toolName)) return []
+  return (message.tracePanels?.[invocation.toolCallId]?.messages ?? []).flatMap(m => m.toolInvocations ?? [])
+}
 
 // Chip label: the tool's title, and for the built-in wait what the agent said it is waiting for.
 const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string, approved?: true }) => {
@@ -550,8 +628,7 @@ const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: u
     const name = (invocation.input as any)?.expecting ?? ''
     return invocation.state === 'done' ? t('waitedChip', { name }) : t('waitingChip', { name })
   }
-  // A title the tool declared (its MCP annotation) first: it is recorded on the call, so it survives a reload.
-  const title = invocation.toolTitle ?? props.toolTitle(invocation.toolName)
+  const title = invocationTitle(invocation)
   if (invocation.state === 'denied') return t('declinedChip', { name: title })
   if (invocation.approved) return t('approvedChip', { name: title })
   return title
@@ -608,13 +685,26 @@ function onContentClick (e: MouseEvent) {
   border: none;
 }
 
-/* Reasoning panel: muted, monospace-ish, preserves the model's line breaks. */
+/* A step's reasoning: a plain muted line, not a button's box. */
+.agent-chat-message .agent-chat__reasoning > button {
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+}
+/* A step's reasoning, once opened: muted, keeping the model's line breaks, tied to its line by a rule. */
 .agent-chat-message .agent-chat__reasoning-text {
   white-space: pre-wrap;
   word-break: break-word;
+  padding-left: 12px;
+  border-left: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.agent-chat-message .agent-chat__reasoning-panel .v-expansion-panel-text__wrapper {
-  padding: 0 8px 8px;
+
+/* the calls a script made hang under its chip, as an open call's detail does */
+.agent-chat__script-calls {
+  margin: 0 0 4px 12px;
+  padding-left: 12px;
+  border-left: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
 
 .agent-chat-message .markdown-content ul {
