@@ -44,7 +44,7 @@ test.describe('Task runs', () => {
     await putMockSettings(admin, 'organization/test1')
   })
 
-  test('run now: one turn on the task prompt, recorded on the run, outcome reported', async () => {
+  test('run now: one turn on the task prompt, recorded on the run, outcome reported', { tag: '@smoke' }, async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id, 'call tool report_outcome {"status":"done","summary":"all good"}')
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, task.id))

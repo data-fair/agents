@@ -34,7 +34,7 @@ test.describe('NHI exchange', () => {
    * our assertions actually sign. The agent's id is chosen through the dev seam precisely so that
    * subject matches; see the seam's comment in app.ts.
    */
-  test('an enrolled autonomous agent obtains a real simple-directory session', async () => {
+  test('an enrolled autonomous agent obtains a real simple-directory session', { tag: '@smoke' }, async () => {
     const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
     const created = await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',

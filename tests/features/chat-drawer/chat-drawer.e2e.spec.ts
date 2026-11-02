@@ -30,7 +30,7 @@ test.describe('Chat Drawer Integration', () => {
     await putMockSettings(admin, 'user/test-standalone1')
   })
 
-  test('FAB opens the drawer, the chat works inside it, and stays alive with a waiting-user status once closed', async ({ page, goToWithAuth }) => {
+  test('FAB opens the drawer, the chat works inside it, and stays alive with a waiting-user status once closed', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-drawer', 'test-standalone1')
 
     const fab = page.locator(fabSelector)

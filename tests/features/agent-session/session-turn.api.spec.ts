@@ -60,7 +60,7 @@ test.describe('A turn over the agent session', () => {
     }
   }
 
-  test('the first prompt creates the thread, and the attached frame names it', async () => {
+  test('the first prompt creates the thread, and the attached frame names it', { tag: '@smoke' }, async () => {
     // One way to start a conversation: a hello naming the agent binds to nothing, and the thread exists
     // from the first message on — so opening a chat and leaving it creates nothing.
     const session = await open(await cookieOf(orgAdmin))
@@ -122,7 +122,7 @@ test.describe('A turn over the agent session', () => {
     assert.notEqual((await startThread({})).consentedToReview, true, 'a consent cookie on the upgrade is not read')
   })
 
-  test('a prompt runs a turn server-side and streams it to the browser', async () => {
+  test('a prompt runs a turn server-side and streams it to the browser', { tag: '@smoke' }, async () => {
     // The mock answers "hello" with "world". What is being asserted is the PATH: a prompt over the
     // socket starts a server-side turn, whose tokens arrive as deltas and whose end is announced —
     // none of which the browser loop was doing, and none of which needs polling.
@@ -143,7 +143,7 @@ test.describe('A turn over the agent session', () => {
     assert.deepEqual(messages.map((m: any) => m.role), ['user', 'assistant'])
   })
 
-  test('the turn calls a PAGE tool, and the page\'s answer reaches the model', async () => {
+  test('the turn calls a PAGE tool, and the page\'s answer reaches the model', { tag: '@smoke' }, async () => {
     // The bridge inside a real turn: the model asks for a tool the page declared, the server asks the
     // browser, the browser answers, and the model continues from that answer. The mock's `call tool`
     // seam drives it.

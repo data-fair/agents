@@ -155,4 +155,5 @@ prefix is ignored, `api/src/sites/operations.ts`):
 | Refusing abusive input | [Input moderation guard](./moderation.md) |
 | What an admin may read back | [Conversation review](./conversation-review.md) |
 | Putting the chat in a host application | [Embedding](./embedding.md), [Integration context](./integration-context.md) |
+| Test levels, the @smoke set, what runs on commit, push and pull request | [Test suite](./testing.md) |
 | Shelved | [Progressive tool disclosure](./tool-exploration.md) |

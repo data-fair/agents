@@ -28,7 +28,7 @@ test.describe('Activity and review pages', () => {
     await putMockSettings(admin, 'organization/test1', reviewSettings)
   })
 
-  test('a stored conversation is listed, opens on the review page, and downloads as JSONL', async ({ page, goToWithAuth }) => {
+  test('a stored conversation is listed, opens on the review page, and downloads as JSONL', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
     // Run a real turn, which is what makes a conversation reviewable. Consent travels in the cookie
     // both boundaries read; the conversation id is the server's, not ours to choose.
     await setReviewConsent(admin, true)

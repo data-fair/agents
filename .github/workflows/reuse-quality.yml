@@ -1,11 +1,22 @@
 name: Quality checks
 
+# The full gate. One build job (types, workspace packages, UI) shared as an artifact; static checks
+# and unit tests in one job; api and e2e tests in two parallel jobs. Each test job is a fresh runner
+# with its own services, so the suite's single-worker constraint (tests share one dev env state)
+# holds inside each one. Used by pull requests and releases; the pre-push hook only runs a light
+# subset (see docs/architecture/testing.md).
+
 on:
   workflow_call:
+    inputs:
+      retries:
+        description: playwright retries per failed test
+        type: number
+        default: 1
   workflow_dispatch:
 
 jobs:
-  quality:
+  build:
     runs-on: ubuntu-latest
     steps:
     - name: Checkout git repository
@@ -13,72 +24,195 @@ jobs:
 
     - uses: actions/setup-node@v7
       with:
-        node-version: 24
+        node-version-file: .nvmrc
         cache: 'npm'
 
     - name: Install dependencies
       run: npm ci
 
-    - name: Lint
-      run: npm run lint
-
+    # the generated .type modules are imported by the API, the tests and the UI build
     - name: Build types
       run: npm run build-types
 
-    # their compiled .js is gitignored, and specs import them by package name: lib-vue/lib-vuetify for
-    # the chat composables, lib-sim for the simulation cases. lib-vue first, lib-vuetify builds on it.
+    # their compiled .js is gitignored, and the UI and the specs import them by package name:
+    # lib-vue/lib-vuetify for the chat composables, lib-sim for the simulation cases
     - name: Build workspace packages
-      run: npm -w lib-vue run build && npm -w lib-vuetify run build && npm -w lib-sim run build
+      run: npm run build-libs
 
+    # the API reads ui/dist/index.html at startup (lib-express createSpaMiddleware) and dies
+    # without it, even though the pages themselves come from the dev UI; ui/dts feeds the UI type check
     - name: Build UI
       run: npm -w ui run build
 
+    - name: Upload build outputs
+      uses: actions/upload-artifact@v7
+      with:
+        name: build
+        include-hidden-files: true # the .type directories
+        retention-days: 1
+        path: |
+          **/.type/
+          ui/dist/
+          ui/dts/
+          ui/src/components/vjsf/
+          lib-vue/**/*.js
+          lib-vue/**/*.d.ts
+          lib-vuetify/**/*.js
+          lib-vuetify/**/*.d.ts
+          lib-sim/**/*.js
+          lib-sim/**/*.d.ts
+          !**/node_modules/**
+
+  static:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout git repository
+      uses: actions/checkout@v7
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Download build outputs
+      uses: actions/download-artifact@v8
+      with:
+        name: build
+
+    - name: Lint
+      run: npm run lint
+
     - name: Type check
-      run: npm -w ui run check-types
+      run: npm run check-types
 
-    - name: Init env
-      run: bash dev/init-env.sh
+    - name: Audit
+      run: npm audit --omit=dev --audit-level=critical
 
-    - name: Start dev dependencies
-      run: docker compose up -d --wait
+    # no server needed, but some units import #config, whose development config reads .env
+    - name: Init .env
+      run: ./node_modules/.bin/df-dev init-env # local bin only: a bare npx would fetch an unrelated "df-dev" from the registry if the dependency were missing
 
-    # npx resolves the project's own dotenv bin, node_modules/.bin is not on the runner's PATH
+    - name: Unit tests
+      run: npx playwright test --project=unit
+
+  tests:
+    name: tests (${{ matrix.project }})
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        project: [api, e2e]
+    env:
+      # empty on workflow_dispatch, where playwright.config.ts falls back to 1
+      TEST_RETRIES: ${{ inputs.retries }}
+    steps:
+    - name: Checkout git repository
+      uses: actions/checkout@v7
+
+    - uses: actions/setup-node@v7
+      with:
+        node-version-file: .nvmrc
+        cache: 'npm'
+
+    - name: Install dependencies
+      run: npm ci
+
+    - name: Download build outputs
+      uses: actions/download-artifact@v8
+      with:
+        name: build
+
+    # only the browser binaries are cached, keyed on the installed playwright version;
+    # the system packages they need are installed on every run
+    - name: Read the playwright version
+      if: matrix.project == 'e2e'
+      id: playwright
+      run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+    - name: Cache playwright browsers
+      if: matrix.project == 'e2e'
+      id: playwright-cache
+      uses: actions/cache@v6
+      with:
+        path: ~/.cache/ms-playwright
+        key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}-chromium
+
+    - name: Install playwright browser
+      if: matrix.project == 'e2e' && steps.playwright-cache.outputs.cache-hit != 'true'
+      run: npx playwright install --with-deps chromium
+
+    - name: Install playwright system dependencies
+      if: matrix.project == 'e2e' && steps.playwright-cache.outputs.cache-hit == 'true'
+      run: npx playwright install-deps chromium
+
+    - name: Init .env
+      run: ./node_modules/.bin/df-dev init-env # local bin only: a bare npx would fetch an unrelated "df-dev" from the registry if the dependency were missing
+
+    # the zellij panes get .env from df-dev; here every later step does
+    - name: Export .env to the next steps
+      run: cat .env >> "$GITHUB_ENV"
+
+    # simple-directory reads it verbatim: the NHI fixtures' issuers carry the drawn NGINX_PORT
+    - name: Render users.json
+      run: node dev/render-users.ts
+
+    # every profile, not only the core services: CI tests every integration (events included)
+    - name: Start services
+      run: docker compose --profile '*' up -d --wait
+
+    # same commands as the panes of .zellij.kdl, logs in dev/logs for the upload below
     - name: Start dev API
-      run: npx dotenv run -- npm run dev-api &
-
-    # fail here, with the api's own output, rather than later in the tests' state setup
-    - name: Wait for dev API
       run: |
-        port=$(grep '^DEV_API_PORT=' .env | cut -d= -f2)
-        for i in $(seq 60); do
-          curl -sf "http://localhost:$port/api/ping" > /dev/null && exit 0
-          sleep 1
-        done
-        echo "dev API did not answer on port $port"
-        cat dev/logs/dev-api.log || true
-        exit 1
+        mkdir -p dev/logs
+        NODE_CONFIG=$(./node_modules/.bin/df-dev absent-config)
+        export NODE_CONFIG
+        cd api && NODE_ENV=development EVENTS_LOG_LEVEL=warn node index.ts > ../dev/logs/api.log 2>&1 &
+
+    - name: Start dev UI
+      if: matrix.project == 'e2e'
+      run: cd ui && NODE_CONFIG_DIR=../api/config/ ../node_modules/.bin/vite --port "$DEV_UI_PORT" > ../dev/logs/ui.log 2>&1 &
 
     # data-fair's stand-in: privateMcpUrl (api/config/development.js) points at its /platform/ endpoint, so
     # without it every turn of an autonomous agent with an identity fails to list its built-in server
     - name: Start dev MCP server
-      run: mkdir -p dev/logs && (npm run dev-mcp > dev/logs/dev-mcp.log 2>&1 &)
+      run: node dev/mcp-server.ts > dev/logs/mcp.log 2>&1 &
 
-    - name: Wait for dev MCP server
+    # fail here, with the processes' own output, rather than later in the tests' state setup;
+    # the e2e-warmup project then pays vite's first-request transforms
+    - name: Wait for API, MCP server and UI
       run: |
-        port=$(( $(grep '^NGINX_PORT=' .env | cut -d= -f2) + 31 ))
-        for i in $(seq 30); do
-          curl -s -o /dev/null "http://localhost:$port/mcp" && exit 0
-          sleep 1
+        urls="http://localhost:$NGINX_PORT/agents/api/ping"
+        if [ "${{ matrix.project }}" = e2e ]; then urls="$urls http://localhost:$NGINX_PORT/agents/"; fi
+        for url in $urls; do
+          for _ in $(seq 120); do curl -sf -o /dev/null "$url" && break; sleep 1; done
+          curl -sf -o /dev/null "$url" || { echo "not ready: $url"; tail -n 50 dev/logs/*.log; exit 1; }
         done
-        echo "dev MCP server did not answer on port $port"
-        cat dev/logs/dev-mcp.log || true
-        exit 1
+        # the MCP endpoint answers only POST: any HTTP answer means it listens
+        for _ in $(seq 30); do curl -s -o /dev/null "http://localhost:$DEV_MCP_PORT/mcp" && exit 0; sleep 1; done
+        echo "dev MCP server not ready"; tail -n 50 dev/logs/mcp.log; exit 1
 
-    - name: Install Playwright browser
-      run: npx playwright install --with-deps chromium
+    - name: Run tests
+      run: npx playwright test --project=${{ matrix.project }}
 
-    - name: Run unit tests
-      run: npm run test-unit
+    - name: Upload test results
+      if: failure()
+      uses: actions/upload-artifact@v7
+      with:
+        name: test-results-${{ matrix.project }}
+        path: |
+          test-results/
+          dev/logs/
+        retention-days: 7
 
-    - name: Run API tests
-      run: npm run test-api
+    - name: Docker compose logs on failure
+      if: failure()
+      run: docker compose --profile '*' logs
+
+    - name: Stop services
+      if: always()
+      run: docker compose --profile '*' down

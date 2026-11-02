@@ -42,7 +42,7 @@ test.describe('Agent session socket', () => {
   const serverCalls = async (name: string, input: unknown) =>
     (await admin.post('/api/test-env/agent-session-call', { name, input })).data
 
-  test('an authenticated browser connects through nginx and attaches', async () => {
+  test('an authenticated browser connects through nginx and attaches', { tag: '@smoke' }, async () => {
     const session = await open(await cookieOf(orgAdmin))
     session.send({ ...helloWith(['select_row']), conversationId: 'c1' })
     assert.deepEqual(await session.next(), { type: 'attached', conversationId: 'c1', anonymous: false, reviewOffered: false })

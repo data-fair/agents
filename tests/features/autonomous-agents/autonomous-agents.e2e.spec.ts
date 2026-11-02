@@ -94,7 +94,7 @@ test.describe('Autonomous agents configuration', () => {
     await expect.poll(() => directoryDeletes).toEqual(['/simple-directory/api/organizations/test1/nhis/nhi-stub'])
   })
 
-  test('creation enrols the identity when the directory accepts it', async ({ page, goToWithAuth }) => {
+  test('creation enrols the identity when the directory accepts it', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
     let nhiBody: any
     await page.route('**/simple-directory/api/organizations/*/nhis', async route => {
       if (route.request().method() !== 'POST') return route.continue()

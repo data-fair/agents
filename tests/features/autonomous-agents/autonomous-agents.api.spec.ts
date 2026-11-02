@@ -75,7 +75,7 @@ test.describe('Autonomous agents API', () => {
     )
   })
 
-  test('a superadmin creates an autonomous agent and reads it back', async () => {
+  test('a superadmin creates an autonomous agent and reads it back', { tag: '@smoke' }, async () => {
     const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
     assert.equal(created.status, 200)
     assert.ok(created.data.id, 'expected a generated id')

@@ -16,7 +16,7 @@ test.describe('Catalog API', () => {
     await clean()
   })
 
-  test('org admin GET returns the global mock model with no settings stored', async () => {
+  test('org admin GET returns the global mock model with no settings stored', { tag: '@smoke' }, async () => {
     const res = await orgAdmin.get('/api/catalog/organization/test1')
     assert.equal(res.status, 200)
     assert.equal(res.data.count, res.data.results.length)
