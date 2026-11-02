@@ -6,7 +6,6 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { seedFlagsCookie } from '../../support/chat-frame.ts'
 
 test.describe('Mermaid bounded auto-fix (e2e)', () => {
   test.beforeEach(async () => {
@@ -16,9 +15,6 @@ test.describe('Mermaid bounded auto-fix (e2e)', () => {
   test('a diagram that fails to render is fixed automatically', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await putMockSettings(admin, 'user/test-standalone1')
-
-    // Mermaid rendering is an opt-in flag; seed it before mount.
-    await seedFlagsCookie(page, { mermaid: true })
 
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
 

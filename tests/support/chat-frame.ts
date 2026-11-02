@@ -31,14 +31,3 @@ export async function waitForChatFrame (page: Page): Promise<Frame> {
   await expect(frame.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
   return frame
 }
-
-/**
- * Seed the `agent-chat-flags` cookie readFlags() consumes (ui/src/utils/agent-flags.ts) before the app
- * boots. Path '/' keeps it readable by the UI page. goToWithAuth reuses a cached browser context, so a
- * cookie set by one test leaks into the next: a test that depends on a flag must seed it explicitly.
- * Flags left out take their default; `mermaid` is off unless given.
- */
-export const seedFlagsCookie = (page: Page, flags: { mermaid?: boolean, showReasoning?: boolean }) =>
-  page.addInitScript((f) => {
-    document.cookie = `agent-chat-flags=${encodeURIComponent(JSON.stringify(f))}; path=/`
-  }, { mermaid: false, ...flags })

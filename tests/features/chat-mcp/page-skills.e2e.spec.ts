@@ -25,5 +25,7 @@ test.describe('Page skills', () => {
 
     await expect(page.locator('.assistant-content').last())
       .toContainText('Always describe the note before changing it', { timeout: 15000 })
+    // Named by the guide it read, not by the tool's name.
+    await expect(page.getByTestId('tool-chip')).toHaveText(['Read guide: note-guide'])
   })
 })

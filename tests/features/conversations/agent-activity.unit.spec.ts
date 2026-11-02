@@ -13,4 +13,8 @@ test.describe('activityLabelKey', () => {
     assert.deepEqual(activityLabelKey({ kind: 'thinking' }), { key: 'activityThinking' })
     assert.deepEqual(activityLabelKey({ kind: 'analyzing' }), { key: 'activityAnalyzing' })
   })
+
+  test('a running call carries its tool name, for the chat to title as its chip', () => {
+    assert.deepEqual(activityLabelKey({ kind: 'tool', toolName: 'read_skill' }), { key: 'activityTool', name: 'read_skill' })
+  })
 })

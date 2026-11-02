@@ -47,8 +47,6 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
     // either side ran together ("…levels.Now let me…").
     content: parts.filter(p => p.type === 'text').map(p => p.text).join('\n\n')
   }
-  const reasoning = parts.filter(p => p.type === 'reasoning').map(p => p.text).join('')
-  if (reasoning) chat.reasoning = reasoning
 
   // One part per tool call, carrying its own state — so a call that FAILED is readable directly, where
   // it used to be recovered by joining a call part to a separate result part on their shared id. The
@@ -98,6 +96,12 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
   for (const part of parts) {
     if (part.type === 'text') {
       if (part.text) blocks.push({ type: 'text', text: part.text })
+    } else if (part.type === 'reasoning') {
+      // A step's reasoning where it happened, in one block however many parts the provider streamed it in.
+      // Some providers send an empty one (the reasoning itself withheld): nothing to fold, so no block.
+      const last = blocks[blocks.length - 1]
+      if (last?.type === 'reasoning') last.text += part.text
+      else if (part.text?.trim()) blocks.push({ type: 'reasoning', text: part.text })
     } else if (isDynamicToolUIPart(part)) {
       const last = blocks[blocks.length - 1]
       if (last?.type === 'tools') last.toolCallIds.push(part.toolCallId)

@@ -347,15 +347,25 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    * the label.
    */
   const activity = (value: ChatActivity | null) => {
+    labelShown = value !== null
     target.frames.activity(value)
+  }
+  // Whether this loop left a label on screen: any step's text clears it, not only the turn's first —
+  // after a result, "Analyzing…" used to stay under the answer while it streamed.
+  let labelShown = false
+  // The calls of this turn still running, so a parallel step's first result does not say "analyzing"
+  // while the others are still at work.
+  const running = new Map<string, string>()
+  const afterCall = (toolCallId: string) => {
+    running.delete(toolCallId)
+    const still = [...running.values()].at(-1)
+    activity(still ? { kind: 'tool', toolName: still } : { kind: 'analyzing' })
   }
 
   // The wait this turn handed over on, if it did. The first accepted one; a second in the same step is
   // settled at once as redundant rather than left as a second open call nothing will answer.
   let handover: { toolCallId: string, expecting?: string } | undefined
   let awaitingApproval = false
-
-  let sawText = false
 
   /**
    * Push the turn's STRUCTURE to a watching page: the stored parts as they stand.
@@ -398,7 +408,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
       if (part.type === 'text-delta') {
       // Visible output means the label has nothing left to explain.
-        if (!sawText) { sawText = true; activity(null) }
+        if (labelShown) activity(null)
         appendText('text', part.text)
         stream('text', part.text)
       }
@@ -453,6 +463,11 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         // show the chip after the work it describes.
         sendMessageFrame()
         await persistStructure()
+        // A wait is the person's move, labelled when the turn hands over: not a call at work.
+        if (part.toolName !== WAIT_TOOL_NAME) {
+          running.set(part.toolCallId, part.toolName)
+          activity({ kind: 'tool', toolName: part.toolName })
+        }
       }
       // THE GATE STOPPED A CALL. The SDK has not executed it and will not this turn; it ends the turn
       // itself (finishReason 'other'). The call part already exists (the 'tool-call' part came first):
@@ -510,8 +525,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         recorder.settleCall(part.toolCallId, settled)
         sendMessageFrame()
         await persistStructure()
-        // The model now has a result to read.
-        activity({ kind: 'analyzing' })
+        // The model now has a result to read, once the step's other calls are done too.
+        afterCall(part.toolCallId)
       }
       // A tool that failed does not stop the turn — the model sees the error and usually keeps
       // talking — so without recording it a failed call reads exactly like a successful one.
@@ -530,6 +545,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         sendMessageFrame()
         await persistStructure()
         debug('tool failed tool=%s error=%o', part.toolName, part.error)
+        // The model reads the error as it reads a result.
+        afterCall(part.toolCallId)
       }
       // AN APPROVED CALL WHOSE TOOL IS GONE (removed, denied since, or filtered out of an unattended run),
       // denied by name through `toolApproval` (./approved-calls.ts): a `tool-output-denied` part, not a throw

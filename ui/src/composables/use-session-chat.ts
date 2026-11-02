@@ -32,7 +32,7 @@ import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { useAgentSession } from '~/composables/use-agent-session'
 import { subscribeHostEvents } from '~/composables/use-host-events'
 import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-message'
-import { appendStreamedText } from '~/utils/chat-message'
+import { appendStreamedText, appendStreamedReasoning } from '~/utils/chat-message'
 import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
 import { reviewOffered, consentRef } from '~/review/review-consent'
@@ -184,7 +184,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       const last = turns.value[turns.value.length - 1]
       if (kind === 'reasoning') {
         if (last && last.message.role === 'assistant') {
-          last.message = { ...last.message, reasoning: (last.message.reasoning ?? '') + text }
+          last.message = appendStreamedReasoning(last.message, text)
         }
         return
       }
