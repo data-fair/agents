@@ -1,0 +1,133 @@
+# Concise replies: before / after the reply-style clause — 2026-10-30
+
+> The reply-style clause (`REPLY_STYLE_NOTE`, see [autonomous agents](../architecture/autonomous-agents.md)),
+> measured with the brevity judge calibrated in `2026-10-30-judge-calibration.md`.
+> Before: commit `c54086a`. After: commit `5ec10e6` (`REPLY_STYLE_NOTE` in `buildSystemPrompt`, chat turns
+> only; the personal assistant's persona no longer invites "a note while you work").
+
+## What ran
+
+| | |
+|---|---|
+| Assistant under test | `sonnet` via the bridge; persona `sonnet`, tools roles `haiku` |
+| Cases | `air-quality`, `register-person`, `workflow-hand-back` (personal assistant, page tools); `autonomous-agent-tool-use`, `autonomous-agent-cannot-answer`, `autonomous-agent-approval` (configured agent, MCP) |
+| Repeats | 2 per condition — 12 + 12 judged runs. One after-r2 `approval` run was invalid (premise not met) and was rerun once (run 49 of the budget). |
+| Judge | `simulation-judge` at commit `9dcc490`, unchanged across both conditions; identical dispatch |
+| The default simulated agent persona | unchanged ("You answer briefly…"), so the configured-agent cases already started from a brevity instruction |
+
+## Result
+
+```
+condition  judged  satisfied  substance kept  tight/acc/padded  padding/msg  final words  interim notes  words/msg
+before     12      1          0.92            3/8/1             0.91         65.54        0.42           66.95
+after      12      1          0.92            7/5/0             0.35         34.89        0.75           44.48
+```
+
+```
+case                            before                              after
+air-quality                     acceptable 144w / padded 131.7w     acceptable 44w / acceptable 78w
+autonomous-agent-approval       acceptable! 88w / acceptable 54.8w  acceptable! 35w / tight 33.2w
+autonomous-agent-cannot-answer  tight 62w / tight 57w               tight 35w / tight 38w
+autonomous-agent-tool-use       acceptable 58w / acceptable 53w     acceptable 49w / tight 45w
+register-person                 acceptable 40.5w / acceptable 49w   acceptable 21.5w / tight 17.5w
+workflow-hand-back              acceptable 29.5w / tight 19w        tight 11.5w / tight 11w
+```
+
+- **Padding −62%** (0.91 → 0.35 items per user message), **final replies −47%** (65 → 35 words), everything the
+  person read −34% per message. Tight runs 3 → 7; no padded run after.
+- **No substance lost.** `satisfied` 12/12 both sides; `substance kept` 11/12 both sides, and the one miss each
+  side is the same case and the same class (approval state, below), present before the change.
+- Every case got shorter. The biggest drop is on the personal-assistant pages (`air-quality` 138 → 61 words
+  on average), the cases with no brevity instruction of their own before.
+- **What went up:** interim notes, 0.42 → 0.75 per run. That is the "one short sentence before work that takes
+  several steps" the clause allows; judges counted it as padding once (a two-step job, "barely needed"), and
+  never as narration. Narration of tool calls disappeared: no `narration` item in any after run.
+
+What the padding was, before — quoted by the judges: `« Let me know if you'd like the display adjusted (e.g.,
+current/latest reading instead of peak value, or a chart). »`, `« Is there anything else you'd like to do with
+it? »`, a repeated closing summary of a form already visible on the page. After: one opt-in closer in 12 runs, and
+on `air-quality` the station list repeated in the chat after `set_display` had put it on the page.
+
+## What the clause did not fix (and was not meant to)
+
+All present in the baseline, reported consistently by the judges, and each a candidate for its own change:
+
+- **Approval state.** When the person types while an approval is pending, the call is declined
+  (`"The person sent a new message instead of deciding."`); the assistant never says so, and the run started by
+  an approval sometimes writes as if the approval were still to come ("a fresh approval prompt should be waiting").
+  The record has the denial and the result in history: the model is not using them. The card itself shows no
+  reason for "Declined".
+- **Reply language.** On the personal-assistant pages, replies came in French to an English speaker with
+  `language: en` in host state — 3 of 6 baseline page runs, 2 of 6 after. Not caused by the clause (it predates
+  it); the clause's example uses « » quotes, which a judge suspected, so it may be worth making neutral.
+- **Naming internals.** "my tools only cover…", district slugs (`city-center`), item ids, despite `AUDIENCE_NOTE`
+  — fewer after, not gone.
+- **`get_my_configuration` before refusing** (`SELF_KNOWLEDGE_NOTE`) is skipped in every `cannot-answer` run.
+- **"Current" for upcoming closures** in `tool-use`; invented "save the form" next steps in `register-person`.
+- **Dev fixture noise** (not product): the page cases are offered the review catalog's tools (`wipe_everything`,
+  `explode`…) and its road-closure skills; `query_data` leaks NO2 rows through a PM2.5 filter.
+
+## Decision
+
+Keep the clause as written. The gain is large and consistent, the anti-goals held (no substance lost, no silence
+finding), and the remaining defects are not about length. Next: the same comparison in data-fair (goal 4).
+
+## Follow-up: the other defects
+
+Two wording passes (`186c323`, `195e500`), each validated on `autonomous-agent-approval`, `autonomous-agent-tool-use`
+and `register-person`, twice, at `SIM_ASSISTANT_MODEL=sonnet`:
+
+| Defect | Change | Result |
+|---|---|---|
+| Reply language | persona: the language the person writes in, else the page's | no French reply since |
+| Naming internals | `AUDIENCE_NOTE`: say what you can help with by subject; titles or plain words for coded values, a value shown on the page excepted | "my tools" gone; a district slug still slips through at times |
+| "Current" for upcoming closures | `todayLine`: say which dated items apply today, which are past or to come | fixed after the second wording (the first, "compare them", changed nothing) |
+| Invented "save the form" | persona: mention a further step only when the page or its tools show one | 1 of 2 runs, was every run |
+| Approval | `APPROVAL_NOTE`: one sentence, the approval's title, in the same reply as the call; a cancelled request said and offered again; a result means it ran | explanation before approving holds; see below |
+
+Left as is: `get_my_configuration` before refusing — the refusals were right in every run.
+
+**A harness bug, not a prompt one.** Every judged approval run, under every prompt, ended with the assistant
+writing "the prompt is up, awaiting your decision" over a call already approved. The bridge's replay path
+(`renderTranscript`) wrote an assistant message's tool calls *before* its text, so "I'll put the prompt up now"
+read as said after the call. Fixed in `8c9b2fd`. A real provider receives structured messages and never had it.
+After the fix (2 runs, `fix3-r*`): both satisfied, no post-approval confusion.
+
+**Still open,** each seen in both `fix3` runs:
+
+- "Before saying that data is unchanged, read it again" is not followed: the tool's own "wiped nothing" is taken
+  as proof, and the person asks for the re-read themselves. Ignored in 3 of 3 runs since it was added.
+- The approval sentence does not use the card's title (1 run), and asked what the card says, the model answered
+  it could not see it — the prompt does not tell it the card shows the action's title and description (1 run).
+- A cancelled request was not said to be cancelled (1 run).
+
+These are rule-following on Sonnet, not length. Further wording would need its own rounds; deferred.
+
+## In data-fair
+
+6 cases of `~/data-fair/data-fair_chore-prompt-concise` (4 back-office pages, 2 autonomous agents), twice each, on
+`agents:before` (`2b94383`, the branch base) and `agents` (`8c9b2fd`), Sonnet through the bridge. Both seeded agents
+were first reduced to their role (`739e903`): the old seed said « réponds brièvement » and « dis clairement quand tu
+ne peux pas », which is what the product prompt now decides; with it, autonomous replies ran about 20 % shorter.
+
+| | before | after |
+|---|---|---|
+| satisfied | 11/12 | 12/12 |
+| substance kept | 0.92 | 0.92 |
+| tight / acceptable / padded | 1/10/1 | 1/11/0 |
+| final reply words (mean per turn) | 117 | 93 |
+| visible words per user message | 138 | 125 |
+| user messages, all runs | 26 | 17 |
+| padding items, all runs | 39 | 26 |
+| padding per user message | 1.60 | 1.64 |
+
+Closing recaps fell most (15 → 7), narration 7 → 4. The rate per message is flat because the people needed a third
+fewer messages: shorter, more direct turns left less to ask again. Final replies were shorter in 5 of 6 cases; the
+search-terms case went both ways (121/139 → 162/98).
+
+The gain is smaller than in this repo (−21 % final words against −47 %), as expected: data-fair's pages carry their
+own guidance and Sonnet is already terse there. The defects judges flagged in data-fair are mostly not length:
+claimed screen state no tool reported (« surligné »), limits stated unchecked (« je ne vois que ce qui appartient à
+votre organisation » with a portal-wide search offered; « aucun outil » without opening the editing page the tool
+pointed to), a count worked out in prose (32 for 33), and `search_data` returning a server stack trace as a
+successful result.

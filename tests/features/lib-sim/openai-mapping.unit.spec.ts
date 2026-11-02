@@ -62,6 +62,19 @@ test.describe('transcript rendering', () => {
     assert.ok(out.includes('call_1'))
     assert.ok(out.includes('{"temp":17}'))
   })
+
+  test('puts an assistant message\'s text before its tool calls, the order it was written in', () => {
+    // Rendered calls-first, « I'll put the prompt up now » read as said AFTER the call and right before
+    // its result: judged approval runs continued it with « the prompt is up now, awaiting your decision »
+    // over a call the person had already approved.
+    const out = renderTranscript([
+      { role: 'user', content: 'run the reset' },
+      { role: 'assistant', content: 'I will run the reset now.', tool_calls: [{ id: 'call_1', type: 'function', function: { name: 'wipe', arguments: '{}' } }] },
+      { role: 'tool', tool_call_id: 'call_1', content: 'wiped nothing' }
+    ])
+    assert.ok(out.indexOf('I will run the reset now.') < out.indexOf('<tool_call id="call_1"'))
+    assert.ok(out.indexOf('<tool_call id="call_1"') < out.indexOf('wiped nothing'))
+  })
 })
 
 test.describe('transcript framing', () => {

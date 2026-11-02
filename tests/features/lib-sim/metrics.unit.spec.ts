@@ -138,6 +138,27 @@ test.describe('computeMetrics', () => {
   test('reports no average when the assistant never said anything', () => {
     assert.equal(computeMetrics({ conversation: [{ role: 'assistant', text: ' ' }] }, []).avgVisibleReplyChars, null)
   })
+
+  const said = (...entries: Array<[string, string]>) => ({ conversation: entries.map(([role, text]) => ({ role, text })) })
+
+  test('averages the words of the last prose bubble of each turn, and counts the notes before it', () => {
+    const m = computeMetrics(said(['user', 'q1'], ['assistant', 'a b c'], ['assistant', ''], ['assistant', 'one two'], ['user', 'q2'], ['assistant', 'x']), [])
+    assert.equal(m.finalReplyWords, 1.5)
+    assert.equal(m.interimProseBubbles, 1)
+    assert.equal(m.visibleWordsPerUserMessage, 3)
+  })
+
+  test('skips a turn of tool chips only rather than counting it as a reply of zero words', () => {
+    const m = computeMetrics(said(['user', 'q1'], ['assistant', ''], ['user', 'q2'], ['assistant', 'four words right here']), [])
+    assert.equal(m.finalReplyWords, 4)
+  })
+
+  test('reports no reply length when nobody spoke', () => {
+    const m = computeMetrics({ conversation: [] }, [])
+    assert.equal(m.finalReplyWords, null)
+    assert.equal(m.interimProseBubbles, 0)
+    assert.equal(m.visibleWordsPerUserMessage, null)
+  })
 })
 
 test.describe('writeEvidence', () => {

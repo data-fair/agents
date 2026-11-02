@@ -2,7 +2,7 @@ import { Client, ToolListChangedNotificationSchema, ResourceListChangedNotificat
 import { tool, jsonSchema } from 'ai'
 import type { Tool } from 'ai'
 import { FrameClientTransport } from './frame-client-transport'
-import { formatMcpToolResult, type McpCallResult } from '@agents/shared/tool-result'
+import { toolOutputOrThrow, type McpCallResult } from '@agents/shared/tool-result'
 import type { PageSkillDescriptor } from '@agents/shared/agent-session-protocol'
 import Debug from 'debug'
 
@@ -177,7 +177,7 @@ export class FrameClientAggregator {
             // Issue the tools/call request directly instead of via client.callTool().
             // callTool() additionally enforces the tool's declared outputSchema against
             // the result's `structuredContent`, throwing when it is absent or mismatched.
-            // But formatMcpToolResult discards structuredContent entirely — it keeps only
+            // But the formatting discards structuredContent entirely — it keeps only
             // text and image parts (the latter as a media envelope the server turns into image parts) —
             // so that validation can only ever break an otherwise-usable call over a value
             // we throw away. Going through request() keeps the identical request path while
@@ -190,7 +190,8 @@ export class FrameClientAggregator {
             // step built a few milliseconds too early misses the new tools for the whole
             // turn — the bug this ordering exists to prevent.
             await this.settled()
-            return formatMcpToolResult(callResult as McpCallResult)
+            // A failure the tool reports itself is thrown: use-agent-session sends it as `error`, never as a result.
+            return toolOutputOrThrow(callResult as McpCallResult)
           }
         })
         const title = (t as any).annotations?.title
