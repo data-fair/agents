@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { formatMcpToolResult, isMediaToolResult, redactMediaToolResult, redactHistoryMediaToolResults } from '@agents/shared/tool-result'
+import { formatMcpToolResult, toolOutputOrThrow, isMediaToolResult, redactMediaToolResult, redactHistoryMediaToolResults } from '@agents/shared/tool-result'
 
 const PNG = 'iVBORw0KGgoAAAANSUhEUg=='
 
@@ -75,6 +75,18 @@ test.describe('formatMcpToolResult (unit)', () => {
   // wart got slightly more visible, not less.
   test('an errored result with no text yields a bare prefix — known wart, pinned', () => {
     assert.equal(formatMcpToolResult({ content: [], isError: true }), 'Tool execution failed: ')
+  })
+})
+
+test.describe('toolOutputOrThrow (unit)', () => {
+  // A page tool's own failure came back as a value: the call was stored as a success holding
+  // « Tool execution failed: 400 … », and a judged run's failed-call count read 0.
+  test('throws a failed result, with its text', () => {
+    assert.throws(() => toolOutputOrThrow({ content: [{ type: 'text', text: '400 unknown field *' }], isError: true }), /^Error: Tool execution failed: 400 unknown field \*$/)
+  })
+
+  test('returns a successful result as formatted', () => {
+    assert.equal(toolOutputOrThrow({ content: [{ type: 'text', text: 'ok' }] }), 'ok')
   })
 })
 
