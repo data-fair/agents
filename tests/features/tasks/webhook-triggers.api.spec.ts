@@ -177,16 +177,17 @@ test.describe('Webhook triggers', () => {
     assert.match(run.messages[0].parts[0].text, /\nkept\n<\/webhook-payload>/)
   })
 
-  test('the events log never records a trigger key, wrong or right', async () => {
+  test('the log never records a trigger key, wrong or right', async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id)
     const key = await keyOf(agent.id, task.id)
     const wrong = 'w'.repeat(16)
     assert.equal((await trigger(agent.id, task.id, wrong)).status, 403)
     assert.equal((await trigger(agent.id, task.id, key)).status, 202)
-    // the dev API writes the events log to its stdout at warn level in dev (tests/support/api-logs.ts): the
-    // refusal's entry is there (written asynchronously, so polled briefly), the accepted call's info entry is not.
-    const refused = /"code":"forbidden-req","message":"wrong trigger key"/
+    // the dev API logs to its stdout in the pretty format (tests/support/api-logs.ts): the refusal's warn line
+    // and the accepted call's info line are there (written asynchronously, so polled briefly), neither with a key.
+    // [^[] keeps the match within one entry: the next one starts with its [time].
+    const refused = /WARN: wrong trigger key[^[]*code: "forbidden-req"/
     let log = ''
     for (let i = 0; i < 30 && !refused.test(log); i++) {
       if (i) await new Promise(resolve => setTimeout(resolve, 100))

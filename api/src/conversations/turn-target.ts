@@ -37,6 +37,7 @@ import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type
 import { updateMessage, settleStoredToolPart, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { livePartsOf } from './live-runs.ts'
+import log from '@data-fair/lib-node/log.js'
 
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
 export interface TurnFrames {
@@ -161,7 +162,7 @@ const sendConversationCost = async (conversationId: string, known?: number) => {
 export const closeConversationRunBare = async (run: ConversationTurnRun, failure: TurnFailure) => {
   const { status, stopReason, error, detail } = failure
   const finished = await finishRun(run, { status, stopReason, ...(error !== undefined ? { error } : {}) })
-    .catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
+    .catch(finishErr => { log.error('autonomous agent run could not be closed out', { code: 'run-close-out', runId: run.id, err: finishErr }); return undefined })
   await sendConversationCost(run.conversationId, finished?.conversationCredits).catch(() => {})
   sessionFor(run.conversationId)?.send({ type: 'turn-end', stopReason, detail })
 }
@@ -301,7 +302,7 @@ export const conversationTarget = (
       }
       // A title for a new conversation, from its first exchange (conversations/title.ts). Off the
       // person's path; a refused first turn has nothing to title.
-      if (!result.refused) maybeTitleConversation(run).catch(err => console.error('could not title a conversation', err))
+      if (!result.refused) maybeTitleConversation(run).catch(err => log.warn('could not title a conversation', { code: 'conversation-title', conversationId: run.conversationId, err }))
       // The end-of-turn signal, so a watching page stops its spinner without polling for it.
       sessionFor(run.conversationId)?.send({
         type: 'turn-end',
@@ -310,7 +311,7 @@ export const conversationTarget = (
       })
       if (result.handover) {
         // The person may have acted while the turn was still finishing: that answer is already buffered.
-        await wakeIfAnswered(run.conversationId).catch(err => console.error('could not wake a conversation on its pending wait', err))
+        await wakeIfAnswered(run.conversationId).catch(err => log.error('could not wake a conversation on its pending wait', { code: 'conversation-wake', conversationId: run.conversationId, err }))
       }
     },
 
@@ -364,7 +365,7 @@ export const conversationTarget = (
         run,
         { status, stopReason, ...(error !== undefined ? { error } : {}) },
         { message: { seq: messageSeq, patch: { parts: finalParts as any, pending: false } }, approvedCalls }
-      ).catch(finishErr => { console.error('autonomous agent run could not be closed out', finishErr); return undefined })
+      ).catch(finishErr => { log.error('autonomous agent run could not be closed out', { code: 'run-close-out', runId: run.id, err: finishErr }); return undefined })
       // Same reason as the success path: the notice explaining the failure has to reach the page that
       // is watching, not only the store. `turn-end` alone stops the spinner without saying why. From
       // the parts just written, rather than read back.

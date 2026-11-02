@@ -13,6 +13,7 @@ import { httpError } from '@data-fair/lib-express'
 import config from '#config'
 import { fileStore } from './service.ts'
 import { checkFileSignature, fileKey, isStoredName, isValidScope, mimeTypeOf } from './operations.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const router = Router()
 export default router
@@ -43,6 +44,6 @@ router.get('/:ownerType/:ownerId/:scopeId/:name', async (req, res) => {
   try {
     await pipeline(body, res)
   } catch (err) {
-    console.error(`[files] streaming ${scopeId}/${name} failed`, err)
+    log.error('streaming a file failed', { code: 'files-stream', scopeId, err })
   }
 })

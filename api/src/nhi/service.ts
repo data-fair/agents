@@ -18,6 +18,7 @@ import { siteOrigin, forwardedSiteHeaders, accountSites, type ListedSite } from 
 import { createSessionBroker } from './session-broker.ts'
 
 import { credentialHeaders, getsPlatformServer, type SiteCredentials } from '../mcp-servers/operations.ts'
+import log from '@data-fair/lib-node/log.js'
 
 /**
  * The signing keys live in mongo, the private halves ciphered with CIPHER_PASSWORD, as simple-directory
@@ -43,7 +44,7 @@ export const maintainNhiKeys = async (now = new Date()) => {
       if (err.code !== 11000) throw err
     }
   } else if (nhiKeysNeedRotation(doc.keys, now)) {
-    console.log('[nhi] rotating the signing key')
+    log.info('rotating the NHI signing key', { code: 'nhi-key-rotation' })
     await mongo.secrets.updateOne(
       { _id: NHI_KEYS_ID, 'keys.0.kid': doc.keys[0].kid },
       { $set: { keys: rotateNhiKeys(doc.keys, storeKey(generateNhiKey(now))) } }
@@ -214,7 +215,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     listed = (await listAccountSites(autonomousAgent)).reachable
   } catch (err: any) {
     // Its own state, not "the account is just the enrolment site": see accountPlacement.
-    console.warn(`could not list the account sites of autonomous agent ${autonomousAgent.id}: ${err.message}`)
+    log.warn('could not list the account sites of an autonomous agent', { code: 'nhi-account-sites', agentId: autonomousAgent.id, err })
   }
   const { account, portals, home: placement } = accountPlacement(enrolled, home, listed)
   return {

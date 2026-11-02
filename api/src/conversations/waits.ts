@@ -24,6 +24,7 @@ import { startRun } from './executor.ts'
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 import { acceptingTurns } from './shutdown.ts'
+import log from '@data-fair/lib-node/log.js'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -117,5 +118,5 @@ export const wakeIfAnswered = async (conversationId: string, session: AgentSessi
   })
   debug('woke conversation %s on its pending wait, run %s', conversationId, run.id)
   // Not awaited, like a prompt's: the run is followed over the socket.
-  startRun(run).catch(err => console.error('a wake run failed to start', err))
+  startRun(run).catch(err => log.error('a wake run failed to start', { code: 'run-start', runId: run.id, err }))
 }

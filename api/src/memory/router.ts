@@ -10,7 +10,8 @@
 import mongo from '#mongo'
 import { Router } from 'express'
 import { httpError } from '@data-fair/lib-express'
-import eventsLog from '@data-fair/lib-express/events-log.js'
+import log from '@data-fair/lib-node/log.js'
+import { ownerLogFields } from '../log-fields.ts'
 import { reqAgent } from '../autonomous-agents/service.ts'
 import { agentStoreId, MEMORY_LIMITS, normalizeMemoryPath, MemoryCommandError, MemoryConflictError } from './operations.ts'
 import { loadMemory, writeMemoryAsUser, deleteMemoryAsUser, listMemoryVersions, restoreMemoryVersion, redactMemoryVersion } from './service.ts'
@@ -72,7 +73,7 @@ router.put('/:type/:id/:agentId/document', async (req, res, next) => {
   try {
     const { owner, storeId, user } = await requireAgentAdmin(req)
     const written = await writeMemoryAsUser(storeId, owner, queryPath(req), req.body ?? {}, user)
-    eventsLog.info('agents.memory.write', `memory document ${written.path} of agent ${req.params.agentId} written`, { req })
+    log.info(`memory document ${written.path} written`, { code: 'agents.memory.write', agentId: req.params.agentId, ...ownerLogFields(owner) })
     res.json(written)
   } catch (err) { next(mapError(err)) }
 })
@@ -84,7 +85,7 @@ router.delete('/:type/:id/:agentId/document', async (req, res, next) => {
     if (!Number.isInteger(version)) throw httpError(400, 'version is required')
     const path = normalizeMemoryPath(queryPath(req))
     await deleteMemoryAsUser(storeId, owner, path, version, user)
-    eventsLog.info('agents.memory.delete', `memory document ${path} of agent ${req.params.agentId} deleted`, { req })
+    log.info(`memory document ${path} deleted`, { code: 'agents.memory.delete', agentId: req.params.agentId, ...ownerLogFields(owner) })
     res.status(204).send()
   } catch (err) { next(mapError(err)) }
 })
@@ -102,16 +103,16 @@ router.post('/:type/:id/:agentId/versions/:versionId/restore', async (req, res, 
   try {
     const { owner, storeId, user } = await requireAgentAdmin(req)
     const written = await restoreMemoryVersion(storeId, owner, req.params.versionId, user)
-    eventsLog.info('agents.memory.restore', `memory version ${req.params.versionId} of agent ${req.params.agentId} restored`, { req })
+    log.info('memory version restored', { code: 'agents.memory.restore', versionId: req.params.versionId, agentId: req.params.agentId, ...ownerLogFields(owner) })
     res.json(written)
   } catch (err) { next(mapError(err)) }
 })
 
 router.post('/:type/:id/:agentId/versions/:versionId/redact', async (req, res, next) => {
   try {
-    const { storeId, user } = await requireAgentAdmin(req)
+    const { owner, storeId, user } = await requireAgentAdmin(req)
     await redactMemoryVersion(storeId, req.params.versionId, user)
-    eventsLog.info('agents.memory.redact', `memory version ${req.params.versionId} of agent ${req.params.agentId} redacted`, { req })
+    log.info('memory version redacted', { code: 'agents.memory.redact', versionId: req.params.versionId, agentId: req.params.agentId, ...ownerLogFields(owner) })
     res.status(204).send()
   } catch (err) { next(mapError(err)) }
 })

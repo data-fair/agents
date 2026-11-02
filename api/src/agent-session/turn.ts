@@ -27,6 +27,7 @@ import type { ServerMessage } from '@agents/shared/agent-session-protocol'
 import { wrapHiddenContext } from '@agents/shared/hidden-context'
 import { getEffectiveRole } from '../auth.ts'
 import config from '#config'
+import log from '@data-fair/lib-node/log.js'
 
 const debug = Debug('agents:agent-session-turn')
 
@@ -153,7 +154,7 @@ export const startSessionTurn = async (request: SessionTurnRequest): Promise<str
   // Not awaited, the executor owns turning its own
   // failures into a terminal run and a message, and the browser follows the socket. The catch is the
   // backstop for a throw before the executor can do that.
-  startRun(run).catch(err => console.error('agent session run failed to start', err))
+  startRun(run).catch(err => log.error('agent session run failed to start', { code: 'run-start', runId: run.id, err }))
   return run.id
 }
 

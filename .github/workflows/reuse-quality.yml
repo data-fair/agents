@@ -171,7 +171,7 @@ jobs:
         mkdir -p dev/logs
         NODE_CONFIG=$(./node_modules/.bin/df-dev absent-config)
         export NODE_CONFIG
-        cd api && NODE_ENV=development EVENTS_LOG_LEVEL=warn node index.ts > ../dev/logs/api.log 2>&1 &
+        cd api && NODE_ENV=development node index.ts > ../dev/logs/api.log 2>&1 &
 
     - name: Start dev UI
       if: matrix.project == 'e2e'

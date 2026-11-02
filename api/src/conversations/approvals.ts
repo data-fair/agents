@@ -17,6 +17,7 @@ import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../self-knowledge/operations.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
+import log from '@data-fair/lib-node/log.js'
 
 /**
  * The calls whose approval is an administrator's of the organization, not any instructor's, and why.
@@ -102,6 +103,6 @@ export const decideAndContinue = async (input: {
     startedAt: new Date().toISOString()
   })
   // Not awaited, like a prompt's: the run is followed over the socket, or by polling it.
-  startRun(run).catch(err => console.error('an approval run failed to start', err))
+  startRun(run).catch(err => log.error('an approval run failed to start', { code: 'run-start', runId: run.id, err }))
   return { runId: run.id }
 }
