@@ -3497,6 +3497,7 @@ return `/simple-directory/api/organizations/${context.owner.id}/roles`
 }
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/autonomous-agent/form-security#",
+  agentGuide: undefined,
 
   skeletonTrees: {
     "https://github.com/data-fair/agents/autonomous-agent/form-security#": {
@@ -3737,7 +3738,11 @@ const compiledLayout = {
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: true
+      required: true,
+
+      constraints: {
+        format: "email"
+      }
     },
 
     "https://github.com/data-fair/lib/access-ref#/oneOf/2": {
@@ -4609,6 +4614,7 @@ const compiledLayout = {
     edit: "Edit",
     confirm: "Confirm",
     close: "Close",
+    actions: "Actions",
     duplicate: "Duplicate",
     insertAfter: "Insert after",
     copy: "Copy",
@@ -5101,6 +5107,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(emits)
+
 
 const { el, statefulLayout, stateTree } = useVjsf(
   null,

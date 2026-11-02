@@ -212,6 +212,7 @@ return (layout.defaultData)
 }
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/autonomous-agent/form-mission#",
+  agentGuide: undefined,
 
   skeletonTrees: {
     "https://github.com/data-fair/agents/autonomous-agent/form-mission#": {
@@ -256,7 +257,11 @@ const compiledLayout = {
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: true
+      required: true,
+
+      constraints: {
+        maxLength: 131
+      }
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/form-mission#/properties/persona": {
@@ -342,6 +347,7 @@ const compiledLayout = {
     edit: "Éditer",
     confirm: "Confirmer",
     close: "Fermer",
+    actions: "Actions",
     duplicate: "Dupliquer",
     insertAfter: "Insérer après",
     copy: "Copier",
@@ -828,6 +834,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(emits)
+
 
 const { el, statefulLayout, stateTree } = useVjsf(
   null,

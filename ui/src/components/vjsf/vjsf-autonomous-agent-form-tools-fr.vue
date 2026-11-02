@@ -1029,6 +1029,7 @@ return (parent.data?.enabled)
 }
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/autonomous-agent/form-tools#",
+  agentGuide: undefined,
 
   skeletonTrees: {
     "https://github.com/data-fair/agents/autonomous-agent/form-tools#": {
@@ -1176,6 +1177,10 @@ const compiledLayout = {
       nullable: false,
       required: false,
 
+      constraints: {
+        maxItems: 50
+      },
+
       childrenTrees: [
         "https://github.com/data-fair/agents/autonomous-agent/form-tools#/properties/externalMcpServers/items"
       ]
@@ -1206,7 +1211,11 @@ const compiledLayout = {
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: true
+      required: true,
+
+      constraints: {
+        minLength: 1
+      }
     },
 
     "https://github.com/data-fair/agents/autonomous-agent/form-tools#/properties/web": {
@@ -1249,6 +1258,10 @@ const compiledLayout = {
       nullable: false,
       required: false,
 
+      constraints: {
+        maxItems: 100
+      },
+
       childrenTrees: [
         "https://github.com/data-fair/agents/autonomous-agent/form-tools#/properties/web/properties/allowedUrls/items"
       ]
@@ -1263,7 +1276,11 @@ const compiledLayout = {
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: true
+      required: true,
+
+      constraints: {
+        minLength: 1
+      }
     }
   },
 
@@ -1541,6 +1558,7 @@ const compiledLayout = {
     edit: "Éditer",
     confirm: "Confirmer",
     close: "Fermer",
+    actions: "Actions",
     duplicate: "Dupliquer",
     insertAfter: "Insérer après",
     copy: "Copier",
@@ -2033,6 +2051,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(emits)
+
 
 const { el, statefulLayout, stateTree } = useVjsf(
   null,

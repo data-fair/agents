@@ -776,6 +776,7 @@ return `${context.apiPath}/catalog/${context.accountType}/${context.accountId}?u
 }
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/settings/org-form-models#",
+  agentGuide: undefined,
 
   skeletonTrees: {
     "https://github.com/data-fair/agents/settings/org-form-models#": {
@@ -1430,6 +1431,7 @@ const compiledLayout = {
     edit: "Edit",
     confirm: "Confirm",
     close: "Close",
+    actions: "Actions",
     duplicate: "Duplicate",
     insertAfter: "Insert after",
     copy: "Copy",
@@ -1909,6 +1911,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(emits)
+
 
 const { el, statefulLayout, stateTree } = useVjsf(
   null,

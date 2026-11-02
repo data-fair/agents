@@ -9025,6 +9025,7 @@ return ([{"const":"assistant","title":"Assistant","key":"assistant","value":"ass
 }
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/settings/put-req#",
+  agentGuide: undefined,
 
   skeletonTrees: {
     "https://github.com/data-fair/agents/settings/put-req#": {
@@ -10222,6 +10223,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
+
+      constraints: {
+        minItems: 1,
+        uniqueItems: true
+      },
 
       childrenTrees: [
         "https://github.com/data-fair/agents/settings/put-req#/properties/models/items/properties/usage/items"
@@ -11602,6 +11608,7 @@ const compiledLayout = {
     edit: "Éditer",
     confirm: "Confirmer",
     close: "Fermer",
+    actions: "Actions",
     duplicate: "Dupliquer",
     insertAfter: "Insérer après",
     copy: "Copier",
@@ -12098,6 +12105,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(emits)
+
 
 const { el, statefulLayout, stateTree } = useVjsf(
   null,

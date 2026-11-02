@@ -624,6 +624,7 @@ return ([{"const":"anonymous","title":"Anonymous","key":"anonymous","value":"ano
 }
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/settings/org-form-moderation#",
+  agentGuide: undefined,
 
   skeletonTrees: {
     "https://github.com/data-fair/agents/settings/org-form-moderation#": {
@@ -703,6 +704,10 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
+
+      constraints: {
+        uniqueItems: true
+      },
 
       childrenTrees: [
         "https://github.com/data-fair/agents/settings/org-form-moderation#/properties/moderation/properties/categories/items"
@@ -870,6 +875,7 @@ const compiledLayout = {
     edit: "Edit",
     confirm: "Confirm",
     close: "Close",
+    actions: "Actions",
     duplicate: "Duplicate",
     insertAfter: "Insert after",
     copy: "Copy",
@@ -1349,6 +1355,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(emits)
+
 
 const { el, statefulLayout, stateTree } = useVjsf(
   null,

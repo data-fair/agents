@@ -4862,6 +4862,7 @@ return ([{"const":"1","title":"1","key":"1","value":"1"},{"const":"2","title":"2
 }
 const compiledLayout = {
   mainTree: "https://github.com/data-fair/agents/autonomous-agent-task/write-req#",
+  agentGuide: undefined,
 
   skeletonTrees: {
     "https://github.com/data-fair/agents/autonomous-agent-task/write-req#": {
@@ -4943,7 +4944,11 @@ const compiledLayout = {
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: true
+      required: true,
+
+      constraints: {
+        maxLength: 200
+      }
     },
 
     "https://github.com/data-fair/agents/autonomous-agent-task/write-req#/properties/prompt": {
@@ -4955,7 +4960,11 @@ const compiledLayout = {
       propertyKeys: [],
       roPropertyKeys: [],
       nullable: false,
-      required: true
+      required: true,
+
+      constraints: {
+        maxLength: 20000
+      }
     },
 
     "https://github.com/data-fair/agents/autonomous-agent-task/write-req#/properties/scheduling": {
@@ -4968,6 +4977,11 @@ const compiledLayout = {
       roPropertyKeys: [],
       nullable: false,
       required: true,
+
+      constraints: {
+        minItems: 0,
+        maxItems: 10
+      },
 
       childrenTrees: [
         "https://github.com/data-fair/agents/autonomous-agent-task/write-req#/properties/scheduling/items"
@@ -6265,6 +6279,7 @@ const compiledLayout = {
     edit: "Éditer",
     confirm: "Confirmer",
     close: "Fermer",
+    actions: "Actions",
     duplicate: "Dupliquer",
     insertAfter: "Insérer après",
     copy: "Copier",
@@ -6761,6 +6776,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits(emits)
+
 
 const { el, statefulLayout, stateTree } = useVjsf(
   null,
