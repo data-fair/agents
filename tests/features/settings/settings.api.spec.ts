@@ -30,7 +30,7 @@ test.describe('Settings API', () => {
     await clean()
   })
 
-  test('should create and get settings', async () => {
+  test('should create and get settings', { tag: '@smoke' }, async () => {
     const settingsData = {
       providers: [
         {
@@ -76,7 +76,7 @@ test.describe('Settings API', () => {
     assert.equal(updateRes.data.modelMapping.assistant.id, 'mock-model')
   })
 
-  test('should list mock models', async () => {
+  test('should list mock models', { tag: '@smoke' }, async () => {
     const settingsData = {
       providers: [
         {

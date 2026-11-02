@@ -201,7 +201,7 @@ source kind `platform` ("Data Fair" in the tool lists). An agent without an iden
 no scopes, and data-fair must never be reached with the session of whoever instructs it.
 
 Unset (the default), there is no built-in server and boot says so: agents have their catalog servers only.
-In dev, `api/config/development.js` points it at dev-mcp's `/platform/` stand-in (see AGENTS.md).
+In dev, `api/config/development.js` points it at the mcp pane's `/platform/` stand-in (see AGENTS.md).
 
 ### `PERSONAL_ASSISTANTS`
 

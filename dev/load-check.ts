@@ -6,7 +6,7 @@
  * what concurrent streaming turns do to the API's responsiveness, and whether anything is left
  * behind when the sockets go away.
  *
- * Run it (dev env must be up — `bash dev/status.sh`):
+ * Run it (dev env must be up — `npx --no df-dev status`):
  *   npm run dev-load-check -- [--idle 300] [--turns 10,50,100,200] [--signed-in 50]
  *
  * It drives ANONYMOUS sessions (no login per socket, and the anonymous path now runs the same

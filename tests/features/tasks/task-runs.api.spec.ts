@@ -10,6 +10,7 @@ import { putMockSettings } from '../../support/settings.ts'
 import { OUTCOME_REMINDER } from '../../../api/src/conversations/service-tool-names.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { createEnrolledAgent } from '../../support/agents.ts'
+import { serviceUp, NEEDS_EVENTS } from '../../support/optional-services.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -26,13 +27,15 @@ const createTask = async (agentId: string, prompt: string) =>
   (await admin.post(base(agentId), { title: 'Probe', prompt, scheduling: [daily] })).data
 const runNow = async (agentId: string, taskId: string) =>
   (await admin.post(`${base(agentId)}/${taskId}/run`)).data.runId as string
+// notifications are pushed only when the API was started with the events service (privateEventsUrl)
+const eventsUp = await serviceUp('EVENTS_PORT')
 const events = async () => (await admin.get('/api/test-env/pushed-events')).data as any[]
 // matches api/config/development.js secretKeys.limits
 const LIMITS_SECRET = 'secretlimits'
 
 test.describe('Task runs', () => {
   let fixture: McpFixture
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
@@ -41,7 +44,7 @@ test.describe('Task runs', () => {
     await putMockSettings(admin, 'organization/test1')
   })
 
-  test('run now: one turn on the task prompt, recorded on the run, outcome reported', async () => {
+  test('run now: one turn on the task prompt, recorded on the run, outcome reported', { tag: '@smoke' }, async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id, 'call tool report_outcome {"status":"done","summary":"all good"}')
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, task.id))
@@ -60,6 +63,7 @@ test.describe('Task runs', () => {
   })
 
   test('a notification links to the run in the agent page', async () => {
+    test.skip(!eventsUp, NEEDS_EVENTS)
     const agent = await createAgent()
     // its enrolment site (tests/support/agents.ts)
     const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
@@ -183,6 +187,7 @@ test.describe('Task runs', () => {
   })
 
   test('a run cut short by a guard is a failure: error, stop reason kept, notified', async () => {
+    test.skip(!eventsUp, NEEDS_EVENTS)
     const agent = await createAgent()
     const task = await createTask(agent.id, 'loop forever')
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, task.id))
@@ -239,6 +244,7 @@ test.describe('Task runs', () => {
   })
 
   test('a task run interrupted by recovery notifies as a failure', async () => {
+    test.skip(!eventsUp, NEEDS_EVENTS)
     const agent = await createAgent()
     const task = await createTask(agent.id, 'hello')
     await admin.post('/api/test-env/task-run', { agentId: agent.id, taskId: task.id, status: 'running' })
@@ -247,6 +253,7 @@ test.describe('Task runs', () => {
   })
 
   test('needs-attention and failures notify; five failures in a row pause the task', async () => {
+    test.skip(!eventsUp, NEEDS_EVENTS)
     const agent = await createAgent()
     const attention = await createTask(agent.id, 'call tool report_outcome {"status":"needs-attention","summary":"look"}')
     await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, attention.id))
@@ -263,6 +270,7 @@ test.describe('Task runs', () => {
   })
 
   test('a done run notifies its subscribers, with the summary or the final answer; nothing-to-do notifies nobody', async () => {
+    test.skip(!eventsUp, NEEDS_EVENTS)
     const agent = await createAgent()
     const reported = await createTask(agent.id, 'call tool report_outcome {"status":"done","summary":"all good"}')
     await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, reported.id))
@@ -282,6 +290,7 @@ test.describe('Task runs', () => {
   })
 
   test('a resumed task is not re-paused by its first new failure', async () => {
+    test.skip(!eventsUp, NEEDS_EVENTS)
     const agent = await createAgent()
     const failing = await createTask(agent.id, 'stream error')
     for (let i = 0; i < 5; i++) await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, failing.id))

@@ -46,7 +46,7 @@ test.describe('org credit cap enforcement', () => {
     await putMockSettings(admin, 'organization/test1', pricedSettings)
   })
 
-  test('a turn is refused, naming the account scope, when consumption reaches the pushed limit', async () => {
+  test('a turn is refused, naming the account scope, when consumption reaches the pushed limit', { tag: '@smoke' }, async () => {
     await pushLimits(5, 5)
 
     const { conversationId } = await runTurn(test1Admin, 'organization/test1')

@@ -57,7 +57,7 @@ test.describe('Chat MCP UI', () => {
     expect(chipFirst).toBe(true)
   })
 
-  test('A turn runs on the server and streams into the page, and Reset clears it', async ({ page, goToWithAuth }) => {
+  test('A turn runs on the server and streams into the page, and Reset clears it', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
     await page.getByPlaceholder('Type your message...').fill('hello')
     await page.getByRole('button', { name: 'Send' }).click()

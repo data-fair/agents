@@ -20,7 +20,7 @@ test.describe('Tool listings across turns', () => {
   const sockets: AgentSessionClient[] = []
   let fixture: McpFixture
 
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     // clean() also forgets the cached listings, so each test starts from a cold cache.

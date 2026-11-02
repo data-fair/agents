@@ -35,7 +35,7 @@ export const callPart = (message: any, toolName: string) =>
 
 test.describe('The approval gate', () => {
   let fixture: McpFixture
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
@@ -269,7 +269,7 @@ test.describe('The approval gate', () => {
       assert.deepEqual(fixture.invokedTools(), [])
       await noApprovedCallLeft(conv.id)
     } finally {
-      fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30)
+      fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT))
     }
   })
 
@@ -410,7 +410,7 @@ test.describe('The approval gate', () => {
 
 test.describe('Deciding over the socket', () => {
   let fixture: McpFixture
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => { await clean(); fixture.resetInvokedTools(); await putMockSettings(admin, 'organization/test1') })
 
@@ -513,7 +513,7 @@ test.describe('Deciding over the socket', () => {
 
 test.describe('Which tools a turn takes', () => {
   let fixture: McpFixture
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test1') })
 

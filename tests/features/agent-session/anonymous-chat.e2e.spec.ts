@@ -28,7 +28,7 @@ test.describe('Anonymous chat', () => {
     })
   })
 
-  test('a signed-out visitor gets an answer, and a reload starts over', async ({ page }) => {
+  test('a signed-out visitor gets an answer, and a reload starts over', { tag: '@smoke' }, async ({ page }) => {
     await page.goto('/agents/organization/test1/chat')
 
     await page.getByRole('textbox').fill('hello')

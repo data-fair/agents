@@ -1,41 +1,32 @@
+// Dev environment of agents, see @data-fair/lib-dev. Agents: npx --no df-dev status | logs <pane> | restart <pane>
 layout {
-    pane {
-      split_direction "vertical"
-      pane name="agents" borderless=true {
-        command "bash"
-        args "-ic" "nvm use > /dev/null 2>&1 && bash"
-      }
-      pane name="deps" {
-        command "bash"
-        args "-ic" "npm run dev-deps"
-      }
+  pane split_direction="vertical" {
+    pane name="agents" borderless=true
+    pane name="status" command="bash" {
+      // users.json carries the drawn ports (dev/render-users.ts): rendered right before the containers start
+      args "-c" "node dev/render-users.ts && exec ./node_modules/.bin/df-status --start-deps"
     }
-    pane {
-      split_direction "vertical"
-      pane name="ui" {
-        command "bash"
-        args "-ic" "nvm use > /dev/null 2>&1 && npm -w ui run dev"
-      }
-      pane name="api" {
-        command "bash"
-        args "-ic" "nvm use > /dev/null 2>&1 && npm -w api run dev"
-      }
-      // Optional: only needed to run the workspace on Claude Code subscription
-      // models, and for npm run simulate. Idle it costs nothing.
-      pane name="bridge" {
-        command "bash"
-        args "-ic" "nvm use > /dev/null 2>&1 && npm run dev-bridge"
-      }
-      // Serves the dev-*-mcp catalog entries. Without it an autonomous agent wired to one of
-      // them fails with a 502 when it gathers its tools, so the seeded fixtures can be read
-      // but not used. Reuses the same server the test suite runs.
-      pane name="mcp" {
-        command "bash"
-        args "-ic" "nvm use > /dev/null 2>&1 && npm run dev-mcp"
-      }
+    // Claude Code subscription models for the dev workspace and npm run simulate (AGENTS.md): press Enter to start it
+    pane name="bridge" command="bash" {
+      start_suspended true
+      args "-c" "FORCE_COLOR=1 exec node lib-sim/bridge/index.ts"
     }
-    pane size=2 borderless=true {
-        command "bash"
-        args "-ic" "echo -n -e \"Dev server available at \\e[1;96mhttp://localhost:$NGINX_PORT\\033[0m\""
+  }
+  pane split_direction="vertical" {
+    pane name="ui" command="bash" {
+      args "-c" "cd ui && FORCE_COLOR=1 NODE_CONFIG_DIR=../api/config/ exec ../node_modules/.bin/df-mem-cap vite --port $DEV_UI_PORT"
     }
+    pane name="api" command="bash" {
+      // optional containers that do not run at start are unplugged from the config (dev/dev.json "optional")
+      args "-c" "./node_modules/.bin/df-dev wait-deps && export NODE_CONFIG=$(./node_modules/.bin/df-dev absent-config) && cd api && FORCE_COLOR=1 NODE_ENV=development EVENTS_LOG_LEVEL=warn exec ../node_modules/.bin/nodemon -e js,ts,json index.ts"
+    }
+    // the dev-review-*-mcp catalog entries and data-fair's stand-in (privateMcpUrl): without it every
+    // autonomous agent with an identity fails with a 502 when it gathers its tools
+    pane name="mcp" command="bash" {
+      args "-c" "FORCE_COLOR=1 exec ./node_modules/.bin/nodemon -e ts --watch dev/mcp-server.ts --watch tests/support/mcp-fixture.ts --exec node dev/mcp-server.ts"
+    }
+  }
+  pane name="url" size=1 borderless=true command="bash" {
+    args "-c" "echo -n -e \"Dev server available at \\e[1;96mhttp://localhost:$NGINX_PORT/agents/\\e[0m\"; exec sleep infinity"
+  }
 }

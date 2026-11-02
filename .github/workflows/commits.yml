@@ -1,4 +1,6 @@
-# run lint and type-check on every commit, full quality checks on release tags
+# no quality checks on every pushed commit: the pre-push hook ran the light gate on the dev
+# computer, pull requests and release tags run the full one (docs/architecture/testing.md)
+# in this case we simply build the docker image
 
 name: Build simple commit
 

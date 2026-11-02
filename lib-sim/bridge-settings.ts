@@ -103,7 +103,7 @@ export async function assertBridgeUp (bridgeUrl = BRIDGE_URL) {
   } catch (err) {
     throw new Error(
       `The Claude Code bridge is not answering at ${statusUrl} (${err instanceof Error ? err.message : String(err)}).\n` +
-      'Ask your user to start it with: npm run dev-bridge'
+      'Ask your user to start it: press Enter in the suspended bridge pane of the zellij session.'
     )
   }
 }

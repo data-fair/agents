@@ -26,7 +26,7 @@ test.describe('Conversation titles', () => {
     await putMockSettings(admin, 'organization/test1')
   })
 
-  test('the first exchange titles the conversation, and a later turn keeps that title', async () => {
+  test('the first exchange titles the conversation, and a later turn keeps that title', { tag: '@smoke' }, async () => {
     const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Titled', persona: 'x', mcpServers: [], enabled: true })).data
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'road closures in the city centre')

@@ -1,7 +1,7 @@
 /**
  * stateful API tests: data-fair's MCP is built into every autonomous agent with an identity.
  *
- * `privateMcpUrl` (api/config/development.js) points at dev-mcp's `/platform/` stand-in, which serves the
+ * `privateMcpUrl` (api/config/development.js) points at the mcp pane's `/platform/` stand-in, which serves the
  * data-returning tools prefixed `platform_`: an agent's reach there is its identity's scopes, with nothing
  * to reference in `mcpServers`.
  */
@@ -57,7 +57,7 @@ test.describe('The built-in data-fair server', () => {
 
   // The point of the built-in server: it is called AS the agent, so its scopes apply. An agent referencing no
   // site-bound catalog server used to skip asking for a session altogether, and called data-fair anonymously.
-  test('an agent with no catalog server calls data-fair as itself, under its scopes', async () => {
+  test('an agent with no catalog server calls data-fair as itself, under its scopes', { tag: '@smoke' }, async () => {
     // test-scoped-autonomous-agent-nhi holds the maximum scopes ["datasets:read"] (dev/resources/users.template.json)
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-scoped-fixture',

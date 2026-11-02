@@ -47,7 +47,7 @@ const enrol = async (siteUrl = home, over: any = {}) => await admin.post('/api/t
 test.describe('Sites of an autonomous agent', () => {
   const siteIds: string[] = []
   test.beforeAll(async () => {
-    fixture = await startMcpFixture(Number(PORT) + 30)
+    fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT))
     siteIds.push(await createSite(ownPortal, { type: 'organization', id: 'test1', name: 'Test 1' }))
     siteIds.push(await createSite(foreignPortal, { type: 'organization', id: 'dev1', name: 'Dev 1' }))
     siteIds.push(await createSite(ssoPortal, { type: 'organization', id: 'test1', name: 'Test 1' }, { authMode: 'ssoBackOffice' }))

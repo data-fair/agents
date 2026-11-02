@@ -56,7 +56,7 @@ test.describe('Autonomous agent page', () => {
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent', { timeout: 20000 })
   })
 
-  test('the page opens pre-filled, and an edited persona is saved and survives a reload', async ({ page, goToWithAuth }) => {
+  test('the page opens pre-filled, and an edited persona is saved and survives a reload', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
     // What only e2e can show: that the page actually loads the stored values into the form. The dangerous
     // half — that the body it builds keeps every writable field, nhi included — is pinned
     // deterministically in edit-draft.unit.spec.ts, including a guard that fails if the write-req

@@ -121,7 +121,7 @@ test.describe('Settings UI', () => {
   // which also tripped `useLeaveGuard` on every navigation away. The page now
   // projects the fetched document down to the fields the form owns before
   // handing it to the form and to the diff.
-  test('A populated config loads clean and stays clean across a save and reload', async ({ page, goToWithAuth }) => {
+  test('A populated config loads clean and stays clean across a save and reload', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
     await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],

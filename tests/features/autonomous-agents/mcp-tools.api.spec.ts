@@ -18,7 +18,7 @@ const agentBody = (over: any = {}) => ({
 })
 
 test.describe('Autonomous agent tools', () => {
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => { await clean() })
 
@@ -68,7 +68,7 @@ test.describe('Autonomous agent tools', () => {
    * dev/resources/users.template.json supplies one, and the agent's id is chosen so the fixture's
    * pinned subject matches — see the seam in app.ts.
    */
-  test('a session server receives the autonomous agent\'s own bearer token', async () => {
+  test('a session server receives the autonomous agent\'s own bearer token', { tag: '@smoke' }, async () => {
     const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',

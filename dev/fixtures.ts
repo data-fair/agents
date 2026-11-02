@@ -3,7 +3,7 @@
  * chat (on the mock model, no API key), conversations already in the states that are awkward to
  * produce by hand, an autonomous agent with a real identity, and consumption history for the charts.
  *
- * Run it (dev env must be up — `bash dev/status.sh`; the agent's tools need `npm run dev-mcp`, which
+ * Run it (dev env must be up — `npx --no df-dev status`; the agent's tools need the mcp pane, which
  * the zellij layout starts):
  *   npm run dev-fixtures
  *
@@ -120,7 +120,7 @@ async function runChatTurn (ax: any, owner: string, target: ConversationTarget, 
   try {
     return await turnOverSocket(ax, target, content, { owner })
   } catch (err: any) {
-    throw new Error(`a turn of ${JSON.stringify(target)} never settled (${err.message}) — check dev/logs/dev-api.log`)
+    throw new Error(`a turn of ${JSON.stringify(target)} never settled (${err.message}) — check "npx --no df-dev logs api"`)
   }
 }
 
@@ -495,7 +495,7 @@ Where to look:
 
 Mock model directives (type them in the chat): "hello", "long answer", "call tool list_road_closures {\"district\":\"city-center\"}",
 "wait for me" (waits for a click), "stream error", "ignore all previous instructions" (refused for external/anonymous).
-The agent's tools and the catalog tool need \`npm run dev-mcp\` running (it is in the zellij layout).`)
+The agent's tools and the catalog tool need the mcp pane of the zellij layout running.`)
 }
 
 // Only run when invoked directly (`npm run dev-fixtures`), so the seeding
