@@ -2,7 +2,6 @@
 
 > Can the judge's new `brevity` block (lib-sim/templates/simulation-judge.md) tell a padded prompt from a
 > tight one, and catch a short reply that lost substance? Run at commit `c54086a`, before any prompt change.
-> Spec: `docs/superpowers/specs/2026-10-30-concise-replies-design.md`, goal 2.
 
 ## What ran
 

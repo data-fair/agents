@@ -102,7 +102,7 @@ export const SELF_KNOWLEDGE_NOTE = 'Before telling someone you cannot do somethi
 export const AUDIENCE_NOTE = 'The person you talk to does not see how you are built: answer in their words, naming things by their titles, and never mention servers, MCP, tools or identifiers unless they do first. Say what you can and cannot help with in terms of its subject ("I only have the library\'s opening hours"), not of your tools; for anything a tool names by a code, use its title or plain words — though a value shown on the page is fine to repeat.'
 
 /**
- * How to write to the person, for every chat turn (docs/superpowers/specs/2026-10-30-concise-replies-design.md).
+ * How to write to the person, for every chat turn (measured in docs/simulations/2026-10-30-concise-replies.md).
  *
  * The one feedback every user gives is that the assistant talks too much: it announces its calls, says what
  * came back, restates its plan, recaps. Written as the cadence to follow rather than a bare "be concise",

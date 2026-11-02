@@ -1,6 +1,6 @@
 # Concise replies: before / after the reply-style clause — 2026-10-30
 
-> The product prompt change of `docs/superpowers/specs/2026-10-30-concise-replies-design.md` (goal 3),
+> The reply-style clause (`REPLY_STYLE_NOTE`, see [autonomous agents](../architecture/autonomous-agents.md)),
 > measured with the brevity judge calibrated in `2026-10-30-judge-calibration.md`.
 > Before: commit `c54086a`. After: commit `5ec10e6` (`REPLY_STYLE_NOTE` in `buildSystemPrompt`, chat turns
 > only; the personal assistant's persona no longer invites "a note while you work").

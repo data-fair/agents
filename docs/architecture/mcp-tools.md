@@ -424,7 +424,7 @@ The executor (`performTurn`) merges the catalog tools, the page tools (when a so
 
 ### Result formatting
 
-`formatMcpToolResult` keeps the text `content` parts (and prefixes `isError` results with `Tool execution failed:`); `structuredContent` is dropped from what the model reads. Text-only results stay a plain string. A result carrying MCP `image` parts becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data, mediaType}]}`); `withProvenance` wraps only its text and keeps the object shape.
+`formatMcpToolResult` keeps the text `content` parts (and prefixes `isError` results with `Tool execution failed:`); `structuredContent` is dropped from what the model reads. An `isError` result is then thrown, on both paths: the catalog clients (`api/src/mcp-servers/client.ts`, `external.ts`) throw it, and the page's frame aggregator throws it through `toolOutputOrThrow`, so the page answers with `error`. A throw is what the loop treats as a failure (stored `output-error`); returned as a value, a failed page call was stored as a success. Text-only results stay a plain string. A result carrying MCP `image` parts becomes a **media envelope** (`{_agentsMediaResult: true, text?, media: [{data, mediaType}]}`); `withProvenance` wraps only its text and keeps the object shape.
 
 A result carrying `resource_link`s (and text) becomes a `LinkedToolResult` (`withResourceLinks`, `api/src/files/operations.ts`) carrying the links, whether a catalog server returned them, and the site the call was bound to; the call path stores them as the agent's files and rewrites the text, or, files off, passes the text through as before. An `isError` result keeps its text with link URIs reduced to origin and path. See [Agent files](./agent-files.md#in-downloads).
 

@@ -1,5 +1,5 @@
 /**
- * Personas that calibrate the judge (docs/superpowers/specs/2026-10-30-concise-replies-design.md, goal 2).
+ * Personas that calibrate the judge (docs/simulations/2026-10-30-judge-calibration.md).
  *
  * Run the same cases with each, and the judge must tell them apart: `bloated` pads every reply, `lossy` is
  * the shortest and drops what the person needed. A judge that rates `lossy` tight, or cannot separate
