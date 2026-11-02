@@ -338,20 +338,21 @@ writer agree.
 
 `df-agents-sim-init` copies the skill **verbatim**, and the skill refers to npm
 scripts by the names the origin repository uses. It cannot know yours, so define
-these three in your `package.json` (adjust the paths to your layout):
+these two in your `package.json` (adjust the paths to your layout), and give the
+bridge a pane of your zellij layout (`.zellij.kdl`, see `@data-fair/lib-dev`):
 
 ```json
 {
   "scripts": {
-    "dev-bridge": "df-agents-bridge",
     "simulate": "playwright test -c playwright.sim.config.ts --project=simulate",
     "simulate:report": "node simulations/report.ts"
   }
 }
 ```
 
-- `dev-bridge` — starts the bridge the simulated user and the assistant both
-  talk to. Must be running before `simulate`.
+- the `bridge` pane — runs `df-agents-bridge`, the bridge the simulated user and
+  the assistant both talk to, `start_suspended true` so it costs nothing until
+  someone presses Enter in it. Must be running before `simulate`.
 - `simulate` — runs your Playwright project containing the scenario specs. Keep
   it out of your default `test` script: a bare `npm test` would otherwise spend
   plan quota.

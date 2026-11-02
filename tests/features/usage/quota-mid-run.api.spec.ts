@@ -20,7 +20,7 @@ const member = await axiosAuth('test1-user1', { org: 'test1' })
 
 test.describe('Quotas while a turn runs', () => {
   let fixture: McpFixture
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => { await clean() })
 

@@ -8,6 +8,7 @@ import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
 import { awaitAgentRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { createEnrolledAgent } from '../../support/agents.ts'
+import { apiLogs } from '../../support/api-logs.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -181,14 +182,13 @@ test.describe('Webhook triggers', () => {
     const wrong = 'w'.repeat(16)
     assert.equal((await trigger(agent.id, task.id, wrong)).status, 403)
     assert.equal((await trigger(agent.id, task.id, key)).status, 202)
-    // dev-api writes the events log to its stdout, captured in dev/logs/dev-api.log, at warn level in dev: the
+    // the dev API writes the events log to its stdout at warn level in dev (tests/support/api-logs.ts): the
     // refusal's entry is there (written asynchronously, so polled briefly), the accepted call's info entry is not.
-    const { readFile } = await import('node:fs/promises')
     const refused = /"code":"forbidden-req","message":"wrong trigger key"/
     let log = ''
     for (let i = 0; i < 30 && !refused.test(log); i++) {
       if (i) await new Promise(resolve => setTimeout(resolve, 100))
-      log = await readFile('dev/logs/dev-api.log', 'utf8')
+      log = apiLogs()
     }
     assert.match(log, refused)
     assert.ok(!log.includes(wrong))

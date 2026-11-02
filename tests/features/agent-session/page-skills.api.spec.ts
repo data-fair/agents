@@ -23,7 +23,7 @@ test.describe('Page skills', () => {
   let fixture: McpFixture
   let mongo: MongoClient
   test.beforeAll(async () => {
-    fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30)
+    fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT))
     mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
   })
   test.afterAll(async () => { await fixture.close(); await mongo.close() })

@@ -14,7 +14,7 @@ const admin = await superAdmin
 test.describe('Approval card', () => {
   let fixture: McpFixture
   let agentId: string
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()

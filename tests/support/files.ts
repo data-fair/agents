@@ -5,7 +5,7 @@
 import assert from 'node:assert/strict'
 import { superAdmin } from './axios.ts'
 
-export const FIXTURE_PORT = Number(process.env.NGINX_PORT) + 30
+export const FIXTURE_PORT = Number(process.env.MCP_FIXTURE_PORT)
 export const FIXTURE_ORIGIN = `http://localhost:${FIXTURE_PORT}`
 export const AGENTS = '/api/autonomous-agents/organization/test1'
 

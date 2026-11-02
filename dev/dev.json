@@ -1,0 +1,34 @@
+{
+  "ports": [
+    "NGINX_PORT",
+    "DEV_API_PORT",
+    "DEV_UI_PORT",
+    "DEV_UI_HMR_PORT",
+    "MONGO_PORT",
+    "SD_PORT",
+    "EVENTS_PORT",
+    "MAILDEV_SMTP_PORT",
+    "MCP_FIXTURE_PORT",
+    "DEV_MCP_PORT",
+    "BRIDGE_PORT"
+  ],
+  "panes": {
+    "api": {
+      "ready": "http://localhost:${DEV_API_PORT}/api/ping"
+    },
+    "ui": {
+      "ready": "http://localhost:${DEV_UI_PORT}/agents/"
+    },
+    "mcp": {}
+  },
+  "url": "http://localhost:${NGINX_PORT}/agents/",
+  "setup": [
+    "node dev/render-users.ts",
+    "npm run build-libs"
+  ],
+  "optional": {
+    "events": {
+      "privateEventsUrl": ""
+    }
+  }
+}

@@ -16,8 +16,9 @@ const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
 const instructor = await axiosAuth('test1-user1', { org: 'test1' })
 const AGENTS = '/api/autonomous-agents/organization/test1'
-const externalUrl = `http://localhost:${Number(process.env.NGINX_PORT) + 32}/mcp`
 let external: McpFixture
+// the external server listens on a port of its own choosing, read once it is up
+let externalUrl: string
 
 const createAgent = async (over: any = {}) => {
   const agent = await createEnrolledAgent({ title: 'Interop', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }], instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }], ...over })
@@ -27,7 +28,10 @@ const createAgent = async (over: any = {}) => {
 const offeredTools = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 
 test.describe('External MCP servers', () => {
-  test.beforeAll(async () => { external = await startMcpFixture(Number(process.env.NGINX_PORT) + 32) })
+  test.beforeAll(async () => {
+    external = await startMcpFixture(0)
+    externalUrl = `http://localhost:${external.port}/mcp`
+  })
   test.afterAll(async () => { await external.close() })
   test.beforeEach(async () => {
     await clean()

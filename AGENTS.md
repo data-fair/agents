@@ -21,31 +21,49 @@ Types are mostly managed from JSON schemas (for example `api/types/settings/sche
 
 ## Dev environment
 
-Development processes (dev-api, dev-ui, docker compose services) are managed by the user, not by you. **Never attempt to start, stop, restart, or kill any dev process or container.**
+The dev environment is the shared one of the data-fair services (`@data-fair/lib-dev`, the
+`data-fair-service` skill of data-fair/lib): one zellij session per checkout, readable by humans,
+operated by agents only through `df-dev`. `dev/dev.json` declares what is specific to this repo (drawn
+ports, panes and their readiness URLs, setup steps, optional containers), `.zellij.kdl` the panes: `status`
+(containers), `ui`, `api`, `mcp` (the dev MCP server), `bridge` (suspended until someone presses Enter in
+it), and a free shell.
+
+The user starts the session (`npm run dev-zellij`). An agent never starts or kills it.
+
+| Need | Command |
+|---|---|
+| What runs, what is broken | `npx --no df-dev status` (containers, panes running / exited / **not ready**, memory) |
+| A process's output | `npx --no df-dev logs <pane> -n 100` (`api`, `ui`, `mcp`, `bridge`) |
+| Restart one process | `npx --no df-dev restart <pane>`: Ctrl+C, rerun, waits for the pane's readiness URL |
+| An optional container | `npx --no df-dev up events` / `down events`, then `restart api` so the config sees it |
+
+- Read the logs before restarting: nodemon and vite already reload on file changes (the `mcp` pane too, on
+  `dev/mcp-server.ts` and `tests/support/mcp-fixture.ts`).
+- "not ready" from `restart` → report to the user with the logs, never retry in a loop.
+- Never `docker compose restart`, `kill`, `zellij action`, nor `npm ci` / `npm install` while the env runs
+  (watchers restart on half-installed modules).
+- Always `npx --no`: a bare `npx df-dev` downloads an unrelated public package when the dependency is
+  missing (dependency confusion). Scripts and CI call `./node_modules/.bin/df-dev`.
+
+Containers: nginx, simple-directory and mongo are the core; `events` is optional (compose profile
+`events`, started with `npm run dev-zellij -- --services events` or `df-dev up events`). While it does not
+run, the api pane starts with `privateEventsUrl` unset (`df-dev absent-config`, dev/dev.json "optional"),
+and the specs that need it skip. CI starts every profile.
+
+Worktrees, from the main checkout: `npx --no df-worktree <branch>` / `npx --no df-worktree-delete <branch>`
+(branch names: letters, digits, `.`, `_`, `-`, no `/`, and `agents_<branch>` at most 60 characters).
+
+Ports are drawn per checkout into `.env` (`npx --no df-dev init-env`). Do not modify them. The URLs stay on
+`localhost:$NGINX_PORT` (not the `DEV_HOST` df-dev also writes): the NHI fixtures' issuers and the
+multi-host specs name it.
 
 The dev file store of autonomous agents is the gitignored dev/data/files (api/config/development.js files).
 
-### Checking status
-
-Run `bash dev/status.sh` to see which services are up or down. This probes all known endpoints and reports their status. Always use this when:
-- A test fails with a connection error
-- You suspect a service might be down
-- Before reporting an environment issue to the user
-
-### Consulting logs
-
-Log files are in `dev/logs/`:
-- `dev/logs/dev-api.log` — API server (nodemon). Check this for startup failures or runtime errors.
-- `dev/logs/dev-ui.log` — UI dev server (vite).
-- `dev/logs/docker-compose.log` — All docker compose services (nginx, simple-directory, events, maildev, mongo).
-
-Use `tail -n 50 dev/logs/<file>` to see recent output, or `grep -i error dev/logs/<file>` to find errors.
-
 ### The dev MCP server
 
-`npm run dev-mcp` serves the `dev-review-*-mcp` entries of the MCP catalog (`api/config/development.js`),
-on `NGINX_PORT + 31` (the test fixture owns +30, and each spec starts and stops its own). It is part of the `npm run dev-zellij` layout, so a normal dev session already
-has it, and `dev/status.sh` probes it.
+The `mcp` pane (`dev/mcp-server.ts`) serves the `dev-review-*-mcp` entries of the MCP catalog
+(`api/config/development.js`), on `DEV_MCP_PORT` (the test fixture owns `MCP_FIXTURE_PORT`, and each spec
+starts and stops its own).
 
 It reuses `tests/support/mcp-fixture.ts` rather than defining a second server, so what you exercise
 by hand is exactly what the suite exercises: tools `echo`, `get_schema`, `ignored` and
@@ -66,23 +84,22 @@ tool of the per-spec fixture, whose call log a spec asserts on. CI starts it too
 
 Only autonomous agents need it. Without it, every agent with an identity fails with a 502 the moment it
 gathers its tools — the seeded dev fixtures can then be read but not used, which is a confusing way to
-discover this is not running. A change to it (or to `tests/support/mcp-fixture.ts`) needs it restarted.
+discover this is not running. nodemon restarts it on a change to it or to `tests/support/mcp-fixture.ts`.
 
 ### Running on Claude Code models
 
-`npm run dev-bridge` starts a local OpenAI-compatible server on `BRIDGE_PORT` (seeded by
-`dev/init-env.sh` like every other dev port; it used to default to a fixed 3194, which meant two
-worktrees fought over it and the second simply failed to start) backed by your Claude Code subscription, so the dev workspace can run
-on real models without an API key. It is part of the `npm run dev-zellij` layout, so a
-normal dev session already has it. Logs go to `dev/logs/dev-bridge.log`. It is optional —
-`dev/status.sh` reporting it DOWN is normal unless you use it.
+The `bridge` pane runs a local OpenAI-compatible server on `BRIDGE_PORT` (drawn in `.env` like every
+other dev port; it used to default to a fixed 3194, which meant two worktrees fought over it and the
+second simply failed to start) backed by your Claude Code subscription, so the dev workspace can run on
+real models without an API key. It starts suspended: the user presses Enter in it when they want it, so
+it being idle is normal. Its output: `npx --no df-dev logs bridge`.
 
 Configure it in the settings UI as an **OpenAI Compatible** provider with base URL
 `http://localhost:$BRIDGE_PORT/v1` — the value in `.env`, not a fixed port — and **Compatibility
 Mode `compatible`** (the default mode
 targets `/v1/responses`, which the bridge does not implement). Leave the API key empty.
 Model listing for org providers goes through lib-node's SSRF-guarded axios, which refuses
-loopback; `npm run dev-api` sets `SSRF_PUBLIC_IPS=127.0.0.1,::1` so the bridge is reachable.
+loopback; `df-dev init-env` writes `SSRF_PUBLIC_IPS=127.0.0.1,::1` to `.env` so the bridge is reachable.
 
 `GET /_bridge/status` reports how many conversations are holding a live `claude` session.
 It binds `127.0.0.1` only: it is unauthenticated and spends your subscription.
@@ -94,9 +111,9 @@ to the SDK so a legitimate bump of `api`'s own zod is not silently clamped.
 
 Claude Code cuts an MCP tool's description at 2048 characters, and the bridge serves every tool to it as an MCP tool: a longer description is cut in the listing with a pointer, and given whole in the system prompt (`lib-sim/bridge/openai.ts`, `MCP_DESCRIPTION_LIMIT`). Before that, `code_mode` was simulated without anything past its first tool signatures. No role it serves (assistant, persona, judge) learns more about the product than the product tells it: each query runs in a neutral temp cwd with no tools and a private `CLAUDE_CONFIG_DIR` carrying none of the operator's identity, and fails closed otherwise (`lib-sim/isolation.ts`, asserted by a test). Nothing caches below about 4k tokens of system prompt, so short dev chats showing no cache activity is expected.
 
-### dev-api watches `shared/` too
+### The api pane watches `shared/` too
 
-`dev-api` runs nodemon from `api/`, so its default watch covers `api/**` only — while `shared/` reaches
+The api pane runs nodemon from `api/`, so its default watch covers `api/**` only — while `shared/` reaches
 the server through a workspace symlink under `node_modules`, which nodemon neither follows nor would see.
 Editing the context policy or the loop guards therefore left the running server on the OLD code, silently
 invalidating any api or e2e test of that change (it passed a mutation check that should have failed).
@@ -105,32 +122,35 @@ invalidating any api or e2e test of that change (it passed a mutation check that
 Two things to know when it still looks stale:
 
 - **nodemon reads its own config only at startup.** Changing `api/nodemon.json` restarts the app but not
-  nodemon, so a watch-list change needs `dev-api` itself restarted once — ask the user.
-- Verify with the log, not with a guess: `wc -c dev/logs/dev-api.log` before and after the edit, or look
-  for a fresh `API server listening` line. A restart takes a second or two, and a test fired too early
+  nodemon, so a watch-list change needs the pane restarted once: `npx --no df-dev restart api`.
+- Verify with the log, not with a guess: look for a fresh `API server listening` line in
+  `npx --no df-dev logs api`. A restart takes a second or two, and a test fired too early
   runs against the old process.
 
 ### When something is down
 
 If a service is down, do not try to fix the infrastructure. Instead:
-1. Run `bash dev/status.sh` to identify what's down.
-2. Check relevant logs in `dev/logs/` for errors.
+1. Run `npx --no df-dev status` to identify what's down.
+2. Read the pane's logs (`npx --no df-dev logs <pane>`), or `docker compose logs <service>` for a container.
 3. Report the problem clearly to the user with the status output and any relevant log lines.
-
-Port assignments are in `.env`. Do not modify them.
 
 ## Testing
 
 Run tests: `npm run test`
 Run specific tests: `npm run test tests/features/settings/settings.api.spec.ts`
+Run the smoke set: `npm run test-smoke`
 
-If a test fails with a connection error, run `bash dev/status.sh` to diagnose, then stop and ask the user for help.
+The suite runs in two levels (`docs/architecture/testing.md`): the pre-push hook (`dev/pre-push.sh`) runs
+the type check, the unit tests, the `@smoke` api/e2e set and the spec files the push changed; pull
+requests and release tags run everything. When iterating, run only the related specs.
+
+If a test fails with a connection error, run `npx --no df-dev status` to diagnose, then stop and ask the user for help.
 
 **One stateful run at a time.** The api and e2e projects share the dev database, and every spec's `clean()` deletes all `test*` documents — so a second run started while one is going wipes the first's freshly seeded data. That looks exactly like product flakiness: a different pair of failures each time, each passing alone, typically a 403 because a spec's own quota settings vanished. `tests/support/stateful-lock.ts` now refuses a second run at setup with an explicit message; do not work around it. In practice this means: never launch a test run in the background while an earlier one you started is still going, and wait for it before re-running a single spec. A unit-only run takes no lock and can run any time.
 
 Test users are defined in `dev/resources/users.template.json` and organizations in `dev/resources/organizations.json`. Modify these as little as possible, but if you do you need to force reload of the simple-directory container `docker compose restart simple-directory`.
 
-`dev/resources/users.json` is **generated** — `dev/init-env.sh` renders it from `users.template.json`, resolving `{NGINX_PORT}` and any other `{ENV_VAR}` placeholder, and it is gitignored. Edit the template, never the rendered file. It exists because docker-compose mounts the rendered file straight into simple-directory, which reads it verbatim and does no substitution of its own — so a fixture that names a URL (the autonomous-agent NHI fixtures name this service as their issuer) cannot write the randomised port literally. An unresolved placeholder fails the render loudly rather than reaching simple-directory and surfacing later as an unexplained 401 from the token exchange.
+`dev/resources/users.json` is **generated** — `dev/render-users.ts` renders it from `users.template.json` (run by `df-dev setup`, by the status pane before it starts the containers, and by CI), resolving `{NGINX_PORT}` and any other `{ENV_VAR}` placeholder, and it is gitignored. Edit the template, never the rendered file. It exists because docker-compose mounts the rendered file straight into simple-directory, which reads it verbatim and does no substitution of its own — so a fixture that names a URL (the autonomous-agent NHI fixtures name this service as their issuer) cannot write the drawn port literally. An unresolved placeholder fails the render loudly rather than reaching simple-directory and surfacing later as an unexplained 401 from the token exchange.
 
 The two `*-autonomous-agent-nhi` users are non-human identities an autonomous agent authenticates as. Each needs an `email` (simple-directory lowercases it unguarded), must belong to exactly one organization, and must carry no `allowedIps`/`ipBinding` — every autonomous agent shares one egress address. Their `nhi.subject` must equal `autonomous-agent:<agent id>`, which is why a dev-only seam creates a fixture agent with a chosen id. `tests/features/autonomous-agents/dev-fixtures.unit.spec.ts` enforces all of this — including the pairing itself, read out of `dev/fixtures.ts` and the specs rather than restated, so renaming an agent id without renaming the subject fails a unit test instead of surfacing as that uniform 401.
 
@@ -142,12 +162,11 @@ In case of failures you might find error contexts in `test-results`.
 
 This project has workspace packages whose compiled `.js` files are gitignored, so they must be built before the code that imports them will run.
 
-`lib-vuetify/` and `lib-vue/` are needed for **e2e** tests:
-- `cd lib-vuetify && npm run build`
-- `cd lib-vue && npm run build`
+`npx --no df-dev setup` builds them all, `npm run build-libs` again after a change.
 
-`lib-sim/` is needed for **`npm run simulate`**, and for the specs importing `simulations/cases` (`tests/features/simulations/cases.unit.spec.ts`, `tests/features/lib-sim/cases.unit.spec.ts`, `tests/features/lib-sim/persona.unit.spec.ts`, `tests/features/simulations/exports.api.spec.ts`), which reach the built package through it — unbuilt, the whole run fails at collection with `Cannot find module …/lib-agents-sim/index.js`:
-- `cd lib-sim && npm run build`
+`lib-vuetify/` and `lib-vue/` are needed for **e2e** tests.
+
+`lib-sim/` is needed for **`npm run simulate`**, and for the specs importing `simulations/cases` (`tests/features/simulations/cases.unit.spec.ts`, `tests/features/lib-sim/cases.unit.spec.ts`, `tests/features/lib-sim/persona.unit.spec.ts`, `tests/features/simulations/exports.api.spec.ts`), which reach the built package through it — unbuilt, the whole run fails at collection with `Cannot find module …/lib-agents-sim/index.js`.
 
 If e2e tests fail with "element(s) not found", check that `lib-vuetify` and `lib-vue` are built before investigating further.
 
@@ -160,7 +179,7 @@ When e2e tests fail, follow this order:
 4. Only then dig into component code
 
 A single e2e test failing at random, a different one each run, is first a question for
-`dev/logs/dev-ui.log`: a vite `optimized dependencies changed. reloading` line during the run reloaded
+the ui pane's output (`npx --no df-dev logs ui`): a vite `optimized dependencies changed. reloading` line during the run reloaded
 whatever page the test was on. `ui/vite.config.ts` gives vite every dependency at startup so this
 does not happen; a line naming a new dependency means that list missed it.
 
@@ -180,7 +199,7 @@ the same file used to debug a real session — so the seeded account stores
 traces and the browser carries the consent cookie. Needs the
 dev stack and built workspace packages — `lib-sim` included: `simulations/`
 imports it by package name, so a stale build silently runs the old code and
-still reports the run valid — and `npm run dev-bridge`. Orchestrated by the
+still reports the run valid — and the `bridge` pane started. Orchestrated by the
 `/agents-sim` skill; cases live in `simulations/cases/index.ts`. A case may declare a `premise` —
 what must have happened for the run to test it, such as the person writing during a wait — and a run
 where it did not hold is recorded invalid rather than judged. A case may span several conversations

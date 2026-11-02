@@ -4,6 +4,7 @@
  * client actually presented.
  */
 import { createServer, type Server } from 'node:http'
+import type { AddressInfo } from 'node:net'
 import { createHash } from 'node:crypto'
 import { z } from 'zod'
 import { z as z4 } from 'zod/v4'
@@ -427,7 +428,8 @@ export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   await new Promise<void>(resolve => server.listen(port, '127.0.0.1', resolve))
 
   return {
-    port,
+    // the bound one: a spec that needs no fixed port passes 0 and reads it here
+    port: (server.address() as AddressInfo).port,
     lastHeaders: () => lastHeaders,
     invokedTools: () => [...invoked],
     resetInvokedTools: () => { invoked = []; fileUrls = [] },

@@ -136,7 +136,7 @@ test.describe('dev NHI fixtures', () => {
   })
 
   test('the template hardcodes no port, so a checkout cannot silently use the wrong one', () => {
-    // dev/init-env.sh randomises every port, so a literal one would be correct in exactly one
+    // df-dev init-env draws every port, so a literal one would be correct in exactly one
     // checkout and wrong everywhere else, including CI.
     for (const user of nhiUsers) {
       assert.doesNotMatch(user.nhi.provider.issuer, /:\d{4,5}\b/, `${user.id} should use {NGINX_PORT}, not a literal port`)

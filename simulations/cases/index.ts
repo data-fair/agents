@@ -222,7 +222,7 @@ export const cases: LocalCase[] = [
     // Drives the chat opened on an autonomous agent rather than on the personal assistant. Same
     // composer and transcript as any other case now — the standalone thread page was removed.
     name: 'autonomous-agent-tool-use',
-    // Needs `npm run dev-mcp` (the agent's tools). The agent itself is seeded by the runner, on the
+    // Needs the mcp pane (the agent's tools). The agent itself is seeded by the runner, on the
     // TEST org: pointing at dev1's hand-review fixture would run on the mock model its settings map
     // to, and seeding the bridge over those would break the fixtures a human reviews by hand.
     // test1-user1 is a LISTED INSTRUCTOR, not an admin — the realistic shape, and the one that
@@ -231,7 +231,7 @@ export const cases: LocalCase[] = [
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
     user: 'test1-user1',
-    // Its tools are data-fair's, as every agent with an identity has them: dev-mcp's /platform/ stand-in
+    // Its tools are data-fair's, as every agent with an identity has them: the mcp pane's /platform/ stand-in
     // (tests/support/mcp-fixture.ts), its data tools only — not the api suite's fixtures (wipe_everything,
     // explode…), which judged runs flagged as noise the agent had no business being offered.
     persona: 'You are an operations manager at a mid-sized French city. You are comfortable asking for outcomes but you have never heard of MCP, tools, or schemas, and you will not use those words. You say what you need in plain language and you expect the assistant to do the work.',
@@ -249,8 +249,8 @@ export const cases: LocalCase[] = [
     // platform_list_road_closures with the district and quote the reopening date, and instructions saying to always
     // give the district. What the judge checks, from the export: the agent called read_skill for
     // skill://platform/closures/SKILL.md BEFORE platform_list_road_closures, and its answer names the district and the
-    // reopening dates as the skill and the instructions say. Needs `npm run dev-mcp` restarted after the
-    // fixture gained its skills.
+    // reopening dates as the skill and the instructions say. The mcp pane restarts
+    // on a change to the fixture (nodemon).
     name: 'autonomous-agent-server-skill',
     route: '/agents/organization/test1/chat?agentId=test-fixture',
     surface: 'autonomous-agent',
@@ -461,7 +461,7 @@ export const cases: LocalCase[] = [
     user: 'test1-user1',
     agent: {
       mcpServers: [{ serverId: 'dev-review-mcp', toolFilter: ['import_table'] }],
-      web: { enabled: true, allowedUrls: [`http://localhost:${Number(process.env.NGINX_PORT) + 31}/exports`] }
+      web: { enabled: true, allowedUrls: [`http://localhost:${process.env.DEV_MCP_PORT}/exports`] }
     },
     task: {
       title: 'Long city-centre closures table',
@@ -483,7 +483,7 @@ export const cases: LocalCase[] = [
     user: 'test1-user1',
     agent: {
       mcpServers: [{ serverId: 'dev-review-mcp', toolFilter: ['import_table'] }],
-      web: { enabled: true, allowedUrls: [`http://localhost:${Number(process.env.NGINX_PORT) + 31}/exports`] }
+      web: { enabled: true, allowedUrls: [`http://localhost:${process.env.DEV_MCP_PORT}/exports`] }
     },
     task: {
       title: 'Long city-centre closures table (one script)',

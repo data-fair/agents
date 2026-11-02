@@ -1,7 +1,7 @@
 /**
  * stateful API tests: data-fair's MCP is built into every autonomous agent with an identity.
  *
- * `privateMcpUrl` (api/config/development.js) points at dev-mcp's `/platform/` stand-in, which serves the
+ * `privateMcpUrl` (api/config/development.js) points at the mcp pane's `/platform/` stand-in, which serves the
  * data-returning tools prefixed `platform_`: an agent's reach there is its identity's scopes, with nothing
  * to reference in `mcpServers`.
  */

@@ -5,7 +5,7 @@
 
 import type { ConversationExport } from '@data-fair/lib-agents-sim'
 
-// Derived from the SEEDED BRIDGE_PORT, never a fixed default. dev/init-env.sh randomises the port per
+// Derived from the drawn BRIDGE_PORT, never a fixed default. df-dev init-env draws the port per
 // worktree precisely so two checkouts cannot collide; a hardcoded 3194 reintroduced the collision in
 // the one place it is least visible — another worktree's bridge answers assertBridgeUp(), the run is
 // recorded valid, and the cases are driven against the wrong process. Fail loudly when it is unset
@@ -14,7 +14,7 @@ const bridgePort = process.env.BRIDGE_PORT
 export const BRIDGE_URL = process.env.BRIDGE_URL ??
   (bridgePort
     ? `http://localhost:${bridgePort}/v1`
-    : (() => { throw new Error('BRIDGE_PORT is not set — simulations load .env via playwright.sim.config.ts, so re-run dev/init-env.sh if it predates the seeded bridge port') })())
+    : (() => { throw new Error('BRIDGE_PORT is not set — simulations load .env via playwright.sim.config.ts, so regenerate it with "npx --no df-dev init-env --force" if it predates the drawn bridge port') })())
 export const OWNER = { type: 'user', id: 'test-standalone1' } as const
 
 const provider = {
@@ -161,7 +161,7 @@ export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
   title: 'Simulated autonomous agent',
   persona: 'You are a helpful data assistant. You answer briefly and you say plainly when you cannot do something.',
   instructions: 'Prefer calling a tool over guessing. If a tool fails or you have no tool for what is asked, say so rather than inventing a result.',
-  // None: its tools are data-fair's built-in server, dev-mcp's /platform/ stand-in (privateMcpUrl). A case
+  // None: its tools are data-fair's built-in server, the mcp pane's /platform/ stand-in (privateMcpUrl). A case
   // needing a tool the stand-in lacks references the long-running review server for it, never the
   // per-spec fixture: a simulation is not a spec and nothing would be listening on the fixture's port.
   mcpServers: [],
@@ -218,7 +218,7 @@ export async function assertBridgeUp () {
   } catch (err) {
     throw new Error(
       `The Claude Code bridge is not answering at ${statusUrl} (${err instanceof Error ? err.message : String(err)}).\n` +
-      'Start it with: npm run dev-bridge'
+      'Ask your user to start it: press Enter in the suspended bridge pane of the zellij session.'
     )
   }
 }

@@ -7,25 +7,20 @@
  * tests — so a seeded autonomous agent wired to those entries could show its recorded tool calls but
  * would fail with a 502 the moment someone posted a new message while reviewing the UI.
  *
- * Run it alongside the rest of the dev stack:
- *   npm run dev-mcp
+ * It is the `mcp` pane of the zellij layout (.zellij.kdl), on DEV_MCP_PORT.
  *
  * It reuses the test fixture rather than defining a second server, so what a human exercises by hand
  * is exactly what the suite exercises.
  */
 import { startMcpFixture } from '../tests/support/mcp-fixture.ts'
 
-// Guarded rather than trusted: `Number(undefined) + 31` is NaN, and listen(NaN) binds a RANDOM free
-// port while this prints "listening on http://localhost:NaN/mcp" and exits 0. dev/status.sh would
-// then report dev-mcp DOWN for a process that looks perfectly healthy, and an agent wired to one of
-// these catalog entries 502s — the confusing discovery this file's docblock is about.
-if (!process.env.NGINX_PORT) {
-  console.error('NGINX_PORT is not set — run through `npm run dev-mcp` (it loads .env), or re-run dev/init-env.sh')
-  process.exit(1)
-}
-const port = Number(process.env.NGINX_PORT) + 31
-if (!Number.isInteger(port)) {
-  console.error(`NGINX_PORT is not a number: ${process.env.NGINX_PORT}`)
+// Guarded rather than trusted: `Number(undefined)` is NaN, and listen(NaN) binds a RANDOM free
+// port while this prints "listening on http://localhost:NaN/mcp". `df-dev status` would then report
+// the pane running for a server nobody can reach, and an agent wired to these catalog entries 502s —
+// the confusing discovery this file's docblock is about.
+const port = Number(process.env.DEV_MCP_PORT)
+if (!Number.isInteger(port) || port <= 0) {
+  console.error(`DEV_MCP_PORT is not set or not a number (${process.env.DEV_MCP_PORT}): run in the zellij session (it exports .env), or regenerate .env with "npx --no df-dev init-env --force"`)
   process.exit(1)
 }
 const fixture = await startMcpFixture(port)

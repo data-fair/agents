@@ -457,7 +457,7 @@ test.describe('Autonomous agent conversations', () => {
 test.describe('Autonomous agent model loop', () => {
   let fixture: McpFixture
 
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
@@ -728,7 +728,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
   let fixture: McpFixture
   const SECRET = 'secretlimits' // matches api/config/development.js, as tests/features/limits does
 
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
@@ -1013,7 +1013,7 @@ test.describe('Autonomous agent run traces', () => {
   // server whose endpoint is down fails when the tool set is gathered, which is BEFORE any model
   // call — and a turn that never reaches the model records no trace at all.
   let fixture: McpFixture
-  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.NGINX_PORT) + 30) })
+  test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => { await clean() })
 

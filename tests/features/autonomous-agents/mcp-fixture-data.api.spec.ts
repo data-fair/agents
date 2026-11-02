@@ -8,15 +8,15 @@
  * from a correct one — and the agent volunteers "let me know if you need another district", which
  * would then have it confidently report a street as closed somewhere it is not.
  *
- * Pinned here rather than left to the simulation, because `npm run dev-mcp` holds the fixture's code
- * for its whole lifetime: a simulation only sees a change after that process is restarted, while every
+ * Pinned here rather than left to the simulation, because the mcp pane holds the fixture's code until
+ * nodemon restarts it: a simulation only sees a change after that restart, while every
  * spec starts its own server and sees it immediately.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { startMcpFixture } from '../../support/mcp-fixture.ts'
 
-const port = Number(process.env.NGINX_PORT) + 30
+const port = Number(process.env.MCP_FIXTURE_PORT)
 
 const callListRoadClosures = async (district: unknown) => {
   const res = await fetch(`http://localhost:${port}/mcp`, {
