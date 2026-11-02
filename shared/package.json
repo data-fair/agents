@@ -8,7 +8,7 @@
   },
   "dependencies": {
     "@data-fair/lib-validation": "^1.0.2",
-    "ai": "7.0.137",
+    "ai": "7.0.159",
     "ajv": "^8.17.1",
     "debug": "^4.4.3"
   }
