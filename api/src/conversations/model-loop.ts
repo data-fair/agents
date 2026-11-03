@@ -559,13 +559,14 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       // `convertToModelMessages` has no reason to look at.
       if (part.type === 'tool-error') {
         const settled = errorSettlement(part.error)
+        // A result the tripwire withheld: what was flagged and where it came from, for the chat and a reviewer.
+        const tripped = tripwire?.recordOf(part.toolCallId)
         if (!recorder.hasCall(part.toolCallId)) {
-          await target.settleEarlierCall(part.toolCallId, settled)
+          // An approved call of an earlier turn, executed before this turn's first step: settled on its own part.
+          await target.settleEarlierCall(part.toolCallId, settled.state === 'output-error' && tripped ? { ...settled, tripwire: tripped } : settled)
           continue
         }
         recorder.settleCall(part.toolCallId, settled)
-        // A result the tripwire withheld: what was flagged and where it came from, for the chat and a reviewer.
-        const tripped = tripwire?.recordOf(part.toolCallId)
         const call = tripped && parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCallId)
         if (call && call.type === 'dynamic-tool') call.toolMetadata = { ...call.toolMetadata, tripwire: tripped as unknown as JSONObject }
         sendMessageFrame()
@@ -625,13 +626,19 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // when it was not.
   // A handover first: it stops on a tool call by design, which the guards' reading below would take for
   // a turn cut off.
+  // A trip comes next, whatever the finish reason: an approved call of an earlier turn runs before the first
+  // step, which stopWhen never sees, so the model may have answered in text after it — the turn must still say
+  // why a result is missing. A handover or an approval in the same step keeps precedence: its state has to stay
+  // consistent (an open wait, a pending card), and it is safe, the flagged text being withheld either way.
   const stopReason: RunStopReason = handover
     ? 'waiting'
     : awaitingApproval
       ? 'awaiting-approval'
-      : finishReason === 'tool-calls'
-        ? (tripwire?.tripped ? 'injection-suspected' : budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
-        : 'completed'
+      : tripwire?.tripped
+        ? 'injection-suspected'
+        : finishReason === 'tool-calls'
+          ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
+          : 'completed'
   if (stopReason === 'injection-suspected') stopDetail = describeSource(tripwire!.tripped!.source)
 
   // An empty completion is a known provider failure mode with its own mock seam. Without a

@@ -15,6 +15,7 @@ import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
+import type { TripRecord } from '../tripwire/operations.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '../autonomous-agents/service.ts'
@@ -347,15 +348,17 @@ export const updateMessage = async (conversationId: string, seq: number, patch: 
 export const settleStoredToolPart = async (
   conversationId: string,
   toolCallId: string,
-  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string }
+  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string, tripwire?: TripRecord }
 ): Promise<StoredMessage | null> => {
   const awaiting = { toolCallId, state: 'approval-responded' }
   if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: awaiting } }, { projection: { _id: 1 } })) return null
   // `truncated` is metadata, beside the decision in `toolMetadata`, as on a call settled in its own turn:
   // an approved call is precisely the audited write, and a review must be able to tell its result was cut.
-  const { truncated, ...fields } = settled as typeof settled & { truncated?: { totalChars: number } }
+  // So is a withheld result's trip record (api/src/tripwire), as the loop merges it on a call of its own turn.
+  const { truncated, tripwire, ...fields } = settled as typeof settled & { truncated?: { totalChars: number }, tripwire?: TripRecord }
   const set: Record<string, unknown> = Object.fromEntries(Object.entries(fields).map(([key, value]) => [`parts.$[p].${key}`, value]))
   if (truncated) set['parts.$[p].toolMetadata.truncated'] = { totalChars: truncated.totalChars }
+  if (tripwire) set['parts.$[p].toolMetadata.tripwire'] = tripwire
   return await mongo.messages.findOneAndUpdate(
     { conversationId, parts: { $elemMatch: awaiting } },
     { $set: { ...set, updatedAt: new Date().toISOString() } },

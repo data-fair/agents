@@ -9,7 +9,8 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { serviceUp, NEEDS_EVENTS } from '../../support/optional-services.ts'
-import { turnOverSocket } from '../../../dev/socket-turn.ts'
+import { turnOverSocket, decideOverSocketToRun } from '../../../dev/socket-turn.ts'
+import { awaitRun } from '../../support/turn.ts'
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 import { WITHHELD_RESULT } from '../../../api/src/tripwire/operations.ts'
 import { runStopReasonMessage } from '../../../api/src/conversations/operations.ts'
@@ -44,6 +45,25 @@ test.describe('Tool-output tripwire', () => {
     assert.equal(echo.toolMetadata.tripwire.source.tool, 'echo')
     assert.equal(echo.toolMetadata.tripwire.source.server, 'dev-public-mcp')
     assert.ok(lastText(assistant).endsWith(runStopReasonMessage('injection-suspected', 'echo (dev-public-mcp)')), lastText(assistant))
+  })
+
+  test('an approved call of an earlier turn whose result trips stops the turn that ran it', async () => {
+    // echo declares no annotations: a write, gated at approval level `write`. The SDK runs an approved call
+    // before the continuation's first step, where stopWhen never looks: the model still answers after it.
+    const agent = await createFilesAgent({ approvalLevel: 'write' })
+    const gated = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool echo {"value":"INJECTION_PROBE"}')
+    assert.equal(gated.run.stopReason, 'awaiting-approval')
+    const asked = callPart(gated.assistant, 'echo')
+    const { runId } = await decideOverSocketToRun(orgAdmin, gated.conversationId, asked.approval.id, { approved: true })
+    const run = await awaitRun(orgAdmin, gated.conversationId, runId)
+    assert.equal(run.stopReason, 'injection-suspected')
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${gated.conversationId}/messages`)).data.results
+    const echo = callPart(messages.find((m: any) => m.seq === gated.assistant.seq), 'echo')
+    assert.equal(echo.state, 'output-error')
+    assert.ok(echo.errorText.includes(WITHHELD_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
+    assert.equal(echo.toolMetadata.tripwire.source.tool, 'echo')
+    const continued = messages.find((m: any) => m.role === 'assistant' && m.runId === runId)
+    assert.ok(lastText(continued).endsWith(runStopReasonMessage('injection-suspected', 'echo (dev-public-mcp)')), lastText(continued))
   })
 
   test('a benign result passes', async () => {

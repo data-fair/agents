@@ -5,11 +5,11 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
   TRIPWIRE_TASK_MARKER, TRIPWIRE_MAX_SCANNED_CHARS, TRIPWIRE_WINDOW_CHARS,
-  isScanned, capForScan, scanWindows, buildTripwireSystemPrompt, formatTripwireInput, injectionEvent, tripSource, describeSource
+  isScanned, capForScan, scanWindows, buildTripwireSystemPrompt, formatTripwireInput, injectionEvent, tripSource, describeSource,
+  WITHHELD_RESULT as WITHHELD, type ScreenInput
 } from '../../../api/src/tripwire/operations.ts'
 import { processForModel, processMockTripwirePrompt } from '../../../api/src/models/mock-model.ts'
 import { withProvenance, modelTools, type ToolResultScreen } from '../../../api/src/conversations/operations.ts'
-import { WITHHELD_RESULT as WITHHELD, type ScreenInput } from '../../../api/src/tripwire/operations.ts'
 
 test.describe('Tripwire operations', () => {
   test('isScanned follows openWorldHint, defaulting to scanned', () => {
