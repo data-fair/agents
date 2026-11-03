@@ -19,11 +19,8 @@ import { pushTaskEvent } from '../tasks/notifications.ts'
 import {
   tripwireVerdictSchema, buildTripwireSystemPrompt, formatTripwireInput, capForScan, scanWindows, tripSource,
   injectionEvent, TRIPWIRE_TIMEOUT_MS, TRIPWIRE_HARD_TIMEOUT_MS, TRIPWIRE_EXCERPT_MAX_CHARS,
-  type TripRecord, type TripwireVerdict
+  type TripRecord, type TripwireVerdict, type ScreenInput, type ScreenResult
 } from './operations.ts'
-
-export interface ScreenInput { toolCallId: string, toolName: string, server: string, input: unknown, text: string }
-export type ScreenResult = { withheld: false, text: string } | { withheld: true, record: TripRecord }
 
 export interface TurnTripwire {
   /** Classify one tool result; `text` on a pass is the scanned text (capped, see capForScan). */

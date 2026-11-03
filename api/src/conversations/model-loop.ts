@@ -40,6 +40,8 @@ import { createStepContext } from './step-context.ts'
 import { liveRuns } from './live-runs.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 import log from '@data-fair/lib-node/log.js'
+import { createTurnTripwire } from '../tripwire/service.ts'
+import { describeSource } from '../tripwire/operations.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -145,11 +147,27 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       budgetExceeded = true
       // Through the gate's own formatter: a shared budget's numbers only to an admin.
       stopDetail = quotaStopText(quota, identity.role === 'admin')
-    } else if (credits + (continuation?.credits ?? 0) >= config.turnCredits) {
+    } else if (credits + tripwireCredits + (continuation?.credits ?? 0) >= config.turnCredits) {
       budgetExceeded = true
     }
   }
   const startedAt = Date.now()
+
+  // THE TOOL-OUTPUT TRIPWIRE (api/src/tripwire): the results of tools that bring outside text are classified
+  // before the model reads them; one that looks addressed to the agent is withheld and the turn stops after its
+  // step. Its classifier calls count toward the run's budget, beside the assistant's, not inside its telemetry
+  // entry (they have their own).
+  let tripwireCredits = 0
+  const tripwire = createTurnTripwire({
+    run,
+    agent: { id: autonomousAgent.id, ...(autonomousAgent.title ? { title: autonomousAgent.title } : {}) },
+    owner: run.owner,
+    identity,
+    settings,
+    abortSignal,
+    onCredits: spent => { tripwireCredits += spent }
+  })
+  const screen = tripwire?.screen
 
   /** A script's final trace, onto the lead's message: its results are already bounded as it records them. */
   const storeTrace = (trace: { parentToolCallId: string, name: string, parts: MessagePart[] }) => {
@@ -184,7 +202,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    * only when the page's tool NAMES changed.
    */
   const pageToolNames = () => (pageSession?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
-  const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath))
+  const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath), screen)
   const liveTools: Record<string, Tool> = {}
   // The tool calls this turn's scripts have made, across the steps that rebuild the map (CODE_MODE_TURN_CALLS).
   const scriptCalls: TurnCalls = { count: 0 }
@@ -198,7 +216,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const assembleTools = async () => {
     // The service's own tools are never page tools, even when a page registers one by that name
     // (./service-tool-names.ts): the page's would answer under the service's name.
-    const pageTools = pageSession ? Object.fromEntries(Object.entries(browserToolSet(pageSession)).filter(([name]) => mayBePageTool(name))) : {}
+    const pageTools = pageSession ? Object.fromEntries(Object.entries(browserToolSet(pageSession, undefined, screen)).filter(([name]) => mayBePageTool(name))) : {}
     pageNames = new Set(Object.keys(pageTools))
     const mainTools: Record<string, Tool> = { ...fixedTools, ...pageTools }
     // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
@@ -221,7 +239,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           tool: { ...scriptTool, execute: async (input: any, options: any) => { try { return await runScript(input, options) } finally { codeTrace.finish(options.toolCallId) } } },
           ...CODE_MODE_SOURCE
         }
-      })[CODE_MODE_TOOL_NAME]
+      }, undefined, screen)[CODE_MODE_TOOL_NAME]
     }
     for (const name of Object.keys(liveTools)) if (!(name in mainTools)) delete liveTools[name]
     Object.assign(liveTools, mainTools)
@@ -260,7 +278,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       ({ steps }) => steps[steps.length - 1]?.toolResults.some(result => result.toolName === WAIT_TOOL_NAME && result.output === WAIT_ACCEPTED) ?? false,
       // Appended to the guards, never replacing them: a turn can be stopped by any of the
       // three and each has its own stop reason.
-      () => budgetExceeded
+      () => budgetExceeded,
+      // A withheld result ends the turn after its step: what the step's other calls returned is kept, and the
+      // model is not given another step to act on a page that tried to instruct it.
+      () => tripwire?.tripped !== undefined
     ],
     prepareStep: async options => {
       const current = pageToolNames()
@@ -543,6 +564,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           continue
         }
         recorder.settleCall(part.toolCallId, settled)
+        // A result the tripwire withheld: what was flagged and where it came from, for the chat and a reviewer.
+        const tripped = tripwire?.recordOf(part.toolCallId)
+        const call = tripped && parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCallId)
+        if (call && call.type === 'dynamic-tool') call.toolMetadata = { ...call.toolMetadata, tripwire: tripped as unknown as JSONObject }
         sendMessageFrame()
         await persistStructure()
         debug('tool failed tool=%s error=%o', part.toolName, part.error)
@@ -605,8 +630,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     : awaitingApproval
       ? 'awaiting-approval'
       : finishReason === 'tool-calls'
-        ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
+        ? (tripwire?.tripped ? 'injection-suspected' : budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
         : 'completed'
+  if (stopReason === 'injection-suspected') stopDetail = describeSource(tripwire!.tripped!.source)
 
   // An empty completion is a known provider failure mode with its own mock seam. Without a
   // fallback the turn persists a blank message and a green run — the "conversation that simply stops" this module forbids.
@@ -630,8 +656,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     parts: finalParts,
     // The turn's, both passes: what the run is charged and how far it went.
     steps: steps + (continuation?.steps ?? 0),
-    credits: credits + (continuation?.credits ?? 0),
+    credits: credits + tripwireCredits + (continuation?.credits ?? 0),
     stopDetail,
+    ...(tripwire ? { tripwire } : {}),
     ...(handover ? { handover } : {}),
     ...(awaitingApproval ? { awaitingApproval: true as const } : {}),
     ...(idleAbort.signal.aborted ? { idleAborted: true as const } : {}),

@@ -17,6 +17,7 @@ import type { TurnSurface } from './service-tools.ts'
 import { renderMemoryBlock, type MemoryDocument } from '../memory/operations.ts'
 import { renderGuidesBlock, defuseEnvelopes, type ServerGuide } from '../mcp-servers/guides.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
+import { isScanned, WITHHELD_RESULT, type ScreenInput, type ScreenResult } from '../tripwire/operations.ts'
 
 // Re-exported: the parts contract is shared/message-parts, and callers here already import from this
 // module. One definition, one import site.
@@ -24,7 +25,7 @@ export { partsText, textPart, type MessagePart } from '@agents/shared/message-pa
 
 /** A run that is a turn of a conversation, as opposed to a task run, which has none. */
 export type ConversationTurnRun = ConversationRun & { conversationId: string }
-export type RunStopReason = 'completed' | 'waiting' | 'awaiting-approval' | 'step-limit' | 'repeated-calls' | 'budget' | 'timeout' | 'aborted' | 'error'
+export type RunStopReason = 'completed' | 'waiting' | 'awaiting-approval' | 'step-limit' | 'repeated-calls' | 'budget' | 'injection-suspected' | 'timeout' | 'aborted' | 'error'
 
 /**
  * The wall-clock ceiling of a run. A planned task's is its own (config.taskTimeoutSeconds, 30 min by default):
@@ -52,6 +53,7 @@ export function runStopReasonMessage (stopReason: RunStopReason, detail?: string
     'step-limit': 'I reached my step budget for this turn and stopped. Everything I gathered up to that point is above.',
     'repeated-calls': 'I kept repeating the same tool call without making progress, so I stopped. Everything I gathered up to that point is above.',
     budget: 'This turn reached its credit budget and stopped before finishing.',
+    'injection-suspected': 'I stopped because a tool result looked like a prompt injection: instructions addressed to me rather than data. It was withheld.',
     timeout: 'This turn took too long and was stopped. Please try again.',
     aborted: 'This turn was stopped.',
     error: 'This turn failed and could not be completed.'
@@ -549,17 +551,39 @@ export const redactModelMedia = (messages: ModelMessage[]): ModelMessage[] => me
  * The envelope has to be applied where the result is produced rather than when history is
  * rebuilt, because within a single turn the AI SDK feeds tool results straight back to the
  * model without passing through this module.
+ *
+ * `screen`, when given, is the tool-output tripwire (api/src/tripwire): the text about to be wrapped is
+ * classified first, and a result that looks addressed to the agent is replaced by WITHHELD_RESULT, as a
+ * failure, so the model never reads it. It gets the server from here: only this function knows which server a
+ * result is attributed to, a page tool shadowing a catalog tool included.
  */
-export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) => string): Record<string, Tool> => {
+export type ToolResultScreen = (call: ScreenInput) => Promise<ScreenResult>
+
+export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) => string, screen?: ToolResultScreen): Record<string, Tool> => {
   const wrapped: Record<string, Tool> = {}
   for (const [name, tool] of Object.entries(tools)) {
+    // The text the model will read, screened then enveloped. Throws when withheld: a failure the model reads,
+    // so the call is recorded `output-error` and its placeholder, not the result, is what a revived
+    // conversation replays.
+    const envelope = async (text: string, args: unknown, opts: any): Promise<string> => {
+      if (!screen) return wrapToolResult(serverOf(name), name, text)
+      const screened = await screen({ toolCallId: String(opts?.toolCallId ?? ''), toolName: name, server: serverOf(name), input: args, text })
+      // A turn aborted while the result was screened gets the abort, not the text: an unscreened result
+      // (its classification was cut short, which reads as a pass) must not be stored for a later turn's model.
+      opts?.abortSignal?.throwIfAborted()
+      if (screened.withheld) throw new Error(wrapToolResult(serverOf(name), name, WITHHELD_RESULT))
+      return wrapToolResult(serverOf(name), name, screened.text)
+    }
     wrapped[name] = {
       ...tool,
       // An image-bearing result reaches the model as image parts (see mediaModelOutput).
       toModelOutput: tool.toModelOutput ?? (({ output }: { output: unknown }) => toolModelOutput(output)),
       execute: tool.execute
         ? async (args: any, opts: any) => {
-          const result = await tool.execute!(args, opts).catch((err: unknown) => {
+          let result: unknown
+          try {
+            result = await tool.execute!(args, opts)
+          } catch (err: unknown) {
             // A THROWN failure is tool-controlled text too, and it reached the model bare.
             //
             // The envelope is the security property: it tells the model where content came from, so a
@@ -572,18 +596,17 @@ export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: str
             // recorded `output-available` and a failure would look like a result again. An abort is
             // passed through untouched — it is ours, not the tool's, and the loop has to recognise it.
             if (opts?.abortSignal?.aborted) throw err
-            const detail = err instanceof Error ? err.message : String(err)
-            throw new Error(wrapToolResult(serverOf(name), name, detail))
-          })
-          if (typeof result === 'string') return wrapToolResult(serverOf(name), name, result)
+            throw new Error(await envelope(err instanceof Error ? err.message : String(err), args, opts))
+          }
+          if (typeof result === 'string') return await envelope(result, args, opts)
           // A media result is an envelope `toModelOutput` (above) turns into real image parts by
           // its marker. Stringifying it would inline the base64 into text, lose the marker, and can
           // blow the context window in a single step — so wrap only its text and keep the shape.
           if (result && typeof result === 'object' && '_agentsMediaResult' in (result as any)) {
             const media = result as any
-            return { ...media, text: wrapToolResult(serverOf(name), name, String(media.text ?? '')) }
+            return { ...media, text: await envelope(String(media.text ?? ''), args, opts) }
           }
-          return wrapToolResult(serverOf(name), name, JSON.stringify(result))
+          return await envelope(JSON.stringify(result), args, opts)
         }
         : undefined
     } as Tool
@@ -639,10 +662,12 @@ export const sourcedTools = (tools: Record<string, Tool>, server: string, annota
  * INSIDE the envelope, so what it returns is labelled like any result, and outside nothing: it is the one
  * layer every call goes through (spec §4.4).
  */
-export const modelTools = (set: ToolSet, callPath: (sourced: SourcedTool) => Tool = sourced => sourced.tool): Record<string, Tool> =>
+export const modelTools = (set: ToolSet, callPath: (sourced: SourcedTool) => Tool = sourced => sourced.tool, screen?: ToolResultScreen): Record<string, Tool> =>
   Object.fromEntries(Object.entries(set).map(([name, sourced]) => {
     const tool = callPath(sourced)
-    return [name, sourced.server && !sourced.selfEnveloped ? withProvenance({ [name]: tool }, () => sourced.server!)[name] : tool]
+    // Screened when it brings outside text (isScanned: openWorldHint, MCP's own default being open world).
+    const screened = screen && isScanned(name, sourced.annotations) ? screen : undefined
+    return [name, sourced.server && !sourced.selfEnveloped ? withProvenance({ [name]: tool }, () => sourced.server!, screened)[name] : tool]
   }))
 
 /**

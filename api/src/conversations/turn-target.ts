@@ -38,6 +38,7 @@ import { updateMessage, settleStoredToolPart, finishRun, conversationCost, type 
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { livePartsOf } from './live-runs.ts'
 import log from '@data-fair/lib-node/log.js'
+import type { TurnTripwire } from '../tripwire/service.ts'
 
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
 export interface TurnFrames {
@@ -93,6 +94,8 @@ export interface TurnResult {
   selfExplained?: boolean
   /** Refused before any model call (disabled, no identity, a quota, moderation): its parts are the refusal. */
   refused?: true
+  /** The turn's tool-output tripwire, when it had one: what it withheld, and its late verdicts (api/src/tripwire). */
+  tripwire?: TurnTripwire
 }
 
 /**

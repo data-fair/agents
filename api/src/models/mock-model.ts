@@ -309,12 +309,16 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     }
   }
 
-  // "call tools <name> <name> ..." → several parallel tool calls in one step
+  // "call tools <name> <name> ..." → several parallel tool calls in one step. A name may carry its arguments
+  // as JSON with no space in it (`echo{"value":"x"}`); otherwise it is called with none.
   const callToolsMatch = commandLine(lastMessage).match(/^call tools (.+)$/i)
   if (callToolsMatch) {
     return {
       type: 'tool-call',
-      toolCalls: callToolsMatch[1].trim().split(/\s+/).map(toolName => ({ toolName, toolArgs: '{}' }))
+      toolCalls: callToolsMatch[1].trim().split(/\s+/).map(token => {
+        const at = token.indexOf('{')
+        return at === -1 ? { toolName: token, toolArgs: '{}' } : { toolName: token.slice(0, at), toolArgs: token.slice(at) }
+      })
     }
   }
 

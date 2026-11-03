@@ -89,10 +89,10 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
       const notice = !cannotWait && (stopReason === 'completed' || result.selfExplained)
         ? ''
         : runStopReasonMessage(stopReason, cannotWait ? CANNOT_WAIT : result.stopDetail)
-      // Cut short by a guard or a ceiling (step limit, repeated calls, the run's budget or the account cap
-      // reached mid-run): in a chat the person reads the notice, but nobody reads a task run — it did not
+      // Cut short by a guard or a ceiling (step limit, repeated calls, a withheld tool result, the run's budget
+      // or the account cap reached mid-run): in a chat the person reads the notice, but nobody reads a task run — it did not
       // do its task, so it is a failure, notified and counted toward the pause, its stopReason kept.
-      const cutShort = stopReason === 'budget' || stopReason === 'step-limit' || stopReason === 'repeated-calls'
+      const cutShort = stopReason === 'budget' || stopReason === 'step-limit' || stopReason === 'repeated-calls' || stopReason === 'injection-suspected'
       await closeWith({
         status: stopReason === 'error' || cutShort ? 'error' : 'done',
         stopReason,
