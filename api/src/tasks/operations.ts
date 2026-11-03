@@ -216,8 +216,20 @@ export const webhookPrompt = (prompt: string, pending: PendingTrigger[] | undefi
  * the run's first model call. Read back reliably because each payload is defused, so its own text cannot close
  * the block.
  */
+const WEBHOOK_PAYLOAD_BLOCK = /(<webhook-payload received="[^"]*">\n)([\s\S]*?)(\n<\/webhook-payload>)/g
+
 export const webhookPayloadsOf = (prompt: string): string[] =>
-  [...prompt.matchAll(/<webhook-payload received="[^"]*">\n([\s\S]*?)\n<\/webhook-payload>/g)].map(match => match[1])
+  [...prompt.matchAll(WEBHOOK_PAYLOAD_BLOCK)].map(match => match[2])
+
+/**
+ * The prompt with the payload at `index` (webhookPayloadsOf's order) replaced by `text`: what a run's stored
+ * prompt becomes when the tripwire withheld that payload, so read_conversation never serves it back. The other
+ * payloads and the task's prompt are kept.
+ */
+export const replaceWebhookPayload = (prompt: string, index: number, text: string): string => {
+  let at = -1
+  return prompt.replace(WEBHOOK_PAYLOAD_BLOCK, (block, open: string, _payload: string, close: string) => ++at === index ? `${open}${text}${close}` : block)
+}
 
 /** Whether a due slot is one of the schedule's own, rather than one a trigger set. */
 export const isScheduleSlot = (rules: Scheduling[], slot: string): boolean => {

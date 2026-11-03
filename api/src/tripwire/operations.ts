@@ -8,6 +8,7 @@
 import type { ConversationRun } from '#types'
 import { z } from 'zod'
 import { defuseEnvelopes } from '../mcp-servers/guides.ts'
+import { wrapToolResult } from '../conversations/operations.ts'
 import type { TaskEvent } from '../tasks/operations.ts'
 
 // Prefixed to the system prompt so tripwire requests are recognizable in logs, traces and provider dashboards.
@@ -23,6 +24,8 @@ const WINDOW_OVERLAP_CHARS = 200
 export const TRIPWIRE_EXCERPT_MAX_CHARS = 500
 export const WITHHELD_RESULT = 'Withheld: this tool result looked like instructions addressed to an AI agent, so it was not shown to the model.'
 export const TRIPWIRE_TAG = 'tool_result_to_classify'
+// A model-chosen URL is named in the stop notice the model reads later: bounded.
+export const SOURCE_URL_MAX_CHARS = 200
 
 export const tripwireVerdictSchema = z.object({
   suspected: z.boolean(),
@@ -87,8 +90,23 @@ export const tripSource = (toolName: string, server: string, input: unknown): Tr
   return { tool: toolName, server, ...(typeof url === 'string' ? { url } : {}) }
 }
 
+const boundUrl = (url: string): string => url.length <= SOURCE_URL_MAX_CHARS ? url : `${url.slice(0, SOURCE_URL_MAX_CHARS)}…`
+
 export const describeSource = (source: TripSource): string =>
-  source.url ? `${source.tool} on ${source.url}` : `${source.tool} (${source.server})`
+  source.url ? `${source.tool} on ${boundUrl(source.url)}` : `${source.tool} (${source.server})`
+
+/**
+ * A webhook payload is screened as a call of its own, with no part to store it on: its result is the run's
+ * prompt, where a withheld payload is replaced by the placeholder (withholdStoredResult).
+ */
+export const webhookCallId = (index: number): string => `webhook-${index}`
+export const webhookIndexOf = (toolCallId: string): number | undefined => {
+  const match = /^webhook-(\d+)$/.exec(toolCallId)
+  return match ? Number(match[1]) : undefined
+}
+
+/** What a withheld result is stored and replayed as: the placeholder, in the envelope of the call it replaced. */
+export const withheldErrorText = (source: TripSource): string => wrapToolResult(source.server, source.tool, WITHHELD_RESULT)
 
 /**
  * The notification a configured agent's trip pushes. The excerpt is deliberately left out: an event leaves the

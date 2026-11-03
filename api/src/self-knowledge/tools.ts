@@ -10,7 +10,7 @@ import type { AccountKeys } from '@data-fair/lib-express'
 import type { ServiceToolContext } from '../conversations/service-tools.ts'
 import { listTasks, listRuns, getRun, type RunFilters } from '../tasks/service.ts'
 import { memoryEnabledFor } from '../memory/operations.ts'
-import { renderConfiguration, renderRunRow, exportPage, SELF_KNOWLEDGE_TOOL_NAMES, LIST_RUNS_MAX, LIST_MY_RUNS_DESCRIPTION, READ_CONVERSATION_DESCRIPTION } from './operations.ts'
+import { renderConfiguration, renderRunRow, exportPage, withoutNestedResults, SELF_KNOWLEDGE_TOOL_NAMES, LIST_RUNS_MAX, LIST_MY_RUNS_DESCRIPTION, READ_CONVERSATION_DESCRIPTION } from './operations.ts'
 import { buildConversationExport } from '../review/operations.ts'
 import { runAsMessages } from '../tasks/run-messages.ts'
 import type { ScheduleRule } from '@agents/shared/task-schedule'
@@ -84,7 +84,8 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
     }),
     // Every conversation of the agent, whoever had it: an agent has ONE history, which is why its
     // conversations are audited and carry no consent (docs/architecture/agent-memory.md). Read in the
-    // conversation export, the file maintainers download and the simulation judge reads, page by page.
+    // conversation export, the file maintainers download and the simulation judge reads, page by page, less
+    // the results of scripts' nested calls (withoutNestedResults).
     read_conversation: tool({
       description: READ_CONVERSATION_DESCRIPTION,
       inputSchema: jsonSchema<unknown>({
@@ -108,7 +109,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
           const title = run.taskId ? (await taskTitles(owner, agent.id)).get(run.taskId) : undefined
           return exportPage(buildConversationExport({
             conversation: { kind: 'task', id: run.id, taskId: run.taskId, agentId: agent.id, ...(title ? { title } : {}) },
-            messages: runAsMessages(run),
+            messages: withoutNestedResults(runAsMessages(run)),
             runs: [withoutContent]
           }), line, offset)
         }
@@ -121,7 +122,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
           mongo.messages.find({ conversationId: conversation.id }, { projection: { _id: 0 } }).sort({ seq: 1 }).toArray(),
           mongo.runs.find({ conversationId: conversation.id }, { projection: { _id: 0 } }).sort({ startedAt: 1 }).toArray()
         ])
-        return exportPage(buildConversationExport({ conversation, messages, runs }), line, offset)
+        return exportPage(buildConversationExport({ conversation, messages: withoutNestedResults(messages), runs }), line, offset)
       }
     })
   }

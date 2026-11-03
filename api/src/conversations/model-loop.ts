@@ -12,10 +12,10 @@ import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import { withCallPath, describeFileArguments, type CallPathContext } from '../files/call-path.ts'
-import { buildSystemPrompt, modelTools, wrapToolResult, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
+import { buildSystemPrompt, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
 import type { TurnTarget, TurnResult } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { setRunInputs } from './service.ts'
+import { setRunInputs, withholdStoredResult } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { CACHED_PREFIX_PROVIDER_OPTIONS } from '../models/operations.ts'
@@ -41,7 +41,7 @@ import { liveRuns } from './live-runs.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 import log from '@data-fair/lib-node/log.js'
 import { createTurnTripwire } from '../tripwire/service.ts'
-import { describeSource, WITHHELD_RESULT, type TripRecord } from '../tripwire/operations.ts'
+import { describeSource, withheldErrorText, webhookCallId, type TripRecord } from '../tripwire/operations.ts'
 import { webhookPayloadsOf } from '../tasks/operations.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
@@ -199,11 +199,18 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // A WEBHOOK'S PAYLOADS are outside text too, read by the model as the run's prompt: screened before its first
   // call. A trip stops the run there, with no model call at all; a task run cut short ends in error (task-target).
   // Once per turn: a task's reminder pass (continuation) has the same prompt, already screened by the first.
+  // A withheld payload is replaced by the placeholder in the stored prompt, which read_conversation serves back
+  // (a late verdict does the same, through closed()); before the run closes, so it never ends carrying it.
   if (tripwire && run.kind === 'task' && !continuation) {
     const payloads = webhookPayloadsOf(run.prompt ?? '')
-    const screened = await Promise.all(payloads.map((text, i) => tripwire.screen({ toolCallId: `webhook-${i}`, toolName: 'webhook', server: 'webhook', input: undefined, text })))
+    const screened = await Promise.all(payloads.map((text, i) => tripwire.screen({ toolCallId: webhookCallId(i), toolName: 'webhook', server: 'webhook', input: undefined, text })))
     const withheld = screened.find(result => result.withheld)
     if (withheld?.withheld) {
+      for (const [i, result] of screened.entries()) {
+        if (!result.withheld) continue
+        await withholdStoredResult({ runId: run.id }, webhookCallId(i), result.record)
+          .catch(err => log.error('a withheld webhook payload could not be replaced in the run\'s prompt', { code: 'tool-output-tripwire-webhook', runId: run.id, err }))
+      }
       return { parts: [], steps: 0, credits: credits + tripwireCredits, stopReason: 'injection-suspected', stopDetail: describeSource(withheld.record.source) }
     }
   }
@@ -469,7 +476,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
     if (!call || call.type !== 'dynamic-tool') return
     delete (call as { output?: unknown }).output
-    Object.assign(call, { state: 'output-error', errorText: wrapToolResult(record.source.server, record.source.tool, WITHHELD_RESULT) })
+    Object.assign(call, { state: 'output-error', errorText: withheldErrorText(record.source) })
     call.toolMetadata = { ...call.toolMetadata, tripwire: record as unknown as JSONObject }
     sendMessageFrame()
     latePersists = latePersists

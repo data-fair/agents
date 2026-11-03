@@ -10,7 +10,7 @@ import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
 import type { UsageIdentity } from '../usage/operations.ts'
-import { resolveRoleModel, type ResolvedRoleModel } from '../models/service.ts'
+import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import { recordCall } from '../conversations/turn-telemetry.ts'
 import { withReasoningDisabled } from '../moderation/service.ts'
@@ -43,6 +43,17 @@ type WindowOutcome =
   | { status: 'timeout', late: Promise<TripwireVerdict> }
   | { status: 'error' }
 
+// Logged once per process: a deployment with no small model classifies every scanned result with the assistant
+// model, always on, which is slow (mostly failing open at the timeout) and costly.
+let assistantModelLogged = false
+const logAssistantModel = (entry: { id: string, provider: { id: string } }) => {
+  if (assistantModelLogged) return
+  assistantModelLogged = true
+  log.warn('the tool-output tripwire classifies with the assistant model: configure a small moderator model', {
+    code: 'tripwire-assistant-model', model: entry.id, provider: entry.provider.id
+  })
+}
+
 /**
  * One tripwire per turn, created by the loop. Undefined when the deployment switched it off or no moderator
  * model resolves: then results pass unscanned, as before the tripwire existed.
@@ -71,6 +82,10 @@ export const createTurnTripwire = (ctx: {
     return undefined
   }
   const { model, entry } = resolved
+  try {
+    const assistant = resolveRoleEntry(ctx.settings, 'assistant')
+    if (assistant.id === entry.id && assistant.provider.id === entry.provider.id) logAssistantModel(entry)
+  } catch { /* the assistant's own resolution fails the turn elsewhere */ }
   const records = new Map<string, TripRecord>()
   let tripped: TripRecord | undefined
 

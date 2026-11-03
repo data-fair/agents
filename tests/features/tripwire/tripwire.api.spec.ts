@@ -15,6 +15,7 @@ import axios from 'axios'
 import { createEnrolledAgent } from '../../support/agents.ts'
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 import { WITHHELD_RESULT } from '../../../api/src/tripwire/operations.ts'
+import { NESTED_RESULT_HIDDEN } from '../../../api/src/self-knowledge/operations.ts'
 import { runStopReasonMessage, wrapToolResult } from '../../../api/src/conversations/operations.ts'
 
 const admin = await superAdmin
@@ -34,6 +35,14 @@ const createTask = async (agentId: string, prompt: string) => (await admin.post(
 // No session: a webhook sender is anonymous; its key travels in the x-webhook-key header.
 const anonymous = axios.create({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
 const messagesOf = async (conversationId: string) => (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results as any[]
+const promptOf = async (agentId: string, runId: string) => ((await awaitAgentRun(orgAdmin, agentId, runId)).messages[0].parts[0].text as string)
+// What the agent itself reads of a past run or conversation, from a chat of its own.
+const readBack = async (agentId: string, of: { runId: string } | { conversationId: string }) => {
+  const { assistant } = await turnOverSocket(orgAdmin, { agentId }, `call tool read_conversation ${JSON.stringify({ ...of, line: 1 })}`)
+  const read = callPart(assistant, 'read_conversation')
+  assert.equal(read.state, 'output-available', JSON.stringify(read))
+  return read.output as string
+}
 const poll = async <T>(read: () => Promise<T>, done: (value: T) => boolean, ms = 10_000): Promise<T> => {
   const until = Date.now() + ms
   let value = await read()
@@ -206,6 +215,35 @@ test.describe('Tool-output tripwire', () => {
     assert.equal(run.status, 'error')
     assert.equal(run.stopReason, 'injection-suspected')
     assert.ok(!run.calls.some((c: any) => c.modelRole === 'assistant'), JSON.stringify(run.calls))
+    // The stored prompt carries the placeholder, not the payload: read_conversation serves it back to the agent.
+    const prompt = await promptOf(agent.id, run.id)
+    assert.ok(prompt.includes(WITHHELD_RESULT) && !prompt.includes('INJECTION_PROBE'), prompt)
+    assert.ok(prompt.endsWith('hello'), prompt)
+    const read = await readBack(agent.id, { runId: run.id })
+    assert.ok(read.includes(WITHHELD_RESULT) && !read.includes('INJECTION_PROBE'), read)
+  })
+
+  test('a late verdict on a webhook payload withholds it from the stored prompt', async () => {
+    const agent = await createTaskAgent()
+    const task = await createTask(agent.id, 'hello')
+    const key = (await admin.get(`${tasksOf(agent.id)}/${task.id}/webhook-key`)).data as string
+    const res = await anonymous.post(`${tasksOf(agent.id)}/${task.id}/_trigger`, 'slow tripwire INJECTION_PROBE', { headers: { 'x-webhook-key': key, 'content-type': 'text/plain' } })
+    assert.equal(res.status, 202)
+    const run = await awaitAgentRun(orgAdmin, agent.id, res.data.runId)
+    // Passed on the timeout: the run went on.
+    assert.equal(run.status, 'done')
+    const prompt = await poll(() => promptOf(agent.id, run.id), text => !text.includes('INJECTION_PROBE'))
+    assert.ok(prompt.includes(WITHHELD_RESULT) && !prompt.includes('INJECTION_PROBE'), prompt)
+  })
+
+  test('the agent reading a past conversation back sees its scripts\' nested calls, not their results', async () => {
+    const agent = await createFilesAgent()
+    const past = await turnOverSocket(orgAdmin, { agentId: agent.id }, script('await tools.echo({ value: "NESTED_SECRET" }); return 1'))
+    const trace = past.assistant.parts.find((p: any) => p.type === 'data-trace')
+    assert.ok(JSON.stringify(trace).includes('echo:NESTED_SECRET'), JSON.stringify(past.assistant.parts))
+    const read = await readBack(agent.id, { conversationId: past.conversationId })
+    assert.ok(read.includes(NESTED_RESULT_HIDDEN), read)
+    assert.ok(!read.includes('echo:NESTED_SECRET'), read)
   })
 
   test('a late verdict withholds the stored result', async () => {

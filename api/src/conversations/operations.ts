@@ -17,7 +17,7 @@ import type { TurnSurface } from './service-tools.ts'
 import { renderMemoryBlock, type MemoryDocument } from '../memory/operations.ts'
 import { renderGuidesBlock, defuseEnvelopes, type ServerGuide } from '../mcp-servers/guides.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
-import { isScanned, WITHHELD_RESULT, type ScreenInput, type ScreenResult } from '../tripwire/operations.ts'
+import { isScanned, withheldErrorText, type ScreenInput, type ScreenResult } from '../tripwire/operations.ts'
 
 // Re-exported: the parts contract is shared/message-parts, and callers here already import from this
 // module. One definition, one import site.
@@ -571,7 +571,7 @@ export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: str
       // A turn aborted while the result was screened gets the abort, not the text: an unscreened result
       // (its classification was cut short, which reads as a pass) must not be stored for a later turn's model.
       opts?.abortSignal?.throwIfAborted()
-      if (screened.withheld) throw new Error(wrapToolResult(serverOf(name), name, WITHHELD_RESULT))
+      if (screened.withheld) throw new Error(withheldErrorText(screened.record.source))
       return wrapToolResult(serverOf(name), name, screened.text)
     }
     wrapped[name] = {

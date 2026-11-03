@@ -15,8 +15,8 @@ import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
-import { WITHHELD_RESULT, type TripRecord } from '../tripwire/operations.ts'
-import { wrapToolResult } from './operations.ts'
+import { withheldErrorText, webhookIndexOf, WITHHELD_RESULT, type TripRecord } from '../tripwire/operations.ts'
+import { replaceWebhookPayload } from '../tasks/operations.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '../autonomous-agents/service.ts'
@@ -377,12 +377,20 @@ export type StoredResultPlace = { conversationId: string } | { runId: string }
  *
  * Unlike settleStoredToolPart it matches the part by `toolCallId` alone, whatever its state: the call has its
  * result already, and this replaces it. Idempotent, a `$set` of fixed values.
+ *
+ * A webhook payload (webhookIndexOf) has no part: its block in the run's prompt becomes the placeholder, on
+ * time or late, since read_conversation serves a task run's prompt back to the agent.
  */
 export const withholdStoredResult = async (where: StoredResultPlace, toolCallId: string, tripwire: TripRecord): Promise<void> => {
+  const payloadIndex = webhookIndexOf(toolCallId)
+  if (payloadIndex !== undefined) {
+    if ('runId' in where) await withholdWebhookPayload(where.runId, payloadIndex)
+    return
+  }
   const update = {
     $set: {
       'parts.$[p].state': 'output-error',
-      'parts.$[p].errorText': wrapToolResult(tripwire.source.server, tripwire.source.tool, WITHHELD_RESULT),
+      'parts.$[p].errorText': withheldErrorText(tripwire.source),
       'parts.$[p].toolMetadata.tripwire': tripwire
     },
     $unset: { 'parts.$[p].output': true as const }
@@ -398,6 +406,22 @@ export const withholdStoredResult = async (where: StoredResultPlace, toolCallId:
     { arrayFilters, returnDocument: 'after', projection: { _id: 0 } }
   )
   if (message) notifyMessage(where.conversationId, message)
+}
+
+/**
+ * Read, replaced, written only if the prompt is still the one read: two payloads of a run withheld at once
+ * (their verdicts settle in parallel) must both be replaced. Retried a few times, then given up loudly.
+ */
+const withholdWebhookPayload = async (runId: string, index: number): Promise<void> => {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const run = await mongo.runs.findOne({ id: runId }, { projection: { _id: 0, prompt: 1 } })
+    if (typeof run?.prompt !== 'string') return
+    const prompt = replaceWebhookPayload(run.prompt, index, WITHHELD_RESULT)
+    if (prompt === run.prompt) return
+    const { matchedCount } = await mongo.runs.updateOne({ id: runId, prompt: run.prompt }, { $set: { prompt } })
+    if (matchedCount) return
+  }
+  throw new Error(`the prompt of run ${runId} kept changing: webhook payload ${index} not withheld`)
 }
 
 /**
