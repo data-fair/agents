@@ -6,9 +6,10 @@ import assert from 'node:assert/strict'
 import {
   TRIPWIRE_TASK_MARKER, TRIPWIRE_MAX_SCANNED_CHARS, TRIPWIRE_WINDOW_CHARS,
   isScanned, capForScan, scanWindows, buildTripwireSystemPrompt, formatTripwireInput, injectionEvent, tripSource, describeSource,
-  buildStage1Instruction, buildStage2Instruction, parseStage1, tripwireMessage,
+  buildStage1Instruction, buildStage2Instruction, tripwireMessage,
   withheldErrorText, webhookCallId, webhookIndexOf, SOURCE_URL_MAX_CHARS, WITHHELD_RESULT as WITHHELD, type ScreenInput
 } from '../../../api/src/tripwire/operations.ts'
+import { parseStage1 } from '../../../api/src/guard/operations.ts'
 import { processForModel, processMockTripwirePrompt } from '../../../api/src/models/mock-model.ts'
 import { withProvenance, modelTools, type ToolResultScreen } from '../../../api/src/conversations/operations.ts'
 import { webhookPrompt, webhookPayloadsOf, replaceWebhookPayload } from '../../../api/src/tasks/operations.ts'
@@ -78,13 +79,6 @@ test.describe('Tripwire operations', () => {
     assert.match(buildStage1Instruction(nonce), /exactly one word/)
     assert.match(buildStage1Instruction(nonce), /when in doubt, answer yes/i)
     assert.match(buildStage2Instruction(nonce), /"suspected"/)
-  })
-  test('parseStage1 reads one yes or no, nothing else', () => {
-    const table: Array<[string, boolean | undefined]> = [
-      ['yes', true], ['Yes.', true], [' no', false], ['NO', false], ['"yes"', true], ['\nno\n', false],
-      ['maybe', undefined], ['', undefined], ['yesterday', undefined], ['nothing', undefined], ['I think yes', undefined]
-    ]
-    for (const [text, expected] of table) assert.equal(parseStage1(text), expected, JSON.stringify(text))
   })
   test('the injection event names the source but never the excerpt', () => {
     const source = tripSource('fetch_url', 'agent-web', { url: 'https://evil.example/p' })

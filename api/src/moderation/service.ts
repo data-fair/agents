@@ -7,32 +7,17 @@ import { generateObject } from 'ai'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
 import type { UsageIdentity } from '../usage/operations.ts'
-import { OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
+import { withReasoningDisabled } from '../guard/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import {
   buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
-  verdictSchema, isInCooldown, isReasoningEffortRejected,
+  verdictSchema, isInCooldown,
   MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS,
   STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
   type ModerationVerdict
 } from './operations.ts'
 import type { ModerationEvent, ModerationEventAction } from './types.ts'
-
-// Run a moderator generateObject call with thinking disabled: reasoning_effort:none is
-// honoured by OpenAI-compatible reasoning models (Scaleway/GLM, …) so the short token
-// budget isn't spent on hidden reasoning (which would yield content:null → fail-open).
-// It is silently ignored by non-openai-compatible providers, and rejected with a 400 by
-// non-reasoning OpenAI-compatible models — those retry once without it. `call` receives
-// the extra options to spread into generateObject.
-export async function withReasoningDisabled<T> (call: (extra: { providerOptions?: Record<string, Record<string, any>> }) => Promise<T>): Promise<T> {
-  try {
-    return await call({ providerOptions: { [OPENAI_COMPATIBLE_PROVIDER_NAME]: { reasoningEffort: 'none' } } })
-  } catch (err) {
-    if (!isReasoningEffortRejected(err)) throw err
-    return await call({})
-  }
-}
 
 // ---- events ----
 

@@ -5,8 +5,7 @@
  */
 import mongo from '#mongo'
 import config from '#config'
-import { randomBytes } from 'node:crypto'
-import { generateObject, generateText, NoObjectGeneratedError, type LanguageModelUsage } from 'ai'
+import { NoObjectGeneratedError, type LanguageModel, type LanguageModelUsage } from 'ai'
 import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
@@ -14,16 +13,34 @@ import type { UsageIdentity } from '../usage/operations.ts'
 import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import { recordCall } from '../conversations/turn-telemetry.ts'
-import { withReasoningDisabled } from '../moderation/service.ts'
+import { newNonce, stage1Call, stage1Answer, stage2Call, meterGuardCall } from '../guard/service.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { pushTaskEvent } from '../tasks/notifications.ts'
 import { withholdStoredResult, type StoredResultPlace } from '../conversations/service.ts'
 import {
-  tripwireVerdictSchema, buildTripwireSystemPrompt, tripwireMessage, parseStage1, capForScan, scanWindows, tripSource,
+  tripwireVerdictSchema, buildTripwireSystemPrompt, tripwireMessage, capForScan, scanWindows, tripSource,
   injectionEvent, TRIPWIRE_TIMEOUT_MS, TRIPWIRE_HARD_TIMEOUT_MS, TRIPWIRE_EXCERPT_MAX_CHARS, TRIPWIRE_CONFIRM_FAILED_EXCERPT,
-  TRIPWIRE_STAGE1_MAX_TOKENS, TRIPWIRE_STAGE2_MAX_TOKENS,
+  TRIPWIRE_STAGE2_MAX_TOKENS,
   type TripRecord, type TripwireVerdict, type ScreenInput, type ScreenResult
 } from './operations.ts'
+
+type ClassifiedText = Pick<ScreenInput, 'server' | 'toolName'>
+
+/** The tripwire's two stage calls (the shared engine's, with its policy, wrapper and schema). */
+const tripwireStage1 = (model: LanguageModel, call: ClassifiedText, window: string, nonce: string, abortSignal: AbortSignal) => stage1Call({
+  model,
+  instructions: buildTripwireSystemPrompt(),
+  content: tripwireMessage({ server: call.server, toolName: call.toolName, text: window, nonce }, 1),
+  abortSignal
+})
+const tripwireStage2 = (model: LanguageModel, call: ClassifiedText, window: string, nonce: string, abortSignal: AbortSignal) => stage2Call({
+  model,
+  schema: tripwireVerdictSchema,
+  maxOutputTokens: TRIPWIRE_STAGE2_MAX_TOKENS,
+  instructions: buildTripwireSystemPrompt(),
+  content: tripwireMessage({ server: call.server, toolName: call.toolName, text: window, nonce }, 2),
+  abortSignal
+})
 
 export interface TurnTripwire {
   /** Classify one tool result; `text` on a pass is the scanned text (capped, see capForScan). */
@@ -117,12 +134,8 @@ export const createTurnTripwire = (ctx: {
       })
       if (charged) ctx.onCredits(credits.total)
     }
-    // An answer that could not be parsed was still generated: its tokens are charged (NoObjectGeneratedError
-    // carries them). Other failures are handled by their stage. Stage 1 parses its text itself, after this
-    // promise resolved, so an unparseable stage-1 answer is charged by the first branch.
-    generated.then(({ usage }) => charge(usage), err => {
-      if (NoObjectGeneratedError.isInstance(err) && err.usage) return charge(err.usage)
-    }).catch(err => {
+    // An unparseable answer is charged too (meterGuardCall); other failures are handled by their stage.
+    meterGuardCall(generated, charge).catch(err => {
       if (!ctx.abortSignal.aborted) log.error('a tripwire call could not be metered', { code: 'tool-output-tripwire-charge', err })
     })
   }
@@ -137,16 +150,7 @@ export const createTurnTripwire = (ctx: {
   const confirm = (call: ScreenInput, window: string, nonce: string, onTime: boolean): Promise<TripwireVerdict> => {
     const startedAt = Date.now()
     const signal = callSignal()
-    const generated = withReasoningDisabled(extra => generateObject({
-      model,
-      schema: tripwireVerdictSchema,
-      temperature: 0,
-      maxOutputTokens: TRIPWIRE_STAGE2_MAX_TOKENS,
-      instructions: buildTripwireSystemPrompt(),
-      messages: [{ role: 'user' as const, content: tripwireMessage({ server: call.server, toolName: call.toolName, text: window, nonce }, 2) }],
-      abortSignal: signal,
-      ...extra
-    }))
+    const generated = tripwireStage2(model, call, window, nonce, signal)
     meter(generated, startedAt, () => onTime)
     return generated.then(({ object }) => object, (err): TripwireVerdict => {
       // The turn was stopped: it gets the abort (withProvenance), not a trip nobody caused.
@@ -168,23 +172,11 @@ export const createTurnTripwire = (ctx: {
   const classifyWindow = (call: ScreenInput, window: string): Promise<WindowOutcome> => {
     const startedAt = Date.now()
     // The wrapper's tag, unknown to whoever wrote the content: it cannot close it.
-    const nonce = randomBytes(6).toString('hex')
+    const nonce = newNonce()
     let timedOut = false
-    const generated = withReasoningDisabled(extra => generateText({
-      model,
-      temperature: 0,
-      maxOutputTokens: TRIPWIRE_STAGE1_MAX_TOKENS,
-      instructions: buildTripwireSystemPrompt(),
-      messages: [{ role: 'user' as const, content: tripwireMessage({ server: call.server, toolName: call.toolName, text: window, nonce }, 1) }],
-      abortSignal: callSignal(),
-      ...extra
-    }))
+    const generated = tripwireStage1(model, call, window, nonce, callSignal())
     meter(generated, startedAt, () => !timedOut)
-    const flagged = generated.then(({ text }) => {
-      const answer = parseStage1(text)
-      if (answer === undefined) throw new Error('the tripwire\'s first stage did not answer yes or no')
-      return answer
-    })
+    const flagged = stage1Answer(generated)
     return Promise.race([
       flagged.then(
         async (yes): Promise<WindowOutcome> => {
