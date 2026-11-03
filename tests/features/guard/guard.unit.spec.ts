@@ -72,6 +72,7 @@ test.describe('classifyTwoStage', () => {
   })
 
   test('caps stage 2 with stage2TimeoutMs', async () => {
+    const started = Date.now()
     const outcome = await classifyTwoStage<{ outcome: string }>({
       stage1: async () => ({ text: 'yes', usage }),
       stage2: (signal) => new Promise((_resolve, reject) => signal.addEventListener('abort', () => reject(new Error('aborted')))),
@@ -82,5 +83,6 @@ test.describe('classifyTwoStage', () => {
     })
     assert.equal(outcome.kind, 'confirm-failed')
     assert.equal((outcome as any).cause, 'timeout')
+    assert.ok(Date.now() - started < 2000, 'settled by stage2TimeoutMs, not hardTimeoutMs')
   })
 })

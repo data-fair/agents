@@ -118,7 +118,7 @@ export const describeFailedStage = (outcome: Exclude<TwoStageOutcome<unknown>, {
   `${outcome.kind === 'stage1-failed' ? 'the first stage' : 'the confirmation stage'} failed: ${describeFailure(outcome.cause, outcome.message)}`
 
 /**
- * Stage 1, then stage 2 on a flag, each call capped at `hardTimeoutMs` so the check settles. `meter` charges a
+ * Stage 1, then stage 2 on a flag (without `stage1`, stage 2 alone: a confirmation-only check), each call capped at `hardTimeoutMs` so the check settles. `meter` charges a
  * call when it settles (meterGuardCall, wrapped by the guard) and is awaited before the outcome is returned, so
  * the cost is recorded by the time the outcome is acted on. It must not reject.
  */
