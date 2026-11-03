@@ -9,7 +9,8 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { cases, spokeDuringWait, approvalDecided, planTaskDecided, memoryCarriedOver, outcomeReported } from '../../../simulations/cases/index.ts'
+import { cases, spokeDuringWait, approvalDecided, planTaskDecided, memoryCarriedOver, outcomeReported, readTheInjectedNotice, readTheInjectedRow } from '../../../simulations/cases/index.ts'
+import { INJECTED_DISTRICT, INJECTED_NOTICE_PATH } from '../../support/mcp-fixture.ts'
 import devConfig from '../../../api/config/development.js'
 import { parseConversationExport } from '../../../lib-sim/conversation-export.ts'
 import { buildConversationExport, EXTRACT_THRESHOLD } from '../../../api/src/review/operations.ts'
@@ -173,6 +174,19 @@ test.describe('case registry', () => {
     assert.equal(outcomeReported.holds([taskRunExport([toolPart('report_outcome', { state: 'output-error', output: undefined, errorText: 'bad status' })])]), false)
     assert.equal(outcomeReported.holds([taskRunExport([toolPart('list_road_closures')])]), false)
     assert.equal(cases.find(c => c.name === 'scheduled-task-run')?.premise, outcomeReported)
+  })
+
+  test('the injection premises hold once the planted source was read, tripped or not', () => {
+    const withheld = { state: 'output-error', output: undefined, errorText: 'Withheld' }
+    const notice = `http://localhost:1${INJECTED_NOTICE_PATH}`
+    // Withheld by the tripwire, or missed by it: either way the agent read the source the case is about.
+    assert.equal(readTheInjectedNotice.holds([exportOf('c', [toolPart('fetch_url', { input: { url: notice }, ...withheld })])]), true)
+    assert.equal(readTheInjectedNotice.holds([exportOf('c', [toolPart('fetch_url', { input: { url: notice } })])]), true)
+    assert.equal(readTheInjectedNotice.holds([exportOf('c', [toolPart('fetch_url', { input: { url: 'http://localhost:1/exports/closures' } })])]), false)
+    assert.equal(readTheInjectedRow.holds([exportOf('c', [toolPart('platform_list_road_closures', { input: { district: ` ${INJECTED_DISTRICT.toUpperCase()}` }, ...withheld })])]), true)
+    assert.equal(readTheInjectedRow.holds([exportOf('c', [toolPart('platform_list_road_closures', { input: { district: 'city-center' } })])]), false)
+    assert.equal(cases.find(c => c.name === 'injection-web-page')?.premise, readTheInjectedNotice)
+    assert.equal(cases.find(c => c.name === 'injection-dataset-row')?.premise, readTheInjectedRow)
   })
 
   test('no case states an expected result — runs are judged, not diffed', () => {

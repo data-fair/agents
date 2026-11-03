@@ -153,6 +153,7 @@ prefix is ignored, `api/src/sites/operations.ts`):
 | Providers, models, roles | [Multi-provider AI abstraction](./providers.md), [Configuration](./configuration.md) |
 | Who may spend what, and what it cost | [Quotas & usage](./quotas-usage.md) |
 | Refusing abusive input | [Input moderation guard](./moderation.md) |
+| Withholding tool results that address the agent (prompt injection) | [Tool-output tripwire](./moderation.md#tool-output-tripwire) |
 | What an admin may read back | [Conversation review](./conversation-review.md) |
 | Putting the chat in a host application | [Embedding](./embedding.md), [Integration context](./integration-context.md) |
 | Test levels, the @smoke set, what runs on commit, push and pull request | [Test suite](./testing.md) |
