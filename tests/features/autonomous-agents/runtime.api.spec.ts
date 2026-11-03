@@ -814,11 +814,13 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     })
     const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
     await enrol(agent.id)
-    // Priced so ONE step costs ~110 credits. That is deliberately under the 500-credit per-run budget:
-    // if a step blew that first, this test would pass on the wrong ceiling and prove nothing. Two steps
-    // then cross the 200 account cap.
+    // Priced so ONE step costs ~150 credits: ~110 for the assistant's call (its prompt, the tool list
+    // included, is ~1,100 tokens) and ~40 for the tripwire's classification of the step's tool result,
+    // which is the same mock model in the moderator role. That is deliberately under the 500-credit
+    // per-run budget: if a step blew that first, this test would pass on the wrong ceiling and prove
+    // nothing (at the former 4,000/M one step was ~750). Two steps then cross the 200 account cap.
     await putMockSettings(admin, 'organization/test1', {
-      models: mockModels({ inputPricePerMillion: 4_000, outputPricePerMillion: 4_000 })
+      models: mockModels({ inputPricePerMillion: 800, outputPricePerMillion: 800 })
     })
     const { conv, runId } = await startTurn(agent.id, 'loop forever')
     const run = await awaitRun(orgAdmin, conv.id, runId)
@@ -832,6 +834,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const { consumption } = (await orgAdmin.get('/api/v1/limits/organization/test1' + `?key=${SECRET}`)).data.ai_credits
     assert.ok(consumption > 200, 'the cap is crossed — that is the premise')
     assert.ok(consumption < 200 + PER_RUN_CREDIT_BUDGET, `overshoot must be bounded by roughly one step, got ${consumption}`)
+    assert.ok(run.steps >= 2, `the cap must be crossed MID-RUN, after a first step, got ${run.steps} steps`)
   })
 
   test('a turn can be aborted, and says so', async () => {
