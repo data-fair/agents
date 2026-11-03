@@ -1,6 +1,7 @@
 // tests/features/mcp-guides/guides.unit.spec.ts
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
+import { resolveSkillUri, readServerSkill } from '../../../api/src/mcp-servers/skills-client.ts'
 import { skillsFromList, boundGuide, visibleSkills, renderGuidesBlock, skillEnvelope, GUIDE_LIMITS } from '../../../api/src/mcp-servers/guides.ts'
 
 test.describe('skills/list parsing', () => {
@@ -18,6 +19,10 @@ test.describe('skills/list parsing', () => {
       { name: 'workflow', description: 'How to explore', uri: 'skill://svc/workflow/SKILL.md', tools: ['list_datasets', 'get_schema'] },
       { name: 'bare', description: 'No tools', uri: 'skill://svc/bare/SKILL.md' }
     ])
+  })
+  test('skillsFromList keeps resource URIs', () => {
+    const skills = skillsFromList({ skills: [{ uri: 'skill://t/SKILL.md', frontmatter: { name: 't' }, resources: [{ uri: 'skill://t/SKILL.md' }, { uri: 'skill://t/templates/page.json', digest: 'x', size: 3 }, { uri: 'https://x' }, {}] }] })
+    assert.deepEqual(skills[0].resources, ['skill://t/templates/page.json'])
   })
   test('a result without a skills array is no skills', () => {
     assert.deepEqual(skillsFromList(undefined), [])
@@ -110,5 +115,54 @@ test.describe('the skill envelope', () => {
 
   test('frontmatter is dropped', () => {
     assert.doesNotMatch(skillEnvelope('s', 'skill://s/a/SKILL.md', '---\nname: a\n---\n\nBody'), /name: a/)
+  })
+})
+
+test.describe('attached files', () => {
+  const skills = [
+    { name: 'a', description: '', uri: 'skill://a/SKILL.md', resources: ['skill://a/templates/page.json', 'skill://a/ref.md'] },
+    { name: 'b', description: '', uri: 'skill://b/SKILL.md', resources: ['skill://b/ref.md'] }
+  ]
+  test('resolveSkillUri: absolute as is, relative unique resolved', () => {
+    assert.equal(resolveSkillUri(skills, 'skill://x/y'), 'skill://x/y')
+    assert.equal(resolveSkillUri(skills, 'templates/page.json'), 'skill://a/templates/page.json')
+  })
+  test('resolveSkillUri: ambiguous and unknown relative paths are errors naming candidates', () => {
+    assert.throws(() => resolveSkillUri(skills, 'ref.md'), /skill:\/\/a\/ref\.md.*skill:\/\/b\/ref\.md/)
+    assert.throws(() => resolveSkillUri(skills, 'nope.md'), /nope\.md/)
+  })
+  const fakeClient = (attached: string[], requests: string[]) => ({
+    request: async (r: any) => { requests.push(`${r.method} ${r.params.uri}`); return { skill: { resources: attached.map(uri => ({ uri })) } } },
+    readResource: async ({ uri }: any) => ({ contents: [{ uri, text: `content of ${uri}` }] })
+  }) as any
+  test('an unlisted file URI is confirmed through skills/get, and refused when not among the skill\'s resources', async () => {
+    const requests: string[] = []
+    const ok = await readServerSkill(fakeClient(['skill://h/f.json'], requests), [], 'skill://h/f.json')
+    assert.equal(ok, 'content of skill://h/f.json')
+    assert.deepEqual(requests, ['skills/get skill://h/SKILL.md'])
+    await assert.rejects(readServerSkill(fakeClient([], []), [], 'skill://h/g.json'), /not a file of the skill skill:\/\/h\/SKILL\.md/)
+  })
+  test('a listed file is read without skills/get', async () => {
+    const requests: string[] = []
+    await readServerSkill(fakeClient([], requests), skills, 'skill://a/ref.md')
+    assert.deepEqual(requests, [])
+  })
+})
+
+test.describe('skill envelope of files', () => {
+  test('frontmatter is stripped from a SKILL.md only; a file keeps its leading ---', () => {
+    const yaml = '---\na: 1\n---\nb: 2'
+    assert.match(skillEnvelope('s', 'skill://s/SKILL.md', '---\nname: x\n---\nbody'), /\nbody\n<\/skill>/)
+    assert.match(skillEnvelope('s', 'skill://s/ref/data.yaml', yaml), /\n---\na: 1\n---\nb: 2\n<\/skill>/)
+  })
+  test('a body cut at the bound says so', () => {
+    const out = skillEnvelope('s', 'skill://s/f.json', 'x'.repeat(GUIDE_LIMITS.skillBody + 5))
+    assert.match(out, new RegExp(`\\[truncated at ${GUIDE_LIMITS.skillBody} characters\\]\\n</skill>`))
+  })
+  test('the attached list is capped', () => {
+    const files = Array.from({ length: GUIDE_LIMITS.attachedFiles + 3 }, (_, i) => `skill://s/f${i}`)
+    const out = skillEnvelope('s', 'skill://s/SKILL.md', 'b', files)
+    assert.match(out, /… and 3 more\n<\/skill>/)
+    assert.doesNotMatch(out, new RegExp(`f${GUIDE_LIMITS.attachedFiles}\\b`))
   })
 })
