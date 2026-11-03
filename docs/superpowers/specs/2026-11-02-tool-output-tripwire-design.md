@@ -215,9 +215,14 @@ compaction recap restating the data rule (`context-management.md`), and the 2026
 
 ## Follow-up notes
 
-Not built here; recorded so the next pass starts from what was decided.
+Not built here; recorded so the next pass starts from what was decided. The first two are done (2026-11-03).
 
 ### Content-based approval gate (deterministic)
+
+**Done, subsumed** by the automated approval reviewer ([design](./2026-11-03-auto-approval-design.md)): every
+write and destructive call is reviewed now, so no deterministic gate is needed to force review in an exposed
+turn; what remains of it is an input of the review (whether the turn read outside content, by this scan set,
+scripts included), under which the reviewer's rules are stricter. The notes below are kept as written.
 
 Meta's "Agents Rule of Two" (2025-10-31): at most two of untrusted input, sensitive data, state change /
 external communication, without a human. Today the approval level is static per agent, so an admin who sets
@@ -236,6 +241,10 @@ external communication, without a human. Today the approval level is static per 
   down (what the agent reads, what it then changes) before designing it.
 
 ### Automated approver
+
+**Done**: the approval reviewer ([design](./2026-11-03-auto-approval-design.md),
+`docs/architecture/moderation.md#approval-reviewer`). It reviews in series before a person rather than replacing
+one, and lets unattended runs and scripts make reviewed writes. The notes below are kept as written.
 
 After Claude Code auto mode (Anthropic, 2026-03: people accept 93% of permission prompts; a classifier replaced
 the human approver; 0.4% false positives, 17% false negatives on real overeager actions) and Chrome's User

@@ -1,6 +1,7 @@
 # Automated approval reviewer — design
 
-Status: design agreed in conversation 2026-11-03, not built. Follows the "Automated approver" and
+Status: design agreed in conversation 2026-11-03, built on branch feat-auto-approval; the architecture docs
+(`docs/architecture/autonomous-agents.md#the-approval-gate`, `moderation.md#approval-reviewer`) describe what was built. Follows the "Automated approver" and
 "Content-based approval gate" follow-up notes of
 [the tool-output tripwire design](./2026-11-02-tool-output-tripwire-design.md#follow-up-notes).
 

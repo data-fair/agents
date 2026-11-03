@@ -160,7 +160,7 @@ The turn's tool set, filtered by `codeCallable` (`api/src/code-mode/operations.t
 
 | Excluded | Why |
 |---|---|
-| any tool with `needsApproval` | the package refuses a nested call needing approval without an approval callback, and its docs say not to expose such tools; a script cannot pause for a person. Lifting this goes through `run`'s signed continuations (upstream vercel/ai#18143). |
+| any tool with `needsApproval` (a configured agent's classes routed to `reviewer+person`, the personal assistant's writes) | the package refuses a nested call needing approval without an approval callback, and its docs say not to expose such tools; a script cannot pause for a person. Lifting this goes through `run`'s signed continuations (upstream vercel/ai#18143). |
 | `wait_for_user_action` | it ends the turn |
 | `request_web_access`, `request_mcp_access`, `plan_task`, `update_task`, `delete_task` | they ask an administrator |
 | `read_skill` | a skill is guidance for the model; inside a script it is data nobody reads |
@@ -168,6 +168,23 @@ The turn's tool set, filtered by `codeCallable` (`api/src/code-mode/operations.t
 
 Everything else is callable: catalog and external MCP tools, the file and web tools, `memory`, and
 `report_outcome`. A unit test pins the excluded names against the service's own constants.
+
+**Reviewed tools are callable, and reviewed.** A configured agent's tools of classes routed to the reviewer
+alone ([approval routes](./autonomous-agents.md#routes)) carry no `needsApproval`, so a script may call them, and
+`codeFacingTools` (`api/src/code-mode/code-tools.ts`) reviews each nested call synchronously before it runs,
+through the turn's review gate (`reviewNested`, `api/src/approval-review/gate.ts`): the same reviewer, intent and
+record as a direct call, so a script is no way around it. The call is judged on the script's input, before the
+call path turns file arguments into URLs, against the messages of the step whose script it is. Anything but
+`allow` fails that nested call: a deny, and an unsure too, since no person can decide inside a script; the script
+reads `reviewerDenialText` as the call's error, and can catch it. The record is put on the nested call in the
+`data-trace` part (`toolMetadata.review`). A reviewed tool reached without a gate (never, by construction) is
+refused rather than run unjudged.
+
+The exposure follows the script: every nested call that ran is noted (`noteNested`), and a scanned tool's output
+having entered the script makes the rest of the turn exposed for the reviewer — a script that reads outside
+content and then writes is the same exposure as two direct calls. The circuit breaker counts nested denials, and
+once tripped every further nested reviewed call is denied without a review, so a running script cannot go on
+trying variants until one is allowed.
 
 - **Page tools** are the raw page set (`rawBrowserToolSet(session, …, { drainEvents: false })`): no envelope,
   and **host events are not drained**. A script could not pass them on to the model, so they stay pending for
@@ -360,6 +377,7 @@ and recording, failures, the uncaught failure reported as itself, bounded inputs
 timeout with nothing sent after it, coalesced frames, the file tools' return types),
 `tests/features/autonomous-agents/external-mcp.unit.spec.ts` (a call's abort signal reaches the MCP request), `code-mode.api.spec.ts` (through the mock model: `structuredContent` and nested
 records, files end to end, gated and reserved tools absent, errors, the personal assistant, self-knowledge),
+`tests/features/approval-review/approval-review.api.spec.ts` and `gate.unit.spec.ts` (nested reviewed calls: allowed, denied, exposure, the breaker),
 `code-mode.e2e.spec.ts` (a chip in the chat, the nested calls in a panel under the `code_mode` call on the review page),
 `tests/features/files/call-path.unit.spec.ts` (mode `'code'`). The fixture's `closure_stats` returns
 `structuredContent` without an `outputSchema`, as data-fair's MCP does. The unattended simulation case
