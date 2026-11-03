@@ -49,7 +49,12 @@
         class="text-caption text-error mb-2"
         data-testid="tool-call-denied"
       >
-        {{ invocation.deniedReason ? t('deniedBecause', { reason: invocation.deniedReason }) : t('denied') }}
+        <template v-if="invocation.deniedByReviewer">
+          {{ invocation.deniedReason ? t('reviewerDeniedBecause', { reason: invocation.deniedReason }) : t('reviewerDenied') }}
+        </template>
+        <template v-else>
+          {{ invocation.deniedReason ? t('deniedBecause', { reason: invocation.deniedReason }) : t('denied') }}
+        </template>
       </div>
       <template v-else-if="'output' in invocation">
         <div class="text-caption font-weight-bold mb-1">
@@ -79,6 +84,8 @@ fr:
   error: Erreur
   denied: Refusé.
   deniedBecause: "Refusé : {reason}"
+  reviewerDenied: Refusé par le relecteur.
+  reviewerDeniedBecause: "Refusé par le relecteur : {reason}"
   tripwire: Injection de prompt suspectée — masquée à l'agent
   tripwireSource: "Source : {tool} ({server})"
   noOutput: Aucun résultat enregistré.
@@ -90,6 +97,8 @@ en:
   error: Error
   denied: Declined.
   deniedBecause: "Declined: {reason}"
+  reviewerDenied: Denied by the reviewer.
+  reviewerDeniedBecause: "Denied by the reviewer: {reason}"
   tripwire: Suspected prompt injection — withheld from the agent
   tripwireSource: "Source: {tool} ({server})"
   noOutput: No result recorded.

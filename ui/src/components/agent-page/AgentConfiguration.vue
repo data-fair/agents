@@ -99,15 +99,6 @@
             @update:model-value="(data: any) => onPartUpdate('tools', data)"
           />
         </v-form>
-        <v-alert
-          v-if="webWithUnapprovedWrites"
-          type="warning"
-          variant="tonal"
-          class="mt-4"
-          :title="t('webRiskTitle')"
-          :text="t('webRisk')"
-          data-testid="autonomous-agent-web-risk"
-        />
       </v-tabs-window-item>
       <v-tabs-window-item
         value="security"
@@ -194,8 +185,6 @@ en:
     role: role
     both: name and role
   unreachableSites: "These sites of the organization use their own sign-in: the agent cannot act on them as itself, only anonymously: {sites}"
-  webRiskTitle: This agent reads the web and can write without approval
-  webRisk: "A page it reads can contain instructions, and the agent may follow them with its identity and all its tools. Prefer read-only tools for an agent with web access, or set approval to \"Every operation that makes changes\"."
 fr:
   title: Configuration
   saved: Les modifications ont été enregistrées
@@ -214,8 +203,6 @@ fr:
     role: rôle
     both: nom et rôle
   unreachableSites: "Ces sites de l'organisation ont leur propre authentification : l'agent ne peut pas y agir en son nom, seulement anonymement : {sites}"
-  webRiskTitle: Cet agent lit le web et peut écrire sans approbation
-  webRisk: "Une page qu'il lit peut contenir des instructions, et l'agent peut les suivre avec son identité et tous ses outils. Préférez des outils en lecture seule pour un agent qui accède au web, ou réglez l'approbation sur « Toutes les opérations qui effectuent des modifications »."
 </i18n>
 
 <script lang="ts" setup>
@@ -226,7 +213,6 @@ import { mdiBrain, mdiCardAccountDetailsOutline, mdiShieldLockOutline, mdiToolbo
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useAsyncAction } from '@data-fair/lib-vue/async-action.js'
 import { useLeaveGuard } from '@data-fair/lib-vue/leave-guard.js'
-import { DEFAULT_APPROVAL_ROUTES } from '@agents/shared/approval-policy'
 import { identityPatch } from '@agents/shared/autonomous-agent-identity'
 import missionSlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-mission/schema.js'
 import toolsSlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-tools/schema.js'
@@ -389,11 +375,6 @@ const vjsfOptions = computed(() => ({
     return await response.json()
   }
 }))
-
-// Web access with writes still allowed without approval: what a page says could make the agent act. A
-// warning, never a block — the admin decides. Read from the shared draft: the level is on another tab.
-const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled &&
-  (draft.value.approvalRoutes?.write ?? DEFAULT_APPROVAL_ROUTES.write) !== 'reviewer+person')
 
 // ---- identity (federated with simple-directory, client-side) ----
 
