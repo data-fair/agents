@@ -14,6 +14,28 @@
     </template>
     <template v-if="show !== 'input'">
       <template v-if="invocation.errorText !== undefined">
+        <v-alert
+          v-if="invocation.tripwire"
+          type="warning"
+          variant="tonal"
+          density="compact"
+          class="mb-2"
+          data-testid="tool-call-tripwire"
+        >
+          <div class="font-weight-bold">
+            {{ t('tripwire') }}
+          </div>
+          <div class="text-caption">
+            {{ t('tripwireSource', { tool: invocation.tripwire.source.tool, server: invocation.tripwire.source.server }) }}<template v-if="invocation.tripwire.source.url">
+              — {{ invocation.tripwire.source.url }}
+            </template>
+          </div>
+          <!-- Text only: this is what the tool returned, and it is addressed to the model, not to be obeyed or rendered. -->
+          <pre
+            class="tool-call-detail__pre pa-2 mt-1"
+            data-testid="tool-call-tripwire-excerpt"
+          >{{ invocation.tripwire.excerpt }}</pre>
+        </v-alert>
         <div class="text-caption font-weight-bold text-error mb-1">
           {{ t('error') }}
         </div>
@@ -57,6 +79,8 @@ fr:
   error: Erreur
   denied: Refusé.
   deniedBecause: "Refusé : {reason}"
+  tripwire: Injection de prompt suspectée — masquée à l'agent
+  tripwireSource: "Source : {tool} ({server})"
   noOutput: Aucun résultat enregistré.
 en:
   input: Input
@@ -66,6 +90,8 @@ en:
   error: Error
   denied: Declined.
   deniedBecause: "Declined: {reason}"
+  tripwire: Suspected prompt injection — withheld from the agent
+  tripwireSource: "Source: {tool} ({server})"
   noOutput: No result recorded.
 </i18n>
 

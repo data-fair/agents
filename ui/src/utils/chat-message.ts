@@ -18,6 +18,8 @@ export interface ChatMessage {
     output?: unknown
     /** Why the call failed: the error the model was handed in place of an output. */
     errorText?: string
+    /** Set when the tripwire withheld the result as a suspected prompt injection: where it came from, and what it said. */
+    tripwire?: { excerpt: string, source: { tool: string, server: string, url?: string } }
     /** Why an approval was refused, when the decision gave a reason. */
     deniedReason?: string
     /** Set while the call awaits the person's approval: what their decision names. */
