@@ -9,8 +9,7 @@
 import type { ConversationRun } from '#types'
 import { FILE_MAX_BYTES, SCOPE_MAX_BYTES, formatBytes } from '../files/operations.ts'
 import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
-import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
-import { classifyTool, approvalPolicyFor, type ApprovalClass, type ApprovalLevel } from '../conversations/approval-policy.ts'
+import { classifyTool, routeFor, type ApprovalClass, type ApprovalRoutes, type ReviewRoute } from '../conversations/approval-policy.ts'
 import type { TurnCatalog, TurnSurface } from '../conversations/service-tools.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 
@@ -67,7 +66,7 @@ const hideResult = (nested: unknown): unknown => {
 export const RUN_ROW_SUMMARY_CHARS = 300
 
 export interface ConfigurationView {
-  agent: { title: string, persona: string, instructions?: string, approvalLevel?: ApprovalLevel, memoryEnabled: boolean }
+  agent: { title: string, persona: string, instructions?: string, approvalRoutes?: Partial<ApprovalRoutes>, memoryEnabled: boolean }
   /** Whether this turn has files (a file store is configured). */
   files: boolean
   /** Whether this turn is offered code_mode (code-mode/operations.ts, codeModeOfferedTo). */
@@ -85,14 +84,18 @@ export interface ConfigurationView {
 
 const CLASS_LABELS: Record<ApprovalClass, string> = { readOnly: 'read-only tools', write: 'write tools', destructive: 'destructive tools' }
 
+const ROUTE_LABELS: Record<ReviewRoute, string> = { reviewer: 'reviewed before it runs', 'reviewer+person': 'reviewed, then needs the person\'s approval' }
+const routeLabel = (route: ReviewRoute | undefined): string => route ? ROUTE_LABELS[route] : 'run without review'
+
 /**
- * Why a catalog tool is or is not usable this turn, by the same rule the turn applies: `approve` gates it
- * in a chat and removes it on the task surface (unattended).
+ * Why a catalog tool is or is not usable this turn, by the same rule the turn applies: a `reviewer+person`
+ * class is carded in a chat and removed on the task surface (unattended); a `reviewer` one runs once reviewed.
  */
-const toolStatus = (annotations: Record<string, unknown> | undefined, level: ApprovalLevel | undefined, surface: TurnSurface): string => {
-  const policy = approvalPolicyFor(classifyTool(annotations), level)
-  if (policy === 'approve') return surface === 'task' ? 'not usable here: needs approval and nobody is present' : 'needs the person\'s approval'
-  return 'usable'
+const toolStatus = (annotations: Record<string, unknown> | undefined, routes: Partial<ApprovalRoutes> | undefined, surface: TurnSurface): string => {
+  const route = routeFor(classifyTool(annotations), routes)
+  if (!route) return 'usable'
+  if (route === 'reviewer+person' && surface === 'task') return 'not usable here: needs a person'
+  return ROUTE_LABELS[route]
 }
 
 const bullets = (items: string[]) => items.length ? items.map(item => `- ${item}`).join('\n') : 'None.'
@@ -100,7 +103,7 @@ const bullets = (items: string[]) => items.length ? items.map(item => `- ${item}
 export const renderConfiguration = (view: ConfigurationView): string => {
   const { agent, surface, catalog } = view
   const tools = [
-    ...Object.entries(catalog.tools).map(([name, { server, annotations }]) => `${name} (server ${server}): ${toolStatus(annotations, agent.approvalLevel, surface)}`),
+    ...Object.entries(catalog.tools).map(([name, { server, annotations }]) => `${name} (server ${server}): ${toolStatus(annotations, agent.approvalRoutes, surface)}`),
     ...catalog.filteredOut.map(({ name, server }) => `${name} (server ${server}): not selected for you by an administrator`),
     ...(catalog.needsFiles ?? []).map(({ name, server }) => `${name} (server ${server}): not usable: it takes a file, and this deployment has no file store`),
     ...catalog.skippedServers.map(({ id, reason }) => `server ${id}: server unreachable: ${reason}`)
@@ -116,7 +119,7 @@ export const renderConfiguration = (view: ConfigurationView): string => {
     '## Instructions',
     agent.instructions || 'None.',
     '## Approval policy',
-    `approval level: ${agent.approvalLevel ?? DEFAULT_APPROVAL_LEVEL} (${(Object.keys(CLASS_LABELS) as ApprovalClass[]).map(cls => `${CLASS_LABELS[cls]}: ${approvalPolicyFor(cls, agent.approvalLevel)}`).join(', ')})`,
+    `approval routes: ${(Object.keys(CLASS_LABELS) as ApprovalClass[]).map(cls => `${CLASS_LABELS[cls]}: ${routeLabel(routeFor(cls, agent.approvalRoutes))}`).join(', ')}`,
     '## Tools',
     // What the platform lets its identity reach: the scopes it was granted, which the scope-filtered servers
     // already applied to the tools listed below (docs/architecture/mcp-tools.md, Scopes).

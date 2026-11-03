@@ -1,18 +1,18 @@
 /**
  * Starting points offered when creating an autonomous agent. Each is a persona and instructions (they become
- * the agent's system prompt) plus the approval level that suits it. Only a starting point: once created, the
+ * the agent's system prompt) plus the approval routes that suit it. Only a starting point: once created, the
  * agent's own text is simply edited. Pure: no Vue, so the e2e specs can read the expected text.
  */
 
-import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
-import type { ApprovalLevel } from '@agents/shared/approval-policy'
+import { DEFAULT_APPROVAL_ROUTES } from '@agents/shared/approval-policy'
+import type { ApprovalRoutes } from '@agents/shared/approval-policy'
 
 export type AutonomousAgentExampleKey = 'blank' | 'publication' | 'quality'
 export type ExampleLocale = 'fr' | 'en'
 
 export const AUTONOMOUS_AGENT_EXAMPLE_KEYS: AutonomousAgentExampleKey[] = ['publication', 'quality', 'blank']
 
-export interface ExampleFields { persona: string, instructions: string, approvalLevel: ApprovalLevel }
+export interface ExampleFields { persona: string, instructions: string, approvalRoutes: ApprovalRoutes }
 
 const publication: Record<ExampleLocale, ExampleFields> = {
   fr: {
@@ -24,7 +24,7 @@ const publication: Record<ExampleLocale, ExampleFields> = {
       '- Publie seulement quand tout est renseigné.',
       '- Termine par un résumé de ce que tu as modifié, jeu de données par jeu de données.'
     ].join('\n'),
-    approvalLevel: 'destructive'
+    approvalRoutes: { ...DEFAULT_APPROVAL_ROUTES }
   },
   en: {
     persona: 'You are an autonomous agent that publishes data. You prepare this organization\'s datasets and publish them on the platform. You are rigorous: you never publish anything incomplete, and you ask rather than invent a piece of information.',
@@ -35,7 +35,7 @@ const publication: Record<ExampleLocale, ExampleFields> = {
       '- Publish only when everything is filled in.',
       '- End with a summary of what you changed, dataset by dataset.'
     ].join('\n'),
-    approvalLevel: 'destructive'
+    approvalRoutes: { ...DEFAULT_APPROVAL_ROUTES }
   }
 }
 
@@ -49,7 +49,7 @@ const quality: Record<ExampleLocale, ExampleFields> = {
       '- Ne modifie aucune donnée ni aucun réglage sauf demande explicite.',
       '- Rends un rapport court, trié des anomalies les plus graves aux moins graves.'
     ].join('\n'),
-    approvalLevel: 'write'
+    approvalRoutes: { write: 'reviewer+person', destructive: 'reviewer+person' }
   },
   en: {
     persona: 'You are an autonomous agent that monitors the quality of this organization\'s data. You go through the datasets looking for anomalies and report them clearly. You change nothing on your own: you suggest.',
@@ -60,7 +60,7 @@ const quality: Record<ExampleLocale, ExampleFields> = {
       '- Do not change any data or setting unless explicitly asked.',
       '- Give a short report, from the most serious findings to the least.'
     ].join('\n'),
-    approvalLevel: 'write'
+    approvalRoutes: { write: 'reviewer+person', destructive: 'reviewer+person' }
   }
 }
 
@@ -69,7 +69,7 @@ const blankPersona = (locale: ExampleLocale, title: string) => locale === 'fr'
   : `You are "${title}", an autonomous agent of this organization. Answer precisely and say so when you don't know.`
 
 export function exampleFields (key: AutonomousAgentExampleKey, locale: ExampleLocale, title: string): ExampleFields {
-  if (key === 'publication') return { ...publication[locale] }
-  if (key === 'quality') return { ...quality[locale] }
-  return { persona: blankPersona(locale, title), instructions: '', approvalLevel: DEFAULT_APPROVAL_LEVEL }
+  if (key === 'publication') return { ...publication[locale], approvalRoutes: { ...publication[locale].approvalRoutes } }
+  if (key === 'quality') return { ...quality[locale], approvalRoutes: { ...quality[locale].approvalRoutes } }
+  return { persona: blankPersona(locale, title), instructions: '', approvalRoutes: { ...DEFAULT_APPROVAL_ROUTES } }
 }

@@ -43,18 +43,12 @@ export type WhoMayInstruct = AccessRef[];
  * What the agent can do in the platform's services, like a member with this role.
  */
 export type RoleInTheOrganization = string;
-/**
- * A planned task has nobody to approve: tools that need approval are not offered to it.
- */
-export type AskForApprovalFor = (
-  | EveryOperationThatMakesChanges
-  | OnlyOperationsMarkedAsParticularlyDestructive
-  | NoneTheAgentIsFullyAutonomousInItsToolCalls
-) &
-  string;
-export type EveryOperationThatMakesChanges = "write";
-export type OnlyOperationsMarkedAsParticularlyDestructive = "destructive";
-export type NoneTheAgentIsFullyAutonomousInItsToolCalls = "none";
+export type Changes = (ReviewedAutomatically | ReviewedThenConfirmedByAPerson) & string;
+export type ReviewedAutomatically = "reviewer";
+export type ReviewedThenConfirmedByAPerson = "reviewer+person";
+export type DestructiveOperations = (ReviewedAutomatically1 | ReviewedThenConfirmedByAPerson1) & string;
+export type ReviewedAutomatically1 = "reviewer";
+export type ReviewedThenConfirmedByAPerson1 = "reviewer+person";
 /**
  * The agent keeps notes it reuses in every later conversation, and tidies them once a day from what people told it. Administrators can read, edit and restore this memory. Memory writes are not subject to the approval settings: every change is versioned and can be restored.
  */
@@ -88,7 +82,7 @@ export type AutonomousAgent = {
   nhi?: NonHumanIdentity;
   instructors?: WhoMayInstruct;
   role?: RoleInTheOrganization;
-  approvalLevel?: AskForApprovalFor;
+  approvalRoutes?: Approval;
   memory?: Memory;
   web?: WebAccess;
   externalMcpServers?: ExternalMCPServers;
@@ -122,6 +116,13 @@ export type UnRoleOuDepartementDeMonOrganisation = {
   id: string;
   department?: Departement;
   roles?: Roles;
+}
+/**
+ * Every operation that makes changes is reviewed automatically before it runs, against what the people instructing the agent asked. Planned tasks and scripts can use only the operations reviewed automatically: nobody is there to confirm.
+ */
+export type Approval = {
+  write?: Changes;
+  destructive?: DestructiveOperations;
 }
 export type Memory = {
   enabled: KeepAMemoryAcrossConversations;

@@ -15,7 +15,7 @@ const unusedTool = {} as Tool
 const view = (surface: 'chat' | 'task'): ConfigurationView => ({
   files: true,
   codeMode: true,
-  agent: { title: 'Roads', persona: 'You watch the roads.', instructions: 'Answer in French.', approvalLevel: 'write', memoryEnabled: false },
+  agent: { title: 'Roads', persona: 'You watch the roads.', instructions: 'Answer in French.', memoryEnabled: false },
   surface,
   catalog: {
     tools: {
@@ -45,8 +45,8 @@ test.describe('renderConfiguration', () => {
     const text = renderConfiguration(view('chat'))
     const all = lines(text)
     assert.ok(all.includes('- lookup (server roads): usable'), text)
-    assert.ok(all.includes('- wipe (server roads): needs the person\'s approval'), text)
-    assert.ok(all.includes('- edit (server roads): needs the person\'s approval'), text)
+    assert.ok(all.includes('- wipe (server roads): reviewed, then needs the person\'s approval'), text)
+    assert.ok(all.includes('- edit (server roads): reviewed before it runs'), text)
     assert.ok(all.includes('- ignored (server roads): not selected for you by an administrator'), text)
     assert.ok(all.includes('- import (server roads): not usable: it takes a file, and this deployment has no file store'), text)
     assert.ok(all.includes('- server weather: server unreachable: fetch failed'), text)
@@ -59,8 +59,18 @@ test.describe('renderConfiguration', () => {
     assert.match(renderConfiguration(view('chat')), /## Skills\nNone\./)
   })
 
-  test('on the task surface a tool needing approval is out of reach: nobody is present', () => {
-    assert.ok(lines(renderConfiguration(view('task'))).includes('- wipe (server roads): not usable here: needs approval and nobody is present'))
+  test('on the task surface a tool needing a person is out of reach; a reviewed one is not', () => {
+    const all = lines(renderConfiguration(view('task')))
+    assert.ok(all.includes('- wipe (server roads): not usable here: needs a person'))
+    assert.ok(all.includes('- edit (server roads): reviewed before it runs'))
+  })
+
+  test('the routes the agent was given decide each tool line and the configuration line', () => {
+    const routed = { ...view('chat'), agent: { ...view('chat').agent, approvalRoutes: { write: 'reviewer+person' as const, destructive: 'reviewer' as const } } }
+    const all = lines(renderConfiguration(routed))
+    assert.ok(all.includes('- edit (server roads): reviewed, then needs the person\'s approval'))
+    assert.ok(all.includes('- wipe (server roads): reviewed before it runs'))
+    assert.ok(all.includes('approval routes: read-only tools: run without review, write tools: reviewed, then needs the person\'s approval, destructive tools: reviewed before it runs'))
   })
 
   test('identity, the resolved policy, the service tools, the tasks and the memory are all stated', () => {
@@ -69,7 +79,7 @@ test.describe('renderConfiguration', () => {
     assert.match(text, /You watch the roads\./)
     assert.match(text, /Answer in French\./)
     const all = lines(text)
-    assert.ok(all.includes('approval level: write (read-only tools: allow, write tools: approve, destructive tools: approve)'), text)
+    assert.ok(all.includes('approval routes: read-only tools: run without review, write tools: reviewed before it runs, destructive tools: reviewed, then needs the person\'s approval'), text)
     assert.ok(all.includes('- memory'), text)
     assert.ok(all.includes('- report_outcome'), text)
     assert.ok(all.includes('- t1: Morning check — every day at 08:00 (Europe/Paris) — next run: none — paused: paused after 3 consecutive failed runs'), text)

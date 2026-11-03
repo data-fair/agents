@@ -43,6 +43,9 @@ import log from '@data-fair/lib-node/log.js'
 import { createTurnTripwire } from '../tripwire/service.ts'
 import { describeSource, withheldErrorText, webhookCallId, tripExplanationInstruction, LATE_TRIP_NOTICE, NOT_RUN_AFTER_TRIP, type TripRecord } from '../tripwire/operations.ts'
 import { webhookPayloadsOf } from '../tasks/operations.ts'
+import { createTurnReviewer } from '../approval-review/service.ts'
+import { createReviewGate, type GateTool } from '../approval-review/gate.ts'
+import { exposureOf, type ReviewIntent } from '../approval-review/operations.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -85,6 +88,12 @@ export interface ModelLoopContext {
    * telemetry its own.
    */
   continuation?: { parts: MessagePart[], note: string, credits: number, steps: number }
+  /**
+   * What the approval reviewer judges each reviewed call against (executor.ts): set for a configured agent, whose
+   * every write and destructive catalog call, and capability grant, is reviewed before it runs. The personal
+   * assistant has none.
+   */
+  reviewIntent?: ReviewIntent
 }
 
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
@@ -148,7 +157,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       budgetExceeded = true
       // Through the gate's own formatter: a shared budget's numbers only to an admin.
       stopDetail = quotaStopText(quota, identity.role === 'admin')
-    } else if (credits + tripwireCredits + (continuation?.credits ?? 0) >= config.turnCredits) {
+    } else if (credits + tripwireCredits + reviewCredits + (continuation?.credits ?? 0) >= config.turnCredits) {
       budgetExceeded = true
     }
   }
@@ -177,6 +186,20 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // is not scanned, its own screens nothing.
   const liveRun = liveRuns.get(run.id)
   if (tripwire && liveRun && !liveRun.tripwire) liveRun.tripwire = tripwire
+  // THE APPROVAL REVIEWER (api/src/approval-review): a configured agent's reviewed calls are judged before they run.
+  // Its calls count toward the run's budget as the tripwire's do. The gate deciding each call is built below, once
+  // the live tool map exists.
+  let reviewCredits = 0
+  const reviewer = ctx.reviewIntent && createTurnReviewer({
+    run,
+    agent: { id: autonomousAgent.id },
+    owner: run.owner,
+    identity,
+    settings,
+    abortSignal,
+    onCredits: spent => { reviewCredits += spent },
+    intent: ctx.reviewIntent
+  })
   // The results the tripwire cut at its scan cap, by call: recorded as truncated with their original length, as
   // the recorder's own bound records a cut, so a reviewer still sees a result was cut and its real size.
   const scanCuts = new Map<string, { totalChars: number, scannedChars: number }>()
@@ -299,6 +322,31 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   await assembleTools()
   let assembledFrom = pageToolNames()
 
+  /**
+   * THE REVIEW GATE: the one `toolApproval` function of a configured agent's turn (api/src/approval-review/gate.ts).
+   * It reads the live map: a reviewed tool by its route, any other by its own `needsApproval` (a function form
+   * replaces the tools' own, the SDK consulting only one), and it denies an approved call whose tool is gone. A
+   * page tool shadowing a catalog tool is the page's, not reviewed. The exposure is the step's messages, the
+   * webhook payloads of a task run included.
+   */
+  const webhookPayloads = run.kind === 'task' && webhookPayloadsOf(run.prompt ?? '').length > 0
+  const gateToolOf = (name: string, tool: Tool): GateTool => {
+    const sourced = pageNames.has(name) ? undefined : tools[name]
+    return {
+      ...(tool.needsApproval !== undefined ? { needsApproval: tool.needsApproval } : {}),
+      ...(sourced?.server ? { server: sourced.server } : {}),
+      ...(sourced?.annotations ? { annotations: sourced.annotations } : {}),
+      ...(sourced?.review ? { review: sourced.review } : {})
+    }
+  }
+  const gate = reviewer && createReviewGate({
+    tools: () => Object.fromEntries(Object.entries(liveTools).map(([name, tool]) => [name, gateToolOf(name, tool)])),
+    history,
+    surface: target.surface,
+    review: reviewer,
+    exposure: messages => exposureOf(messages, tools, { webhookPayloads })
+  })
+
   // A provider that accepted the request and then went quiet would otherwise hold the conversation's
   // lock until the run ceiling. Paused while a tool runs: that silence is the tool's, not the model's.
   const idleAbort = new AbortController()
@@ -323,8 +371,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // Signs each approval request when it is issued and verifies it on replay, so a stored
     // `approved: true` that did not come through the decision route fails instead of executing.
     experimental_toolApprovalSecret: securityKey,
-    // An approved call whose tool is gone is denied by name: the SDK would otherwise skip it silently.
-    toolApproval: denyGoneApprovedTools(history, liveTools),
+    // A configured agent's review gate, which also denies an approved call whose tool is gone; the personal
+    // assistant's tools ask by their own `needsApproval`, and only that denial is added: the SDK would otherwise
+    // skip such a call silently.
+    toolApproval: gate ? gate.toolApproval : denyGoneApprovedTools(history, liveTools),
     stopWhen: [
       isStepCount(STEP_LIMIT),
       repeatedCallGuard(),
@@ -338,7 +388,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       // A withheld result ends the turn after ONE more step, with no tool (report_outcome alone in a task run),
       // in which the model explains it to the person (tripExplanationInstruction): it has seen the placeholder,
       // never the flagged text, and it is given no step to act on anything.
-      () => (tripwire?.tripped ?? lateTripped) !== undefined && tripExplaining
+      () => (tripwire?.tripped ?? lateTripped) !== undefined && tripExplaining,
+      // THE REVIEWER'S CIRCUIT BREAKER: too many denials, in a row or in the turn, and the turn stops rather than
+      // look for another way to the same outcome.
+      () => gate?.tripped ?? false
     ],
     prepareStep: async options => {
       if ((tripwire?.tripped ?? lateTripped) && !tripExplaining) {
@@ -460,6 +513,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // settled at once as redundant rather than left as a second open call nothing will answer.
   let handover: { toolCallId: string, expecting?: string } | undefined
   let awaitingApproval = false
+  // The reviewer's own decisions, by call: the approval each was issued under, and a denial's reason.
+  const automaticApprovals = new Map<string, { id: string, signature?: string }>()
+  const deniedReasons = new Map<string, string | undefined>()
 
   /**
    * Push the turn's STRUCTURE to a watching page: the stored parts as they stand.
@@ -523,7 +579,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     for await (const part of result.stream) {
       idleWatchdog.activity()
       if (part.type === 'tool-call') idleWatchdog.toolStarted(part.toolCallId)
-      if (part.type === 'tool-result' || part.type === 'tool-error') idleWatchdog.toolEnded(part.toolCallId)
+      if (part.type === 'tool-result' || part.type === 'tool-error' || part.type === 'tool-output-denied') idleWatchdog.toolEnded(part.toolCallId)
       // 'error' parts do NOT throw — an unhandled one is how a conversation silently dropped
       // before. Turn it into a real failure so the caller reports it.
       if (part.type === 'error') throw part.error instanceof Error ? part.error : new Error(String(part.error))
@@ -590,6 +646,24 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           activity({ kind: 'tool', toolName: part.toolName })
         }
       }
+      // THE REVIEWER DECIDED A CALL ALONE (`isAutomatic`): approved, it runs and its result follows; denied, its
+      // `tool-output-denied` follows (below). Either way not a card. The review is put on the call's part now, so
+      // it is stored before the call settles.
+      if (part.type === 'tool-approval-request' && part.isAutomatic) {
+        automaticApprovals.set(part.toolCall.toolCallId, { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) })
+        const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCall.toolCallId)
+        const review = gate?.recordOf(part.toolCall.toolCallId)
+        if (call && call.type === 'dynamic-tool' && review) {
+          call.toolMetadata = { ...call.toolMetadata, review: review as unknown as JSONObject }
+          sendMessageFrame()
+          await persistStructure()
+        }
+        continue
+      }
+      if (part.type === 'tool-approval-response') {
+        if (!part.approved) deniedReasons.set(part.toolCall.toolCallId, part.reason)
+        continue
+      }
       // THE GATE STOPPED A CALL. The SDK has not executed it and will not this turn; it ends the turn
       // itself (finishReason 'other'). The call part already exists (the 'tool-call' part came first):
       // it becomes `approval-requested`, carrying the id and the signature the decision must present.
@@ -605,10 +679,14 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           const description = toolDescription(liveTools[part.toolCall.toolName])
           // The files a gated call would send, as the person deciding reads them: path, type, size (spec §4.3).
           const files = await describeFileArguments(tools[part.toolCall.toolName]?.fileArgs, part.toolCall.input, callPath.files)
+          // The reviewer's view, when it judged the call first: stored, so a reload shows the card with it.
+          const review = gate?.recordOf(part.toolCall.toolCallId)
           Object.assign(call, {
             state: 'approval-requested',
-            approval: { id: part.approvalId, ...(part.signature ? { signature: part.signature } : {}) },
-            ...(description || files ? { toolMetadata: { ...call.toolMetadata, ...(description ? { description } : {}), ...(files ? { files } : {}) } } : {})
+            approval: { id: part.approvalId, ...(part.reason ? { requestReason: part.reason } : {}), ...(part.signature ? { signature: part.signature } : {}) },
+            ...(description || files || review
+              ? { toolMetadata: { ...call.toolMetadata, ...(description ? { description } : {}), ...(files ? { files } : {}), ...(review ? { review: review as unknown as JSONObject } : {}) } }
+              : {})
           })
           sendMessageFrame()
           await persistStructure()
@@ -685,6 +763,21 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       // now requires less, so it runs.
       if (part.type === 'tool-output-denied' && !recorder.hasCall(part.toolCallId)) {
         await target.settleEarlierCall(part.toolCallId, { state: 'output-error', errorText: TOOL_NO_LONGER_AVAILABLE })
+        continue
+      }
+      // A CALL OF THIS TURN THE REVIEWER DENIED: settled `output-denied` on its own part, the reviewer's reason
+      // as the approval's — the shape a person's refusal leaves, so it replays as a refusal the model reads. Final:
+      // no card, no person can override it. The model goes on, told the reason.
+      if (part.type === 'tool-output-denied') {
+        const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCallId)
+        const approval = automaticApprovals.get(part.toolCallId)
+        const reason = deniedReasons.get(part.toolCallId) ?? gate?.recordOf(part.toolCallId)?.reason
+        if (call && call.type === 'dynamic-tool' && approval) {
+          Object.assign(call, { state: 'output-denied', approval: { ...approval, isAutomatic: true, approved: false, ...(reason ? { reason } : {}) } })
+          sendMessageFrame()
+          await persistStructure()
+        }
+        afterCall(part.toolCallId)
       }
     }
   } finally {
@@ -739,9 +832,11 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       ? 'awaiting-approval'
       : tripwire?.tripped || (lateTripped && tripExplaining)
         ? 'injection-suspected'
-        : finishReason === 'tool-calls'
-          ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
-          : 'completed'
+        : gate?.tripped
+          ? 'review-denied'
+          : finishReason === 'tool-calls'
+            ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
+            : 'completed'
   if (stopReason === 'injection-suspected') stopDetail = describeSource((tripwire?.tripped ?? lateTripped)!.source)
 
   // An empty completion is a known provider failure mode with its own mock seam. Without a
@@ -768,7 +863,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     parts: finalParts,
     // The turn's, both passes: what the run is charged and how far it went.
     steps: steps + (continuation?.steps ?? 0),
-    credits: credits + tripwireCredits + (continuation?.credits ?? 0),
+    credits: credits + tripwireCredits + reviewCredits + (continuation?.credits ?? 0),
     stopDetail,
     ...(handover ? { handover } : {}),
     ...(awaitingApproval ? { awaitingApproval: true as const } : {}),

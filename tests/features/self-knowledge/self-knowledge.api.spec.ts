@@ -50,22 +50,22 @@ test.describe('Self-knowledge', () => {
     await putMockSettings(admin, 'organization/test1')
   })
 
-  test('in a chat, the configuration names a destructive tool as needing approval and a filtered one as not selected', async () => {
+  test('in a chat, the configuration names a destructive tool as reviewed then put to the person, and a filtered one as not selected', async () => {
     const agent = await createAgent()
     const part = await chatCall(agent.id, 'call tool get_my_configuration {}', 'get_my_configuration')
     assert.equal(part.state, 'output-available', JSON.stringify(part))
     assert.match(part.output, /^<tool-result server="agent-self"/)
-    assert.ok(part.output.includes('- wipe_everything (server dev-public-mcp): needs the person\'s approval'), part.output)
+    assert.ok(part.output.includes('- wipe_everything (server dev-public-mcp): reviewed, then needs the person\'s approval'), part.output)
     assert.ok(part.output.includes('- ignored (server dev-public-mcp): not selected for you by an administrator'), part.output)
-    assert.ok(part.output.includes('- echo (server dev-public-mcp): usable'), part.output)
+    assert.ok(part.output.includes('- echo (server dev-public-mcp): reviewed before it runs'), part.output)
   })
 
-  test('in a task run, the same destructive tool is out of reach because nobody is present', async () => {
+  test('in a task run, the same destructive tool is out of reach because it needs a person', async () => {
     const agent = await createAgent()
     const run = await runTask(agent.id, 'call tool get_my_configuration {}')
     const part = callPart(run.messages[1].parts, 'get_my_configuration')
     assert.equal(part.state, 'output-available', JSON.stringify(part))
-    assert.ok(part.output.includes('- wipe_everything (server dev-public-mcp): not usable here: needs approval and nobody is present'), part.output)
+    assert.ok(part.output.includes('- wipe_everything (server dev-public-mcp): not usable here: needs a person'), part.output)
     assert.ok(part.output.includes('- report_outcome'), 'the task surface\'s other service tools are listed')
     assert.ok(part.output.includes('Probe task — every day at 08:00 (Europe/Paris)'), part.output)
   })

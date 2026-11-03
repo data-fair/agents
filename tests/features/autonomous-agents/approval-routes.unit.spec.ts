@@ -1,36 +1,47 @@
 /**
- * stateless unit tests for the approval level of an autonomous agent: the policy each level gives each
- * class of tool, and what it does to the tool set the model is offered.
+ * stateless unit tests for the approval routes of an autonomous agent: the route each class of tool takes,
+ * and what it does to the tool set the model is offered.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema } from 'ai'
-import { approvalPolicyFor, APPROVAL_LEVELS, DEFAULT_APPROVAL_LEVEL } from '../../../shared/approval-policy.ts'
-import { applyApprovalPolicy, classifyTool, personalAssistantTools } from '../../../api/src/conversations/approval-policy.ts'
+import { routeFor, DEFAULT_APPROVAL_ROUTES } from '../../../shared/approval-policy.ts'
+import { applyApprovalPolicy, classifyTool, personalAssistantTools, unattended } from '../../../api/src/conversations/approval-policy.ts'
 
 const t = () => tool({ description: 'x', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'ok' })
 
-test.describe('approvalPolicyFor', () => {
-  test('the full table', () => {
-    const row = (level?: Parameters<typeof approvalPolicyFor>[1]) => (['readOnly', 'write', 'destructive'] as const).map(cls => approvalPolicyFor(cls, level))
-    assert.deepEqual(row('write'), ['allow', 'approve', 'approve'])
-    assert.deepEqual(row('destructive'), ['allow', 'allow', 'approve'])
-    assert.deepEqual(row('none'), ['allow', 'allow', 'allow'])
-    assert.deepEqual(row(undefined), row('destructive'))
+test.describe('routeFor', () => {
+  test('a read takes no route; writes and destructive calls take theirs, defaults included', () => {
+    assert.equal(routeFor('readOnly'), undefined)
+    assert.equal(routeFor('write'), 'reviewer')
+    assert.equal(routeFor('destructive'), 'reviewer+person')
+    assert.equal(routeFor('readOnly', { write: 'reviewer+person', destructive: 'reviewer+person' }), undefined)
+    assert.equal(routeFor('write', { write: 'reviewer+person' }), 'reviewer+person')
+    assert.equal(routeFor('destructive', { write: 'reviewer+person' }), 'reviewer+person')
+    assert.equal(routeFor('destructive', { destructive: 'reviewer' }), 'reviewer')
   })
 
-  test('the levels and their default', () => {
-    assert.deepEqual(APPROVAL_LEVELS, ['write', 'destructive', 'none'])
-    assert.equal(DEFAULT_APPROVAL_LEVEL, 'destructive')
+  test('the defaults', () => {
+    assert.deepEqual(DEFAULT_APPROVAL_ROUTES, { write: 'reviewer', destructive: 'reviewer+person' })
   })
 
-  test('applyApprovalPolicy never removes a tool', () => {
+  test('applyApprovalPolicy marks every non-read for review, and asks a person only on reviewer+person', () => {
     const tools = { read: { tool: t(), annotations: { readOnlyHint: true } }, plain: { tool: t() }, wipe: { tool: t(), annotations: { destructiveHint: true } } }
-    const gated = applyApprovalPolicy(tools, 'write')
+    const gated = applyApprovalPolicy(tools)
     assert.deepEqual(Object.keys(gated).sort(), ['plain', 'read', 'wipe'])
+    assert.equal(gated.read.review, undefined)
     assert.equal((gated.read.tool as any).needsApproval, undefined)
-    assert.equal((gated.plain.tool as any).needsApproval, true)
+    assert.deepEqual(gated.plain.review, { route: 'reviewer', cls: 'write', kind: 'action' })
+    assert.equal((gated.plain.tool as any).needsApproval, undefined)
+    assert.deepEqual(gated.wipe.review, { route: 'reviewer+person', cls: 'destructive', kind: 'action' })
     assert.equal((gated.wipe.tool as any).needsApproval, true)
+    // Unattended runs keep the reviewer-routed classes and drop those needing a person.
+    assert.deepEqual(Object.keys(unattended(gated)).sort(), ['plain', 'read'])
+
+    const allPerson = applyApprovalPolicy(tools, { write: 'reviewer+person' })
+    assert.equal((allPerson.plain.tool as any).needsApproval, true)
+    const allReviewer = applyApprovalPolicy(tools, { destructive: 'reviewer' })
+    assert.equal((allReviewer.wipe.tool as any).needsApproval, undefined)
   })
 })
 

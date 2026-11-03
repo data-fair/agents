@@ -153,22 +153,40 @@ export default {
         }
       }
     },
-    approvalLevel: {
-      type: 'string',
-      default: 'destructive',
-      layout: 'radio-group',
-      title: 'Ask for approval for',
-      'x-i18n-title': { en: 'Ask for approval for', fr: 'Demander une approbation pour' },
-      description: 'A planned task has nobody to approve: tools that need approval are not offered to it.',
+    approvalRoutes: {
+      type: 'object',
+      additionalProperties: false,
+      title: 'Approval',
+      'x-i18n-title': { en: 'Approval', fr: 'Approbation' },
+      description: 'Every operation that makes changes is reviewed automatically before it runs, against what the people instructing the agent asked. Planned tasks and scripts can use only the operations reviewed automatically: nobody is there to confirm.',
       'x-i18n-description': {
-        en: 'A planned task has nobody to approve: tools that need approval are not offered to it.',
-        fr: "Une tâche planifiée n'a personne pour approuver : les outils soumis à approbation ne lui sont pas proposés."
+        en: 'Every operation that makes changes is reviewed automatically before it runs, against what the people instructing the agent asked. Planned tasks and scripts can use only the operations reviewed automatically: nobody is there to confirm.',
+        fr: "Chaque opération qui effectue des modifications est revue automatiquement avant de s'exécuter, au regard de ce qu'ont demandé les personnes qui donnent des instructions à l'agent. Les tâches planifiées et les scripts ne peuvent utiliser que les opérations revues automatiquement : personne n'est là pour confirmer."
       },
-      oneOf: [
-        { const: 'write', title: 'Every operation that makes changes', 'x-i18n-title': { en: 'Every operation that makes changes', fr: 'Toutes les opérations qui effectuent des modifications' } },
-        { const: 'destructive', title: 'Only operations marked as particularly destructive', 'x-i18n-title': { en: 'Only operations marked as particularly destructive', fr: 'Uniquement les opérations notées comme particulièrement destructives' } },
-        { const: 'none', title: 'None (the agent is fully autonomous in its tool calls)', 'x-i18n-title': { en: 'None (the agent is fully autonomous in its tool calls)', fr: "Aucune (l'agent est entièrement autonome dans ses appels d'outils)" } }
-      ]
+      properties: {
+        write: {
+          type: 'string',
+          default: 'reviewer',
+          layout: 'radio-group',
+          title: 'Changes',
+          'x-i18n-title': { en: 'Changes', fr: 'Modifications' },
+          oneOf: [
+            { const: 'reviewer', title: 'Reviewed automatically', 'x-i18n-title': { en: 'Reviewed automatically', fr: 'Revue automatique' } },
+            { const: 'reviewer+person', title: 'Reviewed, then confirmed by a person', 'x-i18n-title': { en: 'Reviewed, then confirmed by a person', fr: 'Revue, puis confirmée par une personne' } }
+          ]
+        },
+        destructive: {
+          type: 'string',
+          default: 'reviewer+person',
+          layout: 'radio-group',
+          title: 'Destructive operations',
+          'x-i18n-title': { en: 'Destructive operations', fr: 'Opérations destructives' },
+          oneOf: [
+            { const: 'reviewer', title: 'Reviewed automatically', 'x-i18n-title': { en: 'Reviewed automatically', fr: 'Revue automatique' } },
+            { const: 'reviewer+person', title: 'Reviewed, then confirmed by a person', 'x-i18n-title': { en: 'Reviewed, then confirmed by a person', fr: 'Revue, puis confirmée par une personne' } }
+          ]
+        }
+      }
     },
     memory: {
       type: 'object',

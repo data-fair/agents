@@ -3,7 +3,7 @@
  * itself — its `prompt`, its `parts`, its `outcome` — and nobody watches it.
  *
  * Compared with a conversation's target, everything about a person is absent: no history beyond the
- * task's prompt, no frames, no page, no approval to settle. A task run is offered no gated tool and no
+ * task's prompt, no frames, no page, no approval to settle. A task run is offered no tool needing a person and no
  * wait (see unattended in ../conversations/approval-policy.ts, and the service-tool registry), so a turn that still ends on one is recorded
  * as an error rather than left waiting on someone who will never come.
  */
@@ -17,6 +17,7 @@ import { livePartsOf } from '../conversations/live-runs.ts'
 import type { TurnTarget } from '../conversations/turn-target.ts'
 import type { TaskOutcome } from '../conversations/service-tools.ts'
 import { afterTaskRun } from './follow-up.ts'
+import { intentFromTask } from '../approval-review/operations.ts'
 import log from '@data-fair/lib-node/log.js'
 
 /** Why a task run that ended on a wait or an approval request is recorded as failed. */
@@ -73,6 +74,8 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
       // run asks for approval.
       throw new Error('a task run has no earlier call to settle')
     },
+    // The task's prompt is the assignment the reviewer judges against, its webhook payloads' free text removed.
+    reviewIntent: async (instructions) => intentFromTask(run.prompt ?? '', instructions),
     reportOutcome: (reported) => { outcome = reported },
 
     close: async (result) => {
@@ -89,10 +92,10 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
       const notice = !cannotWait && (stopReason === 'completed' || result.selfExplained)
         ? ''
         : runStopReasonMessage(stopReason, cannotWait ? CANNOT_WAIT : result.stopDetail)
-      // Cut short by a guard or a ceiling (step limit, repeated calls, a withheld tool result, the run's budget
+      // Cut short by a guard or a ceiling (step limit, repeated calls, a withheld tool result, the reviewer's denials, the run's budget
       // or the account cap reached mid-run): in a chat the person reads the notice, but nobody reads a task run — it did not
       // do its task, so it is a failure, notified and counted toward the pause, its stopReason kept.
-      const cutShort = stopReason === 'budget' || stopReason === 'step-limit' || stopReason === 'repeated-calls' || stopReason === 'injection-suspected'
+      const cutShort = stopReason === 'budget' || stopReason === 'step-limit' || stopReason === 'repeated-calls' || stopReason === 'injection-suspected' || stopReason === 'review-denied'
       await closeWith({
         status: stopReason === 'error' || cutShort ? 'error' : 'done',
         stopReason,

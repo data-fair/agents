@@ -226,7 +226,7 @@ import { mdiBrain, mdiCardAccountDetailsOutline, mdiShieldLockOutline, mdiToolbo
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useAsyncAction } from '@data-fair/lib-vue/async-action.js'
 import { useLeaveGuard } from '@data-fair/lib-vue/leave-guard.js'
-import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
+import { DEFAULT_APPROVAL_ROUTES } from '@agents/shared/approval-policy'
 import { identityPatch } from '@agents/shared/autonomous-agent-identity'
 import missionSlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-mission/schema.js'
 import toolsSlice from '../../../../api/doc/autonomous-agents/autonomous-agent-form-tools/schema.js'
@@ -393,7 +393,7 @@ const vjsfOptions = computed(() => ({
 // Web access with writes still allowed without approval: what a page says could make the agent act. A
 // warning, never a block — the admin decides. Read from the shared draft: the level is on another tab.
 const webWithUnapprovedWrites = computed(() => !!draft.value?.web?.enabled &&
-  (draft.value.approvalLevel ?? DEFAULT_APPROVAL_LEVEL) !== 'write')
+  (draft.value.approvalRoutes?.write ?? DEFAULT_APPROVAL_ROUTES.write) !== 'reviewer+person')
 
 // ---- identity (federated with simple-directory, client-side) ----
 

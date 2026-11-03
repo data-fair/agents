@@ -57,7 +57,7 @@ test.describe('Autonomous agents configuration', () => {
     const listed = (await admin.get('/api/autonomous-agents/organization/test1')).data.results
     const agent = listed.find((a: any) => a.title === 'Quality agent')
     expect(agent.role).toBe('user')
-    expect(agent.approvalLevel).toBe('write')
+    expect(agent.approvalRoutes).toEqual({ write: 'reviewer+person', destructive: 'reviewer+person' })
     expect(agent.persona).toBe(exampleFields('quality', 'en', 'Quality agent').persona)
     expect(agent.nhi?.clientId).toBeFalsy()
 

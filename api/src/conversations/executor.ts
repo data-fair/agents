@@ -208,12 +208,12 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     if (skippedServers.length) {
       debug('skipped %d unreachable server(s): %o', skippedServers.length, skippedServers)
     }
-    // THE APPROVAL GATE, on catalog tools: a configured agent's policy, or the personal assistant's fixed
-    // one (every change waits for the person). Page tools act in the person's own browser, and service
-    // tools are the loop's own.
+    // THE APPROVAL GATE, on catalog tools: a configured agent's routes (each change reviewed, some then put to
+    // a person), or the personal assistant's fixed policy (every change waits for the person, no reviewer).
+    // Page tools act in the person's own browser, and service tools are the loop's own.
     const catalogTools = isPersonalAgentId(autonomousAgent.id)
       ? personalAssistantTools(catalog, { anonymous: run.triggeredByRole === 'anonymous' })
-      : applyApprovalPolicy(catalog, autonomousAgent.approvalLevel)
+      : applyApprovalPolicy(catalog, autonomousAgent.approvalRoutes)
 
     // The service's own tools, from the registry (./service-tools.ts): spread LAST, so a catalog tool that
     // happens to share a name cannot stand in for one, and recorded like a catalog call's source.
@@ -246,7 +246,12 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       if (external && name in external.tools) toolOrigins[name] = 'external'
       else if (name in listedTools) toolOrigins[name] = listedTools[name].server === PLATFORM_MCP_SERVER_ID ? 'platform' : 'catalog'
     }
-    const loop = { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides }
+    // What the approval reviewer judges this turn's calls against (api/src/approval-review): a configured
+    // agent's only — the personal assistant has no reviewer.
+    const reviewIntent = isPersonalAgentId(autonomousAgent.id)
+      ? undefined
+      : await target.reviewIntent([autonomousAgent.persona, autonomousAgent.instructions].filter(Boolean).join('\n\n'))
+    const loop = { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, ...(reviewIntent ? { reviewIntent } : {}) }
     const result = await runModelLoop(loop)
     // A PLANNED TASK'S RUN THAT DID NOT REPORT is reminded, once: a second pass of the same turn, offered only
     // report_outcome, whose record continues the first's. Only after a turn that finished — a turn cut short

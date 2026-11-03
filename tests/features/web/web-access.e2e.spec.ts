@@ -34,7 +34,7 @@ test.describe('Web access configuration', () => {
 
   test('warns while writes need no approval, not once they do', async ({ page, goToWithAuth }) => {
     const openWriter = await createAgent('Open writer')
-    const carefulReader = await createAgent('Careful reader', { approvalLevel: 'write' })
+    const carefulReader = await createAgent('Careful reader', { approvalRoutes: { write: 'reviewer+person' } })
 
     await openPage(page, goToWithAuth, carefulReader, 'Careful reader')
     await expect(page.getByText('https://github.com/data-fair')).toBeVisible()

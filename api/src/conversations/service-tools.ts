@@ -7,7 +7,7 @@
  * Provenance and annotations come from the entry, so a stored call names its source like a catalog call
  * does. Service tools are outside the approval POLICY (approval-policy.ts covers catalog tools) — those
  * that must always be approved, `request_web_access` and the planning tools, set `needsApproval`
- * themselves and go through the same gate. No page tool can displace them (./service-tool-names.ts).
+ * themselves and go through the same gate, the reviewer judging them first (CAPABILITY_GRANT_TOOL_NAMES). No page tool can displace them (./service-tool-names.ts).
  */
 import { tool, jsonSchema } from 'ai'
 import type { AutonomousAgent, ConversationRun } from '#types'
@@ -34,6 +34,7 @@ import { saveExternalMcpServers, saveWebAllowedUrls } from '../autonomous-agents
 import { createSelfKnowledgeTools } from '../self-knowledge/tools.ts'
 import { createPlanningTools, PLANNING_TOOL_ANNOTATIONS } from '../self-knowledge/planning.ts'
 import { SELF_KNOWLEDGE_SERVER_ID } from '../self-knowledge/operations.ts'
+import { CAPABILITY_GRANT_TOOL_NAMES } from '../approval-review/operations.ts'
 
 export type { TaskOutcome }
 
@@ -240,5 +241,11 @@ const ENTRIES: ServiceToolEntry[] = [
 export const buildServiceTools = async (ctx: ServiceToolContext): Promise<BuiltServiceTools> => {
   const built: BuiltServiceTools = { tools: {} }
   for (const entry of ENTRIES) if (entry.applies(ctx)) await entry.build(ctx, built)
+  // THE CAPABILITY GRANTS go reviewer first, then the admin (their own `needsApproval`): never the reviewer
+  // alone, and a reviewer's denial is final (docs/superpowers/specs/2026-11-03-auto-approval-design.md).
+  for (const name of CAPABILITY_GRANT_TOOL_NAMES) {
+    const sourced = built.tools[name]
+    if (sourced) sourced.review = { route: 'reviewer+person', cls: 'write', kind: 'grant' }
+  }
   return built
 }

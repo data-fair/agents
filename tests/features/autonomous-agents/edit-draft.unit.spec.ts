@@ -57,7 +57,7 @@ test.describe('autonomousAgentEditDraft', () => {
     const { instructors, ...thin } = stored
     const draft = autonomousAgentEditDraft(thin)
     assert.deepEqual(draft.instructors, [])
-    assert.equal(draft.approvalLevel, 'destructive')
+    assert.deepEqual(draft.approvalRoutes, { write: 'reviewer', destructive: 'reviewer+person' })
     assert.equal(draft.role, 'user')
     assert.deepEqual(draft.memory, { enabled: false })
     // not allowedUrls: it is hidden while web access is off, and vjsf leaves it out
@@ -68,11 +68,11 @@ test.describe('autonomousAgentEditDraft', () => {
   test('keeps a stored value over its default, per setting', () => {
     const draft = autonomousAgentEditDraft({
       ...stored,
-      approvalLevel: 'write',
+      approvalRoutes: { write: 'reviewer+person' },
       memory: { enabled: true },
       web: { enabled: true, allowedUrls: ['https://github.com/data-fair'] }
     })
-    assert.equal(draft.approvalLevel, 'write')
+    assert.deepEqual(draft.approvalRoutes, { write: 'reviewer+person', destructive: 'reviewer+person' })
     assert.deepEqual(draft.memory, { enabled: true })
     assert.deepEqual(draft.web, { enabled: true, allowedUrls: ['https://github.com/data-fair'] })
   })
