@@ -511,6 +511,8 @@ const mockDelay = async (ms: number, signal?: AbortSignal): Promise<void> => {
 }
 
 export function processForModel (modelId: string, options: { prompt: string | Array<any>, tools?: Array<any> }): MockPromptResult {
+  // A provider that rejects every call (mock-failing): what an admin probe exists to show, with the provider's message.
+  if (modelId === 'mock-failing') return { type: 'error' }
   const lastMessage = getLastUserMessage(options)
   // The tripwire classifies with the moderator role, which resolves to whatever mock model the account maps
   // (moderator → summarizer → assistant), so its seam answers for any mock id, before every other seam: a

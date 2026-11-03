@@ -6,6 +6,7 @@
  * tool-output tripwire).
  */
 import mongo from '#mongo'
+import config from '#config'
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getSettings } from '../settings/service.ts'
@@ -83,6 +84,9 @@ router.post('/:type/:id/probe', async (req, res) => {
     res.status(404).json({ error: { message: 'Agent not configured', type: 'invalid_request_error' } })
     return
   }
-  // Both guards share the moderator model and the classifier engine: the tripwire's probes beside moderation's.
-  res.json({ results: await runProbe(settings, owner), tripwire: await runTripwireProbe(settings, owner) })
+  // Both guards share the moderator model and the classifier engine: the tripwire's probes beside moderation's,
+  // run at the same time. The tripwire's run even when the deployment switched it off (they check the model);
+  // `tripwireEnabled` says so, or an admin would read "withheld" for results that pass unscanned.
+  const [results, tripwire] = await Promise.all([runProbe(settings, owner), runTripwireProbe(settings, owner)])
+  res.json({ results, tripwire, tripwireEnabled: !!config.tripwire?.enabled })
 })

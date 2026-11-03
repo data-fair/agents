@@ -74,6 +74,13 @@
     <template v-if="tripwireResults.length">
       <h4 class="text-title-small mt-2">
         {{ t('tripwireProbe') }}
+        <v-chip
+          v-if="!tripwireEnabled"
+          size="x-small"
+          class="ml-2"
+        >
+          {{ t('tripwireOff') }}
+        </v-chip>
       </h4>
       <v-list density="compact">
         <v-list-item
@@ -142,6 +149,7 @@ fr:
   probeError: erreur
   stage1: "1re étape : {answer}"
   tripwireProbe: Filtre des résultats d'outils
+  tripwireOff: "désactivé sur ce déploiement : les résultats d'outils passent sans analyse"
   withheld: retenu
   passed: transmis
   recentBlocks: Derniers messages bloqués
@@ -157,6 +165,7 @@ en:
   probeError: error
   stage1: "stage 1: {answer}"
   tripwireProbe: Tool-output tripwire
+  tripwireOff: "off on this deployment: tool results pass unscanned"
   withheld: withheld
   passed: passed
   recentBlocks: Recent blocked messages
@@ -177,6 +186,7 @@ const stats = ref<any>(null)
 const blocks = ref<any[]>([])
 const probeResults = ref<any[]>([])
 const tripwireResults = ref<any[]>([])
+const tripwireEnabled = ref(true)
 const probing = ref(false)
 const loadError = ref('')
 
@@ -224,6 +234,7 @@ const runProbe = async () => {
     const body = await res.json()
     probeResults.value = body.results
     tripwireResults.value = body.tripwire ?? []
+    tripwireEnabled.value = body.tripwireEnabled !== false
   } catch { loadError.value = t('loadError') } finally { probing.value = false }
 }
 

@@ -1,6 +1,8 @@
 /**
  * operations.ts contains pure stateless functions
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
+ * (one exception: api/src/mcp-servers/guides.ts, pure too, for defuseEnvelopes; the tripwire's operations.ts
+ * imported it before this engine was shared, as conversations', tasks' and memory's still do)
  *
  * The classifier engine shared by the two guards, two sides of one coin: input moderation judges what a person
  * writes (api/src/moderation), the tool-output tripwire what a tool brings in (api/src/tripwire). Both wrap the

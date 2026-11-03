@@ -82,3 +82,74 @@ export const meterGuardCall = (generated: Promise<{ usage: LanguageModelUsage }>
   generated.then(({ usage }) => charge(usage), err => {
     if (NoObjectGeneratedError.isInstance(err) && err.usage) return charge(err.usage)
   })
+
+// ---- the two-stage sequence ----
+
+/** Why a stage left no verdict: what each guard does with it is its own (moderation fails open, the tripwire too
+ * at stage 1, while a failed confirmation after a flag counts as suspected). */
+export type GuardFailureCause = 'error' | 'timeout' | 'unparseable'
+
+/** A failed stage call's cause: aborted by its signal, an answer that could not be parsed, or the call itself. */
+export const failureCause = (err: unknown, signal: AbortSignal): GuardFailureCause =>
+  signal.aborted ? 'timeout' : (err instanceof Stage1UnparseableError || NoObjectGeneratedError.isInstance(err)) ? 'unparseable' : 'error'
+
+/** The cause in words; the provider's message, when given, after a failed call (what the admin probe exists to show). */
+export const describeFailure = (cause: GuardFailureCause, message?: string): string =>
+  cause === 'timeout'
+    ? 'it timed out'
+    : cause === 'unparseable' ? 'its answer could not be parsed' : `the model call failed${message ? ` (${message})` : ''}`
+
+const messageOf = (err: unknown): string => err instanceof Error ? err.message : String(err)
+
+/**
+ * What one two-stage check came to. A stage-1 `no` is the guard's `cleared` verdict; a `yes` goes to stage 2,
+ * whose verdict decides. A failure is returned, never thrown: which way it goes is the caller's.
+ */
+export type TwoStageOutcome<T> =
+  | { kind: 'verdict', stage1: boolean, verdict: T }
+  | { kind: 'stage1-failed', cause: GuardFailureCause, message: string }
+  | { kind: 'confirm-failed', cause: GuardFailureCause, message: string }
+
+/** A failed outcome in words, for an admin probe row. */
+export const describeFailedStage = (outcome: Exclude<TwoStageOutcome<unknown>, { kind: 'verdict' }>): string =>
+  `${outcome.kind === 'stage1-failed' ? 'the first stage' : 'the confirmation stage'} failed: ${describeFailure(outcome.cause, outcome.message)}`
+
+/**
+ * Stage 1, then stage 2 on a flag, each call capped at `hardTimeoutMs` so the check settles. `meter` charges a
+ * call when it settles (meterGuardCall, wrapped by the guard) and is awaited before the outcome is returned, so
+ * the cost is recorded by the time the outcome is acted on. It must not reject.
+ */
+export async function classifyTwoStage<T> (params: {
+  stage1: (abortSignal: AbortSignal) => Promise<{ text: string, usage: LanguageModelUsage }>
+  stage2: (abortSignal: AbortSignal) => Promise<{ object: T, usage: LanguageModelUsage }>
+  cleared: T
+  hardTimeoutMs: number
+  meter: (generated: Promise<{ usage: LanguageModelUsage }>, startedAt: number) => Promise<unknown>
+}): Promise<TwoStageOutcome<T>> {
+  const signal1 = AbortSignal.timeout(params.hardTimeoutMs)
+  const startedAt1 = Date.now()
+  const generated1 = params.stage1(signal1)
+  const metered1 = params.meter(generated1, startedAt1)
+  let flagged: boolean
+  try {
+    flagged = await stage1Answer(generated1)
+  } catch (err) {
+    await metered1
+    return { kind: 'stage1-failed', cause: failureCause(err, signal1), message: messageOf(err) }
+  }
+  await metered1
+  if (!flagged) return { kind: 'verdict', stage1: false, verdict: params.cleared }
+
+  const signal2 = AbortSignal.timeout(params.hardTimeoutMs)
+  const startedAt2 = Date.now()
+  const generated2 = params.stage2(signal2)
+  const metered2 = params.meter(generated2, startedAt2)
+  try {
+    const { object } = await generated2
+    await metered2
+    return { kind: 'verdict', stage1: true, verdict: object }
+  } catch (err) {
+    await metered2
+    return { kind: 'confirm-failed', cause: failureCause(err, signal2), message: messageOf(err) }
+  }
+}

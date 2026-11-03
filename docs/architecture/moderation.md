@@ -5,12 +5,12 @@ Two guards screen the untrusted text that reaches an agent, and they are two sid
 | | Input moderation | Tool-output tripwire |
 |---|---|---|
 | Untrusted text | the person's latest message, with earlier turns as reference-only context | every result of a tool that is not closed-world, cut into windows |
-| Applies | opt-in per organization, to the caller categories it chose | always, wherever a moderator model resolves |
+| Applies | opt-in per organization, to the caller categories it chose | always, wherever a moderator model resolves, unless the deployment switched it off (`tripwire.enabled`) |
 | Policy | misuse of the platform's assistant: abuse, prompt injection, persona override, off-platform use | content addressed to an AI agent that tries to divert it |
 | Stage-1 bias | toward allowing ("when in doubt, answer no"): a wrong block refuses a real person | toward flagging ("when in doubt, answer yes"): a false trip is rare and cheap to review |
 | Stage-2 verdict | `{ action, category, reason }`, `allow` clears a false alarm | `{ suspected, excerpt, reason }`, `false` clears a false alarm |
 | Failure directions | open at both stages: an error, a timeout or an unparseable answer allows the message | stage 1 open; stage 2 after a flag counts as suspected |
-| On a flag | the turn is refused, a stored answer | the result is withheld and the turn stops |
+| Outcome | on a confirmed block: the turn is refused, a stored answer | on a confirmed trip, or a failed confirmation: the result is withheld and the turn stops |
 | Recording | one event per check in `moderation-events` | the trip record on the stored call, notes on the run's `calls` |
 | Monitoring | `moderation-fail-open`, `moderation-block` (warn), `moderation-cooldown` (alert) | `tool-output-tripwire-fail-open`, `-confirm-failed` (warn), `tool-output-tripwire` (alert) |
 
@@ -26,7 +26,7 @@ Both guards read hostile text by design, so their classifier is built the same w
 
 Each guard supplies its policy, its stage-2 schema, its timeouts and its failure directions. Known-answer detection (asking the classifier to repeat a secret, and flagging when it does not) is not used: an adaptive attacker can make the detector answer the secret and still carry the injection (arXiv 2507.05630). Prompt-level defenses fail against attackers who adapt to them, and results depend on the template and the model, so these measures **raise the cost of an attack; they are not a boundary**. They are one layer, to be measured (the prompt-injection simulation cases) rather than assumed, beside the deterministic approval gate planned below.
 
-**Probe.** The admin activity page checks both guards against the live moderator config via `POST /api/moderation/:type/:id/probe` (`runProbe`, `runTripwireProbe`): three canned messages through moderation's two stages, and three canned tool results through the tripwire's (a table carrying an `x-agent` column hint, a page addressing the agent, text addressed to the classifier). Each row reports the stage-1 answer, the final verdict, latency and error, which is what shows a provider rejecting the stage-1 budget before production fails open on every check. Probes are metered at account level and write **no** events or trip records, so stats reflect only real traffic.
+**Probe.** The admin activity page checks both guards against the live moderator config via `POST /api/moderation/:type/:id/probe` (`runProbe`, `runTripwireProbe`): three canned messages through moderation's two stages, and three canned tool results through the tripwire's (a table carrying an `x-agent` column hint, a page addressing the agent, text addressed to the classifier). The two sets run at the same time. Each row reports the stage-1 answer, the final verdict, latency and error, the provider's message included, which is what shows a provider rejecting the stage-1 budget before production fails open on every check. The tripwire's set runs even when the deployment switched it off (it checks the model); the response's `tripwireEnabled` says so and the page marks the set off. Probes are metered at account level and write **no** events or trip records, so stats reflect only real traffic.
 
 ## Input moderation
 
@@ -63,7 +63,7 @@ sequenceDiagram
 
 **Refusals are stored answers.** A blocked turn finishes with stop reason `completed` and an assistant message holding the English `MODERATION_REFUSAL` text plus a `data-refusal` part (`{ kind: 'moderation' }`). The model, review and the export read the text; the chat renders its own localized sentence from the part (`AgentChat.vue` `formatRefusal`). The blocked user message and the refusal stay in the conversation like any other turn.
 
-**Strikes (untrusted only).** The gate blocks individual messages for every moderated category, but the strike/cooldown lockout is an anti-abuse measure reserved for **untrusted** callers (anonymous/external): only their blocks accrue strikes, and only they can be cooldown-refused. A moderated trusted member (e.g. an org `user`/`contrib`) gets each abusive message blocked but is never locked out. 5 blocks within 24h arm a 1h cooldown (`moderation-strikes` collection, keyed by the usage identity `anon:<ip-hash>` / user id, TTL 48h) during which the caller is refused without any classifier or model call.
+**Strikes (untrusted only).** The gate blocks individual messages for every moderated category, but the strike/cooldown lockout is an anti-abuse measure reserved for **untrusted** callers (anonymous/external): only their blocks accrue strikes, and only they can be cooldown-refused. A moderated trusted member (e.g. an org `user`/`contrib`) gets each abusive message blocked but is never locked out. 5 blocks within 24h arm a 1h cooldown (`moderation-strikes` collection, keyed by the usage identity `anon:<ip-hash>` / user id, TTL 48h) during which the caller is refused without any classifier or model call. A block counted during a running cooldown (a concurrent message that passed the check before it was armed, or a late block) neither extends nor re-arms it, so each cooldown alerts once; past it, within the same window, the next block arms a new one.
 
 **Spend.** Each classifier call (one, or two on a flag) is recorded in the usage ledger under model role `moderator`, added to the run's credits and recorded in the run's per-call telemetry (`runs.calls`), so a blocked turn shows what it cost. A late verdict is in the ledger only.
 

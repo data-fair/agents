@@ -22,5 +22,7 @@ export interface ModerationStrike {
   count: number
   windowStartedAt: Date
   cooldownUntil?: Date
+  /** The update that armed the running cooldown (registerBlockStrike): its alert is that update's alone. */
+  cooldownArmedBy?: string
   updatedAt: Date // BSON Date — TTL target (48h)
 }

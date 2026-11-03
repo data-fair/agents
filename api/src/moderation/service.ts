@@ -2,13 +2,14 @@
  * service.ts contains stateful moderation logic: strike accounting, event
  * recording, the moderation run behind the turn gate and the admin probe.
  */
+import { randomUUID } from 'node:crypto'
 import mongo from '#mongo'
-import { NoObjectGeneratedError, type LanguageModel, type LanguageModelUsage } from 'ai'
+import type { LanguageModel, LanguageModelUsage } from 'ai'
 import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
 import type { UsageIdentity } from '../usage/operations.ts'
-import { newNonce, stage1Call, stage1Answer, stage2Call, meterGuardCall, Stage1UnparseableError } from '../guard/service.ts'
+import { newNonce, stage1Call, stage2Call, meterGuardCall, classifyTwoStage, describeFailedStage, type TwoStageOutcome } from '../guard/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import {
@@ -40,9 +41,14 @@ async function registerBlockStrike (owner: AccountKeys, userId: string, logField
     const now = new Date()
     const windowCutoff = new Date(now.getTime() - STRIKE_WINDOW_MS)
     const cooldownEnd = new Date(now.getTime() + STRIKE_COOLDOWN_MS)
+    const armId = randomUUID()
     // Single atomic pipeline update: increment within an active window, reset a
     // stale one, and arm the cooldown when the threshold is reached — concurrent
-    // blocks cannot lose increments the way a read-modify-write would.
+    // blocks cannot lose increments the way a read-modify-write would. A cooldown
+    // still running is kept as it is: a block counted during it (a concurrent one
+    // that passed the cooldown check before it was armed, or a late block) neither
+    // extends it nor arms it again, so each cooldown is armed, and alerted, once.
+    // Past it, within the same window, the next block arms a new one.
     const strike = await mongo.moderationStrikes.findOneAndUpdate(
       { 'owner.type': owner.type, 'owner.id': owner.id, userId },
       [
@@ -56,17 +62,36 @@ async function registerBlockStrike (owner: AccountKeys, userId: string, logField
           }
         },
         {
-          // reads the count updated by the previous stage
+          // reads the count updated by the previous stage, and the cooldown as it was: this update's id when it
+          // arms one, the arming update's while it runs
           $set: {
-            cooldownUntil: { $cond: [{ $gte: ['$count', STRIKE_THRESHOLD] }, cooldownEnd, '$$REMOVE'] }
+            cooldownArmedBy: {
+              $cond: [
+                { $lt: ['$count', STRIKE_THRESHOLD] },
+                '$$REMOVE',
+                { $cond: [{ $gt: ['$cooldownUntil', now] }, '$cooldownArmedBy', armId] }
+              ]
+            }
+          }
+        },
+        {
+          $set: {
+            cooldownUntil: {
+              $cond: [
+                { $eq: ['$cooldownArmedBy', armId] },
+                cooldownEnd,
+                { $cond: [{ $lt: ['$count', STRIKE_THRESHOLD] }, '$$REMOVE', '$cooldownUntil'] }
+              ]
+            }
           }
         }
       ],
-      { upsert: true, returnDocument: 'after', projection: { _id: 0, count: 1, cooldownUntil: 1 } }
+      { upsert: true, returnDocument: 'after', projection: { _id: 0, count: 1, cooldownArmedBy: 1 } }
     )
-    // Armed by this very update (its end is this call's): repeated abuse by one untrusted caller. `alert`, lib-node's
-    // level for security events that deserve the scrutiny of errors, as the tripwire's trips.
-    if (strike?.cooldownUntil?.getTime() === cooldownEnd.getTime()) {
+    // Armed by this very update, not by a concurrent one counted in the same millisecond: repeated abuse by one
+    // untrusted caller. `alert`, lib-node's level for security events that deserve the scrutiny of errors, as the
+    // tripwire's trips.
+    if (strike?.cooldownArmedBy === armId) {
       log.alert('an untrusted caller was blocked repeatedly by input moderation: a cooldown is armed', {
         code: 'moderation-cooldown', ...logFields, strikes: strike.count, cooldownUntil: cooldownEnd.toISOString()
       })
@@ -88,69 +113,39 @@ export function recordStrikeRefusal (owner: AccountKeys, identity: UsageIdentity
 
 // ---- the two-stage classification (the shared engine, api/src/guard) ----
 
-type FailureCause = 'error' | 'timeout' | 'unparseable'
-
 /**
  * What one check came to. Stage 1 answers one word; only a `yes` goes to stage 2, whose verdict decides (an
  * `allow` there clears a false alarm). Moderation fails OPEN at both stages: what to do with a failure is the
  * caller's, which is why it is returned rather than thrown.
  */
-export type ModerationDecision =
-  | { kind: 'verdict', stage1: boolean, verdict: ModerationVerdict }
-  | { kind: 'stage1-failed', cause: FailureCause }
-  | { kind: 'confirm-failed', cause: FailureCause }
-
-const causeOf = (err: unknown, signal: AbortSignal): FailureCause =>
-  signal.aborted ? 'timeout' : (err instanceof Stage1UnparseableError || NoObjectGeneratedError.isInstance(err)) ? 'unparseable' : 'error'
+export type ModerationDecision = TwoStageOutcome<ModerationVerdict>
 
 /**
- * Both stages, each call capped at MODERATION_HARD_TIMEOUT_MS so every check settles. `charge` meters a call when
- * it settles (meterGuardCall, unparseable answers included) and the stage awaits it, so a refused turn's cost is
- * on its run by the time the refusal is.
+ * Both stages (classifyTwoStage), each call capped at MODERATION_HARD_TIMEOUT_MS so every check settles. `charge`
+ * meters a call when it settles (meterGuardCall, unparseable answers included) and the stage awaits it, so a
+ * refused turn's cost is on its run by the time the refusal is.
  */
-async function classifyMessage (
+function classifyMessage (
   model: LanguageModel,
   input: ModerationInput,
   charge: (usage: LanguageModelUsage, startedAt: number) => Promise<unknown>
 ): Promise<ModerationDecision> {
   const instructions = buildModerationSystemPrompt()
-  const metered = (generated: Promise<{ usage: LanguageModelUsage }>, startedAt: number) =>
-    meterGuardCall(generated, usage => charge(usage, startedAt))
+  return classifyTwoStage({
+    stage1: abortSignal => stage1Call({ model, instructions, content: moderationMessage(input, 1), abortSignal }),
+    stage2: abortSignal => stage2Call({
+      model,
+      schema: verdictSchema,
+      maxOutputTokens: MODERATION_STAGE2_MAX_TOKENS,
+      instructions,
+      content: moderationMessage(input, 2),
+      abortSignal
+    }),
+    cleared: { action: 'allow' },
+    hardTimeoutMs: MODERATION_HARD_TIMEOUT_MS,
+    meter: (generated, startedAt) => meterGuardCall(generated, usage => charge(usage, startedAt))
       .catch(err => log.error('a moderation call could not be metered', { code: 'moderation-charge', err }))
-
-  const signal1 = AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
-  const startedAt1 = Date.now()
-  const generated1 = stage1Call({ model, instructions, content: moderationMessage(input, 1), abortSignal: signal1 })
-  const metered1 = metered(generated1, startedAt1)
-  let flagged: boolean
-  try {
-    flagged = await stage1Answer(generated1)
-  } catch (err) {
-    await metered1
-    return { kind: 'stage1-failed', cause: causeOf(err, signal1) }
-  }
-  await metered1
-  if (!flagged) return { kind: 'verdict', stage1: false, verdict: { action: 'allow' } }
-
-  const signal2 = AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
-  const startedAt2 = Date.now()
-  const generated2 = stage2Call({
-    model,
-    schema: verdictSchema,
-    maxOutputTokens: MODERATION_STAGE2_MAX_TOKENS,
-    instructions,
-    content: moderationMessage(input, 2),
-    abortSignal: signal2
   })
-  const metered2 = metered(generated2, startedAt2)
-  try {
-    const { object } = await generated2
-    await metered2
-    return { kind: 'verdict', stage1: true, verdict: object }
-  } catch (err) {
-    await metered2
-    return { kind: 'confirm-failed', cause: causeOf(err, signal2) }
-  }
 }
 
 // ---- the moderation run behind the turn gate (conversations/turn-gates.ts) ----
@@ -246,7 +241,7 @@ export function startModeration (params: {
       usage,
       ...(params.run && !timedOut ? { run: { run: params.run, durationMs: Date.now() - callStartedAt } } : {})
     }))
-  })().catch((): ModerationDecision => ({ kind: 'stage1-failed', cause: 'error' }))
+  })().catch((err): ModerationDecision => ({ kind: 'stage1-failed', cause: 'error', message: err instanceof Error ? err.message : String(err) }))
 
   decision.then(d => {
     // A failure after the gate opened on its timeout was logged then.
@@ -308,9 +303,6 @@ export interface ProbeResult {
   error?: string
 }
 
-const probeError = (d: Exclude<ModerationDecision, { kind: 'verdict' }>): string =>
-  `${d.kind === 'stage1-failed' ? 'the first stage' : 'the confirmation stage'} failed: ${d.cause === 'unparseable' ? 'its answer could not be parsed' : d.cause === 'timeout' ? 'it timed out' : 'the model call failed'}`
-
 // Runs the canned probes through the real two-stage classification against the live moderator config. Metered at
 // account level, NOT written to moderation-events (it would pollute the stats).
 export async function runProbe (settings: Settings, owner: AccountKeys): Promise<ProbeResult[]> {
@@ -325,7 +317,7 @@ export async function runProbe (settings: Settings, owner: AccountKeys): Promise
     if (d.kind === 'verdict') {
       results.push({ key: probe.key, message: probe.message, stage1: d.stage1 ? 'yes' : 'no', action: d.verdict.action, ...(d.verdict.category ? { category: d.verdict.category } : {}), latencyMs })
     } else {
-      results.push({ key: probe.key, message: probe.message, ...(d.kind === 'confirm-failed' ? { stage1: 'yes' as const } : {}), error: probeError(d), latencyMs })
+      results.push({ key: probe.key, message: probe.message, ...(d.kind === 'confirm-failed' ? { stage1: 'yes' as const } : {}), error: describeFailedStage(d), latencyMs })
     }
   }
   return results

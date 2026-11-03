@@ -5,7 +5,7 @@
  */
 import mongo from '#mongo'
 import config from '#config'
-import { NoObjectGeneratedError, type LanguageModel, type LanguageModelUsage } from 'ai'
+import type { LanguageModel, LanguageModelUsage } from 'ai'
 import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
@@ -13,7 +13,9 @@ import type { UsageIdentity } from '../usage/operations.ts'
 import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import { recordCall } from '../conversations/turn-telemetry.ts'
-import { newNonce, stage1Call, stage1Answer, stage2Call, meterGuardCall, Stage1UnparseableError } from '../guard/service.ts'
+import {
+  newNonce, stage1Call, stage1Answer, stage2Call, meterGuardCall, classifyTwoStage, failureCause, describeFailure, describeFailedStage
+} from '../guard/service.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { pushTaskEvent } from '../tasks/notifications.ts'
 import { withholdStoredResult, type StoredResultPlace } from '../conversations/service.ts'
@@ -155,9 +157,8 @@ export const createTurnTripwire = (ctx: {
     return generated.then(({ object }) => object, (err): TripwireVerdict => {
       // The turn was stopped: it gets the abort (withProvenance), not a trip nobody caused.
       if (ctx.abortSignal.aborted) throw err
-      const cause = signal.aborted
-        ? 'it timed out'
-        : NoObjectGeneratedError.isInstance(err) ? 'its answer could not be parsed' : 'the model call failed'
+      // A static phrase, without the provider's message: it is a log field and the trip record's reason.
+      const cause = describeFailure(failureCause(err, signal))
       log.warn('the tripwire confirmation step failed: the flagged result counts as suspected', { code: 'tool-output-tripwire-confirm-failed', runId: ctx.run.id, agentId: ctx.agent.id, model: entry.id, cause })
       recordCall(ctx.run, { modelRole: 'moderator', entry, usage: { inputTokens: 0, outputTokens: 0 }, credits: 0, durationMs: Date.now() - startedAt, note: 'tripwire-confirm-failed' })
       return { suspected: true, excerpt: TRIPWIRE_CONFIRM_FAILED_EXCERPT, reason: `The first screening flagged this result and the confirmation step failed: ${cause}.` }
@@ -330,45 +331,35 @@ export interface TripwireProbeResult {
   error?: string
 }
 
-const failureOf = (err: unknown, signal: AbortSignal): string =>
-  signal.aborted ? 'it timed out' : NoObjectGeneratedError.isInstance(err) || err instanceof Stage1UnparseableError ? 'its answer could not be parsed' : `the model call failed (${err instanceof Error ? err.message : String(err)})`
-
 /** Metered at account level; no run, no trip record, no event. */
 export async function runTripwireProbe (settings: Settings | null, owner: AccountKeys): Promise<TripwireProbeResult[]> {
   const { model, entry } = resolveRoleModel(settings, 'moderator')
-  const charge = (generated: Promise<{ usage: LanguageModelUsage }>) =>
+  const meter = (generated: Promise<{ usage: LanguageModelUsage }>) =>
     meterGuardCall(generated, usage => chargeModelCall({ owner, identity: null, modelRole: 'moderator', entry, usage }))
       .catch(err => log.error('a tripwire probe call could not be metered', { code: 'tool-output-tripwire-charge', err }))
   const results: TripwireProbeResult[] = []
   for (const probe of TRIPWIRE_PROBES) {
     const startedAt = Date.now()
     const nonce = newNonce()
+    const outcome = await classifyTwoStage({
+      stage1: abortSignal => tripwireStage1(model, probe, probe.text, nonce, abortSignal),
+      stage2: abortSignal => tripwireStage2(model, probe, probe.text, nonce, abortSignal),
+      cleared: { suspected: false },
+      hardTimeoutMs: TRIPWIRE_HARD_TIMEOUT_MS,
+      meter
+    })
     const base = { key: probe.key, text: probe.text }
-    const signal1 = AbortSignal.timeout(TRIPWIRE_HARD_TIMEOUT_MS)
-    const generated1 = tripwireStage1(model, probe, probe.text, nonce, signal1)
-    let flagged: boolean
-    try {
-      flagged = await stage1Answer(generated1)
-    } catch (err) {
-      await charge(generated1)
-      results.push({ ...base, error: `the first stage failed: ${failureOf(err, signal1)}`, latencyMs: Date.now() - startedAt })
-      continue
-    }
-    await charge(generated1)
-    if (!flagged) {
-      results.push({ ...base, stage1: 'no', suspected: false, latencyMs: Date.now() - startedAt })
-      continue
-    }
-    const signal2 = AbortSignal.timeout(TRIPWIRE_HARD_TIMEOUT_MS)
-    const generated2 = tripwireStage2(model, probe, probe.text, nonce, signal2)
-    try {
-      const { object } = await generated2
-      results.push({ ...base, stage1: 'yes', suspected: object.suspected, ...(object.reason ? { reason: object.reason } : {}), latencyMs: Date.now() - startedAt })
-    } catch (err) {
+    const latencyMs = Date.now() - startedAt
+    if (outcome.kind === 'verdict') {
+      const { verdict } = outcome
+      results.push({ ...base, stage1: outcome.stage1 ? 'yes' : 'no', suspected: verdict.suspected, ...(verdict.reason ? { reason: verdict.reason } : {}), latencyMs })
+    } else if (outcome.kind === 'confirm-failed') {
       // As in a turn: a confirmation that fails after a flag counts as suspected.
-      results.push({ ...base, stage1: 'yes', suspected: true, error: `the confirmation stage failed: ${failureOf(err, signal2)}`, latencyMs: Date.now() - startedAt })
+      results.push({ ...base, stage1: 'yes', suspected: true, error: describeFailedStage(outcome), latencyMs })
+    } else {
+      // As in a turn: a first stage that fails lets the result pass unscanned (no verdict).
+      results.push({ ...base, error: describeFailedStage(outcome), latencyMs })
     }
-    await charge(generated2)
   }
   return results
 }
