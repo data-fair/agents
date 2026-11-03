@@ -814,14 +814,16 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     })
     const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
     await enrol(agent.id)
-    // Priced so ONE step costs ~175 credits: ~110 for the assistant's call (its prompt, the tool list
-    // included, is ~1,100 tokens) and ~65 for the tripwire's one-word first stage on the step's tool
+    // Priced so ONE step costs ~90 credits: ~55 for the assistant's call (its prompt, the tool list
+    // included, is ~1,100 tokens) and ~35 for the tripwire's one-word first stage on the step's tool
     // result (its policy prompt is ~650 tokens), which is the same mock model in the moderator role;
-    // a benign result never reaches the second stage. That is deliberately under the 500-credit
+    // a benign result never reaches the second stage. That is deliberately far under the 500-credit
     // per-run budget: if a step blew that first, this test would pass on the wrong ceiling and prove
-    // nothing (at the former 4,000/M one step was ~750). Two steps then cross the 200 account cap.
+    // nothing (at the former 4,000/M one step was ~750). It is also well under the 200 account cap, so
+    // prompts can roughly double before a single step crosses it (steps >= 2 below says so if they do);
+    // the cap is crossed on the second or third step.
     await putMockSettings(admin, 'organization/test1', {
-      models: mockModels({ inputPricePerMillion: 800, outputPricePerMillion: 800 })
+      models: mockModels({ inputPricePerMillion: 400, outputPricePerMillion: 400 })
     })
     const { conv, runId } = await startTurn(agent.id, 'loop forever')
     const run = await awaitRun(orgAdmin, conv.id, runId)

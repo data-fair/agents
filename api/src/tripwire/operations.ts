@@ -29,8 +29,9 @@ export const WITHHELD_RESULT = 'Withheld: this tool result looked like instructi
 // (ENVELOPE_TAGS), a guessed nonce included.
 export const TRIPWIRE_TAG_PREFIX = 'tool_result_'
 const tagOf = (nonce: string) => `${TRIPWIRE_TAG_PREFIX}${nonce.replace(/[^a-zA-Z0-9]/g, '')}`
-// Stage 1 answers one word: a handful of tokens is enough, and leaves no room for free text.
-export const TRIPWIRE_STAGE1_MAX_TOKENS = 5
+// Stage 1 answers one word (parseStage1 reads the first): 16, not fewer, because the OpenAI Responses API refuses a
+// max_output_tokens below 16 and some models spend a few tokens before the answer; still no room for free text.
+export const TRIPWIRE_STAGE1_MAX_TOKENS = 16
 export const TRIPWIRE_STAGE2_MAX_TOKENS = 300
 // A model-chosen URL is named in the stop notice the model reads later: bounded.
 export const SOURCE_URL_MAX_CHARS = 200

@@ -2,6 +2,11 @@
 
 Date: 2026-11-02. Branch: `chore-prompt-injection`.
 
+> **Superseded in part (2026-11-03).** The classifier is now two-stage (a one-word screen, then a structured
+> confirmation on a flag) and its wrapper tag carries a per-call nonce; the single `generateObject` call and the
+> fixed `<tool_result_to_classify>` tag described below are gone. Current behaviour:
+> [moderation.md, "Tool-output tripwire"](../../architecture/moderation.md#tool-output-tripwire).
+
 ## Intent
 
 Prompt injection through tool output is the main open risk of the service. Recommending users not to combine

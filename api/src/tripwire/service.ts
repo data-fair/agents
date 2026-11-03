@@ -102,7 +102,7 @@ export const createTurnTripwire = (ctx: {
   // usage write. As moderation does, a call settling after its window was counted as a pass is in the usage
   // ledger only, the turn has moved on. A late "suspected" is still acted on (lateTrip, below).
   const meter = (generated: Promise<{ usage: LanguageModelUsage }>, startedAt: number, onTime: () => boolean) => {
-    generated.then(async ({ usage }) => {
+    const charge = async (usage: LanguageModelUsage) => {
       const charged = onTime()
       const credits = await chargeModelCall({
         owner: ctx.owner,
@@ -113,7 +113,13 @@ export const createTurnTripwire = (ctx: {
         ...(charged ? { run: { run: ctx.run, durationMs: Date.now() - startedAt } } : {})
       })
       if (charged) ctx.onCredits(credits.total)
-    }, () => { /* a failed call is handled by its stage */ }).catch(err => {
+    }
+    // An answer that could not be parsed was still generated: its tokens are charged (NoObjectGeneratedError
+    // carries them). Other failures are handled by their stage. Stage 1 parses its text itself, after this
+    // promise resolved, so an unparseable stage-1 answer is charged by the first branch.
+    generated.then(({ usage }) => charge(usage), err => {
+      if (NoObjectGeneratedError.isInstance(err) && err.usage) return charge(err.usage)
+    }).catch(err => {
       if (!ctx.abortSignal.aborted) log.error('a tripwire call could not be metered', { code: 'tool-output-tripwire-charge', err })
     })
   }
