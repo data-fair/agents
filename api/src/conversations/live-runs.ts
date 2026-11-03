@@ -97,14 +97,29 @@ export const abortRun = async (runId: string): Promise<boolean> => {
  * live run of any trigger is still aborted here.
  */
 export const abortRunsOfConversation = async (conversationId: string, why: 'person-spoke' | 'stop' = 'person-spoke'): Promise<void> => {
-  for (const live of liveRuns.values()) {
-    if (live.conversationId === conversationId) live.controller.abort(new TurnStopped(why))
+  const abortLive = () => {
+    for (const live of liveRuns.values()) {
+      if (live.conversationId === conversationId) live.controller.abort(new TurnStopped(why))
+    }
   }
+  abortLive()
   await mongo.runs.updateMany(
     { conversationId, status: 'running', ...(why === 'person-spoke' ? { trigger: 'user' } : {}) },
     { $set: { abortRequestedAt: new Date().toISOString(), abortReason: why } }
   )
+  // Again, once the write is acknowledged (STOP_ORDERING below).
+  abortLive()
 }
+
+/*
+ * STOP_ORDERING. A turn goes live (liveRuns.set) and then reads its run for a stop (watchStopRequests' initial
+ * read), while the stop above aborts the live turns and then writes the stop on the running runs. Nothing
+ * orders the turn's read and the stop's write: a turn going live after the first abort loop, whose read reaches
+ * mongo before the write, missed both, until its next poll STOP_POLL_MS later, by which time a short turn has
+ * answered (a hello and a prompt sent back to back got two answers). The loop repeated after the write is
+ * acknowledged closes it: a turn live by then is aborted in-process, and one going live after it reads the
+ * stop it writes.
+ */
 
 /**
  * Stop every live turn of one autonomous agent. Returns how many this process actually stopped.
@@ -118,17 +133,23 @@ export const abortRunsOfConversation = async (conversationId: string, why: 'pers
  * ignore — the run's own deadline is the hard backstop.
  */
 export const abortRunsOfAgent = async (agentId: string): Promise<number> => {
-  let stopped = 0
-  for (const live of liveRuns.values()) {
-    if (live.agentId !== agentId) continue
-    live.controller.abort(new TurnStopped('agent-stopped'))
-    stopped++
+  const stopped = new Set<LiveRun>()
+  const abortLive = () => {
+    for (const live of liveRuns.values()) {
+      if (live.agentId !== agentId || stopped.has(live)) continue
+      live.controller.abort(new TurnStopped('agent-stopped'))
+      stopped.add(live)
+    }
   }
+  abortLive()
   await mongo.runs.updateMany(
     { agentId, status: 'running' },
     { $set: { abortRequestedAt: new Date().toISOString(), abortReason: 'agent-stopped' } }
   )
-  return stopped
+  // Again, once the write is acknowledged: a turn that went live meanwhile may have read its run before it
+  // (STOP_ORDERING, above).
+  abortLive()
+  return stopped.size
 }
 
 /**
