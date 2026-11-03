@@ -432,17 +432,29 @@ function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
 
 /**
  * The tool-output tripwire's classifier (api/src/tripwire), for any mock model id: it judges only the text inside
- * <tool_result_to_classify>. "INJECTION_PROBE" or an "ignore (all/previous) instructions" phrase is suspected, with
- * the matched phrase as excerpt; "BROKEN_CLASSIFIER" answers unparseable text (fail open on error); "slow tripwire"
- * delays the verdict past the tripwire timeout (fail open on timeout).
+ * the nonce-tagged wrapper, and reads the stage from the instruction after it (content cannot claim a stage).
+ * Stage 1 answers one word: "yes" on "INJECTION_PROBE", an "ignore (all/previous) instructions" phrase,
+ * "FALSE_ALARM" or "BROKEN_CONFIRM"; "???" (unparseable: fail open) on "BROKEN_CLASSIFIER"; else "no".
+ * "slow tripwire" delays stage 1 past the tripwire timeout (fail open on timeout, then a late verdict). Stage 2
+ * confirms a probe with the matched phrase as excerpt, clears "FALSE_ALARM", answers unparseable text on
+ * "BROKEN_CONFIRM" (a failed confirmation counts as suspected).
  */
+const TRIPWIRE_WRAPPER = /<(tool_result_[0-9a-f]{12})\b[^>]*>([\s\S]*?)<\/\1>([\s\S]*)$/
 export function processMockTripwirePrompt (lastMessage: string): MockPromptResult {
-  const judged = lastMessage.match(/<tool_result_to_classify[^>]*>([\s\S]*?)<\/tool_result_to_classify>/)?.[1] ?? lastMessage
-  if (judged.includes('BROKEN_CLASSIFIER')) return { type: 'text', text: 'not json' }
+  const wrapped = TRIPWIRE_WRAPPER.exec(lastMessage)
+  const judged = wrapped?.[2] ?? lastMessage
+  const instruction = wrapped?.[3] ?? ''
+  if (/confirm or clear/i.test(instruction)) {
+    if (judged.includes('BROKEN_CONFIRM')) return { type: 'text', text: 'not json' }
+    if (judged.includes('FALSE_ALARM')) return { type: 'text', text: '{"suspected":false}' }
+    const matched = judged.match(/ignore (all |previous )+instructions|INJECTION_PROBE/i)?.[0]
+    if (matched) return { type: 'text', text: JSON.stringify({ suspected: true, excerpt: matched, reason: 'mock trip' }) }
+    return { type: 'text', text: '{"suspected":false}' }
+  }
+  if (judged.includes('BROKEN_CLASSIFIER')) return { type: 'text', text: '???' }
   const delayMs = judged.includes('slow tripwire') ? 6000 : undefined
-  const matched = judged.match(/ignore (all |previous )+instructions|INJECTION_PROBE/i)?.[0]
-  if (matched) return { type: 'text', text: JSON.stringify({ suspected: true, excerpt: matched, reason: 'mock trip' }), delayMs }
-  return { type: 'text', text: '{"suspected":false}', delayMs }
+  const flagged = /ignore (all |previous )+instructions|INJECTION_PROBE|FALSE_ALARM|BROKEN_CONFIRM/i.test(judged)
+  return { type: 'text', text: flagged ? 'yes' : 'no', delayMs }
 }
 
 /**
@@ -493,7 +505,7 @@ export function processForModel (modelId: string, options: { prompt: string | Ar
   // The tripwire classifies with the moderator role, which resolves to whatever mock model the account maps
   // (moderator → summarizer → assistant), so its seam answers for any mock id, before every other seam: a
   // tool result quoting a directive ('stall'…) must be classified, not obeyed.
-  if (lastMessage.includes('<tool_result_to_classify')) return processMockTripwirePrompt(lastMessage)
+  if (TRIPWIRE_WRAPPER.test(lastMessage)) return processMockTripwirePrompt(lastMessage)
   // The classifier only ever JUDGES: its prompt wraps the person's message, so a directive meant for
   // the assistant ('stall', 'stream error'…) would otherwise hit the moderator too — a message ending in
   // 'stall' stalled the classifier itself for 30s, and no late verdict could ever be tested.

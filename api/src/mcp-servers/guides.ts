@@ -61,9 +61,10 @@ const attributeSafe = (value: string): string => value.replace(/[^a-zA-Z0-9._/:-
  * loaded skill (guidance), and what the person's page sends (host events and state, hidden context).
  * Defused TOGETHER in every untrusted payload — tool results, server text, skill bodies, memory — because
  * the skill envelope is the one shape the model is told to follow, and a page block speaks for the page:
- * content forging either inside any of the others would wear that authority.
+ * content forging either inside any of the others would wear that authority. `tool_result_` is a prefix: the
+ * tripwire's wrapper tag carries a per-call nonce after it (api/src/tripwire/operations.ts).
  */
-export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions', 'webhook-payload', 'host-events', 'host-state', 'hidden-context', 'tool_result_to_classify']
+export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions', 'webhook-payload', 'host-events', 'host-state', 'hidden-context', 'tool_result_']
 
 // In any letter case, with spaces around the slash, and behind a fullwidth or small `<`: a model reads all
 // of them as the tag. Rewritten to one escaped form; the text's own case of the name is kept.

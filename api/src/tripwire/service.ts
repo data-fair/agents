@@ -5,7 +5,8 @@
  */
 import mongo from '#mongo'
 import config from '#config'
-import { generateObject } from 'ai'
+import { randomBytes } from 'node:crypto'
+import { generateObject, generateText, NoObjectGeneratedError, type LanguageModelUsage } from 'ai'
 import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
@@ -18,8 +19,9 @@ import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { pushTaskEvent } from '../tasks/notifications.ts'
 import { withholdStoredResult, type StoredResultPlace } from '../conversations/service.ts'
 import {
-  tripwireVerdictSchema, buildTripwireSystemPrompt, formatTripwireInput, capForScan, scanWindows, tripSource,
-  injectionEvent, TRIPWIRE_TIMEOUT_MS, TRIPWIRE_HARD_TIMEOUT_MS, TRIPWIRE_EXCERPT_MAX_CHARS,
+  tripwireVerdictSchema, buildTripwireSystemPrompt, tripwireMessage, parseStage1, capForScan, scanWindows, tripSource,
+  injectionEvent, TRIPWIRE_TIMEOUT_MS, TRIPWIRE_HARD_TIMEOUT_MS, TRIPWIRE_EXCERPT_MAX_CHARS, TRIPWIRE_CONFIRM_FAILED_EXCERPT,
+  TRIPWIRE_STAGE1_MAX_TOKENS, TRIPWIRE_STAGE2_MAX_TOKENS,
   type TripRecord, type TripwireVerdict, type ScreenInput, type ScreenResult
 } from './operations.ts'
 
@@ -96,40 +98,90 @@ export const createTurnTripwire = (ctx: {
     recordCall(ctx.run, { modelRole: 'moderator', entry, usage: { inputTokens: 0, outputTokens: 0 }, credits: 0, durationMs, note: 'tripwire-fail-open' })
   }
 
-  const classifyWindow = (call: ScreenInput, window: string): Promise<WindowOutcome> => {
-    const startedAt = Date.now()
-    let timedOut = false
-    const generated = withReasoningDisabled(extra => generateObject({
-      model,
-      schema: tripwireVerdictSchema,
-      temperature: 0,
-      maxOutputTokens: 300,
-      instructions: buildTripwireSystemPrompt(),
-      messages: [{ role: 'user' as const, content: formatTripwireInput({ server: call.server, toolName: call.toolName, text: window }) }],
-      abortSignal: AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(TRIPWIRE_HARD_TIMEOUT_MS)]),
-      ...extra
-    }))
-    // Metered beside the verdict, not before it: the timeout races the model call, not the usage write. As
-    // moderation does, a call settling after its window was counted as a pass is in the usage ledger only, the
-    // turn has moved on. A late "suspected" is still acted on (lateTrip, below).
+  // Each classifier call metered beside its answer, not before it: the timeout races the model call, not the
+  // usage write. As moderation does, a call settling after its window was counted as a pass is in the usage
+  // ledger only, the turn has moved on. A late "suspected" is still acted on (lateTrip, below).
+  const meter = (generated: Promise<{ usage: LanguageModelUsage }>, startedAt: number, onTime: () => boolean) => {
     generated.then(async ({ usage }) => {
-      const onTime = !timedOut
+      const charged = onTime()
       const credits = await chargeModelCall({
         owner: ctx.owner,
         identity: ctx.identity,
         modelRole: 'moderator',
         entry,
         usage,
-        ...(onTime ? { run: { run: ctx.run, durationMs: Date.now() - startedAt } } : {})
+        ...(charged ? { run: { run: ctx.run, durationMs: Date.now() - startedAt } } : {})
       })
-      if (onTime) ctx.onCredits(credits.total)
-    }, () => { /* a failed call is the verdict's fail open, below */ }).catch(err => {
+      if (charged) ctx.onCredits(credits.total)
+    }, () => { /* a failed call is handled by its stage */ }).catch(err => {
       if (!ctx.abortSignal.aborted) log.error('a tripwire call could not be metered', { code: 'tool-output-tripwire-charge', err })
     })
-    const verdict = generated.then(({ object }) => object)
+  }
+
+  const callSignal = () => AbortSignal.any([ctx.abortSignal, AbortSignal.timeout(TRIPWIRE_HARD_TIMEOUT_MS)])
+
+  /**
+   * Stage 2, only after a stage-1 yes: the same policy and wrapped content, asked to confirm or clear. Once
+   * stage 1 flagged, the bias is toward flagging: a confirmation that errs, times out or answers unparseable
+   * text counts as suspected. `onTime` is whether the turn waits for it (its credits then count in the run's).
+   */
+  const confirm = (call: ScreenInput, window: string, nonce: string, onTime: boolean): Promise<TripwireVerdict> => {
+    const startedAt = Date.now()
+    const signal = callSignal()
+    const generated = withReasoningDisabled(extra => generateObject({
+      model,
+      schema: tripwireVerdictSchema,
+      temperature: 0,
+      maxOutputTokens: TRIPWIRE_STAGE2_MAX_TOKENS,
+      instructions: buildTripwireSystemPrompt(),
+      messages: [{ role: 'user' as const, content: tripwireMessage({ server: call.server, toolName: call.toolName, text: window, nonce }, 2) }],
+      abortSignal: signal,
+      ...extra
+    }))
+    meter(generated, startedAt, () => onTime)
+    return generated.then(({ object }) => object, (err): TripwireVerdict => {
+      // The turn was stopped: it gets the abort (withProvenance), not a trip nobody caused.
+      if (ctx.abortSignal.aborted) throw err
+      const cause = signal.aborted
+        ? 'it timed out'
+        : NoObjectGeneratedError.isInstance(err) ? 'its answer could not be parsed' : 'the model call failed'
+      recordCall(ctx.run, { modelRole: 'moderator', entry, usage: { inputTokens: 0, outputTokens: 0 }, credits: 0, durationMs: Date.now() - startedAt, note: 'tripwire-confirm-failed' })
+      return { suspected: true, excerpt: TRIPWIRE_CONFIRM_FAILED_EXCERPT, reason: `The first screening flagged this result and the confirmation step failed: ${cause}.` }
+    })
+  }
+
+  /**
+   * Stage 1, every window: one word, erring toward flagging, awaited TRIPWIRE_TIMEOUT_MS. "no" passes; an
+   * error or an answer that is not one yes or no fails open. "yes" holds the result until stage 2 settles.
+   * A yes after the timeout goes through stage 2 too, for a late trip.
+   */
+  const classifyWindow = (call: ScreenInput, window: string): Promise<WindowOutcome> => {
+    const startedAt = Date.now()
+    // The wrapper's tag, unknown to whoever wrote the content: it cannot close it.
+    const nonce = randomBytes(6).toString('hex')
+    let timedOut = false
+    const generated = withReasoningDisabled(extra => generateText({
+      model,
+      temperature: 0,
+      maxOutputTokens: TRIPWIRE_STAGE1_MAX_TOKENS,
+      instructions: buildTripwireSystemPrompt(),
+      messages: [{ role: 'user' as const, content: tripwireMessage({ server: call.server, toolName: call.toolName, text: window, nonce }, 1) }],
+      abortSignal: callSignal(),
+      ...extra
+    }))
+    meter(generated, startedAt, () => !timedOut)
+    const flagged = generated.then(({ text }) => {
+      const answer = parseStage1(text)
+      if (answer === undefined) throw new Error('the tripwire\'s first stage did not answer yes or no')
+      return answer
+    })
     return Promise.race([
-      verdict.then(
-        (v): WindowOutcome => ({ status: 'verdict', verdict: v, window }),
+      flagged.then(
+        async (yes): Promise<WindowOutcome> => {
+          // Lost the race to the timer: the late verdict below runs stage 2, not this branch.
+          if (timedOut) return { status: 'error' }
+          return { status: 'verdict', verdict: yes ? await confirm(call, window, nonce, true) : { suspected: false }, window }
+        },
         (): WindowOutcome => {
           if (!timedOut) recordFailOpen(Date.now() - startedAt)
           return { status: 'error' }
@@ -139,10 +191,10 @@ export const createTurnTripwire = (ctx: {
         const timer = setTimeout(() => {
           timedOut = true
           recordFailOpen(Date.now() - startedAt)
-          resolve({ status: 'timeout', late: verdict })
+          resolve({ status: 'timeout', late: flagged.then(yes => yes ? confirm(call, window, nonce, false) : { suspected: false }) })
         }, TRIPWIRE_TIMEOUT_MS)
         timer.unref?.()
-        verdict.finally(() => clearTimeout(timer)).catch(() => {})
+        flagged.finally(() => clearTimeout(timer)).catch(() => {})
       })
     ])
   }
