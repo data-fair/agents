@@ -38,7 +38,7 @@ router.get('/:type/:id/stats', async (req, res) => {
     // the silent-breakage alarm sample: last 24h fail-open rate
     mongo.moderationEvents.aggregate([
       { $match: { ...ownerFilter, createdAt: { $gte: last24h }, action: { $ne: 'strike-refusal' } } },
-      { $group: { _id: null, checks: { $sum: 1 }, failOpen: { $sum: { $cond: [{ $in: ['$action', ['fail-open-timeout', 'fail-open-error']] }, 1, 0] } } } }
+      { $group: { _id: null, checks: { $sum: 1 }, failOpen: { $sum: { $cond: [{ $in: ['$action', ['fail-open-timeout', 'fail-open-error', 'fail-open-confirm']] }, 1, 0] } } } }
     ]).toArray()
   ])
 

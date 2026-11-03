@@ -1,6 +1,6 @@
 import type { EffectiveRole } from '../auth.ts'
 
-export type ModerationEventAction = 'allow' | 'block' | 'late-block' | 'fail-open-timeout' | 'fail-open-error' | 'strike-refusal'
+export type ModerationEventAction = 'allow' | 'block' | 'late-block' | 'fail-open-timeout' | 'fail-open-error' | 'fail-open-confirm' | 'strike-refusal'
 
 export interface ModerationEvent {
   owner: { type: string, id: string }

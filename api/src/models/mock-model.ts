@@ -405,28 +405,38 @@ function processMockSummarizerPrompt (): MockPromptResult {
 }
 
 /**
- * mock-moderator: returns a deterministic moderation verdict as JSON text
- * (parseable by generateObject). When the moderation run wraps conversation context,
- * it judges ONLY the <message_to_moderate> portion — mirroring the real prompt's
- * isolation rule. Messages containing "jailbreak" or an "ignore (all/previous)
- * instructions" phrase are blocked as prompt-injection, "fuck" as profanity;
- * everything else is allowed. "slow moderation" delays the verdict past the gate
- * timeout (fail-open / late-block paths). The "CTXSEEN" sentinel in the context
- * surfaces (as category "ctx-seen" on an allow) that prior turns were forwarded.
+ * The input-moderation classifier (api/src/moderation), for any mock model id. It judges ONLY the text inside the
+ * nonce-tagged message wrapper, never the context wrapper before it, mirroring the real prompt's isolation rule,
+ * and reads the stage from the instruction after them (a message cannot claim a stage).
+ * Stage 1 answers one word: "yes" on a block trigger ("jailbreak" or an "ignore (all/previous) instructions" phrase,
+ * "fuck"), on "MOD_FALSE_ALARM" and "MOD_BROKEN_CONFIRM", and on the "CTXSEEN" sentinel in the context; else "no".
+ * "slow moderation" delays stage 1 past the gate timeout (fail-open / late-block paths).
+ * Stage 2: a block as prompt-injection or profanity, `{"action":"allow"}` for "MOD_FALSE_ALARM", "not json" for
+ * "MOD_BROKEN_CONFIRM", and an allow with category "ctx-seen" when the context carried "CTXSEEN" (surfacing that
+ * prior turns were forwarded). A bare message, with no wrapper, is answered with the stage-2 verdict directly.
  */
+const MODERATION_WRAPPER = /<(user_message_[0-9a-f]{12})>([\s\S]*?)<\/\1>([\s\S]*)$/
+const MODERATION_CONTEXT = /<(conversation_context_[0-9a-f]{12})>([\s\S]*?)<\/\1>/
 function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
-  const judged = lastMessage.match(/<message_to_moderate>([\s\S]*?)<\/message_to_moderate>/)?.[1] ?? lastMessage
-  const context = lastMessage.match(/<conversation_context>([\s\S]*?)<\/conversation_context>/)?.[1] ?? ''
-  const delayMs = /slow moderation/i.test(judged) ? 6000 : undefined
-  if (/jailbreak|ignore (all |previous )+instructions/i.test(judged)) {
-    return { type: 'text', text: '{"action":"block","category":"prompt-injection","reason":"mock block"}', delayMs }
+  const wrapped = MODERATION_WRAPPER.exec(lastMessage)
+  const judged = wrapped?.[2] ?? lastMessage
+  const context = MODERATION_CONTEXT.exec(lastMessage)?.[2] ?? ''
+  const blockOf = (): string | undefined => {
+    if (/jailbreak|ignore (all |previous )+instructions/i.test(judged)) return '{"action":"block","category":"prompt-injection","reason":"mock block"}'
+    if (/\bfuck/i.test(judged)) return '{"action":"block","category":"profanity","reason":"mock profanity"}'
   }
-  if (/\bfuck/i.test(judged)) {
-    return { type: 'text', text: '{"action":"block","category":"profanity","reason":"mock profanity"}', delayMs }
+  const slow = /slow moderation/i.test(judged) ? 6000 : undefined
+  if (wrapped && !/confirm or clear/i.test(wrapped[3])) {
+    const flagged = !!blockOf() || /MOD_FALSE_ALARM|MOD_BROKEN_CONFIRM/.test(judged) || /CTXSEEN/.test(context)
+    return { type: 'text', text: flagged ? 'yes' : 'no', delayMs: slow }
   }
-  if (/CTXSEEN/.test(context)) {
-    return { type: 'text', text: '{"action":"allow","category":"ctx-seen"}', delayMs }
-  }
+  // Stage 2 (or a bare message): only stage 1 is slow, so a late verdict lands soon after the gate opened.
+  const delayMs = wrapped ? undefined : slow
+  if (judged.includes('MOD_BROKEN_CONFIRM')) return { type: 'text', text: 'not json', delayMs }
+  if (judged.includes('MOD_FALSE_ALARM')) return { type: 'text', text: '{"action":"allow"}', delayMs }
+  const block = blockOf()
+  if (block) return { type: 'text', text: block, delayMs }
+  if (/CTXSEEN/.test(context)) return { type: 'text', text: '{"action":"allow","category":"ctx-seen"}', delayMs }
   return { type: 'text', text: '{"action":"allow"}', delayMs }
 }
 
@@ -506,6 +516,8 @@ export function processForModel (modelId: string, options: { prompt: string | Ar
   // (moderator → summarizer → assistant), so its seam answers for any mock id, before every other seam: a
   // tool result quoting a directive ('stall'…) must be classified, not obeyed.
   if (TRIPWIRE_WRAPPER.test(lastMessage)) return processMockTripwirePrompt(lastMessage)
+  // Input moderation likewise: its wrapper is recognised for any mock id (the moderator role falls back too).
+  if (MODERATION_WRAPPER.test(lastMessage)) return processMockModeratorPrompt(lastMessage)
   // The classifier only ever JUDGES: its prompt wraps the person's message, so a directive meant for
   // the assistant ('stall', 'stream error'…) would otherwise hit the moderator too — a message ending in
   // 'stall' stalled the classifier itself for 30s, and no late verdict could ever be tested.

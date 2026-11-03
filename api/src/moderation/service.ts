@@ -3,17 +3,19 @@
  * recording, the moderation run behind the turn gate and the admin probe.
  */
 import mongo from '#mongo'
-import { generateObject } from 'ai'
+import { NoObjectGeneratedError, type LanguageModel, type LanguageModelUsage } from 'ai'
+import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
 import type { UsageIdentity } from '../usage/operations.ts'
-import { withReasoningDisabled } from '../guard/service.ts'
+import { newNonce, stage1Call, stage1Answer, stage2Call, meterGuardCall, Stage1UnparseableError } from '../guard/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import {
-  buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, formatModerationInput,
+  buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, moderationMessage,
   verdictSchema, isInCooldown,
-  MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS,
+  MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS, MODERATION_STAGE2_MAX_TOKENS,
+  type ModerationInput,
   STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
   type ModerationVerdict
 } from './operations.ts'
@@ -77,6 +79,73 @@ export function recordStrikeRefusal (owner: AccountKeys, identity: UsageIdentity
   })
 }
 
+// ---- the two-stage classification (the shared engine, api/src/guard) ----
+
+type FailureCause = 'error' | 'timeout' | 'unparseable'
+
+/**
+ * What one check came to. Stage 1 answers one word; only a `yes` goes to stage 2, whose verdict decides (an
+ * `allow` there clears a false alarm). Moderation fails OPEN at both stages: what to do with a failure is the
+ * caller's, which is why it is returned rather than thrown.
+ */
+export type ModerationDecision =
+  | { kind: 'verdict', stage1: boolean, verdict: ModerationVerdict }
+  | { kind: 'stage1-failed', cause: FailureCause }
+  | { kind: 'confirm-failed', cause: FailureCause }
+
+const causeOf = (err: unknown, signal: AbortSignal): FailureCause =>
+  signal.aborted ? 'timeout' : (err instanceof Stage1UnparseableError || NoObjectGeneratedError.isInstance(err)) ? 'unparseable' : 'error'
+
+/**
+ * Both stages, each call capped at MODERATION_HARD_TIMEOUT_MS so every check settles. `charge` meters a call when
+ * it settles (meterGuardCall, unparseable answers included) and the stage awaits it, so a refused turn's cost is
+ * on its run by the time the refusal is.
+ */
+async function classifyMessage (
+  model: LanguageModel,
+  input: ModerationInput,
+  charge: (usage: LanguageModelUsage, startedAt: number) => Promise<unknown>
+): Promise<ModerationDecision> {
+  const instructions = buildModerationSystemPrompt()
+  const metered = (generated: Promise<{ usage: LanguageModelUsage }>, startedAt: number) =>
+    meterGuardCall(generated, usage => charge(usage, startedAt))
+      .catch(err => log.error('a moderation call could not be metered', { code: 'moderation-charge', err }))
+
+  const signal1 = AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
+  const startedAt1 = Date.now()
+  const generated1 = stage1Call({ model, instructions, content: moderationMessage(input, 1), abortSignal: signal1 })
+  const metered1 = metered(generated1, startedAt1)
+  let flagged: boolean
+  try {
+    flagged = await stage1Answer(generated1)
+  } catch (err) {
+    await metered1
+    return { kind: 'stage1-failed', cause: causeOf(err, signal1) }
+  }
+  await metered1
+  if (!flagged) return { kind: 'verdict', stage1: false, verdict: { action: 'allow' } }
+
+  const signal2 = AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
+  const startedAt2 = Date.now()
+  const generated2 = stage2Call({
+    model,
+    schema: verdictSchema,
+    maxOutputTokens: MODERATION_STAGE2_MAX_TOKENS,
+    instructions,
+    content: moderationMessage(input, 2),
+    abortSignal: signal2
+  })
+  const metered2 = metered(generated2, startedAt2)
+  try {
+    const { object } = await generated2
+    await metered2
+    return { kind: 'verdict', stage1: true, verdict: object }
+  } catch (err) {
+    await metered2
+    return { kind: 'confirm-failed', cause: causeOf(err, signal2) }
+  }
+}
+
 // ---- the moderation run behind the turn gate (conversations/turn-gates.ts) ----
 
 export interface ModerationGateResult {
@@ -102,10 +171,10 @@ export function startModeration (params: {
   context: string
   modelRole: string
   /**
-   * The turn this check gates. The classifier call belongs to its spend (port of main's #74): onto the
-   * run, so the per-run budget and the conversation's total see it, and into the run's telemetry like
+   * The turn this check gates. The classifier calls belong to its spend (port of main's #74): onto the
+   * run, so the per-run budget and the conversation's total see them, and into the run's telemetry like
    * every other model call — a run whose credits exceeded its calls left the difference unexplained,
-   * and a blocked turn looked free. Not when the verdict lands AFTER the gate failed open: the run has
+   * and a blocked turn looked free. Not when a call settles AFTER the gate failed open: the run has
    * moved on by then, so that call is in the usage ledger only.
    */
   run?: ConversationRun
@@ -113,8 +182,7 @@ export function startModeration (params: {
   const { settings, owner, identity, modelRole } = params
   const speaker = params.speaker ?? identity
   const startedAt = Date.now()
-  const message = truncateForModeration(params.message)
-  const moderationInput = formatModerationInput(params.context, message)
+  const input: ModerationInput = { context: params.context, message: truncateForModeration(params.message), nonce: newNonce() }
   const eventBase = {
     owner: { type: owner.type, id: owner.id },
     role: speaker.role,
@@ -142,39 +210,23 @@ export function startModeration (params: {
     if (speaker.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
   }
 
-  const verdictPromise: Promise<ModerationVerdict> = (async () => {
+  const decision: Promise<ModerationDecision> = (async () => {
     const { model, entry } = resolveRoleModel(settings, 'moderator')
-    // The verdict is one short JSON object and this call is on the critical path to
-    // the first token (see MODERATION_TIMEOUT_MS), so the budget is intentionally tiny.
-    // A reasoning ("thinking") model would otherwise spend the whole budget on hidden
-    // reasoning_content and return content:null → the parse fails and we fail open.
-    // Ask the provider to disable thinking via reasoning_effort:none (honoured by
-    // Scaleway/GLM and other OpenAI-compatible reasoning models; keyed by
-    // OPENAI_COMPATIBLE_PROVIDER_NAME, and silently ignored by non-openai-compatible
-    // providers). Non-reasoning OpenAI-compatible models reject reasoning_effort with a
-    // 400 — those retry once without it.
-    const baseArgs = {
-      model,
-      schema: verdictSchema,
-      temperature: 0,
-      maxOutputTokens: 100,
-      instructions: buildModerationSystemPrompt(),
-      messages: [{ role: 'user' as const, content: moderationInput }],
-      abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
-    }
-    const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...baseArgs, ...extra }))
-    await chargeModelCall({
+    return await classifyMessage(model, input, (usage, callStartedAt) => chargeModelCall({
       owner,
       identity,
       modelRole: 'moderator',
       entry,
       usage,
-      ...(params.run && !timedOut ? { run: { run: params.run, durationMs: Date.now() - startedAt } } : {})
-    })
-    return object
-  })()
+      ...(params.run && !timedOut ? { run: { run: params.run, durationMs: Date.now() - callStartedAt } } : {})
+    }))
+  })().catch((): ModerationDecision => ({ kind: 'stage1-failed', cause: 'error' }))
 
-  verdictPromise.then(verdict => {
+  decision.then(d => {
+    if (d.kind === 'stage1-failed') return finalize('fail-open-error')
+    // Stage 1 flagged and the confirmation failed: still open, the guard never refuses on a failure.
+    if (d.kind === 'confirm-failed') return finalize('fail-open-confirm')
+    const { verdict } = d
     if (!timedOut) {
       finalize(verdict.action, verdict)
     } else if (verdict.action === 'block') {
@@ -183,15 +235,12 @@ export function startModeration (params: {
     } else {
       finalize('fail-open-timeout', verdict)
     }
-  }, () => {
-    finalize('fail-open-error')
   })
 
+  // The gate waits MODERATION_TIMEOUT_MS in all: a stage-1 yes inside it waits for stage 2 within what remains,
+  // then fails open; a block confirmed after that is the late-block path above.
   const gate: Promise<ModerationGateResult> = Promise.race([
-    verdictPromise.then(
-      verdict => ({ action: verdict.action }) as ModerationGateResult,
-      () => ({ action: 'allow' }) as ModerationGateResult
-    ),
+    decision.then(d => ({ action: d.kind === 'verdict' ? d.verdict.action : 'allow' }) as ModerationGateResult),
     new Promise<ModerationGateResult>(resolve => {
       const timer = setTimeout(() => {
         timedOut = true
@@ -199,6 +248,7 @@ export function startModeration (params: {
       }, MODERATION_TIMEOUT_MS)
       // do not keep the process alive for the gate timer alone
       timer.unref?.()
+      decision.finally(() => clearTimeout(timer))
     })
   ])
 
@@ -216,41 +266,32 @@ export const PROBE_MESSAGES = [
 export interface ProbeResult {
   key: string
   message: string
+  /** Stage 1's one word: whether the message was flagged for stage 2. */
+  stage1?: 'yes' | 'no'
   action?: 'allow' | 'block'
   category?: string
   latencyMs: number
   error?: string
 }
 
-// Runs the canned probes against the live moderator config. Metered at account
-// level, NOT written to moderation-events (it would pollute the stats).
+const probeError = (d: Exclude<ModerationDecision, { kind: 'verdict' }>): string =>
+  `${d.kind === 'stage1-failed' ? 'the first stage' : 'the confirmation stage'} failed: ${d.cause === 'unparseable' ? 'its answer could not be parsed' : d.cause === 'timeout' ? 'it timed out' : 'the model call failed'}`
+
+// Runs the canned probes through the real two-stage classification against the live moderator config. Metered at
+// account level, NOT written to moderation-events (it would pollute the stats).
 export async function runProbe (settings: Settings, owner: AccountKeys): Promise<ProbeResult[]> {
   const { model, entry } = resolveRoleModel(settings, 'moderator')
+  // The account's own call: no caller identity, so no per-user record and no profile.
+  const charge = (usage: LanguageModelUsage) => chargeModelCall({ owner, identity: null, modelRole: 'moderator', entry, usage })
   const results: ProbeResult[] = []
   for (const probe of PROBE_MESSAGES) {
     const startedAt = Date.now()
-    try {
-      const probeArgs = {
-        model,
-        schema: verdictSchema,
-        temperature: 0,
-        maxOutputTokens: 100,
-        instructions: buildModerationSystemPrompt(),
-        messages: [{ role: 'user' as const, content: probe.message }],
-        abortSignal: AbortSignal.timeout(MODERATION_HARD_TIMEOUT_MS)
-      }
-      const { object, usage } = await withReasoningDisabled(extra => generateObject({ ...probeArgs, ...extra }))
-      // The account's own call: no caller identity, so no per-user record and no profile.
-      await chargeModelCall({
-        owner,
-        identity: null,
-        modelRole: 'moderator',
-        entry,
-        usage
-      })
-      results.push({ key: probe.key, message: probe.message, action: object.action, category: object.category, latencyMs: Date.now() - startedAt })
-    } catch (err: any) {
-      results.push({ key: probe.key, message: probe.message, error: err?.message ?? 'moderation call failed', latencyMs: Date.now() - startedAt })
+    const d = await classifyMessage(model, { context: '', message: probe.message, nonce: newNonce() }, charge)
+    const latencyMs = Date.now() - startedAt
+    if (d.kind === 'verdict') {
+      results.push({ key: probe.key, message: probe.message, stage1: d.stage1 ? 'yes' : 'no', action: d.verdict.action, ...(d.verdict.category ? { category: d.verdict.category } : {}), latencyMs })
+    } else {
+      results.push({ key: probe.key, message: probe.message, ...(d.kind === 'confirm-failed' ? { stage1: 'yes' as const } : {}), error: probeError(d), latencyMs })
     }
   }
   return results

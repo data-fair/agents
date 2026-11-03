@@ -5,6 +5,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { guardTag, wrapGuarded, neverFollow, parseStage1, isReasoningEffortRejected } from '../../../api/src/guard/operations.ts'
 import { ENVELOPE_TAGS } from '../../../api/src/mcp-servers/guides.ts'
+import { newNonce } from '../../../api/src/guard/service.ts'
+import { MODERATION_MESSAGE_PREFIX, MODERATION_CONTEXT_PREFIX } from '../../../api/src/moderation/operations.ts'
 
 test.describe('Guard engine', () => {
   test('parseStage1 reads one yes or no, nothing else', () => {
@@ -23,6 +25,12 @@ test.describe('Guard engine', () => {
     assert.ok(out.endsWith(`</${tag}>`))
   })
 
+  test('a nonce is 12 hex characters, new on every call', () => {
+    const a = newNonce()
+    assert.match(a, /^[0-9a-f]{12}$/)
+    assert.notEqual(a, newNonce())
+  })
+
   test('the instruction after the content names every wrapper and restates never follow', () => {
     const text = neverFollow(['a_1', 'b_1'])
     assert.ok(text.includes('<a_1> and <b_1>'))
@@ -30,7 +38,7 @@ test.describe('Guard engine', () => {
   })
 
   test('every guard wrapper prefix is an envelope tag, so it is defused in untrusted text', () => {
-    for (const prefix of ['tool_result_']) assert.ok(ENVELOPE_TAGS.includes(prefix), prefix)
+    for (const prefix of ['tool_result_', MODERATION_MESSAGE_PREFIX, MODERATION_CONTEXT_PREFIX]) assert.ok(ENVELOPE_TAGS.includes(prefix), prefix)
   })
 })
 

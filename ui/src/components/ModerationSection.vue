@@ -157,7 +157,7 @@ const failOpenAlert = computed(() => !!stats.value && stats.value.last24h.checks
 const statCards = computed(() => {
   const totals = stats.value?.totals ?? {}
   const checks = (totals.allow ?? 0) + (totals.block ?? 0) + (totals['late-block'] ?? 0) +
-    (totals['fail-open-timeout'] ?? 0) + (totals['fail-open-error'] ?? 0)
+    (totals['fail-open-timeout'] ?? 0) + (totals['fail-open-error'] ?? 0) + (totals['fail-open-confirm'] ?? 0)
   return [
     { label: t('checks'), value: checks },
     { label: t('blocks'), value: (totals.block ?? 0) + (totals['late-block'] ?? 0) },
