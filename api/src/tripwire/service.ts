@@ -176,10 +176,12 @@ export const createTurnTripwire = (ctx: {
    * stopped (spec: recorded only), but the record is switched to the placeholder so later turns, a reload and a
    * transcript no longer carry it. One record per call, whichever of its windows answers first.
    */
-  const lateTrip = (call: ScreenInput, verdict: TripwireVerdict, window: string) => {
+  const lateTrip = (call: ScreenInput, verdict: TripwireVerdict, window: string, durationMs: number) => {
     if (records.has(call.toolCallId)) return
     const record: TripRecord = { ...recordFor(call, verdict, window), late: true }
     records.set(call.toolCallId, record)
+    // On the run too, beside the fail open the timeout recorded: its usage is in the ledger (metered above).
+    recordCall(ctx.run, { modelRole: 'moderator', entry, usage: { inputTokens: 0, outputTokens: 0 }, credits: 0, durationMs, note: 'tripwire-late-suspected' })
     logTrip(record)
     notifyOnce(record)
     if (storedAt) applyStored(storedAt, call.toolCallId, record)
@@ -189,6 +191,7 @@ export const createTurnTripwire = (ctx: {
   return {
     async screen (call) {
       const { text, cut } = capForScan(call.text)
+      const startedAt = Date.now()
       const windows = scanWindows(text)
       const outcomes = await Promise.all(windows.map(window => classifyWindow(call, window)))
       const hit = outcomes.find(o => o.status === 'verdict' && o.verdict.suspected)
@@ -196,7 +199,7 @@ export const createTurnTripwire = (ctx: {
         windows.forEach((window, i) => {
           const outcome = outcomes[i]
           if (outcome.status !== 'timeout') return
-          outcome.late.then(verdict => { if (verdict.suspected && !ctx.abortSignal.aborted) lateTrip(call, verdict, window) }, () => {})
+          outcome.late.then(verdict => { if (verdict.suspected && !ctx.abortSignal.aborted) lateTrip(call, verdict, window, Date.now() - startedAt) }, () => {})
         })
         return { withheld: false, text, ...(cut ? { truncated: { totalChars: call.text.length } } : {}) }
       }

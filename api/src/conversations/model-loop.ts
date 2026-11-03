@@ -172,6 +172,11 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     onCredits: spent => { tripwireCredits += spent },
     onLate: (toolCallId, record) => { lateVerdicts.withhold?.(toolCallId, record) }
   })
+  // Handed to the driver, which closes it once the record is stored, whether the turn returns or throws
+  // (executor.ts driveTurn). A task's reminder pass keeps the first pass's: offered report_outcome alone, which
+  // is not scanned, its own screens nothing.
+  const liveRun = liveRuns.get(run.id)
+  if (tripwire && liveRun && !liveRun.tripwire) liveRun.tripwire = tripwire
   // The results the tripwire cut at its scan cap, by call: recorded as truncated with their original length, as
   // the recorder's own bound records a cut, so a reviewer still sees a result was cut and its real size.
   const scanCuts = new Map<string, { totalChars: number, scannedChars: number }>()
@@ -193,12 +198,13 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
 
   // A WEBHOOK'S PAYLOADS are outside text too, read by the model as the run's prompt: screened before its first
   // call. A trip stops the run there, with no model call at all; a task run cut short ends in error (task-target).
-  if (tripwire && run.kind === 'task') {
+  // Once per turn: a task's reminder pass (continuation) has the same prompt, already screened by the first.
+  if (tripwire && run.kind === 'task' && !continuation) {
     const payloads = webhookPayloadsOf(run.prompt ?? '')
     const screened = await Promise.all(payloads.map((text, i) => tripwire.screen({ toolCallId: `webhook-${i}`, toolName: 'webhook', server: 'webhook', input: undefined, text })))
     const withheld = screened.find(result => result.withheld)
     if (withheld?.withheld) {
-      return { parts: [], steps: 0, credits: credits + tripwireCredits, stopReason: 'injection-suspected', stopDetail: describeSource(withheld.record.source), tripwire }
+      return { parts: [], steps: 0, credits: credits + tripwireCredits, stopReason: 'injection-suspected', stopDetail: describeSource(withheld.record.source) }
     }
   }
 
@@ -455,6 +461,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    * Also called when a call settles, should its verdict have come before its result was recorded. A verdict
    * coming before this is set (the webhook screen's) has no part here: closed() applies it.
    */
+  // The writes a late verdict starts, chained and awaited before the loop returns or throws: a conversation's
+  // persist leaves its message pending, and must never land after the target's close.
+  let latePersists: Promise<void> = Promise.resolve()
   lateVerdicts.withhold = (toolCallId, record) => {
     if (streamEnded) return
     const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
@@ -463,7 +472,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     Object.assign(call, { state: 'output-error', errorText: wrapToolResult(record.source.server, record.source.tool, WITHHELD_RESULT) })
     call.toolMetadata = { ...call.toolMetadata, tripwire: record as unknown as JSONObject }
     sendMessageFrame()
-    persistStructure().catch(err => log.error('a late tripwire verdict could not be persisted', { code: 'tool-output-tripwire-late', runId: run.id, err }))
+    latePersists = latePersists
+      .then(persistStructure)
+      .catch(err => log.error('a late tripwire verdict could not be persisted', { code: 'tool-output-tripwire-late', runId: run.id, err }))
   }
 
   // THINKING, from the moment the turn is handed to the model until it says something.
@@ -643,6 +654,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   } finally {
     idleWatchdog.stop()
     streamEnded = true
+    await latePersists
   }
 
   const steps = (await result.steps).length
@@ -720,7 +732,6 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     steps: steps + (continuation?.steps ?? 0),
     credits: credits + tripwireCredits + (continuation?.credits ?? 0),
     stopDetail,
-    ...(tripwire ? { tripwire } : {}),
     ...(handover ? { handover } : {}),
     ...(awaitingApproval ? { awaitingApproval: true as const } : {}),
     ...(idleAbort.signal.aborted ? { idleAborted: true as const } : {}),

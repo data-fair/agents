@@ -38,7 +38,6 @@ import { updateMessage, settleStoredToolPart, finishRun, conversationCost, type 
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { livePartsOf } from './live-runs.ts'
 import log from '@data-fair/lib-node/log.js'
-import type { TurnTripwire } from '../tripwire/service.ts'
 
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
 export interface TurnFrames {
@@ -94,8 +93,6 @@ export interface TurnResult {
   selfExplained?: boolean
   /** Refused before any model call (disabled, no identity, a quota, moderation): its parts are the refusal. */
   refused?: true
-  /** The turn's tool-output tripwire, when it had one: what it withheld, and its late verdicts (api/src/tripwire). */
-  tripwire?: TurnTripwire
 }
 
 /**
@@ -288,8 +285,6 @@ export const conversationTarget = (
       // The turn's one settled frame (see TurnFrames), as stored: notice included, and an approval card
       // decidable only now that its message is closed.
       notifyMessage(run.conversationId, { seq: messageSeq, parts: finalParts })
-      // The message is closed: a tripwire verdict coming late is applied to it from now on (api/src/tripwire).
-      result.tripwire?.closed({ conversationId: run.conversationId })
 
       // The conversation's total, now including this turn — returned by the close itself — then the
       // end-of-turn signal, so a page that refreshes on turn-end already holds the new figure.

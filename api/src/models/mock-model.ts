@@ -284,6 +284,9 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   // If the most recent message in the prompt is a tool result, we already called a tool
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {
+    // FAIL_AFTER_RESULT anywhere in the turn: the step after a tool result fails mid-stream, so a turn THROWS
+    // after a call (the tripwire's late verdict on a failed turn, tests/features/tripwire).
+    if (JSON.stringify(prompt).includes('FAIL_AFTER_RESULT')) return { type: 'error' }
     return { type: 'text', text: 'done' }
   }
 

@@ -100,8 +100,6 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
         ...(cannotWait ? { error: CANNOT_WAIT } : cutShort ? { error: notice } : {}),
         ...(outcome ? { outcome } : {})
       })
-      // The run's parts are stored: a tripwire verdict coming late is applied to them from now on (api/src/tripwire).
-      result.tripwire?.closed({ runId: run.id })
     },
 
     fail: async ({ stopReason, status, error, detail, interrupt }) => {

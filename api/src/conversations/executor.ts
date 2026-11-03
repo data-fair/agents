@@ -253,14 +253,11 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     // explains itself, and its failure is the outcome. A run still silent after it keeps no outcome.
     if (target.surface === 'task' && result.stopReason === 'completed' && tools[REPORT_OUTCOME_TOOL_NAME] && !reportedOutcome(result.parts)) {
       debug('task run %s ended without report_outcome: reminding it once', run.id)
-      const reminded = await runModelLoop({
+      return await runModelLoop({
         ...loop,
         tools: { [REPORT_OUTCOME_TOOL_NAME]: tools[REPORT_OUTCOME_TOOL_NAME] },
         continuation: { parts: result.parts, note: OUTCOME_REMINDER, credits: result.credits, steps: result.steps }
       })
-      // The first pass's tripwire is the turn's: its late verdicts are the ones to apply when the run closes, and
-      // the second pass, offered report_outcome alone (not scanned), has screened nothing.
-      return result.tripwire ? { ...reminded, tripwire: result.tripwire } : reminded
     }
     return result
   } finally {
@@ -350,6 +347,10 @@ export const driveTurn = async (
   } finally {
     if (timeout) clearTimeout(timeout)
     stopWatching()
+    // The record is closed, by close or fail alike: a tool-output tripwire verdict coming late is applied to the
+    // stored part from now on (api/src/tripwire). On the fail path too, or a failed turn's stored result would be
+    // replayed by the next one.
+    live.tripwire?.closed(run.conversationId ? { conversationId: run.conversationId } : { runId: run.id })
     liveRuns.delete(run.id)
   }
 }

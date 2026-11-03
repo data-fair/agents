@@ -9,7 +9,7 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings, mockModels } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { serviceUp, NEEDS_EVENTS } from '../../support/optional-services.ts'
-import { turnOverSocket, decideOverSocketToRun } from '../../../dev/socket-turn.ts'
+import { turnOverSocket, decideOverSocketToRun, runOf } from '../../../dev/socket-turn.ts'
 import { awaitRun, awaitAgentRun } from '../../support/turn.ts'
 import axios from 'axios'
 import { createEnrolledAgent } from '../../support/agents.ts'
@@ -220,6 +220,9 @@ test.describe('Tool-output tripwire', () => {
     assert.equal(echo.output, undefined)
     assert.equal(echo.toolMetadata.tripwire.late, true)
     assert.equal(echo.toolMetadata.tripwire.source.tool, 'echo')
+    // On the run too, beside the timeout's fail open.
+    const recorded = await poll(async () => (await runOf(orgAdmin, conversationId, run.id)).calls as any[], calls => calls.some(c => c.note === 'tripwire-late-suspected'))
+    assert.ok(recorded.some(c => c.note === 'tripwire-late-suspected'), JSON.stringify(recorded))
   })
 
   test('a late verdict while the turn still runs withholds the part in the turn\'s own record', async () => {
@@ -235,5 +238,30 @@ test.describe('Tool-output tripwire', () => {
     assert.ok(echo.errorText.includes(WITHHELD_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
     assert.equal(echo.toolMetadata.tripwire.late, true)
     assert.equal(callPart(assistant, 'code_mode').state, 'output-available')
+  })
+
+  test('a late verdict on a turn that failed withholds the stored result', async () => {
+    const agent = await createFilesAgent()
+    // The step after echo's result fails mid-stream (mock seam): the turn throws, then the verdict comes.
+    const { run, assistant, conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool echo {"value":"slow tripwire INJECTION_PROBE FAIL_AFTER_RESULT"}')
+    assert.equal(run.status, 'error')
+    const echoOf = async () => callPart((await messagesOf(conversationId)).find((m: any) => m.seq === assistant.seq), 'echo')
+    const echo = await poll(echoOf, part => part.state === 'output-error')
+    assert.equal(echo.state, 'output-error')
+    assert.ok(echo.errorText.includes(WITHHELD_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
+    assert.equal(echo.toolMetadata.tripwire.late, true)
+  })
+
+  test('a reminded webhook run screens its payloads once', async () => {
+    const agent = await createTaskAgent()
+    // 'hello' never reports: the run gets the report_outcome reminder, a second pass on the same prompt.
+    const task = await createTask(agent.id, 'hello')
+    const key = (await admin.get(`${tasksOf(agent.id)}/${task.id}/webhook-key`)).data as string
+    const res = await anonymous.post(`${tasksOf(agent.id)}/${task.id}/_trigger`, 'dataset updated', { headers: { 'x-webhook-key': key, 'content-type': 'text/plain' } })
+    assert.equal(res.status, 202)
+    const run = await awaitAgentRun(orgAdmin, agent.id, res.data.runId)
+    assert.equal(run.status, 'done')
+    assert.deepEqual(run.outcome, { status: 'done', summary: 'reported when reminded' })
+    assert.equal(moderatorCalls(run).length, 1, JSON.stringify(run.calls))
   })
 })

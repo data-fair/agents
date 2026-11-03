@@ -19,6 +19,7 @@ import mongo from '#mongo'
 import Debug from 'debug'
 import type { MessagePart } from './operations.ts'
 import { TurnStopped } from './interrupted-turn.ts'
+import type { TurnTripwire } from '../tripwire/service.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -30,6 +31,11 @@ export interface LiveRun {
   messageSeq?: number
   /** The turn's parts as the model loop produces them, once it has started. */
   parts?: () => MessagePart[]
+  /**
+   * The turn's tool-output tripwire, once the loop created it: the driver closes it when the record is stored,
+   * whether the turn returned or threw. The first pass's, for a task run reminded in a second pass.
+   */
+  tripwire?: TurnTripwire
 }
 
 export const liveRuns = new Map<string, LiveRun>()
