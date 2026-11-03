@@ -97,6 +97,10 @@ export default {
           creditsOutput: { type: 'number' },
           durationMs: { type: 'number' },
           finishReason: { type: 'string' },
+          // Why a call left no verdict behind: 'tripwire-fail-open' is a tool-output classification that errored
+          // or timed out, so the result passed unscanned (api/src/tripwire/service.ts). What makes a broken
+          // moderator model visible.
+          note: { type: 'string' },
           // How much context this call actually sent, which is how context management is diagnosed:
           // a recap replacing a covered prefix shows up as a messageCount below the number of stored
           // messages, and clearing shows up as inputTokens far below the stored size. Counts and a
@@ -148,7 +152,7 @@ export default {
     // 'waiting': the turn handed over to the person (wait_for_user_action) and ends there; their action
     // starts the next one. Not 'completed', which would read as work finished.
     // 'awaiting-approval': a call needs the person's approval; the turn ends there and their decision starts the next one.
-    stopReason: { type: 'string', enum: ['completed', 'waiting', 'awaiting-approval', 'step-limit', 'repeated-calls', 'budget', 'timeout', 'aborted', 'error'] },
+    stopReason: { type: 'string', enum: ['completed', 'waiting', 'awaiting-approval', 'step-limit', 'repeated-calls', 'budget', 'injection-suspected', 'timeout', 'aborted', 'error'] },
     error: { type: 'string' },
     // A stop asked for while the run was `running`, by whichever API process received it: the process
     // driving the turn polls its own run for it (see driveTurn), so a stop reaches a turn held by another

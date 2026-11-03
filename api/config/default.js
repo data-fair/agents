@@ -72,5 +72,8 @@ export default {
   taskTimeoutSeconds: 1800,
   // code_mode scripts running at once in this process: one QuickJS worker each (64 MiB heap). The pool refuses
   // rather than queues when full (api/src/code-mode).
-  codeModeMaxWorkers: 4
+  codeModeMaxWorkers: 4,
+  // The tool-output injection tripwire (api/src/tripwire): outside tool results are classified by the moderator
+  // role model before the agent model reads them. A deployment switch, not a per-account setting.
+  tripwire: { enabled: true }
 }

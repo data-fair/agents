@@ -265,6 +265,17 @@
       "default": 1800,
       "description": "Wall-clock ceiling of one planned task's run. Longer than a chat turn's: nobody waits on it, and code mode and files make long runs the normal case."
     },
+    "tripwire": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Classify outside tool results for prompt injection before the model sees them (docs/architecture/moderation.md)."
+        }
+      }
+    },
     "codeModeMaxWorkers": {
       "type": "integer",
       "minimum": 1,

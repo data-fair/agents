@@ -15,7 +15,7 @@ import { withCallPath, describeFileArguments, type CallPathContext } from '../fi
 import { buildSystemPrompt, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
 import type { TurnTarget, TurnResult } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
-import { setRunInputs } from './service.ts'
+import { setRunInputs, withholdStoredResult } from './service.ts'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { CACHED_PREFIX_PROVIDER_OPTIONS } from '../models/operations.ts'
@@ -32,14 +32,17 @@ import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeMo
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
-import { createPartsRecorder, resultSettlement, errorSettlement } from './parts-recorder.ts'
+import { createPartsRecorder, resultSettlement, errorSettlement, type CallSettlement } from './parts-recorder.ts'
 import { tokenCountsOf, quotaStopText } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
-import { mayBePageTool } from './service-tool-names.ts'
+import { mayBePageTool, REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
 import { createStepContext } from './step-context.ts'
 import { liveRuns } from './live-runs.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 import log from '@data-fair/lib-node/log.js'
+import { createTurnTripwire } from '../tripwire/service.ts'
+import { describeSource, withheldErrorText, webhookCallId, tripExplanationInstruction, LATE_TRIP_NOTICE, NOT_RUN_AFTER_TRIP, type TripRecord } from '../tripwire/operations.ts'
+import { webhookPayloadsOf } from '../tasks/operations.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -145,11 +148,72 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       budgetExceeded = true
       // Through the gate's own formatter: a shared budget's numbers only to an admin.
       stopDetail = quotaStopText(quota, identity.role === 'admin')
-    } else if (credits + (continuation?.credits ?? 0) >= config.turnCredits) {
+    } else if (credits + tripwireCredits + (continuation?.credits ?? 0) >= config.turnCredits) {
       budgetExceeded = true
     }
   }
   const startedAt = Date.now()
+
+  // THE TOOL-OUTPUT TRIPWIRE (api/src/tripwire): the results of tools that bring outside text are classified
+  // before the model reads them; one that looks addressed to the agent is withheld and the turn stops after its
+  // step. Its classifier calls count toward the run's budget, beside the assistant's, not inside its telemetry
+  // entry (they have their own).
+  let tripwireCredits = 0
+  // Set once the turn's parts exist (below); a late verdict is applied to the stored part otherwise.
+  const lateVerdicts: { withhold?: (toolCallId: string, record: TripRecord) => void } = {}
+  let streamEnded = false
+  const tripwire = createTurnTripwire({
+    run,
+    agent: { id: autonomousAgent.id, ...(autonomousAgent.title ? { title: autonomousAgent.title } : {}) },
+    owner: run.owner,
+    identity,
+    settings,
+    abortSignal,
+    onCredits: spent => { tripwireCredits += spent },
+    onLate: (toolCallId, record) => { lateVerdicts.withhold?.(toolCallId, record) }
+  })
+  // Handed to the driver, which closes it once the record is stored, whether the turn returns or throws
+  // (executor.ts driveTurn). A task's reminder pass keeps the first pass's: offered report_outcome alone, which
+  // is not scanned, its own screens nothing.
+  const liveRun = liveRuns.get(run.id)
+  if (tripwire && liveRun && !liveRun.tripwire) liveRun.tripwire = tripwire
+  // The results the tripwire cut at its scan cap, by call: recorded as truncated with their original length, as
+  // the recorder's own bound records a cut, so a reviewer still sees a result was cut and its real size.
+  const scanCuts = new Map<string, { totalChars: number, scannedChars: number }>()
+  const screen = tripwire && (async (call: Parameters<typeof tripwire.screen>[0]) => {
+    const screened = await tripwire.screen(call)
+    if (!screened.withheld && screened.truncated) scanCuts.set(call.toolCallId, { totalChars: screened.truncated.totalChars, scannedChars: screened.text.length })
+    return screened
+  })
+  const withScanCut = (settled: CallSettlement, toolCallId: string): CallSettlement => {
+    const cut = scanCuts.get(toolCallId)
+    if (!cut || settled.state !== 'output-available') return settled
+    // Measured as the recorder measures: the result as the model received it, envelope included — the stored
+    // text is the envelope around the scanned text, so the original is the stored length with the scanned
+    // text's replaced by the original's.
+    const stored = typeof settled.output === 'string' ? settled.output : String(settled.output.text ?? '')
+    const totalChars = stored.length - cut.scannedChars + cut.totalChars
+    return { ...settled, truncated: { totalChars: Math.max(totalChars, settled.truncated?.totalChars ?? 0) } }
+  }
+
+  // A WEBHOOK'S PAYLOADS are outside text too, read by the model as the run's prompt: screened before its first
+  // call. A trip stops the run there, with no model call at all; a task run cut short ends in error (task-target).
+  // Once per turn: a task's reminder pass (continuation) has the same prompt, already screened by the first.
+  // A withheld payload is replaced by the placeholder in the stored prompt, which read_conversation serves back
+  // (a late verdict does the same, through closed()); before the run closes, so it never ends carrying it.
+  if (tripwire && run.kind === 'task' && !continuation) {
+    const payloads = webhookPayloadsOf(run.prompt ?? '')
+    const screened = await Promise.all(payloads.map((text, i) => tripwire.screen({ toolCallId: webhookCallId(i), toolName: 'webhook', server: 'webhook', input: undefined, text })))
+    const withheld = screened.find(result => result.withheld)
+    if (withheld?.withheld) {
+      for (const [i, result] of screened.entries()) {
+        if (!result.withheld) continue
+        await withholdStoredResult({ runId: run.id }, webhookCallId(i), result.record)
+          .catch(err => log.error('a withheld webhook payload could not be replaced in the run\'s prompt', { code: 'tool-output-tripwire-webhook', runId: run.id, err }))
+      }
+      return { parts: [], steps: 0, credits: credits + tripwireCredits, stopReason: 'injection-suspected', stopDetail: describeSource(withheld.record.source) }
+    }
+  }
 
   /** A script's final trace, onto the lead's message: its results are already bounded as it records them. */
   const storeTrace = (trace: { parentToolCallId: string, name: string, parts: MessagePart[] }) => {
@@ -184,7 +248,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    * only when the page's tool NAMES changed.
    */
   const pageToolNames = () => (pageSession?.tools() ?? []).map(descriptor => descriptor.name).sort().join('\n')
-  const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath))
+  const fixedTools = modelTools(tools, sourced => withCallPath(sourced, callPath), screen)
   const liveTools: Record<string, Tool> = {}
   // The tool calls this turn's scripts have made, across the steps that rebuild the map (CODE_MODE_TURN_CALLS).
   const scriptCalls: TurnCalls = { count: 0 }
@@ -195,10 +259,16 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     const server = tools[name]?.server
     return { kind: toolOrigins?.[name] ?? 'service', ...(server ? { server } : {}) }
   }
+  // A LATE VERDICT stops the turn too (stopWhen, prepareStep below), but the model may already have asked for
+  // calls in the step under way: none of them runs. report_outcome stays, for a task run's explanation step.
+  let lateTripped: TripRecord | undefined
+  const afterTripGate = (name: string, tool: Tool): Tool => !tool.execute || name === REPORT_OUTCOME_TOOL_NAME
+    ? tool
+    : { ...tool, execute: async (args: any, opts: any) => { if (lateTripped) throw new Error(NOT_RUN_AFTER_TRIP); return await tool.execute!(args, opts) } }
   const assembleTools = async () => {
     // The service's own tools are never page tools, even when a page registers one by that name
     // (./service-tool-names.ts): the page's would answer under the service's name.
-    const pageTools = pageSession ? Object.fromEntries(Object.entries(browserToolSet(pageSession)).filter(([name]) => mayBePageTool(name))) : {}
+    const pageTools = pageSession ? Object.fromEntries(Object.entries(browserToolSet(pageSession, undefined, screen)).filter(([name]) => mayBePageTool(name))) : {}
     pageNames = new Set(Object.keys(pageTools))
     const mainTools: Record<string, Tool> = { ...fixedTools, ...pageTools }
     // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
@@ -221,10 +291,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           tool: { ...scriptTool, execute: async (input: any, options: any) => { try { return await runScript(input, options) } finally { codeTrace.finish(options.toolCallId) } } },
           ...CODE_MODE_SOURCE
         }
-      })[CODE_MODE_TOOL_NAME]
+      }, undefined, screen)[CODE_MODE_TOOL_NAME]
     }
     for (const name of Object.keys(liveTools)) if (!(name in mainTools)) delete liveTools[name]
-    Object.assign(liveTools, mainTools)
+    Object.assign(liveTools, Object.fromEntries(Object.entries(mainTools).map(([name, tool]) => [name, afterTripGate(name, tool)])))
   }
   await assembleTools()
   let assembledFrom = pageToolNames()
@@ -237,6 +307,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   })
   // Context between steps (./step-context.ts): composed AFTER the loop guards' rebuild, which owns `messages`.
   const stepContext = createStepContext(budget)
+  // The step a trip leaves the model to explain it (stopWhen, prepareStep), and whether it did: when it did, its
+  // own words are the turn's explanation and the fixed notice is not appended.
+  let tripExplaining = false
+  let tripExplained = false
   const result = streamText({
     model,
     instructions: systemPrompt,
@@ -260,9 +334,27 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       ({ steps }) => steps[steps.length - 1]?.toolResults.some(result => result.toolName === WAIT_TOOL_NAME && result.output === WAIT_ACCEPTED) ?? false,
       // Appended to the guards, never replacing them: a turn can be stopped by any of the
       // three and each has its own stop reason.
-      () => budgetExceeded
+      () => budgetExceeded,
+      // A withheld result ends the turn after ONE more step, with no tool (report_outcome alone in a task run),
+      // in which the model explains it to the person (tripExplanationInstruction): it has seen the placeholder,
+      // never the flagged text, and it is given no step to act on anything.
+      () => (tripwire?.tripped ?? lateTripped) !== undefined && tripExplaining
     ],
     prepareStep: async options => {
+      if ((tripwire?.tripped ?? lateTripped) && !tripExplaining) {
+        tripExplaining = true
+        // A late verdict's result was read: the instruction says so, rather than that it was never seen.
+        const late = !tripwire?.tripped
+        const guarded = loopGuardPrepareStep(options)
+        const reports = run.kind === 'task' && REPORT_OUTCOME_TOOL_NAME in liveTools
+        return {
+          ...guarded,
+          messages: stepContext(guarded.messages),
+          instructions: `${stepInstructions ?? systemPrompt}\n\n${tripExplanationInstruction(run.kind === 'task' ? 'task' : 'chat', late)}`,
+          activeTools: reports ? [REPORT_OUTCOME_TOOL_NAME] : [],
+          toolChoice: reports ? 'auto' : 'none'
+        }
+      }
       const current = pageToolNames()
       if (current !== assembledFrom) {
         assembledFrom = current
@@ -283,6 +375,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     // abort reaches the stream through abortSignal. The IDLE bound is ours (idleWatchdog below), not the
     // SDK's `chunkMs`, which counted a running tool as silence.
     onStepEnd: async (step) => {
+      if (tripExplaining && (step.text.trim() || step.toolCalls.some(call => call.toolName === REPORT_OUTCOME_TOOL_NAME))) tripExplained = true
       // Billed per step, not once per turn: a turn stopped by the budget or the clock must still bill
       // what it actually consumed. Its telemetry entry is the turn's, recorded once after the loop.
       const stepCredits = await chargeModelCall({
@@ -391,6 +484,33 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
    */
   const persistStructure = async () => {
     await target.persist(parts)
+  }
+
+  /**
+   * A LATE VERDICT (api/src/tripwire): a result that passed on a timeout was then judged suspected. The model
+   * read it, and the turn goes on (spec: recorded only), but its part becomes the placeholder a withheld result
+   * is, so the record no longer carries it. While the loop runs, on its own parts; once the stream is over the
+   * target's close stores the parts, and the tripwire applies the record to the stored part itself (closed()).
+   * Also called when a call settles, should its verdict have come before its result was recorded. A verdict
+   * coming before this is set (the webhook screen's) has no part here: closed() applies it.
+   */
+  // The writes a late verdict starts, chained and awaited before the loop returns or throws: a conversation's
+  // persist leaves its message pending, and must never land after the target's close.
+  let latePersists: Promise<void> = Promise.resolve()
+  lateVerdicts.withhold = (toolCallId, record) => {
+    if (streamEnded) return
+    // The turn is still running: it stops at the next step boundary, and no further call runs (afterTripGate). A
+    // webhook payload's late verdict too, which has no part to switch.
+    if (!lateTripped) lateTripped = record
+    const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
+    if (!call || call.type !== 'dynamic-tool') return
+    delete (call as { output?: unknown }).output
+    Object.assign(call, { state: 'output-error', errorText: withheldErrorText(record.source, true) })
+    call.toolMetadata = { ...call.toolMetadata, tripwire: record as unknown as JSONObject }
+    sendMessageFrame()
+    latePersists = latePersists
+      .then(persistStructure)
+      .catch(err => log.error('a late tripwire verdict could not be persisted', { code: 'tool-output-tripwire-late', runId: run.id, err }))
   }
 
   // THINKING, from the moment the turn is handed to the model until it says something.
@@ -518,12 +638,14 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       // Stored as the model received it, envelope included (withProvenance wraps before this point),
       // because the guarantee is that a revived conversation reproduces what the model saw.
       if (part.type === 'tool-result') {
-        const settled = resultSettlement(part.output)
+        const settled = withScanCut(resultSettlement(part.output), part.toolCallId)
         if (!recorder.hasCall(part.toolCallId)) {
           await target.settleEarlierCall(part.toolCallId, settled)
           continue
         }
         recorder.settleCall(part.toolCallId, settled)
+        const late = tripwire?.recordOf(part.toolCallId)
+        if (late?.late) lateVerdicts.withhold?.(part.toolCallId, late)
         sendMessageFrame()
         await persistStructure()
         // The model now has a result to read, once the step's other calls are done too.
@@ -538,11 +660,16 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       // `convertToModelMessages` has no reason to look at.
       if (part.type === 'tool-error') {
         const settled = errorSettlement(part.error)
+        // A result the tripwire withheld: what was flagged and where it came from, for the chat and a reviewer.
+        const tripped = tripwire?.recordOf(part.toolCallId)
         if (!recorder.hasCall(part.toolCallId)) {
-          await target.settleEarlierCall(part.toolCallId, settled)
+          // An approved call of an earlier turn, executed before this turn's first step: settled on its own part.
+          await target.settleEarlierCall(part.toolCallId, settled.state === 'output-error' && tripped ? { ...settled, tripwire: tripped } : settled)
           continue
         }
         recorder.settleCall(part.toolCallId, settled)
+        const call = tripped && parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCallId)
+        if (call && call.type === 'dynamic-tool') call.toolMetadata = { ...call.toolMetadata, tripwire: tripped as unknown as JSONObject }
         sendMessageFrame()
         await persistStructure()
         debug('tool failed tool=%s error=%o', part.toolName, part.error)
@@ -562,6 +689,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     }
   } finally {
     idleWatchdog.stop()
+    streamEnded = true
+    await latePersists
   }
 
   const steps = (await result.steps).length
@@ -600,13 +729,20 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // when it was not.
   // A handover first: it stops on a tool call by design, which the guards' reading below would take for
   // a turn cut off.
+  // A trip comes next, whatever the finish reason: an approved call of an earlier turn runs before the first
+  // step, which stopWhen never sees, so the model may have answered in text after it — the turn must still say
+  // why a result is missing. A handover or an approval in the same step keeps precedence: its state has to stay
+  // consistent (an open wait, a pending card), and it is safe, the flagged text being withheld either way.
   const stopReason: RunStopReason = handover
     ? 'waiting'
     : awaitingApproval
       ? 'awaiting-approval'
-      : finishReason === 'tool-calls'
-        ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
-        : 'completed'
+      : tripwire?.tripped || (lateTripped && tripExplaining)
+        ? 'injection-suspected'
+        : finishReason === 'tool-calls'
+          ? (budgetExceeded ? 'budget' : steps >= STEP_LIMIT ? 'step-limit' : 'repeated-calls')
+          : 'completed'
+  if (stopReason === 'injection-suspected') stopDetail = describeSource((tripwire?.tripped ?? lateTripped)!.source)
 
   // An empty completion is a known provider failure mode with its own mock seam. Without a
   // fallback the turn persists a blank message and a green run — the "conversation that simply stops" this module forbids.
@@ -616,7 +752,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // reason's notice as its content. Treating those as empty completions would relabel every
   // truncation as a provider error.
   const emptyCompletion = stopReason === 'completed' && partsText(parts).trim().length === 0
-  const finalParts = emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : parts
+  // A late verdict that came after the turn's last step: the answer is given, and may rest on that result.
+  const lateAfterAnswer = stopReason === 'completed' && lateTripped !== undefined && !tripExplaining
+  const finalParts = emptyCompletion ? withAppendedText(parts, EMPTY_COMPLETION_MESSAGE) : lateAfterAnswer ? withAppendedText(parts, LATE_TRIP_NOTICE) : parts
   if (emptyCompletion) {
     // LOGGED, because it is a provider anomaly rather than a normal turn, and the person only ever
     // sees the generic fallback, so the operator's log is where it belongs. Ids only — no content, since
@@ -630,13 +768,14 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     parts: finalParts,
     // The turn's, both passes: what the run is charged and how far it went.
     steps: steps + (continuation?.steps ?? 0),
-    credits: credits + (continuation?.credits ?? 0),
+    credits: credits + tripwireCredits + (continuation?.credits ?? 0),
     stopDetail,
     ...(handover ? { handover } : {}),
     ...(awaitingApproval ? { awaitingApproval: true as const } : {}),
     ...(idleAbort.signal.aborted ? { idleAborted: true as const } : {}),
     stopReason: emptyCompletion ? 'error' : stopReason,
-    // The fallback above IS the explanation; a generic notice on top would be a second one.
-    ...(emptyCompletion ? { selfExplained: true } : {})
+    // The fallback above IS the explanation, and so is the model's own after a trip; a generic notice on top would
+    // be a second one.
+    ...(emptyCompletion || (stopReason === 'injection-suspected' && tripExplained) ? { selfExplained: true } : {})
   }
 }

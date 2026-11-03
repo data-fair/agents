@@ -15,6 +15,8 @@ import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
+import { withheldErrorText, webhookIndexOf, WITHHELD_RESULT, WITHHELD_LATE_RESULT, type TripRecord } from '../tripwire/operations.ts'
+import { replaceWebhookPayload } from '../tasks/operations.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '../autonomous-agents/service.ts'
@@ -347,20 +349,79 @@ export const updateMessage = async (conversationId: string, seq: number, patch: 
 export const settleStoredToolPart = async (
   conversationId: string,
   toolCallId: string,
-  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string }
+  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string, tripwire?: TripRecord }
 ): Promise<StoredMessage | null> => {
   const awaiting = { toolCallId, state: 'approval-responded' }
   if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: awaiting } }, { projection: { _id: 1 } })) return null
   // `truncated` is metadata, beside the decision in `toolMetadata`, as on a call settled in its own turn:
   // an approved call is precisely the audited write, and a review must be able to tell its result was cut.
-  const { truncated, ...fields } = settled as typeof settled & { truncated?: { totalChars: number } }
+  // So is a withheld result's trip record (api/src/tripwire), as the loop merges it on a call of its own turn.
+  const { truncated, tripwire, ...fields } = settled as typeof settled & { truncated?: { totalChars: number }, tripwire?: TripRecord }
   const set: Record<string, unknown> = Object.fromEntries(Object.entries(fields).map(([key, value]) => [`parts.$[p].${key}`, value]))
   if (truncated) set['parts.$[p].toolMetadata.truncated'] = { totalChars: truncated.totalChars }
+  if (tripwire) set['parts.$[p].toolMetadata.tripwire'] = tripwire
   return await mongo.messages.findOneAndUpdate(
     { conversationId, parts: { $elemMatch: awaiting } },
     { $set: { ...set, updatedAt: new Date().toISOString() } },
     { arrayFilters: [{ 'p.toolCallId': toolCallId, 'p.state': 'approval-responded' }], returnDocument: 'after', projection: { _id: 0 } }
   )
+}
+
+/** Where a closed turn's record is stored: a conversation's messages, or a task run's own parts. */
+export type StoredResultPlace = { conversationId: string } | { runId: string }
+
+/**
+ * Withhold a result already stored, when the tripwire judged it suspected after it had passed (a late verdict,
+ * api/src/tripwire/service.ts): the part becomes the placeholder error a withheld result is in its own turn, its
+ * trip record beside it, so later turns, a reload and a transcript no longer carry the text.
+ *
+ * Unlike settleStoredToolPart it matches the part by `toolCallId` alone, whatever its state: the call has its
+ * result already, and this replaces it. Idempotent, a `$set` of fixed values.
+ *
+ * A webhook payload (webhookIndexOf) has no part: its block in the run's prompt becomes the placeholder, on
+ * time or late, since read_conversation serves a task run's prompt back to the agent.
+ */
+export const withholdStoredResult = async (where: StoredResultPlace, toolCallId: string, tripwire: TripRecord): Promise<void> => {
+  const payloadIndex = webhookIndexOf(toolCallId)
+  if (payloadIndex !== undefined) {
+    if ('runId' in where) await withholdWebhookPayload(where.runId, payloadIndex, !!tripwire.late)
+    return
+  }
+  const update = {
+    $set: {
+      'parts.$[p].state': 'output-error',
+      'parts.$[p].errorText': withheldErrorText(tripwire.source, !!tripwire.late),
+      'parts.$[p].toolMetadata.tripwire': tripwire
+    },
+    $unset: { 'parts.$[p].output': true as const }
+  }
+  const arrayFilters = [{ 'p.type': 'dynamic-tool', 'p.toolCallId': toolCallId }]
+  if ('runId' in where) {
+    await mongo.runs.updateOne({ id: where.runId, 'parts.toolCallId': toolCallId }, update, { arrayFilters })
+    return
+  }
+  const message = await mongo.messages.findOneAndUpdate(
+    { conversationId: where.conversationId, 'parts.toolCallId': toolCallId },
+    { ...update, $set: { ...update.$set, updatedAt: new Date().toISOString() } },
+    { arrayFilters, returnDocument: 'after', projection: { _id: 0 } }
+  )
+  if (message) notifyMessage(where.conversationId, message)
+}
+
+/**
+ * Read, replaced, written only if the prompt is still the one read: two payloads of a run withheld at once
+ * (their verdicts settle in parallel) must both be replaced. Retried a few times, then given up loudly.
+ */
+const withholdWebhookPayload = async (runId: string, index: number, late: boolean): Promise<void> => {
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const run = await mongo.runs.findOne({ id: runId }, { projection: { _id: 0, prompt: 1 } })
+    if (typeof run?.prompt !== 'string') return
+    const prompt = replaceWebhookPayload(run.prompt, index, late ? WITHHELD_LATE_RESULT : WITHHELD_RESULT)
+    if (prompt === run.prompt) return
+    const { matchedCount } = await mongo.runs.updateOne({ id: runId, prompt: run.prompt }, { $set: { prompt } })
+    if (matchedCount) return
+  }
+  throw new Error(`the prompt of run ${runId} kept changing: webhook payload ${index} not withheld`)
 }
 
 /**

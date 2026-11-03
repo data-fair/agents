@@ -190,7 +190,7 @@ const ENTRIES: ServiceToolEntry[] = [
     applies: ctx => !isPersonalAgentId(ctx.agent.id),
     build: async (ctx, into) => {
       const tools = createSelfKnowledgeTools(ctx, () => Object.keys(into.tools))
-      Object.assign(into.tools, sourcedTools(tools, SELF_KNOWLEDGE_SERVER_ID, () => ({ readOnlyHint: true })))
+      Object.assign(into.tools, sourcedTools(tools, SELF_KNOWLEDGE_SERVER_ID, () => ({ readOnlyHint: true, openWorldHint: false })))
     }
   },
   {
@@ -232,7 +232,7 @@ const ENTRIES: ServiceToolEntry[] = [
             return 'Outcome recorded.'
           }
         })
-      }, AGENT_SERVICE_ID))
+      }, AGENT_SERVICE_ID, () => ({ openWorldHint: false })))
     }
   }
 ]

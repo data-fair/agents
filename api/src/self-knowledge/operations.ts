@@ -31,6 +31,38 @@ export const PLANNED_TASKS_HEADER = 'These tasks exist and run on their schedule
 /** The source a stored self-knowledge or planning call names. */
 export const SELF_KNOWLEDGE_SERVER_ID = 'agent-self'
 
+/** What a script's nested call result reads as in the agent's own view of a past conversation. */
+export const NESTED_RESULT_HIDDEN = '(script-internal result, not shown)'
+
+/**
+ * The messages as read_conversation serves them to the agent: a code_mode script's nested calls (its
+ * `data-trace` parts) keep their names and inputs, not their results. Those results were never screened by the
+ * tool-output tripwire, which reads only what the script returns (api/src/tripwire). The export a person
+ * downloads keeps them.
+ */
+export const withoutNestedResults = <M extends { parts?: unknown }>(messages: M[]): M[] => messages.map(message => {
+  if (!Array.isArray(message.parts) || !message.parts.some(isTrace)) return message
+  return {
+    ...message,
+    parts: message.parts.map(part => isTrace(part)
+      ? { ...part, data: { ...part.data, parts: part.data.parts.map(hideResult) } }
+      : part)
+  }
+})
+
+type TracePart = { type: 'data-trace', data: { parts: unknown[] } }
+const isTrace = (part: unknown): part is TracePart =>
+  (part as TracePart | null)?.type === 'data-trace' && Array.isArray((part as TracePart).data?.parts)
+const hideResult = (nested: unknown): unknown => {
+  if (!nested || typeof nested !== 'object') return nested
+  const { output, errorText, ...rest } = nested as { output?: unknown, errorText?: unknown }
+  return {
+    ...rest,
+    ...(output !== undefined ? { output: NESTED_RESULT_HIDDEN } : {}),
+    ...(errorText !== undefined ? { errorText: NESTED_RESULT_HIDDEN } : {})
+  }
+}
+
 /** How much of an outcome summary a run row shows: the row is a listing, `read_conversation` has the rest. */
 export const RUN_ROW_SUMMARY_CHARS = 300
 

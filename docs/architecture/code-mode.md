@@ -24,7 +24,8 @@ handles is not read by the model, so text planted in a tool's output can no long
 unless the script returns it. That is the control/data split CaMeL argues for (Debenedetti et al.,
 arXiv 2503.18813), in its cheapest form: our script is written by the model *before* it sees the data. The
 script's return value still reaches the model inside the provenance envelope (server `code-mode`), since it
-may quote tool output verbatim.
+may quote tool output verbatim, and it is screened by the [tool-output tripwire](./moderation.md#tool-output-tripwire);
+the nested calls are not, since what they return reaches the model only through that value.
 
 The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-and-scripting-design.md`, §6.
 

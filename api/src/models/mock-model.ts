@@ -162,6 +162,16 @@ export function commandLine (lastMessage: string): string {
 }
 
 function processMockPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
+  // The step a tripwire trip leaves the model (tripExplanationInstruction, api/src/tripwire/operations.ts), read off
+  // the system message: an explanation in a chat, the outcome in a task run. Before everything else, since the last
+  // message is then the withheld result.
+  const system = Array.isArray(prompt) ? JSON.stringify(prompt.filter((m: any) => m?.role === 'system')) : ''
+  if (system.includes('The turn ends with your next message: call no other tool.')) {
+    if (system.includes('report_outcome, status')) {
+      return { type: 'tool-call', toolName: 'report_outcome', toolArgs: JSON.stringify({ status: 'needs-attention', summary: 'TRIP_EXPLAINED: a source was withheld, nothing was done with it.' }) }
+    }
+    return { type: 'text', text: 'TRIP_EXPLAINED: I could not use one of the results, so I did not act on it.' }
+  }
   if (!lastMessage) {
     return { type: 'text', text: 'what do you mean ?' }
   }
@@ -284,6 +294,9 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
   // If the most recent message in the prompt is a tool result, we already called a tool
   // in this step — respond with text instead of calling another tool
   if (Array.isArray(prompt) && prompt.length > 0 && prompt[prompt.length - 1].role === 'tool') {
+    // FAIL_AFTER_RESULT anywhere in the turn: the step after a tool result fails mid-stream, so a turn THROWS
+    // after a call (the tripwire's late verdict on a failed turn, tests/features/tripwire).
+    if (JSON.stringify(prompt).includes('FAIL_AFTER_RESULT')) return { type: 'error' }
     return { type: 'text', text: 'done' }
   }
 
@@ -309,12 +322,16 @@ function processMockPrompt (lastMessage: string, prompt: string | Array<any>): M
     }
   }
 
-  // "call tools <name> <name> ..." → several parallel tool calls in one step
+  // "call tools <name> <name> ..." → several parallel tool calls in one step. A name may carry its arguments
+  // as JSON with no space in it (`echo{"value":"x"}`); otherwise it is called with none.
   const callToolsMatch = commandLine(lastMessage).match(/^call tools (.+)$/i)
   if (callToolsMatch) {
     return {
       type: 'tool-call',
-      toolCalls: callToolsMatch[1].trim().split(/\s+/).map(toolName => ({ toolName, toolArgs: '{}' }))
+      toolCalls: callToolsMatch[1].trim().split(/\s+/).map(token => {
+        const at = token.indexOf('{')
+        return at === -1 ? { toolName: token, toolArgs: '{}' } : { toolName: token.slice(0, at), toolArgs: token.slice(at) }
+      })
     }
   }
 
@@ -398,29 +415,66 @@ function processMockSummarizerPrompt (): MockPromptResult {
 }
 
 /**
- * mock-moderator: returns a deterministic moderation verdict as JSON text
- * (parseable by generateObject). When the moderation run wraps conversation context,
- * it judges ONLY the <message_to_moderate> portion — mirroring the real prompt's
- * isolation rule. Messages containing "jailbreak" or an "ignore (all/previous)
- * instructions" phrase are blocked as prompt-injection, "fuck" as profanity;
- * everything else is allowed. "slow moderation" delays the verdict past the gate
- * timeout (fail-open / late-block paths). The "CTXSEEN" sentinel in the context
- * surfaces (as category "ctx-seen" on an allow) that prior turns were forwarded.
+ * The input-moderation classifier (api/src/moderation), for any mock model id. It judges ONLY the text inside the
+ * nonce-tagged message wrapper, never the context wrapper before it, mirroring the real prompt's isolation rule,
+ * and reads the stage from the instruction after them (a message cannot claim a stage).
+ * Stage 1 answers one word: "yes" on a block trigger ("jailbreak" or an "ignore (all/previous) instructions" phrase,
+ * "fuck"), on "MOD_FALSE_ALARM" and "MOD_BROKEN_CONFIRM", and on the "CTXSEEN" sentinel in the context; else "no".
+ * "slow moderation" delays stage 1 past the gate timeout (fail-open / late-block paths).
+ * Stage 2: a block as prompt-injection or profanity, `{"action":"allow"}` for "MOD_FALSE_ALARM", "not json" for
+ * "MOD_BROKEN_CONFIRM", and an allow with category "ctx-seen" when the context carried "CTXSEEN" (surfacing that
+ * prior turns were forwarded). A bare message, with no wrapper, is answered with the stage-2 verdict directly.
  */
+const MODERATION_WRAPPER = /<(user_message_[0-9a-f]{12})>([\s\S]*?)<\/\1>([\s\S]*)$/
+const MODERATION_CONTEXT = /<(conversation_context_[0-9a-f]{12})>([\s\S]*?)<\/\1>/
 function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
-  const judged = lastMessage.match(/<message_to_moderate>([\s\S]*?)<\/message_to_moderate>/)?.[1] ?? lastMessage
-  const context = lastMessage.match(/<conversation_context>([\s\S]*?)<\/conversation_context>/)?.[1] ?? ''
-  const delayMs = /slow moderation/i.test(judged) ? 6000 : undefined
-  if (/jailbreak|ignore (all |previous )+instructions/i.test(judged)) {
-    return { type: 'text', text: '{"action":"block","category":"prompt-injection","reason":"mock block"}', delayMs }
+  const wrapped = MODERATION_WRAPPER.exec(lastMessage)
+  const judged = wrapped?.[2] ?? lastMessage
+  const context = MODERATION_CONTEXT.exec(lastMessage)?.[2] ?? ''
+  const blockOf = (): string | undefined => {
+    if (/jailbreak|ignore (all |previous )+instructions/i.test(judged)) return '{"action":"block","category":"prompt-injection","reason":"mock block"}'
+    if (/\bfuck/i.test(judged)) return '{"action":"block","category":"profanity","reason":"mock profanity"}'
   }
-  if (/\bfuck/i.test(judged)) {
-    return { type: 'text', text: '{"action":"block","category":"profanity","reason":"mock profanity"}', delayMs }
+  const slow = /slow moderation/i.test(judged) ? 6000 : undefined
+  if (wrapped && !/confirm or clear/i.test(wrapped[3])) {
+    const flagged = !!blockOf() || /MOD_FALSE_ALARM|MOD_BROKEN_CONFIRM/.test(judged) || /CTXSEEN/.test(context)
+    return { type: 'text', text: flagged ? 'yes' : 'no', delayMs: slow }
   }
-  if (/CTXSEEN/.test(context)) {
-    return { type: 'text', text: '{"action":"allow","category":"ctx-seen"}', delayMs }
-  }
+  // Stage 2 (or a bare message): only stage 1 is slow, so a late verdict lands soon after the gate opened.
+  const delayMs = wrapped ? undefined : slow
+  if (judged.includes('MOD_BROKEN_CONFIRM')) return { type: 'text', text: 'not json', delayMs }
+  if (judged.includes('MOD_FALSE_ALARM')) return { type: 'text', text: '{"action":"allow"}', delayMs }
+  const block = blockOf()
+  if (block) return { type: 'text', text: block, delayMs }
+  if (/CTXSEEN/.test(context)) return { type: 'text', text: '{"action":"allow","category":"ctx-seen"}', delayMs }
   return { type: 'text', text: '{"action":"allow"}', delayMs }
+}
+
+/**
+ * The tool-output tripwire's classifier (api/src/tripwire), for any mock model id: it judges only the text inside
+ * the nonce-tagged wrapper, and reads the stage from the instruction after it (content cannot claim a stage).
+ * Stage 1 answers one word: "yes" on "INJECTION_PROBE", an "ignore (all/previous) instructions" phrase, text
+ * addressed to the "classifier:" (the self-incrimination rule), "FALSE_ALARM" or "BROKEN_CONFIRM"; "???" (unparseable: fail open) on "BROKEN_CLASSIFIER"; else "no".
+ * "slow tripwire" delays stage 1 past the tripwire timeout (fail open on timeout, then a late verdict). Stage 2
+ * confirms a probe with the matched phrase as excerpt, clears "FALSE_ALARM", answers unparseable text on
+ * "BROKEN_CONFIRM" (a failed confirmation counts as suspected).
+ */
+const TRIPWIRE_WRAPPER = /<(tool_result_[0-9a-f]{12})\b[^>]*>([\s\S]*?)<\/\1>([\s\S]*)$/
+export function processMockTripwirePrompt (lastMessage: string): MockPromptResult {
+  const wrapped = TRIPWIRE_WRAPPER.exec(lastMessage)
+  const judged = wrapped?.[2] ?? lastMessage
+  const instruction = wrapped?.[3] ?? ''
+  if (/confirm or clear/i.test(instruction)) {
+    if (judged.includes('BROKEN_CONFIRM')) return { type: 'text', text: 'not json' }
+    if (judged.includes('FALSE_ALARM')) return { type: 'text', text: '{"suspected":false}' }
+    const matched = judged.match(/ignore (all |previous )+instructions|INJECTION_PROBE|\bclassifier:/i)?.[0]
+    if (matched) return { type: 'text', text: JSON.stringify({ suspected: true, excerpt: matched, reason: 'mock trip' }) }
+    return { type: 'text', text: '{"suspected":false}' }
+  }
+  if (judged.includes('BROKEN_CLASSIFIER')) return { type: 'text', text: '???' }
+  const delayMs = judged.includes('slow tripwire') ? 6000 : undefined
+  const flagged = /ignore (all |previous )+instructions|INJECTION_PROBE|FALSE_ALARM|BROKEN_CONFIRM|\bclassifier:/i.test(judged)
+  return { type: 'text', text: flagged ? 'yes' : 'no', delayMs }
 }
 
 /**
@@ -466,8 +520,16 @@ const mockDelay = async (ms: number, signal?: AbortSignal): Promise<void> => {
   })
 }
 
-function processForModel (modelId: string, options: { prompt: string | Array<any>, tools?: Array<any> }): MockPromptResult {
+export function processForModel (modelId: string, options: { prompt: string | Array<any>, tools?: Array<any> }): MockPromptResult {
+  // A provider that rejects every call (mock-failing): what an admin probe exists to show, with the provider's message.
+  if (modelId === 'mock-failing') return { type: 'error' }
   const lastMessage = getLastUserMessage(options)
+  // The tripwire classifies with the moderator role, which resolves to whatever mock model the account maps
+  // (moderator → summarizer → assistant), so its seam answers for any mock id, before every other seam: a
+  // tool result quoting a directive ('stall'…) must be classified, not obeyed.
+  if (TRIPWIRE_WRAPPER.test(lastMessage)) return processMockTripwirePrompt(lastMessage)
+  // Input moderation likewise: its wrapper is recognised for any mock id (the moderator role falls back too).
+  if (MODERATION_WRAPPER.test(lastMessage)) return processMockModeratorPrompt(lastMessage)
   // The classifier only ever JUDGES: its prompt wraps the person's message, so a directive meant for
   // the assistant ('stall', 'stream error'…) would otherwise hit the moderator too — a message ending in
   // 'stall' stalled the classifier itself for 30s, and no late verdict could ever be tested.

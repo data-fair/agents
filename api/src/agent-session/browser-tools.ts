@@ -13,7 +13,7 @@
  */
 
 import { tool, jsonSchema, type Tool } from 'ai'
-import { withProvenance } from '../conversations/operations.ts'
+import { withProvenance, type ToolResultScreen } from '../conversations/operations.ts'
 import type { BrowserToolDescriptor } from '@agents/shared/agent-session-protocol'
 import type { AgentSession } from './session.ts'
 import { appendHostEvents } from './host-events.ts'
@@ -82,8 +82,9 @@ export function rawBrowserToolSet (session: AgentSession, descriptors?: BrowserT
 /**
  * The page's tools as the model is offered them: the declared tools, in the same envelope an MCP tool's result
  * gets, from the same implementation. A page's result is untrusted input in exactly the same way: it is content
- * the model will read, arriving from somewhere that is not this service.
+ * the model will read, arriving from somewhere that is not this service. Every page tool is screened by the
+ * tripwire when one is given: a page declares no annotations the service could trust to skip it.
  */
-export function browserToolSet (session: AgentSession, descriptors?: BrowserToolDescriptor[]): Record<string, Tool> {
-  return withProvenance(rawBrowserToolSet(session, descriptors), () => BROWSER_TOOL_SERVER)
+export function browserToolSet (session: AgentSession, descriptors?: BrowserToolDescriptor[], screen?: ToolResultScreen): Record<string, Tool> {
+  return withProvenance(rawBrowserToolSet(session, descriptors), () => BROWSER_TOOL_SERVER, screen)
 }

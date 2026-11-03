@@ -2,14 +2,17 @@
  * router.ts contains the HTTP layer logic and stateful logic
  * it should not be imported anywhere else than app.ts
  * Admin-only observability endpoints — unlike its v1 ancestor, every route here
- * requires the account admin role; only the probe touches an LLM.
+ * requires the account admin role; only the probe touches an LLM (both guards', input moderation and the
+ * tool-output tripwire).
  */
 import mongo from '#mongo'
+import config from '#config'
 import { Router } from 'express'
 import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@data-fair/lib-express'
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { runProbe } from './service.ts'
+import { runTripwireProbe } from '../tripwire/service.ts'
 
 const router = Router()
 export default router
@@ -38,7 +41,7 @@ router.get('/:type/:id/stats', async (req, res) => {
     // the silent-breakage alarm sample: last 24h fail-open rate
     mongo.moderationEvents.aggregate([
       { $match: { ...ownerFilter, createdAt: { $gte: last24h }, action: { $ne: 'strike-refusal' } } },
-      { $group: { _id: null, checks: { $sum: 1 }, failOpen: { $sum: { $cond: [{ $in: ['$action', ['fail-open-timeout', 'fail-open-error']] }, 1, 0] } } } }
+      { $group: { _id: null, checks: { $sum: 1 }, failOpen: { $sum: { $cond: [{ $in: ['$action', ['fail-open-timeout', 'fail-open-error', 'fail-open-confirm']] }, 1, 0] } } } }
     ]).toArray()
   ])
 
@@ -81,5 +84,9 @@ router.post('/:type/:id/probe', async (req, res) => {
     res.status(404).json({ error: { message: 'Agent not configured', type: 'invalid_request_error' } })
     return
   }
-  res.json({ results: await runProbe(settings, owner) })
+  // Both guards share the moderator model and the classifier engine: the tripwire's probes beside moderation's,
+  // run at the same time. The tripwire's run even when the deployment switched it off (they check the model);
+  // `tripwireEnabled` says so, or an admin would read "withheld" for results that pass unscanned.
+  const [results, tripwire] = await Promise.all([runProbe(settings, owner), runTripwireProbe(settings, owner)])
+  res.json({ results, tripwire, tripwireEnabled: !!config.tripwire?.enabled })
 })

@@ -347,6 +347,10 @@ export const driveTurn = async (
   } finally {
     if (timeout) clearTimeout(timeout)
     stopWatching()
+    // The record is closed, by close or fail alike: a tool-output tripwire verdict coming late is applied to the
+    // stored part from now on (api/src/tripwire). On the fail path too, or a failed turn's stored result would be
+    // replayed by the next one.
+    live.tripwire?.closed(run.conversationId ? { conversationId: run.conversationId } : { runId: run.id })
     liveRuns.delete(run.id)
   }
 }

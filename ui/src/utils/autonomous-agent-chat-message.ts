@@ -62,6 +62,9 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
       input: call.input,
       ...(call.state === 'output-available' ? { output: call.output } : {}),
       ...(call.state === 'output-error' ? { errorText: call.errorText } : {}),
+      ...(typeof (call as any).toolMetadata?.tripwire?.excerpt === 'string' && (call as any).toolMetadata.tripwire.source
+        ? { tripwire: { excerpt: (call as any).toolMetadata.tripwire.excerpt, source: (call as any).toolMetadata.tripwire.source } }
+        : {}),
       ...(call.state === 'output-denied' && call.approval.reason ? { deniedReason: call.approval.reason } : {}),
       // PER CALL, not per message. The states before an output arrives are exactly the ones still
       // running, so a parallel step now shows each call finishing as it finishes, instead of every

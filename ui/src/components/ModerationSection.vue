@@ -67,10 +67,44 @@
           {{ row.message }}
         </v-list-item-title>
         <v-list-item-subtitle class="text-caption">
-          {{ row.category || row.error || '—' }} · {{ Math.round(row.latencyMs) }}ms
+          {{ t('stage1', { answer: row.stage1 ?? '—' }) }} · {{ row.category || row.error || '—' }} · {{ Math.round(row.latencyMs) }}ms
         </v-list-item-subtitle>
       </v-list-item>
     </v-list>
+    <template v-if="tripwireResults.length">
+      <h4 class="text-title-small mt-2">
+        {{ t('tripwireProbe') }}
+        <v-chip
+          v-if="!tripwireEnabled"
+          size="x-small"
+          class="ml-2"
+        >
+          {{ t('tripwireOff') }}
+        </v-chip>
+      </h4>
+      <v-list density="compact">
+        <v-list-item
+          v-for="row in tripwireResults"
+          :key="row.key"
+        >
+          <template #prepend>
+            <v-chip
+              size="small"
+              :color="row.error ? 'warning' : (row.suspected ? 'error' : 'success')"
+              class="mr-2"
+            >
+              {{ row.error && row.suspected === undefined ? t('probeError') : (row.suspected ? t('withheld') : t('passed')) }}
+            </v-chip>
+          </template>
+          <v-list-item-title class="text-body-2">
+            {{ row.text }}
+          </v-list-item-title>
+          <v-list-item-subtitle class="text-caption">
+            {{ t('stage1', { answer: row.stage1 ?? '—' }) }} · {{ row.error || row.reason || '—' }} · {{ Math.round(row.latencyMs) }}ms
+          </v-list-item-subtitle>
+        </v-list-item>
+      </v-list>
+    </template>
 
     <h4 class="text-title-medium mt-4 mb-2">
       {{ t('recentBlocks') }}
@@ -113,6 +147,11 @@ fr:
   avgLatency: Latence moyenne du verdict
   probe: Tester la modération
   probeError: erreur
+  stage1: "1re étape : {answer}"
+  tripwireProbe: Filtre des résultats d'outils
+  tripwireOff: "désactivé sur ce déploiement : les résultats d'outils passent sans analyse"
+  withheld: retenu
+  passed: transmis
   recentBlocks: Derniers messages bloqués
   noBlocks: Aucun message bloqué.
   failOpenWarning: "La modération a échoué en mode ouvert pour {rate}% des vérifications des dernières 24h — vérifiez le modèle modérateur."
@@ -124,6 +163,11 @@ en:
   avgLatency: Average verdict latency
   probe: Test moderation
   probeError: error
+  stage1: "stage 1: {answer}"
+  tripwireProbe: Tool-output tripwire
+  tripwireOff: "off on this deployment: tool results pass unscanned"
+  withheld: withheld
+  passed: passed
   recentBlocks: Recent blocked messages
   noBlocks: No blocked messages.
   failOpenWarning: "Moderation failed open for {rate}% of checks in the last 24h — check your moderator model."
@@ -141,6 +185,8 @@ const { t } = useI18n()
 const stats = ref<any>(null)
 const blocks = ref<any[]>([])
 const probeResults = ref<any[]>([])
+const tripwireResults = ref<any[]>([])
+const tripwireEnabled = ref(true)
 const probing = ref(false)
 const loadError = ref('')
 
@@ -157,7 +203,7 @@ const failOpenAlert = computed(() => !!stats.value && stats.value.last24h.checks
 const statCards = computed(() => {
   const totals = stats.value?.totals ?? {}
   const checks = (totals.allow ?? 0) + (totals.block ?? 0) + (totals['late-block'] ?? 0) +
-    (totals['fail-open-timeout'] ?? 0) + (totals['fail-open-error'] ?? 0)
+    (totals['fail-open-timeout'] ?? 0) + (totals['fail-open-error'] ?? 0) + (totals['fail-open-confirm'] ?? 0)
   return [
     { label: t('checks'), value: checks },
     { label: t('blocks'), value: (totals.block ?? 0) + (totals['late-block'] ?? 0) },
@@ -185,7 +231,10 @@ const runProbe = async () => {
   try {
     const res = await fetch(`${base.value}/probe`, { method: 'POST', credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }
-    probeResults.value = (await res.json()).results
+    const body = await res.json()
+    probeResults.value = body.results
+    tripwireResults.value = body.tripwire ?? []
+    tripwireEnabled.value = body.tripwireEnabled !== false
   } catch { loadError.value = t('loadError') } finally { probing.value = false }
 }
 

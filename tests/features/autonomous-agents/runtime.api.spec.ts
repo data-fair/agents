@@ -814,11 +814,16 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     })
     const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
     await enrol(agent.id)
-    // Priced so ONE step costs ~110 credits. That is deliberately under the 500-credit per-run budget:
-    // if a step blew that first, this test would pass on the wrong ceiling and prove nothing. Two steps
-    // then cross the 200 account cap.
+    // Priced so ONE step costs ~90 credits: ~55 for the assistant's call (its prompt, the tool list
+    // included, is ~1,100 tokens) and ~35 for the tripwire's one-word first stage on the step's tool
+    // result (its policy prompt is ~650 tokens), which is the same mock model in the moderator role;
+    // a benign result never reaches the second stage. That is deliberately far under the 500-credit
+    // per-run budget: if a step blew that first, this test would pass on the wrong ceiling and prove
+    // nothing (at the former 4,000/M one step was ~750). It is also well under the 200 account cap, so
+    // prompts can roughly double before a single step crosses it (steps >= 2 below says so if they do);
+    // the cap is crossed on the second or third step.
     await putMockSettings(admin, 'organization/test1', {
-      models: mockModels({ inputPricePerMillion: 4_000, outputPricePerMillion: 4_000 })
+      models: mockModels({ inputPricePerMillion: 400, outputPricePerMillion: 400 })
     })
     const { conv, runId } = await startTurn(agent.id, 'loop forever')
     const run = await awaitRun(orgAdmin, conv.id, runId)
@@ -832,6 +837,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const { consumption } = (await orgAdmin.get('/api/v1/limits/organization/test1' + `?key=${SECRET}`)).data.ai_credits
     assert.ok(consumption > 200, 'the cap is crossed — that is the premise')
     assert.ok(consumption < 200 + PER_RUN_CREDIT_BUDGET, `overshoot must be bounded by roughly one step, got ${consumption}`)
+    assert.ok(run.steps >= 2, `the cap must be crossed MID-RUN, after a first step, got ${run.steps} steps`)
   })
 
   test('a turn can be aborted, and says so', async () => {
@@ -1295,26 +1301,24 @@ test.describe('Autonomous agent run traces', () => {
     // contradict what was actually charged — the regression traces/operations.ts records having
     // already fixed once in its own copy of the formula.
     //
-    // Non-zero prices, or the cost is 0 either way and the assertion proves nothing. `cache <n>`
-    // is a mock directive matched against the whole prompt; `hello` stays on the last line so the
-    // answer is still 'world'.
+    // Non-zero prices, or the cost is 0 either way and the assertion proves nothing. 8 000 EUR/M at the
+    // 0.008 EUR/credit peg makes one token cost one credit (as usage.api.spec.ts does), so the check is in
+    // credits on both sides: comparing credits to a price in euros only held while the prompt stayed under
+    // ~1 008 mock tokens. `cache <n>` is a mock directive matched against the whole prompt; `hello` stays on
+    // the last line so the answer is still 'world'.
     await putMockSettings(admin, 'organization/test1', {
-      models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000, cachedInputPricePerMillion: 0 })
+      models: mockModels({ inputPricePerMillion: 8000, outputPricePerMillion: 8000, cachedInputPricePerMillion: 0 })
     })
     const { conv, runId } = await runTurnFor({}, 'cache 1000\nhello')
 
     const assistant = (await callsOf(conv.id, runId)).find((c: any) => c.modelRole === 'assistant')
     assert.ok(assistant, 'expected an assistant call')
     assert.ok(assistant.cacheReadTokens > 0, 'the cache read detail must reach the telemetry')
-    // With a zero cache tariff, the credits charged must be strictly less than pricing every input
-    // token at the full rate — which is only possible if the detail survived into the pricing.
-    // The INPUT portion, not the total: output is priced too, so a total would exceed input-only
-    // pricing whether or not the cache detail survived.
-    const pricedAtFullRate = (assistant.inputTokens / 1_000_000) * 1000
-    assert.ok(
-      assistant.creditsInput < pricedAtFullRate,
-      `cache reads were billed at the full input tariff: ${assistant.creditsInput} vs ${pricedAtFullRate}`
-    )
+    // With a zero cache tariff, only the uncached input is billed: one credit per uncached token. Pricing
+    // every input token at the full rate — the regression — would bill inputTokens credits.
+    assert.ok(Math.abs(assistant.creditsInput - (assistant.inputTokens - assistant.cacheReadTokens)) < 1e-6,
+      `input billed ${assistant.creditsInput} credits for ${assistant.inputTokens} input tokens, ${assistant.cacheReadTokens} of them cache reads`)
+    assert.ok(assistant.creditsInput < assistant.inputTokens, 'cache reads were billed at the full input tariff')
   })
 
   test('telemetry carries no MCP credential', async () => {
