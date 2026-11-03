@@ -14,7 +14,7 @@ import { awaitRun, awaitAgentRun } from '../../support/turn.ts'
 import axios from 'axios'
 import { createEnrolledAgent } from '../../support/agents.ts'
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
-import { WITHHELD_RESULT, TRIPWIRE_CONFIRM_FAILED_EXCERPT } from '../../../api/src/tripwire/operations.ts'
+import { WITHHELD_RESULT, WITHHELD_LATE_RESULT, TRIPWIRE_CONFIRM_FAILED_EXCERPT } from '../../../api/src/tripwire/operations.ts'
 import { NESTED_RESULT_HIDDEN } from '../../../api/src/self-knowledge/operations.ts'
 import { runStopReasonMessage, wrapToolResult } from '../../../api/src/conversations/operations.ts'
 
@@ -73,7 +73,11 @@ test.describe('Tool-output tripwire', () => {
     assert.ok(!echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
     assert.equal(echo.toolMetadata.tripwire.source.tool, 'echo')
     assert.equal(echo.toolMetadata.tripwire.source.server, 'dev-public-mcp')
-    assert.ok(lastText(assistant).endsWith(runStopReasonMessage('injection-suspected', 'echo (dev-public-mcp)')), lastText(assistant))
+    // The model explains the stop in one more step with no tool, having seen only the placeholder: its words, not
+    // the fixed notice, end the turn.
+    assert.equal(run.steps, 2)
+    assert.ok(lastText(assistant).startsWith('TRIP_EXPLAINED'), lastText(assistant))
+    assert.ok(!lastText(assistant).includes(runStopReasonMessage('injection-suspected')), lastText(assistant))
   })
 
   test('an approved call of an earlier turn whose result trips stops the turn that ran it', async () => {
@@ -92,7 +96,7 @@ test.describe('Tool-output tripwire', () => {
     assert.ok(echo.errorText.includes(WITHHELD_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
     assert.equal(echo.toolMetadata.tripwire.source.tool, 'echo')
     const continued = messages.find((m: any) => m.role === 'assistant' && m.runId === runId)
-    assert.ok(lastText(continued).endsWith(runStopReasonMessage('injection-suspected', 'echo (dev-public-mcp)')), lastText(continued))
+    assert.ok(lastText(continued).startsWith('TRIP_EXPLAINED'), lastText(continued))
   })
 
   test('a benign result passes', async () => {
@@ -154,7 +158,8 @@ test.describe('Tool-output tripwire', () => {
     const agent = await createFilesAgent()
     const { run, assistant } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tools echo{"value":"INJECTION_PROBE"} get_schema')
     assert.equal(run.stopReason, 'injection-suspected')
-    assert.equal(run.steps, 1)
+    // The step that called both, then the explanation.
+    assert.equal(run.steps, 2)
     assert.equal(callPart(assistant, 'get_schema').state, 'output-available')
     const echo = callPart(assistant, 'echo')
     assert.equal(echo.state, 'output-error')
@@ -228,6 +233,10 @@ test.describe('Tool-output tripwire', () => {
     const run = await awaitAgentRun(orgAdmin, agent.id, runId)
     assert.equal(run.status, 'error')
     assert.equal(run.stopReason, 'injection-suspected', run.error)
+    // The explanation step reports the outcome for the admin; the run's error keeps the fixed sentence.
+    assert.equal(run.outcome?.status, 'needs-attention', JSON.stringify(run))
+    assert.ok(run.outcome.summary.startsWith('TRIP_EXPLAINED'), run.outcome.summary)
+    assert.ok(run.error.startsWith(runStopReasonMessage('injection-suspected')), run.error)
     if (!eventsUp) return
     const topics = await poll(async () => (await events()).map(e => e.topic.key), t => t.includes(`agents:injection-suspected:${agent.id}`))
     assert.ok(topics.includes(`agents:task-failed:${task.id}`), JSON.stringify(topics))
@@ -264,7 +273,7 @@ test.describe('Tool-output tripwire', () => {
     // Passed on the timeout: the run went on.
     assert.equal(run.status, 'done')
     const prompt = await poll(() => promptOf(agent.id, run.id), text => !text.includes('INJECTION_PROBE'))
-    assert.ok(prompt.includes(WITHHELD_RESULT) && !prompt.includes('INJECTION_PROBE'), prompt)
+    assert.ok(prompt.includes(WITHHELD_LATE_RESULT) && !prompt.includes('INJECTION_PROBE'), prompt)
   })
 
   test('the agent reading a past conversation back sees its scripts\' nested calls, not their results', async () => {
@@ -285,7 +294,8 @@ test.describe('Tool-output tripwire', () => {
     const echoOf = async () => callPart((await messagesOf(conversationId)).find((m: any) => m.seq === assistant.seq), 'echo')
     const echo = await poll(echoOf, part => part.state === 'output-error')
     assert.equal(echo.state, 'output-error')
-    assert.ok(echo.errorText.includes(WITHHELD_RESULT), echo.errorText)
+    // The model had read it: the placeholder says so, for whoever reviews the record.
+    assert.ok(echo.errorText.includes(WITHHELD_LATE_RESULT), echo.errorText)
     assert.equal(echo.output, undefined)
     assert.equal(echo.toolMetadata.tripwire.late, true)
     assert.equal(echo.toolMetadata.tripwire.source.tool, 'echo')
@@ -300,11 +310,13 @@ test.describe('Tool-output tripwire', () => {
     // still runs (4 × 2 s). No space in a `call tools` argument: escaped in its JSON.
     const slowScript = JSON.stringify({ js: 'for (let i = 0; i < 4; i++) await tools.slow_lookup({}); return 1' }).replace(/ /g, '\\u0020')
     const { run, assistant } = await turnOverSocket(orgAdmin, { agentId: agent.id }, `call tools echo{"value":"slow\\u0020tripwire\\u0020INJECTION_PROBE"} code_mode${slowScript}`)
-    assert.equal(run.stopReason, 'completed')
+    // The verdict came while the turn still ran: it stops at the next step, which explains it.
+    assert.equal(run.stopReason, 'injection-suspected')
+    assert.ok(lastText(assistant).startsWith('TRIP_EXPLAINED'), lastText(assistant))
     // Read as the turn closed it, not polled: the loop withheld it on its own parts.
     const echo = callPart(assistant, 'echo')
     assert.equal(echo.state, 'output-error')
-    assert.ok(echo.errorText.includes(WITHHELD_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
+    assert.ok(echo.errorText.includes(WITHHELD_LATE_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
     assert.equal(echo.toolMetadata.tripwire.late, true)
     assert.equal(callPart(assistant, 'code_mode').state, 'output-available')
   })
@@ -317,7 +329,7 @@ test.describe('Tool-output tripwire', () => {
     const echoOf = async () => callPart((await messagesOf(conversationId)).find((m: any) => m.seq === assistant.seq), 'echo')
     const echo = await poll(echoOf, part => part.state === 'output-error')
     assert.equal(echo.state, 'output-error')
-    assert.ok(echo.errorText.includes(WITHHELD_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
+    assert.ok(echo.errorText.includes(WITHHELD_LATE_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
     assert.equal(echo.toolMetadata.tripwire.late, true)
   })
 

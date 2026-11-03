@@ -97,7 +97,8 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
         status: stopReason === 'error' || cutShort ? 'error' : 'done',
         stopReason,
         parts: notice ? withAppendedText(result.parts, notice) : result.parts,
-        ...(cannotWait ? { error: CANNOT_WAIT } : cutShort ? { error: notice } : {}),
+        // A cut-short run keeps the stop's sentence as its error even when the model explained it in its outcome.
+        ...(cannotWait ? { error: CANNOT_WAIT } : cutShort ? { error: notice || runStopReasonMessage(stopReason, result.stopDetail) } : {}),
         ...(outcome ? { outcome } : {})
       })
     },

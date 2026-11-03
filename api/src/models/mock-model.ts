@@ -162,6 +162,16 @@ export function commandLine (lastMessage: string): string {
 }
 
 function processMockPrompt (lastMessage: string, prompt: string | Array<any>): MockPromptResult {
+  // The step a tripwire trip leaves the model (tripExplanationInstruction, api/src/tripwire/operations.ts), read off
+  // the system message: an explanation in a chat, the outcome in a task run. Before everything else, since the last
+  // message is then the withheld result.
+  const system = Array.isArray(prompt) ? JSON.stringify(prompt.filter((m: any) => m?.role === 'system')) : ''
+  if (system.includes('The turn ends with your next message: call no other tool.')) {
+    if (system.includes('report_outcome, status')) {
+      return { type: 'tool-call', toolName: 'report_outcome', toolArgs: JSON.stringify({ status: 'needs-attention', summary: 'TRIP_EXPLAINED: a source was withheld, nothing was done with it.' }) }
+    }
+    return { type: 'text', text: 'TRIP_EXPLAINED: I could not use one of the results, so I did not act on it.' }
+  }
   if (!lastMessage) {
     return { type: 'text', text: 'what do you mean ?' }
   }

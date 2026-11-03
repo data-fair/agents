@@ -15,7 +15,7 @@ import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
-import { withheldErrorText, webhookIndexOf, WITHHELD_RESULT, type TripRecord } from '../tripwire/operations.ts'
+import { withheldErrorText, webhookIndexOf, WITHHELD_RESULT, WITHHELD_LATE_RESULT, type TripRecord } from '../tripwire/operations.ts'
 import { replaceWebhookPayload } from '../tasks/operations.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
@@ -384,13 +384,13 @@ export type StoredResultPlace = { conversationId: string } | { runId: string }
 export const withholdStoredResult = async (where: StoredResultPlace, toolCallId: string, tripwire: TripRecord): Promise<void> => {
   const payloadIndex = webhookIndexOf(toolCallId)
   if (payloadIndex !== undefined) {
-    if ('runId' in where) await withholdWebhookPayload(where.runId, payloadIndex)
+    if ('runId' in where) await withholdWebhookPayload(where.runId, payloadIndex, !!tripwire.late)
     return
   }
   const update = {
     $set: {
       'parts.$[p].state': 'output-error',
-      'parts.$[p].errorText': withheldErrorText(tripwire.source),
+      'parts.$[p].errorText': withheldErrorText(tripwire.source, !!tripwire.late),
       'parts.$[p].toolMetadata.tripwire': tripwire
     },
     $unset: { 'parts.$[p].output': true as const }
@@ -412,11 +412,11 @@ export const withholdStoredResult = async (where: StoredResultPlace, toolCallId:
  * Read, replaced, written only if the prompt is still the one read: two payloads of a run withheld at once
  * (their verdicts settle in parallel) must both be replaced. Retried a few times, then given up loudly.
  */
-const withholdWebhookPayload = async (runId: string, index: number): Promise<void> => {
+const withholdWebhookPayload = async (runId: string, index: number, late: boolean): Promise<void> => {
   for (let attempt = 0; attempt < 5; attempt++) {
     const run = await mongo.runs.findOne({ id: runId }, { projection: { _id: 0, prompt: 1 } })
     if (typeof run?.prompt !== 'string') return
-    const prompt = replaceWebhookPayload(run.prompt, index, WITHHELD_RESULT)
+    const prompt = replaceWebhookPayload(run.prompt, index, late ? WITHHELD_LATE_RESULT : WITHHELD_RESULT)
     if (prompt === run.prompt) return
     const { matchedCount } = await mongo.runs.updateOne({ id: runId, prompt: run.prompt }, { $set: { prompt } })
     if (matchedCount) return

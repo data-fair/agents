@@ -7,7 +7,8 @@ import {
   TRIPWIRE_TASK_MARKER, TRIPWIRE_MAX_SCANNED_CHARS, TRIPWIRE_WINDOW_CHARS,
   isScanned, capForScan, scanWindows, buildTripwireSystemPrompt, formatTripwireInput, injectionEvent, tripSource, describeSource,
   buildStage1Instruction, buildStage2Instruction, tripwireMessage,
-  withheldErrorText, webhookCallId, webhookIndexOf, SOURCE_URL_MAX_CHARS, WITHHELD_RESULT as WITHHELD, type ScreenInput
+  withheldErrorText, webhookCallId, webhookIndexOf, SOURCE_URL_MAX_CHARS, WITHHELD_RESULT as WITHHELD, type ScreenInput,
+  tripExplanationInstruction
 } from '../../../api/src/tripwire/operations.ts'
 import { parseStage1 } from '../../../api/src/guard/operations.ts'
 import { processForModel, processMockTripwirePrompt } from '../../../api/src/models/mock-model.ts'
@@ -234,5 +235,25 @@ test.describe('Screening in the provenance envelope', () => {
     assert.equal((view[1].parts[0] as any).output, 'ok')
     // The stored messages are left as they were: the export a person downloads keeps the results.
     assert.ok(JSON.stringify(messages).includes('echo:NESTED_SECRET'))
+  })
+})
+
+test.describe('tripExplanationInstruction', () => {
+  test('ends the turn with no other tool, in the person\'s words, and never asks for the withheld text', () => {
+    const chat = tripExplanationInstruction('chat')
+    const task = tripExplanationInstruction('task')
+    for (const text of [chat, task]) {
+      assert.match(text, /you have not seen it/)
+      assert.match(text, /call no other tool/)
+      assert.match(text, /did not act on its content/)
+    }
+    assert.match(chat, /language of the conversation/)
+    assert.match(chat, /Do not suggest pasting the withheld content/)
+    assert.match(task, /report_outcome, status "needs-attention"/)
+    // A late verdict's result was read: the instruction must not claim otherwise.
+    const late = tripExplanationInstruction('chat', true)
+    assert.match(late, /after you had read it/)
+    assert.doesNotMatch(late, /you have not seen it/)
+    assert.match(late, /do not repeat its claims as fact/)
   })
 })
