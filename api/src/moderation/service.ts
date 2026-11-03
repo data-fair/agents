@@ -9,18 +9,18 @@ import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
 import type { UsageIdentity } from '../usage/operations.ts'
-import { newNonce, stage1Call, stage2Call, meterGuardCall, classifyTwoStage, describeFailedStage, type TwoStageOutcome } from '../guard/service.ts'
+import { newNonce, meterGuardCall, classifyTwoStage, describeFailedStage, type TwoStageOutcome } from '../guard/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
 import {
-  buildModerationSystemPrompt, truncateForModeration, truncateExcerpt, moderationMessage,
-  verdictSchema, isInCooldown,
-  MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS, MODERATION_STAGE2_MAX_TOKENS,
+  truncateForModeration, truncateExcerpt, isInCooldown,
+  MODERATION_TIMEOUT_MS, MODERATION_HARD_TIMEOUT_MS,
   type ModerationInput,
   STRIKE_WINDOW_MS, STRIKE_COOLDOWN_MS, STRIKE_THRESHOLD,
   type ModerationVerdict
 } from './operations.ts'
 import type { ModerationEvent, ModerationEventAction } from './types.ts'
+import { moderationStages } from './classifier.ts'
 
 // ---- events ----
 
@@ -130,17 +130,9 @@ function classifyMessage (
   input: ModerationInput,
   charge: (usage: LanguageModelUsage, startedAt: number) => Promise<unknown>
 ): Promise<ModerationDecision> {
-  const instructions = buildModerationSystemPrompt()
+  const stages = moderationStages(model, input)
   return classifyTwoStage({
-    stage1: abortSignal => stage1Call({ model, instructions, content: moderationMessage(input, 1), abortSignal }),
-    stage2: abortSignal => stage2Call({
-      model,
-      schema: verdictSchema,
-      maxOutputTokens: MODERATION_STAGE2_MAX_TOKENS,
-      instructions,
-      content: moderationMessage(input, 2),
-      abortSignal
-    }),
+    ...stages,
     cleared: { action: 'allow' },
     hardTimeoutMs: MODERATION_HARD_TIMEOUT_MS,
     meter: (generated, startedAt) => meterGuardCall(generated, usage => charge(usage, startedAt))

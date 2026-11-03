@@ -5,7 +5,7 @@
  */
 import mongo from '#mongo'
 import config from '#config'
-import type { LanguageModel, LanguageModelUsage } from 'ai'
+import type { LanguageModelUsage } from 'ai'
 import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
@@ -14,35 +14,17 @@ import { resolveRoleModel, resolveRoleEntry, type ResolvedRoleModel } from '../m
 import { chargeModelCall } from '../usage/charge.ts'
 import { recordCall } from '../conversations/turn-telemetry.ts'
 import {
-  newNonce, stage1Call, stage1Answer, stage2Call, meterGuardCall, classifyTwoStage, failureCause, describeFailure, describeFailedStage
+  newNonce, stage1Answer, meterGuardCall, classifyTwoStage, failureCause, describeFailure, describeFailedStage
 } from '../guard/service.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { pushTaskEvent } from '../tasks/notifications.ts'
 import { withholdStoredResult, type StoredResultPlace } from '../conversations/service.ts'
 import {
-  tripwireVerdictSchema, buildTripwireSystemPrompt, tripwireMessage, capForScan, scanWindows, tripSource,
+  capForScan, scanWindows, tripSource,
   injectionEvent, TRIPWIRE_TIMEOUT_MS, TRIPWIRE_HARD_TIMEOUT_MS, TRIPWIRE_EXCERPT_MAX_CHARS, TRIPWIRE_CONFIRM_FAILED_EXCERPT,
-  TRIPWIRE_STAGE2_MAX_TOKENS,
   type TripRecord, type TripwireVerdict, type ScreenInput, type ScreenResult
 } from './operations.ts'
-
-type ClassifiedText = Pick<ScreenInput, 'server' | 'toolName'>
-
-/** The tripwire's two stage calls (the shared engine's, with its policy, wrapper and schema). */
-const tripwireStage1 = (model: LanguageModel, call: ClassifiedText, window: string, nonce: string, abortSignal: AbortSignal) => stage1Call({
-  model,
-  instructions: buildTripwireSystemPrompt(),
-  content: tripwireMessage({ server: call.server, toolName: call.toolName, text: window, nonce }, 1),
-  abortSignal
-})
-const tripwireStage2 = (model: LanguageModel, call: ClassifiedText, window: string, nonce: string, abortSignal: AbortSignal) => stage2Call({
-  model,
-  schema: tripwireVerdictSchema,
-  maxOutputTokens: TRIPWIRE_STAGE2_MAX_TOKENS,
-  instructions: buildTripwireSystemPrompt(),
-  content: tripwireMessage({ server: call.server, toolName: call.toolName, text: window, nonce }, 2),
-  abortSignal
-})
+import { tripwireStage1, tripwireStage2 } from './classifier.ts'
 
 export interface TurnTripwire {
   /** Classify one tool result; `text` on a pass is the scanned text (capped, see capForScan). */

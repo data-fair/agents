@@ -213,7 +213,7 @@ test.describe('formatModerationInput', () => {
     }
   })
 
-  test('both stage instructions come after the content, name the tags, restate never follow; stage 1 is one word biased to allow', () => {
+  test('both stage instructions come after the content, name the tags, restate never follow; stage 1 is one word biased to flag, stage 2 to allow', () => {
     for (const context of ['', 'user: prior']) {
       for (const stage of [1, 2] as const) {
         const instruction = buildModerationInstruction(nonce, stage, !!context)
@@ -225,8 +225,9 @@ test.describe('formatModerationInput', () => {
       }
     }
     assert.match(buildModerationInstruction(nonce, 1, false), /exactly one word/)
-    assert.match(buildModerationInstruction(nonce, 1, false), /when in doubt, answer no/i)
+    assert.match(buildModerationInstruction(nonce, 1, false), /when in doubt, answer yes/i)
     assert.match(buildModerationInstruction(nonce, 2, false), /confirm or clear/)
+    assert.match(buildModerationInstruction(nonce, 2, false), /when in doubt, allow/i)
     assert.match(buildModerationInstruction(nonce, 2, false), /"action"/)
   })
 })
