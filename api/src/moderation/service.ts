@@ -35,7 +35,7 @@ export async function isStrikeCooldownActive (owner: AccountKeys, userId: string
   return isInCooldown(strike, new Date())
 }
 
-async function registerBlockStrike (owner: AccountKeys, userId: string): Promise<void> {
+async function registerBlockStrike (owner: AccountKeys, userId: string, logFields: Record<string, unknown>): Promise<void> {
   try {
     const now = new Date()
     const windowCutoff = new Date(now.getTime() - STRIKE_WINDOW_MS)
@@ -43,7 +43,7 @@ async function registerBlockStrike (owner: AccountKeys, userId: string): Promise
     // Single atomic pipeline update: increment within an active window, reset a
     // stale one, and arm the cooldown when the threshold is reached — concurrent
     // blocks cannot lose increments the way a read-modify-write would.
-    await mongo.moderationStrikes.updateOne(
+    const strike = await mongo.moderationStrikes.findOneAndUpdate(
       { 'owner.type': owner.type, 'owner.id': owner.id, userId },
       [
         {
@@ -62,8 +62,15 @@ async function registerBlockStrike (owner: AccountKeys, userId: string): Promise
           }
         }
       ],
-      { upsert: true }
+      { upsert: true, returnDocument: 'after', projection: { _id: 0, count: 1, cooldownUntil: 1 } }
     )
+    // Armed by this very update (its end is this call's): repeated abuse by one untrusted caller. `alert`, lib-node's
+    // level for security events that deserve the scrutiny of errors, as the tripwire's trips.
+    if (strike?.cooldownUntil?.getTime() === cooldownEnd.getTime()) {
+      log.alert('an untrusted caller was blocked repeatedly by input moderation: a cooldown is armed', {
+        code: 'moderation-cooldown', ...logFields, strikes: strike.count, cooldownUntil: cooldownEnd.toISOString()
+      })
+    }
   } catch {
     // strike accounting must never affect the chat response
   }
@@ -193,6 +200,20 @@ export function startModeration (params: {
   let lateBlockCb: (() => void) | undefined
   let timedOut = false
 
+  // Operators read these through lib-node's df_logs{level, code} counter, like the tripwire's codes. Ids only: an
+  // excerpt of the message is in the block event, which an admin reads, never in a log line.
+  const logFields = {
+    owner: eventBase.owner,
+    role: speaker.role,
+    modelRole,
+    speakerId: eventBase.userId,
+    ...(params.run ? { runId: params.run.id, conversationId: params.run.conversationId } : {})
+  }
+  // A fail-open rate near 100% means moderation is effectively off (a misconfigured or failing moderator model).
+  const logFailOpen = (cause: string) => log.warn('a message passed input moderation without a verdict: the classifier failed or timed out', {
+    code: 'moderation-fail-open', ...logFields, latencyMs: Date.now() - startedAt, cause
+  })
+
   // Exactly one event per check, written when the check settles.
   const finalize = (action: ModerationEventAction, verdict?: ModerationVerdict) => {
     const latencyMs = Date.now() - startedAt
@@ -207,7 +228,12 @@ export function startModeration (params: {
     // Strikes accrue for untrusted callers only — they drive the cooldown
     // lockout, which must never apply to trusted (org-member) callers even when
     // their category is moderated. Their messages are still blocked one by one.
-    if (speaker.isUntrusted && verdict?.action === 'block') registerBlockStrike(owner, eventBase.userId).catch(() => {})
+    if (verdict?.action === 'block') {
+      log.warn(action === 'late-block' ? 'a message was blocked by input moderation after its turn started' : 'a message was blocked by input moderation', {
+        code: 'moderation-block', ...logFields, latencyMs, ...(verdict.category ? { category: verdict.category } : {}), ...(action === 'late-block' ? { late: true } : {})
+      })
+      if (speaker.isUntrusted) registerBlockStrike(owner, eventBase.userId, logFields).catch(() => {})
+    }
   }
 
   const decision: Promise<ModerationDecision> = (async () => {
@@ -223,9 +249,16 @@ export function startModeration (params: {
   })().catch((): ModerationDecision => ({ kind: 'stage1-failed', cause: 'error' }))
 
   decision.then(d => {
-    if (d.kind === 'stage1-failed') return finalize('fail-open-error')
+    // A failure after the gate opened on its timeout was logged then.
+    if (d.kind === 'stage1-failed') {
+      if (!timedOut) logFailOpen(d.cause)
+      return finalize('fail-open-error')
+    }
     // Stage 1 flagged and the confirmation failed: still open, the guard never refuses on a failure.
-    if (d.kind === 'confirm-failed') return finalize('fail-open-confirm')
+    if (d.kind === 'confirm-failed') {
+      if (!timedOut) logFailOpen(`confirm-${d.cause}`)
+      return finalize('fail-open-confirm')
+    }
     const { verdict } = d
     if (!timedOut) {
       finalize(verdict.action, verdict)
@@ -244,6 +277,7 @@ export function startModeration (params: {
     new Promise<ModerationGateResult>(resolve => {
       const timer = setTimeout(() => {
         timedOut = true
+        logFailOpen('timeout')
         resolve({ action: 'allow', timedOut: true })
       }, MODERATION_TIMEOUT_MS)
       // do not keep the process alive for the gate timer alone
