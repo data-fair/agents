@@ -8,6 +8,7 @@ import { tool, jsonSchema } from 'ai'
 import { codeCallable, SCRIPT_TRANSFER_BYTES } from '../../../api/src/code-mode/operations.ts'
 import { codeFacingTools, createCodeTrace } from '../../../api/src/code-mode/code-tools.ts'
 import { createScriptTool } from '../../../api/src/code-mode/tool.ts'
+import { reviewUnavailableText } from '../../../api/src/approval-review/operations.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../../../api/src/web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, codeOutputSchemaFor } from '../../../api/src/mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../../../api/src/self-knowledge/operations.ts'
@@ -260,5 +261,30 @@ test.describe('the trace of a script', () => {
     const ungated = createScriptTool(codeFacingTools({ names: ['write'], fixed, page: {}, callPath: {}, trace: trace() }))
     assert.match(String(await ungated.execute!({ js: 'try { await tools.write({ v: "x" }) } catch (e) { return e.message }' }, { toolCallId: 'cm2', messages: [], context: {} })), /needs a review/)
     assert.deepEqual(ran, ['read', 'write:yes'])
+  })
+
+  test('a nested call whose review failed fails with the unavailable text, not a denial', async () => {
+    const review = { route: 'reviewer' as const, cls: 'write' as const, kind: 'action' as const }
+    const fixed = { write: { tool: plain(async () => 'ok'), server: 'dev', review } }
+    const tools = codeFacingTools({
+      names: ['write'],
+      fixed,
+      page: {},
+      callPath: {},
+      trace: trace(),
+      review: {
+        reviewNested: async () => ({ outcome: 'unsure', reason: 'the first stage failed: it timed out', code: 'review-failed', failure: 'timeout' }) as any,
+        noteNested: () => {}
+      }
+    })
+    const out = await createScriptTool(tools).execute!({ js: 'try { await tools.write({}) } catch (e) { return e.message }' }, { toolCallId: 'cm1', messages: [], context: {} })
+    assert.equal(String(out), reviewUnavailableText())
+  })
+
+  test('the description states the reviewer\'s time only when the turn has one', () => {
+    const fixed = { write: { tool: plain(async () => 'ok'), server: 'dev' } }
+    const description = (reviewed: boolean) => String(createScriptTool(codeFacingTools({ names: ['write'], fixed, page: {}, callPath: {}, trace: trace() }), { reviewed }).description)
+    assert.match(description(true), /checked by a reviewer before they run, a few seconds each, counted in the script's 120 s/)
+    assert.doesNotMatch(description(false), /reviewer/)
   })
 })

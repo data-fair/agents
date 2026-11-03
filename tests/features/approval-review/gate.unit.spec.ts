@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import type { ModelMessage } from 'ai'
 import { createReviewGate, type GateTool } from '../../../api/src/approval-review/gate.ts'
-import { BREAKER_TRIPPED_REASON, exposureOf, reviewerDenialText, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
+import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, exposureOf, reviewerDenialText, reviewUnavailableText, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
 import { TOOL_NO_LONGER_AVAILABLE } from '../../../api/src/conversations/approved-calls.ts'
 import { recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 
@@ -33,6 +33,7 @@ const gateWith = (opts: {
   surface?: 'chat' | 'task'
   history?: ModelMessage[]
   exposure?: (messages: ModelMessage[]) => Exposure
+  budgetSpent?: () => boolean
 }) => {
   const fake = fakeReview(opts.answer ?? record('allow'))
   const gate = createReviewGate({
@@ -40,7 +41,8 @@ const gateWith = (opts: {
     history: opts.history ?? [],
     surface: opts.surface ?? 'chat',
     review: fake.review,
-    exposure: opts.exposure ?? (() => ({ exposed: false, tools: [] }))
+    exposure: opts.exposure ?? (() => ({ exposed: false, tools: [] })),
+    ...(opts.budgetSpent ? { budgetSpent: opts.budgetSpent } : {})
   })
   return { gate, fake }
 }
@@ -257,6 +259,53 @@ test.describe('review gate (unit)', () => {
     const { gate } = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('deny') })
     for (const id of ['n1', 'n2', 'n3']) await gate.reviewNested(id, 'set_note', {})
     assert.equal(gate.tripped, true)
+  })
+
+  test('gate: a failed review that denies tells the model it could not be reviewed, not that it was denied', async () => {
+    const failed = record('unsure', { code: 'review-failed', failure: 'timeout', reason: 'the first stage failed: it timed out' })
+    const task = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: failed, surface: 'task' })
+    assert.deepEqual(await decide(task.gate, 'set_note'), { type: 'denied', reason: reviewUnavailableText() })
+    // The raw failure stays on the record, for the admin.
+    assert.equal(task.gate.recordOf('c1')?.reason, 'the first stage failed: it timed out')
+    // A judged unsure in a task keeps the reviewer's reason.
+    const unsure = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure'), surface: 'task' })
+    assert.deepEqual(await decide(unsure.gate, 'set_note'), { type: 'denied', reason: reviewerDenialText('r') })
+  })
+
+  test('gate: an approval in an earlier message does not skip the review of the same call id', async () => {
+    // The approval was answered by the replay that followed it: the last message is no longer a tool message.
+    const messages: ModelMessage[] = [{ role: 'user', content: 'delete the note' }, asked('delete_note', 'c1'), approved('c1'), { role: 'user', content: 'again' }]
+    const { gate, fake } = gateWith({ tools: { delete_note: reviewed('reviewer+person', 'destructive') } })
+    await decide(gate, 'delete_note', { messages })
+    assert.equal(fake.calls.length, 1)
+    // Nor does one in an earlier tool message, followed by another tool message.
+    const later = [...messages.slice(0, 3), { role: 'tool', content: [{ type: 'tool-approval-response', approvalId: 'appr-other', approved: true }] } as ModelMessage]
+    await decide(gate, 'delete_note', { messages: later, toolCallId: 'c1' })
+    assert.equal(fake.calls.length, 2)
+  })
+
+  test('gate: an unsure that denies counts towards the breaker, one that cards does not', async () => {
+    const task = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure'), surface: 'task' })
+    for (const id of ['c1', 'c2', 'c3']) await decide(task.gate, 'set_note', { toolCallId: id })
+    assert.equal(task.gate.tripped, true)
+    const nested = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure') })
+    for (const id of ['n1', 'n2', 'n3']) await nested.gate.reviewNested(id, 'set_note', {})
+    assert.equal(nested.gate.tripped, true)
+    const chat = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure') })
+    for (const id of ['c1', 'c2', 'c3']) await decide(chat.gate, 'set_note', { toolCallId: id })
+    assert.equal(chat.gate.tripped, false)
+  })
+
+  test('gate: a nested call once the turn\'s budget is spent is denied unreviewed', async () => {
+    let spent = false
+    const { gate, fake } = gateWith({ tools: { set_note: reviewed('reviewer') }, budgetSpent: () => spent })
+    assert.equal((await gate.reviewNested('n1', 'set_note', {})).outcome, 'allow')
+    spent = true
+    const refused = await gate.reviewNested('n2', 'set_note', {})
+    assert.deepEqual([refused.outcome, refused.code, refused.reason], ['deny', 'budget', BUDGET_SPENT_REASON])
+    assert.equal(gate.recordOf('n2')?.code, 'budget')
+    assert.equal(fake.calls.length, 1, 'the reviewer is not called once the budget is spent')
+    assert.equal(gate.tripped, false, 'a budget refusal is no denial for the breaker')
   })
 
   test('gate: a nested call to a tool the gate does not review is refused', async () => {

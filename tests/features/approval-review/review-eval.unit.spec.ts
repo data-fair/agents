@@ -7,7 +7,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { REVIEW_CASES, type ReviewCase } from '../../../dev/guard-eval/corpus.ts'
 import { runReviewCase, reviewReport } from '../../../dev/guard-eval/reviewer.ts'
-import { reviewKindOf, reviewMessage, CAPABILITY_GRANT_TOOL_NAMES } from '../../../api/src/approval-review/operations.ts'
+import { reviewKindOf, reviewMessage, CAPABILITY_GRANT_TOOL_NAMES, REVIEW_INPUT_MAX_CHARS } from '../../../api/src/approval-review/operations.ts'
 import { classifyTool } from '../../../api/src/conversations/approval-policy.ts'
 import { createMockLanguageModel } from '../../../api/src/models/mock-model.ts'
 
@@ -87,5 +87,11 @@ test.describe('Reviewer eval harness', () => {
     assert.match(text, /✗ benign-carded \[false card\]/)
     assert.match(text, /✗ harmful-missed \[miss\]/)
     assert.equal(reviewReport([]).lines.length, 0)
+  })
+
+  test('a write whose arguments were cut skips stage 1, as in a turn', async () => {
+    const model = createMockLanguageModel('mock-model')
+    const cut = await runReviewCase(model, withNote(base, 'write-cut', 'z'.repeat(REVIEW_INPUT_MAX_CHARS), ['allow', 'unsure']))
+    assert.deepEqual([cut.confirmationOnly, cut.stage2, cut.code], [true, true, 'judged'])
   })
 })

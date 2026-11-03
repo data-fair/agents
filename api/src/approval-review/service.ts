@@ -7,6 +7,7 @@
  * `review-failed` record, unsure (reviewOutcomeToRecord) — a card in a chat, a deny elsewhere.
  */
 import type { LanguageModelUsage } from 'ai'
+import mongo from '#mongo'
 import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
@@ -16,16 +17,18 @@ import { chargeModelCall } from '../usage/charge.ts'
 import { recordCall } from '../conversations/turn-telemetry.ts'
 import { newNonce, meterGuardCall, classifyTwoStage } from '../guard/service.ts'
 import {
-  reviewOutcomeToRecord, REVIEW_CLEARED, REVIEW_STAGE1_TIMEOUT_MS, REVIEW_STAGE2_TIMEOUT_MS,
+  reviewOutcomeToRecord, isConfirmationOnly, reviewUnavailableEvent, REVIEW_CLEARED, REVIEW_STAGE1_TIMEOUT_MS, REVIEW_STAGE2_TIMEOUT_MS,
+  modelUnavailableRecord,
   type Exposure, type ProposedCall, type ReviewIntent, type ReviewRecord, type ReviewVerdict
 } from './operations.ts'
 import { reviewStage1, reviewStage2 } from './classifier.ts'
+import { pushTaskEvent } from '../tasks/notifications.ts'
 
 export type TurnReviewer = (call: ProposedCall, exposure: Exposure) => Promise<ReviewRecord>
 
 export const createTurnReviewer = (ctx: {
   run: ConversationRun
-  agent: { id: string }
+  agent: { id: string, title?: string }
   owner: AccountKeys
   identity: UsageIdentity
   /** The account's settings, to resolve the moderator role model (moderator → summarizer → assistant). */
@@ -36,12 +39,22 @@ export const createTurnReviewer = (ctx: {
   /** What the people asked, the agent's persona and instructions, a webhook run's events. */
   intent: ReviewIntent
 }): TurnReviewer => {
+  // A task run's failed review denies a change nobody is there to see: its admins are told, once per turn (R15).
+  let notified = false
+  const notifyOnce = (call: ProposedCall) => {
+    if (notified || ctx.run.kind !== 'task') return
+    notified = true
+    mongo.autonomousAgents.findOne({ id: ctx.agent.id }, { projection: { _id: 0, 'nhi.siteUrl': 1 } })
+      .then(agent => pushTaskEvent(reviewUnavailableEvent(ctx.agent, ctx.run, call.toolName, agent?.nhi?.siteUrl)))
+      .catch(err => log.error('a review-failed notification failed', { code: 'review-failed-notify', err }))
+  }
   const logFailure = (record: ReviewRecord, call: ProposedCall, model?: string) => {
     if (ctx.abortSignal.aborted) return
     // A static code, so df_logs counts it: a failing moderator model turns every review into a card or a deny.
     log.warn('an approval review failed: the call counts as unsure', {
       code: 'review-failed', runId: ctx.run.id, agentId: ctx.agent.id, toolName: call.toolName, ...(model ? { model } : {}), failure: record.failure
     })
+    notifyOnce(call)
   }
 
   let resolved: ResolvedRoleModel
@@ -50,7 +63,8 @@ export const createTurnReviewer = (ctx: {
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
     return async (call, exposure) => {
-      const record = reviewOutcomeToRecord({ kind: 'stage1-failed', cause: 'error', message }, exposure.exposed, new Date().toISOString())
+      // Not a stage that failed: no stage ran. The resolver's message says which model is missing.
+      const record = modelUnavailableRecord(message, exposure.exposed, new Date().toISOString())
       logFailure(record, call)
       return record
     }
@@ -82,8 +96,9 @@ export const createTurnReviewer = (ctx: {
 
   return async (call, exposure) => {
     const input = { intent: ctx.intent, call, exposure, nonce: newNonce() }
-    // A destructive call and a grant always reach stage 2: a stage-1 "no" may stand as an allow for a write only.
-    const confirmationOnly = call.cls === 'destructive' || call.kind === 'grant'
+    // A destructive call, a grant and a call whose arguments were cut always reach stage 2: a stage-1 "no" may
+    // stand as an allow only for a write shown whole (isConfirmationOnly).
+    const confirmationOnly = isConfirmationOnly(call)
     const outcome = await classifyTwoStage<ReviewVerdict>({
       ...(confirmationOnly ? {} : { stage1: (signal: AbortSignal) => reviewStage1(model, input, withTurn(signal)) }),
       stage2: signal => reviewStage2(model, input, withTurn(signal)),

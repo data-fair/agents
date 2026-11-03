@@ -422,22 +422,33 @@ it is measured — is described with the other guards in [moderation](./moderati
   more in the chat: a new message is new intent, and the next call is reviewed against it. The model-facing text
   is the stored part's `approval.reason`, so a replay reads it too; the reviewer's own reason is in
   `toolMetadata.review.reason`, which is what the person sees.
+- **A failed review that denies is not a denial** (a task run, a script's call): the model reads
+  `reviewUnavailableText` instead — the change could not be reviewed now and was not made, it must not retry it
+  another way but report that it needs a person (`refusalTextOf`). A failure is no judgement, so the model is given
+  no reason to argue with; the raw failure stays in `toolMetadata.review`. In a task run, the first failed review of
+  the turn also pushes one event, `agents:review-failed:<agent id>` (`reviewUnavailableEvent`), as the tripwire's
+  trip does: nobody reads a task run as it goes, and a broken reviewer model would otherwise silently stop every
+  change a task makes.
 - **An allow under `reviewer`** is an automatic approval (`isAutomatic` on the SDK's request): no card, no
   `awaiting-approval`, the call runs in the same step.
 - **A card** (`approval-requested`, the turn ending `awaiting-approval` as below) carries the reviewer's record, so
   the card says why it is shown: allowed but this class needs a person, unsure with its reason, or the review
   failed.
-- **A person-approved call is never re-reviewed on replay**: when the messages hold a granted approval of that
-  call, the gate answers `user-approval` and the SDK runs it. The reviewer already judged it before the card.
+- **A person-approved call is never re-reviewed on replay**: when the last message, a tool message, holds a granted
+  approval of that call, the gate answers `user-approval` and the SDK runs it. The reviewer already judged it before
+  the card. Only the last message counts, as in the SDK's own `collectToolApprovals`: an approval further back was
+  answered by the replay that followed it, and is no pass for a later call of the same id.
 - **Every reviewed call is recorded**, the allowed ones included: `toolMetadata.review` on the call's part, put
   there when the gate decides, so it is stored before the call settles — `{ outcome, reason, code, failure?,
   exposed, at }`, `code` one of `cleared` (stage 1 saw no concern), `judged` (stage 2's verdict), `review-failed`
-  (an error, a timeout or an unparseable answer: unsure) and `breaker-tripped` (not reviewed at all, below). A
+  (an error, a timeout, an unparseable answer or no reviewer model: unsure), `breaker-tripped` (not reviewed at
+  all, below) and `budget` (a script's call once the turn's credit budget is spent: not reviewed at all, denied). A
   person's decision after a card is `toolMetadata.decision` beside it, so reviewer then person reads in series in
   the export and on the review page.
 - **The circuit breaker.** 3 judged denials in a row, or 10 in a turn (`REVIEW_BREAKER`), stop the turn with stop
-  reason `review-denied` ("I stopped because the reviewer denied several of my actions."); any other judged
-  outcome ends a run of consecutive ones. A `review-failed` record neither counts nor resets the streak: it is no
+  reason `review-denied` ("I stopped because the reviewer denied several of my actions."). Where unsure denies (a
+  task run, a script's call) a judged unsure counts as a denial too: the model retrying variants there is refused
+  all the same. Any other judged outcome ends a run of consecutive ones. A `review-failed` record neither counts nor resets the streak: it is no
   judgment. Once tripped, every further reviewed call of the turn — the step's later calls and a running script's
   nested ones — is denied without a review (`breaker-tripped`), since the turn stops after its step but would
   otherwise go on trying variants until one is allowed. A task run that stops this way is cut short, closed
@@ -451,8 +462,8 @@ denial returned to the model as an error it must not work around. Each routes a 
 classes routed to a person get the reviewer **first, then the person, in series**: people approve by reflex
 (Anthropic measured 93% of permission prompts accepted, the figure that motivated auto mode), so the reviewer is
 a floor a person cannot click past — as Codex re-reviews a retry a person grants — and a rare card that carries
-the reviewer's view gets read rather than clicked. The thresholds of the breaker are Codex's (3 consecutive; 10
-per turn). The design and its decisions: `docs/superpowers/specs/2026-11-03-auto-approval-design.md`. Sources:
+the reviewer's view gets read rather than clicked. The breaker follows Codex's: 3 consecutive denials, or 10 in the last 50 reviews of a turn there; here 10 in
+a turn, which a turn's step and call limits keep close to it. The design and its decisions: `docs/superpowers/specs/2026-11-03-auto-approval-design.md`. Sources:
 [Claude Code auto mode](https://www.anthropic.com/engineering/claude-code-auto-mode),
 [Managed Agents permission policies](https://platform.claude.com/docs/en/managed-agents/permission-policies),
 [Codex auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review).

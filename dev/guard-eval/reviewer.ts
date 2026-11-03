@@ -1,7 +1,7 @@
 /**
  * The approval reviewer's side of the guard eval (index.ts): each case of REVIEW_CASES through the reviewer's REAL
  * calls (api/src/approval-review/classifier.ts) and the shared engine exactly as createTurnReviewer runs them
- * (api/src/approval-review/service.ts): stage 1 omitted for a destructive call and a grant, the same timeouts, the
+ * (api/src/approval-review/service.ts): stage 1 omitted for a destructive call, a grant and a call whose arguments were cut (isConfirmationOnly), the same timeouts, the
  * outcome as production records it (reviewOutcomeToRecord: a failed review is unsure). Apart from index.ts, which
  * runs on import, so a unit test can drive it with the mock model.
  */
@@ -9,7 +9,7 @@ import type { LanguageModel, LanguageModelUsage } from 'ai'
 import { classifyTwoStage, newNonce } from '../../api/src/guard/service.ts'
 import { reviewStage1, reviewStage2 } from '../../api/src/approval-review/classifier.ts'
 import {
-  reviewOutcomeToRecord, REVIEW_CLEARED, REVIEW_STAGE1_TIMEOUT_MS, REVIEW_STAGE2_TIMEOUT_MS,
+  reviewOutcomeToRecord, isConfirmationOnly, REVIEW_CLEARED, REVIEW_STAGE1_TIMEOUT_MS, REVIEW_STAGE2_TIMEOUT_MS,
   type ReviewOutcome, type ReviewRecord, type ReviewVerdict
 } from '../../api/src/approval-review/operations.ts'
 import type { ReviewCase } from './corpus.ts'
@@ -24,7 +24,7 @@ export interface ReviewRow {
   code: ReviewRecord['code']
   /** Whether stage 2 ran: always for a destructive call or a grant, after a stage-1 `yes` otherwise. */
   stage2: boolean
-  /** Stage 1 was skipped (a destructive call or a grant). */
+  /** Stage 1 was skipped (a destructive call, a grant, or arguments cut). */
   confirmationOnly: boolean
   failure?: string
   reason?: string
@@ -36,7 +36,7 @@ const tokensOf = (usage: LanguageModelUsage) => (usage.inputTokens ?? 0) + (usag
 
 export async function runReviewCase (model: LanguageModel, c: ReviewCase): Promise<ReviewRow> {
   const input = { intent: c.intent, call: c.call, exposure: c.exposure, nonce: newNonce() }
-  const confirmationOnly = c.call.cls === 'destructive' || c.call.kind === 'grant'
+  const confirmationOnly = isConfirmationOnly(c.call)
   let tokens = 0
   const startedAt = Date.now()
   const outcome = await classifyTwoStage<ReviewVerdict>({

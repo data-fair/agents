@@ -12,10 +12,22 @@ import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { createEnrolledAgent } from '../../support/agents.ts'
 import { decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
-import { reviewerDenialText } from '../../../api/src/approval-review/operations.ts'
+import { reviewerDenialText, reviewUnavailableText } from '../../../api/src/approval-review/operations.ts'
+import { serviceUp } from '../../support/optional-services.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const eventsUp = await serviceUp('EVENTS_PORT')
+const events = async () => (await admin.get('/api/test-env/pushed-events')).data as any[]
+const poll = async <T>(read: () => Promise<T>, done: (value: T) => boolean, ms = 10_000): Promise<T> => {
+  const until = Date.now() + ms
+  let value = await read()
+  while (!done(value) && Date.now() < until) {
+    await new Promise(resolve => setTimeout(resolve, 200))
+    value = await read()
+  }
+  return value
+}
 
 const createAgent = async (over: any = {}) => {
   const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
@@ -210,6 +222,22 @@ test.describe('The approval reviewer', () => {
     const part = callPart(run.messages[1], 'set_note')
     assert.equal(part.state, 'output-denied', JSON.stringify(part))
     assert.equal(part.toolMetadata.review.outcome, 'unsure')
+  })
+
+  test('a task run\'s failed review is not made, the model is told it could not be reviewed, and admins are notified', async () => {
+    const agent = await createTaskAgent()
+    const run = await runTask(agent.id, 'call tool set_note {"note":"REVIEW_BROKEN"}')
+    assert.notEqual(run.status, 'error', JSON.stringify(run))
+    assert.deepEqual(fixture.invokedTools(), [])
+    const part = callPart(run.messages[1], 'set_note')
+    assert.equal(part.state, 'output-denied', JSON.stringify(part))
+    // Not a denial the model could argue with: the raw failure stays on the record, for the admin.
+    assert.equal(part.approval.reason, reviewUnavailableText())
+    assert.equal(part.toolMetadata.review.code, 'review-failed')
+    assert.ok(part.toolMetadata.review.reason, JSON.stringify(part.toolMetadata.review))
+    if (!eventsUp) return
+    const topics = await poll(async () => (await events()).map(e => e.topic.key), t => t.includes(`agents:review-failed:${agent.id}`))
+    assert.deepEqual(topics.filter(t => t.startsWith('agents:review-failed:')), [`agents:review-failed:${agent.id}`])
   })
 
   test('a task run is not offered reviewer+person tools', async () => {

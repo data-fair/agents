@@ -97,6 +97,8 @@ test.describe('Approval card', () => {
     const card = page.getByTestId('approval-card')
     await expect(card).toBeVisible({ timeout: 15000 })
     await expect(card.getByTestId('approval-review')).toContainText('Reviewed: allowed, your confirmation is required')
+    // The allow reason is the reviewer's, and labelled so: not the agent's own justification.
+    await expect(card.getByTestId('approval-review-note')).toHaveText('Reviewer\'s note: mock allow')
     expect(fixture.invokedTools()).toEqual([])
   })
 

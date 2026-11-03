@@ -181,7 +181,14 @@ const PAPA_DECLARATION = [
   '```'
 ].join('\n')
 
-export const describeScriptTool = (packageDescription: string): string => {
+/**
+ * R16: a reviewed call waits for the reviewer (seconds each) inside the script's wall clock, so said where the
+ * script is written, only when the turn has a reviewer (a configured agent's).
+ */
+export const reviewedScriptNote = (timeoutMs: number) =>
+  `Changes are checked by a reviewer before they run, a few seconds each, counted in the script's ${timeoutMs / 1000} s: make few reviewed writes in one script (one call writing many lines rather than one call per line), and do bulk work in a processing.`
+
+export const describeScriptTool = (packageDescription: string, opts: { reviewed?: boolean, timeoutMs?: number } = {}): string => {
   const head = packageDescription.split('\nTool call examples:')[0].trimEnd()
   return [
     head,
@@ -192,7 +199,8 @@ export const describeScriptTool = (packageDescription: string): string => {
     'Have the script read its data itself (call the tool, read_file the path it returned), never paste in what an earlier call showed you: the script must work on what is there when it runs.',
     `Everything a script passes to and gets from its tools counts toward ${transferLimit}; a larger file belongs in a tool that takes the file itself.`,
     'Dates: a script\'s local time zone is the server\'s, not the task\'s. Work in UTC: a date-only string ("2026-10-21") is UTC midnight, so compare YYYY-MM-DD strings, or give every date-time a trailing Z; new Date("2026-10-14T00:00:00") without Z is the server\'s local midnight.',
-    'Tools that need approval, wait_for_user_action, the access and planning requests and read_skill can only be called directly.'
+    'Tools that need approval, wait_for_user_action, the access and planning requests and read_skill can only be called directly.',
+    ...(opts.reviewed ? [reviewedScriptNote(opts.timeoutMs ?? CODE_MODE_POLICY.timeoutMs)] : [])
   ].join('\n\n')
 }
 

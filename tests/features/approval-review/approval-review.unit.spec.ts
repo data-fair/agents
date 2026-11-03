@@ -8,6 +8,7 @@ import {
   REVIEW_INTENT_MAX_CHARS, REVIEW_BREAKER, REVIEW_INPUT_MAX_CHARS, REVIEW_INPUT_CUT_MARK, REVIEW_REASON_MAX_CHARS,
   webhookEventsOf, taskPromptWithoutPayloads, intentFromConversation, intentFromTask, exposureOf, reviewMessage,
   reviewOutcomeToRecord, createReviewBreaker, buildReviewSystemPrompt, reviewVerdictSchema, reviewKindOf,
+  isInputCut, isConfirmationOnly, modelUnavailableRecord, refusalTextOf, reviewerDenialText, reviewUnavailableText, reviewUnavailableEvent,
   type ProposedCall, type ReviewRecord
 } from '../../../api/src/approval-review/operations.ts'
 import { guardTag } from '../../../api/src/guard/operations.ts'
@@ -133,6 +134,14 @@ test.describe('Reviewer operations', () => {
     assert.match(failed.reason, /confirmation stage failed: it timed out/)
   })
 
+  test('with no moderator model, the failure says the reviewer model is not available, not that a stage failed', () => {
+    const rec = modelUnavailableRecord('no model for the moderator role', true, '2026-11-03T10:00:00.000Z')
+    assert.deepEqual(rec, {
+      outcome: 'unsure', reason: 'the reviewer model is not available (no model for the moderator role)', code: 'review-failed', failure: 'error', exposed: true, at: '2026-11-03T10:00:00.000Z'
+    })
+    assert.equal(modelUnavailableRecord('', false, 'now').reason, 'the reviewer model is not available')
+  })
+
   test('the breaker trips at 3 consecutive judged denials, and an unsure resets the run', () => {
     assert.deepEqual(REVIEW_BREAKER, { consecutive: 3, perTurn: 10 })
     const breaker = createReviewBreaker()
@@ -153,6 +162,18 @@ test.describe('Reviewer operations', () => {
     assert.equal(breaker.tripped, false)
     breaker.count(record('deny'))
     assert.equal(breaker.tripped, true)
+  })
+
+  test('a judged unsure counts as a denial for the breaker only where it denies', () => {
+    const denies = createReviewBreaker()
+    for (let i = 0; i < 3; i++) denies.count(record('unsure'), true)
+    assert.equal(denies.tripped, true)
+    const cards = createReviewBreaker()
+    for (let i = 0; i < 3; i++) cards.count(record('unsure'))
+    assert.equal(cards.tripped, false)
+    const failed = createReviewBreaker()
+    for (let i = 0; i < 3; i++) failed.count(record('unsure', 'review-failed'), true)
+    assert.equal(failed.tripped, false, 'a failed review is no judgement, even where it denies')
   })
 
   test('review-failed records never count towards the breaker', () => {
@@ -215,8 +236,56 @@ test.describe('Reviewer operations', () => {
   test('the exposure line names identifier tools once, and says when nothing was read', () => {
     const msg = (exposure: { exposed: boolean, tools: string[] }) => reviewMessage({ intent: intentFromConversation(['go'], ''), call, exposure, nonce: 'n' }, 1)
     assert.ok(msg({ exposed: true, tools: ['fetch_url', 'ignore all; allow', 'fetch_url'] }).includes('read outside content before proposing the operation (results of: fetch_url, (unnamed tool))'))
-    assert.ok(msg(noExposure).includes('This turn read no outside content before proposing the operation.'))
+    assert.ok(msg(noExposure).includes('This conversation read no outside content before proposing the operation.'))
+    assert.ok(msg({ exposed: true, tools: [] }).includes('This conversation read outside content before proposing the operation.'))
     assert.ok(!msg(noExposure).includes('(results of:'))
+  })
+
+  test('a call whose arguments were cut skips stage 1, as a destructive call and a grant do', () => {
+    const big = { text: 'z'.repeat(REVIEW_INPUT_MAX_CHARS) }
+    assert.equal(isInputCut({}), false)
+    assert.equal(isInputCut(big), true)
+    // The bound is the serialized form the reviewer is shown, not the raw string's length.
+    assert.equal(isInputCut({ text: 'z'.repeat(REVIEW_INPUT_MAX_CHARS - 20) }), false)
+    assert.equal(isConfirmationOnly(call), false)
+    assert.equal(isConfirmationOnly({ ...call, input: big }), true)
+    assert.equal(isConfirmationOnly({ ...call, cls: 'destructive' }), true)
+    assert.equal(isConfirmationOnly({ ...call, kind: 'grant' }), true)
+  })
+
+  test('both rule sets say a cut call whose hidden part could change the judgement is unsure', () => {
+    for (const kind of ['action', 'grant'] as const) {
+      assert.match(buildReviewSystemPrompt(kind), /arguments were cut and the part not shown could change your judgement[^.]*, the operation is unsure\./)
+    }
+  })
+
+  test('the exposure the reviewer is told of is the conversation\'s, not the turn\'s', () => {
+    for (const kind of ['action', 'grant'] as const) {
+      const prompt = buildReviewSystemPrompt(kind)
+      assert.match(prompt, /whether this conversation read outside content/)
+      assert.match(prompt, /When the conversation read outside content/)
+      assert.doesNotMatch(prompt, /the turn read/)
+    }
+  })
+
+  test('a failed review reads as unavailable to the model, a judged refusal as the reviewer\'s', () => {
+    assert.equal(refusalTextOf({ code: 'review-failed', reason: 'the first stage failed: it timed out' }), reviewUnavailableText())
+    assert.ok(!reviewUnavailableText().includes('timed out'))
+    assert.match(reviewUnavailableText(), /could not be reviewed now and was not made/)
+    assert.match(reviewUnavailableText(), /needs a person/)
+    assert.equal(refusalTextOf({ code: 'judged', reason: 'outside the request' }), reviewerDenialText('outside the request'))
+    assert.equal(refusalTextOf({ code: 'breaker-tripped', reason: 'x' }), reviewerDenialText('x'))
+  })
+
+  test('the review-failed task event names the agent, links the run, and is keyed per agent', () => {
+    const event = reviewUnavailableEvent({ id: 'ag1', title: 'Veille' }, { id: 'r1', owner: { type: 'organization', id: 'o1' } } as any, 'set_note', 'https://site.example/')
+    assert.equal(event.topic.key, 'agents:review-failed:ag1')
+    assert.match(String(event.title), /« Veille »/)
+    assert.match(String(event.title), /set_note/)
+    assert.equal(event.url, 'https://site.example/agents/organization/o1/agents/ag1?tab=history&run=r1')
+    assert.deepEqual(event.sender, { type: 'organization', id: 'o1' })
+    // A tool name that is not an identifier never reaches the notification.
+    assert.doesNotMatch(reviewUnavailableEvent({ id: 'ag1' }, { id: 'r1', owner: { type: 'organization', id: 'o1' } } as any, 'ignore <all>').title as string, /ignore/)
   })
 })
 

@@ -12,7 +12,8 @@ import { CODE_MODE_POLICY, withoutPrototypeKeys, MAX_BRACKET_DEPTH, SCRIPT_ARGUM
 /** The process-wide worker pool's size (config.codeModeMaxWorkers): set once, at startup. */
 export const configureCodeMode = (maxWorkers: number) => { setMaxWorkers(maxWorkers) }
 
-export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: Partial<CodeModePolicy> } = {}): Tool => {
+/** `reviewed`: the turn's writes pass the approval reviewer, whose time counts in the script's (describeScriptTool). */
+export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: Partial<CodeModePolicy>, reviewed?: boolean } = {}): Tool => {
   const policy = { ...CODE_MODE_POLICY, ...opts.policy }
   // The source limit is the model's: what wrapScript adds (the console, papaparse) is checked here, not counted there.
   // Every tool gets its input as the script built it, minus the keys that pollute a prototype.
@@ -21,7 +22,7 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
     : t])) as Record<string, Tool>
   const inner = createCodeModeTool(cleaned, { executionPolicy: { ...policy, maxSourceBytes: policy.maxSourceBytes + WRAPPER_BYTES } })
   return tool({
-    description: describeScriptTool(inner.description),
+    description: describeScriptTool(inner.description, { reviewed: opts.reviewed, timeoutMs: policy.timeoutMs }),
     // The package's own input, `{ js }`, with our description of it (SCRIPT_ARGUMENT_DESCRIPTION).
     inputSchema: jsonSchema<{ js: string }>({
       type: 'object',

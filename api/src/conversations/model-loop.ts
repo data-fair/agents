@@ -192,7 +192,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   let reviewCredits = 0
   const reviewer = ctx.reviewIntent && createTurnReviewer({
     run,
-    agent: { id: autonomousAgent.id },
+    agent: { id: autonomousAgent.id, ...(autonomousAgent.title ? { title: autonomousAgent.title } : {}) },
     owner: run.owner,
     identity,
     settings,
@@ -309,7 +309,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         turnCalls: scriptCalls,
         // The gate is built below, once the map exists; a script runs only after both.
         ...(reviewer ? { review: { reviewNested: (...args) => gate!.reviewNested(...args), noteNested: name => gate!.noteNested(name) } } : {})
-      }))
+      }), { reviewed: !!reviewer })
       const runScript = scriptTool.execute!
       mainTools[CODE_MODE_TOOL_NAME] = modelTools({
         [CODE_MODE_TOOL_NAME]: {
@@ -346,7 +346,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     history,
     surface: target.surface,
     review: reviewer,
-    exposure: messages => exposureOf(messages, tools, { webhookPayloads })
+    exposure: messages => exposureOf(messages, tools, { webhookPayloads }),
+    // Between steps the loop stops on budgetExceeded; within a script's step, what was spent so far, its reviews
+    // included, is the per-run budget's own sum (checkCeilings).
+    budgetSpent: () => budgetExceeded || credits + tripwireCredits + reviewCredits + (continuation?.credits ?? 0) >= config.turnCredits
   })
 
   // A provider that accepted the request and then went quiet would otherwise hold the conversation's

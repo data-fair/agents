@@ -16,7 +16,7 @@ import type { ReviewRoute } from '@agents/shared/approval-policy'
 import type { ApprovalClass } from '../conversations/approval-policy.ts'
 import { goneApprovedToolNames, TOOL_NO_LONGER_AVAILABLE } from '../conversations/approved-calls.ts'
 import { isScanned } from '../tripwire/operations.ts'
-import { BREAKER_TRIPPED_REASON, createReviewBreaker, reviewerDenialText, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
+import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, createReviewBreaker, refusalTextOf, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
 
 export type { ReviewRoute }
 
@@ -41,28 +41,34 @@ export interface ReviewGate {
 
 type Status = { type: 'approved' | 'denied' | 'user-approval', reason?: string } | { type: 'not-applicable' }
 
-/** Whether `messages` hold a person's approval of this call: on replay, it is not reviewed again. */
+/**
+ * Whether `messages` hold a person's approval of this call: on replay, it is not reviewed again. Only the LAST
+ * message's responses count, when it is a tool message, as the SDK's own collectToolApprovals reads them: a
+ * response is answered by the replay that follows it, so an older one is history, never a pass for a new call.
+ */
 const approvedIn = (messages: ModelMessage[], toolCallId: string): boolean => {
-  const approvals = new Set<string>()
-  const granted = new Set<string>()
+  const last = messages.at(-1)
+  if (last?.role !== 'tool' || !Array.isArray(last.content)) return false
+  const granted = new Set((last.content as any[]).filter(part => part.type === 'tool-approval-response' && part.approved === true).map(part => part.approvalId))
+  if (!granted.size) return false
   for (const message of messages) {
-    if (!Array.isArray(message.content)) continue
+    if (message.role !== 'assistant' || !Array.isArray(message.content)) continue
     for (const part of message.content as any[]) {
-      if (part.type === 'tool-approval-request' && part.toolCallId === toolCallId) approvals.add(part.approvalId)
-      else if (part.type === 'tool-approval-response' && part.approved === true) granted.add(part.approvalId)
+      if (part.type === 'tool-approval-request' && part.toolCallId === toolCallId && granted.has(part.approvalId)) return true
     }
   }
-  return [...approvals].some(id => granted.has(id))
+  return false
 }
 
 const withReason = (type: 'approved' | 'denied' | 'user-approval', reason: string): Status => reason ? { type, reason } : { type }
 
 /**
  * What a review's record decides: a denial is final; unsure asks a person in a chat and denies elsewhere. A denial
- * tells the model not to work around it (reviewerDenialText); a card's reason is the reviewer's own, for the person.
+ * tells the model not to work around it (reviewerDenialText), a failed review that it could not be reviewed
+ * (reviewUnavailableText, refusalTextOf); a card's reason is the reviewer's own, for the person.
  */
 const statusOf = (record: ReviewRecord, route: ReviewRoute, surface: 'chat' | 'task'): Status => {
-  if (record.outcome === 'deny' || (record.outcome === 'unsure' && surface === 'task')) return { type: 'denied', reason: reviewerDenialText(record.reason) }
+  if (record.outcome === 'deny' || (record.outcome === 'unsure' && surface === 'task')) return { type: 'denied', reason: refusalTextOf(record) }
   if (record.outcome === 'unsure') return withReason('user-approval', record.reason)
   return withReason(route === 'reviewer' ? 'approved' : 'user-approval', record.reason)
 }
@@ -75,6 +81,11 @@ export const createReviewGate = (opts: {
   surface: 'chat' | 'task'
   review: (call: ProposedCall, exposure: Exposure) => Promise<ReviewRecord>
   exposure: (messages: ModelMessage[]) => Exposure
+  /**
+   * Whether the turn's credit budget is spent (R16). The loop checks it between steps only; a script's calls run
+   * inside one step, each review spending credits, so a nested call checks it first and is denied once it is.
+   */
+  budgetSpent?: () => boolean
 }): ReviewGate => {
   const breaker = createReviewBreaker()
   const records = new Map<string, ReviewRecord>()
@@ -95,7 +106,8 @@ export const createReviewGate = (opts: {
     return { exposed: true, tools: [...new Set([...base.tools, ...nestedScanned])] }
   }
 
-  const review = async (toolCallId: string, toolName: string, tool: GateTool & { review: NonNullable<GateTool['review']> }, input: unknown, messages: ModelMessage[]) => {
+  // `nested`: a script's call, where no person can decide, so unsure denies there as in a task run.
+  const review = async (toolCallId: string, toolName: string, tool: GateTool & { review: NonNullable<GateTool['review']> }, input: unknown, messages: ModelMessage[], nested: boolean) => {
     const call: ProposedCall = {
       toolName,
       ...(tool.server ? { server: tool.server } : {}),
@@ -112,10 +124,16 @@ export const createReviewGate = (opts: {
       records.set(toolCallId, record)
       return record
     }
+    if (nested && opts.budgetSpent?.()) {
+      const record: ReviewRecord = { outcome: 'deny', reason: BUDGET_SPENT_REASON, code: 'budget', exposed: exposureFor(messages).exposed, at: new Date().toISOString() }
+      records.set(toolCallId, record)
+      return record
+    }
     const record = await opts.review(call, exposureFor(messages))
     records.set(toolCallId, record)
-    // A failed review is no judgment at all: it neither counts as a denial nor ends a run of them.
-    if (record.code !== 'review-failed') breaker.count(record)
+    // A failed review is no judgment at all: it neither counts as a denial nor ends a run of them. An unsure counts
+    // as a denial where it denies (a task run, a script's call): variants retried there are refused all the same.
+    if (record.code !== 'review-failed') breaker.count(record, nested || opts.surface === 'task')
     return record
   }
 
@@ -128,7 +146,7 @@ export const createReviewGate = (opts: {
     // A function-form needsApproval is not resolved here: any one set counts as asking, which fails safe (a card).
     // None of this service's tools has one; resolving it would need the SDK's own tool context.
     if (!tool?.review) return tool?.needsApproval ? { type: 'user-approval' } : { type: 'not-applicable' }
-    const record = await review(toolCallId, toolName, tool as GateTool & { review: NonNullable<GateTool['review']> }, input, messages)
+    const record = await review(toolCallId, toolName, tool as GateTool & { review: NonNullable<GateTool['review']> }, input, messages, false)
     return statusOf(record, tool.review.route, opts.surface)
   }
 
@@ -138,7 +156,7 @@ export const createReviewGate = (opts: {
       const tool = toolOf(toolName)
       // The wrapper reviews only reviewed tools: anything else reaching here is a wiring mistake, refused.
       if (!tool?.review) throw new Error(`${toolName} is not a reviewed tool`)
-      return await review(toolCallId, toolName, tool as GateTool & { review: NonNullable<GateTool['review']> }, input, stepMessages)
+      return await review(toolCallId, toolName, tool as GateTool & { review: NonNullable<GateTool['review']> }, input, stepMessages, true)
     },
     noteNested (toolName) {
       if (isScanned(toolName, toolOf(toolName)?.annotations)) nestedScanned.add(toolName)

@@ -20,7 +20,7 @@ import type { MessagePart } from '@agents/shared/message-parts'
 import type { JSONObject } from '@ai-sdk/provider'
 import type { ToolSet } from '../conversations/operations.ts'
 import type { ReviewGate } from '../approval-review/gate.ts'
-import { reviewerDenialText } from '../approval-review/operations.ts'
+import { refusalTextOf } from '../approval-review/operations.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement, boundRecordedInput, type CallSettlement } from '../conversations/parts-recorder.ts'
 import { withCallPath, type CallPathContext } from '../files/call-path.ts'
 import { CODE_MODE_TOOL_NAME, codeCallable, SCRIPT_TRANSFER_BYTES, bridgedBytes, transferRefusedMessage, transferExceededMessage, CODE_MODE_TURN_CALLS, turnCallsExceededMessage } from './operations.ts'
@@ -162,7 +162,7 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
             // The script's input, before the call path's file/URL transformation: as a direct call is reviewed.
             const record = await opts.review.reviewNested(options.toolCallId, name, input)
             opts.trace.annotate(options.toolCallId, { review: record as unknown as JSONObject })
-            if (record.outcome !== 'allow') throw new Error(reviewerDenialText(record.reason))
+            if (record.outcome !== 'allow') throw new Error(refusalTextOf(record))
           }
           let output
           try {

@@ -139,8 +139,9 @@
       <div
         v-if="review?.outcome === 'allow' && review.reason"
         class="text-medium-emphasis"
+        data-testid="approval-review-note"
       >
-        {{ review.reason }}
+        {{ t('reviewNote', { reason: review.reason }) }}
       </div>
     </v-card-text>
     <v-card-text
@@ -223,6 +224,7 @@ fr:
   reviewAllowed: "Revu : autorisé, votre confirmation est requise"
   reviewUnsure: "Le relecteur hésite : {reason}"
   reviewFailed: Le relecteur n'a pas pu décider
+  reviewNote: "Note du relecteur : {reason}"
   mcpWarning: "Les réponses de ce serveur pourront donner des instructions à l'agent, qui agit avec son identité et tous ses outils."
 en:
   heading: "Approve \"{name}\"?"
@@ -252,6 +254,7 @@ en:
   reviewAllowed: "Reviewed: allowed, your confirmation is required"
   reviewUnsure: "The reviewer is unsure: {reason}"
   reviewFailed: The reviewer could not decide
+  reviewNote: "Reviewer's note: {reason}"
   mcpWarning: "This server's responses can give the agent instructions, and it acts with its identity and all its tools."
 </i18n>
 
