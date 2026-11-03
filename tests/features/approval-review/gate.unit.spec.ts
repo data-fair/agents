@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import type { ModelMessage } from 'ai'
 import { createReviewGate, type GateTool } from '../../../api/src/approval-review/gate.ts'
-import { exposureOf, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
+import { exposureOf, reviewerDenialText, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
 import { TOOL_NO_LONGER_AVAILABLE } from '../../../api/src/conversations/approved-calls.ts'
 import { recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 
@@ -88,7 +88,7 @@ test.describe('review gate (unit)', () => {
     for (const route of ['reviewer', 'reviewer+person'] as const) {
       for (const surface of ['chat', 'task'] as const) {
         const { gate } = gateWith({ tools: { set_note: reviewed(route) }, answer: record('deny'), surface })
-        assert.deepEqual(await decide(gate, 'set_note'), { type: 'denied', reason: 'r' })
+        assert.deepEqual(await decide(gate, 'set_note'), { type: 'denied', reason: reviewerDenialText('r') })
       }
     }
   })
@@ -97,7 +97,7 @@ test.describe('review gate (unit)', () => {
     const chat = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure') })
     assert.deepEqual(await decide(chat.gate, 'set_note'), { type: 'user-approval', reason: 'r' })
     const task = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure'), surface: 'task' })
-    assert.deepEqual(await decide(task.gate, 'set_note'), { type: 'denied', reason: 'r' })
+    assert.deepEqual(await decide(task.gate, 'set_note'), { type: 'denied', reason: reviewerDenialText('r') })
   })
 
   test('gate: an unreviewed tool with needsApproval asks', async () => {
@@ -119,6 +119,18 @@ test.describe('review gate (unit)', () => {
     const status = await decide(gate, 'delete_note', { messages }) as { type: string }
     assert.notEqual(status.type, 'denied')
     assert.equal(fake.calls.length, 0)
+  })
+
+  test('gate: a denial tells the model the reason and not to work around it; a card keeps the reviewer\'s own words', async () => {
+    const denied = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('deny', { reason: 'outside the request' }) })
+    const status = await decide(denied.gate, 'set_note') as { type: string, reason: string }
+    assert.equal(status.type, 'denied')
+    assert.ok(status.reason.includes('outside the request'), status.reason)
+    assert.ok(status.reason.includes('Do not try to reach the same outcome another way'), status.reason)
+    // The record keeps the reviewer's own reason, for the person's chip.
+    assert.equal(denied.gate.recordOf('c1')?.reason, 'outside the request')
+    const carded = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure', { reason: 'unclear' }) })
+    assert.deepEqual(await decide(carded.gate, 'set_note'), { type: 'user-approval', reason: 'unclear' })
   })
 
   test('gate: a person-approved replay is exactly user-approval', async () => {

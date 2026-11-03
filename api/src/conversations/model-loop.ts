@@ -45,7 +45,7 @@ import { describeSource, withheldErrorText, webhookCallId, tripExplanationInstru
 import { webhookPayloadsOf } from '../tasks/operations.ts'
 import { createTurnReviewer } from '../approval-review/service.ts'
 import { createReviewGate, type GateTool } from '../approval-review/gate.ts'
-import { exposureOf, type ReviewIntent } from '../approval-review/operations.ts'
+import { exposureOf, reviewerDenialText, type ReviewIntent } from '../approval-review/operations.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -765,13 +765,14 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         await target.settleEarlierCall(part.toolCallId, { state: 'output-error', errorText: TOOL_NO_LONGER_AVAILABLE })
         continue
       }
-      // A CALL OF THIS TURN THE REVIEWER DENIED: settled `output-denied` on its own part, the reviewer's reason
-      // as the approval's — the shape a person's refusal leaves, so it replays as a refusal the model reads. Final:
+      // A CALL OF THIS TURN THE REVIEWER DENIED: settled `output-denied` on its own part, the denial's text
+      // (reviewerDenialText: the reason, and not to work around it) as the approval's — the shape a person's refusal leaves, so it replays as a refusal the model reads. Final:
       // no card, no person can override it. The model goes on, told the reason.
       if (part.type === 'tool-output-denied') {
         const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCallId)
         const approval = automaticApprovals.get(part.toolCallId)
-        const reason = deniedReasons.get(part.toolCallId) ?? gate?.recordOf(part.toolCallId)?.reason
+        const record = gate?.recordOf(part.toolCallId)
+        const reason = deniedReasons.get(part.toolCallId) ?? (record ? reviewerDenialText(record.reason) : undefined)
         if (call && call.type === 'dynamic-tool' && approval) {
           Object.assign(call, { state: 'output-denied', approval: { ...approval, isAutomatic: true, approved: false, ...(reason ? { reason } : {}) } })
           sendMessageFrame()

@@ -16,7 +16,7 @@ import type { ReviewRoute } from '@agents/shared/approval-policy'
 import type { ApprovalClass } from '../conversations/approval-policy.ts'
 import { goneApprovedToolNames, TOOL_NO_LONGER_AVAILABLE } from '../conversations/approved-calls.ts'
 import { isScanned } from '../tripwire/operations.ts'
-import { createReviewBreaker, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
+import { createReviewBreaker, reviewerDenialText, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
 
 export type { ReviewRoute }
 
@@ -57,10 +57,13 @@ const approvedIn = (messages: ModelMessage[], toolCallId: string): boolean => {
 
 const withReason = (type: 'approved' | 'denied' | 'user-approval', reason: string): Status => reason ? { type, reason } : { type }
 
-/** What a review's record decides: a denial is final; unsure asks a person in a chat and denies elsewhere. */
+/**
+ * What a review's record decides: a denial is final; unsure asks a person in a chat and denies elsewhere. A denial
+ * tells the model not to work around it (reviewerDenialText); a card's reason is the reviewer's own, for the person.
+ */
 const statusOf = (record: ReviewRecord, route: ReviewRoute, surface: 'chat' | 'task'): Status => {
-  if (record.outcome === 'deny') return withReason('denied', record.reason)
-  if (record.outcome === 'unsure') return withReason(surface === 'chat' ? 'user-approval' : 'denied', record.reason)
+  if (record.outcome === 'deny' || (record.outcome === 'unsure' && surface === 'task')) return { type: 'denied', reason: reviewerDenialText(record.reason) }
+  if (record.outcome === 'unsure') return withReason('user-approval', record.reason)
   return withReason(route === 'reviewer' ? 'approved' : 'user-approval', record.reason)
 }
 
@@ -115,6 +118,8 @@ export const createReviewGate = (opts: {
     if (goneApprovedToolNames(opts.history, opts.tools()).includes(toolName)) return { type: 'denied', reason: TOOL_NO_LONGER_AVAILABLE }
     if (approvedIn(messages, toolCallId)) return { type: 'user-approval' }
     const tool = toolOf(toolName)
+    // A function-form needsApproval is not resolved here: any one set counts as asking, which fails safe (a card).
+    // None of this service's tools has one; resolving it would need the SDK's own tool context.
     if (!tool?.review) return tool?.needsApproval ? { type: 'user-approval' } : { type: 'not-applicable' }
     const record = await review(toolCallId, toolName, tool as GateTool & { review: NonNullable<GateTool['review']> }, input, messages)
     return statusOf(record, tool.review.route, opts.surface)

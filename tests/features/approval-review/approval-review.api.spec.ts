@@ -11,6 +11,7 @@ import { awaitRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
+import { reviewerDenialText } from '../../../api/src/approval-review/operations.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -63,12 +64,16 @@ test.describe('The approval reviewer', () => {
     const part = callPart(await messageAt(conversationId, assistant.seq), 'set_note')
     assert.equal(part.state, 'output-denied', JSON.stringify(part))
     assert.equal(part.approval.approved, false)
-    assert.equal(part.approval.reason, 'mock deny')
+    // The model is told the reason and not to work around it; the reviewer's own words stay on the record.
+    assert.equal(part.approval.reason, reviewerDenialText('mock deny'))
+    assert.ok(part.approval.reason.includes('Do not try to reach the same outcome another way'))
     assert.equal(part.toolMetadata.review.outcome, 'deny')
-    // A later turn replays the denial, and nothing runs.
+    assert.equal(part.toolMetadata.review.reason, 'mock deny')
+    // A later turn replays the denial: nothing runs, and a stored denial is never reviewed again.
     const next = await turn(conversationId, 'hello')
     assert.equal(next.run.stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools(), [])
+    assert.deepEqual(reviewCalls(next.run), [])
   })
 
   test('an unsure write asks the person, with the concern on the card', async () => {
@@ -120,7 +125,7 @@ test.describe('The approval reviewer', () => {
     const stored = await messageAt(conversationId, assistant.seq)
     const denied = callPart(stored, 'set_note')
     assert.equal(denied.state, 'output-denied', JSON.stringify(denied))
-    assert.equal(denied.approval.reason, 'mock deny')
+    assert.equal(denied.approval.reason, reviewerDenialText('mock deny'))
     assert.equal(denied.toolMetadata.review.outcome, 'deny')
     const carded = callPart(stored, 'delete_note')
     assert.equal(carded.state, 'approval-requested')
@@ -128,12 +133,40 @@ test.describe('The approval reviewer', () => {
 
     // Deciding the card runs it once; the denied call stays denied and never runs.
     const { runId } = await decideOverSocketToRun(orgAdmin, conversationId, carded.approval.id, { approved: true })
-    assert.equal((await awaitRun(orgAdmin, conversationId, runId)).stopReason, 'completed')
+    const approvalRun = await awaitRun(orgAdmin, conversationId, runId)
+    assert.equal(approvalRun.stopReason, 'completed')
+    assert.deepEqual(reviewCalls(approvalRun), [], 'neither the approved nor the denied call is reviewed again')
     assert.deepEqual(fixture.invokedTools(), ['delete_note'])
     const after = await messageAt(conversationId, assistant.seq)
     assert.equal(callPart(after, 'set_note').state, 'output-denied')
-    assert.equal(callPart(after, 'set_note').approval.reason, 'mock deny')
+    assert.equal(callPart(after, 'set_note').approval.reason, reviewerDenialText('mock deny'))
     assert.equal(callPart(after, 'delete_note').state, 'output-available')
+  })
+
+  // A capability grant: reviewer first, then the admin. request_web_access is offered in a chat an admin started.
+  const webAgent = () => createAgent({ web: { enabled: true, allowedUrls: ['https://github.com/data-fair'] } })
+  const requestWeb = (url: string) => `call tool request_web_access ${JSON.stringify({ add: [url], reason: 'the task needs it' })}`
+
+  test('a grant the reviewer denies is settled without a card', async () => {
+    const agent = await webAgent()
+    const { run, assistant, conversationId } = await turn({ agentId: agent.id }, requestWeb('https://REVIEW_DENY.example.org'))
+    assert.equal(run.stopReason, 'completed')
+    const part = callPart(await messageAt(conversationId, assistant.seq), 'request_web_access')
+    assert.equal(part.state, 'output-denied', JSON.stringify(part))
+    assert.equal(part.approval.reason, reviewerDenialText('mock deny'))
+    assert.equal(part.toolMetadata.review.outcome, 'deny')
+    const stored = (await admin.get(`/api/autonomous-agents/organization/test1/${agent.id}`)).data
+    assert.deepEqual(stored.web.allowedUrls, ['https://github.com/data-fair'])
+  })
+
+  test('a grant the reviewer allows still goes to the admin, with the review on the card', async () => {
+    const agent = await webAgent()
+    const { run, assistant, conversationId } = await turn({ agentId: agent.id }, requestWeb('https://www.data.gouv.fr'))
+    assert.equal(run.stopReason, 'awaiting-approval')
+    const part = callPart(await messageAt(conversationId, assistant.seq), 'request_web_access')
+    assert.equal(part.state, 'approval-requested')
+    assert.equal(part.toolMetadata.review.outcome, 'allow')
+    assert.equal(part.toolMetadata.review.code, 'judged')
   })
 
   test('three denials in a row stop the turn', async () => {

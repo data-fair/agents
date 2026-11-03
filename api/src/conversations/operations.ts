@@ -55,7 +55,7 @@ export function runStopReasonMessage (stopReason: RunStopReason, detail?: string
     'repeated-calls': 'I kept repeating the same tool call without making progress, so I stopped. Everything I gathered up to that point is above.',
     budget: 'This turn reached its credit budget and stopped before finishing.',
     'injection-suspected': 'I stopped because a tool result looked like a prompt injection: instructions addressed to me rather than data. It was withheld.',
-    'review-denied': 'I stopped because the reviewer denied several of my actions in a row.',
+    'review-denied': 'I stopped because the reviewer denied several of my actions.',
     timeout: 'This turn took too long and was stopped. Please try again.',
     aborted: 'This turn was stopped.',
     error: 'This turn failed and could not be completed.'

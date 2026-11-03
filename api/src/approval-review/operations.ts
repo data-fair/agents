@@ -77,6 +77,14 @@ export interface Exposure { exposed: boolean, tools: string[] }
 
 export interface ReviewInput { intent: ReviewIntent, call: ProposedCall, exposure: Exposure, nonce: string }
 
+/**
+ * What the model is told of a call the reviewer did not allow (its denial, or unsure where no person can decide):
+ * the reason, and that the outcome is not to be reached another way (the design's "Denial"). It is the stored
+ * part's `approval.reason`, so replays read it too; the reviewer's own reason stays in `toolMetadata.review`.
+ */
+export const reviewerDenialText = (reason: string): string =>
+  `The reviewer did not allow this call${reason ? `: ${reason}` : ''}. Do not try to reach the same outcome another way; tell the person what you wanted to do and why it was stopped.`
+
 /** What `toolMetadata.review` stores. */
 export interface ReviewRecord {
   outcome: ReviewOutcome
