@@ -211,6 +211,14 @@ export const webhookPrompt = (prompt: string, pending: PendingTrigger[] | undefi
   return `${lines.join('\n')}\n\n${prompt}`
 }
 
+/**
+ * The payloads of a run's prompt, as webhookPrompt enveloped them: what the tool-output tripwire screens before
+ * the run's first model call. Read back reliably because each payload is defused, so its own text cannot close
+ * the block.
+ */
+export const webhookPayloadsOf = (prompt: string): string[] =>
+  [...prompt.matchAll(/<webhook-payload received="[^"]*">\n([\s\S]*?)\n<\/webhook-payload>/g)].map(match => match[1])
+
 /** Whether a due slot is one of the schedule's own, rather than one a trigger set. */
 export const isScheduleSlot = (rules: Scheduling[], slot: string): boolean => {
   if (!rules.length) return false

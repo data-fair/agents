@@ -16,6 +16,7 @@ import { recordCall } from '../conversations/turn-telemetry.ts'
 import { withReasoningDisabled } from '../moderation/service.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { pushTaskEvent } from '../tasks/notifications.ts'
+import { withholdStoredResult, type StoredResultPlace } from '../conversations/service.ts'
 import {
   tripwireVerdictSchema, buildTripwireSystemPrompt, formatTripwireInput, capForScan, scanWindows, tripSource,
   injectionEvent, TRIPWIRE_TIMEOUT_MS, TRIPWIRE_HARD_TIMEOUT_MS, TRIPWIRE_EXCERPT_MAX_CHARS,
@@ -28,12 +29,19 @@ export interface TurnTripwire {
   /** The first trip of the turn. */
   readonly tripped: TripRecord | undefined
   recordOf (toolCallId: string): TripRecord | undefined
-  /** The turn is over and its messages are stored where given: the hook for late verdicts (not acted on yet). */
-  closed (where: { conversationId: string } | { runId: string }): void
+  /**
+   * The turn is over and its record is stored where given: every late trip so far, and every later one, is
+   * applied to the stored part (withholdStoredResult).
+   */
+  closed (where: StoredResultPlace): void
 }
 
-// What one window's classification came to. 'timeout' and 'error' both pass (fail open).
-type WindowOutcome = { status: 'verdict', verdict: TripwireVerdict, window: string } | { status: 'timeout' } | { status: 'error' }
+// What one window's classification came to. 'timeout' and 'error' both pass (fail open); a timed-out window
+// keeps its verdict to come, for a late trip.
+type WindowOutcome =
+  | { status: 'verdict', verdict: TripwireVerdict, window: string }
+  | { status: 'timeout', late: Promise<TripwireVerdict> }
+  | { status: 'error' }
 
 /**
  * One tripwire per turn, created by the loop. Undefined when the deployment switched it off or no moderator
@@ -49,6 +57,11 @@ export const createTurnTripwire = (ctx: {
   abortSignal: AbortSignal
   /** Each classifier call's credits, for the turn's budget. */
   onCredits: (credits: number) => void
+  /**
+   * A result that passed on a timeout and was then judged suspected, while the turn has not closed: the loop
+   * withholds it on its own parts. After closed(), the stored part is changed instead.
+   */
+  onLate?: (toolCallId: string, record: TripRecord) => void
 }): TurnTripwire | undefined => {
   if (!config.tripwire?.enabled) return undefined
   let resolved: ResolvedRoleModel
@@ -83,7 +96,7 @@ export const createTurnTripwire = (ctx: {
     }))
     // Metered beside the verdict, not before it: the timeout races the model call, not the usage write. As
     // moderation does, a call settling after its window was counted as a pass is in the usage ledger only, the
-    // turn has moved on. A late "suspected" is ignored for now (late verdicts: see closed()).
+    // turn has moved on. A late "suspected" is still acted on (lateTrip, below).
     generated.then(async ({ usage }) => {
       const onTime = !timedOut
       const credits = await chargeModelCall({
@@ -111,7 +124,7 @@ export const createTurnTripwire = (ctx: {
         const timer = setTimeout(() => {
           timedOut = true
           recordFailOpen(Date.now() - startedAt)
-          resolve({ status: 'timeout' })
+          resolve({ status: 'timeout', late: verdict })
         }, TRIPWIRE_TIMEOUT_MS)
         timer.unref?.()
         verdict.finally(() => clearTimeout(timer)).catch(() => {})
@@ -120,7 +133,9 @@ export const createTurnTripwire = (ctx: {
   }
 
   const logTrip = (record: TripRecord) => {
-    log.warn('a tool result looked like a prompt injection and was withheld from the model', {
+    log.warn(record.late
+      ? 'a tool result was judged a prompt injection after the model had read it: withheld from the record'
+      : 'a tool result looked like a prompt injection and was withheld from the model', {
       code: 'tool-output-tripwire',
       runId: ctx.run.id,
       conversationId: ctx.run.conversationId,
@@ -135,30 +150,69 @@ export const createTurnTripwire = (ctx: {
     pushTaskEvent(injectionEvent(ctx.agent, ctx.run, record.source, agent?.nhi?.siteUrl))
   }
 
+  // One event per turn, a late trip's included, and it never holds the turn up.
+  let notified = false
+  const notifyOnce = (record: TripRecord) => {
+    if (notified) return
+    notified = true
+    notifyTrip(record).catch(err => log.error('a tripwire notification failed', { code: 'tool-output-tripwire-notify', err }))
+  }
+  const recordFor = (call: ScreenInput, verdict: TripwireVerdict, window: string): TripRecord => ({
+    verdict: 'suspected',
+    excerpt: (verdict.excerpt || window).slice(0, TRIPWIRE_EXCERPT_MAX_CHARS),
+    ...(verdict.reason ? { reason: verdict.reason } : {}),
+    model: entry.id,
+    source: tripSource(call.toolName, call.server, call.input)
+  })
+
+  // Where the turn's record is stored, once it closed: from then on a late trip changes the stored part.
+  let storedAt: StoredResultPlace | undefined
+  const applyStored = (where: StoredResultPlace, toolCallId: string, record: TripRecord) => {
+    withholdStoredResult(where, toolCallId, record)
+      .catch(err => log.error('a late tripwire verdict could not be applied', { code: 'tool-output-tripwire-late', runId: ctx.run.id, err }))
+  }
+  /**
+   * A window that timed out, then answered suspected: the result already reached the model, so the turn is not
+   * stopped (spec: recorded only), but the record is switched to the placeholder so later turns, a reload and a
+   * transcript no longer carry it. One record per call, whichever of its windows answers first.
+   */
+  const lateTrip = (call: ScreenInput, verdict: TripwireVerdict, window: string) => {
+    if (records.has(call.toolCallId)) return
+    const record: TripRecord = { ...recordFor(call, verdict, window), late: true }
+    records.set(call.toolCallId, record)
+    logTrip(record)
+    notifyOnce(record)
+    if (storedAt) applyStored(storedAt, call.toolCallId, record)
+    else ctx.onLate?.(call.toolCallId, record)
+  }
+
   return {
     async screen (call) {
       const { text, cut } = capForScan(call.text)
-      const outcomes = await Promise.all(scanWindows(text).map(window => classifyWindow(call, window)))
+      const windows = scanWindows(text)
+      const outcomes = await Promise.all(windows.map(window => classifyWindow(call, window)))
       const hit = outcomes.find(o => o.status === 'verdict' && o.verdict.suspected)
-      if (hit?.status !== 'verdict') return { withheld: false, text, ...(cut ? { truncated: { totalChars: call.text.length } } : {}) }
-      const record: TripRecord = {
-        verdict: 'suspected',
-        excerpt: (hit.verdict.excerpt || hit.window).slice(0, TRIPWIRE_EXCERPT_MAX_CHARS),
-        ...(hit.verdict.reason ? { reason: hit.verdict.reason } : {}),
-        model: entry.id,
-        source: tripSource(call.toolName, call.server, call.input)
+      if (hit?.status !== 'verdict') {
+        windows.forEach((window, i) => {
+          const outcome = outcomes[i]
+          if (outcome.status !== 'timeout') return
+          outcome.late.then(verdict => { if (verdict.suspected && !ctx.abortSignal.aborted) lateTrip(call, verdict, window) }, () => {})
+        })
+        return { withheld: false, text, ...(cut ? { truncated: { totalChars: call.text.length } } : {}) }
       }
+      const record = recordFor(call, hit.verdict, hit.window)
       records.set(call.toolCallId, record)
       logTrip(record)
-      if (!tripped) {
-        tripped = record
-        // One event per turn, and it never holds the turn up.
-        notifyTrip(record).catch(err => log.error('a tripwire notification failed', { code: 'tool-output-tripwire-notify', err }))
-      }
+      if (!tripped) tripped = record
+      notifyOnce(record)
       return { withheld: true, record }
     },
     get tripped () { return tripped },
     recordOf: (toolCallId) => records.get(toolCallId),
-    closed () {}
+    closed (where) {
+      if (storedAt) return
+      storedAt = where
+      for (const [toolCallId, record] of records) if (record.late) applyStored(where, toolCallId, record)
+    }
   }
 }

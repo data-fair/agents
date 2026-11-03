@@ -15,7 +15,8 @@ import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
-import type { TripRecord } from '../tripwire/operations.ts'
+import { WITHHELD_RESULT, type TripRecord } from '../tripwire/operations.ts'
+import { wrapToolResult } from './operations.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
 import type { SessionStateAuthenticated } from '@data-fair/lib-common-types/session/index.js'
 import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '../autonomous-agents/service.ts'
@@ -364,6 +365,39 @@ export const settleStoredToolPart = async (
     { $set: { ...set, updatedAt: new Date().toISOString() } },
     { arrayFilters: [{ 'p.toolCallId': toolCallId, 'p.state': 'approval-responded' }], returnDocument: 'after', projection: { _id: 0 } }
   )
+}
+
+/** Where a closed turn's record is stored: a conversation's messages, or a task run's own parts. */
+export type StoredResultPlace = { conversationId: string } | { runId: string }
+
+/**
+ * Withhold a result already stored, when the tripwire judged it suspected after it had passed (a late verdict,
+ * api/src/tripwire/service.ts): the part becomes the placeholder error a withheld result is in its own turn, its
+ * trip record beside it, so later turns, a reload and a transcript no longer carry the text.
+ *
+ * Unlike settleStoredToolPart it matches the part by `toolCallId` alone, whatever its state: the call has its
+ * result already, and this replaces it. Idempotent, a `$set` of fixed values.
+ */
+export const withholdStoredResult = async (where: StoredResultPlace, toolCallId: string, tripwire: TripRecord): Promise<void> => {
+  const update = {
+    $set: {
+      'parts.$[p].state': 'output-error',
+      'parts.$[p].errorText': wrapToolResult(tripwire.source.server, tripwire.source.tool, WITHHELD_RESULT),
+      'parts.$[p].toolMetadata.tripwire': tripwire
+    },
+    $unset: { 'parts.$[p].output': true as const }
+  }
+  const arrayFilters = [{ 'p.type': 'dynamic-tool', 'p.toolCallId': toolCallId }]
+  if ('runId' in where) {
+    await mongo.runs.updateOne({ id: where.runId, 'parts.toolCallId': toolCallId }, update, { arrayFilters })
+    return
+  }
+  const message = await mongo.messages.findOneAndUpdate(
+    { conversationId: where.conversationId, 'parts.toolCallId': toolCallId },
+    { ...update, $set: { ...update.$set, updatedAt: new Date().toISOString() } },
+    { arrayFilters, returnDocument: 'after', projection: { _id: 0 } }
+  )
+  if (message) notifyMessage(where.conversationId, message)
 }
 
 /**

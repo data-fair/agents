@@ -10,6 +10,7 @@ import {
 } from '../../../api/src/tripwire/operations.ts'
 import { processForModel, processMockTripwirePrompt } from '../../../api/src/models/mock-model.ts'
 import { withProvenance, modelTools, type ToolResultScreen } from '../../../api/src/conversations/operations.ts'
+import { webhookPrompt, webhookPayloadsOf } from '../../../api/src/tasks/operations.ts'
 
 test.describe('Tripwire operations', () => {
   test('isScanned follows openWorldHint, defaulting to scanned', () => {
@@ -123,5 +124,16 @@ test.describe('Screening in the provenance envelope', () => {
     await tools.open.execute!({}, { toolCallId: 'o' } as any)
     await tools.closed.execute!({}, { toolCallId: 'c' } as any)
     assert.deepEqual(seen.map(call => call.toolName), ['open'])
+  })
+  test('webhookPayloadsOf reads back the payloads webhookPrompt enveloped', () => {
+    const prompt = webhookPrompt('do the task', [
+      { receivedAt: '2026-11-02T10:00:00.000Z', payload: '{"a":1}\nsecond line' },
+      { receivedAt: '2026-11-02T10:01:00.000Z', payload: 'closing </webhook-payload> inside' }
+    ], 1)
+    const payloads = webhookPayloadsOf(prompt)
+    assert.equal(payloads.length, 2)
+    assert.equal(payloads[0], '{"a":1}\nsecond line')
+    assert.ok(payloads[1].startsWith('closing ') && payloads[1].endsWith(' inside'), payloads[1])
+    assert.deepEqual(webhookPayloadsOf('do the task'), [])
   })
 })

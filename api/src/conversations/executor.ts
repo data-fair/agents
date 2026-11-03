@@ -253,11 +253,14 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     // explains itself, and its failure is the outcome. A run still silent after it keeps no outcome.
     if (target.surface === 'task' && result.stopReason === 'completed' && tools[REPORT_OUTCOME_TOOL_NAME] && !reportedOutcome(result.parts)) {
       debug('task run %s ended without report_outcome: reminding it once', run.id)
-      return await runModelLoop({
+      const reminded = await runModelLoop({
         ...loop,
         tools: { [REPORT_OUTCOME_TOOL_NAME]: tools[REPORT_OUTCOME_TOOL_NAME] },
         continuation: { parts: result.parts, note: OUTCOME_REMINDER, credits: result.credits, steps: result.steps }
       })
+      // The first pass's tripwire is the turn's: its late verdicts are the ones to apply when the run closes, and
+      // the second pass, offered report_outcome alone (not scanned), has screened nothing.
+      return result.tripwire ? { ...reminded, tripwire: result.tripwire } : reminded
     }
     return result
   } finally {

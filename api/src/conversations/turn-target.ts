@@ -288,6 +288,8 @@ export const conversationTarget = (
       // The turn's one settled frame (see TurnFrames), as stored: notice included, and an approval card
       // decidable only now that its message is closed.
       notifyMessage(run.conversationId, { seq: messageSeq, parts: finalParts })
+      // The message is closed: a tripwire verdict coming late is applied to it from now on (api/src/tripwire).
+      result.tripwire?.closed({ conversationId: run.conversationId })
 
       // The conversation's total, now including this turn — returned by the close itself — then the
       // end-of-turn signal, so a page that refreshes on turn-end already holds the new figure.

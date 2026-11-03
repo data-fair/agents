@@ -12,7 +12,7 @@ import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import { withCallPath, describeFileArguments, type CallPathContext } from '../files/call-path.ts'
-import { buildSystemPrompt, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
+import { buildSystemPrompt, modelTools, wrapToolResult, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
 import type { TurnTarget, TurnResult } from './turn-target.ts'
 import { recordCall } from './turn-telemetry.ts'
 import { setRunInputs } from './service.ts'
@@ -41,7 +41,8 @@ import { liveRuns } from './live-runs.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 import log from '@data-fair/lib-node/log.js'
 import { createTurnTripwire } from '../tripwire/service.ts'
-import { describeSource } from '../tripwire/operations.ts'
+import { describeSource, WITHHELD_RESULT, type TripRecord } from '../tripwire/operations.ts'
+import { webhookPayloadsOf } from '../tasks/operations.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -158,6 +159,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // step. Its classifier calls count toward the run's budget, beside the assistant's, not inside its telemetry
   // entry (they have their own).
   let tripwireCredits = 0
+  // Set once the turn's parts exist (below); a late verdict is applied to the stored part otherwise.
+  const lateVerdicts: { withhold?: (toolCallId: string, record: TripRecord) => void } = {}
+  let streamEnded = false
   const tripwire = createTurnTripwire({
     run,
     agent: { id: autonomousAgent.id, ...(autonomousAgent.title ? { title: autonomousAgent.title } : {}) },
@@ -165,7 +169,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     identity,
     settings,
     abortSignal,
-    onCredits: spent => { tripwireCredits += spent }
+    onCredits: spent => { tripwireCredits += spent },
+    onLate: (toolCallId, record) => { lateVerdicts.withhold?.(toolCallId, record) }
   })
   // The results the tripwire cut at its scan cap, by call: recorded as truncated with their original length, as
   // the recorder's own bound records a cut, so a reviewer still sees a result was cut and its real size.
@@ -184,6 +189,17 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     const stored = typeof settled.output === 'string' ? settled.output : String(settled.output.text ?? '')
     const totalChars = stored.length - cut.scannedChars + cut.totalChars
     return { ...settled, truncated: { totalChars: Math.max(totalChars, settled.truncated?.totalChars ?? 0) } }
+  }
+
+  // A WEBHOOK'S PAYLOADS are outside text too, read by the model as the run's prompt: screened before its first
+  // call. A trip stops the run there, with no model call at all; a task run cut short ends in error (task-target).
+  if (tripwire && run.kind === 'task') {
+    const payloads = webhookPayloadsOf(run.prompt ?? '')
+    const screened = await Promise.all(payloads.map((text, i) => tripwire.screen({ toolCallId: `webhook-${i}`, toolName: 'webhook', server: 'webhook', input: undefined, text })))
+    const withheld = screened.find(result => result.withheld)
+    if (withheld?.withheld) {
+      return { parts: [], steps: 0, credits: credits + tripwireCredits, stopReason: 'injection-suspected', stopDetail: describeSource(withheld.record.source), tripwire }
+    }
   }
 
   /** A script's final trace, onto the lead's message: its results are already bounded as it records them. */
@@ -431,6 +447,25 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     await target.persist(parts)
   }
 
+  /**
+   * A LATE VERDICT (api/src/tripwire): a result that passed on a timeout was then judged suspected. The model
+   * read it, and the turn goes on (spec: recorded only), but its part becomes the placeholder a withheld result
+   * is, so the record no longer carries it. While the loop runs, on its own parts; once the stream is over the
+   * target's close stores the parts, and the tripwire applies the record to the stored part itself (closed()).
+   * Also called when a call settles, should its verdict have come before its result was recorded. A verdict
+   * coming before this is set (the webhook screen's) has no part here: closed() applies it.
+   */
+  lateVerdicts.withhold = (toolCallId, record) => {
+    if (streamEnded) return
+    const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === toolCallId)
+    if (!call || call.type !== 'dynamic-tool') return
+    delete (call as { output?: unknown }).output
+    Object.assign(call, { state: 'output-error', errorText: wrapToolResult(record.source.server, record.source.tool, WITHHELD_RESULT) })
+    call.toolMetadata = { ...call.toolMetadata, tripwire: record as unknown as JSONObject }
+    sendMessageFrame()
+    persistStructure().catch(err => log.error('a late tripwire verdict could not be persisted', { code: 'tool-output-tripwire-late', runId: run.id, err }))
+  }
+
   // THINKING, from the moment the turn is handed to the model until it says something.
   //
   // The label is cleared on the first token, so it must be set before: the gap before that token is the
@@ -562,6 +597,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           continue
         }
         recorder.settleCall(part.toolCallId, settled)
+        const late = tripwire?.recordOf(part.toolCallId)
+        if (late?.late) lateVerdicts.withhold?.(part.toolCallId, late)
         sendMessageFrame()
         await persistStructure()
         // The model now has a result to read, once the step's other calls are done too.
@@ -605,6 +642,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     }
   } finally {
     idleWatchdog.stop()
+    streamEnded = true
   }
 
   const steps = (await result.steps).length
