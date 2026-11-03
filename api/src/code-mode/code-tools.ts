@@ -9,18 +9,26 @@
  * - Recorded: the package has no event for nested calls (vercel/ai#18144), so each call is recorded here, into a
  *   `data-trace` part under the code_mode call — streamed while the script runs, stored when it ends, left
  *   out of replay.
+ * - Reviewed (api/src/approval-review/gate.ts): a configured agent's reviewed tools are judged before they run, as
+ *   the model's own calls are — a script is no way around the reviewer. Anything but `allow` fails the call: no
+ *   person can decide inside a script. Every call that ran is noted, its output having entered the script.
  * - A failure is rethrown as CodeModeToolError: the package replaces any other error with "Host tool failed."
  */
 import { jsonSchema, type Tool } from 'ai'
 import { CodeModeToolError } from '@ai-sdk/code-mode'
 import type { MessagePart } from '@agents/shared/message-parts'
+import type { JSONObject } from '@ai-sdk/provider'
 import type { ToolSet } from '../conversations/operations.ts'
+import type { ReviewGate } from '../approval-review/gate.ts'
+import { reviewerDenialText } from '../approval-review/operations.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement, boundRecordedInput, type CallSettlement } from '../conversations/parts-recorder.ts'
 import { withCallPath, type CallPathContext } from '../files/call-path.ts'
 import { CODE_MODE_TOOL_NAME, codeCallable, SCRIPT_TRANSFER_BYTES, bridgedBytes, transferRefusedMessage, transferExceededMessage, CODE_MODE_TURN_CALLS, turnCallsExceededMessage } from './operations.ts'
 
 export interface CodeTrace {
   record<T> (toolCallId: string, toolName: string, input: unknown, run: () => Promise<T>): Promise<T>
+  /** Metadata onto a nested call still open (its review). */
+  annotate (toolCallId: string, toolMetadata: JSONObject): void
   finish (parentToolCallId: string): void
 }
 
@@ -74,6 +82,12 @@ export const createCodeTrace = (onTrace: (trace: { parentToolCallId: string, nam
         throw err
       }
     },
+    annotate (toolCallId, toolMetadata) {
+      const parent = parentOf(toolCallId)
+      if (finished.has(parent)) return
+      const call = traces.get(parent)?.recorder.parts.find(part => part.type === 'dynamic-tool' && part.toolCallId === toolCallId)
+      if (call?.type === 'dynamic-tool') call.toolMetadata = { ...call.toolMetadata, ...toolMetadata }
+    },
     finish (parent) {
       const trace = traces.get(parent)
       if (!trace) return
@@ -106,7 +120,10 @@ const toolError = (err: unknown, toolCallId: string) => {
  */
 export interface TurnCalls { count: number, max?: number }
 
-export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: Record<string, Tool>, callPath: CallPathContext, trace: CodeTrace, turnCalls?: TurnCalls }): Record<string, Tool> => {
+/** What a script's calls go through in a configured agent's turn: its review gate. The personal assistant has none. */
+export type NestedReview = Pick<ReviewGate, 'reviewNested' | 'noteNested'>
+
+export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: Record<string, Tool>, callPath: CallPathContext, trace: CodeTrace, turnCalls?: TurnCalls, review?: NestedReview }): Record<string, Tool> => {
   const out: Record<string, Tool> = {}
   const turnCalls = opts.turnCalls ?? { count: 0 }
   const maxTurnCalls = turnCalls.max ?? CODE_MODE_TURN_CALLS
@@ -139,7 +156,19 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
           if (turnCalls.count >= maxTurnCalls) throw new Error(turnCallsExceededMessage(maxTurnCalls))
           turnCalls.count++
           spend(options.toolCallId, bridgedBytes(input), transferRefusedMessage)
-          const output = await execute(input, options)
+          if (sourced?.review) {
+            // A reviewed tool without a gate to judge it is refused, never run unjudged.
+            if (!opts.review) throw new Error(`${name} needs a review this turn cannot give`)
+            const record = await opts.review.reviewNested(options.toolCallId, name, input)
+            opts.trace.annotate(options.toolCallId, { review: record as unknown as JSONObject })
+            if (record.outcome !== 'allow') throw new Error(reviewerDenialText(record.reason))
+          }
+          let output
+          try {
+            output = await execute(input, options)
+          } finally {
+            opts.review?.noteNested(name)
+          }
           spend(options.toolCallId, bridgedBytes(output), transferExceededMessage)
           return output
         } catch (err) {

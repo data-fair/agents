@@ -226,4 +226,39 @@ test.describe('the trace of a script', () => {
     assert.match(signature, /Record<string, unknown>/)
     assert.match(description, /`text` only describes the files/)
   })
+
+  test('a reviewed nested call is judged first; every call that ran is noted; no gate refuses it', async () => {
+    const ran: string[] = []
+    const noted: string[] = []
+    const reviewed: string[] = []
+    const review = { route: 'reviewer' as const, cls: 'write' as const, kind: 'action' as const }
+    const fixed = {
+      write: { tool: plain(async (input: any) => { ran.push(`write:${input.v}`); return 'ok' }), server: 'dev', review },
+      read: { tool: plain(async () => { ran.push('read'); return 'r' }), server: 'dev' }
+    }
+    const t = trace()
+    const tools = codeFacingTools({
+      names: ['write', 'read'],
+      fixed,
+      page: {},
+      callPath: {},
+      trace: t,
+      review: {
+        reviewNested: async (_id, toolName, input: any) => { reviewed.push(toolName); return { outcome: input.v === 'no' ? 'deny' : 'allow', reason: 'r', code: 'judged' } as any },
+        noteNested: name => { noted.push(name) }
+      }
+    })
+    const out = await createScriptTool(tools).execute!({ js: 'await tools.read({}); await tools.write({ v: "yes" }); try { await tools.write({ v: "no" }) } catch (e) { return e.message }' }, { toolCallId: 'cm1', messages: [], context: {} })
+    t.finish('cm1')
+    assert.deepEqual(ran, ['read', 'write:yes'])
+    assert.deepEqual(reviewed, ['write', 'write'])
+    assert.deepEqual(noted, ['read', 'write'])
+    assert.match(String(out), /Do not try to reach the same outcome another way/)
+    const nested = traces[traces.length - 1].parts.filter((p: any) => p.type === 'dynamic-tool')
+    assert.deepEqual(nested.map((p: any) => p.toolMetadata?.review?.outcome), [undefined, 'allow', 'deny'])
+
+    const ungated = createScriptTool(codeFacingTools({ names: ['write'], fixed, page: {}, callPath: {}, trace: trace() }))
+    assert.match(String(await ungated.execute!({ js: 'try { await tools.write({ v: "x" }) } catch (e) { return e.message }' }, { toolCallId: 'cm2', messages: [], context: {} })), /needs a review/)
+    assert.deepEqual(ran, ['read', 'write:yes'])
+  })
 })

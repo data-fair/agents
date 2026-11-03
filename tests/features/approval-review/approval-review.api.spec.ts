@@ -7,9 +7,10 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
-import { awaitRun } from '../../support/turn.ts'
+import { awaitRun, awaitAgentRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 import { decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
 import { reviewerDenialText } from '../../../api/src/approval-review/operations.ts'
 
@@ -24,6 +25,9 @@ const createAgent = async (over: any = {}) => {
   return agent
 }
 
+// A task run calls data-fair's built-in server as the agent: it needs a real identity (tests/support/agents.ts).
+const createTaskAgent = () => createEnrolledAgent({ title: 'Review probe', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true })
+
 const turn = async (target: string | { agentId: string }, content: string) => {
   const { runId, conversationId, run, messages } = await turnOverSocket(orgAdmin, target, content)
   return { conversationId, run, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
@@ -33,6 +37,17 @@ const callPart = (message: any, toolName: string) =>
   message.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === toolName)
 const messageAt = async (conversationId: string, seq: number) =>
   (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+const offered = (run: any): string[] => (run.calls ?? []).flatMap((c: any) => c.toolNames ?? [])
+const script = (js: string) => `call tool code_mode ${JSON.stringify({ js })}`
+const nestedCalls = (message: any) =>
+  (message.parts.find((p: any) => p.type === 'data-trace' && p.data?.name === 'code_mode')?.data.parts ?? []).filter((p: any) => p.type === 'dynamic-tool')
+const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
+const runTask = async (agentId: string, prompt: string) => {
+  const base = `/api/autonomous-agents/organization/test1/${agentId}/tasks`
+  const task = (await admin.post(base, { title: 'Probe', prompt, scheduling: [daily] })).data
+  const runId = (await admin.post(`${base}/${task.id}/run`)).data.runId as string
+  return await awaitAgentRun(orgAdmin, agentId, runId)
+}
 const reviewCalls = (run: any) => (run.calls ?? []).filter((c: any) => c.modelRole === 'moderator' && c.note === 'review')
 
 test.describe('The approval reviewer', () => {
@@ -175,5 +190,55 @@ test.describe('The approval reviewer', () => {
     const { run } = await turn({ agentId: agent.id }, `call tools ${deny} ${deny} ${deny}`)
     assert.equal(run.stopReason, 'review-denied')
     assert.deepEqual(fixture.invokedTools(), [])
+  })
+
+  test('a task run keeps reviewer-routed writes and runs an allowed one', async () => {
+    const agent = await createTaskAgent()
+    const run = await runTask(agent.id, 'call tool set_note {"note":"ok"}')
+    assert.notEqual(run.status, 'error', JSON.stringify(run))
+    assert.deepEqual(fixture.invokedTools(), ['set_note'])
+    const part = callPart(run.messages[1], 'set_note')
+    assert.equal(part.state, 'output-available', JSON.stringify(part))
+    assert.equal(part.toolMetadata.review.outcome, 'allow')
+  })
+
+  test('a task run\'s unsure is a deny', async () => {
+    const agent = await createTaskAgent()
+    const run = await runTask(agent.id, 'call tool set_note {"note":"REVIEW_UNSURE"}')
+    assert.notEqual(run.status, 'error', JSON.stringify(run))
+    assert.deepEqual(fixture.invokedTools(), [])
+    const part = callPart(run.messages[1], 'set_note')
+    assert.equal(part.state, 'output-denied', JSON.stringify(part))
+    assert.equal(part.toolMetadata.review.outcome, 'unsure')
+  })
+
+  test('a task run is not offered reviewer+person tools', async () => {
+    const agent = await createTaskAgent()
+    const run = await runTask(agent.id, 'hello')
+    assert.ok(offered(run).includes('set_note'), offered(run).join())
+    assert.ok(!offered(run).includes('delete_note'), offered(run).join())
+  })
+
+  test('three denials in a script stop the turn', async () => {
+    const agent = await createAgent()
+    const { run } = await turn({ agentId: agent.id }, script('for (let i = 0; i < 3; i++) { try { await tools.set_note({ note: "REVIEW_DENY" }) } catch (e) {} } return "done"'))
+    assert.equal(run.stopReason, 'review-denied')
+    assert.deepEqual(fixture.invokedTools(), [])
+  })
+
+  test('a script\'s reviewed write runs; a denied one fails inside the script', async () => {
+    const agent = await createAgent()
+    const { run, assistant } = await turn({ agentId: agent.id }, script('await tools.set_note({ note: "ok" }); try { await tools.set_note({ note: "REVIEW_DENY" }); return "ran" } catch (e) { return e.message }'))
+    assert.equal(run.stopReason, 'completed')
+    assert.deepEqual(fixture.invokedTools(), ['set_note'])
+    const call = callPart(assistant, 'code_mode')
+    assert.equal(call.state, 'output-available', JSON.stringify(call))
+    const output = JSON.stringify(call.output)
+    assert.ok(output.includes('mock deny'), output)
+    assert.ok(output.includes('Do not try to reach the same outcome another way'), output)
+    // Each nested review is on its trace entry.
+    const nested = nestedCalls(assistant)
+    assert.deepEqual(nested.map((p: any) => p.toolMetadata?.review?.outcome), ['allow', 'deny'])
+    assert.equal(nested[1].state, 'output-error')
   })
 })
