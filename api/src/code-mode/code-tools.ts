@@ -159,6 +159,7 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
           if (sourced?.review) {
             // A reviewed tool without a gate to judge it is refused, never run unjudged.
             if (!opts.review) throw new Error(`${name} needs a review this turn cannot give`)
+            // The script's input, before the call path's file/URL transformation: as a direct call is reviewed.
             const record = await opts.review.reviewNested(options.toolCallId, name, input)
             opts.trace.annotate(options.toolCallId, { review: record as unknown as JSONObject })
             if (record.outcome !== 'allow') throw new Error(reviewerDenialText(record.reason))

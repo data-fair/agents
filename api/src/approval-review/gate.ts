@@ -16,7 +16,7 @@ import type { ReviewRoute } from '@agents/shared/approval-policy'
 import type { ApprovalClass } from '../conversations/approval-policy.ts'
 import { goneApprovedToolNames, TOOL_NO_LONGER_AVAILABLE } from '../conversations/approved-calls.ts'
 import { isScanned } from '../tripwire/operations.ts'
-import { createReviewBreaker, reviewerDenialText, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
+import { BREAKER_TRIPPED_REASON, createReviewBreaker, reviewerDenialText, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
 
 export type { ReviewRoute }
 
@@ -104,6 +104,13 @@ export const createReviewGate = (opts: {
       input,
       cls: tool.review.cls,
       kind: tool.review.kind
+    }
+    // ONCE TRIPPED, every further reviewed call is denied unreviewed: the turn stops after its step, but a running
+    // script, or the step's later calls, would otherwise go on trying variants until one is allowed. Not counted.
+    if (breaker.tripped) {
+      const record: ReviewRecord = { outcome: 'deny', reason: BREAKER_TRIPPED_REASON, code: 'breaker-tripped', exposed: exposureFor(messages).exposed, at: new Date().toISOString() }
+      records.set(toolCallId, record)
+      return record
     }
     const record = await opts.review(call, exposureFor(messages))
     records.set(toolCallId, record)

@@ -89,7 +89,8 @@ export const reviewerDenialText = (reason: string): string =>
 export interface ReviewRecord {
   outcome: ReviewOutcome
   reason: string
-  code: 'cleared' | 'judged' | 'review-failed'
+  /** `breaker-tripped`: not reviewed at all, the turn's breaker having tripped (createReviewGate). */
+  code: 'cleared' | 'judged' | 'review-failed' | 'breaker-tripped'
   failure?: GuardFailureCause
   exposed: boolean
   at: string
@@ -277,6 +278,9 @@ export const reviewOutcomeToRecord = (outcome: TwoStageOutcome<ReviewVerdict>, e
  * The turn's circuit breaker: only the reviewer's judged denials count (a failed review is unsure, not a
  * denial); any other record ends a run of consecutive ones. Once tripped, it stays tripped for the turn.
  */
+/** The reason of a call refused once the breaker tripped: no review, no further change this turn. */
+export const BREAKER_TRIPPED_REASON = 'the reviewer stopped further changes this turn after repeated denials'
+
 export const createReviewBreaker = (): { count(record: ReviewRecord): void, readonly tripped: boolean } => {
   let consecutive = 0
   let perTurn = 0

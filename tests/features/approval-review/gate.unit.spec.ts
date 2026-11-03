@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import type { ModelMessage } from 'ai'
 import { createReviewGate, type GateTool } from '../../../api/src/approval-review/gate.ts'
-import { exposureOf, reviewerDenialText, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
+import { BREAKER_TRIPPED_REASON, exposureOf, reviewerDenialText, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
 import { TOOL_NO_LONGER_AVAILABLE } from '../../../api/src/conversations/approved-calls.ts'
 import { recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 
@@ -178,6 +178,20 @@ test.describe('review gate (unit)', () => {
     assert.equal(gate.tripped, false)
     await decide(gate, 'set_note', { toolCallId: 'c3' })
     assert.equal(gate.tripped, true)
+  })
+
+  test('gate: once tripped, further reviewed calls are denied unreviewed, direct and nested', async () => {
+    const { gate, fake } = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('deny') })
+    for (const id of ['c1', 'c2', 'c3']) await decide(gate, 'set_note', { toolCallId: id })
+    assert.equal(gate.tripped, true)
+    assert.equal(fake.calls.length, 3)
+    const direct = await decide(gate, 'set_note', { toolCallId: 'c4' })
+    assert.deepEqual(direct, { type: 'denied', reason: reviewerDenialText(BREAKER_TRIPPED_REASON) })
+    assert.equal(gate.recordOf('c4')?.code, 'breaker-tripped')
+    const nested = await gate.reviewNested('cm:tool-1', 'set_note', {})
+    assert.equal(nested.outcome, 'deny')
+    assert.equal(nested.code, 'breaker-tripped')
+    assert.equal(fake.calls.length, 3, 'the reviewer is not called again')
   })
 
   test('gate: recordOf returns the record of a reviewed call', async () => {

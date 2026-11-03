@@ -308,7 +308,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         trace: codeTrace,
         turnCalls: scriptCalls,
         // The gate is built below, once the map exists; a script runs only after both.
-        ...(reviewer ? { review: { reviewNested: (...args) => gate!.reviewNested(...args), noteNested: name => gate?.noteNested(name) } } : {})
+        ...(reviewer ? { review: { reviewNested: (...args) => gate!.reviewNested(...args), noteNested: name => gate!.noteNested(name) } } : {})
       }))
       const runScript = scriptTool.execute!
       mainTools[CODE_MODE_TOOL_NAME] = modelTools({

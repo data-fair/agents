@@ -221,9 +221,14 @@ test.describe('The approval reviewer', () => {
 
   test('three denials in a script stop the turn', async () => {
     const agent = await createAgent()
-    const { run } = await turn({ agentId: agent.id }, script('for (let i = 0; i < 3; i++) { try { await tools.set_note({ note: "REVIEW_DENY" }) } catch (e) {} } return "done"'))
+    // A fourth call, which the reviewer would allow, after the breaker tripped: neither reviewed nor run.
+    const { run, assistant } = await turn({ agentId: agent.id }, script('for (let i = 0; i < 3; i++) { try { await tools.set_note({ note: "REVIEW_DENY" }) } catch (e) {} } try { await tools.set_note({ note: "ok" }) } catch (e) {} return "done"'))
     assert.equal(run.stopReason, 'review-denied')
     assert.deepEqual(fixture.invokedTools(), [])
+    const nested = nestedCalls(assistant)
+    assert.deepEqual(nested.map((p: any) => [p.toolMetadata?.review?.outcome, p.toolMetadata?.review?.code]), [['deny', 'judged'], ['deny', 'judged'], ['deny', 'judged'], ['deny', 'breaker-tripped']])
+    // A judged deny is two reviewer calls (stage 1, stage 2), the fourth none.
+    assert.equal(reviewCalls(run).length, 6, JSON.stringify(run.calls))
   })
 
   test('a script\'s reviewed write runs; a denied one fails inside the script', async () => {
