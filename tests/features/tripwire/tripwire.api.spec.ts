@@ -13,7 +13,7 @@ import { turnOverSocket, decideOverSocketToRun } from '../../../dev/socket-turn.
 import { awaitRun } from '../../support/turn.ts'
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 import { WITHHELD_RESULT } from '../../../api/src/tripwire/operations.ts'
-import { runStopReasonMessage } from '../../../api/src/conversations/operations.ts'
+import { runStopReasonMessage, wrapToolResult } from '../../../api/src/conversations/operations.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -109,6 +109,17 @@ test.describe('Tool-output tripwire', () => {
     assert.equal(call.state, 'output-error')
     assert.ok(call.errorText.includes(WITHHELD_RESULT), call.errorText)
     assert.equal(call.toolMetadata.tripwire.source.tool, 'code_mode')
+  })
+
+  test('a result cut at the scan cap is recorded as truncated, with its original length', async () => {
+    const agent = await createFilesAgent()
+    const { run, assistant } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool bulk {"chars":150000}')
+    assert.equal(run.stopReason, 'completed')
+    const bulk = callPart(assistant, 'bulk')
+    assert.equal(bulk.state, 'output-available')
+    assert.match(outputOf(bulk), /cut: the rest was not scanned/)
+    // What the recorder's own bound would have recorded: the whole result as the model would have read it.
+    assert.equal(bulk.toolMetadata.truncated?.totalChars, wrapToolResult('dev-public-mcp', 'bulk', 'b'.repeat(150000)).length, JSON.stringify(bulk.toolMetadata))
   })
 
   test('a broken classifier fails open', async () => {

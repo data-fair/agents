@@ -32,7 +32,7 @@ import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeMo
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
-import { createPartsRecorder, resultSettlement, errorSettlement } from './parts-recorder.ts'
+import { createPartsRecorder, resultSettlement, errorSettlement, type CallSettlement } from './parts-recorder.ts'
 import { tokenCountsOf, quotaStopText } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { mayBePageTool } from './service-tool-names.ts'
@@ -167,7 +167,24 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     abortSignal,
     onCredits: spent => { tripwireCredits += spent }
   })
-  const screen = tripwire?.screen
+  // The results the tripwire cut at its scan cap, by call: recorded as truncated with their original length, as
+  // the recorder's own bound records a cut, so a reviewer still sees a result was cut and its real size.
+  const scanCuts = new Map<string, { totalChars: number, scannedChars: number }>()
+  const screen = tripwire && (async (call: Parameters<typeof tripwire.screen>[0]) => {
+    const screened = await tripwire.screen(call)
+    if (!screened.withheld && screened.truncated) scanCuts.set(call.toolCallId, { totalChars: screened.truncated.totalChars, scannedChars: screened.text.length })
+    return screened
+  })
+  const withScanCut = (settled: CallSettlement, toolCallId: string): CallSettlement => {
+    const cut = scanCuts.get(toolCallId)
+    if (!cut || settled.state !== 'output-available') return settled
+    // Measured as the recorder measures: the result as the model received it, envelope included — the stored
+    // text is the envelope around the scanned text, so the original is the stored length with the scanned
+    // text's replaced by the original's.
+    const stored = typeof settled.output === 'string' ? settled.output : String(settled.output.text ?? '')
+    const totalChars = stored.length - cut.scannedChars + cut.totalChars
+    return { ...settled, truncated: { totalChars: Math.max(totalChars, settled.truncated?.totalChars ?? 0) } }
+  }
 
   /** A script's final trace, onto the lead's message: its results are already bounded as it records them. */
   const storeTrace = (trace: { parentToolCallId: string, name: string, parts: MessagePart[] }) => {
@@ -539,7 +556,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       // Stored as the model received it, envelope included (withProvenance wraps before this point),
       // because the guarantee is that a revived conversation reproduces what the model saw.
       if (part.type === 'tool-result') {
-        const settled = resultSettlement(part.output)
+        const settled = withScanCut(resultSettlement(part.output), part.toolCallId)
         if (!recorder.hasCall(part.toolCallId)) {
           await target.settleEarlierCall(part.toolCallId, settled)
           continue

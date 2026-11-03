@@ -137,10 +137,10 @@ export const createTurnTripwire = (ctx: {
 
   return {
     async screen (call) {
-      const { text } = capForScan(call.text)
+      const { text, cut } = capForScan(call.text)
       const outcomes = await Promise.all(scanWindows(text).map(window => classifyWindow(call, window)))
       const hit = outcomes.find(o => o.status === 'verdict' && o.verdict.suspected)
-      if (hit?.status !== 'verdict') return { withheld: false, text }
+      if (hit?.status !== 'verdict') return { withheld: false, text, ...(cut ? { truncated: { totalChars: call.text.length } } : {}) }
       const record: TripRecord = {
         verdict: 'suspected',
         excerpt: (hit.verdict.excerpt || hit.window).slice(0, TRIPWIRE_EXCERPT_MAX_CHARS),

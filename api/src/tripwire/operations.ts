@@ -36,9 +36,12 @@ export interface TripSource { tool: string, server: string, url?: string }
 /** What is stored on a tool part (and pushed in the event) when a result was withheld. */
 export interface TripRecord { verdict: 'suspected', excerpt: string, reason?: string, model: string, late?: true, source: TripSource }
 
-/** One tool result to classify, and what came of it: on a pass, `text` is the scanned text (capped, see capForScan). */
+/**
+ * One tool result to classify, and what came of it: on a pass, `text` is the scanned text, and `truncated` the
+ * original length when capForScan cut it — recorded like the recorder's own bound (toolMetadata.truncated).
+ */
 export interface ScreenInput { toolCallId: string, toolName: string, server: string, input: unknown, text: string }
-export type ScreenResult = { withheld: false, text: string } | { withheld: true, record: TripRecord }
+export type ScreenResult = { withheld: false, text: string, truncated?: { totalChars: number } } | { withheld: true, record: TripRecord }
 
 // A tool is scanned unless it declares openWorldHint false (the MCP spec's default is open world). read_file is
 // scanned although closed-world: a file can come from a web download. Server skills are instructions by nature.
