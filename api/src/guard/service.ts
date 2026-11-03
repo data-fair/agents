@@ -59,8 +59,8 @@ export const stage1Answer = (generated: Promise<{ text: string }>): Promise<bool
 })
 
 /** Stage 2, only on a stage-1 flag: the same policy and wrapped content, a structured verdict. */
-export const stage2Call = <T>(call: GuardCall & { schema: z.ZodType<T>, maxOutputTokens: number }): Promise<{ object: T, usage: LanguageModelUsage }> =>
-  withReasoningDisabled(extra => generateObject({
+export const stage2Call = <T>(call: GuardCall & { schema: z.ZodType<T>, maxOutputTokens: number, reasoning?: boolean }): Promise<{ object: T, usage: LanguageModelUsage }> => {
+  const generate = (extra: { providerOptions?: Record<string, Record<string, any>> }) => generateObject({
     model: call.model,
     schema: call.schema,
     temperature: 0,
@@ -69,7 +69,10 @@ export const stage2Call = <T>(call: GuardCall & { schema: z.ZodType<T>, maxOutpu
     messages: [{ role: 'user' as const, content: call.content }],
     abortSignal: call.abortSignal,
     ...extra
-  }) as Promise<{ object: T, usage: LanguageModelUsage }>)
+  }) as Promise<{ object: T, usage: LanguageModelUsage }>
+  // `reasoning`: the model may think before it answers (a reviewer's judgement), so reasoning is left on.
+  return call.reasoning ? generate({}) : withReasoningDisabled(generate)
+}
 
 /**
  * Charge a classifier call when it settles, beside its answer rather than before it: a guard's timeout races the
@@ -120,27 +123,32 @@ export const describeFailedStage = (outcome: Exclude<TwoStageOutcome<unknown>, {
  * the cost is recorded by the time the outcome is acted on. It must not reject.
  */
 export async function classifyTwoStage<T> (params: {
-  stage1: (abortSignal: AbortSignal) => Promise<{ text: string, usage: LanguageModelUsage }>
+  /** Absent: the check is a confirmation only and goes straight to stage 2. */
+  stage1?: (abortSignal: AbortSignal) => Promise<{ text: string, usage: LanguageModelUsage }>
   stage2: (abortSignal: AbortSignal) => Promise<{ object: T, usage: LanguageModelUsage }>
   cleared: T
   hardTimeoutMs: number
+  /** Caps stage 2 alone (default `hardTimeoutMs`): a reasoning stage 2 needs longer than a one-word stage 1. */
+  stage2TimeoutMs?: number
   meter: (generated: Promise<{ usage: LanguageModelUsage }>, startedAt: number) => Promise<unknown>
 }): Promise<TwoStageOutcome<T>> {
-  const signal1 = AbortSignal.timeout(params.hardTimeoutMs)
-  const startedAt1 = Date.now()
-  const generated1 = params.stage1(signal1)
-  const metered1 = params.meter(generated1, startedAt1)
-  let flagged: boolean
-  try {
-    flagged = await stage1Answer(generated1)
-  } catch (err) {
+  if (params.stage1) {
+    const signal1 = AbortSignal.timeout(params.hardTimeoutMs)
+    const startedAt1 = Date.now()
+    const generated1 = params.stage1(signal1)
+    const metered1 = params.meter(generated1, startedAt1)
+    let flagged: boolean
+    try {
+      flagged = await stage1Answer(generated1)
+    } catch (err) {
+      await metered1
+      return { kind: 'stage1-failed', cause: failureCause(err, signal1), message: messageOf(err) }
+    }
     await metered1
-    return { kind: 'stage1-failed', cause: failureCause(err, signal1), message: messageOf(err) }
+    if (!flagged) return { kind: 'verdict', stage1: false, verdict: params.cleared }
   }
-  await metered1
-  if (!flagged) return { kind: 'verdict', stage1: false, verdict: params.cleared }
 
-  const signal2 = AbortSignal.timeout(params.hardTimeoutMs)
+  const signal2 = AbortSignal.timeout(params.stage2TimeoutMs ?? params.hardTimeoutMs)
   const startedAt2 = Date.now()
   const generated2 = params.stage2(signal2)
   const metered2 = params.meter(generated2, startedAt2)
