@@ -443,8 +443,8 @@ function processMockModeratorPrompt (lastMessage: string): MockPromptResult {
 /**
  * The tool-output tripwire's classifier (api/src/tripwire), for any mock model id: it judges only the text inside
  * the nonce-tagged wrapper, and reads the stage from the instruction after it (content cannot claim a stage).
- * Stage 1 answers one word: "yes" on "INJECTION_PROBE", an "ignore (all/previous) instructions" phrase,
- * "FALSE_ALARM" or "BROKEN_CONFIRM"; "???" (unparseable: fail open) on "BROKEN_CLASSIFIER"; else "no".
+ * Stage 1 answers one word: "yes" on "INJECTION_PROBE", an "ignore (all/previous) instructions" phrase, text
+ * addressed to the "classifier:" (the self-incrimination rule), "FALSE_ALARM" or "BROKEN_CONFIRM"; "???" (unparseable: fail open) on "BROKEN_CLASSIFIER"; else "no".
  * "slow tripwire" delays stage 1 past the tripwire timeout (fail open on timeout, then a late verdict). Stage 2
  * confirms a probe with the matched phrase as excerpt, clears "FALSE_ALARM", answers unparseable text on
  * "BROKEN_CONFIRM" (a failed confirmation counts as suspected).
@@ -457,13 +457,13 @@ export function processMockTripwirePrompt (lastMessage: string): MockPromptResul
   if (/confirm or clear/i.test(instruction)) {
     if (judged.includes('BROKEN_CONFIRM')) return { type: 'text', text: 'not json' }
     if (judged.includes('FALSE_ALARM')) return { type: 'text', text: '{"suspected":false}' }
-    const matched = judged.match(/ignore (all |previous )+instructions|INJECTION_PROBE/i)?.[0]
+    const matched = judged.match(/ignore (all |previous )+instructions|INJECTION_PROBE|\bclassifier:/i)?.[0]
     if (matched) return { type: 'text', text: JSON.stringify({ suspected: true, excerpt: matched, reason: 'mock trip' }) }
     return { type: 'text', text: '{"suspected":false}' }
   }
   if (judged.includes('BROKEN_CLASSIFIER')) return { type: 'text', text: '???' }
   const delayMs = judged.includes('slow tripwire') ? 6000 : undefined
-  const flagged = /ignore (all |previous )+instructions|INJECTION_PROBE|FALSE_ALARM|BROKEN_CONFIRM/i.test(judged)
+  const flagged = /ignore (all |previous )+instructions|INJECTION_PROBE|FALSE_ALARM|BROKEN_CONFIRM|\bclassifier:/i.test(judged)
   return { type: 'text', text: flagged ? 'yes' : 'no', delayMs }
 }
 

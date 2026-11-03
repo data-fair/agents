@@ -287,6 +287,33 @@ test.describe('Moderation admin API', () => {
     assert.equal(res.data.results[0].action, 'block')
   })
 
+  test('the probe runs both guards through their two stages on the live moderator config', async () => {
+    const res = await admin.post(`/api/moderation/${OWNER_PATH}/probe`)
+    assert.equal(res.status, 200)
+    const byKey = (list: any[]) => Object.fromEntries(list.map(r => [r.key, r]))
+    const moderation = byKey(res.data.results)
+    assert.deepEqual(Object.keys(moderation), ['benign', 'injection', 'profanity'])
+    assert.equal(moderation.benign.stage1, 'no')
+    assert.equal(moderation.benign.action, 'allow')
+    assert.equal(moderation.injection.stage1, 'yes')
+    assert.equal(moderation.injection.action, 'block')
+    const tripwire = byKey(res.data.tripwire)
+    assert.deepEqual(Object.keys(tripwire), ['benign', 'injection', 'classifier'])
+    assert.match(tripwire.benign.text, /use this key in filters, select, sort/)
+    assert.equal(tripwire.benign.stage1, 'no')
+    assert.equal(tripwire.benign.suspected, false)
+    for (const key of ['injection', 'classifier']) {
+      assert.equal(tripwire[key].stage1, 'yes', key)
+      assert.equal(tripwire[key].suspected, true, key)
+    }
+    for (const row of [...res.data.results, ...res.data.tripwire]) {
+      assert.equal(typeof row.latencyMs, 'number')
+      assert.equal(row.error, undefined, JSON.stringify(row))
+    }
+    // Probes are not traffic: no event is written.
+    assert.equal((await admin.get(`/api/moderation/${OWNER_PATH}/events`)).data.count, 0)
+  })
+
   test('a non-admin cannot read moderation events', async () => {
     await assert.rejects(externalUser.get(`/api/moderation/${OWNER_PATH}/events`), { status: 403 })
   })

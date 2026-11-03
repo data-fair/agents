@@ -2,7 +2,8 @@
  * router.ts contains the HTTP layer logic and stateful logic
  * it should not be imported anywhere else than app.ts
  * Admin-only observability endpoints — unlike its v1 ancestor, every route here
- * requires the account admin role; only the probe touches an LLM.
+ * requires the account admin role; only the probe touches an LLM (both guards', input moderation and the
+ * tool-output tripwire).
  */
 import mongo from '#mongo'
 import { Router } from 'express'
@@ -10,6 +11,7 @@ import { type AccountKeys, assertAccountRole, reqSessionAuthenticated } from '@d
 import { getSettings } from '../settings/service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { runProbe } from './service.ts'
+import { runTripwireProbe } from '../tripwire/service.ts'
 
 const router = Router()
 export default router
@@ -81,5 +83,6 @@ router.post('/:type/:id/probe', async (req, res) => {
     res.status(404).json({ error: { message: 'Agent not configured', type: 'invalid_request_error' } })
     return
   }
-  res.json({ results: await runProbe(settings, owner) })
+  // Both guards share the moderator model and the classifier engine: the tripwire's probes beside moderation's.
+  res.json({ results: await runProbe(settings, owner), tripwire: await runTripwireProbe(settings, owner) })
 })
