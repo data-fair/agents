@@ -1301,26 +1301,24 @@ test.describe('Autonomous agent run traces', () => {
     // contradict what was actually charged — the regression traces/operations.ts records having
     // already fixed once in its own copy of the formula.
     //
-    // Non-zero prices, or the cost is 0 either way and the assertion proves nothing. `cache <n>`
-    // is a mock directive matched against the whole prompt; `hello` stays on the last line so the
-    // answer is still 'world'.
+    // Non-zero prices, or the cost is 0 either way and the assertion proves nothing. 8 000 EUR/M at the
+    // 0.008 EUR/credit peg makes one token cost one credit (as usage.api.spec.ts does), so the check is in
+    // credits on both sides: comparing credits to a price in euros only held while the prompt stayed under
+    // ~1 008 mock tokens. `cache <n>` is a mock directive matched against the whole prompt; `hello` stays on
+    // the last line so the answer is still 'world'.
     await putMockSettings(admin, 'organization/test1', {
-      models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000, cachedInputPricePerMillion: 0 })
+      models: mockModels({ inputPricePerMillion: 8000, outputPricePerMillion: 8000, cachedInputPricePerMillion: 0 })
     })
     const { conv, runId } = await runTurnFor({}, 'cache 1000\nhello')
 
     const assistant = (await callsOf(conv.id, runId)).find((c: any) => c.modelRole === 'assistant')
     assert.ok(assistant, 'expected an assistant call')
     assert.ok(assistant.cacheReadTokens > 0, 'the cache read detail must reach the telemetry')
-    // With a zero cache tariff, the credits charged must be strictly less than pricing every input
-    // token at the full rate — which is only possible if the detail survived into the pricing.
-    // The INPUT portion, not the total: output is priced too, so a total would exceed input-only
-    // pricing whether or not the cache detail survived.
-    const pricedAtFullRate = (assistant.inputTokens / 1_000_000) * 1000
-    assert.ok(
-      assistant.creditsInput < pricedAtFullRate,
-      `cache reads were billed at the full input tariff: ${assistant.creditsInput} vs ${pricedAtFullRate}`
-    )
+    // With a zero cache tariff, only the uncached input is billed: one credit per uncached token. Pricing
+    // every input token at the full rate — the regression — would bill inputTokens credits.
+    assert.ok(Math.abs(assistant.creditsInput - (assistant.inputTokens - assistant.cacheReadTokens)) < 1e-6,
+      `input billed ${assistant.creditsInput} credits for ${assistant.inputTokens} input tokens, ${assistant.cacheReadTokens} of them cache reads`)
+    assert.ok(assistant.creditsInput < assistant.inputTokens, 'cache reads were billed at the full input tariff')
   })
 
   test('telemetry carries no MCP credential', async () => {
