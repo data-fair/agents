@@ -11,7 +11,7 @@
 
 export const SKILLS_EXTENSION = 'io.modelcontextprotocol/skills'
 
-export interface GuideSkill { name: string, description: string, uri: string, tools?: string[] }
+export interface GuideSkill { name: string, description: string, uri: string, tools?: string[], /** The entry's resource URIs other than its SKILL.md: files attached to the skill. */ resources?: string[] }
 export interface ServerGuide { server: string, instructions?: string, skills: GuideSkill[] }
 
 /**
@@ -19,7 +19,7 @@ export interface ServerGuide { server: string, instructions?: string, skills: Gu
  * imported: conversations/operations.ts renders the prompt block from this module, and the import back
  * would make the two modules depend on each other.
  */
-export const GUIDE_LIMITS = { instructions: 8000, skills: 50, description: 1024, skillBody: 100_000 }
+export const GUIDE_LIMITS = { instructions: 8000, skills: 50, description: 1024, skillBody: 100_000, attachedFiles: 100 }
 
 const str = (value: unknown): string | undefined => typeof value === 'string' && value.trim() ? value.trim() : undefined
 
@@ -33,7 +33,11 @@ export function skillsFromList (result: unknown): GuideSkill[] {
     const name = str((entry as any)?.frontmatter?.name)
     if (!uri || !name || !uri.startsWith('skill://')) continue
     const tools = str((entry as any)?.frontmatter?.metadata?.tools)?.split(/\s+/)
-    skills.push({ name, description: str((entry as any)?.frontmatter?.description) ?? '', uri, ...(tools?.length ? { tools } : {}) })
+    const rawResources = (entry as any)?.resources
+    const resources = Array.isArray(rawResources)
+      ? rawResources.map(r => str(r?.uri)).filter((u): u is string => !!u && u.startsWith('skill://') && u !== uri)
+      : []
+    skills.push({ name, description: str((entry as any)?.frontmatter?.description) ?? '', uri, ...(tools?.length ? { tools } : {}), ...(resources.length ? { resources } : {}) })
   }
   return skills
 }
@@ -96,8 +100,14 @@ export function renderGuidesBlock (guides: ServerGuide[]): string | undefined {
 const stripFrontmatter = (text: string) => text.replace(/^---\r?\n[\s\S]*?\r?\n---[ \t]*(\r?\n|$)/, '').trim()
 
 /** A loaded skill as the model reads it: origin-tagged, defused, bounded, with the guidance note. */
-export function skillEnvelope (server: string, uri: string, body: string): string {
-  const content = defuseEnvelopes(stripFrontmatter(body).slice(0, GUIDE_LIMITS.skillBody))
+export function skillEnvelope (server: string, uri: string, body: string, attached: string[] = []): string {
+  // only a SKILL.md has the frontmatter block of the spec: a file's own leading `---` is its content
+  const raw = /\/SKILL\.md$/.test(uri) ? stripFrontmatter(body) : body.trim()
+  const bounded = raw.length > GUIDE_LIMITS.skillBody ? `${raw.slice(0, GUIDE_LIMITS.skillBody)}\n[truncated at ${GUIDE_LIMITS.skillBody} characters]` : raw
+  const text = defuseEnvelopes(bounded)
+  const shown = attached.slice(0, GUIDE_LIMITS.attachedFiles).map(u => oneLine(defuseEnvelopes(u)))
+  if (attached.length > shown.length) shown.push(`… and ${attached.length - shown.length} more`)
+  const content = shown.length ? `${text}\n\nAttached files:\n${shown.join('\n')}` : text
   return [
     `<skill server="${attributeSafe(server)}" uri="${attributeSafe(uri)}">`,
     content,

@@ -55,6 +55,8 @@ export const closuresCsv = (district: string) =>
 export const FIXTURE_INSTRUCTIONS = 'Road closures: always give the district a closure belongs to.'
 export const FIXTURE_SKILLS = {
   listed: { uri: 'skill://fixture/closures/SKILL.md', name: 'closures', description: 'How to answer questions about road closures. Read it before listing closures.', tools: 'list_road_closures', body: 'Call list_road_closures with the district, then quote the reopening date.' },
+  /** Listed, with attached files (path relative to the skill, text) that `skills/list` shows after its SKILL.md. */
+  filed: { uri: 'skill://fixture/templates/SKILL.md', name: 'templates', description: 'Has an attached file.', tools: undefined as string | undefined, body: 'Start from the page template.', files: { 'page.json': '{"title":"Page template"}' } as Record<string, string> },
   unlisted: { uri: 'skill://fixture/hidden/SKILL.md', name: 'hidden', description: 'Reachable by URI only.', tools: undefined as string | undefined, body: 'Hidden procedure.' }
 }
 
@@ -113,12 +115,18 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
       contents: [{ uri: s.uri, mimeType: 'text/markdown', text: `---\nname: ${s.name}\ndescription: ${JSON.stringify(s.description)}\n---\n\n${s.body}\n` }]
     }))
   }
-  const skillEntry = (s: { uri: string, name: string, description: string, tools?: string }) =>
-    ({ uri: s.uri, frontmatter: { name: s.name, description: s.description, ...(s.tools ? { metadata: { tools: s.tools } } : {}) }, resources: [{ uri: s.uri }] })
+  const fileUri = (skillUri: string, path: string) => skillUri.replace('SKILL.md', path)
+  for (const s of Object.values(skills)) {
+    for (const [path, text] of Object.entries((s as { files?: Record<string, string> }).files ?? {})) {
+      mcp.registerResource(`${s.name}/${path}`, fileUri(s.uri, path), { mimeType: 'application/json' }, async () => ({ contents: [{ uri: fileUri(s.uri, path), mimeType: 'application/json', text }] }))
+    }
+  }
+  const skillEntry = (s: { uri: string, name: string, description: string, tools?: string, files?: Record<string, string> }) =>
+    ({ uri: s.uri, frontmatter: { name: s.name, description: s.description, ...(s.tools ? { metadata: { tools: s.tools } } : {}) }, resources: [{ uri: s.uri }, ...Object.entries(s.files ?? {}).map(([path, text]) => ({ uri: fileUri(s.uri, path), digest: 'sha256:fixture', size: text.length }))] })
   mcp.server.setRequestHandler(z.object({ method: z.literal('skills/list'), params: z.any().optional() }), async () => {
     if (failSkillsList()) throw new Error('skills/list is broken on purpose')
     if (skillsListDelay()) await new Promise(resolve => setTimeout(resolve, skillsListDelay()))
-    return { skills: [skillEntry(skills.listed)] } as any
+    return { skills: [skillEntry(skills.listed), skillEntry(skills.filed)] } as any
   })
   mcp.server.setRequestHandler(z.object({ method: z.literal('skills/get'), params: z.object({ uri: z.string() }) }), async (req) => {
     const s = Object.values(skills).find(x => x.uri === req.params.uri)

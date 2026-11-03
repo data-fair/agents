@@ -105,6 +105,15 @@ test.describe('Server instructions and skills', () => {
     assert.equal(fixture.methodCounts()['skills/get'], 1)
   })
 
+  test('read_skill reads a skill\'s attached file by relative path, and its SKILL.md lists the file', async () => {
+    const agent = await createAgent()
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    const md = await runTurn(agent.id, 'call tool read_skill {"server":"dev-public-mcp","uri":"skill://fixture/templates/SKILL.md"}')
+    assert.match(toolCall(md.assistant, 'read_skill').output, /Attached files:\nskill:\/\/fixture\/templates\/page\.json/)
+    const file = await runTurn(agent.id, 'call tool read_skill {"server":"dev-public-mcp","uri":"page.json"}')
+    assert.match(toolCall(file.assistant, 'read_skill').output, /\{"title":"Page template"\}/)
+  })
+
   test('read_skill over a session entry presents the agent\'s own session', async () => {
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
