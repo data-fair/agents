@@ -25,7 +25,7 @@ import type { ModerationEvent, ModerationEventAction } from './types.ts'
 // It is silently ignored by non-openai-compatible providers, and rejected with a 400 by
 // non-reasoning OpenAI-compatible models — those retry once without it. `call` receives
 // the extra options to spread into generateObject.
-async function withReasoningDisabled<T> (call: (extra: { providerOptions?: Record<string, Record<string, any>> }) => Promise<T>): Promise<T> {
+export async function withReasoningDisabled<T> (call: (extra: { providerOptions?: Record<string, Record<string, any>> }) => Promise<T>): Promise<T> {
   try {
     return await call({ providerOptions: { [OPENAI_COMPATIBLE_PROVIDER_NAME]: { reasoningEffort: 'none' } } })
   } catch (err) {

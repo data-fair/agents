@@ -58,6 +58,9 @@ export default {
     __name: 'CODE_MODE_MAX_WORKERS',
     __format: 'json'
   },
+  tripwire: {
+    enabled: { __name: 'TRIPWIRE_ENABLED', __format: 'json' }
+  },
   files: {
     storage: 'FILES_STORAGE',
     dataDir: 'FILES_DATA_DIR',

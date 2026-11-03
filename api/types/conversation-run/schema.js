@@ -97,6 +97,10 @@ export default {
           creditsOutput: { type: 'number' },
           durationMs: { type: 'number' },
           finishReason: { type: 'string' },
+          // Why a call left no verdict behind: 'tripwire-fail-open' is a tool-output classification that errored
+          // or timed out, so the result passed unscanned (api/src/tripwire/service.ts). What makes a broken
+          // moderator model visible.
+          note: { type: 'string' },
           // How much context this call actually sent, which is how context management is diagnosed:
           // a recap replacing a covered prefix shows up as a messageCount below the number of stored
           // messages, and clearing shows up as inputTokens far below the stored size. Counts and a

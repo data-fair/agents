@@ -175,6 +175,12 @@ export type ApiConfig = {
    * Wall-clock ceiling of one planned task's run. Longer than a chat turn's: nobody waits on it, and code mode and files make long runs the normal case.
    */
   taskTimeoutSeconds: number;
+  tripwire?: {
+    /**
+     * Classify outside tool results for prompt injection before the model sees them (docs/architecture/moderation.md).
+     */
+    enabled?: boolean;
+  };
   /**
    * How many code_mode scripts this process runs at once (one QuickJS worker each, up to 64 MiB). A script started while all are busy is refused, not queued.
    */

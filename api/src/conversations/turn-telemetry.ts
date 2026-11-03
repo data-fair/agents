@@ -38,6 +38,7 @@ export const recordCall = (
     creditBreakdown?: { input: number, cachedInput: number, output: number }
     durationMs: number
     finishReason?: string
+    note?: string
     steps?: number
     messageCount?: number
     historyUpToSeq?: number
@@ -65,6 +66,7 @@ export const recordCall = (
       : {}),
     durationMs: call.durationMs,
     ...(call.finishReason ? { finishReason: call.finishReason } : {}),
+    ...(call.note ? { note: call.note } : {}),
     ...(call.steps !== undefined ? { steps: call.steps } : {}),
     ...(call.messageCount !== undefined ? { messageCount: call.messageCount } : {}),
     ...(call.historyUpToSeq !== undefined ? { historyUpToSeq: call.historyUpToSeq } : {}),
