@@ -104,7 +104,8 @@ export const createReviewGate = (opts: {
     }
     const record = await opts.review(call, exposureFor(messages))
     records.set(toolCallId, record)
-    breaker.count(record)
+    // A failed review is no judgment at all: it neither counts as a denial nor ends a run of them.
+    if (record.code !== 'review-failed') breaker.count(record)
     return record
   }
 

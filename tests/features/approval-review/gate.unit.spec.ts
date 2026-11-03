@@ -121,6 +121,37 @@ test.describe('review gate (unit)', () => {
     assert.equal(fake.calls.length, 0)
   })
 
+  test('gate: a person-approved replay is exactly user-approval', async () => {
+    const messages: ModelMessage[] = [{ role: 'user', content: 'delete the note' }, asked('delete_note', 'c1'), approved('c1')]
+    const { gate } = gateWith({ tools: { delete_note: reviewed('reviewer+person', 'destructive') }, history: messages })
+    assert.deepEqual(await decide(gate, 'delete_note', { messages }), { type: 'user-approval' })
+  })
+
+  test('gate: a call asked about but not answered is reviewed', async () => {
+    const messages: ModelMessage[] = [{ role: 'user', content: 'delete the note' }, asked('delete_note', 'c1')]
+    const { gate, fake } = gateWith({ tools: { delete_note: reviewed('reviewer+person', 'destructive') }, history: messages })
+    await decide(gate, 'delete_note', { messages })
+    assert.equal(fake.calls.length, 1)
+  })
+
+  test('gate: a call the person declined is reviewed, not taken as approved', async () => {
+    const declined = { role: 'tool', content: [{ type: 'tool-approval-response', approvalId: 'appr-c1', approved: false }] } as ModelMessage
+    const messages: ModelMessage[] = [{ role: 'user', content: 'delete the note' }, asked('delete_note', 'c1'), declined]
+    const { gate, fake } = gateWith({ tools: { delete_note: reviewed('reviewer+person', 'destructive') }, history: messages })
+    await decide(gate, 'delete_note', { messages })
+    assert.equal(fake.calls.length, 1)
+  })
+
+  test('gate: a failed review neither counts towards the breaker nor resets its streak', async () => {
+    const answers = [record('deny'), record('deny'), record('unsure', { code: 'review-failed', failure: 'error' }), record('deny')]
+    const fake = fakeReview(() => answers.shift()!)
+    const gate = createReviewGate({ tools: () => ({ set_note: reviewed('reviewer') }), history: [], surface: 'chat', review: fake.review, exposure: () => ({ exposed: false, tools: [] }) })
+    for (const id of ['c1', 'c2', 'c3']) await decide(gate, 'set_note', { toolCallId: id })
+    assert.equal(gate.tripped, false)
+    await decide(gate, 'set_note', { toolCallId: 'c4' })
+    assert.equal(gate.tripped, true)
+  })
+
   test('gate: an approved call whose tool is gone is denied as no longer available', async () => {
     const messages: ModelMessage[] = [{ role: 'user', content: 'delete the note' }, asked('delete_note', 'c1'), approved('c1')]
     const { gate, fake } = gateWith({ tools: {}, history: messages })
