@@ -7,7 +7,10 @@ import { randomBytes } from 'node:crypto'
 import { generateObject, generateText, NoObjectGeneratedError, type LanguageModel, type LanguageModelUsage } from 'ai'
 import type { z } from 'zod'
 import { OPENAI_COMPATIBLE_PROVIDER_NAME } from '../models/operations.ts'
-import { GUARD_STAGE1_MAX_TOKENS, isReasoningEffortRejected, parseStage1 } from './operations.ts'
+import { GUARD_STAGE1_MAX_TOKENS, isReasoningEffortRejected, parseStage1, type GuardFailureCause, type TwoStageOutcome } from './operations.ts'
+
+// Pure, so they live in operations.ts (an operations module may import them); re-exported for the guards' services.
+export { describeFailure, describeFailedStage, type GuardFailureCause, type TwoStageOutcome } from './operations.ts'
 
 /** The wrapper's nonce, one per check: unknown to whoever wrote the content, so it cannot close the tag. */
 export const newNonce = (): string => randomBytes(6).toString('hex')
@@ -88,34 +91,11 @@ export const meterGuardCall = (generated: Promise<{ usage: LanguageModelUsage }>
 
 // ---- the two-stage sequence ----
 
-/** Why a stage left no verdict: what each guard does with it is its own (moderation fails open, the tripwire too
- * at stage 1, while a failed confirmation after a flag counts as suspected). */
-export type GuardFailureCause = 'error' | 'timeout' | 'unparseable'
-
 /** A failed stage call's cause: aborted by its signal, an answer that could not be parsed, or the call itself. */
 export const failureCause = (err: unknown, signal: AbortSignal): GuardFailureCause =>
   signal.aborted ? 'timeout' : (err instanceof Stage1UnparseableError || NoObjectGeneratedError.isInstance(err)) ? 'unparseable' : 'error'
 
-/** The cause in words; the provider's message, when given, after a failed call (what the admin probe exists to show). */
-export const describeFailure = (cause: GuardFailureCause, message?: string): string =>
-  cause === 'timeout'
-    ? 'it timed out'
-    : cause === 'unparseable' ? 'its answer could not be parsed' : `the model call failed${message ? ` (${message})` : ''}`
-
 const messageOf = (err: unknown): string => err instanceof Error ? err.message : String(err)
-
-/**
- * What one two-stage check came to. A stage-1 `no` is the guard's `cleared` verdict; a `yes` goes to stage 2,
- * whose verdict decides. A failure is returned, never thrown: which way it goes is the caller's.
- */
-export type TwoStageOutcome<T> =
-  | { kind: 'verdict', stage1: boolean, verdict: T }
-  | { kind: 'stage1-failed', cause: GuardFailureCause, message: string }
-  | { kind: 'confirm-failed', cause: GuardFailureCause, message: string }
-
-/** A failed outcome in words, for an admin probe row. */
-export const describeFailedStage = (outcome: Exclude<TwoStageOutcome<unknown>, { kind: 'verdict' }>): string =>
-  `${outcome.kind === 'stage1-failed' ? 'the first stage' : 'the confirmation stage'} failed: ${describeFailure(outcome.cause, outcome.message)}`
 
 /**
  * Stage 1, then stage 2 on a flag (without `stage1`, stage 2 alone: a confirmation-only check), each call capped at `hardTimeoutMs` so the check settles. `meter` charges a
