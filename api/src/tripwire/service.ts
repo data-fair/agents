@@ -93,8 +93,11 @@ export const createTurnTripwire = (ctx: {
 
   // A classification that left no verdict: the result passed unscanned. Recorded on the run, so a broken
   // moderator model shows up in its telemetry rather than as a silent hole.
+  // Logged too, at warn with a static code, so df_logs counts it: a fail-open rate near 100% means the tripwire is
+  // effectively off (a misconfigured or failing moderator model), which only operations can notice and fix.
   const recordFailOpen = (durationMs: number) => {
     if (ctx.abortSignal.aborted) return
+    log.warn('a tool result passed the tripwire unscanned: the classifier failed or timed out', { code: 'tool-output-tripwire-fail-open', runId: ctx.run.id, agentId: ctx.agent.id, model: entry.id, durationMs })
     recordCall(ctx.run, { modelRole: 'moderator', entry, usage: { inputTokens: 0, outputTokens: 0 }, credits: 0, durationMs, note: 'tripwire-fail-open' })
   }
 
@@ -151,6 +154,7 @@ export const createTurnTripwire = (ctx: {
       const cause = signal.aborted
         ? 'it timed out'
         : NoObjectGeneratedError.isInstance(err) ? 'its answer could not be parsed' : 'the model call failed'
+      log.warn('the tripwire confirmation step failed: the flagged result counts as suspected', { code: 'tool-output-tripwire-confirm-failed', runId: ctx.run.id, agentId: ctx.agent.id, model: entry.id, cause })
       recordCall(ctx.run, { modelRole: 'moderator', entry, usage: { inputTokens: 0, outputTokens: 0 }, credits: 0, durationMs: Date.now() - startedAt, note: 'tripwire-confirm-failed' })
       return { suspected: true, excerpt: TRIPWIRE_CONFIRM_FAILED_EXCERPT, reason: `The first screening flagged this result and the confirmation step failed: ${cause}.` }
     })
@@ -205,8 +209,10 @@ export const createTurnTripwire = (ctx: {
     ])
   }
 
+  // `alert`, not `warn`: lib-node's level for events that are not failures but deserve the scrutiny of errors,
+  // mostly security ones. A suspected injection is one; df_logs counts it under this static code.
   const logTrip = (record: TripRecord) => {
-    log.warn(record.late
+    log.alert(record.late
       ? 'a tool result was judged a prompt injection after the model had read it: withheld from the record'
       : 'a tool result looked like a prompt injection and was withheld from the model', {
       code: 'tool-output-tripwire',

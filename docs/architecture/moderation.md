@@ -88,6 +88,18 @@ Known-answer detection (asking the classifier to repeat a secret, and flagging w
 
 **Late verdicts.** A window that timed out keeps running up to a 30 s hard cap. If its stage 1 then answers `yes`, stage 2 starts with its own 30 s cap, so a late verdict can land up to about 60 s after the call. If stage 2 confirms (or fails), the model has already read the result, so the current turn is **not** stopped (stopping mid-turn would need a second stop path for a rare case). The verdict is recorded on the run (`calls` note `tripwire-late-suspected`), logged and notified. The stored part is switched to the placeholder, so later turns, a reload and transcripts no longer carry the result. This also happens when the turn threw: `closed()` runs in the turn's `finally`. Moderation's `late-block` works the same way.
 
+**Monitoring.** Three audiences, three channels. The organization hears of its own agents' trips through the events above (who receives them is who subscribed to the topic, as for task notifications). Operators read logs and the `df_logs{level, code, host}` counter of `@data-fair/lib-node`, with static codes:
+
+| Code | Level | Means |
+|---|---|---|
+| `tool-output-tripwire` | `alert` | a trip, on time or late. `alert` is lib-node's level for events that are not failures but deserve the scrutiny of errors, mostly security ones |
+| `tool-output-tripwire-fail-open` | `warn` | a result passed unscanned (classifier error or timeout). A rate near the scanned-call rate means the tripwire is effectively off: a misconfigured or failing moderator model, which only operators can fix |
+| `tool-output-tripwire-confirm-failed` | `warn` | stage 2 failed after a flag, so the result counted as suspected. Frequent, it means false trips |
+| `tripwire-assistant-model` | `warn` | once per process: no small moderator model, the assistant classifies |
+| `tool-output-tripwire-charge`, `-notify`, `-late` | `error` | metering, notification or late-withholding failed |
+
+Reviewers see each call on its run (`calls` notes `tripwire-fail-open`, `tripwire-confirm-failed`, `tripwire-late-suspected`) and the trip record on the stored call.
+
 **Known gaps:**
 
 - Page content that reaches the model outside tool results is not scanned: host state, host events and action-button hidden context ([host events](./host-events.md)). It is the person's own page, sent again on every turn, so a trip there would need different handling from a withheld result. Page tools' results are scanned.
