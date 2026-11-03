@@ -152,7 +152,7 @@ prefix is ignored, `api/src/sites/operations.ts`):
 | Scripts the model writes to transform data and chain tool calls, intermediate results kept out of its context | [Code mode](./code-mode.md) |
 | Providers, models, roles | [Multi-provider AI abstraction](./providers.md), [Configuration](./configuration.md) |
 | Who may spend what, and what it cost | [Quotas & usage](./quotas-usage.md) |
-| Refusing abusive input | [Input moderation guard](./moderation.md) |
+| Refusing abusive input | [Input moderation guard](./moderation.md#input-moderation) |
 | Withholding tool results that address the agent (prompt injection) | [Tool-output tripwire](./moderation.md#tool-output-tripwire) |
 | What an admin may read back | [Conversation review](./conversation-review.md) |
 | Putting the chat in a host application | [Embedding](./embedding.md), [Integration context](./integration-context.md) |
