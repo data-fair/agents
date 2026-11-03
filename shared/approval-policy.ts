@@ -6,6 +6,8 @@
 
 export type ApprovalClass = 'readOnly' | 'write' | 'destructive'
 export type ApprovalPolicy = 'allow' | 'approve'
+/** Who decides a reviewed class of call: the reviewer alone, or the reviewer then a person. */
+export type ReviewRoute = 'reviewer' | 'reviewer+person'
 /** Which operations wait for a person's approval: every one that makes changes, only the destructive ones, or none. */
 export type ApprovalLevel = 'write' | 'destructive' | 'none'
 
