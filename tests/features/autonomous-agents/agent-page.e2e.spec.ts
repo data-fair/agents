@@ -20,6 +20,9 @@ const createAgent = async (over: any = {}) => {
 const pageUrl = (agentId: string, query = '') => `/agents/organization/test1/agents/${agentId}${query}`
 const getAgent = async (agentId: string) => (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).data
 // The Save of the configuration block, in its top bar rather than below the form.
+/** An option of the security tab's route for changes (the destructive route offers the same two). */
+const changesRoute = (page: Page, option: string) =>
+  page.getByRole('radiogroup', { name: 'Changes' }).getByRole('radio', { name: option })
 const saveButton = (page: Page) => page.locator('#autonomous-agent-configuration .v-card').getByRole('button', { name: 'Save' })
 const deleteFromHeader = async (page: Page) => {
   await page.getByTestId('autonomous-agent-actions').click({ timeout: 20000 })
@@ -61,7 +64,7 @@ test.describe('Autonomous agent page', () => {
     // half — that the body it builds keeps every writable field, nhi included — is pinned
     // deterministically in edit-draft.unit.spec.ts, including a guard that fails if the write-req
     // schema gains a property the form does not carry.
-    const agentId = await createAgent({ approvalLevel: 'write' })
+    const agentId = await createAgent({ approvalRoutes: { write: 'reviewer+person' } })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
     await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
     const persona = page.getByRole('textbox', { name: 'Persona' })
@@ -69,9 +72,9 @@ test.describe('Autonomous agent page', () => {
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
     // The client id is never shown: the enrolment travels in the draft, and the save below keeps it.
     await expect(page.getByRole('textbox', { name: 'Client id' })).toHaveCount(0)
-    // The stored approval level, not just the fields: a form that dropped them would reset them on save.
+    // The stored approval routes, not just the fields: a form that dropped them would reset them on save.
     await page.getByTestId('autonomous-agent-config-tab-security').click()
-    await expect(page.getByRole('radio', { name: 'Every operation that makes changes' })).toBeChecked()
+    await expect(changesRoute(page, 'Reviewed, then confirmed by a person')).toBeChecked()
     await page.getByTestId('autonomous-agent-config-tab-mission').click()
     // A loaded agent is clean: the Save below is caused by the edit, not by a spurious diff.
     await expect(page.getByRole('button', { name: 'Save' })).toBeHidden()
@@ -82,7 +85,7 @@ test.describe('Autonomous agent page', () => {
     const saved = (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).data
     expect(saved.persona).toBe('You answer at length.')
     expect(saved.nhi?.clientId).toBe('dev-fixture-nhi')
-    expect(saved.approvalLevel).toBe('write')
+    expect(saved.approvalRoutes.write).toBe('reviewer+person')
     // The saved agent is the new baseline, and a further edit is still noticed.
     await persona.fill('You answer in French.')
     await expect(page.getByRole('button', { name: 'Save' })).toBeVisible()
@@ -205,14 +208,14 @@ test.describe('Autonomous agent page', () => {
     await page.getByRole('textbox', { name: 'Persona' }).fill('You answer at length.')
     await expect(saveButton(page)).toBeEnabled()
 
-    // One draft across the tabs: the persona edited in Mission is saved with the level picked in Security.
+    // One draft across the tabs: the persona edited in Mission is saved with the route picked in Security.
     await page.getByTestId('autonomous-agent-config-tab-security').click()
     await expect(page).toHaveURL(/config=security/)
-    await page.getByRole('radio', { name: 'Every operation that makes changes' }).check()
+    await changesRoute(page, 'Reviewed, then confirmed by a person').check()
     await saveButton(page).click()
     await expect(saveButton(page)).toBeHidden({ timeout: 10000 })
     const saved = await getAgent(agentId)
-    expect(saved.approvalLevel).toBe('write')
+    expect(saved.approvalRoutes).toEqual({ write: 'reviewer+person', destructive: 'reviewer+person' })
     expect(saved.persona).toBe('You answer at length.')
 
     // The kill switch is not part of the form, in any tab (the hidden ones included): it is in the header.
@@ -226,7 +229,7 @@ test.describe('Autonomous agent page', () => {
   })
 
   test('the mission tab edits the persona and the instructions directly', async ({ page, goToWithAuth }) => {
-    const agentId = await createAgent({ approvalLevel: 'none' })
+    const agentId = await createAgent({ approvalRoutes: { write: 'reviewer', destructive: 'reviewer' } })
     await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-config-tab-mission')).toHaveText('Mission', { timeout: 20000 })
     const persona = page.getByRole('textbox', { name: 'Persona' })
@@ -241,7 +244,7 @@ test.describe('Autonomous agent page', () => {
     const saved = await getAgent(agentId)
     expect(saved.persona).toBe('My very own persona.')
     expect(saved.instructions).toBe('Check the datasets every morning.')
-    expect(saved.approvalLevel).toBe('none')
+    expect(saved.approvalRoutes).toEqual({ write: 'reviewer', destructive: 'reviewer' })
   })
 
   test('identity sync failure is reported', async ({ page, goToWithAuth }) => {

@@ -187,6 +187,28 @@ test.describe('approval states', () => {
     assert.deepEqual(chat.toolInvocations?.map(i => [i.state, i.approved]), [['done', true], ['denied', undefined], ['done', undefined]])
   })
 
+  test('the reviewer\'s view reaches the card, and its denial the chip, with its own reason', () => {
+    const review = (outcome: string, reason: string, code = 'judged') => ({ outcome, reason, code, exposed: false, at: '2026-11-03T00:00:00.000Z' })
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'delete_note', state: 'approval-requested', input: {}, approval: { id: 'ap1' }, toolMetadata: { review: review('allow', 'as asked') } } as any,
+        // The model-facing text is in approval.reason; the person reads the reviewer's own reason.
+        { type: 'dynamic-tool', toolCallId: 'b', toolName: 'set_note', state: 'output-denied', input: {}, approval: { id: 'ap2', approved: false, isAutomatic: true, reason: 'The reviewer did not allow this call: out of scope. Do not try…' }, toolMetadata: { review: review('deny', 'out of scope') } } as any,
+        // Reviewed, then a person rejected it: the person's decline, not the reviewer's.
+        { type: 'dynamic-tool', toolCallId: 'c', toolName: 'delete_note', state: 'output-denied', input: {}, approval: { id: 'ap3', approved: false, reason: 'not today' }, toolMetadata: { review: review('allow', '') } } as any
+      ]
+    })
+    const [card, denied, declined] = chat.toolInvocations ?? []
+    assert.deepEqual(card.review, { outcome: 'allow', reason: 'as asked', code: 'judged' })
+    assert.equal(denied.state, 'denied')
+    assert.equal(denied.deniedByReviewer, true)
+    assert.equal(denied.deniedReason, 'out of scope')
+    assert.equal(declined.deniedByReviewer, undefined)
+    assert.equal(declined.deniedReason, 'not today')
+  })
+
   test('a card is locked while the message asking is still being written, and unlocked once it is closed', () => {
     // The server refuses a decision on a pending message (it would be overwritten by the turn's last writes).
     const parts = [{ type: 'dynamic-tool', toolCallId: 'a', toolName: 'wipe', state: 'approval-requested', input: {}, approval: { id: 'ap1' } } as any]

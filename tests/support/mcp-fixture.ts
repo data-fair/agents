@@ -269,6 +269,18 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     },
     async () => { record('wipe_everything'); return { content: [{ type: 'text', text: 'wiped nothing' }] } }
   )
+  // The approval reviewer's targets (api/src/approval-review): a write (no annotations) and a destructive call that
+  // take a note the mock reviewer reads (REVIEW_DENY, REVIEW_UNSURE, REVIEW_BROKEN), and do nothing.
+  mcp.registerTool(
+    'set_note',
+    { description: 'Sets a note, and does nothing', inputSchema: { note: z.string() } },
+    async () => { record('set_note'); return { content: [{ type: 'text', text: 'ok' }] } }
+  )
+  mcp.registerTool(
+    'delete_note',
+    { description: 'Deletes a note, and does nothing', inputSchema: { note: z.string() }, annotations: { destructiveHint: true } },
+    async () => { record('delete_note'); return { content: [{ type: 'text', text: 'ok' }] } }
+  )
   mcp.registerTool(
     'snapshot',
     // The only tool here that returns an IMAGE, which is what an image-bearing result can only be tested

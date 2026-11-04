@@ -1,21 +1,23 @@
 /**
- * Guard classifier eval: runs the labelled cases of corpus.ts through the two guards' REAL two-stage calls
- * (api/src/tripwire/classifier.ts, api/src/moderation/classifier.ts, the shared engine in api/src/guard) against
- * one model, and reports misses, false alarms, how often stage 2 was needed, failures and latency.
+ * Guard classifier eval: runs the labelled cases of corpus.ts through the three guards' REAL two-stage calls
+ * (api/src/tripwire/classifier.ts, api/src/moderation/classifier.ts, api/src/approval-review/classifier.ts through
+ * ./reviewer.ts, the shared engine in api/src/guard) against one model, and reports misses, false alarms (false
+ * cards for the reviewer), how often stage 2 was needed, failures and latency.
  *
  * What it is for: a guard's policy prompt is tuned against a model, and a prompt that reads well can still flag
  * half of a business corpus on another one. Re-run it on every model a deployment puts on the `moderator` role,
- * and after any change to either policy (docs/architecture/moderation.md, "Measuring the guards").
+ * and after any change to a policy (docs/architecture/moderation.md, "Measuring the guards").
  *
  *   node dev/guard-eval/index.ts                       # the dev bridge (BRIDGE_PORT in .env), model haiku
  *   GUARD_EVAL_MODEL=sonnet node dev/guard-eval/index.ts
  *   GUARD_EVAL_BASE_URL=https://… GUARD_EVAL_API_KEY=… GUARD_EVAL_MODEL=glm-5.3-flash-greenpt node dev/guard-eval/index.ts
  *
- * Other knobs: GUARD_EVAL_GUARDS=tripwire|moderation (default both), GUARD_EVAL_REPEAT (default 1: runs of every
+ * Other knobs: GUARD_EVAL_GUARDS=tripwire,moderation,reviewer (default all three), GUARD_EVAL_REPEAT (default 1: runs of every
  * case, to see unstable verdicts), GUARD_EVAL_CONCURRENCY (default 4), GUARD_EVAL_CASES (comma-separated ids),
  * GUARD_EVAL_OUT (a JSON file for the raw results). Exit code 1 when any case was misjudged.
  */
-import { writeFileSync } from 'node:fs'
+import { existsSync, writeFileSync } from 'node:fs'
+import { resolve } from 'node:path'
 import type { LanguageModel, LanguageModelUsage } from 'ai'
 import type { Provider } from '#types'
 import { createModel } from '../../api/src/models/operations.ts'
@@ -24,14 +26,18 @@ import { tripwireStage1, tripwireStage2 } from '../../api/src/tripwire/classifie
 import { TRIPWIRE_HARD_TIMEOUT_MS, type TripwireVerdict } from '../../api/src/tripwire/operations.ts'
 import { moderationStages } from '../../api/src/moderation/classifier.ts'
 import { MODERATION_HARD_TIMEOUT_MS, truncateForModeration, type ModerationVerdict } from '../../api/src/moderation/operations.ts'
-import { TRIPWIRE_CASES, MODERATION_CASES } from './corpus.ts'
+import { TRIPWIRE_CASES, MODERATION_CASES, REVIEW_CASES } from './corpus.ts'
+import { runReviewCase, reviewReport, percentile as pct, share, type ReviewRow } from './reviewer.ts'
 
 const env = process.env
+// The bridge's port is drawn per checkout into .env (AGENTS.md): read it there when the shell does not carry it.
+const dotEnv = resolve(import.meta.dirname, '../../.env')
+if (!env.GUARD_EVAL_BASE_URL && !env.BRIDGE_PORT && existsSync(dotEnv)) process.loadEnvFile(dotEnv)
 const baseURL = env.GUARD_EVAL_BASE_URL ?? `http://localhost:${env.BRIDGE_PORT ?? 3194}/v1`
 const modelId = env.GUARD_EVAL_MODEL ?? 'haiku'
 const repeat = Number(env.GUARD_EVAL_REPEAT ?? 1)
 const concurrency = Number(env.GUARD_EVAL_CONCURRENCY ?? 4)
-const guards = (env.GUARD_EVAL_GUARDS ?? 'tripwire,moderation').split(',')
+const guards = (env.GUARD_EVAL_GUARDS ?? 'tripwire,moderation,reviewer').split(',')
 const only = env.GUARD_EVAL_CASES ? new Set(env.GUARD_EVAL_CASES.split(',')) : undefined
 
 const provider = { type: 'openai-compatible', id: 'guard-eval', name: 'guard eval', baseURL, compatibility: 'compatible', apiKey: env.GUARD_EVAL_API_KEY ?? '' } as unknown as Provider
@@ -95,12 +101,19 @@ const moderationDecision = (outcome: TwoStageOutcome<ModerationVerdict>) =>
     ? { flagged: outcome.verdict.action === 'block', reason: [outcome.verdict.category, outcome.verdict.reason].filter(Boolean).join(': ') }
     : { flagged: false }
 
-const jobs: Array<() => Promise<Row>> = []
+const rows: Row[] = []
+const reviewRows: ReviewRow[] = []
+const jobs: Array<() => Promise<boolean>> = []
+const guardJob = (run: () => Promise<Row>) => jobs.push(async () => {
+  const row = await run()
+  rows.push(row)
+  return row.flagged === row.expected
+})
 for (let r = 0; r < repeat; r++) {
   if (guards.includes('tripwire')) {
     for (const c of TRIPWIRE_CASES) {
       if (only && !only.has(c.id)) continue
-      jobs.push(() => {
+      guardJob(() => {
         const nonce = newNonce()
         return runCase<TripwireVerdict>('tripwire', c.id, c.style, c.injected, false, {
           stage1: s => tripwireStage1(model, c, c.text, nonce, s),
@@ -112,27 +125,31 @@ for (let r = 0; r < repeat; r++) {
   if (guards.includes('moderation')) {
     for (const c of MODERATION_CASES) {
       if (only && !only.has(c.id)) continue
-      jobs.push(() => runCase<ModerationVerdict>('moderation', c.id, c.style, c.block, !!c.ambiguous,
+      guardJob(() => runCase<ModerationVerdict>('moderation', c.id, c.style, c.block, !!c.ambiguous,
         moderationStages(model, { context: c.context ?? '', message: truncateForModeration(c.message), nonce: newNonce() }),
         { action: 'allow' }, MODERATION_HARD_TIMEOUT_MS, moderationDecision))
     }
   }
+  if (guards.includes('reviewer')) {
+    for (const c of REVIEW_CASES) {
+      if (only && !only.has(c.id)) continue
+      jobs.push(async () => {
+        const row = await runReviewCase(model, c)
+        reviewRows.push(row)
+        return row.expected.includes(row.outcome)
+      })
+    }
+  }
 }
 
-const rows: Row[] = []
 let next = 0
 await Promise.all(Array.from({ length: Math.min(concurrency, jobs.length) }, async () => {
   while (next < jobs.length) {
     const job = jobs[next++]
-    const row = await job()
-    rows.push(row)
-    process.stderr.write(row.flagged === row.expected ? '.' : 'x')
+    process.stderr.write(await job() ? '.' : 'x')
   }
 }))
 process.stderr.write('\n')
-
-const pct = (values: number[], p: number) => values.length ? [...values].sort((a, b) => a - b)[Math.min(values.length - 1, Math.floor(p / 100 * values.length))] : 0
-const share = (n: number, d: number) => d ? `${n}/${d} (${Math.round(100 * n / d)}%)` : '0/0'
 
 console.log(`\nGuard eval — model ${modelId} at ${baseURL}, ${repeat} run(s) of each case\n`)
 let misjudged = 0
@@ -163,5 +180,8 @@ for (const guard of ['tripwire', 'moderation'] as const) {
   if (unstable.length) console.log(`- unstable across runs: ${unstable.join(', ')}`)
   console.log('')
 }
-if (env.GUARD_EVAL_OUT) writeFileSync(env.GUARD_EVAL_OUT, JSON.stringify({ model: modelId, baseURL, repeat, rows }, null, 2))
+const review = reviewReport(reviewRows)
+misjudged += review.misjudged
+for (const line of review.lines) console.log(line)
+if (env.GUARD_EVAL_OUT) writeFileSync(env.GUARD_EVAL_OUT, JSON.stringify({ model: modelId, baseURL, repeat, rows, reviewRows }, null, 2))
 process.exit(misjudged ? 1 : 0)

@@ -89,6 +89,40 @@ test.describe('Approval card', () => {
     expect(fixture.invokedTools()).toEqual([])
   })
 
+  test('a reviewed destructive call shows the reviewer\'s view on the card, after a reload', async ({ page, goToWithAuth }) => {
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await ask(page, 'call tool delete_note {"note":"ok"}')
+    await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
+    await page.reload()
+    const card = page.getByTestId('approval-card')
+    await expect(card).toBeVisible({ timeout: 15000 })
+    await expect(card.getByTestId('approval-review')).toContainText('Reviewed: allowed, your confirmation is required')
+    // The allow reason is the reviewer's, and labelled so: not the agent's own justification.
+    await expect(card.getByTestId('approval-review-note')).toHaveText('Reviewer\'s note: mock allow')
+    expect(fixture.invokedTools()).toEqual([])
+  })
+
+  test('a reviewer denial shows as a denied chip with its reason', async ({ page, goToWithAuth }) => {
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await ask(page, 'call tool set_note {"note":"REVIEW_DENY"}')
+    await expect(page.getByTestId('tool-chip').first()).toHaveText('Denied by the reviewer: set_note', { timeout: 15000 })
+    // The way past it is the person's own words, which the next review reads: said, not a button.
+    await expect(page.getByTestId('reviewer-denied-hint')).toHaveText('If you want this done, tell the agent so.')
+    await expect(page.getByTestId('approval-card')).toHaveCount(0)
+    expect(fixture.invokedTools()).toEqual([])
+  })
+
+  test('the review page gives a reviewer denial\'s reason in the call\'s detail', async ({ page, goToWithAuth }) => {
+    const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+    const { conversationId } = await startTurnOverSocket(orgAdmin, { agentId }, 'call tool set_note {"note":"REVIEW_DENY"}')
+    await goToWithAuth(`/agents/organization/test1/review/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    const chip = page.getByTestId('tool-chip').first()
+    await expect(chip).toHaveText('Denied by the reviewer: set_note', { timeout: 15000 })
+    await chip.click()
+    await expect(page.getByTestId('tool-call-denied')).toHaveText('Denied by the reviewer: mock deny')
+    await expect(page.getByTestId('reviewer-denied-hint')).toHaveCount(0)
+  })
+
   test('the admin review page shows a pending approval read-only', async ({ page, goToWithAuth }) => {
     const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
     const { conversationId } = await startTurnOverSocket(orgAdmin, { agentId }, 'call tool wipe_everything {}')

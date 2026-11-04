@@ -37,6 +37,7 @@ import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type
 import { updateMessage, settleStoredToolPart, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { livePartsOf } from './live-runs.ts'
+import { reviewContextOfConversation, type ReviewContext } from '../approval-review/operations.ts'
 import log from '@data-fair/lib-node/log.js'
 
 /** What a watcher is told while a turn runs. A target nobody watches sends nothing. */
@@ -136,6 +137,11 @@ export interface TurnTarget {
   frames: TurnFrames
   /** A result for a call an EARLIER turn made: an approved call the SDK executed on replay. */
   settleEarlierCall: (toolCallId: string, settled: Parameters<typeof settleStoredToolPart>[2]) => Promise<void>
+  /**
+   * What the approval reviewer judges a call against (api/src/approval-review): the people's messages, or the
+   * task's prompt without its payloads, beside `instructions` (the agent's persona and instructions).
+   */
+  reviewContext: (instructions: string) => Promise<ReviewContext>
   /** Where `report_outcome` lands: only a task run has an outcome to report (see ./service-tools.ts). */
   reportOutcome?: (outcome: TaskOutcome) => void
   /** The normal end: write the record and close the run. */
@@ -231,6 +237,16 @@ export const conversationTarget = (
     settleEarlierCall: async (toolCallId, settled) => {
       const message = await settleStoredToolPart(run.conversationId, toolCallId, settled)
       if (message) notifyMessage(run.conversationId, message)
+    },
+    // Every message the people wrote in this conversation, as stored (an action button's hidden context
+    // included, part of the user turn), not the model's compacted view: a recap is the model's words. And the
+    // gated calls between them, with how each was decided (reviewContextOfConversation).
+    reviewContext: async (instructions) => {
+      const stored = await mongo.messages
+        .find({ conversationId: run.conversationId, role: { $in: ['user', 'assistant'] }, seq: { $lt: messageSeq } }, { projection: { _id: 0, role: 1, parts: 1 } })
+        .sort({ seq: 1 })
+        .toArray()
+      return reviewContextOfConversation(stored.map(message => ({ role: message.role, parts: (message.parts ?? []) as MessagePart[] })), instructions)
     },
 
     close: async (result) => {

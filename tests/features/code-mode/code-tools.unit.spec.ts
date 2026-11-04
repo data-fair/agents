@@ -8,6 +8,7 @@ import { tool, jsonSchema } from 'ai'
 import { codeCallable, SCRIPT_TRANSFER_BYTES } from '../../../api/src/code-mode/operations.ts'
 import { codeFacingTools, createCodeTrace } from '../../../api/src/code-mode/code-tools.ts'
 import { createScriptTool } from '../../../api/src/code-mode/tool.ts'
+import { reviewUnavailableText } from '../../../api/src/approval-review/operations.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../../../api/src/web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, codeOutputSchemaFor } from '../../../api/src/mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../../../api/src/self-knowledge/operations.ts'
@@ -225,5 +226,65 @@ test.describe('the trace of a script', () => {
     assert.match(signature, /files: \{[^}]*file_path: string[^}]*sha256: string[^}]*\}\[\]/)
     assert.match(signature, /Record<string, unknown>/)
     assert.match(description, /`text` only describes the files/)
+  })
+
+  test('a reviewed nested call is judged first; every call that ran is noted; no gate refuses it', async () => {
+    const ran: string[] = []
+    const noted: string[] = []
+    const reviewed: string[] = []
+    const review = { route: 'reviewer' as const, cls: 'write' as const, kind: 'action' as const }
+    const fixed = {
+      write: { tool: plain(async (input: any) => { ran.push(`write:${input.v}`); return 'ok' }), server: 'dev', review },
+      read: { tool: plain(async () => { ran.push('read'); return 'r' }), server: 'dev' }
+    }
+    const t = trace()
+    const tools = codeFacingTools({
+      names: ['write', 'read'],
+      fixed,
+      page: {},
+      callPath: {},
+      trace: t,
+      review: {
+        reviewNested: async (_id, toolName, input: any) => { reviewed.push(toolName); return { outcome: input.v === 'no' ? 'deny' : 'allow', reason: 'r', code: 'judged' } as any },
+        noteNested: name => { noted.push(name) }
+      }
+    })
+    const out = await createScriptTool(tools).execute!({ js: 'await tools.read({}); await tools.write({ v: "yes" }); try { await tools.write({ v: "no" }) } catch (e) { return e.message }' }, { toolCallId: 'cm1', messages: [], context: {} })
+    t.finish('cm1')
+    assert.deepEqual(ran, ['read', 'write:yes'])
+    assert.deepEqual(reviewed, ['write', 'write'])
+    assert.deepEqual(noted, ['read', 'write'])
+    assert.match(String(out), /Do not try to reach the same outcome another way/)
+    const nested = traces[traces.length - 1].parts.filter((p: any) => p.type === 'dynamic-tool')
+    assert.deepEqual(nested.map((p: any) => p.toolMetadata?.review?.outcome), [undefined, 'allow', 'deny'])
+
+    const ungated = createScriptTool(codeFacingTools({ names: ['write'], fixed, page: {}, callPath: {}, trace: trace() }))
+    assert.match(String(await ungated.execute!({ js: 'try { await tools.write({ v: "x" }) } catch (e) { return e.message }' }, { toolCallId: 'cm2', messages: [], context: {} })), /needs a review/)
+    assert.deepEqual(ran, ['read', 'write:yes'])
+  })
+
+  test('a nested call whose review failed fails with the unavailable text, not a denial', async () => {
+    const review = { route: 'reviewer' as const, cls: 'write' as const, kind: 'action' as const }
+    const fixed = { write: { tool: plain(async () => 'ok'), server: 'dev', review } }
+    const tools = codeFacingTools({
+      names: ['write'],
+      fixed,
+      page: {},
+      callPath: {},
+      trace: trace(),
+      review: {
+        reviewNested: async () => ({ outcome: 'unsure', reason: 'the first stage failed: it timed out', code: 'review-failed', failure: 'timeout' }) as any,
+        noteNested: () => {}
+      }
+    })
+    const out = await createScriptTool(tools).execute!({ js: 'try { await tools.write({}) } catch (e) { return e.message }' }, { toolCallId: 'cm1', messages: [], context: {} })
+    assert.equal(String(out), reviewUnavailableText())
+  })
+
+  test('the description states the reviewer\'s time only when the turn has one', () => {
+    const fixed = { write: { tool: plain(async () => 'ok'), server: 'dev' } }
+    const description = (reviewed: boolean) => String(createScriptTool(codeFacingTools({ names: ['write'], fixed, page: {}, callPath: {}, trace: trace() }), { reviewed }).description)
+    assert.match(description(true), /checked by a reviewer before they run, a few seconds each, counted in the script's 120 s/)
+    assert.doesNotMatch(description(false), /reviewer/)
   })
 })

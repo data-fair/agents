@@ -478,6 +478,35 @@ export function processMockTripwirePrompt (lastMessage: string): MockPromptResul
 }
 
 /**
+ * The approval reviewer (api/src/approval-review), for any mock model id: it judges only the text inside the
+ * proposed call's nonce-tagged wrapper (the call's arguments, never the intent before it), and reads the stage
+ * from the instruction after the wrappers. "REVIEW_DENY": stage 1 yes, stage 2 a deny. "REVIEW_UNSURE": yes, then
+ * unsure. "REVIEW_BROKEN": unparseable at both stages (a failed review). "REVIEW_IF_REFUSED_BEFORE": a deny when
+ * the earlier calls' wrapper shows one the reviewer refused, an allow otherwise. Anything else: stage 1 no, and
+ * stage 2 (reached directly for a destructive call or a grant) an allow.
+ */
+const REVIEW_WRAPPER = /<(proposed_call_[0-9a-f]{12})>([\s\S]*?)<\/\1>([\s\S]*)$/
+const EARLIER_WRAPPER = /<(earlier_calls_[0-9a-f]{12})>([\s\S]*?)<\/\1>/
+export function processMockReviewerPrompt (lastMessage: string): MockPromptResult {
+  const wrapped = REVIEW_WRAPPER.exec(lastMessage)
+  const judged = wrapped?.[2] ?? ''
+  const instruction = wrapped?.[3] ?? ''
+  if (judged.includes('REVIEW_IF_REFUSED_BEFORE')) {
+    const refusedBefore = (EARLIER_WRAPPER.exec(lastMessage)?.[2] ?? '').includes('refused by the reviewer')
+    if (!/Answer with JSON only/.test(instruction)) return { type: 'text', text: 'yes' }
+    return { type: 'text', text: refusedBefore ? '{"outcome":"deny","reason":"mock deny: refused before"}' : '{"outcome":"allow","reason":"mock allow"}' }
+  }
+  if (/Answer with JSON only/.test(instruction)) {
+    if (judged.includes('REVIEW_BROKEN')) return { type: 'text', text: 'not json' }
+    if (judged.includes('REVIEW_DENY')) return { type: 'text', text: '{"outcome":"deny","reason":"mock deny"}' }
+    if (judged.includes('REVIEW_UNSURE')) return { type: 'text', text: '{"outcome":"unsure","reason":"mock unsure"}' }
+    return { type: 'text', text: '{"outcome":"allow","reason":"mock allow"}' }
+  }
+  if (judged.includes('REVIEW_BROKEN')) return { type: 'text', text: '???' }
+  return { type: 'text', text: /REVIEW_DENY|REVIEW_UNSURE/.test(judged) ? 'yes' : 'no' }
+}
+
+/**
  * Mid-turn tool refresh seam: "chain <first> <then>" calls <first>, then <then> — but only
  * if <then> was actually advertised on that later step. The point is that <first> is a tool
  * whose execution registers <then> (a page mounting components), so the second call is
@@ -524,6 +553,9 @@ export function processForModel (modelId: string, options: { prompt: string | Ar
   // A provider that rejects every call (mock-failing): what an admin probe exists to show, with the provider's message.
   if (modelId === 'mock-failing') return { type: 'error' }
   const lastMessage = getLastUserMessage(options)
+  // The approval reviewer runs on the moderator role too, so its seam answers for any mock id, first of all: the
+  // call's arguments it judges may quote another seam's directive or wrapper, to be judged, never obeyed.
+  if (REVIEW_WRAPPER.test(lastMessage)) return processMockReviewerPrompt(lastMessage)
   // The tripwire classifies with the moderator role, which resolves to whatever mock model the account maps
   // (moderator → summarizer → assistant), so its seam answers for any mock id, before every other seam: a
   // tool result quoting a directive ('stall'…) must be classified, not obeyed.

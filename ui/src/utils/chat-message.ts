@@ -20,8 +20,12 @@ export interface ChatMessage {
     errorText?: string
     /** Set when the tripwire withheld the result as a suspected prompt injection: where it came from, and what it said. */
     tripwire?: { excerpt: string, source: { tool: string, server: string, url?: string } }
-    /** Why an approval was refused, when the decision gave a reason. */
+    /** Why an approval was refused, when the decision gave a reason: the person's, or the reviewer's own. */
     deniedReason?: string
+    /** Set when the automated reviewer refused the call, not a person. */
+    deniedByReviewer?: true
+    /** What the automated reviewer made of a call awaiting a person's approval: why the card is shown. */
+    review?: { outcome: 'allow' | 'deny' | 'unsure', reason: string, code: 'cleared' | 'judged' | 'review-failed' | 'breaker-tripped' | 'budget' }
     /** Set while the call awaits the person's approval: what their decision names. */
     approvalId?: string
     /** Set while the turn that asked is still finishing: the card shows, but cannot be decided yet. */

@@ -7,7 +7,7 @@
  */
 
 import writeReqSchema from '../../../api/doc/autonomous-agents/autonomous-agent-write-req/schema.js'
-import { DEFAULT_APPROVAL_LEVEL } from '@agents/shared/approval-policy'
+import { DEFAULT_APPROVAL_ROUTES } from '@agents/shared/approval-policy'
 
 /** Every property the write-req schema accepts. */
 export const AUTONOMOUS_AGENT_WRITABLE_KEYS = Object.keys(writeReqSchema.properties)
@@ -28,7 +28,7 @@ export function autonomousAgentEditDraft (autonomousAgent: Record<string, any>):
   if (draft.instructions === '') delete draft.instructions
   draft.instructors = autonomousAgent.instructors ?? []
   draft.role = autonomousAgent.role ?? 'user'
-  draft.approvalLevel = autonomousAgent.approvalLevel ?? DEFAULT_APPROVAL_LEVEL
+  draft.approvalRoutes = { ...DEFAULT_APPROVAL_ROUTES, ...autonomousAgent.approvalRoutes }
   draft.memory = autonomousAgent.memory ?? { enabled: false }
   draft.web = autonomousAgent.web ?? { enabled: false }
   draft.externalMcpServers = autonomousAgent.externalMcpServers ?? []

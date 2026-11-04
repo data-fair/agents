@@ -8,6 +8,7 @@ import { truncatedToolResultText } from './compaction-policy.ts'
 import { partsText, textPart, type MessagePart } from '@agents/shared/message-parts'
 import { isMediaToolResult, type MediaToolResult } from '@agents/shared/tool-result'
 import { DEFAULT_TIME_ZONE } from '@agents/shared/task-schedule'
+import type { ApprovalClass, ReviewRoute } from '@agents/shared/approval-policy'
 import type { AccountKeys } from '@data-fair/lib-express'
 // Type-only, so this pure module does not pull in enforce.ts (which reaches mongo and config).
 import type { ConversationRun } from '#types'
@@ -25,7 +26,7 @@ export { partsText, textPart, type MessagePart } from '@agents/shared/message-pa
 
 /** A run that is a turn of a conversation, as opposed to a task run, which has none. */
 export type ConversationTurnRun = ConversationRun & { conversationId: string }
-export type RunStopReason = 'completed' | 'waiting' | 'awaiting-approval' | 'step-limit' | 'repeated-calls' | 'budget' | 'injection-suspected' | 'timeout' | 'aborted' | 'error'
+export type RunStopReason = 'completed' | 'waiting' | 'awaiting-approval' | 'step-limit' | 'repeated-calls' | 'budget' | 'injection-suspected' | 'review-denied' | 'timeout' | 'aborted' | 'error'
 
 /**
  * The wall-clock ceiling of a run. A planned task's is its own (config.taskTimeoutSeconds, 30 min by default):
@@ -54,6 +55,7 @@ export function runStopReasonMessage (stopReason: RunStopReason, detail?: string
     'repeated-calls': 'I kept repeating the same tool call without making progress, so I stopped. Everything I gathered up to that point is above.',
     budget: 'This turn reached its credit budget and stopped before finishing.',
     'injection-suspected': 'I stopped because a tool result looked like a prompt injection: instructions addressed to me rather than data. It was withheld.',
+    'review-denied': 'I stopped because the reviewer denied several of my actions.',
     timeout: 'This turn took too long and was stopped. Please try again.',
     aborted: 'This turn was stopped.',
     error: 'This turn failed and could not be completed.'
@@ -646,6 +648,11 @@ export interface SourcedTool {
    */
   codeDescription?: string
   codeInputSchema?: Record<string, unknown>
+  /**
+   * Judged by the turn's reviewer before it runs (api/src/approval-review/gate.ts): its route, its class and
+   * whether it acts or grants. Set by the approval routes (./approval-policy.ts) and on the capability grants.
+   */
+  review?: { route: ReviewRoute, cls: ApprovalClass, kind: 'action' | 'grant' }
 }
 export type ToolSet = Record<string, SourcedTool>
 

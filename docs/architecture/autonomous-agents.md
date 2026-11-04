@@ -351,36 +351,126 @@ On every chat turn (not on a task run, which nobody watches and whose report an 
 - planning (`plan_task`, `update_task`, `delete_task`): a configured agent in a chat an administrator started, each call approved by an administrator; see [planned tasks](./planned-tasks.md#self-knowledge-and-planning). Provenance server `agent-self`.
 - `report_outcome`: the task surface only, how a planned task's run reports its outcome. Provenance server `agent-service`.
 
-Service tools are added after the approval policy is applied, so they are outside the approval policy; one that needs a person says so itself (`needsApproval`, as the planning tools and `request_web_access` do). None can be displaced: `api/src/conversations/service-tool-names.ts` holds `SERVICE_TOOL_NAMES` and the pure `mayBePageTool`, so a page tool of such a name is not treated as a page tool and a catalog tool does not stand in for one.
+Service tools are added after the approval policy is applied, so they are outside the approval routes; one that needs a person says so itself (`needsApproval`, as the planning tools and `request_web_access` do), and those capability grants are also reviewed first ([the approval gate](#routes)). None can be displaced: `api/src/conversations/service-tool-names.ts` holds `SERVICE_TOOL_NAMES` and the pure `mayBePageTool`, so a page tool of such a name is not treated as a page tool and a catalog tool does not stand in for one.
 
 ## The approval gate
 
 A tool call is classified from the MCP `annotations` its server declares (`api/src/conversations/approval-policy.ts`,
 `classifyTool`): `destructiveHint` wins and makes it **destructive**, `readOnlyHint` makes it **readOnly**, and
-an unannotated tool is a **write** — the safe reading of a tool that said nothing. Each autonomous agent carries
-one `approvalLevel` (`shared/approval-policy.ts`, `approvalPolicyFor`); a read is never gated:
+an unannotated tool is a **write** — the safe reading of a tool that said nothing. Every server's annotations
+classify its tools, an external server's included: a server is trusted to describe its own tools, their
+destructive nature as much as their read-only one; only tool output is untrusted.
 
-| level | readOnly | write | destructive |
+### Routes
+
+Each autonomous agent carries `approvalRoutes` (`shared/approval-policy.ts`, `routeFor`, `DEFAULT_APPROVAL_ROUTES`):
+for each class that makes changes, who decides. A read is never reviewed, and there is no unchecked route.
+
+| class | routes | default |
+|---|---|---|
+| readOnly | runs, no review | — |
+| write | `reviewer` or `reviewer+person` | `reviewer` |
+| destructive | `reviewer` or `reviewer+person` | `reviewer+person` |
+
+`applyApprovalPolicy` marks every catalog tool that is not a read `review: { route, cls, kind: 'action' }`, and a
+`reviewer+person` one also sets the AI SDK's `needsApproval`: that flag is what keeps it out of an unattended run
+and out of a script (`unattended`, `codeCallable`), where no person can decide. No route removes a tool from the
+set the model sees in a chat. A write put to a person by default would card every tool of every server that
+declares no annotations — most of them — and teach people to click Approve without reading.
+
+`approvalRoutes` replaced an earlier single setting, one of `write` / `destructive` / `none` for the whole agent,
+**without an upgrade script**: that field was never released (migrate only released data). A stored agent still
+holding it gets the default routes; the old field is ignored. `none`, which let every change run unchecked, has no
+equivalent.
+
+**Capability grants** (`request_web_access`, `request_mcp_access`, `plan_task`, `update_task`, `delete_task`) go
+through the same gate: `buildServiceTools` marks them `{ route: 'reviewer+person', kind: 'grant' }`
+(`CAPABILITY_GRANT_TOOL_NAMES`, `api/src/approval-review/operations.ts`), so the reviewer judges each one first,
+on its own rule set, and an administrator then decides (`ADMIN_DECISIONS`). Never the reviewer alone: a grant
+widens what the agent can do from then on (who can in effect instruct it, what a task will do unattended). A
+reviewer's denial of a grant is final in the chat too; the administrator keeps the agent's form, where the
+allowlist, the servers and the tasks are edited directly. The service's other tools and page tools are not
+reviewed.
+
+The **personal assistant** has no routes and no reviewer (`personalAssistantTools`): every catalog call that is
+not read-only waits for the person, a write as much as a destructive one. It acts as the person, so a change it
+makes is theirs; in the page the convention is that the assistant prepares and the person saves, and approving
+each change keeps that convention for tools that save on the server. Its cards are rare: data-fair's MCP
+(openapi-mcp) marks every GET read-only, and its catalog is only the servers a deployment lists in
+`PERSONAL_ASSISTANTS`. An anonymous visitor is offered reads only, as nobody signed in can decide. The person
+deciding is the conversation's owner; for a configured agent the decider must also be allowed to instruct it
+(`canInstruct`), since approving borrows its identity.
+
+### The reviewer in the gate
+
+The gate is the AI SDK's own mechanism: `streamText`'s `toolApproval` (AI SDK 7), one function per configured agent's turn
+(`createReviewGate`, `api/src/approval-review/gate.ts`), answering `approved`, `denied` or `user-approval` with a
+reason. A function form replaces the tools' own `needsApproval` (the SDK consults only one), so the gate answers
+for every tool: a reviewed one by its route, any other by its own `needsApproval`, and it also denies an approved
+call whose tool is gone (`goneApprovedToolNames`). The reviewer itself — what it reads, its prompt, its model, how
+it is measured — is described with the other guards in [moderation](./moderation.md#approval-reviewer).
+
+| reviewer says | route `reviewer`, in a chat | route `reviewer+person`, in a chat | a task run or a script |
 |---|---|---|---|
-| `write` | allow | approve | approve |
-| `destructive` (default) | allow | allow | approve |
-| `none` | allow | allow | allow |
+| allow | the call runs | a card, carrying the reviewer's view | runs (only `reviewer` classes reach it) |
+| unsure (or the review failed) | a card stating the concern | a card stating the concern | denied |
+| deny | denied, final | denied, final | denied |
 
-Gating only what a server declares destructive keeps cards rare enough to be read rather than clicked
-through, and an admin raises the level to `write` where it matters. It applies to
-**catalog tools** only: the service's own tools and page tools are exempt.
+- **A denial is final.** The call is settled `output-denied` and the model reads `reviewerDenialText`: the
+  reviewer's reason, and that it must not reach the same outcome another way but tell the person what it wanted
+  and why it was stopped. No card is shown and no person can click past it. The person's way forward is to say
+  more in the chat: a new message is new intent, and the next call is reviewed against it. The model-facing text
+  is the stored part's `approval.reason`, so a replay reads it too; the reviewer's own reason is in
+  `toolMetadata.review.reason`, which is what the person sees.
+- **A failed review that denies is not a denial** (a task run, a script's call): the model reads
+  `reviewUnavailableText` instead — the change could not be reviewed now and was not made, it must not retry it
+  another way but report that it needs a person (`refusalTextOf`). A failure is no judgement, so the model is given
+  no reason to argue with; the raw failure stays in `toolMetadata.review`. In a task run, the first failed review of
+  the turn also pushes one event, `agents:review-failed:<agent id>` (`reviewUnavailableEvent`), as the tripwire's
+  trip does: nobody reads a task run as it goes, and a broken reviewer model would otherwise silently stop every
+  change a task makes.
+- **An allow under `reviewer`** is an automatic approval (`isAutomatic` on the SDK's request): no card, no
+  `awaiting-approval`, the call runs in the same step.
+- **A card** (`approval-requested`, the turn ending `awaiting-approval` as below) carries the reviewer's record, so
+  the card says why it is shown: allowed but this class needs a person, unsure with its reason, or the review
+  failed.
+- **A person-approved call is never re-reviewed on replay**: when the last message, a tool message, holds a granted
+  approval of that call, the gate answers `user-approval` and the SDK runs it. The reviewer already judged it before
+  the card. Only the last message counts, as in the SDK's own `collectToolApprovals`: an approval further back was
+  answered by the replay that followed it, and is no pass for a later call of the same id.
+- **Every reviewed call is recorded**, the allowed ones included: `toolMetadata.review` on the call's part, put
+  there when the gate decides, so it is stored before the call settles — `{ outcome, reason, code, failure?,
+  exposed, at }`, `code` one of `cleared` (stage 1 saw no concern), `judged` (stage 2's verdict), `review-failed`
+  (an error, a timeout, an unparseable answer or no reviewer model: unsure), `breaker-tripped` (not reviewed at
+  all, below) and `budget` (a script's call once the turn's credit budget is spent: not reviewed at all, denied). A
+  person's decision after a card is `toolMetadata.decision` beside it, so reviewer then person reads in series in
+  the export and on the review page.
+- **The circuit breaker.** 3 judged denials in a row, or 10 in a turn (`REVIEW_BREAKER`), stop the turn with stop
+  reason `review-denied` ("I stopped because the reviewer denied several of my actions."). Where unsure denies (a
+  task run, a script's call) a judged unsure counts as a denial too: the model retrying variants there is refused
+  all the same. Any other judged outcome ends a run of consecutive ones. A `review-failed` record neither counts nor resets the streak: it is no
+  judgment. Once tripped, every further reviewed call of the turn — the step's later calls and a running script's
+  nested ones — is denied without a review (`breaker-tripped`), since the turn stops after its step but would
+  otherwise go on trying variants until one is allowed. A task run that stops this way is cut short, closed
+  `error` and notified, like the other guards' stops ([planned tasks](./planned-tasks.md#the-turn)).
+- **The gate only subtracts.** Every call is still bounded by the identity it runs as: the reviewer, like a
+  person's approval, can take a call away, never grant a permission (NHI scopes stay the ceiling).
 
-The **personal assistant** has no level of its own but a fixed `write` (`personalAssistantTools`): every
-catalog call that is not read-only asks, a write as much as a destructive one. It acts as the person, so a change
-it makes is theirs; in the page the convention is that the assistant prepares and the person saves, and
-approving each change keeps that convention for tools that save on the server. Its cards are therefore
-expected to be rarer than a configured agent's would be at level `write`: data-fair's MCP (openapi-mcp)
-marks every GET read-only. An anonymous visitor is offered reads only, as nobody signed in can decide. The
-person deciding is the conversation's owner; for a configured agent the decider must also be allowed to
-instruct it (`canInstruct`), since approving borrows its identity.
+**Why this shape, against the state of the art.** Claude Code's auto mode, Managed Agents' `auto` permission
+policy and Codex's auto-review all put an LLM reviewer where a person used to click, with three outcomes and a
+denial returned to the model as an error it must not work around. Each routes a call to ONE decider. Here the
+classes routed to a person get the reviewer **first, then the person, in series**: people approve by reflex
+(Anthropic measured 93% of permission prompts accepted, the figure that motivated auto mode), so the reviewer is
+a floor a person cannot click past — as Codex re-reviews a retry a person grants — and a rare card that carries
+the reviewer's view gets read rather than clicked. The breaker follows Codex's: 3 consecutive denials, or 10 in the last 50 reviews of a turn there; here 10 in
+a turn, which a turn's step and call limits keep close to it. The design and its decisions: `docs/superpowers/specs/2026-11-03-auto-approval-design.md`. Sources:
+[Claude Code auto mode](https://www.anthropic.com/engineering/claude-code-auto-mode),
+[Managed Agents permission policies](https://platform.claude.com/docs/en/managed-agents/permission-policies),
+[Codex auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review).
 
-- No level removes a tool from the set the model sees; an unattended run drops the ones that need approval (below).
-- `approve` **stops the turn**: the call is stored in the AI SDK's `approval-requested` state and the run ends
+### A card stops the turn
+
+- A card **stops the turn**: the call is stored in the AI SDK's `approval-requested` state and the run ends
   with `stopReason: 'awaiting-approval'`. Nothing is held in memory; the pending call is simply the latest step
   of the conversation. It is the shape of the [`wait_for_user_action` handover](./host-events.md#wait_for_user_action):
   a turn ends with a call left open, and a button settles it in a new run.
@@ -395,8 +485,7 @@ Why this shape:
   the decision simply starts a new run that replays it; nothing is held, so an approval can wait for
   days (there is no expiry) and both run invariants hold unchanged.
 - **An unannotated tool is a `write`**, not a fourth class: most hand-written MCP servers declare no
-  annotations, and reading silence as read-only would leave the common case ungated.
-- **The gate only subtracts.** Every call is still bounded by the identity it runs as: the gate can take a permission away, never grant one.
+  annotations, and reading silence as read-only would leave the common case unreviewed.
 
 **The decision** is `{ approved, reason? }`, over the chat socket only (frame `{ type: 'approval', approvalId, approved,
 reason? }`); there is no HTTP route for it. Only the person whose
@@ -412,7 +501,7 @@ one by one and the model resumes once, after the last.
 
 The `approval` run **replays** the conversation and the AI SDK executes the approved call, **settled on its original
 part** — that is the double-execution guard: the call has exactly one part, and a part that holds a result is never
-run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call whose tool is gone on replay (removed, or filtered out of an unattended run) is denied by name and settled `output-error` on its own part ("this tool is no longer available"), never left open; a call whose level was relaxed since the request runs, because the person approved it and the policy now requires less. Moderation is **skipped** on an
+run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call whose tool is gone on replay (removed, or filtered out of an unattended run) is denied by name and settled `output-error` on its own part ("this tool is no longer available"), never left open; a call whose route was relaxed since the request runs, because the person approved it and the policy now requires less. Moderation is **skipped** on an
 approval run: there is no new user text, and the decision is not something to classify.
 
 A run that does not reach the model must not leave an approved call without a result. `finishRun` settles them at the
@@ -445,9 +534,9 @@ An approved call's result, settled on its original part by the next run, keeps `
 cut at the result bound, beside `toolMetadata.decision`.
 
 In the chat the call is an **approval card** (`ui/src/components/agent-chat/ApprovalCard.vue`): the tool, its server
-and arguments, Approve and Reject with an optional reason. It is locked while the message asking is still pending
+and arguments, the reviewer's view when it judged the call first (why the card is shown, and its reason), Approve and Reject with an optional reason. It is locked while the message asking is still pending
 (`approvalLocked`, set by the mapper) and while the decision is sending (released on a chat error). Once decided the
-card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. Who decided, and
+card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. A call the reviewer denied never had a card: it is a "Denied by the reviewer: <tool>" chip, followed in a chat by "If you want this done, tell the agent so" (the way past a denial is the person's words, which the next review reads: [moderation](./moderation.md#approval-reviewer)), whose detail gives the reviewer's reason (the mapper reads `toolMetadata.review.reason`, not the model-facing `approval.reason`). Who decided, and
 when, is not shown in any UI; it is stored on the call (`toolMetadata.decision`) for audit, and is in the
 conversation's export. The admin review page (`ui/src/components/ConversationReview.vue`) shows a card still
 awaiting a decision read-only. While waiting, the activity
@@ -464,7 +553,7 @@ turn, per-step credits against the per-run budget, the account credit cap re-che
 every model call charged through one function, `chargeModelCall` (`api/src/usage/charge.ts`): it
 prices the call (cache tokens included), records usage under its model role (with the untrusted pool)
 and, when the call belongs to a run, adds it to the run's spend and telemetry — the moderation
-classifier and the summarizer's compaction call included, which are real model calls and are billed
+classifier, the tripwire, the approval reviewer and the summarizer's compaction call included, which are real model calls and are billed
 like one.
 
 Who is billed is decided by `usageIdentityFor` (`api/src/conversations/operations.ts`). A configured

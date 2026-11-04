@@ -129,6 +129,21 @@
         data-testid="approval-reason"
       />
     </v-card-text>
+    <!-- Why a person is asked: the reviewer allowed a call of a class that needs one, or could not settle it. -->
+    <v-card-text
+      v-if="reviewLine"
+      class="text-body-small pt-0"
+      data-testid="approval-review"
+    >
+      <div>{{ reviewLine }}</div>
+      <div
+        v-if="review?.outcome === 'allow' && review.reason"
+        class="text-medium-emphasis"
+        data-testid="approval-review-note"
+      >
+        {{ t('reviewNote', { reason: review.reason }) }}
+      </div>
+    </v-card-text>
     <v-card-text
       v-if="readonly"
       class="text-body-small text-medium-emphasis pt-0"
@@ -206,6 +221,10 @@ fr:
   webHeading: Autoriser l'agent à lire ces adresses ?
   webWarning: "Un texte lu à ces adresses pourra donner des instructions à l'agent, qui agit avec son identité et tous ses outils."
   mcpHeading: Connecter ce serveur MCP à l'agent ?
+  reviewAllowed: "Revu : autorisé, votre confirmation est requise"
+  reviewUnsure: "Le relecteur hésite : {reason}"
+  reviewFailed: Le relecteur n'a pas pu décider
+  reviewNote: "Note du relecteur : {reason}"
   mcpWarning: "Les réponses de ce serveur pourront donner des instructions à l'agent, qui agit avec son identité et tous ses outils."
 en:
   heading: "Approve \"{name}\"?"
@@ -232,6 +251,10 @@ en:
   webHeading: Let the agent read these addresses?
   webWarning: "Text read at these addresses can give the agent instructions, and it acts with its identity and all its tools."
   mcpHeading: Connect this MCP server to the agent?
+  reviewAllowed: "Reviewed: allowed, your confirmation is required"
+  reviewUnsure: "The reviewer is unsure: {reason}"
+  reviewFailed: The reviewer could not decide
+  reviewNote: "Reviewer's note: {reason}"
   mcpWarning: "This server's responses can give the agent instructions, and it acts with its identity and all its tools."
 </i18n>
 
@@ -240,6 +263,7 @@ import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
 import { $fetch } from '~/context'
+import type { ChatMessage } from '~/utils/chat-message'
 
 const props = defineProps<{
   toolName: string
@@ -258,6 +282,8 @@ const props = defineProps<{
   failure?: string | null
   /** Read by someone who cannot answer it (the admin review): no buttons. */
   readonly?: boolean
+  /** What the automated reviewer made of the call, when it was reviewed before being put to a person. */
+  review?: NonNullable<ChatMessage['toolInvocations']>[number]['review']
 }>()
 const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
 
@@ -286,6 +312,16 @@ const decide = (decision: { approved: boolean, reason?: string }, which: 'approv
   emit('decide', decision)
 }
 watch(() => props.failure, failure => { if (failure) sending.value = null })
+
+// A failed review reads as such whatever its outcome (unsure): its reason describes the failure, for the audit.
+const reviewLine = computed(() => {
+  const review = props.review
+  if (!review) return null
+  if (review.code === 'review-failed') return t('reviewFailed')
+  if (review.outcome === 'unsure') return t('reviewUnsure', { reason: review.reason })
+  if (review.outcome === 'allow') return t('reviewAllowed')
+  return null
+})
 
 // Written for the person deciding, not for a developer: the tool's own title and description rather
 // than its name and a JSON dump.

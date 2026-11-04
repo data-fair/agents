@@ -105,6 +105,7 @@
                         :files="invocation.files"
                         :input="invocation.input"
                         :server-id="invocation.serverId"
+                        :review="invocation.review"
                         :agent-path="agentPath"
                         :locked="!!invocation.approvalLocked"
                         :failure="chatError"
@@ -145,6 +146,13 @@
                           class="agent-chat__tool-call-detail"
                           :invocation="invocation"
                         />
+                        <!-- The way past a reviewer's denial is the person's own words, which the next review
+                             reads: no override button, which would be the reflex click again. -->
+                        <span
+                          v-if="!readonly && invocation.state === 'denied' && invocation.deniedByReviewer"
+                          class="text-caption text-medium-emphasis ms-2"
+                          data-testid="reviewer-denied-hint"
+                        >{{ t('reviewerDeniedHint') }}</span>
                       </div>
                     </template>
                   </div>
@@ -321,6 +329,8 @@ fr:
   activityApproval: "En attente de votre approbation : {name}"
   waitingChip: "En attente : {name}"
   declinedChip: "Refusé : {name}"
+  reviewerDeniedChip: "Refusé par le relecteur : {name}"
+  reviewerDeniedHint: Si vous voulez que ce soit fait, dites-le à l'agent.
   approvedChip: "Approuvé : {name}"
   waitedChip: "A attendu : {name}"
   toolReadSkill: "Lire le guide : {name}"
@@ -359,6 +369,8 @@ en:
   activityApproval: "Awaiting your approval: {name}"
   waitingChip: "Waiting for: {name}"
   declinedChip: "Declined: {name}"
+  reviewerDeniedChip: "Denied by the reviewer: {name}"
+  reviewerDeniedHint: If you want this done, tell the agent so.
   approvedChip: "Approved: {name}"
   waitedChip: "Waited for: {name}"
   toolReadSkill: "Read guide: {name}"
@@ -618,7 +630,7 @@ const scriptCalls = (message: ChatMessage, invocation: Invocation): Invocation[]
 }
 
 // Chip label: the tool's title, and for the built-in wait what the agent said it is waiting for.
-const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string, approved?: true }) => {
+const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string, approved?: true, deniedByReviewer?: true }) => {
   if (invocation.toolName === WAIT_TOOL_NAME) {
     // Past tense once it settles. Every other chip is a noun, so this is the only
     // label that reads as a live instruction — and it stays in history forever. A
@@ -629,7 +641,7 @@ const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: u
     return invocation.state === 'done' ? t('waitedChip', { name }) : t('waitingChip', { name })
   }
   const title = invocationTitle(invocation)
-  if (invocation.state === 'denied') return t('declinedChip', { name: title })
+  if (invocation.state === 'denied') return t(invocation.deniedByReviewer ? 'reviewerDeniedChip' : 'declinedChip', { name: title })
   if (invocation.approved) return t('approvedChip', { name: title })
   return title
 }

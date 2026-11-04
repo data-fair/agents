@@ -7,7 +7,7 @@ import AutonomousAgentSchema from '#types/autonomous-agent/schema.js'
  * fields no tab shows, nhi and enabled) before saving; the write-req schema validates that body.
  *
  * @param {string} name
- * @param {('title' | 'persona' | 'instructions' | 'mcpServers' | 'externalMcpServers' | 'web' | 'approvalLevel' | 'instructors' | 'role' | 'memory')[]} keys
+ * @param {('title' | 'persona' | 'instructions' | 'mcpServers' | 'externalMcpServers' | 'web' | 'approvalRoutes' | 'instructors' | 'role' | 'memory')[]} keys
  */
 export const autonomousAgentFormPart = (name, keys) => {
   /** @type {Record<string, any>} */

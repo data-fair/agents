@@ -50,3 +50,28 @@ export function isReasoningEffortRejected (err: unknown): boolean {
   ]
   return parts.some(p => typeof p === 'string' && p.includes('reasoning_effort'))
 }
+
+// ---- what a two-stage check came to (the sequence itself is service.ts's classifyTwoStage) ----
+
+/** Why a stage left no verdict: what each guard does with it is its own (moderation fails open, the tripwire too
+ * at stage 1, while a failed confirmation after a flag counts as suspected). */
+export type GuardFailureCause = 'error' | 'timeout' | 'unparseable'
+
+/** The cause in words; the provider's message, when given, after a failed call (what the admin probe exists to show). */
+export const describeFailure = (cause: GuardFailureCause, message?: string): string =>
+  cause === 'timeout'
+    ? 'it timed out'
+    : cause === 'unparseable' ? 'its answer could not be parsed' : `the model call failed${message ? ` (${message})` : ''}`
+
+/**
+ * What one two-stage check came to. A stage-1 `no` is the guard's `cleared` verdict; a `yes` goes to stage 2,
+ * whose verdict decides. A failure is returned, never thrown: which way it goes is the caller's.
+ */
+export type TwoStageOutcome<T> =
+  | { kind: 'verdict', stage1: boolean, verdict: T }
+  | { kind: 'stage1-failed', cause: GuardFailureCause, message: string }
+  | { kind: 'confirm-failed', cause: GuardFailureCause, message: string }
+
+/** A failed outcome in words, for an admin probe row. */
+export const describeFailedStage = (outcome: Exclude<TwoStageOutcome<unknown>, { kind: 'verdict' }>): string =>
+  `${outcome.kind === 'stage1-failed' ? 'the first stage' : 'the confirmation stage'} failed: ${describeFailure(outcome.cause, outcome.message)}`

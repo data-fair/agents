@@ -61,8 +61,8 @@ test.describe('The approval gate', () => {
     await assert.rejects(admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: {} }), { status: 400 })
   })
 
-  test('allow runs the call as before', async () => {
-    const agent = await createGatedAgent({ approvalLevel: 'none' })
+  test('a destructive call routed to the reviewer alone runs once reviewed', async () => {
+    const agent = await createGatedAgent({ approvalRoutes: { write: 'reviewer', destructive: 'reviewer' } })
     const { run } = await turn({ agentId: agent.id }, 'call tool wipe_everything {}')
     assert.equal(run.stopReason, 'completed')
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
@@ -85,7 +85,7 @@ test.describe('The approval gate', () => {
     // beside a running approval run and leave its call alone, as the HTTP route it replaces allowed. What
     // must hold is that the call is not left dangling nor reported as not run: the tool was started, so
     // its outcome is unknown, and it is never executed a second time.
-    const agent = await createGatedAgent({ approvalLevel: 'write' })
+    const agent = await createGatedAgent({ approvalRoutes: { write: 'reviewer+person' } })
     const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool slow_update {}')
     const approvalId = callPart(assistant, 'slow_update').approval.id
     const { runId: continuation } = await decideRun(conversationId, approvalId, { approved: true })
@@ -184,9 +184,9 @@ test.describe('The approval gate', () => {
     assert.deepEqual(fixture.invokedTools(), [])
   })
 
-  test('the level relaxed to none between the request and the decision runs the approved call exactly once', async () => {
+  test('the route relaxed to the reviewer alone between the request and the decision runs the approved call exactly once', async () => {
     const { agent, conv, approvalId, seq } = await pendingApproval()
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvalLevel: 'none' })
+    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvalRoutes: { write: 'reviewer', destructive: 'reviewer' } })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await awaitRun(orgAdmin, conv.id, runId)
@@ -369,7 +369,7 @@ test.describe('The approval gate', () => {
 
   test('an approved call\'s result cut at the bound says so on its own part', async () => {
     // Approval-run results are precisely the audited calls: a review must be able to tell one was cut.
-    const agent = await createGatedAgent({ approvalLevel: 'write' })
+    const agent = await createGatedAgent({ approvalRoutes: { write: 'reviewer+person' } })
     const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool bulk_update {"chars":150000}')
     const { runId } = await decideRun(conversationId, callPart(assistant, 'bulk_update').approval.id, { approved: true })
     await awaitRun(orgAdmin, conversationId, runId)

@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { DEFAULT_APPROVAL_LEVEL } from '../../../shared/approval-policy.ts'
+import { DEFAULT_APPROVAL_ROUTES } from '../../../shared/approval-policy.ts'
 import { AUTONOMOUS_AGENT_EXAMPLE_KEYS, exampleFields } from '../../../ui/src/utils/autonomous-agent-examples.ts'
 
 const locales = ['fr', 'en'] as const
@@ -21,11 +21,11 @@ test.describe('autonomous agent starting examples', () => {
     }
   })
 
-  test('approval levels follow the mapping', () => {
+  test('approval routes follow the mapping', () => {
     for (const locale of locales) {
-      assert.equal(exampleFields('publication', locale, 'T').approvalLevel, 'destructive')
-      assert.equal(exampleFields('quality', locale, 'T').approvalLevel, 'write')
-      assert.equal(exampleFields('blank', locale, 'T').approvalLevel, DEFAULT_APPROVAL_LEVEL)
+      assert.deepEqual(exampleFields('publication', locale, 'T').approvalRoutes, DEFAULT_APPROVAL_ROUTES)
+      assert.deepEqual(exampleFields('quality', locale, 'T').approvalRoutes, { write: 'reviewer+person', destructive: 'reviewer+person' })
+      assert.deepEqual(exampleFields('blank', locale, 'T').approvalRoutes, DEFAULT_APPROVAL_ROUTES)
     }
   })
 

@@ -9,7 +9,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
-import { cases, spokeDuringWait, approvalDecided, planTaskDecided, memoryCarriedOver, outcomeReported, readTheInjectedNotice, readTheInjectedRow } from '../../../simulations/cases/index.ts'
+import { cases, spokeDuringWait, approvalDecided, deleteNoteAttempted, setNoteRan, planTaskDecided, memoryCarriedOver, outcomeReported, readTheInjectedNotice, readTheInjectedRow } from '../../../simulations/cases/index.ts'
 import { INJECTED_DISTRICT, INJECTED_NOTICE_PATH } from '../../support/mcp-fixture.ts'
 import devConfig from '../../../api/config/development.js'
 import { parseConversationExport } from '../../../lib-sim/conversation-export.ts'
@@ -129,6 +129,35 @@ test.describe('case registry', () => {
     assert.equal(approvalDecided.holds([exportOf('c', [toolPart('wipe_everything', { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false, reason: 'The person sent a new message instead of deciding.' } })])]), false)
     assert.equal(approvalDecided.holds([exportOf('c', [toolPart('list_road_closures', decision(true))])]), false)
     assert.equal(cases.find(c => c.name === 'autonomous-agent-approval')?.premise, approvalDecided)
+  })
+
+  test('the overreach premise holds once a delete_note call was proposed, whatever came of it', () => {
+    const denied = { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false, reason: 'The reviewer did not allow this call.' } }
+    assert.equal(deleteNoteAttempted.holds([exportOf('c', [toolPart('set_note'), toolPart('delete_note', denied)])]), true)
+    assert.equal(deleteNoteAttempted.holds([exportOf('c', [toolPart('delete_note', { state: 'approval-requested', output: undefined, approval: { id: 'a' } })])]), true)
+    assert.equal(deleteNoteAttempted.holds([exportOf('c', [toolPart('delete_note')])]), true)
+    assert.equal(deleteNoteAttempted.holds([exportOf('c', [toolPart('set_note')])]), false)
+    const overreach = cases.find(c => c.name === 'autonomous-agent-overreach')
+    assert.equal(overreach?.premise, deleteNoteAttempted)
+    assert.deepEqual(overreach?.agent?.mcpServers, [{ serverId: 'dev-review-session-mcp', toolFilter: ['set_note', 'delete_note'] }])
+  })
+
+  test('the reviewed-write premise holds only when set_note ran', () => {
+    assert.equal(setNoteRan.holds([exportOf('c', [toolPart('set_note')])]), true)
+    assert.equal(setNoteRan.holds([exportOf('c', [toolPart('set_note', { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false } })])]), false)
+    assert.equal(setNoteRan.holds([exportOf('c', [toolPart('set_note', { state: 'output-error', output: undefined, errorText: 'boom' })])]), false)
+    assert.equal(setNoteRan.holds([exportOf('c', [toolPart('set_note', { state: 'approval-requested', output: undefined, approval: { id: 'a' } })])]), false)
+    assert.equal(setNoteRan.holds([exportOf('c', [toolPart('delete_note')])]), false)
+    const write = cases.find(c => c.name === 'autonomous-agent-reviewed-write')
+    assert.equal(write?.premise, setNoteRan)
+    assert.deepEqual(write?.agent?.mcpServers, [{ serverId: 'dev-review-session-mcp', toolFilter: ['set_note'] }])
+  })
+
+  test('the reviewer cases follow the approval case, on the same fixture agent', () => {
+    const names = cases.map(c => c.name)
+    const at = names.indexOf('autonomous-agent-approval')
+    assert.deepEqual(names.slice(at, at + 3), ['autonomous-agent-approval', 'autonomous-agent-overreach', 'autonomous-agent-reviewed-write'])
+    for (const name of names.slice(at, at + 3)) assert.equal(cases.find(c => c.name === name)?.route, '/agents/organization/test1/chat?agentId=test-fixture')
   })
 
   test('the plan-task premise holds only when the person decided on a plan_task card', () => {

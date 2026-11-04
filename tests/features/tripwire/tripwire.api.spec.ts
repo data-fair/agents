@@ -83,7 +83,7 @@ test.describe('Tool-output tripwire', () => {
   test('an approved call of an earlier turn whose result trips stops the turn that ran it', async () => {
     // echo declares no annotations: a write, gated at approval level `write`. The SDK runs an approved call
     // before the continuation's first step, where stopWhen never looks: the model still answers after it.
-    const agent = await createFilesAgent({ approvalLevel: 'write' })
+    const agent = await createFilesAgent({ approvalRoutes: { write: 'reviewer+person' } })
     const gated = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool echo {"value":"INJECTION_PROBE"}')
     assert.equal(gated.run.stopReason, 'awaiting-approval')
     const asked = callPart(gated.assistant, 'echo')

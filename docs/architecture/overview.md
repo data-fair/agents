@@ -24,7 +24,7 @@ graph TB
 
 | Workspace | Role |
 |-----------|------|
-| `api/` | Express server: the agent loop and conversation store, the agent session socket, settings, quotas and usage, moderation, review, summarization |
+| `api/` | Express server: the agent loop and conversation store, the agent session socket, settings, quotas and usage, moderation and the approval reviewer, review, summarization |
 | `ui/` | Vue 3 + Vuetify 4 SPA: the chat (rendering the turn the server streams, gathering the page's tools for it), settings and review pages |
 | `shared/` | What both the server and the browser read: the agent session protocol and its frame schemas, host events, message parts, the audited-agent rule — and nothing else (a unit test enforces that every module has a UI consumer) |
 | `lib-vue/` | Vue composables: WebMCP tool and skill registration, BroadcastChannel transport |
@@ -154,6 +154,7 @@ prefix is ignored, `api/src/sites/operations.ts`):
 | Who may spend what, and what it cost | [Quotas & usage](./quotas-usage.md) |
 | Refusing abusive input | [Input moderation guard](./moderation.md#input-moderation) |
 | Withholding tool results that address the agent (prompt injection) | [Tool-output tripwire](./moderation.md#tool-output-tripwire) |
+| Who decides an agent's changes: approval routes, the automated reviewer then a person, cards and denials | [The approval gate](./autonomous-agents.md#the-approval-gate), [Approval reviewer](./moderation.md#approval-reviewer) |
 | What an admin may read back | [Conversation review](./conversation-review.md) |
 | Putting the chat in a host application | [Embedding](./embedding.md), [Integration context](./integration-context.md) |
 | Test levels, the @smoke set, what runs on commit, push and pull request | [Test suite](./testing.md) |

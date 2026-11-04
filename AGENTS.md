@@ -74,7 +74,7 @@ by hand is exactly what the suite exercises: tools `echo`, `get_schema`, `ignore
 which returns `structuredContent` beside its text, as data-fair's MCP does: a `code_mode` script gets the
 object, the model the text. Only `list_road_closures`, `closure_stats` and the exports return data — the others are structural (a string reflector, a
 fixed empty schema, and a target for `toolFilter`), so they are the ones to use when you need to see an
-agent actually fetch something and quote it. `slow_update` and `bulk_update` are the annotation-free (write) twins of `slow_lookup` and `bulk`, for specs that gate a slow or large call at approval level `write`.
+agent actually fetch something and quote it. `slow_update` and `bulk_update` are the annotation-free (write) twins of `slow_lookup` and `bulk`, for specs that put a slow or large write to a person (route `reviewer+person`). `set_note` (a write: no annotations) and `delete_note` (destructive) take `{ note }` and do nothing: they are the targets of the approval reviewer's specs, whose mock reviewer reads the note.
 
 Under `/platform/` it stands in for data-fair's MCP, the built-in server of every autonomous agent with an
 identity: `privateMcpUrl` in `api/config/development.js` points there. It serves the data tools only
