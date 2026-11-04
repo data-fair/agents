@@ -49,10 +49,10 @@ export default {
       layout: 'textarea',
       title: 'Instructions',
       'x-i18n-title': { en: 'Instructions', fr: 'Instructions' },
-      description: 'How it should work: procedures, constraints, what to do when unsure.',
+      description: 'How it should work: procedures, constraints, what to do when unsure. The automatic review of its changes reads these instructions too: say which changes are routine ("updating the until date of a closure is routine") and what is out of bounds ("only work on the datasets X and Y").',
       'x-i18n-description': {
-        en: 'How it should work: procedures, constraints, what to do when unsure.',
-        fr: 'Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute.'
+        en: 'How it should work: procedures, constraints, what to do when unsure. The automatic review of its changes reads these instructions too: say which changes are routine ("updating the until date of a closure is routine") and what is out of bounds ("only work on the datasets X and Y").',
+        fr: "Comment il doit travailler : procédures, contraintes, conduite à tenir en cas de doute. La revue automatique de ses modifications lit aussi ces instructions : précisez quelles modifications sont routinières (« mettre à jour la date de fin d'une fermeture est routinier ») et ce qui est hors limites (« ne travailler que sur les jeux de données X et Y »)."
       }
     },
     mcpServers: {

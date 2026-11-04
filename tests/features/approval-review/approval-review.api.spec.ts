@@ -83,6 +83,21 @@ test.describe('The approval reviewer', () => {
     assert.equal(reviewCalls(run).length, 1, JSON.stringify(run.calls))
   })
 
+  test('a later turn\'s review sees the earlier turns\' refused calls', async () => {
+    const agent = await createAgent()
+    const first = await turn({ agentId: agent.id }, 'call tool set_note {"note":"REVIEW_DENY"}')
+    assert.equal(callPart(await messageAt(first.conversationId, first.assistant.seq), 'set_note').state, 'output-denied')
+    // The mock reviewer denies this note only when the earlier calls it is shown hold a refusal.
+    const second = await turn(first.conversationId, 'call tool set_note {"note":"REVIEW_IF_REFUSED_BEFORE"}')
+    const part = callPart(await messageAt(first.conversationId, second.assistant.seq), 'set_note')
+    assert.equal(part.state, 'output-denied')
+    assert.equal(part.toolMetadata.review.reason, 'mock deny: refused before')
+    // Control: the same call in a conversation with no refusal runs.
+    const fresh = await turn({ agentId: agent.id }, 'call tool set_note {"note":"REVIEW_IF_REFUSED_BEFORE"}')
+    assert.equal(fresh.run.stopReason, 'completed')
+    assert.deepEqual(fixture.invokedTools(), ['set_note'])
+  })
+
   test('a denied write does not run, and the model is told why', async () => {
     const agent = await createAgent()
     const { run, assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool set_note {"note":"REVIEW_DENY"}')

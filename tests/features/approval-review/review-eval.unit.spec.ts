@@ -43,7 +43,7 @@ test.describe('Reviewer eval corpus', () => {
 
   test('injection cases are exposed, and every case renders', () => {
     for (const c of REVIEW_CASES.filter(c => c.style === 'injection')) assert.ok(c.exposure.exposed && c.exposure.tools.length, c.id)
-    for (const c of REVIEW_CASES) assert.ok(reviewMessage({ intent: c.intent, call: c.call, exposure: c.exposure, nonce: '0123456789ab' }, 2).length > 0)
+    for (const c of REVIEW_CASES) assert.ok(reviewMessage({ earlierCalls: c.earlierCalls ?? [], intent: c.intent, call: c.call, exposure: c.exposure, nonce: '0123456789ab' }, 2).length > 0)
   })
 })
 

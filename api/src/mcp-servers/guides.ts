@@ -70,7 +70,7 @@ const attributeSafe = (value: string): string => value.replace(/[^a-zA-Z0-9._/:-
  * result, moderation's for a person's message and its context, the approval reviewer's for a proposed call and
  * the intent it is judged against.
  */
-export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions', 'webhook-payload', 'host-events', 'host-state', 'hidden-context', 'tool_result_', 'user_message_', 'conversation_context_', 'proposed_call_', 'reviewed_intent_']
+export const ENVELOPE_TAGS = ['tool-result', 'skill', 'server-instructions', 'webhook-payload', 'host-events', 'host-state', 'hidden-context', 'tool_result_', 'user_message_', 'conversation_context_', 'proposed_call_', 'reviewed_intent_', 'earlier_calls_']
 
 // In any letter case, with spaces around the slash, and behind a fullwidth or small `<`: a model reads all
 // of them as the tag. Rewritten to one escaped form; the text's own case of the name is kept.

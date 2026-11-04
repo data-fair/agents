@@ -75,7 +75,7 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
       throw new Error('a task run has no earlier call to settle')
     },
     // The task's prompt is the assignment the reviewer judges against, its webhook payloads' free text removed.
-    reviewIntent: async (instructions) => intentFromTask(run.prompt ?? '', instructions),
+    reviewContext: async (instructions) => ({ intent: intentFromTask(run.prompt ?? '', instructions), earlierCalls: [] }),
     reportOutcome: (reported) => { outcome = reported },
 
     close: async (result) => {

@@ -16,7 +16,7 @@ import type { ReviewRoute } from '@agents/shared/approval-policy'
 import type { ApprovalClass } from '../conversations/approval-policy.ts'
 import { goneApprovedToolNames, TOOL_NO_LONGER_AVAILABLE } from '../conversations/approved-calls.ts'
 import { isScanned } from '../tripwire/operations.ts'
-import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, createReviewBreaker, refusalTextOf, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
+import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, createReviewBreaker, earlierCallOfRecord, refusalTextOf, type EarlierCall, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
 
 export type { ReviewRoute }
 
@@ -79,7 +79,12 @@ export const createReviewGate = (opts: {
   /** The turn's starting history, for goneApprovedToolNames. */
   history: ModelMessage[]
   surface: 'chat' | 'task'
-  review: (call: ProposedCall, exposure: Exposure) => Promise<ReviewRecord>
+  review: (call: ProposedCall, exposure: Exposure, earlierCalls: EarlierCall[]) => Promise<ReviewRecord>
+  /**
+   * The conversation's gated calls before this turn (reviewContextOfConversation), and how many of the people's
+   * messages the intent shows: this turn's calls follow the last one.
+   */
+  earlier?: { calls: EarlierCall[], afterMessage: number }
   exposure: (messages: ModelMessage[]) => Exposure
   /**
    * Whether the turn's credit budget is spent (R16). The loop checks it between steps only; a script's calls run
@@ -94,6 +99,8 @@ export const createReviewGate = (opts: {
   const nestedScanned = new Set<string>()
   // The messages of the latest step, for nested calls: the context their script was written in.
   let stepMessages: ModelMessage[] = opts.history
+  // This turn's reviewed calls, in order, as decided: the next review sees them after the earlier turns' ones.
+  const turnCalls: EarlierCall[] = []
 
   const toolOf = (toolName: string): GateTool | undefined => {
     const tools = opts.tools()
@@ -119,18 +126,21 @@ export const createReviewGate = (opts: {
     }
     // ONCE TRIPPED, every further reviewed call is denied unreviewed: the turn stops after its step, but a running
     // script, or the step's later calls, would otherwise go on trying variants until one is allowed. Not counted.
-    if (breaker.tripped) {
-      const record: ReviewRecord = { outcome: 'deny', reason: BREAKER_TRIPPED_REASON, code: 'breaker-tripped', exposed: exposureFor(messages).exposed, at: new Date().toISOString() }
+    const settle = (record: ReviewRecord) => {
       records.set(toolCallId, record)
+      // Unsure goes to a person only in a chat's direct call; an allow goes to one on the reviewer+person route.
+      const awaitingPerson = !nested && opts.surface === 'chat' && record.code !== 'breaker-tripped' &&
+        (record.outcome === 'unsure' || (record.outcome === 'allow' && tool.review.route !== 'reviewer'))
+      turnCalls.push(earlierCallOfRecord(toolName, input, record, { awaitingPerson, inScript: nested, afterMessage: opts.earlier?.afterMessage ?? 0 }))
       return record
+    }
+    if (breaker.tripped) {
+      return settle({ outcome: 'deny', reason: BREAKER_TRIPPED_REASON, code: 'breaker-tripped', exposed: exposureFor(messages).exposed, at: new Date().toISOString() })
     }
     if (nested && opts.budgetSpent?.()) {
-      const record: ReviewRecord = { outcome: 'deny', reason: BUDGET_SPENT_REASON, code: 'budget', exposed: exposureFor(messages).exposed, at: new Date().toISOString() }
-      records.set(toolCallId, record)
-      return record
+      return settle({ outcome: 'deny', reason: BUDGET_SPENT_REASON, code: 'budget', exposed: exposureFor(messages).exposed, at: new Date().toISOString() })
     }
-    const record = await opts.review(call, exposureFor(messages))
-    records.set(toolCallId, record)
+    const record = settle(await opts.review(call, exposureFor(messages), [...(opts.earlier?.calls ?? []), ...turnCalls]))
     // A failed review is no judgment at all: it neither counts as a denial nor ends a run of them. An unsure counts
     // as a denial where it denies (a task run, a script's call): variants retried there are refused all the same.
     if (record.code !== 'review-failed') breaker.count(record, nested || opts.surface === 'task')

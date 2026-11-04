@@ -106,6 +106,8 @@ test.describe('Approval card', () => {
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
     await ask(page, 'call tool set_note {"note":"REVIEW_DENY"}')
     await expect(page.getByTestId('tool-chip').first()).toHaveText('Denied by the reviewer: set_note', { timeout: 15000 })
+    // The way past it is the person's own words, which the next review reads: said, not a button.
+    await expect(page.getByTestId('reviewer-denied-hint')).toHaveText('If you want this done, tell the agent so.')
     await expect(page.getByTestId('approval-card')).toHaveCount(0)
     expect(fixture.invokedTools()).toEqual([])
   })
@@ -118,6 +120,7 @@ test.describe('Approval card', () => {
     await expect(chip).toHaveText('Denied by the reviewer: set_note', { timeout: 15000 })
     await chip.click()
     await expect(page.getByTestId('tool-call-denied')).toHaveText('Denied by the reviewer: mock deny')
+    await expect(page.getByTestId('reviewer-denied-hint')).toHaveCount(0)
   })
 
   test('the admin review page shows a pending approval read-only', async ({ page, goToWithAuth }) => {

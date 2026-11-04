@@ -45,7 +45,7 @@ import { describeSource, withheldErrorText, webhookCallId, tripExplanationInstru
 import { webhookPayloadsOf } from '../tasks/operations.ts'
 import { createTurnReviewer } from '../approval-review/service.ts'
 import { createReviewGate, type GateTool } from '../approval-review/gate.ts'
-import { exposureOf, reviewerDenialText, type ReviewIntent } from '../approval-review/operations.ts'
+import { earlierCallsOf, exposureOf, reviewerDenialText, type ReviewContext } from '../approval-review/operations.ts'
 
 const debug = Debug('df-agents:autonomous-agent-executor')
 
@@ -93,7 +93,7 @@ export interface ModelLoopContext {
    * every write and destructive catalog call, and capability grant, is reviewed before it runs. The personal
    * assistant has none.
    */
-  reviewIntent?: ReviewIntent
+  reviewContext?: ReviewContext
 }
 
 export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> => {
@@ -190,7 +190,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // Its calls count toward the run's budget as the tripwire's do. The gate deciding each call is built below, once
   // the live tool map exists.
   let reviewCredits = 0
-  const reviewer = ctx.reviewIntent && createTurnReviewer({
+  const reviewer = ctx.reviewContext && createTurnReviewer({
     run,
     agent: { id: autonomousAgent.id, ...(autonomousAgent.title ? { title: autonomousAgent.title } : {}) },
     owner: run.owner,
@@ -198,7 +198,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     settings,
     abortSignal,
     onCredits: spent => { reviewCredits += spent },
-    intent: ctx.reviewIntent
+    intent: ctx.reviewContext.intent
   })
   // The results the tripwire cut at its scan cap, by call: recorded as truncated with their original length, as
   // the recorder's own bound records a cut, so a reviewer still sees a result was cut and its real size.
@@ -346,6 +346,11 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     history,
     surface: target.surface,
     review: reviewer,
+    // A reminder pass (continuation) follows its first pass's calls, stored in its parts, not yet in a message.
+    earlier: {
+      calls: [...(ctx.reviewContext?.earlierCalls ?? []), ...earlierCallsOf(continuation?.parts ?? [], ctx.reviewContext?.intent.messages.length ?? 0)],
+      afterMessage: ctx.reviewContext?.intent.messages.length ?? 0
+    },
     exposure: messages => exposureOf(messages, tools, { webhookPayloads }),
     // Between steps the loop stops on budgetExceeded; within a script's step, what was spent so far, its reviews
     // included, is the per-run budget's own sum (checkCeilings).

@@ -481,14 +481,21 @@ export function processMockTripwirePrompt (lastMessage: string): MockPromptResul
  * The approval reviewer (api/src/approval-review), for any mock model id: it judges only the text inside the
  * proposed call's nonce-tagged wrapper (the call's arguments, never the intent before it), and reads the stage
  * from the instruction after the wrappers. "REVIEW_DENY": stage 1 yes, stage 2 a deny. "REVIEW_UNSURE": yes, then
- * unsure. "REVIEW_BROKEN": unparseable at both stages (a failed review). Anything else: stage 1 no, and stage 2
- * (reached directly for a destructive call or a grant) an allow.
+ * unsure. "REVIEW_BROKEN": unparseable at both stages (a failed review). "REVIEW_IF_REFUSED_BEFORE": a deny when
+ * the earlier calls' wrapper shows one the reviewer refused, an allow otherwise. Anything else: stage 1 no, and
+ * stage 2 (reached directly for a destructive call or a grant) an allow.
  */
 const REVIEW_WRAPPER = /<(proposed_call_[0-9a-f]{12})>([\s\S]*?)<\/\1>([\s\S]*)$/
+const EARLIER_WRAPPER = /<(earlier_calls_[0-9a-f]{12})>([\s\S]*?)<\/\1>/
 export function processMockReviewerPrompt (lastMessage: string): MockPromptResult {
   const wrapped = REVIEW_WRAPPER.exec(lastMessage)
   const judged = wrapped?.[2] ?? ''
   const instruction = wrapped?.[3] ?? ''
+  if (judged.includes('REVIEW_IF_REFUSED_BEFORE')) {
+    const refusedBefore = (EARLIER_WRAPPER.exec(lastMessage)?.[2] ?? '').includes('refused by the reviewer')
+    if (!/Answer with JSON only/.test(instruction)) return { type: 'text', text: 'yes' }
+    return { type: 'text', text: refusedBefore ? '{"outcome":"deny","reason":"mock deny: refused before"}' : '{"outcome":"allow","reason":"mock allow"}' }
+  }
   if (/Answer with JSON only/.test(instruction)) {
     if (judged.includes('REVIEW_BROKEN')) return { type: 'text', text: 'not json' }
     if (judged.includes('REVIEW_DENY')) return { type: 'text', text: '{"outcome":"deny","reason":"mock deny"}' }

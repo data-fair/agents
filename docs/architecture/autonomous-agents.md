@@ -536,7 +536,7 @@ cut at the result bound, beside `toolMetadata.decision`.
 In the chat the call is an **approval card** (`ui/src/components/agent-chat/ApprovalCard.vue`): the tool, its server
 and arguments, the reviewer's view when it judged the call first (why the card is shown, and its reason), Approve and Reject with an optional reason. It is locked while the message asking is still pending
 (`approvalLocked`, set by the mapper) and while the decision is sending (released on a chat error). Once decided the
-card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. A call the reviewer denied never had a card: it is a "Denied by the reviewer: <tool>" chip, whose detail gives the reviewer's reason (the mapper reads `toolMetadata.review.reason`, not the model-facing `approval.reason`). Who decided, and
+card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. A call the reviewer denied never had a card: it is a "Denied by the reviewer: <tool>" chip, followed in a chat by "If you want this done, tell the agent so" (the way past a denial is the person's words, which the next review reads: [moderation](./moderation.md#approval-reviewer)), whose detail gives the reviewer's reason (the mapper reads `toolMetadata.review.reason`, not the model-facing `approval.reason`). Who decided, and
 when, is not shown in any UI; it is stored on the call (`toolMetadata.decision`) for audit, and is in the
 conversation's export. The admin review page (`ui/src/components/ConversationReview.vue`) shows a card still
 awaiting a decision read-only. While waiting, the activity

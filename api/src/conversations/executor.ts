@@ -248,10 +248,10 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
     }
     // What the approval reviewer judges this turn's calls against (api/src/approval-review): a configured
     // agent's only — the personal assistant has no reviewer.
-    const reviewIntent = isPersonalAgentId(autonomousAgent.id)
+    const reviewContext = isPersonalAgentId(autonomousAgent.id)
       ? undefined
-      : await target.reviewIntent([autonomousAgent.persona, autonomousAgent.instructions].filter(Boolean).join('\n\n'))
-    const loop = { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, ...(reviewIntent ? { reviewIntent } : {}) }
+      : await target.reviewContext([autonomousAgent.persona, autonomousAgent.instructions].filter(Boolean).join('\n\n'))
+    const loop = { run, abortSignal, model, entry, tools, toolOrigins, settings, budget, autonomousAgent, target, memory: service.memory, anonymousOn, unconfirmedOn, callPath, guides, ...(reviewContext ? { reviewContext } : {}) }
     const result = await runModelLoop(loop)
     // A PLANNED TASK'S RUN THAT DID NOT REPORT is reminded, once: a second pass of the same turn, offered only
     // report_outcome, whose record continues the first's. Only after a turn that finished — a turn cut short

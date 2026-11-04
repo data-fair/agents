@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import type { ModelMessage } from 'ai'
 import { createReviewGate, type GateTool } from '../../../api/src/approval-review/gate.ts'
-import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, exposureOf, reviewerDenialText, reviewUnavailableText, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
+import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, exposureOf, reviewerDenialText, reviewUnavailableText, type EarlierCall, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
 import { TOOL_NO_LONGER_AVAILABLE } from '../../../api/src/conversations/approved-calls.ts'
 import { recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 
@@ -17,11 +17,11 @@ const reviewed = (route: 'reviewer' | 'reviewer+person', cls: 'write' | 'destruc
   ({ annotations: cls === 'destructive' ? { destructiveHint: true } : {}, server: 'dev', review: { route, cls, kind: 'action' } })
 
 const fakeReview = (answer: ReviewRecord | (() => ReviewRecord)) => {
-  const calls: Array<{ call: ProposedCall, exposure: Exposure }> = []
+  const calls: Array<{ call: ProposedCall, exposure: Exposure, earlierCalls: EarlierCall[] }> = []
   return {
     calls,
-    review: async (call: ProposedCall, exposure: Exposure) => {
-      calls.push({ call, exposure })
+    review: async (call: ProposedCall, exposure: Exposure, earlierCalls: EarlierCall[]) => {
+      calls.push({ call, exposure, earlierCalls })
       return typeof answer === 'function' ? answer() : answer
     }
   }
@@ -34,6 +34,7 @@ const gateWith = (opts: {
   history?: ModelMessage[]
   exposure?: (messages: ModelMessage[]) => Exposure
   budgetSpent?: () => boolean
+  earlier?: { calls: EarlierCall[], afterMessage: number }
 }) => {
   const fake = fakeReview(opts.answer ?? record('allow'))
   const gate = createReviewGate({
@@ -42,7 +43,8 @@ const gateWith = (opts: {
     surface: opts.surface ?? 'chat',
     review: fake.review,
     exposure: opts.exposure ?? (() => ({ exposed: false, tools: [] })),
-    ...(opts.budgetSpent ? { budgetSpent: opts.budgetSpent } : {})
+    ...(opts.budgetSpent ? { budgetSpent: opts.budgetSpent } : {}),
+    ...(opts.earlier ? { earlier: opts.earlier } : {})
   })
   return { gate, fake }
 }
@@ -312,5 +314,38 @@ test.describe('review gate (unit)', () => {
     const { gate } = gateWith({ tools: { list_road_closures: { annotations: { readOnlyHint: true } } } })
     await assert.rejects(gate.reviewNested('n1', 'list_road_closures', {}))
     await assert.rejects(gate.reviewNested('n2', 'missing', {}))
+  })
+})
+
+test.describe('The reviewer sees earlier calls', () => {
+  const earlierDenied: EarlierCall = { toolName: 'delete_note', input: { note: 'a' }, decision: 'refused-by-reviewer', reason: 'not asked', afterMessage: 1 }
+
+  test('each review gets the earlier turns\' calls, then this turn\'s, as decided', async () => {
+    let n = 0
+    const answers = [record('deny', { reason: 'no' }), record('allow')]
+    const fake = fakeReview(() => answers[n++] ?? record('allow'))
+    const gate = createReviewGate({
+      tools: () => ({ set_note: reviewed('reviewer'), delete_note: reviewed('reviewer+person', 'destructive') }),
+      history: [],
+      surface: 'chat',
+      review: fake.review,
+      exposure: () => ({ exposed: false, tools: [] }),
+      earlier: { calls: [earlierDenied], afterMessage: 2 }
+    })
+    await decide(gate, 'set_note', { toolCallId: 'a', input: { note: 'x' } })
+    await decide(gate, 'set_note', { toolCallId: 'b', input: { note: 'y' } })
+    await decide(gate, 'delete_note', { toolCallId: 'c', input: { note: 'z' } })
+    assert.deepEqual(fake.calls[0].earlierCalls, [earlierDenied])
+    assert.deepEqual(fake.calls[1].earlierCalls.slice(1), [{ toolName: 'set_note', input: { note: 'x' }, decision: 'refused-by-reviewer', reason: 'no', afterMessage: 2 }])
+    assert.deepEqual(fake.calls[2].earlierCalls.at(-1), { toolName: 'set_note', input: { note: 'y' }, decision: 'allowed-by-reviewer', afterMessage: 2 })
+  })
+
+  test('a script\'s calls are marked, and an allow on the reviewer+person route awaits a person', async () => {
+    const { gate, fake } = gateWith({ tools: { set_note: reviewed('reviewer'), delete_note: reviewed('reviewer+person', 'destructive') } })
+    await gate.reviewNested('s:tool-1', 'set_note', { note: 'x' })
+    await decide(gate, 'delete_note', { toolCallId: 'd' })
+    await decide(gate, 'set_note', { toolCallId: 'e' })
+    assert.deepEqual(fake.calls[1].earlierCalls, [{ toolName: 'set_note', input: { note: 'x' }, decision: 'allowed-by-reviewer', inScript: true, afterMessage: 0 }])
+    assert.equal(fake.calls[2].earlierCalls[1].decision, 'awaiting-person')
   })
 })

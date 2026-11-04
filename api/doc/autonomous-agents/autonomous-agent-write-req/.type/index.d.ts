@@ -12,7 +12,7 @@ export type Name = string;
  */
 export type Persona = string;
 /**
- * How it should work: procedures, constraints, what to do when unsure.
+ * How it should work: procedures, constraints, what to do when unsure. The automatic review of its changes reads these instructions too: say which changes are routine ("updating the until date of a closure is routine") and what is out of bounds ("only work on the datasets X and Y").
  */
 export type Instructions = string;
 export type Server = string;

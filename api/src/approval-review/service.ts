@@ -19,12 +19,12 @@ import { newNonce, meterGuardCall, classifyTwoStage } from '../guard/service.ts'
 import {
   reviewOutcomeToRecord, isConfirmationOnly, reviewUnavailableEvent, REVIEW_CLEARED, REVIEW_STAGE1_TIMEOUT_MS, REVIEW_STAGE2_TIMEOUT_MS,
   modelUnavailableRecord,
-  type Exposure, type ProposedCall, type ReviewIntent, type ReviewRecord, type ReviewVerdict
+  type EarlierCall, type Exposure, type ProposedCall, type ReviewIntent, type ReviewRecord, type ReviewVerdict
 } from './operations.ts'
 import { reviewStage1, reviewStage2 } from './classifier.ts'
 import { pushTaskEvent } from '../tasks/notifications.ts'
 
-export type TurnReviewer = (call: ProposedCall, exposure: Exposure) => Promise<ReviewRecord>
+export type TurnReviewer = (call: ProposedCall, exposure: Exposure, earlierCalls: EarlierCall[]) => Promise<ReviewRecord>
 
 export const createTurnReviewer = (ctx: {
   run: ConversationRun
@@ -94,8 +94,8 @@ export const createTurnReviewer = (ctx: {
   // The turn's abort reaches each stage call beside the engine's own timeout.
   const withTurn = (signal: AbortSignal) => AbortSignal.any([signal, ctx.abortSignal])
 
-  return async (call, exposure) => {
-    const input = { intent: ctx.intent, call, exposure, nonce: newNonce() }
+  return async (call, exposure, earlierCalls) => {
+    const input = { intent: ctx.intent, earlierCalls, call, exposure, nonce: newNonce() }
     // A destructive call, a grant and a call whose arguments were cut always reach stage 2: a stage-1 "no" may
     // stand as an allow only for a write shown whole (isConfirmationOnly).
     const confirmationOnly = isConfirmationOnly(call)

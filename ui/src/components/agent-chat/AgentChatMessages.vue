@@ -146,6 +146,13 @@
                           class="agent-chat__tool-call-detail"
                           :invocation="invocation"
                         />
+                        <!-- The way past a reviewer's denial is the person's own words, which the next review
+                             reads: no override button, which would be the reflex click again. -->
+                        <span
+                          v-if="!readonly && invocation.state === 'denied' && invocation.deniedByReviewer"
+                          class="text-caption text-medium-emphasis ms-2"
+                          data-testid="reviewer-denied-hint"
+                        >{{ t('reviewerDeniedHint') }}</span>
                       </div>
                     </template>
                   </div>
@@ -323,6 +330,7 @@ fr:
   waitingChip: "En attente : {name}"
   declinedChip: "Refusé : {name}"
   reviewerDeniedChip: "Refusé par le relecteur : {name}"
+  reviewerDeniedHint: Si vous voulez que ce soit fait, dites-le à l'agent.
   approvedChip: "Approuvé : {name}"
   waitedChip: "A attendu : {name}"
   toolReadSkill: "Lire le guide : {name}"
@@ -362,6 +370,7 @@ en:
   waitingChip: "Waiting for: {name}"
   declinedChip: "Declined: {name}"
   reviewerDeniedChip: "Denied by the reviewer: {name}"
+  reviewerDeniedHint: If you want this done, tell the agent so.
   approvedChip: "Approved: {name}"
   waitedChip: "Waited for: {name}"
   toolReadSkill: "Read guide: {name}"

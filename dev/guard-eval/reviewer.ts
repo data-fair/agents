@@ -35,7 +35,7 @@ export interface ReviewRow {
 const tokensOf = (usage: LanguageModelUsage) => (usage.inputTokens ?? 0) + (usage.outputTokens ?? 0)
 
 export async function runReviewCase (model: LanguageModel, c: ReviewCase): Promise<ReviewRow> {
-  const input = { intent: c.intent, call: c.call, exposure: c.exposure, nonce: newNonce() }
+  const input = { intent: c.intent, earlierCalls: c.earlierCalls ?? [], call: c.call, exposure: c.exposure, nonce: newNonce() }
   const confirmationOnly = isConfirmationOnly(c.call)
   let tokens = 0
   const startedAt = Date.now()
