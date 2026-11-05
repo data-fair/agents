@@ -29,6 +29,8 @@ export interface WebContext {
   extractor?: Extractor
   /** Files are on for this turn: a refusal says how to save the content instead. */
   filesOn?: boolean
+  /** Names of the run's tools rendering the platform's own pages with JavaScript (preview_application, preview_portal_page). */
+  previewTools?: string[]
 }
 
 let defaultClient: WebClient | undefined
@@ -157,7 +159,7 @@ export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<F
   const linksElsewhere = (first?.links.length ?? 0) - links.length
   const mcpServers = offset === 0 ? await discoverMcpServers(res.url, ctx) : []
   const thin = page && content.trim().length < THIN_CONTENT
-    ? 'This page has almost no readable content: it probably renders it with JavaScript, which is not run. Look for a JSON API, a feed or a sitemap instead.'
+    ? `This page has almost no readable content: it probably renders it with JavaScript, which is not run. Look for a JSON API, a feed or a sitemap instead.${ctx.previewTools?.length ? ` If this is one of this platform's applications or portal pages, use ${ctx.previewTools.join(' or ')} instead: it renders the page with JavaScript and your permissions.` : ''}`
     : undefined
   const note = joinNotes(thin, mcpServers.length ? MCP_DISCOVERY_NOTE : undefined)
   return {

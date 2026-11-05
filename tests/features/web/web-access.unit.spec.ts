@@ -189,6 +189,13 @@ test.describe('web access', () => {
     assert.match(spa.note ?? '', /JavaScript/)
   })
 
+  test('names the preview tools on a JavaScript shell when the run has them', async () => {
+    const plain = await fetchUrl({ url: `${base}/spa` }, context())
+    const withTools = await fetchUrl({ url: `${base}/spa` }, { ...context(), previewTools: ['datafair_preview_application'] })
+    assert.equal(withTools.note, `${plain.note} If this is one of this platform's applications or portal pages, use datafair_preview_application instead: it renders the page with JavaScript and your permissions.`)
+    assert.doesNotMatch(plain.note ?? '', /preview/)
+  })
+
   test('reports what cannot be read', async () => {
     await assert.rejects(fetchUrl({ url: `${base}/big` }, context({ maxBodyBytes: 1000 })), /larger than 1000 bytes/)
     await assert.rejects(fetchUrl({ url: `${base}/bot` }, context()), /bot protection, HTTP 403/)

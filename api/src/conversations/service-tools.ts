@@ -91,6 +91,8 @@ interface ServiceToolEntry {
   build: (ctx: ServiceToolContext, into: BuiltServiceTools) => Promise<void>
 }
 
+const PREVIEW_TOOL_SUFFIXES = ['preview_application', 'preview_portal_page']
+
 const ENTRIES: ServiceToolEntry[] = [
   {
     // `wait_for_user_action`: only when someone is actually there to act, on a page the agent works
@@ -147,10 +149,12 @@ const ENTRIES: ServiceToolEntry[] = [
     // offering it to anyone else would end their turn on a card they cannot decide. A run continuing
     // from a decision was started by the decider, so the approved call finds its tool there.
     applies: ctx => !isPersonalAgentId(ctx.agent.id) && !!ctx.agent.web?.enabled,
-    build: async ({ agent, run, surface, files }, into) => {
+    build: async ({ agent, run, surface, files, catalog }, into) => {
       // One array for the run: an approved request extends it in place, so the readers see the new URLs.
       const allowedUrls = [...(agent.web?.allowedUrls ?? [])]
-      const tools = createWebTools({ allowedUrls, ...(files ? { files } : {}) })
+      // The platform's preview tools (data-fair, portals) render its own pages with JavaScript: fetch_url names them.
+      const previewTools = Object.keys(catalog?.tools ?? {}).filter(name => PREVIEW_TOOL_SUFFIXES.some(suffix => name.endsWith(suffix)))
+      const tools = createWebTools({ allowedUrls, ...(files ? { files } : {}), ...(previewTools.length ? { previewTools } : {}) })
       if (surface === 'chat' && run.triggeredByRole === 'admin') {
         tools[REQUEST_WEB_ACCESS_TOOL_NAME] = createRequestWebAccessTool({ allowedUrls, save: urls => saveWebAllowedUrls(agent, urls) })
       }
