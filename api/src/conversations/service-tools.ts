@@ -25,6 +25,7 @@ import type { TurnFiles } from '../files/turn-files.ts'
 import { createFileTools, createFileCodeExecutes, FILE_CODE_SIGNATURES } from '../files/tools.ts'
 import { FILES_SERVER_ID, FILE_TOOL_ANNOTATIONS } from '../files/operations.ts'
 import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS, FETCH_URL_WITH_FILES_ANNOTATIONS, FETCH_URL_TOOL_NAME } from '../web/tools.ts'
+import { selectPreviewTools } from '../web/preview-tools.ts'
 import { WEB_SERVER_ID } from '../web/operations.ts'
 import { createRequestMcpAccessTool } from '../mcp-servers/external.ts'
 import { createReadSkillTool, READ_SKILL_TOOL_NAME, READ_SKILL_ANNOTATIONS, SKILLS_SERVER_ID } from '../mcp-servers/read-skill.ts'
@@ -91,8 +92,6 @@ interface ServiceToolEntry {
   build: (ctx: ServiceToolContext, into: BuiltServiceTools) => Promise<void>
 }
 
-const PREVIEW_TOOL_SUFFIXES = ['preview_application', 'preview_portal_page']
-
 const ENTRIES: ServiceToolEntry[] = [
   {
     // `wait_for_user_action`: only when someone is actually there to act, on a page the agent works
@@ -153,7 +152,7 @@ const ENTRIES: ServiceToolEntry[] = [
       // One array for the run: an approved request extends it in place, so the readers see the new URLs.
       const allowedUrls = [...(agent.web?.allowedUrls ?? [])]
       // The platform's preview tools (data-fair, portals) render its own pages with JavaScript: fetch_url names them.
-      const previewTools = Object.keys(catalog?.tools ?? {}).filter(name => PREVIEW_TOOL_SUFFIXES.some(suffix => name.endsWith(suffix)))
+      const previewTools = selectPreviewTools(catalog?.tools)
       const tools = createWebTools({ allowedUrls, ...(files ? { files } : {}), ...(previewTools.length ? { previewTools } : {}) })
       if (surface === 'chat' && run.triggeredByRole === 'admin') {
         tools[REQUEST_WEB_ACCESS_TOOL_NAME] = createRequestWebAccessTool({ allowedUrls, save: urls => saveWebAllowedUrls(agent, urls) })
