@@ -24,6 +24,7 @@ import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '
 import { getSettings } from '../settings/service.ts'
 import { deleteConversationFiles } from '../files/service.ts'
 import log from '@data-fair/lib-node/log.js'
+import { dropScriptPause, dropConversationScriptPauses } from '../code-mode/pauses.ts'
 
 const debug = Debug('df-agents:conversations')
 
@@ -139,8 +140,12 @@ export const archiveConversation = async (conversationId: string): Promise<boole
     { $set: { archivedAt: new Date().toISOString() } },
     { projection: { _id: 0, owner: 1 } }
   )
-  // Its files go at once: they are not review material (docs/architecture/agent-files.md).
-  if (archived) await deleteConversationFiles(archived.owner, conversationId)
+  // Its files go at once: they are not review material (docs/architecture/agent-files.md). Nor is a paused script's
+  // continuation, which no decision can resume once the thread is gone.
+  if (archived) {
+    await deleteConversationFiles(archived.owner, conversationId)
+    await dropConversationScriptPauses([conversationId])
+  }
   return !!archived
 }
 
@@ -150,6 +155,8 @@ export const purgeConversation = async (conversationId: string): Promise<{ messa
   if (conversation) await deleteConversationFiles(conversation.owner, conversationId)
   const messages = await mongo.messages.deleteMany({ conversationId })
   const runs = await mongo.runs.deleteMany({ conversationId })
+  // What a paused script's calls returned is the thread's content too (api/src/code-mode/pauses.ts).
+  await dropConversationScriptPauses([conversationId])
   await mongo.conversations.deleteOne({ id: conversationId })
   return { messages: messages.deletedCount, runs: runs.deletedCount }
 }
@@ -594,8 +601,17 @@ export const rejectPendingApprovals = async (
         ]
       }
   // The messages it will change, by seq, so the watching page can be sent exactly those afterwards.
-  const seqs = (await mongo.messages.find(filter, { projection: { _id: 0, seq: 1 } }).toArray()).map(m => m.seq)
+  const affected = await mongo.messages.find(filter, { projection: { _id: 0, seq: 1, parts: 1 } }).toArray()
+  const seqs = affected.map(m => m.seq)
   if (!seqs.length) return 0
+  // A paused script whose card is refused here never resumes: its continuation (what its calls returned) goes now.
+  for (const message of affected) {
+    for (const part of (message.parts ?? []) as MessagePart[]) {
+      if (part.type === 'dynamic-tool' && part.state === 'approval-requested' && (part.toolMetadata as { nested?: unknown } | undefined)?.nested) {
+        await dropScriptPause(conversationId, part.toolCallId)
+      }
+    }
+  }
   // Only the messages read just above: one that starts matching in between is left for the next
   // rejection rather than changed without the watcher being sent it.
   const result = await mongo.messages.updateMany(

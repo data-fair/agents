@@ -271,7 +271,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // SCRIPTS PAUSED FOR A PERSON (api/src/code-mode): in a chat, a script's call needing a person pauses it, its
   // continuation kept by the target until the decision; the approval run then resumes it (resumeDecidedScripts).
   const scriptPauses = target.surface === 'chat' && target.scriptPauses
-    ? createScriptPauses((toolCallId, interrupt) => target.scriptPauses!.store(toolCallId, interrupt))
+    ? createScriptPauses((toolCallId, interrupt, decisions) => target.scriptPauses!.store(toolCallId, interrupt, decisions))
     : undefined
 
   /**

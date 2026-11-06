@@ -10,6 +10,7 @@
 import type { CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
 import type { AccountKeys } from '@data-fair/lib-express'
 import mongo from '#mongo'
+import type { ScriptDecision } from './code-tools.ts'
 
 export interface ScriptPause {
   conversationId: string
@@ -21,6 +22,11 @@ export interface ScriptPause {
    * free of the keys BSON treats specially (`$…`, dotted), which the script's data may hold.
    */
   interrupt: string
+  /**
+   * The person's decisions made on this continuation before it paused again (parallel calls pending together): each
+   * of those calls runs, or throws, only when the script runs again, and must find its decision then.
+   */
+  decisions: ScriptDecision[]
   createdAt: Date
   /** The continuation's own expiry, for the TTL index. */
   expiresAt: Date
@@ -30,23 +36,31 @@ export interface ScriptPause {
 export const SCRIPT_PAUSE_MAX_BYTES = 15 * 1024 * 1024
 
 /** Store a paused script's continuation. False when it is too large to keep: the script cannot wait then. */
-export const storeScriptPause = async (pause: { conversationId: string, toolCallId: string, owner: AccountKeys, interrupt: CodeModeApprovalInterrupt }): Promise<boolean> => {
+export const storeScriptPause = async (pause: { conversationId: string, toolCallId: string, owner: AccountKeys, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[] }): Promise<boolean> => {
   const interrupt = JSON.stringify(pause.interrupt)
   if (Buffer.byteLength(interrupt) > SCRIPT_PAUSE_MAX_BYTES) return false
   const expiresAt = new Date(pause.interrupt.continuation.auth.expiresAtMs)
   await mongo.scriptPauses.replaceOne(
     { conversationId: pause.conversationId, toolCallId: pause.toolCallId },
-    { conversationId: pause.conversationId, toolCallId: pause.toolCallId, owner: { type: pause.owner.type, id: pause.owner.id, ...(pause.owner.department ? { department: pause.owner.department } : {}) }, interrupt, createdAt: new Date(), expiresAt },
+    { conversationId: pause.conversationId, toolCallId: pause.toolCallId, owner: { type: pause.owner.type, id: pause.owner.id, ...(pause.owner.department ? { department: pause.owner.department } : {}) }, interrupt, decisions: pause.decisions.map(d => ({ toolCallId: d.toolCallId, approved: d.approved, ...(d.reason !== undefined ? { reason: d.reason } : {}) })), createdAt: new Date(), expiresAt },
     { upsert: true }
   )
   return true
 }
 
-export const scriptPauseOf = async (conversationId: string, toolCallId: string): Promise<CodeModeApprovalInterrupt | undefined> => {
-  const stored = await mongo.scriptPauses.findOne({ conversationId, toolCallId }, { projection: { _id: 0, interrupt: 1 } })
-  return stored ? JSON.parse(stored.interrupt) : undefined
+export const scriptPauseOf = async (conversationId: string, toolCallId: string): Promise<{ interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[] } | undefined> => {
+  const stored = await mongo.scriptPauses.findOne({ conversationId, toolCallId }, { projection: { _id: 0, interrupt: 1, decisions: 1 } })
+  return stored ? { interrupt: JSON.parse(stored.interrupt), decisions: stored.decisions ?? [] } : undefined
 }
 
 export const dropScriptPause = async (conversationId: string, toolCallId: string): Promise<void> => {
   await mongo.scriptPauses.deleteOne({ conversationId, toolCallId })
+}
+
+/**
+ * Every paused script of these conversations, with them: what their calls returned is the conversation's content,
+ * and goes when it is deleted, not when the TTL comes.
+ */
+export const dropConversationScriptPauses = async (conversationIds: string[]): Promise<void> => {
+  if (conversationIds.length) await mongo.scriptPauses.deleteMany({ conversationId: { $in: conversationIds } })
 }

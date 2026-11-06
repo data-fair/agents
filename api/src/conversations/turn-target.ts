@@ -37,6 +37,7 @@ import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type
 import { updateMessage, settleStoredToolPart, repauseStoredScript, storeEarlierScriptTrace, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
 import { storeScriptPause, scriptPauseOf, dropScriptPause } from '../code-mode/pauses.ts'
 import type { CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
+import type { ScriptDecision } from '../code-mode/code-tools.ts'
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { livePartsOf } from './live-runs.ts'
 import { reviewContextOfConversation, type ReviewContext } from '../approval-review/operations.ts'
@@ -72,6 +73,8 @@ export interface DecidedScriptPause {
   part: Extract<MessagePart, { type: 'dynamic-tool' }>
   /** Its continuation; none once expired (the TTL removed it). */
   interrupt?: CodeModeApprovalInterrupt
+  /** The decisions made on that continuation before it paused again (parallel calls), the latest excluded. */
+  earlierDecisions: ScriptDecision[]
   /** Its trace so far: the calls made before the pause. */
   trace: MessagePart[]
 }
@@ -80,7 +83,7 @@ export interface TurnScriptPauses {
   /** The previous message's paused scripts the person has decided on: what this turn resumes first. */
   decided: () => Promise<DecidedScriptPause[]>
   /** Keep a pause's continuation for its decision; false when too large to keep. */
-  store: (toolCallId: string, interrupt: CodeModeApprovalInterrupt) => Promise<boolean>
+  store: (toolCallId: string, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[]) => Promise<boolean>
   /** A resumed script that paused again: its earlier part asks once more (repauseStoredScript). */
   repause: (toolCallId: string, ask: { approvalId: string, toolMetadata: Record<string, unknown> }) => Promise<void>
   /** A resumed script's whole trace, onto its earlier message. */
@@ -288,12 +291,12 @@ export const conversationTarget = (
         for (const part of parts) {
           if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded' || !(part.toolMetadata as { nested?: unknown } | undefined)?.nested) continue
           const trace = parts.find(p => p.type === 'data-trace' && (p as { data?: { parentToolCallId?: string } }).data?.parentToolCallId === part.toolCallId) as { data?: { parts?: MessagePart[] } } | undefined
-          const interrupt = await scriptPauseOf(run.conversationId, part.toolCallId)
-          decided.push({ part, ...(interrupt ? { interrupt } : {}), trace: trace?.data?.parts ?? [] })
+          const pause = await scriptPauseOf(run.conversationId, part.toolCallId)
+          decided.push({ part, ...(pause ? { interrupt: pause.interrupt } : {}), earlierDecisions: pause?.decisions ?? [], trace: trace?.data?.parts ?? [] })
         }
         return decided
       },
-      store: async (toolCallId, interrupt) => await storeScriptPause({ conversationId: run.conversationId, toolCallId, owner: run.owner, interrupt }),
+      store: async (toolCallId, interrupt, decisions) => await storeScriptPause({ conversationId: run.conversationId, toolCallId, owner: run.owner, interrupt, decisions }),
       // The page is shown the new card once this run is closed (close, below): decided while the run still finishes,
       // its finishRun would settle the call as not run (settleApprovedWithoutResult).
       repause: async (toolCallId, ask) => {

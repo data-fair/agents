@@ -127,8 +127,16 @@ export interface TurnCalls { count: number, max?: number }
 /** What a script's calls go through in a configured agent's turn: its review gate. The personal assistant has none. */
 export type NestedReview = Pick<ReviewGate, 'reviewNested' | 'noteNested'>
 
-/** A paused script's decision, to resume it with: the person's, on the call the continuation stopped at. */
-export interface ScriptResume { interrupt: CodeModeApprovalInterrupt, approved: boolean, reason?: string }
+/** The person's decision on one call a script paused on. */
+export interface ScriptDecision { toolCallId: string, approved: boolean, reason?: string }
+
+/**
+ * A paused script to resume: its continuation, and EVERY decision made on it so far, the latest on the call it
+ * stopped at. Several calls can be pending in one continuation (parallel calls): the package answers the earlier
+ * decisions without running anything, and runs those calls only once the last is decided — each must then still
+ * find its own decision (a rejection throwing, an approval not reviewed again).
+ */
+export interface ScriptResume { interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[] }
 
 /**
  * THE SCRIPTS OF A TURN THAT WAIT FOR A PERSON (a chat turn only), shared by every step's map and code_mode tool:
@@ -139,8 +147,8 @@ export interface ScriptResume { interrupt: CodeModeApprovalInterrupt, approved: 
 export interface ScriptPauses {
   paused: Map<string, CodeModeApprovalInterrupt>
   resumes: Map<string, ScriptResume>
-  /** Store a pause's continuation where the decision will find it; false when too large to keep. */
-  keep: (toolCallId: string, interrupt: CodeModeApprovalInterrupt) => Promise<boolean>
+  /** Store a pause's continuation, with the decisions made on it so far, where the next decision will find it; false when too large to keep. */
+  keep: (toolCallId: string, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[]) => Promise<boolean>
 }
 export const createScriptPauses = (keep: ScriptPauses['keep']): ScriptPauses => ({ paused: new Map(), resumes: new Map(), keep })
 
@@ -148,9 +156,12 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
   const out: Record<string, Tool> = {}
   // A person can decide in this turn: a call needing one pauses the script instead of being refused.
   const person = !!opts.pauses
-  // The call a resumed script stopped at, the person having decided it: neither reviewed again nor asked about.
-  const resumedCall = (toolCallId: string): ScriptResume | undefined => {
-    for (const resume of opts.pauses?.resumes.values() ?? []) if (resume.interrupt.toolCallId === toolCallId) return resume
+  // A call of a resumed script the person decided: neither reviewed again nor asked about.
+  const resumedCall = (toolCallId: string): ScriptDecision | undefined => {
+    for (const resume of opts.pauses?.resumes.values() ?? []) {
+      const decision = resume.decisions.find(d => d.toolCallId === toolCallId)
+      if (decision) return decision
+    }
   }
   // A review made to decide whether to pause (needsApproval), read again by the call it decided (execute).
   const records = new Map<string, ReviewRecord>()

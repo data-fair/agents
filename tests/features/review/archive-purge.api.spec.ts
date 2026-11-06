@@ -74,6 +74,22 @@ test.describe('Purging a conversation', () => {
     assert.deepEqual(await counts(conversationId), { conversations: 0, messages: 0, runs: 0 })
   })
 
+  // A paused script's continuation holds what its calls returned (api/src/code-mode/pauses.ts): it goes with the thread,
+  // not 24 h later with its TTL — when the person deletes it, and when it is purged.
+  test('a paused script\'s continuation goes when the thread is deleted, and when it is purged', async () => {
+    const pause = (conversationId: string) => ({ conversationId, toolCallId: 'cm', owner: { type: 'user', id: 'test-standalone1' }, interrupt: '{}', decisions: [], createdAt: new Date(), expiresAt: new Date(Date.now() + 3600_000) })
+    const pauses = (conversationId: string) => db.collection('script-pauses').countDocuments({ conversationId })
+    const deleted = await runTurn(user, OWNER)
+    await db.collection('script-pauses').insertOne(pause(deleted.conversationId))
+    await user.delete(`/api/conversations/${OWNER}/${deleted.conversationId}`)
+    assert.equal(await pauses(deleted.conversationId), 0, 'dropped when the person deletes the thread')
+
+    const purged = await runTurn(user, OWNER)
+    await db.collection('script-pauses').insertOne(pause(purged.conversationId))
+    await admin.delete(`/api/review/${OWNER}/${purged.conversationId}`)
+    assert.equal(await pauses(purged.conversationId), 0, 'dropped by the purge')
+  })
+
   test('a per-user erasure leaves nothing behind either', async () => {
     // The GDPR path, which must be at least as thorough as the others.
     const { conversationId } = await runTurn(user, OWNER)

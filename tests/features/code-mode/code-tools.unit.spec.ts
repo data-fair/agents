@@ -379,7 +379,7 @@ test.describe('a script paused on an approval (the package)', () => {
 /** Ours, over the package: a chat's script pauses on a call that needs a person, and resumes from its decision. */
 test.describe('a script paused for a person (createScriptTool, codeFacingTools)', () => {
   const opts = (toolCallId: string) => ({ toolCallId, messages: [], context: {} }) as any
-  const setup = (fixedOver: (ran: string[]) => any, reviewNested?: (id: string, name: string, input: any) => any, keep = async () => true) => {
+  const setup = (fixedOver: (ran: string[]) => any, reviewNested?: (id: string, name: string, input: any) => any, keep: (id: string, interrupt: any, decisions: any[]) => Promise<boolean> = async () => true) => {
     const ran: string[] = []
     const reviewed: string[] = []
     const pauses = createScriptPauses(keep)
@@ -419,7 +419,7 @@ test.describe('a script paused for a person (createScriptTool, codeFacingTools)'
       await assert.rejects(build().execute!({ js }, opts('cmR')))
       const interrupt = pauses.paused.get('cmR')!
       pauses.paused.clear()
-      pauses.resumes.set('cmR', { interrupt, approved, ...(approved ? {} : { reason: 'not today' }) })
+      pauses.resumes.set('cmR', { interrupt, decisions: [{ toolCallId: interrupt.toolCallId, approved, ...(approved ? {} : { reason: 'not today' }) }] })
       const out = String(await build().execute!({ js }, opts('cmR')))
       if (approved) {
         assert.equal(out, 'got written')
@@ -447,7 +447,8 @@ test.describe('a script paused for a person (createScriptTool, codeFacingTools)'
     const remove = await build().execute!({ js: 'await tools.remove({ v: "yes" }); return "end"' }, opts('cmW')).catch((err: unknown) => err)
     assert.ok(remove instanceof ScriptPausedError, 'an allow on reviewer+person asks the person')
     assert.deepEqual(reviewed, ['note:no', 'note:yes', 'note:maybe', 'remove:yes'])
-    pauses.resumes.set('cmW', { interrupt: pauses.paused.get('cmW')!, approved: true })
+    const removeInterrupt = pauses.paused.get('cmW')!
+    pauses.resumes.set('cmW', { interrupt: removeInterrupt, decisions: [{ toolCallId: removeInterrupt.toolCallId, approved: true }] })
     assert.equal(await build().execute!({ js: 'await tools.remove({ v: "yes" }); return "end"' }, opts('cmW')), 'end')
     assert.deepEqual(ran, ['note:yes', 'remove:yes'])
     assert.deepEqual(reviewed, ['note:no', 'note:yes', 'note:maybe', 'remove:yes'], 'not reviewed again on resume')
@@ -458,12 +459,54 @@ test.describe('a script paused for a person (createScriptTool, codeFacingTools)'
     await assert.rejects(build().execute!({ js }, opts('cmT')))
     const tampered = structuredClone(pauses.paused.get('cmT')!)
     tampered.continuation.js = tampered.continuation.js.replace('"a"', '"b"')
-    pauses.resumes.set('cmT', { interrupt: tampered, approved: true })
+    pauses.resumes.set('cmT', { interrupt: tampered, decisions: [{ toolCallId: tampered.toolCallId, approved: true }] })
     await assert.rejects(build().execute!({ js }, opts('cmT')), (err: any) => err.message === SCRIPT_RESUME_FAILED_MESSAGE)
 
     const full = setup(gated, undefined, async () => false)
     await assert.rejects(full.build().execute!({ js }, opts('cmL')), (err: any) => err.message === scriptPauseTooLargeMessage('write'))
     assert.equal(full.pauses.paused.size, 0)
+  })
+
+  // Parallel calls pending in one continuation: the package answers the first decision with the next pause without
+  // running anything, and runs both only after the last. Each call must find its own decision then.
+  const parallel = async (first: boolean, second: boolean, reviewNested?: (id: string, name: string, input: any) => any) => {
+    const kept = new Map<string, any[]>()
+    const fixed = (ran: string[]) => ({
+      write: { tool: { ...plain(async (input: any) => { ran.push(`write:${input.v}`); return 'written' }), needsApproval: true }, server: 'dev', ...(reviewNested ? { review: { route: 'reviewer+person', cls: 'write', kind: 'action' } } : {}) }
+    })
+    const { ran, reviewed, pauses, build } = setup(fixed, reviewNested, async (id: string, _interrupt: any, decisions: any[]) => { kept.set(id, decisions); return true })
+    const js = 'const r = await Promise.allSettled([tools.write({ v: "a" }), tools.write({ v: "b" })]); return r.map(x => x.status + ":" + (x.value ?? x.reason?.message)).join("|")'
+    await assert.rejects(build().execute!({ js }, opts('cmP2')), (err: any) => err instanceof ScriptPausedError)
+    const one = pauses.paused.get('cmP2')!
+    pauses.paused.clear()
+    assert.equal((one as any).continuation.pendingInterruptions.length, 2)
+    // The first decision: the script pauses again on the second call, nothing ran.
+    pauses.resumes.set('cmP2', { interrupt: one, decisions: [{ toolCallId: one.toolCallId, approved: first, ...(first ? {} : { reason: 'no' }) }] })
+    await assert.rejects(build().execute!({ js }, opts('cmP2')), (err: any) => err instanceof ScriptPausedError)
+    pauses.resumes.clear()
+    const two = pauses.paused.get('cmP2')!
+    pauses.paused.clear()
+    assert.notEqual(two.toolCallId, one.toolCallId)
+    assert.deepEqual(ran, [])
+    // The store was handed the first decision with the second pause: what the next resume reads back.
+    const earlier = kept.get('cmP2')!
+    assert.deepEqual(earlier.map(d => [d.toolCallId, d.approved]), [[one.toolCallId, first]])
+    pauses.resumes.set('cmP2', { interrupt: two, decisions: [...earlier, { toolCallId: two.toolCallId, approved: second }] })
+    const out = String(await build().execute!({ js }, opts('cmP2')))
+    return { ran, reviewed, out }
+  }
+
+  test('parallel calls: the first rejected, the second approved — only the second runs', async () => {
+    const { ran, out } = await parallel(false, true)
+    assert.deepEqual(ran, ['write:b'])
+    assert.equal(out, `rejected:${rejectedCallMessage('write', 'no')}|fulfilled:written`)
+  })
+
+  test('parallel calls both approved: both run, neither reviewed again', async () => {
+    const { ran, reviewed, out } = await parallel(true, true, () => ({ outcome: 'unsure', reason: 'r', code: 'judged' }))
+    assert.deepEqual([...ran].sort(), ['write:a', 'write:b'])
+    assert.equal(out, 'fulfilled:written|fulfilled:written')
+    assert.deepEqual(reviewed, ['write:a', 'write:b'], 'reviewed once each, before the pause')
   })
 
   test('without a person (a task run), a tool needing approval stays out of the map', () => {

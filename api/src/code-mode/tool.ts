@@ -98,7 +98,7 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
       // Only approvals interrupt here: no tool of ours requests any other interrupt.
       if (!isCodeModeApprovalInterrupt(unwrapped.interrupt)) throw new Error(scriptErrorMessage(new Error('the script was interrupted for something other than an approval'), policy))
       // Stored before the step ends, so the loop stops on it (stopWhen) only once it can resume.
-      if (!await pauses.keep(executionOptions.toolCallId, unwrapped.interrupt)) throw new Error(scriptPauseTooLargeMessage(unwrapped.interrupt.toolName))
+      if (!await pauses.keep(executionOptions.toolCallId, unwrapped.interrupt, resumed?.decisions ?? [])) throw new Error(scriptPauseTooLargeMessage(unwrapped.interrupt.toolName))
       pauses.paused.set(executionOptions.toolCallId, unwrapped.interrupt)
       throw new ScriptPausedError()
     }

@@ -23,8 +23,10 @@ type ToolPart = Extract<MessagePart, { type: 'dynamic-tool' }>
  * description and files) is replaced for the call the script stopped at now, and a decision is the earlier one's.
  */
 export const callMetadataBeforeCard = (toolMetadata: unknown): Record<string, unknown> => {
-  const { nested: _n, review: _r, description: _d, files: _f, decision: _decision, ...rest } = (toolMetadata ?? {}) as Record<string, unknown>
-  return rest
+  const { nested, review: _r, description: _d, files: _f, decision, earlierDecisions, ...rest } = (toolMetadata ?? {}) as Record<string, unknown>
+  // The decision just made stays on the record, with the call it was on: the earlier cards of the same script.
+  const kept = Array.isArray(earlierDecisions) ? earlierDecisions : []
+  return { ...rest, ...(decision ? { earlierDecisions: [...kept, { ...(decision as object), ...(nested ? { nested } : {}) }] } : kept.length ? { earlierDecisions: kept } : {}) }
 }
 
 /**
@@ -70,14 +72,16 @@ export interface ResumeContext {
 export const resumeDecidedScripts = async (ctx: ResumeContext): Promise<{ repausedOn?: string }> => {
   const decided = await ctx.store.decided()
   let repausedOn: string | undefined
-  for (const { part, interrupt, trace } of decided) {
+  for (const { part, interrupt, earlierDecisions, trace } of decided) {
     const approval = (part as { approval?: { approved?: boolean, reason?: string } }).approval
     const codeTool = ctx.codeTool()
     let settled: CallSettlement
     if (!interrupt || !codeTool?.execute) {
       settled = { state: 'output-error', errorText: SCRIPT_RESUME_FAILED_MESSAGE }
     } else {
-      ctx.pauses.resumes.set(part.toolCallId, { interrupt, approved: approval?.approved === true, ...(approval?.reason ? { reason: approval.reason } : {}) })
+      // Every decision of this continuation, the earlier ones of calls pending with it included.
+      const latest = { toolCallId: interrupt.toolCallId, approved: approval?.approved === true, ...(approval?.reason ? { reason: approval.reason } : {}) }
+      ctx.pauses.resumes.set(part.toolCallId, { interrupt, decisions: [...earlierDecisions, latest] })
       ctx.earlierTraces.set(part.toolCallId, trace)
       try {
         settled = resultSettlement(await codeTool.execute(part.input, { toolCallId: part.toolCallId, messages: ctx.history, abortSignal: ctx.abortSignal } as any))

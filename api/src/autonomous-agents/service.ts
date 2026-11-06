@@ -17,6 +17,7 @@ import { deleteMemoryStore } from '../memory/service.ts'
 import { deleteConversationFiles } from '../files/service.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { canInstruct } from './operations.ts'
+import { dropConversationScriptPauses } from '../code-mode/pauses.ts'
 
 // Re-exported so the router (HTTP layer only) never imports ../nhi/service.ts directly —
 // it drops a deleted autonomous agent's cached session the same way assertEnrolmentWorks
@@ -246,6 +247,7 @@ export const deleteAutonomousAgentData = async (agentId: string) => {
 
   const messages = await mongo.messages.deleteMany({ conversationId: { $in: conversationIds } })
   const runs = await mongo.runs.deleteMany({ conversationId: { $in: conversationIds } })
+  await dropConversationScriptPauses(conversationIds)
   const removed = await mongo.conversations.deleteMany({ agentId })
   // Their files go at once, as with any conversation delete (logged, never thrown). A task run's files are
   // left to the sweep: a task run has no deletion path of its own.

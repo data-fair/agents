@@ -151,6 +151,30 @@ test.describe('code_mode', () => {
     assert.deepEqual(fixture.invokedTools(), ['list_road_closures', 'slow_update', 'list_road_closures', 'slow_update'])
   })
 
+  // Two calls pending at once (Promise.allSettled): one card, then the other; each call keeps its own decision.
+  test('parallel calls pausing together: the rejected one does not run, the approved one does', async () => {
+    fixture.resetInvokedTools()
+    const agent = await createFilesAgent({ approvalRoutes: { write: 'reviewer+person' } })
+    const { assistant, conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, script('const r = await Promise.allSettled([tools.slow_update({}), tools.set_note({ note: "ok" })]); return r.map(x => x.status).join("|")'))
+    const first = callPart(assistant, 'code_mode')
+    assert.equal(first.state, 'approval-requested', JSON.stringify(first))
+    const firstTool = first.toolMetadata.nested.toolName
+    const again = await awaitRun(orgAdmin, conversationId, (await decideOverSocketToRun(orgAdmin, conversationId, first.approval.id, { approved: false, reason: 'not this one' })).runId)
+    assert.equal(again.stopReason, 'awaiting-approval')
+    const second = callPart(await messageAt(conversationId, assistant.seq), 'code_mode')
+    assert.equal(second.state, 'approval-requested')
+    const secondTool = second.toolMetadata.nested.toolName
+    assert.deepEqual([firstTool, secondTool].sort(), ['set_note', 'slow_update'])
+    assert.deepEqual(second.toolMetadata.earlierDecisions.map((d: any) => [d.approved, d.nested.toolName]), [[false, firstTool]])
+    assert.deepEqual(fixture.invokedTools(), [], 'nothing runs before the last decision')
+    const last = await awaitRun(orgAdmin, conversationId, (await decideOverSocketToRun(orgAdmin, conversationId, second.approval.id, { approved: true })).runId)
+    assert.equal(last.stopReason, 'completed')
+    const settled = callPart(await messageAt(conversationId, assistant.seq), 'code_mode')
+    assert.equal(settled.state, 'output-available', outputOf(settled))
+    assert.deepEqual(fixture.invokedTools(), [secondTool])
+    assert.match(outputOf(settled), firstTool === 'slow_update' ? /rejected\|fulfilled/ : /fulfilled\|rejected/)
+  })
+
   test('a new message cancels a paused script: nothing after the pause runs', async () => {
     fixture.resetInvokedTools()
     const agent = await createFilesAgent({ approvalRoutes: { write: 'reviewer+person' } })

@@ -230,7 +230,11 @@ the map and an unsure denies, as before.
   continuation that holds a denial before the script runs again (`assertNoDeniedApproval`), so a script could not:
   a rejection is resumed as an approval whose call throws instead (pinned by `code-tools.unit.spec.ts`).
 - **Paused again** (a loop of calls that each need the person, parallel calls): the resumed call's part asks once more,
-  with the new interrupt; the run ends `awaiting-approval` with no model call, its own message empty. The step's
+  with the new interrupt; the run ends `awaiting-approval` with no model call, its own message empty. Calls pending
+  together in one continuation (`Promise.all`) are answered one decision at a time without anything running, and run
+  only after the last: so **every decision of a continuation is kept** with it (`decisions` in `script-pauses`, the
+  earlier ones also on the part as `toolMetadata.earlierDecisions`), and each call finds its own when the script runs
+  — a rejected one throws, an approved one is not reviewed again. The step's
   other approved direct calls wait for that decision too: `settleApprovedWithoutResult` skips a message that still
   holds an undecided call.
 - **It cannot resume** when the continuation expired, was tampered with, or no longer matches the tools (the
@@ -239,7 +243,8 @@ the map and an unsure denies, as before.
   remaining steps again.`
 - **A new message instead of a decision** cancels the card as a direct call's (`rejectPendingApprovals`); on replay
   the model reads that the script stopped at that call, the calls before it having run (`pausedScriptDenialText`). The
-  stored continuation is left to its TTL.
+  stored continuation is dropped then, and with the conversation when it is deleted, purged or erased, and with an
+  agent's conversations (`dropConversationScriptPauses`): it holds what the script's calls returned.
 - **A restart between pause and decision** loses nothing: the card is the stored part and the continuation is in the
   collection, signed with a key every instance shares. A restart during the resume is an approval run interrupted
   like any: its call, still `approval-responded`, is settled as of unknown outcome.
