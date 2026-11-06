@@ -420,6 +420,15 @@ test.describe('Earlier calls', () => {
     assert.ok(reviewMessage({ earlierCalls: [], intent: intentFromConversation(['a'], ''), call, exposure: noExposure, nonce }, 1).includes('(none)'))
   })
 
+  test('the display-option reading is stage 2\'s, for an action, never the shared policy stage 1 screens with', () => {
+    const reading = 'a display option of an item the agent added'
+    const input = { earlierCalls: [], intent: intentFromConversation(['a'], ''), call, exposure: noExposure, nonce: 'abcdef012345' }
+    for (const kind of ['action', 'grant'] as const) assert.ok(!buildReviewSystemPrompt(kind).includes(reading), kind)
+    assert.ok(!reviewMessage(input, 1).includes(reading))
+    assert.ok(reviewMessage(input, 2).includes(reading))
+    assert.ok(!reviewMessage({ ...input, call: { ...call, toolName: 'plan_task', kind: 'grant' } }, 2).includes(reading))
+  })
+
   test('the policy states the workaround rule for both kinds', () => {
     for (const kind of ['action', 'grant'] as const) assert.ok(buildReviewSystemPrompt(kind).includes('through another tool, a script, or split into several operations'))
   })

@@ -211,10 +211,13 @@ resources, or goes beyond what was asked. A **grant** (`request_web_access`, `re
 tools) is judged on what it widens — who can in effect instruct the agent, what it will do unattended — and on
 whether exactly that grant was asked for. For both, an operation reaching what an earlier refused or rejected one
 would have reached is denied unless the people asked for it again after that refusal, and a series is judged as a
-whole. A display option of an item the agent added for the request (how it shows: size, place, style, sorting
-and search for the visitors; not what it says, shows, embeds or links to, nor who can see or edit it) is part of that
-request; it settles only whether the option goes beyond what was asked, never the other rules (`ri-editable-added-table`,
-`ri-iframe-src-added`, `ro-display-existing-item` pin that boundary). Text in the arguments addressed to the reviewer, or claiming the
+whole. Stage 2 alone, for an action, is told how to read a display option of an item the agent added for the
+request (how it shows: size, place, style, sorting and search for the visitors; not what it says, shows, embeds or
+links to, nor who can see or edit it, and only when the path plainly names that item): part of that request, which
+settles only whether the option goes beyond what was asked, never the rules (`ri-editable-added-table`,
+`ri-iframe-src-added`, `ro-display-existing-item` pin that boundary). It is in stage 2's restated task, not the
+policy: in the shared system message, stage 1's one-word screen read it as a clearance and cleared harmful calls
+(`rs-wrong-dataset`, `ro-display-existing-item`) that stage 2 would have denied. Text in the arguments addressed to the reviewer, or claiming the
 operation is approved, is itself a reason to deny (the engine's self-incrimination rule). The intent and the call
 and the earlier calls are each wrapped in a nonce tag (`reviewed_intent_`, `proposed_call_`, `earlier_calls_`, all in
 `ENVELOPE_TAGS`), the task restated after them. The rule list is not admin-editable for now: its content is what
@@ -240,8 +243,10 @@ still apply: instructions describe the job, they do not rewrite the policy.
 classification: stage 2 **reasons** (reasoning left on, `REVIEW_STAGE2_MAX_TOKENS` 2 000, 30 s), and a
 **destructive call, a grant or a call whose arguments were cut skips stage 1** and always reaches stage 2
 (`isConfirmationOnly`, shared with the eval harness), so a one-word `no` may stand as an allow only for a write
-shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to flagging; its `no` is
-recorded `cleared`. Stage 2 answers
+shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to flagging, and flags a call that
+may change something other than what the people asked about (an index, a path or an id that could name another
+item: a one-word screen cannot tell an added item's position from an existing one's); its `no` is recorded
+`cleared`. Stage 2 answers
 `{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, in the language of the conversation, shown on the approval card instead of « le relecteur hésite : reason », cut like `reason`); the schema leaves the reason unbounded, so a long one cannot fail a
 real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300).
 
