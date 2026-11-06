@@ -12,6 +12,7 @@ import type { AddressInfo } from 'node:net'
 import { createWebClient } from '../../../api/src/web/client.ts'
 import { createExtractor } from '../../../api/src/web/extractor.ts'
 import { fetchUrl, listSitePages, type WebContext } from '../../../api/src/web/service.ts'
+import { selectPreviewTools } from '../../../api/src/web/preview-tools.ts'
 import { createWebTools, FETCH_URL_TOOL_NAME } from '../../../api/src/web/tools.ts'
 
 const article = `<!doctype html><html><head><title>BAN</title>
@@ -187,6 +188,19 @@ test.describe('web access', () => {
 
     const spa = await fetchUrl({ url: `${base}/spa` }, context())
     assert.match(spa.note ?? '', /JavaScript/)
+  })
+
+  test('names the preview tools on a JavaScript shell when the run has them', async () => {
+    const plain = await fetchUrl({ url: `${base}/spa` }, context())
+    const withTools = await fetchUrl({ url: `${base}/spa` }, { ...context(), previewTools: ['datafair_preview_application'] })
+    assert.equal(withTools.note, `${plain.note} If this is one of this platform's applications or portal pages, use datafair_preview_application instead: it renders the page with JavaScript and your permissions.`)
+    assert.doesNotMatch(plain.note ?? '', /preview/)
+  })
+
+  test('only the platform\'s own preview tools are selected from a catalog', () => {
+    assert.deepEqual(selectPreviewTools(undefined), [])
+    assert.deepEqual(selectPreviewTools({ portals_preview_portal_page: {}, datafair_preview_application: {}, other_search: {} }), ['datafair_preview_application', 'portals_preview_portal_page'])
+    assert.deepEqual(selectPreviewTools({ ext_preview_application: {}, x_preview_portal_page: {}, portals_preview_portal_page: {} }), ['portals_preview_portal_page'])
   })
 
   test('reports what cannot be read', async () => {

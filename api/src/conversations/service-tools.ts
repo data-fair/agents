@@ -25,6 +25,7 @@ import type { TurnFiles } from '../files/turn-files.ts'
 import { createFileTools, createFileCodeExecutes, FILE_CODE_SIGNATURES } from '../files/tools.ts'
 import { FILES_SERVER_ID, FILE_TOOL_ANNOTATIONS } from '../files/operations.ts'
 import { createWebTools, createRequestWebAccessTool, REQUEST_WEB_ACCESS_TOOL_NAME, WEB_TOOL_ANNOTATIONS, FETCH_URL_WITH_FILES_ANNOTATIONS, FETCH_URL_TOOL_NAME } from '../web/tools.ts'
+import { selectPreviewTools } from '../web/preview-tools.ts'
 import { WEB_SERVER_ID } from '../web/operations.ts'
 import { createRequestMcpAccessTool } from '../mcp-servers/external.ts'
 import { createReadSkillTool, READ_SKILL_TOOL_NAME, READ_SKILL_ANNOTATIONS, SKILLS_SERVER_ID } from '../mcp-servers/read-skill.ts'
@@ -148,10 +149,12 @@ const ENTRIES: ServiceToolEntry[] = [
     // offering it to anyone else would end their turn on a card they cannot decide. A run continuing
     // from a decision was started by the decider, so the approved call finds its tool there.
     applies: ctx => !isPersonalAgentId(ctx.agent.id) && !!ctx.agent.web?.enabled,
-    build: async ({ agent, run, surface, files }, into) => {
+    build: async ({ agent, run, surface, files, catalog }, into) => {
       // One array for the run: an approved request extends it in place, so the readers see the new URLs.
       const allowedUrls = [...(agent.web?.allowedUrls ?? [])]
-      const tools = createWebTools({ allowedUrls, ...(files ? { files } : {}) })
+      // The platform's preview tools (data-fair, portals) render its own pages with JavaScript: fetch_url names them.
+      const previewTools = selectPreviewTools(catalog?.tools)
+      const tools = createWebTools({ allowedUrls, ...(files ? { files } : {}), ...(previewTools.length ? { previewTools } : {}) })
       if (surface === 'chat' && run.triggeredByRole === 'admin') {
         tools[REQUEST_WEB_ACCESS_TOOL_NAME] = createRequestWebAccessTool({ allowedUrls, save: urls => saveWebAllowedUrls(agent, urls) })
       }

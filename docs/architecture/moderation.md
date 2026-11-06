@@ -95,6 +95,7 @@ The guard above judges what a person types. The main open risk of an agent is wh
 - the web tools (`openWorldHint: true`);
 - `code_mode`'s own return value, but never the nested calls inside a script, because data a script handles internally never reaches the model ([code mode](./code-mode.md));
 - every catalog and external MCP server, data-fair's included, since openapi-mcp declares no hint (data-fair can later declare `false` on operations whose output it fully controls);
+- the preview tools of data-fair and portals (`preview_application`, `preview_portal_page`), which declare `openWorldHint: true`: their text (the accessibility snapshot) is scanned, the screenshot is not (images are not scanned);
 - page tools (WebMCP), which carry no annotations the service could trust.
 
 Exceptions:
