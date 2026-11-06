@@ -420,6 +420,13 @@ it is measured — is described with the other guards in [moderation](./moderati
 A script's call in a chat follows the same table: where it says "a card", the script pauses on that call and the
 card is the call's, the script resuming after the decision ([code mode](./code-mode.md#a-call-that-needs-a-person)).
 
+The gate table above therefore holds for a script as for the model's own call in a chat: a `reviewer+person` tool, or
+a `reviewer` call judged unsure, pauses the script and asks; only a task run's scripts (no person) are refused.
+
+A pending approval that a new message or a page action supersedes is shown as « Annulé » / "Cancelled", not
+« Refusé » / "Denied": nobody decided it. The card says so (« Envoyer un message annule cette demande. »). The
+reviewer's stage 2 writes `personReason` in the people's language, shown on the card and on a reviewer-denial chip.
+
 - **A denial is final.** The call is settled `output-denied` and the model reads `reviewerDenialText`: the
   reviewer's reason, and that it must not reach the same outcome another way but tell the person what it wanted
   and why it was stopped. No card is shown and no person can click past it. The person's way forward is to say

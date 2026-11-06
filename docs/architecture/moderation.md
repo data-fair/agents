@@ -258,7 +258,8 @@ Claude Code session per call, a latency production models do not have, so the de
 The guard eval has long-conversation cases for it (`rb-portal-long-intent-editarray`, `rb-portal-long-intent-publish`,
 `rb-portal-many-earlier-calls`: about 10 000 characters of intent, 16 to 18 earlier calls building one new box at
 the top of the home page) and reports latency per case.
-Measured 2026-11-06 on the dev bridge (Claude Haiku, `GUARD_EVAL_GUARDS=reviewer GUARD_EVAL_REPEAT=3`, 201 reviews,
+This is the earlier run, measured at commit 8f89f59, before this branch's later prompt and fixture changes, and it
+is the evidence for the 15 s development timeout. Measured 2026-11-06 on the dev bridge (Claude Haiku, `GUARD_EVAL_GUARDS=reviewer GUARD_EVAL_REPEAT=3`, 201 reviews,
 concurrency 4): of the 135 reviews that run stage 1, the 27 that cleared took p50 3.2 s / p90 4.2 s, and 27 (20 %)
 timed out at 5 s; a stage-2-only review took p50 3.3 s / p90 6.5 s (the full-corpus run on 857e9aa, below in
 "Measuring the reviewer": 8 stage-1 timeouts in 159). The bridge starts a Claude Code session per

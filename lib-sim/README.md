@@ -114,7 +114,9 @@ reportCli(cases)
 (default `haiku`, the background roles), `SIM_USER_MODEL` and `SIM_SUB_AGENTS=0`,
 and checks the bridge (`BRIDGE_URL`, or `BRIDGE_PORT`) before `setup`. It writes a
 pessimistic sidecar first, gives the review consent the export needs, hands a
-`wait_for_user_action` over to the person, accepts dialogs (and says so in
+`wait_for_user_action` over to the person, and likewise a turn that stopped on an approval card
+(`handsOver`; the simulated person is told an approval request is on screen and decides or
+answers it), accepts dialogs (and says so in
 `consoleErrors`), reads the run back with `fetchExports`, and records a run that
 ended in error (a provider failure, `runErrors`), a cold Vite dev server, an empty
 transcript or no exported conversation as an invalid run, then throws.
