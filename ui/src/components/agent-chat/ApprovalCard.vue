@@ -192,6 +192,13 @@
         </v-btn>
       </template>
     </v-card-actions>
+    <v-card-text
+      v-if="!readonly"
+      class="text-body-small text-medium-emphasis pt-0"
+      data-testid="approval-typing-cancels"
+    >
+      {{ t('typingCancels') }}
+    </v-card-text>
   </v-card>
 </template>
 
@@ -211,6 +218,7 @@ fr:
   readonly: En attente de la décision de la personne
   approve: Approuver
   reject: Refuser
+  typingCancels: Envoyer un message annule cette demande.
   reason: Raison (facultative)
   confirmReject: Confirmer le refus
   cancel: Annuler
@@ -241,6 +249,7 @@ en:
   readonly: Awaiting the person's decision
   approve: Approve
   reject: Reject
+  typingCancels: Sending a message cancels this request.
   reason: Reason (optional)
   confirmReject: Confirm rejection
   cancel: Cancel

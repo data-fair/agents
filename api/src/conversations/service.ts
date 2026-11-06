@@ -15,6 +15,7 @@ import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
+import { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED } from '@agents/shared/approval-cancel'
 import { withheldErrorText, webhookIndexOf, WITHHELD_RESULT, WITHHELD_LATE_RESULT, type TripRecord } from '../tripwire/operations.ts'
 import { replaceWebhookPayload } from '../tasks/operations.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
@@ -497,11 +498,8 @@ export const decideApproval = async (
   )
 }
 
-/** The reason a pending approval is rejected with when the person writes instead of deciding. */
-export const PENDING_APPROVAL_SUPERSEDED = 'The person sent a new message instead of deciding.'
-
-/** The reason a pending approval is rejected with when the person acts on the page a wait handed them. */
-export const PENDING_APPROVAL_ACTED = 'The person acted on the page instead of deciding.'
+// Shared with the chat, which shows such a rejection as a cancellation rather than a refusal.
+export { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED }
 
 /**
  * The result a pending wait is settled with when the person decided on an approval stopped in the same

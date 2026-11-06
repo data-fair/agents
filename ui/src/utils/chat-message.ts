@@ -22,6 +22,8 @@ export interface ChatMessage {
     tripwire?: { excerpt: string, source: { tool: string, server: string, url?: string } }
     /** Why an approval was refused, when the decision gave a reason: the person's, or the reviewer's own. */
     deniedReason?: string
+    /** Set when a pending approval was cancelled because the person sent a message ('message') or used the page ('page') instead of deciding. */
+    cancelled?: 'message' | 'page'
     /** Set when the automated reviewer refused the call, not a person. */
     deniedByReviewer?: true
     /** What the automated reviewer made of a call awaiting a person's approval: why the card is shown. */

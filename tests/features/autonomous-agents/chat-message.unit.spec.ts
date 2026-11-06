@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { autonomousAgentMessageToChat, type StoredConversationMessage } from '../../../ui/src/utils/autonomous-agent-chat-message.ts'
+import { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED } from '../../../shared/approval-cancel.ts'
 import { appendStreamedText, appendStreamedReasoning } from '../../../ui/src/utils/chat-message.ts'
 
 const base: StoredConversationMessage = {
@@ -207,6 +208,29 @@ test.describe('approval states', () => {
     assert.equal(denied.deniedReason, 'out of scope')
     assert.equal(declined.deniedByReviewer, undefined)
     assert.equal(declined.deniedReason, 'not today')
+  })
+
+  test('an approval cancelled by a message or by the page reads as cancelled, not as a refusal', () => {
+    const denied = (id: string, reason: string) => ({ type: 'dynamic-tool', toolCallId: id, toolName: 'wipe', state: 'output-denied', input: {}, approval: { id: 'ap' + id, approved: false, reason } } as any)
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        denied('a', PENDING_APPROVAL_SUPERSEDED),
+        denied('b', PENDING_APPROVAL_ACTED),
+        denied('c', 'not now'),
+        { type: 'dynamic-tool', toolCallId: 'd', toolName: 'wipe', state: 'output-denied', input: {}, approval: { id: 'apd', approved: false, isAutomatic: true, reason: PENDING_APPROVAL_SUPERSEDED }, toolMetadata: { review: { outcome: 'deny', reason: 'out of scope', code: 'judged' } } } as any
+      ]
+    })
+    const [message, page, person, reviewer] = chat.toolInvocations ?? []
+    assert.equal(message.cancelled, 'message')
+    assert.equal(message.deniedReason, undefined)
+    assert.equal(page.cancelled, 'page')
+    assert.equal(page.deniedReason, undefined)
+    assert.equal(person.deniedReason, 'not now')
+    assert.equal(person.cancelled, undefined)
+    assert.equal(reviewer.deniedByReviewer, true)
+    assert.equal(reviewer.cancelled, undefined)
   })
 
   test('a card is locked while the message asking is still being written, and unlocked once it is closed', () => {

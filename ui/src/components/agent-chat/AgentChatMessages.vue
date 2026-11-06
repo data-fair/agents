@@ -329,6 +329,7 @@ fr:
   activityApproval: "En attente de votre approbation : {name}"
   waitingChip: "En attente : {name}"
   declinedChip: "Refusé : {name}"
+  cancelledChip: "Annulé : {name}"
   reviewerDeniedChip: "Refusé par le relecteur : {name}"
   reviewerDeniedHint: Si vous voulez que ce soit fait, dites-le à l'agent.
   approvedChip: "Approuvé : {name}"
@@ -369,6 +370,7 @@ en:
   activityApproval: "Awaiting your approval: {name}"
   waitingChip: "Waiting for: {name}"
   declinedChip: "Declined: {name}"
+  cancelledChip: "Cancelled: {name}"
   reviewerDeniedChip: "Denied by the reviewer: {name}"
   reviewerDeniedHint: If you want this done, tell the agent so.
   approvedChip: "Approved: {name}"
@@ -630,7 +632,7 @@ const scriptCalls = (message: ChatMessage, invocation: Invocation): Invocation[]
 }
 
 // Chip label: the tool's title, and for the built-in wait what the agent said it is waiting for.
-const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string, approved?: true, deniedByReviewer?: true }) => {
+const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string, approved?: true, deniedByReviewer?: true, cancelled?: 'message' | 'page' }) => {
   if (invocation.toolName === WAIT_TOOL_NAME) {
     // Past tense once it settles. Every other chip is a noun, so this is the only
     // label that reads as a live instruction — and it stays in history forever. A
@@ -641,6 +643,7 @@ const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: u
     return invocation.state === 'done' ? t('waitedChip', { name }) : t('waitingChip', { name })
   }
   const title = invocationTitle(invocation)
+  if (invocation.state === 'denied' && invocation.cancelled) return t('cancelledChip', { name: title })
   if (invocation.state === 'denied') return t(invocation.deniedByReviewer ? 'reviewerDeniedChip' : 'declinedChip', { name: title })
   if (invocation.approved) return t('approvedChip', { name: title })
   return title

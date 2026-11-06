@@ -49,7 +49,10 @@
         class="text-caption text-error mb-2"
         data-testid="tool-call-denied"
       >
-        <template v-if="invocation.deniedByReviewer">
+        <template v-if="invocation.cancelled">
+          {{ t(invocation.cancelled === 'message' ? 'cancelledByMessage' : 'cancelledByPage') }}
+        </template>
+        <template v-else-if="invocation.deniedByReviewer">
           {{ invocation.deniedReason ? t('reviewerDeniedBecause', { reason: invocation.deniedReason }) : t('reviewerDenied') }}
         </template>
         <template v-else>
@@ -83,6 +86,8 @@ fr:
   returned: Valeur retournée
   error: Erreur
   denied: Refusé.
+  cancelledByMessage: "Annulé : un message a été envoyé avant la décision."
+  cancelledByPage: "Annulé : la page a été utilisée avant la décision."
   deniedBecause: "Refusé : {reason}"
   reviewerDenied: Refusé par le relecteur.
   reviewerDeniedBecause: "Refusé par le relecteur : {reason}"
@@ -96,6 +101,8 @@ en:
   returned: Returned value
   error: Error
   denied: Declined.
+  cancelledByMessage: "Cancelled: a message was sent before deciding."
+  cancelledByPage: "Cancelled: the page was used before deciding."
   deniedBecause: "Declined: {reason}"
   reviewerDenied: Denied by the reviewer.
   reviewerDeniedBecause: "Denied by the reviewer: {reason}"

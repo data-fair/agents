@@ -89,6 +89,19 @@ test.describe('Approval card', () => {
     expect(fixture.invokedTools()).toEqual([])
   })
 
+  test('sending a message over a pending card cancels it, and the chip says cancelled, not declined', async ({ page, goToWithAuth }) => {
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await ask(page, 'call tool wipe_everything {}')
+    await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
+    await expect(page.getByTestId('approval-typing-cancels')).toHaveText('Sending a message cancels this request.')
+    await expect(page.getByTestId('approval-approve')).toBeEnabled({ timeout: 15000 })
+    await ask(page, 'never mind')
+    await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
+    await expect(page.getByTestId('tool-chip').first()).toHaveText('Cancelled: Wipe everything', { timeout: 15000 })
+    await expect(page.getByText('Declined:')).toHaveCount(0)
+    expect(fixture.invokedTools()).toEqual([])
+  })
+
   test('a reviewed destructive call shows the reviewer\'s view on the card, after a reload', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
     await ask(page, 'call tool delete_note {"note":"ok"}')

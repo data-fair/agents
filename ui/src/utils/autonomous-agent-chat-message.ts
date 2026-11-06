@@ -14,11 +14,20 @@ import type { ChatMessage, ChatMessageBlock } from './chat-message.ts'
 // Named once in shared/, for both sides of the socket. This file used to declare it, and was the only
 // place that had it right — the server used an open bag and the wire used unknown[].
 import type { MessagePart } from '@agents/shared/message-parts'
+import { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED } from '@agents/shared/approval-cancel'
 
 /**
  * The stored message as the UI reads it, described structurally so `shared/` needs no `#types`
  * alias (which resolves only inside the api workspace).
  */
+/** A pending approval the server rejected because the person wrote or used the page instead of deciding. */
+const cancellationOf = (approval: { isAutomatic?: boolean, reason?: string }): 'message' | 'page' | undefined => {
+  if (approval.isAutomatic) return undefined
+  if (approval.reason === PENDING_APPROVAL_SUPERSEDED) return 'message'
+  if (approval.reason === PENDING_APPROVAL_ACTED) return 'page'
+  return undefined
+}
+
 export interface StoredConversationMessage {
   seq: number
   role: 'user' | 'assistant'
@@ -79,7 +88,9 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
         // reads the reviewer's reason, kept in toolMetadata.review. A person's rejection after a review is theirs.
         ...(call.state === 'output-denied' && call.approval.isAutomatic && review
           ? { deniedByReviewer: true as const, ...(review.reason ? { deniedReason: review.reason } : {}) }
-          : call.state === 'output-denied' && call.approval.reason ? { deniedReason: call.approval.reason } : {}),
+          : call.state === 'output-denied' && call.approval.reason && !cancellationOf(call.approval) ? { deniedReason: call.approval.reason } : {}),
+        // Not a refusal: the person wrote or used the page instead of deciding.
+        ...(call.state === 'output-denied' && cancellationOf(call.approval) ? { cancelled: cancellationOf(call.approval) } : {}),
         // What the reviewer made of a call put to a person, for its card.
         ...(call.state === 'approval-requested' && review ? { review: { outcome: review.outcome, reason: review.reason, code: review.code } } : {}),
         // PER CALL, not per message. The states before an output arrives are exactly the ones still
