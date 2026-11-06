@@ -87,7 +87,7 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
         // A reviewer's denial (api/src/approval-review) gives the model its own text in approval.reason; the person
         // reads the reviewer's reason, kept in toolMetadata.review. A person's rejection after a review is theirs.
         ...(call.state === 'output-denied' && call.approval.isAutomatic && review
-          ? { deniedByReviewer: true as const, ...(review.reason ? { deniedReason: review.reason } : {}) }
+          ? { deniedByReviewer: true as const, ...((review.personReason || review.reason) ? { deniedReason: review.personReason || review.reason } : {}) }
           : call.state === 'output-denied' && call.approval.reason && !cancellationOf(call.approval) ? { deniedReason: call.approval.reason } : {}),
         // Not a refusal: the person wrote or used the page instead of deciding.
         ...(call.state === 'output-denied' && cancellationOf(call.approval) ? { cancelled: cancellationOf(call.approval) } : {}),

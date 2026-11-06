@@ -206,6 +206,13 @@ test.describe('approval states', () => {
     assert.equal(denied.state, 'denied')
     assert.equal(denied.deniedByReviewer, true)
     assert.equal(denied.deniedReason, 'out of scope')
+    const denial = (id: string, extra: object) => autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [{ type: 'dynamic-tool', toolCallId: id, toolName: 'set_note', state: 'output-denied', input: {}, approval: { id: 'ap' + id, approved: false, isAutomatic: true, reason: 'The reviewer did not allow this call: out of scope.' }, toolMetadata: { review: { ...review('deny', 'out of scope'), ...extra } } } as any]
+    } as any).toolInvocations?.[0]
+    assert.equal(denial('x', { personReason: 'Hors de ce qui était demandé.' })?.deniedReason, 'Hors de ce qui était demandé.')
+    assert.equal(denial('y', {})?.deniedReason, 'out of scope')
     const withPerson = autonomousAgentMessageToChat({
       ...base,
       role: 'assistant',
