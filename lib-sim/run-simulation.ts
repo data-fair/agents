@@ -11,11 +11,14 @@
 import type { Locator, Page } from '@playwright/test'
 import type { SimulationCase, TranscriptInput } from './types.ts'
 import { assertBridgeUp, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES } from './bridge-settings.ts'
-import { createChatDriver, chatDriverStrings, type ChatDriverLocale } from './chat-driver.ts'
+import { createChatDriver, chatDriverStrings, type ChatDriverLocale, type TurnOutcome } from './chat-driver.ts'
 import { parseConversationExport, runErrors, type ConversationExport } from './conversation-export.ts'
 import { createPagePerception, type PerceptionRoot } from './page-perception.ts'
 import { nextUserMessage, isDone, resolveUserModel } from './persona.ts'
 import { writeEvidence } from './transcript.ts'
+
+/** A turn that stopped on a wait or on an approval card is the person's move, not the end of the exchange. */
+export const handsOver = (outcome: TurnOutcome): boolean => outcome === 'waiting' || outcome === 'approval'
 
 /** The agents chat frame, whose src is /agents/<type>/<id>/chat?… — not a bare 'iframe': hosts embed other frames beside it. */
 export const CHAT_FRAME = 'iframe[src*="/agents/"][src*="/chat"]'
@@ -150,20 +153,24 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     // reachable — including the drawer toggle, which a real user can and does click.
     perception = createPagePerception(opts.perceptionRoots, { offLimits: [strings.input, strings.send, strings.stop, strings.reset] })
 
-    // Set when the assistant ended a turn by declaring wait_for_user_action rather
-    // than by finishing. It has handed control to the person, and the person only
-    // exists inside nextUserMessage — so the next pass is where they act on it.
+    // Set when the assistant ended a turn by declaring wait_for_user_action or by stopping on an
+    // approval card rather than by finishing. It has handed control to the person, and the person
+    // only exists inside nextUserMessage — so the next pass is where they act on it.
     let handedOver = false
+    // The turn stopped on an approval card: the persona is told one is on screen.
+    let pendingApproval = false
 
     for (let i = 0; i < simCase.maxTurns; i++) {
       perception.setTurn(i + 1)
-      const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
+      const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception, pendingApproval })
       if (handedOver) {
         // The pass above was the person's chance to act on the wait. If they took it,
         // the wait resolved and the assistant is finishing the turn it paused — let it,
         // rather than speaking over its reply. If they ignored it, the wait is still
-        // armed and this returns 'waiting' at once.
-        handedOver = (await chat.waitForTurn(TURN_CEILING_MS)) === 'waiting'
+        // armed and this returns 'waiting' (or 'approval') at once.
+        const outcome = await chat.waitForTurn(TURN_CEILING_MS)
+        handedOver = handsOver(outcome)
+        pendingApproval = outcome === 'approval'
         const resumed = await chat.readConversation()
         const changed = resumed.length !== conversation.length
         conversation.length = 0
@@ -186,9 +193,11 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
       // While the assistant works, the send control is Stop: an ordinary wait for a
       // turn, so it gets the turn ceiling rather than the driver's short one.
       await chat.sendMessage(message, { readyTimeoutMs: TURN_CEILING_MS })
-      // 'ended' is the assistant finished; 'waiting' is it holding the turn open for
+      // 'ended' is the assistant finished; 'waiting' and 'approval' are it holding the turn open for
       // the person, which is a turn boundary as far as they are concerned.
-      handedOver = (await chat.waitForTurn(TURN_CEILING_MS)) === 'waiting'
+      const outcome = await chat.waitForTurn(TURN_CEILING_MS)
+      handedOver = handsOver(outcome)
+      pendingApproval = outcome === 'approval'
       // Read first, then replace: a throw from readConversation must not leave the
       // transcript empty.
       const read = await chat.readConversation()

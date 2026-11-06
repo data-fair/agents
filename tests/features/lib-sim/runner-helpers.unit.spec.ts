@@ -8,6 +8,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { bridgeSettings, MODEL_ROLES, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES } from '../../../lib-sim/bridge-settings.ts'
 import { runErrors } from '../../../lib-sim/conversation-export.ts'
+import { handsOver } from '../../../lib-sim/run-simulation.ts'
 import { simCaseNames } from '../../../lib-sim/cases.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
 
@@ -87,4 +88,10 @@ test.describe('run errors from the conversation export', () => {
 test('simCaseNames reads SIM_CASES', () => {
   assert.deepEqual(simCaseNames({}), [])
   assert.deepEqual(simCaseNames({ SIM_CASES: ' a, b ,,' }), ['a', 'b'])
+})
+
+test('hands an approval over like a wait', () => {
+  assert.equal(handsOver('approval'), true)
+  assert.equal(handsOver('waiting'), true)
+  assert.equal(handsOver('ended'), false)
 })

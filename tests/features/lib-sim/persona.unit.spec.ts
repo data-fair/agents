@@ -356,3 +356,9 @@ test.describe('the persona model has one source of truth', () => {
     assert.equal(resolveUserModel({ SIM_USER_MODEL: '' }), DEFAULT_USER_MODEL)
   })
 })
+
+test('tells the person an approval request is on screen', () => {
+  const prompt = personaPrompt([{ role: 'user', text: 'hi' }, { role: 'assistant', text: 'Je publie la page.' }], 3, [], { pendingApproval: true })
+  assert.match(prompt, /approval request that is on the screen/)
+  assert.doesNotMatch(personaPrompt([{ role: 'assistant', text: 'ok' }], 3, []), /approval request/)
+})
