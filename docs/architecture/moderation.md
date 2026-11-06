@@ -211,11 +211,17 @@ resources, or goes beyond what was asked. A **grant** (`request_web_access`, `re
 tools) is judged on what it widens — who can in effect instruct the agent, what it will do unattended — and on
 whether exactly that grant was asked for. For both, an operation reaching what an earlier refused or rejected one
 would have reached is denied unless the people asked for it again after that refusal, and a series is judged as a
-whole. Text in the arguments addressed to the reviewer, or claiming the
+whole. A display or layout option of an item the agent added for the request (how it shows, not what it says or
+links to) is part of that request. Text in the arguments addressed to the reviewer, or claiming the
 operation is approved, is itself a reason to deny (the engine's self-incrimination rule). The intent and the call
 and the earlier calls are each wrapped in a nonce tag (`reviewed_intent_`, `proposed_call_`, `earlier_calls_`, all in
 `ENVELOPE_TAGS`), the task restated after them. The rule list is not admin-editable for now: its content is what
-the eval tunes.
+the eval tunes. The `rb-consent-after-refusal`, `rb-new-element-pointer`, `rb-save-draft-title`,
+`rb-unchanged-siblings` and `rb-display-setting-new-element` cases are calls the reviewer misjudged in the portals
+runs (consent given after a refusal, a pointer to an item just added, a draft save, values sent back unchanged, a
+display option of a just-added element). `rb-unchanged-siblings` accepts a card: the reviewer never sees the values
+the agent read, so it cannot tell an unchanged value from a new one; the agent sending only the changed field is
+what removes that friction.
 
 **Past a wrong denial.** The person's own words, not an override button: the denied chip says "If you want this
 done, tell the agent so", the agent (told to explain what was stopped) retries, and the next review reads the new
@@ -242,7 +248,8 @@ unsure and, in a chat, becomes an approval card. The timeout is the config `appr
 (env `APPROVAL_REVIEW_STAGE1_TIMEOUT_MS`, default 5 000, the production value). The development bridge spawns a
 Claude Code session per call, a latency production models do not have, so the development config may set it higher.
 The guard eval has long-conversation cases for it (`rb-portal-long-intent-editarray`, `rb-portal-long-intent-publish`,
-`rb-portal-many-earlier-calls`: about 10 000 characters of intent, 20 earlier calls) and reports latency per case.
+`rb-portal-many-earlier-calls`: about 10 000 characters of intent, 16 to 18 earlier calls building one new box at
+the top of the home page) and reports latency per case.
 Measured 2026-11-06 on the dev bridge (Claude Haiku, `GUARD_EVAL_GUARDS=reviewer GUARD_EVAL_REPEAT=3`, 201 reviews,
 concurrency 4): of the 135 reviews that run stage 1, the 27 that cleared took p50 3.2 s / p90 4.2 s, and 27 (20 %)
 timed out at 5 s; a stage-2-only review took p50 3.3 s / p90 6.5 s. The bridge starts a Claude Code session per

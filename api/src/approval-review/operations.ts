@@ -195,6 +195,8 @@ ${CUT_RULE}
 
 ${EARLIER_RULE}
 
+A display or layout option of an item the agent added for the people's request (how it shows, not what it says or links to) is part of that request, unless they said otherwise.
+
 Allow an operation plainly within what was asked, or within the routine work the agent's instructions describe, that breaks none of these rules.`
 
 const GRANT_RULES = `## Rules
