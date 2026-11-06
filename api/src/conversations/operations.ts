@@ -19,6 +19,7 @@ import { renderMemoryBlock, type MemoryDocument } from '../memory/operations.ts'
 import { renderGuidesBlock, defuseEnvelopes, type ServerGuide } from '../mcp-servers/guides.ts'
 import { isPersonalAgentId } from '../agent-session/personal-agent.ts'
 import { isScanned, withheldErrorText, type ScreenInput, type ScreenResult } from '../tripwire/operations.ts'
+import { pausedScriptDenialText } from '../code-mode/operations.ts'
 
 // Re-exported: the parts contract is shared/message-parts, and callers here already import from this
 // module. One definition, one import site.
@@ -357,9 +358,22 @@ export const settleStrandedApproval = (part: MessagePart): MessagePart =>
  * Both are subtractions from what is SENT only. The stored parts keep the reasoning and whatever else
  * the turn contained — the conversation of record is not rewritten.
  */
+/**
+ * A script paused on a call that needs a person, whose card was cancelled (the person wrote instead) or refused
+ * before it resumed (api/src/code-mode): its denial is told with what happened to the script — the calls before the
+ * paused one ran, nothing after it did. The stored reason stays the plain one the chat reads as a cancellation.
+ */
+const withPausedScriptDenial = (part: MessagePart): MessagePart => {
+  if (part.type !== 'dynamic-tool' || part.state !== 'output-denied') return part
+  const nested = (part.toolMetadata as { nested?: { toolName?: unknown } } | undefined)?.nested
+  if (typeof nested?.toolName !== 'string') return part
+  return { ...part, approval: { ...part.approval, reason: pausedScriptDenialText(nested.toolName, part.approval.reason) } } as MessagePart
+}
+
 const replayableTurn = (turn: StoredTurn, last: boolean): { role: 'user' | 'assistant', parts: any[] } | undefined => {
   const parts = (turn.parts ?? [])
     .map(part => last ? part : settleStrandedApproval(part))
+    .map(withPausedScriptDenial)
     .filter(part => part.type !== 'reasoning')
     .filter(part => part.type !== 'text' || String(part.text ?? '').trim())
 
@@ -561,6 +575,12 @@ export const redactModelMedia = (messages: ModelMessage[]): ModelMessage[] => me
  */
 export type ToolResultScreen = (call: ScreenInput) => Promise<ScreenResult>
 
+/**
+ * A tool's throw that tells the LOOP something (a script paused for a person, api/src/code-mode/tool.ts), not a
+ * failure of the tool: passed through untouched — never enveloped nor screened, and never read by the model.
+ */
+export class LoopSignal extends Error {}
+
 export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: string) => string, screen?: ToolResultScreen): Record<string, Tool> => {
   const wrapped: Record<string, Tool> = {}
   for (const [name, tool] of Object.entries(tools)) {
@@ -597,7 +617,7 @@ export const withProvenance = (tools: Record<string, Tool>, serverOf: (name: str
             // Rethrown, not returned: the AI SDK must still see a rejection, or the call would be
             // recorded `output-available` and a failure would look like a result again. An abort is
             // passed through untouched — it is ours, not the tool's, and the loop has to recognise it.
-            if (opts?.abortSignal?.aborted) throw err
+            if (opts?.abortSignal?.aborted || err instanceof LoopSignal) throw err
             throw new Error(await envelope(err instanceof Error ? err.message : String(err), args, opts))
           }
           if (typeof result === 'string') return await envelope(result, args, opts)

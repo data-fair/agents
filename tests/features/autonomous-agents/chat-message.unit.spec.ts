@@ -255,6 +255,30 @@ test.describe('approval states', () => {
     const closed = autonomousAgentMessageToChat({ ...base, role: 'assistant', pending: false, parts })
     assert.equal(closed.toolInvocations?.[0].approvalLocked, undefined)
   })
+
+  test('a script paused on a call carries that call for its card; the script keeps its own name and title', () => {
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [{
+        type: 'dynamic-tool',
+        toolCallId: 'cm',
+        toolName: 'code_mode',
+        state: 'approval-requested',
+        input: { js: '…' },
+        approval: { id: 'cm:tool-3:interrupt' },
+        toolMetadata: { serverId: 'code-mode', nested: { toolName: 'slow_update', input: { v: 1 }, title: 'Update slowly', serverId: 'dev-public-mcp' }, review: { outcome: 'allow', reason: 'ok', code: 'judged' } }
+      } as any]
+    })
+    const call = chat.toolInvocations?.[0]
+    assert.equal(call?.toolName, 'code_mode')
+    assert.equal(call?.state, 'awaiting-approval')
+    assert.equal(call?.approvalId, 'cm:tool-3:interrupt')
+    assert.equal(call?.toolTitle, undefined)
+    assert.equal(call?.serverId, 'code-mode')
+    assert.deepEqual(call?.nested, { toolName: 'slow_update', input: { v: 1 }, toolTitle: 'Update slowly', serverId: 'dev-public-mcp' })
+    assert.equal(call?.review?.outcome, 'allow')
+  })
 })
 
 test.describe('a script trace stored on the message', () => {

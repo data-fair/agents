@@ -368,6 +368,45 @@ export const settleStoredToolPart = async (
   )
 }
 
+/**
+ * A RESUMED SCRIPT THAT PAUSED AGAIN (api/src/code-mode, a loop of calls that each need a person): its code_mode
+ * part, still `approval-responded` from the decision just resumed, asks again — a new approval id, the call it now
+ * stopped at, that call's review. Only from `approval-responded`, as settleStoredToolPart: a call cannot be asked
+ * about again once it has a result.
+ */
+export const repauseStoredScript = async (
+  conversationId: string,
+  toolCallId: string,
+  ask: { approvalId: string, toolMetadata: Record<string, unknown> }
+): Promise<StoredMessage | null> => {
+  const awaiting = { toolCallId, state: 'approval-responded' }
+  return await mongo.messages.findOneAndUpdate(
+    { conversationId, parts: { $elemMatch: awaiting } },
+    { $set: { 'parts.$[p].state': 'approval-requested', 'parts.$[p].approval': { id: ask.approvalId }, 'parts.$[p].toolMetadata': ask.toolMetadata, updatedAt: new Date().toISOString() } },
+    { arrayFilters: [{ 'p.toolCallId': toolCallId, 'p.state': 'approval-responded' }], returnDocument: 'after', projection: { _id: 0 } }
+  )
+}
+
+/**
+ * A resumed script's whole trace, onto the message of its code_mode call: the calls before the pause, then those after
+ * it, under the one chip. Replaces that call's `data-trace` part, or adds one when the script paused on its first call.
+ */
+export const storeEarlierScriptTrace = async (conversationId: string, parentToolCallId: string, parts: MessagePart[]): Promise<StoredMessage | null> => {
+  const updatedAt = new Date().toISOString()
+  const replaced = await mongo.messages.findOneAndUpdate(
+    { conversationId, parts: { $elemMatch: { type: 'data-trace', 'data.parentToolCallId': parentToolCallId } } },
+    { $set: { 'parts.$[t].data.parts': parts, updatedAt } },
+    { arrayFilters: [{ 't.type': 'data-trace', 't.data.parentToolCallId': parentToolCallId }], returnDocument: 'after', projection: { _id: 0 } }
+  )
+  if (replaced) return replaced
+  const trace = { type: 'data-trace', data: { parentToolCallId, name: 'code_mode', parts } } as unknown as MessagePart
+  return await mongo.messages.findOneAndUpdate(
+    { conversationId, parts: { $elemMatch: { type: 'dynamic-tool', toolCallId: parentToolCallId } } },
+    { $push: { parts: trace }, $set: { updatedAt } },
+    { returnDocument: 'after', projection: { _id: 0 } }
+  )
+}
+
 /** Where a closed turn's record is stored: a conversation's messages, or a task run's own parts. */
 export type StoredResultPlace = { conversationId: string } | { runId: string }
 
@@ -450,6 +489,9 @@ const settleApprovedWithoutResult = async (conversationId: string, errorText: st
     .find({ conversationId, 'parts.state': 'approval-responded' }, { projection: { _id: 0, parts: 1 } })
     .toArray()
   for (const message of messages) {
+    // A step with a call undecided again (a resumed script that paused once more, api/src/code-mode) is not over:
+    // its approved calls wait for the continuation of that decision, as before every call of a step is decided.
+    if ((message.parts as MessagePart[]).some(part => part.type === 'dynamic-tool' && part.state === 'approval-requested')) continue
     for (const part of message.parts as MessagePart[]) {
       if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded') continue
       const settled = await settleStoredToolPart(conversationId, part.toolCallId, { state: 'output-error', errorText })
@@ -477,17 +519,20 @@ export const decideApproval = async (
 ): Promise<StoredMessage | 'still-finishing' | null> => {
   const at = new Date().toISOString()
   const pending = { 'approval.id': approvalId, state: 'approval-requested' }
-  const asking = await mongo.messages.findOne({ conversationId, parts: { $elemMatch: pending } }, { projection: { _id: 0, pending: 1 } })
+  const asking = await mongo.messages.findOne({ conversationId, parts: { $elemMatch: pending } }, { projection: { _id: 0, pending: 1, 'parts.$': 1 } })
   if (!asking) return null
   if (asking.pending) return 'still-finishing'
+  // A script paused on the call (api/src/code-mode): resumed whatever the decision, a rejected call throwing inside it.
+  const pausedScript = !!(asking.parts?.[0] as { toolMetadata?: { nested?: unknown } } | undefined)?.toolMetadata?.nested
   return await mongo.messages.findOneAndUpdate(
     // `pending` again, in the write itself: the check above is only the reason given.
     { conversationId, pending: { $ne: true }, parts: { $elemMatch: pending } },
     {
       $set: {
         // Approved: `approval-responded`, which the SDK executes on replay. Rejected: `output-denied`,
-        // which replays as a refusal carrying the reason, so the model is told and can react.
-        'parts.$[p].state': decision.approved ? 'approval-responded' : 'output-denied',
+        // which replays as a refusal carrying the reason, so the model is told and can react. A paused script's
+        // call is `approval-responded` either way: the continuation resumes it (model-loop.ts, resumeScripts).
+        'parts.$[p].state': decision.approved || pausedScript ? 'approval-responded' : 'output-denied',
         'parts.$[p].approval.approved': decision.approved,
         ...(decision.reason ? { 'parts.$[p].approval.reason': decision.reason } : {}),
         'parts.$[p].toolMetadata.decision': { ...decision.by, approved: decision.approved, at },

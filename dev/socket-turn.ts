@@ -241,7 +241,8 @@ export const decideOverSocket = async (
       // came.
       const decided = frame.type === 'message' && (frame.parts ?? []).some((p: any) =>
         p.type === 'dynamic-tool' && p.approval?.id === approvalId &&
-        p.state === (decision.approved ? 'approval-responded' : 'output-denied'))
+        // A paused script's call is resumed whatever the decision (api/src/code-mode): responded either way.
+        p.state === (decision.approved || p.toolMetadata?.nested ? 'approval-responded' : 'output-denied'))
       if (decided) {
         const undecided = (frame.parts ?? []).filter((p: any) => p.type === 'dynamic-tool' && p.state === 'approval-requested').length
         if (undecided) { socket.close(); return { pending: undecided } }

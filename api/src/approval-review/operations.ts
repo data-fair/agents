@@ -301,7 +301,12 @@ const earlierOfPart = (part: ToolPart, inScript: boolean, afterMessage: number):
   const approval = (part as { approval?: { approved?: boolean, reason?: string } }).approval
   // Only gated calls: a read, never reviewed nor asked about, says nothing of what was allowed.
   if (!meta.review && !meta.decision && !approval) return undefined
-  const base = { toolName: part.toolName, input: part.input, afterMessage, ...(inScript ? { inScript } : {}) }
+  // A script's code_mode call paused on a call that needs a person stands for that call (api/src/code-mode): its card,
+  // its decision, its review are that call's. Its trace entry, once resumed, carries none, so it is not counted twice.
+  const nested = (part.toolMetadata as { nested?: { toolName?: unknown, input?: unknown } } | undefined)?.nested
+  const base = typeof nested?.toolName === 'string'
+    ? { toolName: nested.toolName, input: nested.input, afterMessage, inScript: true }
+    : { toolName: part.toolName, input: part.input, afterMessage, ...(inScript ? { inScript } : {}) }
   const withReason = (decision: EarlierCall['decision'], reason?: string): EarlierCall =>
     ({ ...base, decision, ...(reason ? { reason: reason.slice(0, REVIEW_REASON_MAX_CHARS) } : {}) })
   if (meta.decision) return meta.decision.approved ? withReason('approved-by-person') : withReason('rejected-by-person', approval?.reason)

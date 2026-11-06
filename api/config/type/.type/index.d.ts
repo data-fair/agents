@@ -187,6 +187,12 @@ export type ApiConfig = {
      */
     stage1TimeoutMs: number;
   };
+  codeMode: {
+    /**
+     * Signs the continuation of a code_mode script paused on a call that needs a person (CODE_MODE_CONTINUATION_SECRET). The same on every instance: a decision resumes the script wherever it lands, and after a restart.
+     */
+    continuationSecret: string;
+  };
   /**
    * How many code_mode scripts this process runs at once (one QuickJS worker each, up to 64 MiB). A script started while all are busy is refused, not queued.
    */

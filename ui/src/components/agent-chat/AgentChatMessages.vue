@@ -97,14 +97,12 @@
                       v-for="invocation in block.invocations"
                       :key="invocation.toolCallId"
                     >
+                      <!-- A script's paused call gets its card under the script's chip (below), where a chip is shown. -->
                       <approval-card
-                        v-if="invocation.state === 'awaiting-approval' && invocation.approvalId"
-                        :tool-name="invocation.toolName"
-                        :tool-title="invocationTitle(invocation)"
+                        v-if="invocation.state === 'awaiting-approval' && invocation.approvalId && (!invocation.nested || (showTraces && isTraced(invocation.toolName)))"
+                        v-bind="cardOf(invocation)"
                         :description="invocation.description"
                         :files="invocation.files"
-                        :input="invocation.input"
-                        :server-id="invocation.serverId"
                         :review="invocation.review"
                         :agent-path="agentPath"
                         :locked="!!invocation.approvalLocked"
@@ -116,7 +114,7 @@
                            after the whole row, several open calls could not be told apart. -->
                       <div
                         v-else-if="!showTraces || !isTraced(invocation.toolName)"
-                        :class="showToolDetails || scriptCalls(message, invocation).length ? 'agent-chat__tool-call' : 'd-inline'"
+                        :class="showToolDetails || scriptCalls(message, invocation).length || invocation.nested ? 'agent-chat__tool-call' : 'd-inline'"
                       >
                         <tool-chip
                           :invocation="invocation"
@@ -141,6 +139,20 @@
                             data-testid="nested-tool-chip"
                           />
                         </div>
+                        <!-- The call the script paused on, for the person to decide: under the calls it made first. -->
+                        <approval-card
+                          v-if="invocation.nested && invocation.state === 'awaiting-approval' && invocation.approvalId"
+                          v-bind="cardOf(invocation)"
+                          in-script
+                          :description="invocation.description"
+                          :files="invocation.files"
+                          :review="invocation.review"
+                          :agent-path="agentPath"
+                          :locked="!!invocation.approvalLocked"
+                          :failure="chatError"
+                          :readonly="readonly"
+                          @decide="decision => emit('decide-approval', { approvalId: invocation.approvalId!, ...decision })"
+                        />
                         <tool-call-detail
                           v-if="showToolDetails && detailOpen[invocation.toolCallId]"
                           class="agent-chat__tool-call-detail"
@@ -494,11 +506,18 @@ const invocationTitle = (invocation: { toolName: string, toolTitle?: string, inp
   return invocation.toolTitle ?? props.toolTitle(invocation.toolName)
 }
 
+/** What an approval card is about: the call itself, or the call a paused script stopped at (`nested`). */
+const cardOf = (invocation: Invocation) => {
+  const call = invocation.nested ?? invocation
+  return { toolName: call.toolName, toolTitle: invocationTitle(call), input: call.input, serverId: call.serverId }
+}
+
 /** The title of the latest call by this name in the given state: the activity line names the call it is about. */
 const latestCallTitle = (toolName: string, state: Invocation['state']) => {
   for (let i = props.messages.length - 1; i >= 0; i--) {
-    const call = [...(props.messages[i].toolInvocations ?? [])].reverse().find(ti => ti.toolName === toolName && ti.state === state)
-    if (call) return invocationTitle(call)
+    const call = [...(props.messages[i].toolInvocations ?? [])].reverse().find(ti => (ti.toolName === toolName || ti.nested?.toolName === toolName) && ti.state === state)
+    // A script paused on the call: the activity line names that call, as its card does.
+    if (call) return invocationTitle(call.nested?.toolName === toolName ? call.nested : call)
   }
   return invocationTitle({ toolName })
 }

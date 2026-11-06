@@ -255,7 +255,7 @@ classifier on Sonnet. The reviewer's latency and cost on that model are part of 
 tripwire share it.
 
 **Fails closed.** No model, an error, a timeout or an unparseable answer is a `review-failed` record, outcome
-`unsure`: a card in a chat, a denial in a task run or a script. Never an allow, and never a denial: the breaker
+`unsure`: a card in a chat (a script there pausing on it), a denial in a task run. Never an allow, and never a denial: the breaker
 neither counts it nor resets on it, and where it denies the model is told the change could not be reviewed now
 (`reviewUnavailableText`), not that the reviewer refused it; a task run's first one pushes an
 `agents:review-failed:<agent id>` event ([the gate](./autonomous-agents.md#the-reviewer-in-the-gate)). With no

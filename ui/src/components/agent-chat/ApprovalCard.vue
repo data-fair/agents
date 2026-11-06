@@ -129,6 +129,14 @@
         data-testid="approval-reason"
       />
     </v-card-text>
+    <!-- A script waits on this call: what it did before is done, and it goes on once the person decides. -->
+    <v-card-text
+      v-if="inScript"
+      class="text-body-small pt-0"
+      data-testid="approval-in-script"
+    >
+      {{ t('inScript') }}
+    </v-card-text>
     <!-- Why a person is asked: the reviewer allowed a call of a class that needs one, or could not settle it. -->
     <v-card-text
       v-if="reviewLine"
@@ -219,6 +227,7 @@ fr:
   approve: Approuver
   reject: Refuser
   typingCancels: Envoyer un message annule cette demande.
+  inScript: "Un script est en pause sur cette action : ce qu'il a fait avant est fait, il reprend dès que vous décidez."
   reason: Raison (facultative)
   confirmReject: Confirmer le refus
   cancel: Annuler
@@ -250,6 +259,7 @@ en:
   approve: Approve
   reject: Reject
   typingCancels: Sending a message cancels this request.
+  inScript: "A script is paused on this action: what it did before is done, and it goes on once you decide."
   reason: Reason (optional)
   confirmReject: Confirm rejection
   cancel: Cancel
@@ -293,6 +303,8 @@ const props = defineProps<{
   readonly?: boolean
   /** What the automated reviewer made of the call, when it was reviewed before being put to a person. */
   review?: NonNullable<ChatMessage['toolInvocations']>[number]['review']
+  /** The call a script paused on (api/src/code-mode): the card says the script waits for this decision. */
+  inScript?: boolean
 }>()
 const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
 

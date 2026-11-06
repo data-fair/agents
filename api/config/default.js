@@ -73,6 +73,9 @@ export default {
   // code_mode scripts running at once in this process: one QuickJS worker each (64 MiB heap). The pool refuses
   // rather than queues when full (api/src/code-mode).
   codeModeMaxWorkers: 4,
+  // Signs the continuation of a script paused on a call that needs a person (api/src/code-mode/tool.ts): the same on
+  // every instance, so the decision resumes it wherever it lands, and across a restart. Required in production.
+  codeMode: { continuationSecret: undefined },
   // The tool-output injection tripwire (api/src/tripwire): outside tool results are classified by the moderator
   // role model before the agent model reads them. A deployment switch, not a per-account setting.
   tripwire: { enabled: true },

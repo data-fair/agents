@@ -52,6 +52,19 @@ const reviewOf = (call: unknown): InvocationReview | undefined => {
   return review
 }
 
+type InvocationNested = NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['nested']>
+/** The call a paused script stopped at (toolMetadata.nested, api/src/conversations/model-loop.ts), when well formed. */
+const nestedOf = (call: unknown): InvocationNested | undefined => {
+  const nested = (call as any).toolMetadata?.nested
+  if (!nested || typeof nested.toolName !== 'string') return undefined
+  return {
+    toolName: nested.toolName,
+    ...('input' in nested ? { input: nested.input } : {}),
+    ...(typeof nested.title === 'string' ? { toolTitle: nested.title } : {}),
+    ...(typeof nested.serverId === 'string' ? { serverId: nested.serverId } : {})
+  }
+}
+
 export function autonomousAgentMessageToChat (message: StoredConversationMessage): ChatMessage {
   const parts = message.parts ?? []
   const chat: ChatMessage = {
@@ -110,6 +123,8 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
         ...(typeof (call as any).toolMetadata?.description === 'string' ? { description: (call as any).toolMetadata.description } : {}),
         // The files a gated call would send (api/src/files/call-path.ts describeFileArguments), for its card.
         ...((call as any).toolMetadata?.files && typeof (call as any).toolMetadata.files === 'object' ? { files: (call as any).toolMetadata.files } : {}),
+        // A script paused on a call that needs the person: that call, for its card (api/src/code-mode).
+        ...(nestedOf(call) ? { nested: nestedOf(call) } : {}),
         // The decision recorded on the call (conversations/service.ts decideApproval). Without it an approved
         // call's chip read like any other, and a judged agent could tell the person it still awaited approval.
         ...((call as any).toolMetadata?.decision?.approved === true ? { approved: true as const } : {}),

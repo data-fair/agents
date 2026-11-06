@@ -42,6 +42,11 @@ export interface ChatMessage {
     files?: Record<string, { path: string, mimeType?: string, size?: number, missing?: boolean }>
     /** Set on a gated call someone approved: its chip says so, as a denied one says it was declined. */
     approved?: true
+    /**
+     * Set on a script's call paused on a call that needs the person (api/src/code-mode): that call, which its
+     * approval card is about — its name, arguments, title and server, where the script's own are on its chip.
+     */
+    nested?: { toolName: string, input?: unknown, toolTitle?: string, serverId?: string }
   }>
   /**
    * The message in the order it happened: what the agent wrote, the calls a step made, what it wrote

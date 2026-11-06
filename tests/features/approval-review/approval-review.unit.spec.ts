@@ -379,6 +379,14 @@ test.describe('Earlier calls', () => {
     assert.deepEqual(calls.map(c => [c.toolName, c.inScript ?? false, c.decision]), [['delete_note', true, 'refused-by-reviewer'], ['set_note', false, 'allowed-by-reviewer']])
   })
 
+  test('a script paused on a call stands for that call: awaiting, then as decided', () => {
+    const nested = { nested: { toolName: 'delete_note', input: { note: 'x' } }, review: judged('allow') }
+    const awaiting = earlierCallsOf([tool({ toolCallId: 'cm', toolName: 'code_mode', input: { js: '…' }, state: 'approval-requested', approval: { id: 'i' }, toolMetadata: nested })], 1)
+    assert.deepEqual(awaiting.map(c => [c.toolName, c.input, c.inScript, c.decision]), [['delete_note', { note: 'x' }, true, 'awaiting-person']])
+    const approved = earlierCallsOf([tool({ toolCallId: 'cm', toolName: 'code_mode', input: { js: '…' }, approval: { id: 'i', approved: true }, toolMetadata: { ...nested, decision: { approved: true } } })], 1)
+    assert.deepEqual(approved.map(c => [c.toolName, c.decision]), [['delete_note', 'approved-by-person']])
+  })
+
   test('reviewContextOfConversation places each call after the message it followed, counting only shown messages', () => {
     const user = (text: string) => ({ role: 'user', parts: [{ type: 'text', text }] as any })
     const assistant = (parts: any[]) => ({ role: 'assistant', parts })

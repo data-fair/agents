@@ -23,6 +23,7 @@ import {
   type StoredTurn,
   type MessagePart
 } from '../../../api/src/conversations/operations.ts'
+import { pausedScriptDenialText } from '../../../api/src/code-mode/operations.ts'
 
 /**
  * A stored turn without its id, which the helpers below supply.
@@ -106,6 +107,22 @@ test.describe('storedTurnsToModelMessages', () => {
     // In the LAST message it is left alone: that is the one the SDK executes approvals from.
     const pending = await replay([userTurn('wipe it'), { role: 'assistant', parts: [approved] }])
     assert.ok(!pending.flatMap(m => (Array.isArray(m.content) ? m.content : []) as any[]).some((c: any) => c.type === 'tool-result'), 'the approval stays to be executed')
+  })
+
+  test('a paused script whose card was cancelled is replayed with what happened to the script', async () => {
+    const cancelled: MessagePart = {
+      type: 'dynamic-tool',
+      toolCallId: 'cm',
+      toolName: 'code_mode',
+      state: 'output-denied',
+      input: { js: '…' },
+      approval: { id: 'cm:tool-3:interrupt', approved: false, reason: 'The person sent a new message instead of deciding.' },
+      toolMetadata: { nested: { toolName: 'slow_update', input: {} } }
+    } as MessagePart
+    const messages = await replay([userTurn('update'), { role: 'assistant', parts: [cancelled] }, userTurn('never mind')])
+    const result = messages.flatMap(m => (Array.isArray(m.content) ? m.content : []) as any[]).find((c: any) => c.type === 'tool-result')
+    assert.equal(result.output.value, pausedScriptDenialText('slow_update', 'The person sent a new message instead of deciding.'))
+    assert.match(result.output.value, /the calls before it ran, nothing after it ran/)
   })
 
   test('a turn that ONLY called tools still appears in history', async () => {

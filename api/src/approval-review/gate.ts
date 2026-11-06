@@ -8,7 +8,8 @@
  * composes the denial of approved calls whose tool is gone (./../conversations/approved-calls.ts), and is called
  * again on replay of a person-approved call, where anything but `denied` runs it.
  *
- * Nested `code_mode` calls do not pass through `toolApproval`: their wrapper (Task 5) calls `reviewNested`, and
+ * Nested `code_mode` calls do not pass through `toolApproval`: their wrapper (api/src/code-mode/code-tools.ts) calls
+ * `reviewNested`, pausing the script for a person where the record asks one (`asksPerson`, in a chat), and
  * `noteNested` for every nested call that ran, so a script that read outside content makes the turn exposed.
  */
 import type { ModelMessage, ToolApprovalConfiguration, ToolSet } from 'ai'
@@ -63,6 +64,14 @@ const approvedIn = (messages: ModelMessage[], toolCallId: string): boolean => {
 const withReason = (type: 'approved' | 'denied' | 'user-approval', reason: string): Status => reason ? { type, reason } : { type }
 
 /**
+ * Whether a review's record puts the call to a person, where one can decide (a chat): unsure, or an allow on the
+ * `reviewer+person` route. Never a deny, nor a call refused unreviewed (a tripped breaker, a spent budget): the rule
+ * statusOf applies to a direct call, for a script's (its wrapper pauses the script on it).
+ */
+export const asksPerson = (record: ReviewRecord, route: ReviewRoute): boolean =>
+  record.code !== 'breaker-tripped' && (record.outcome === 'unsure' || (record.outcome === 'allow' && route !== 'reviewer'))
+
+/**
  * What a review's record decides: a denial is final; unsure asks a person in a chat and denies elsewhere. A denial
  * tells the model not to work around it (reviewerDenialText), a failed review that it could not be reviewed
  * (reviewUnavailableText, refusalTextOf); a card's reason is the reviewer's own, for the person.
@@ -113,7 +122,8 @@ export const createReviewGate = (opts: {
     return { exposed: true, tools: [...new Set([...base.tools, ...nestedScanned])] }
   }
 
-  // `nested`: a script's call, where no person can decide, so unsure denies there as in a task run.
+  // `nested`: a script's call. In a chat it asks a person as a direct call does (its script pauses); it differs in
+  // being checked against the budget first, the loop's own check running between steps only.
   const review = async (toolCallId: string, toolName: string, tool: GateTool & { review: NonNullable<GateTool['review']> }, input: unknown, messages: ModelMessage[], nested: boolean) => {
     const call: ProposedCall = {
       toolName,
@@ -128,9 +138,8 @@ export const createReviewGate = (opts: {
     // script, or the step's later calls, would otherwise go on trying variants until one is allowed. Not counted.
     const settle = (record: ReviewRecord) => {
       records.set(toolCallId, record)
-      // Unsure goes to a person only in a chat's direct call; an allow goes to one on the reviewer+person route.
-      const awaitingPerson = !nested && opts.surface === 'chat' && record.code !== 'breaker-tripped' &&
-        (record.outcome === 'unsure' || (record.outcome === 'allow' && tool.review.route !== 'reviewer'))
+      // Unsure goes to a person only in a chat; an allow goes to one on the reviewer+person route.
+      const awaitingPerson = opts.surface === 'chat' && asksPerson(record, tool.review.route)
       turnCalls.push(earlierCallOfRecord(toolName, input, record, { awaitingPerson, inScript: nested, afterMessage: opts.earlier?.afterMessage ?? 0 }))
       return record
     }
@@ -142,8 +151,8 @@ export const createReviewGate = (opts: {
     }
     const record = settle(await opts.review(call, exposureFor(messages), [...(opts.earlier?.calls ?? []), ...turnCalls]))
     // A failed review is no judgment at all: it neither counts as a denial nor ends a run of them. An unsure counts
-    // as a denial where it denies (a task run, a script's call): variants retried there are refused all the same.
-    if (record.code !== 'review-failed') breaker.count(record, nested || opts.surface === 'task')
+    // as a denial where it denies (a task run): variants retried there are refused all the same.
+    if (record.code !== 'review-failed') breaker.count(record, opts.surface === 'task')
     return record
   }
 

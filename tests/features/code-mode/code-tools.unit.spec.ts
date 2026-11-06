@@ -5,9 +5,10 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema } from 'ai'
-import { codeCallable, SCRIPT_TRANSFER_BYTES } from '../../../api/src/code-mode/operations.ts'
-import { codeFacingTools, createCodeTrace } from '../../../api/src/code-mode/code-tools.ts'
-import { createScriptTool } from '../../../api/src/code-mode/tool.ts'
+import { experimental_runCodeMode as runCodeMode, experimental_continueCodeModeApproval as continueCodeModeApproval, experimental_unwrapCodeModeResult as unwrapCodeModeResult, experimental_isCodeModeApprovalInterrupt as isCodeModeApprovalInterrupt, experimental_setCodeModeContinuationSigningKey as setCodeModeContinuationSigningKey } from '@ai-sdk/code-mode'
+import { codeCallable, SCRIPT_TRANSFER_BYTES, SCRIPT_RESUME_FAILED_MESSAGE, rejectedCallMessage, scriptPauseTooLargeMessage } from '../../../api/src/code-mode/operations.ts'
+import { codeFacingTools, createCodeTrace, createScriptPauses } from '../../../api/src/code-mode/code-tools.ts'
+import { createScriptTool, ScriptPausedError } from '../../../api/src/code-mode/tool.ts'
 import { reviewUnavailableText } from '../../../api/src/approval-review/operations.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../../../api/src/web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, codeOutputSchemaFor } from '../../../api/src/mcp-servers/operations.ts'
@@ -286,5 +287,187 @@ test.describe('the trace of a script', () => {
     const description = (reviewed: boolean) => String(createScriptTool(codeFacingTools({ names: ['write'], fixed, page: {}, callPath: {}, trace: trace() }), { reviewed }).description)
     assert.match(description(true), /checked by a reviewer before they run, a few seconds each, counted in the script's 120 s/)
     assert.doesNotMatch(description(false), /reviewer/)
+  })
+})
+
+/**
+ * The package's pause and resume (@ai-sdk/code-mode 1.0.116, experimental_): pinned here, with no model, because the
+ * approval of a script's call rests on them (docs/architecture/code-mode.md, "A call that needs a person").
+ */
+test.describe('a script paused on an approval (the package)', () => {
+  const counters = () => {
+    const ran = { write: 0, approve: 0, approvedCallIds: [] as string[] }
+    const tools = {
+      write: { description: 'w', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => { ran.write++; return ran.write } },
+      approve: { description: 'a', inputSchema: jsonSchema({ type: 'object', properties: { n: { type: 'number' } } }), needsApproval: true, execute: async (_input: unknown, opts: any) => { ran.approve++; ran.approvedCallIds.push(opts.toolCallId); return 'approved' } }
+    } as any
+    return { ran, tools }
+  }
+  const options = { approval: { mode: 'interrupt' as const } }
+  const pause = async (js: string, tools: any) => {
+    const unwrapped = unwrapCodeModeResult(await runCodeMode({ js, tools, options, toolExecutionOptions: { toolCallId: 'outer', messages: [] } as any }))
+    assert.equal(unwrapped.status, 'interrupted')
+    return (unwrapped as { interrupt: any }).interrupt
+  }
+  const decide = async (interrupt: any, approved: boolean, tools: any) =>
+    unwrapCodeModeResult(await continueCodeModeApproval({ interrupt, approvalResponse: { approvalId: interrupt.interruptId, approved }, tools, options }))
+
+  test('resumes without re-running earlier writes', async () => {
+    const { ran, tools } = counters()
+    const interrupt = await pause('await tools.write({}); const a = await tools.approve({ n: 1 }); const w = await tools.write({}); return { a, w }', tools)
+    assert.ok(isCodeModeApprovalInterrupt(interrupt))
+    assert.equal(interrupt.toolName, 'approve')
+    assert.deepEqual(interrupt.input, { n: 1 })
+    assert.match(interrupt.toolCallId, /^outer:tool-\d+$/)
+    assert.deepEqual([ran.write, ran.approve], [1, 0])
+    const resumed = await decide(interrupt, true, tools)
+    assert.deepEqual(resumed, { status: 'completed', output: { a: 'approved', w: 2 } })
+    assert.deepEqual([ran.write, ran.approve], [2, 1])
+    // The approved call runs under the id the pause named: what a resume recognises it by.
+    assert.deepEqual(ran.approvedCallIds, [interrupt.toolCallId])
+  })
+
+  test('resumes a loop of approvals one by one', async () => {
+    const { ran, tools } = counters()
+    let interrupt = await pause('const out = []; for (let i = 0; i < 3; i++) { await tools.write({}); out.push(await tools.approve({ n: i })) } return out', tools)
+    for (let i = 0; i < 3; i++) {
+      assert.deepEqual(interrupt.input, { n: i })
+      const resumed = await decide(interrupt, true, tools)
+      if (i < 2) {
+        assert.equal(resumed.status, 'interrupted')
+        interrupt = (resumed as { interrupt: any }).interrupt
+      } else {
+        assert.deepEqual(resumed, { status: 'completed', output: ['approved', 'approved', 'approved'] })
+      }
+    }
+    assert.deepEqual([ran.write, ran.approve], [3, 3])
+  })
+
+  // NOT inside the script: 1.0.116 refuses a continuation holding a denial before it runs anything
+  // (assertNoDeniedApproval), so a script could not catch it. A person's rejection is therefore resumed as an
+  // approval whose call throws (createScriptTool, `rejected`): pinned so an upgrade that changes this is seen.
+  test('a rejection fails the whole resume, before the script runs again', async () => {
+    const { ran, tools } = counters()
+    const interrupt = await pause('try { await tools.approve({ n: 1 }); return "ran" } catch (e) { return e.message }', tools)
+    await assert.rejects(decide(interrupt, false, tools), (err: any) => err.name === 'CodeModeToolApprovalDeniedError')
+    assert.equal(ran.approve, 0)
+  })
+
+  test('refuses a tampered continuation', async () => {
+    const { ran, tools } = counters()
+    const interrupt = await pause('await tools.approve({ n: 1 }); return await tools.write({})', tools)
+    const tampered = structuredClone(interrupt)
+    tampered.continuation.js = tampered.continuation.js.replace('n: 1', 'n: 2')
+    await assert.rejects(decide(tampered, true, tools), (err: any) => err.name === 'CodeModeProtocolError')
+    assert.deepEqual([ran.write, ran.approve], [0, 0])
+  })
+
+  test('refuses an expired continuation', async () => {
+    const { ran, tools } = counters()
+    setCodeModeContinuationSigningKey('a key for this test only', { maxAgeMs: 1 })
+    try {
+      const interrupt = await pause('await tools.approve({ n: 1 }); return 1', tools)
+      await new Promise(resolve => setTimeout(resolve, 10))
+      await assert.rejects(decide(interrupt, true, tools), /expired/)
+      assert.equal(ran.approve, 0)
+    } finally {
+      setCodeModeContinuationSigningKey()
+    }
+  })
+})
+
+/** Ours, over the package: a chat's script pauses on a call that needs a person, and resumes from its decision. */
+test.describe('a script paused for a person (createScriptTool, codeFacingTools)', () => {
+  const opts = (toolCallId: string) => ({ toolCallId, messages: [], context: {} }) as any
+  const setup = (fixedOver: (ran: string[]) => any, reviewNested?: (id: string, name: string, input: any) => any, keep = async () => true) => {
+    const ran: string[] = []
+    const reviewed: string[] = []
+    const pauses = createScriptPauses(keep)
+    const fixed = fixedOver(ran)
+    const build = () => createScriptTool(codeFacingTools({
+      names: Object.keys(fixed),
+      fixed,
+      page: {},
+      callPath: {},
+      trace: trace(),
+      pauses,
+      ...(reviewNested ? { review: { reviewNested: async (id: string, name: string, input: any) => { reviewed.push(`${name}:${input.v}`); return reviewNested(id, name, input) }, noteNested: () => {} } } : {})
+    }), { pauses })
+    return { ran, reviewed, pauses, build }
+  }
+  const gated = (ran: string[]) => ({
+    read: { tool: plain(async () => { ran.push('read'); return 'r' }), server: 'dev' },
+    write: { tool: { ...plain(async (input: any) => { ran.push(`write:${input.v ?? ''}`); return 'written' }), needsApproval: true }, server: 'dev' }
+  })
+  const js = 'await tools.read({}); try { const w = await tools.write({ v: "a" }); return "got " + w } catch (e) { return e.message }'
+
+  test('a tool needing approval is callable where a person can decide, and pauses the script', async () => {
+    assert.equal(codeCallable('wipe_everything', { needsApproval: true }, { person: true }), true)
+    assert.equal(codeCallable('request_web_access', { needsApproval: true }, { person: true }), false)
+    const { ran, pauses, build } = setup(gated)
+    await assert.rejects(build().execute!({ js }, opts('cmP')), (err: any) => err instanceof ScriptPausedError)
+    assert.deepEqual(ran, ['read'])
+    const interrupt = pauses.paused.get('cmP')!
+    assert.equal(interrupt.toolName, 'write')
+    assert.deepEqual(interrupt.input, { v: 'a' })
+    assert.match(String(build().description), /pauses the script/)
+  })
+
+  test('approved, the script resumes where it stopped; rejected, the call throws inside it', async () => {
+    for (const approved of [true, false]) {
+      const { ran, pauses, build } = setup(gated)
+      await assert.rejects(build().execute!({ js }, opts('cmR')))
+      const interrupt = pauses.paused.get('cmR')!
+      pauses.paused.clear()
+      pauses.resumes.set('cmR', { interrupt, approved, ...(approved ? {} : { reason: 'not today' }) })
+      const out = String(await build().execute!({ js }, opts('cmR')))
+      if (approved) {
+        assert.equal(out, 'got written')
+        assert.deepEqual(ran, ['read', 'write:a'])
+      } else {
+        assert.equal(out, rejectedCallMessage('write', 'not today'))
+        assert.deepEqual(ran, ['read'])
+      }
+    }
+  })
+
+  test('a reviewed call: a deny fails, an allow on the reviewer route runs, unsure and reviewer+person pause; the resumed call is not reviewed again', async () => {
+    const route = (r: 'reviewer' | 'reviewer+person') => ({ route: r, cls: 'write' as const, kind: 'action' as const })
+    const fixed = (ran: string[]) => ({
+      note: { tool: plain(async (input: any) => { ran.push(`note:${input.v}`); return 'ok' }), server: 'dev', review: route('reviewer') },
+      remove: { tool: { ...plain(async (input: any) => { ran.push(`remove:${input.v}`); return 'ok' }), needsApproval: true }, server: 'dev', review: route('reviewer+person') }
+    })
+    const outcome = (input: any) => ({ outcome: input.v === 'no' ? 'deny' : input.v === 'maybe' ? 'unsure' : 'allow', reason: 'r', code: 'judged' })
+    const { ran, reviewed, pauses, build } = setup(fixed, (_id, _name, input) => outcome(input))
+    const out = await build().execute!({ js: 'try { await tools.note({ v: "no" }) } catch (e) {} await tools.note({ v: "yes" }); await tools.note({ v: "maybe" }); return "end"' }, opts('cmV'))
+      .catch((err: unknown) => err)
+    assert.ok(out instanceof ScriptPausedError)
+    assert.deepEqual(ran, ['note:yes'])
+    assert.equal(pauses.paused.get('cmV')!.toolName, 'note')
+    const remove = await build().execute!({ js: 'await tools.remove({ v: "yes" }); return "end"' }, opts('cmW')).catch((err: unknown) => err)
+    assert.ok(remove instanceof ScriptPausedError, 'an allow on reviewer+person asks the person')
+    assert.deepEqual(reviewed, ['note:no', 'note:yes', 'note:maybe', 'remove:yes'])
+    pauses.resumes.set('cmW', { interrupt: pauses.paused.get('cmW')!, approved: true })
+    assert.equal(await build().execute!({ js: 'await tools.remove({ v: "yes" }); return "end"' }, opts('cmW')), 'end')
+    assert.deepEqual(ran, ['note:yes', 'remove:yes'])
+    assert.deepEqual(reviewed, ['note:no', 'note:yes', 'note:maybe', 'remove:yes'], 'not reviewed again on resume')
+  })
+
+  test('a continuation the package refuses, and one too large to keep, are errors the model reads', async () => {
+    const { pauses, build } = setup(gated)
+    await assert.rejects(build().execute!({ js }, opts('cmT')))
+    const tampered = structuredClone(pauses.paused.get('cmT')!)
+    tampered.continuation.js = tampered.continuation.js.replace('"a"', '"b"')
+    pauses.resumes.set('cmT', { interrupt: tampered, approved: true })
+    await assert.rejects(build().execute!({ js }, opts('cmT')), (err: any) => err.message === SCRIPT_RESUME_FAILED_MESSAGE)
+
+    const full = setup(gated, undefined, async () => false)
+    await assert.rejects(full.build().execute!({ js }, opts('cmL')), (err: any) => err.message === scriptPauseTooLargeMessage('write'))
+    assert.equal(full.pauses.paused.size, 0)
+  })
+
+  test('without a person (a task run), a tool needing approval stays out of the map', () => {
+    const tools = codeFacingTools({ names: ['read', 'write'], fixed: gated([]), page: {}, callPath: {}, trace: trace() })
+    assert.deepEqual(Object.keys(tools), ['read'])
   })
 })

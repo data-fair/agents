@@ -61,6 +61,7 @@ export default {
   defaultLimits: { credits: -1 },
   // The dev bridge starts a Claude Code session per call: its stage-1 answers take 3 to 6 s (docs/architecture/moderation.md).
   approvalReview: { stage1TimeoutMs: 15000 },
+  codeMode: { continuationSecret: 'dev-code-mode-continuation-secret-not-for-production' },
   // The file store of autonomous agents, on a local directory (gitignored). publicUrl is the API itself on
   // its dev port: the dev MCP fixture fetches signed file URLs there directly, as an internal request.
   files: {
