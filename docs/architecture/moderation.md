@@ -232,7 +232,8 @@ still apply: instructions describe the job, they do not rewrite the policy.
 classification: stage 2 **reasons** (reasoning left on, `REVIEW_STAGE2_MAX_TOKENS` 2 000, 30 s), and a
 **destructive call, a grant or a call whose arguments were cut skips stage 1** and always reaches stage 2
 (`isConfirmationOnly`, shared with the eval harness), so a one-word `no` may stand as an allow only for a write
-shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to flagging; its `no` is recorded `cleared`. Stage 2 answers
+shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to flagging; its `no` is
+recorded `cleared`. Stage 2 answers
 `{ outcome: allow | deny | unsure, reason }`; the schema leaves the reason unbounded, so a long one cannot fail a
 real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300).
 
@@ -242,7 +243,10 @@ unsure and, in a chat, becomes an approval card. The timeout is the config `appr
 Claude Code session per call, a latency production models do not have, so the development config may set it higher.
 The guard eval has long-conversation cases for it (`rb-portal-long-intent-editarray`, `rb-portal-long-intent-publish`,
 `rb-portal-many-earlier-calls`: about 10 000 characters of intent, 20 earlier calls) and reports latency per case.
-Measured on the dev bridge: (to be filled)
+Measured 2026-11-06 on the dev bridge (Claude Haiku, `GUARD_EVAL_GUARDS=reviewer GUARD_EVAL_REPEAT=3`, 201 reviews,
+concurrency 4): of the 135 reviews that run stage 1, the 27 that cleared took p50 3.2 s / p90 4.2 s, and 27 (20 %)
+timed out at 5 s; a stage-2-only review took p50 3.3 s / p90 6.5 s. The bridge starts a Claude Code session per
+call, a latency production models do not have, so development waits 15 s and production keeps 5 s.
 
 **Model.** The `moderator` role, with its fallback chain (moderator → summarizer → assistant), metered through
 `chargeModelCall` and counted in the turn's credit budget like the tripwire's calls (the loop creates the reviewer

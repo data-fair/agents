@@ -59,6 +59,8 @@ export default {
   // uncapped in dev/test: the production default of 0 would block every
   // account that has not been pushed a limit, which most specs never do
   defaultLimits: { credits: -1 },
+  // The dev bridge starts a Claude Code session per call: its stage-1 answers take 3 to 6 s (docs/architecture/moderation.md).
+  approvalReview: { stage1TimeoutMs: 15000 },
   // The file store of autonomous agents, on a local directory (gitignored). publicUrl is the API itself on
   // its dev port: the dev MCP fixture fetches signed file URLs there directly, as an internal request.
   files: {
