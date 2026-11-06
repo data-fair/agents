@@ -128,6 +128,10 @@ test.describe('Reviewer operations', () => {
       { outcome: 'allow', reason: '', code: 'cleared', exposed: false, at: now })
     assert.deepEqual(reviewOutcomeToRecord({ kind: 'verdict', stage1: true, verdict: { outcome: 'deny', reason: 'deletes a portal' } }, true, now),
       { outcome: 'deny', reason: 'deletes a portal', code: 'judged', exposed: true, at: now })
+    const person = 'Cette modification sera enregistrée dans le brouillon du portail.'
+    assert.deepEqual(reviewOutcomeToRecord({ kind: 'verdict', stage1: true, verdict: { outcome: 'unsure', reason: 'saveForm persists the draft', personReason: person } }, false, now),
+      { outcome: 'unsure', reason: 'saveForm persists the draft', personReason: person, code: 'judged', exposed: false, at: now })
+    assert.equal('personReason' in reviewOutcomeToRecord({ kind: 'verdict', stage1: true, verdict: { outcome: 'unsure', reason: 'x' } }, false, now), false)
     const failed = reviewOutcomeToRecord({ kind: 'confirm-failed', cause: 'timeout', message: 'aborted' }, false, now)
     assert.equal(failed.outcome, 'unsure')
     assert.equal(failed.code, 'review-failed')

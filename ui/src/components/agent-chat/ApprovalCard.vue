@@ -327,7 +327,7 @@ const reviewLine = computed(() => {
   const review = props.review
   if (!review) return null
   if (review.code === 'review-failed') return t('reviewFailed')
-  if (review.outcome === 'unsure') return t('reviewUnsure', { reason: review.reason })
+  if (review.outcome === 'unsure') return review.personReason || t('reviewUnsure', { reason: review.reason })
   if (review.outcome === 'allow') return t('reviewAllowed')
   return null
 })

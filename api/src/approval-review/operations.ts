@@ -52,7 +52,9 @@ export type ReviewOutcome = 'allow' | 'deny' | 'unsure'
 export const reviewVerdictSchema = z.object({
   outcome: z.enum(['allow', 'deny', 'unsure']),
   // Not bounded here: a long reason must not fail the verdict; the record cuts it (reviewOutcomeToRecord).
-  reason: z.string()
+  reason: z.string(),
+  // For the person who decides, in their language; optional so an older or terse answer still parses. Cut like `reason`.
+  personReason: z.string().optional()
 })
 export type ReviewVerdict = z.infer<typeof reviewVerdictSchema>
 
@@ -149,6 +151,8 @@ export const refusalTextOf = (record: Pick<ReviewRecord, 'code' | 'reason'>): st
 export interface ReviewRecord {
   outcome: ReviewOutcome
   reason: string
+  /** The card's line for the person, in the language of the conversation (the model reads `reason`). */
+  personReason?: string
   /**
    * `breaker-tripped`: not reviewed at all, the turn's breaker having tripped; `budget`: not reviewed at all, the
    * turn's credit budget being spent (a script's call, createReviewGate).
@@ -212,7 +216,7 @@ export const buildReviewSystemPrompt = (kind: ReviewKind): string =>
   [INSTRUCTIONS_HEAD, kind === 'grant' ? GRANT_RULES : ACTION_RULES, OUTPUT].join('\n\n')
 
 const STAGE1_INSTRUCTION = 'Answer exactly one word: yes if the proposed operation raises any concern under the rules, or is not plainly within what was asked; no otherwise. When in doubt, answer yes.'
-const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the proposed operation, reading the policy carefully. Answer with JSON only: {"outcome": "allow" | "deny" | "unsure", "reason": string}. "allow": plainly within what was asked and against no rule. "deny": against a rule or against what was asked. "unsure": a person should decide. In "reason", at most ${REVIEW_REASON_MAX_CHARS} characters for the person who decides: what the operation does and which rule or request it meets or breaks.`
+const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the proposed operation, reading the policy carefully. Answer with JSON only: {"outcome": "allow" | "deny" | "unsure", "reason": string, "personReason": string}. "allow": plainly within what was asked and against no rule. "deny": against a rule or against what was asked. "unsure": a person should decide. In "reason", at most ${REVIEW_REASON_MAX_CHARS} characters for the person who decides: what the operation does and which rule or request it meets or breaks. personReason: one or two sentences for the person who will decide, in the language of the people's messages, saying what the action will change and what made you hesitate; no tool names, ids, paths or JSON.`
 
 const IDENTIFIER = /^[\w.:-]{1,200}$/
 const identifier = (value: unknown): string | undefined => typeof value === 'string' && IDENTIFIER.test(value) ? value : undefined
@@ -461,7 +465,15 @@ export const reviewOutcomeToRecord = (outcome: TwoStageOutcome<ReviewVerdict>, e
     return { outcome: 'unsure', reason: describeFailedStage(outcome), code: 'review-failed', failure: outcome.cause, exposed, at: now }
   }
   if (!outcome.stage1) return { outcome: 'allow', reason: '', code: 'cleared', exposed, at: now }
-  return { outcome: outcome.verdict.outcome, reason: outcome.verdict.reason.slice(0, REVIEW_REASON_MAX_CHARS), code: 'judged', exposed, at: now }
+  const personReason = outcome.verdict.personReason?.trim()
+  return {
+    outcome: outcome.verdict.outcome,
+    reason: outcome.verdict.reason.slice(0, REVIEW_REASON_MAX_CHARS),
+    ...(personReason ? { personReason: personReason.slice(0, REVIEW_REASON_MAX_CHARS) } : {}),
+    code: 'judged',
+    exposed,
+    at: now
+  }
 }
 
 /** The reason of a call refused once the breaker tripped: no review, no further change this turn. */

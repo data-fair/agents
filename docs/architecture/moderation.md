@@ -234,7 +234,7 @@ classification: stage 2 **reasons** (reasoning left on, `REVIEW_STAGE2_MAX_TOKEN
 (`isConfirmationOnly`, shared with the eval harness), so a one-word `no` may stand as an allow only for a write
 shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to flagging; its `no` is
 recorded `cleared`. Stage 2 answers
-`{ outcome: allow | deny | unsure, reason }`; the schema leaves the reason unbounded, so a long one cannot fail a
+`{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, in the language of the conversation, shown on the approval card instead of « le relecteur hésite : reason », cut like `reason`); the schema leaves the reason unbounded, so a long one cannot fail a
 real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300).
 
 **Stage-1 timeout.** A stage 1 that does not answer in time fails the review (`failure: timeout`), the call is

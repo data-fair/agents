@@ -92,7 +92,7 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
         // Not a refusal: the person wrote or used the page instead of deciding.
         ...(call.state === 'output-denied' && cancellationOf(call.approval) ? { cancelled: cancellationOf(call.approval) } : {}),
         // What the reviewer made of a call put to a person, for its card.
-        ...(call.state === 'approval-requested' && review ? { review: { outcome: review.outcome, reason: review.reason, code: review.code } } : {}),
+        ...(call.state === 'approval-requested' && review ? { review: { outcome: review.outcome, reason: review.reason, ...(review.personReason ? { personReason: review.personReason } : {}), code: review.code } } : {}),
         // PER CALL, not per message. The states before an output arrives are exactly the ones still
         // running, so a parallel step now shows each call finishing as it finishes, instead of every
         // chip waiting on the slowest. A failed call is 'done', because ChatMessage has no failure

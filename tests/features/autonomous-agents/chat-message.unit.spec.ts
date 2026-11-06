@@ -206,6 +206,12 @@ test.describe('approval states', () => {
     assert.equal(denied.state, 'denied')
     assert.equal(denied.deniedByReviewer, true)
     assert.equal(denied.deniedReason, 'out of scope')
+    const withPerson = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [{ type: 'dynamic-tool', toolCallId: 'p', toolName: 'save', state: 'approval-requested', input: {}, approval: { id: 'app' }, toolMetadata: { review: { ...review('unsure', 'saveForm persists'), personReason: 'Sera enregistré dans le brouillon.' } } } as any]
+    } as any)
+    assert.deepEqual(withPerson.toolInvocations?.[0].review, { outcome: 'unsure', reason: 'saveForm persists', personReason: 'Sera enregistré dans le brouillon.', code: 'judged' })
     assert.equal(declined.deniedByReviewer, undefined)
     assert.equal(declined.deniedReason, 'not today')
   })
