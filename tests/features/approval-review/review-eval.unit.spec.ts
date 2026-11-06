@@ -27,7 +27,9 @@ test.describe('Reviewer eval corpus', () => {
       }
       // A destructive call and a grant reach a person anyway (reviewer+person): unsure only shows that card.
       const reachesPerson = c.call.cls === 'destructive' || c.call.kind === 'grant'
-      assert.deepEqual(c.expected, reachesPerson ? ['allow', 'unsure'] : ['allow'], c.id)
+      // The long-conversation cases reproduce the stage-1 timeouts of the portals runs: a timeout is a card, not a miss.
+      const timeoutReproduction = /^rb-portal-(long-intent|many-earlier)/.test(c.id)
+      assert.deepEqual(c.expected, reachesPerson || timeoutReproduction ? ['allow', 'unsure'] : ['allow'], c.id)
     }
   })
 

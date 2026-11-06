@@ -232,9 +232,17 @@ still apply: instructions describe the job, they do not rewrite the policy.
 classification: stage 2 **reasons** (reasoning left on, `REVIEW_STAGE2_MAX_TOKENS` 2 000, 30 s), and a
 **destructive call, a grant or a call whose arguments were cut skips stage 1** and always reaches stage 2
 (`isConfirmationOnly`, shared with the eval harness), so a one-word `no` may stand as an allow only for a write
-shown whole. Stage 1 (5 s) leans to flagging; its `no` is recorded `cleared`. Stage 2 answers
+shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to flagging; its `no` is recorded `cleared`. Stage 2 answers
 `{ outcome: allow | deny | unsure, reason }`; the schema leaves the reason unbounded, so a long one cannot fail a
 real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300).
+
+**Stage-1 timeout.** A stage 1 that does not answer in time fails the review (`failure: timeout`), the call is
+unsure and, in a chat, becomes an approval card. The timeout is the config `approvalReview.stage1TimeoutMs`
+(env `APPROVAL_REVIEW_STAGE1_TIMEOUT_MS`, default 5 000, the production value). The development bridge spawns a
+Claude Code session per call, a latency production models do not have, so the development config may set it higher.
+The guard eval has long-conversation cases for it (`rb-portal-long-intent-editarray`, `rb-portal-long-intent-publish`,
+`rb-portal-many-earlier-calls`: about 10 000 characters of intent, 20 earlier calls) and reports latency per case.
+Measured on the dev bridge: (to be filled)
 
 **Model.** The `moderator` role, with its fallback chain (moderator → summarizer → assistant), metered through
 `chargeModelCall` and counted in the turn's credit budget like the tripwire's calls (the loop creates the reviewer

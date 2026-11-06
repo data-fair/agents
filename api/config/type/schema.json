@@ -29,6 +29,7 @@
     "shutdownGraceSeconds",
     "taskTimeoutSeconds",
     "codeModeMaxWorkers",
+    "approvalReview",
     "tasks"
   ],
   "$defs": {
@@ -273,6 +274,19 @@
           "type": "boolean",
           "default": true,
           "description": "Classify outside tool results for prompt injection before the model sees them (docs/architecture/moderation.md)."
+        }
+      }
+    },
+    "approvalReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stage1TimeoutMs"],
+      "properties": {
+        "stage1TimeoutMs": {
+          "type": "integer",
+          "minimum": 100,
+          "default": 5000,
+          "description": "Hard timeout of the approval reviewer's stage 1 (docs/architecture/moderation.md). A timeout leaves the call unsure, so it becomes an approval card: raise it where the model is slow (the dev bridge)."
         }
       }
     },

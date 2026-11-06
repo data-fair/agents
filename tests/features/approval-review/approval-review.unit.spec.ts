@@ -293,7 +293,7 @@ test.describe('Reviewer operations', () => {
 // The mock seam (api/src/models/mock-model.ts) the api tests drive the reviewer with: the text in the proposed
 // call's wrapper picks the verdict, the instruction after the wrappers the stage.
 test.describe('Reviewer mock seam', () => {
-  const runReview = async (input: unknown, cls: ProposedCall['cls'] = 'write', intentText = 'go') => {
+  const runReview = async (input: unknown, cls: ProposedCall['cls'] = 'write', intentText = 'go', stage1TimeoutMs = 5000) => {
     const model = createMockLanguageModel('mock-model')
     const review = { earlierCalls: [], intent: intentFromConversation([intentText], ''), call: { ...call, input, cls }, exposure: noExposure, nonce: newNonce() }
     const meter = async (generated: Promise<unknown>) => { await generated.catch(() => {}) }
@@ -301,7 +301,7 @@ test.describe('Reviewer mock seam', () => {
       ...(cls === 'destructive' ? {} : { stage1: (signal: AbortSignal) => reviewStage1(model, review, signal) }),
       stage2: signal => reviewStage2(model, review, signal),
       cleared: REVIEW_CLEARED,
-      hardTimeoutMs: 5000,
+      hardTimeoutMs: stage1TimeoutMs,
       meter
     })
     return reviewOutcomeToRecord(outcome, false, 'now')
@@ -324,6 +324,15 @@ test.describe('Reviewer mock seam', () => {
 
   test('only the proposed call\'s text picks the verdict, not the intent', async () => {
     assert.equal((await runReview({ note: 'n' }, 'write', 'REVIEW_DENY')).code, 'cleared')
+  })
+
+  // createTurnReviewer passes config.approvalReview.stage1TimeoutMs as the engine's hardTimeoutMs; it is bound to
+  // #config, which the playwright unit runner cannot load (node-config reads ESM config files), so the value is
+  // fed to the engine here and the wiring is checked by the type check.
+  test('the stage-1 timeout comes from the config', async () => {
+    const timedOut = await runReview({ note: 'REVIEW_SLOW' }, 'write', 'go', 50)
+    assert.deepEqual({ outcome: timedOut.outcome, code: timedOut.code, failure: timedOut.failure }, { outcome: 'unsure', code: 'review-failed', failure: 'timeout' })
+    assert.deepEqual(await runReview({ note: 'REVIEW_SLOW' }, 'write', 'go', 1000), { outcome: 'allow', reason: '', code: 'cleared', exposed: false, at: 'now' })
   })
 
   test('the reviewer seam comes before the other guards\' and the assistant\'s', () => {

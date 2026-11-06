@@ -181,6 +181,12 @@ export type ApiConfig = {
      */
     enabled?: boolean;
   };
+  approvalReview: {
+    /**
+     * Hard timeout of the approval reviewer's stage 1 (docs/architecture/moderation.md). A timeout leaves the call unsure, so it becomes an approval card: raise it where the model is slow (the dev bridge).
+     */
+    stage1TimeoutMs: number;
+  };
   /**
    * How many code_mode scripts this process runs at once (one QuickJS worker each, up to 64 MiB). A script started while all are busy is refused, not queued.
    */
