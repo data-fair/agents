@@ -61,6 +61,9 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string, 
       models: ids.map(id => ({
         model: { id, name: id, provider: bridge },
         usage: MODEL_ROLES.filter(role => modelFor(role) === id),
+        // Claude reads images, and the bridge hands them on (bridge/openai.ts, IMAGES): unset, an openai-compatible
+        // provider defaults to off. Needs an agents API that knows the field (its settings schema refuses unknown ones).
+        imageInput: true,
         inputPricePerMillion: 0,
         outputPricePerMillion: 0
       }))
