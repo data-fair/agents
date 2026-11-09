@@ -348,8 +348,9 @@ export const cases: LocalCase[] = [
   // The goal makes the approval conditional on the agent having said plainly what will happen, so a
   // card that appears with no explanation is something the person reacts to rather than clicks through.
   // The card's Approve button is an ordinary button, which the persona's `click` reaches by its name;
-  // the driver reports a turn stopped on it as the person's move (TurnOutcome 'approval'), so the
-  // runner lets them decide before typing anything.
+  // the driver reports a turn stopped on it as the person's move (TurnOutcome 'approval'); the
+  // runner hands it over like a wait and tells the persona a card is on screen, so they look at it
+  // and decide with its buttons before typing anything.
   {
     name: 'autonomous-agent-approval',
     premise: approvalDecided,

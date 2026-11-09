@@ -182,7 +182,7 @@ const actionLine = (o: Observation) => {
   return `(you, on the page: ${what}${o.result === what ? '' : ` → ${o.result.slice(0, 120)}`})`
 }
 
-export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number, observations: Observation[] = []): string {
+export function personaPrompt (conversation: Array<{ role: string, text: string }>, turnsLeft: number, observations: Observation[] = [], opts?: { pendingApproval?: boolean }): string {
   if (conversation.length === 0) return 'Write your first message to the assistant.'
   const acts = observations.filter(o => o.tool !== 'look' && o.tool !== 'screenshot').slice(-10)
   // An action with no position (a caller that does not stamp it) goes after the last entry.
@@ -201,6 +201,7 @@ export function personaPrompt (conversation: Array<{ role: string, text: string 
     '',
     transcript,
     '',
+    ...(opts?.pendingApproval ? ['The assistant\'s turn stopped on an approval request that is on the screen. Look at it before you reply: deciding is done with its buttons.', ''] : []),
     ...(acts.length ? ['The lines starting with "(you, on the page:" are what you did on the page yourself, where you did it — and nothing else.', ''] : []),
     fresh
       ? `You are in a new, empty conversation. Write your first message in it.${warning}`
@@ -212,7 +213,7 @@ export async function nextUserMessage (
   c: SimulationCase,
   conversation: Array<{ role: string, text: string }>,
   turnsLeft: number,
-  opts?: { perception?: PagePerception, query?: PersonaQuery }
+  opts?: { perception?: PagePerception, query?: PersonaQuery, pendingApproval?: boolean }
 ): Promise<string> {
   let runQuery: PersonaQuery
   if (opts?.query) {
@@ -236,7 +237,7 @@ export async function nextUserMessage (
   const acted = opts?.perception?.observations.length ?? 0
   let text = ''
   for await (const msg of runQuery({
-    prompt: personaPrompt(conversation, turnsLeft, opts?.perception?.observations),
+    prompt: personaPrompt(conversation, turnsLeft, opts?.perception?.observations, { pendingApproval: opts?.pendingApproval }),
     options: {
       ...isolationOptions(neutralCwd),
       model: resolveUserModel(),

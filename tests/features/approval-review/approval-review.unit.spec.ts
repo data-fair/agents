@@ -128,6 +128,10 @@ test.describe('Reviewer operations', () => {
       { outcome: 'allow', reason: '', code: 'cleared', exposed: false, at: now })
     assert.deepEqual(reviewOutcomeToRecord({ kind: 'verdict', stage1: true, verdict: { outcome: 'deny', reason: 'deletes a portal' } }, true, now),
       { outcome: 'deny', reason: 'deletes a portal', code: 'judged', exposed: true, at: now })
+    const person = 'Cette modification sera enregistrée dans le brouillon du portail.'
+    assert.deepEqual(reviewOutcomeToRecord({ kind: 'verdict', stage1: true, verdict: { outcome: 'unsure', reason: 'saveForm persists the draft', personReason: person } }, false, now),
+      { outcome: 'unsure', reason: 'saveForm persists the draft', personReason: person, code: 'judged', exposed: false, at: now })
+    assert.equal('personReason' in reviewOutcomeToRecord({ kind: 'verdict', stage1: true, verdict: { outcome: 'unsure', reason: 'x' } }, false, now), false)
     const failed = reviewOutcomeToRecord({ kind: 'confirm-failed', cause: 'timeout', message: 'aborted' }, false, now)
     assert.equal(failed.outcome, 'unsure')
     assert.equal(failed.code, 'review-failed')
@@ -293,7 +297,7 @@ test.describe('Reviewer operations', () => {
 // The mock seam (api/src/models/mock-model.ts) the api tests drive the reviewer with: the text in the proposed
 // call's wrapper picks the verdict, the instruction after the wrappers the stage.
 test.describe('Reviewer mock seam', () => {
-  const runReview = async (input: unknown, cls: ProposedCall['cls'] = 'write', intentText = 'go') => {
+  const runReview = async (input: unknown, cls: ProposedCall['cls'] = 'write', intentText = 'go', stage1TimeoutMs = 5000) => {
     const model = createMockLanguageModel('mock-model')
     const review = { earlierCalls: [], intent: intentFromConversation([intentText], ''), call: { ...call, input, cls }, exposure: noExposure, nonce: newNonce() }
     const meter = async (generated: Promise<unknown>) => { await generated.catch(() => {}) }
@@ -301,7 +305,7 @@ test.describe('Reviewer mock seam', () => {
       ...(cls === 'destructive' ? {} : { stage1: (signal: AbortSignal) => reviewStage1(model, review, signal) }),
       stage2: signal => reviewStage2(model, review, signal),
       cleared: REVIEW_CLEARED,
-      hardTimeoutMs: 5000,
+      hardTimeoutMs: stage1TimeoutMs,
       meter
     })
     return reviewOutcomeToRecord(outcome, false, 'now')
@@ -324,6 +328,15 @@ test.describe('Reviewer mock seam', () => {
 
   test('only the proposed call\'s text picks the verdict, not the intent', async () => {
     assert.equal((await runReview({ note: 'n' }, 'write', 'REVIEW_DENY')).code, 'cleared')
+  })
+
+  // createTurnReviewer passes config.approvalReview.stage1TimeoutMs as the engine's hardTimeoutMs; it is bound to
+  // #config, which the playwright unit runner cannot load (node-config reads ESM config files), so the value is
+  // fed to the engine here and the wiring is checked by the type check.
+  test('the stage-1 timeout comes from the config', async () => {
+    const timedOut = await runReview({ note: 'REVIEW_SLOW' }, 'write', 'go', 50)
+    assert.deepEqual({ outcome: timedOut.outcome, code: timedOut.code, failure: timedOut.failure }, { outcome: 'unsure', code: 'review-failed', failure: 'timeout' })
+    assert.deepEqual(await runReview({ note: 'REVIEW_SLOW' }, 'write', 'go', 1000), { outcome: 'allow', reason: '', code: 'cleared', exposed: false, at: 'now' })
   })
 
   test('the reviewer seam comes before the other guards\' and the assistant\'s', () => {
@@ -366,6 +379,14 @@ test.describe('Earlier calls', () => {
     assert.deepEqual(calls.map(c => [c.toolName, c.inScript ?? false, c.decision]), [['delete_note', true, 'refused-by-reviewer'], ['set_note', false, 'allowed-by-reviewer']])
   })
 
+  test('a script paused on a call stands for that call: awaiting, then as decided', () => {
+    const nested = { nested: { toolName: 'delete_note', input: { note: 'x' } }, review: judged('allow') }
+    const awaiting = earlierCallsOf([tool({ toolCallId: 'cm', toolName: 'code_mode', input: { js: '…' }, state: 'approval-requested', approval: { id: 'i' }, toolMetadata: nested })], 1)
+    assert.deepEqual(awaiting.map(c => [c.toolName, c.input, c.inScript, c.decision]), [['delete_note', { note: 'x' }, true, 'awaiting-person']])
+    const approved = earlierCallsOf([tool({ toolCallId: 'cm', toolName: 'code_mode', input: { js: '…' }, approval: { id: 'i', approved: true }, toolMetadata: { ...nested, decision: { approved: true } } })], 1)
+    assert.deepEqual(approved.map(c => [c.toolName, c.decision]), [['delete_note', 'approved-by-person']])
+  })
+
   test('reviewContextOfConversation places each call after the message it followed, counting only shown messages', () => {
     const user = (text: string) => ({ role: 'user', parts: [{ type: 'text', text }] as any })
     const assistant = (parts: any[]) => ({ role: 'assistant', parts })
@@ -397,6 +418,15 @@ test.describe('Earlier calls', () => {
     assert.ok(!block.includes('y'.repeat(REVIEW_EARLIER_INPUT_MAX_CHARS + 1)), 'arguments cut')
     assert.ok(message.includes(tag) && ENVELOPE_TAGS.includes('earlier_calls_'))
     assert.ok(reviewMessage({ earlierCalls: [], intent: intentFromConversation(['a'], ''), call, exposure: noExposure, nonce }, 1).includes('(none)'))
+  })
+
+  test('the display-option reading is stage 2\'s, for an action, never the shared policy stage 1 screens with', () => {
+    const reading = 'a display option of an item the agent added'
+    const input = { earlierCalls: [], intent: intentFromConversation(['a'], ''), call, exposure: noExposure, nonce: 'abcdef012345' }
+    for (const kind of ['action', 'grant'] as const) assert.ok(!buildReviewSystemPrompt(kind).includes(reading), kind)
+    assert.ok(!reviewMessage(input, 1).includes(reading))
+    assert.ok(reviewMessage(input, 2).includes(reading))
+    assert.ok(!reviewMessage({ ...input, call: { ...call, toolName: 'plan_task', kind: 'grant' } }, 2).includes(reading))
   })
 
   test('the policy states the workaround rule for both kinds', () => {

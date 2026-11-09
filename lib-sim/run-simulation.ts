@@ -11,11 +11,14 @@
 import type { Locator, Page } from '@playwright/test'
 import type { SimulationCase, TranscriptInput } from './types.ts'
 import { assertBridgeUp, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES } from './bridge-settings.ts'
-import { createChatDriver, chatDriverStrings, type ChatDriverLocale } from './chat-driver.ts'
+import { createChatDriver, chatDriverStrings, type ChatDriverLocale, type TurnOutcome } from './chat-driver.ts'
 import { parseConversationExport, runErrors, type ConversationExport } from './conversation-export.ts'
 import { createPagePerception, type PerceptionRoot } from './page-perception.ts'
 import { nextUserMessage, isDone, resolveUserModel } from './persona.ts'
 import { writeEvidence } from './transcript.ts'
+
+/** A turn that stopped on a wait or on an approval card is the person's move, not the end of the exchange. */
+export const handsOver = (outcome: TurnOutcome): boolean => outcome === 'waiting' || outcome === 'approval'
 
 /** The agents chat frame, whose src is /agents/<type>/<id>/chat?… — not a bare 'iframe': hosts embed other frames beside it. */
 export const CHAT_FRAME = 'iframe[src*="/agents/"][src*="/chat"]'
@@ -70,6 +73,87 @@ export type SimulationOptions = {
    * the runner gives the consent it needs.
    */
   fetchExports: (since: Date) => Promise<ConversationExport[]>
+}
+
+/** What the turn loop drives: the chat, the persona, and the transcript it keeps current. */
+export interface TurnLoop {
+  chat: Pick<ReturnType<typeof createChatDriver>, 'sendMessage' | 'waitForTurn' | 'readConversation' | 'readApprovalCards'>
+  maxTurns: number
+  /** The transcript, replaced in place after every turn. */
+  conversation: Array<{ role: string, text: string }>
+  openChat: () => Promise<void>
+  /** The persona's pass for turn `turn` (1-based): what it writes, having acted on the page or not. */
+  nextMessage: (turn: number, turnsLeft: number, pendingApproval: boolean) => Promise<string>
+  /** Each completed turn, as it completes: a run that throws later still records how far it got. */
+  onTurn?: (turns: number) => void
+}
+
+/** The exchange itself, turn by turn: the persona's message, the assistant's turn, the transcript read back. */
+export async function runTurns (loop: TurnLoop): Promise<{ turns: number, error?: string }> {
+  const { chat, conversation } = loop
+  let turns = 0
+  let error: string | undefined
+  // Set when the assistant ended a turn by declaring wait_for_user_action or by stopping on an
+  // approval card rather than by finishing. It has handed control to the person, and the person
+  // only exists inside nextMessage — so the next pass is where they act on it.
+  let handedOver = false
+  // The turn stopped on an approval card: the persona is told one is on screen.
+  let pendingApproval = false
+  // The approval cards on screen after the last turn: a decision that ends on a new card (a script paused again)
+  // changes no text bubble, only the card.
+  let cards: string[] = []
+
+  for (let i = 0; i < loop.maxTurns; i++) {
+    const message = await loop.nextMessage(i + 1, loop.maxTurns - i, pendingApproval)
+    if (handedOver) {
+      // The pass above was the person's chance to act on the wait. If they took it,
+      // the wait resolved and the assistant is finishing the turn it paused — let it,
+      // rather than speaking over its reply. If they ignored it, the wait is still
+      // armed and this returns 'waiting' (or 'approval') at once.
+      const outcome = await chat.waitForTurn(TURN_CEILING_MS)
+      handedOver = handsOver(outcome)
+      pendingApproval = outcome === 'approval'
+      const resumed = await chat.readConversation()
+      const cardsNow = await chat.readApprovalCards()
+      // A decided card that gave way to another counts as a move: sending the message now would cancel the new card.
+      const changed = resumed.length !== conversation.length || cardsNow.join('\n') !== cards.join('\n')
+      cards = cardsNow
+      conversation.length = 0
+      conversation.push(...resumed)
+      // Whatever the person wrote in that pass, they wrote it before the reply
+      // their action caused. Drop it and let them read the reply first; what they
+      // did stays where they did it (the persona stamps each action's place).
+      if (changed) continue
+    }
+    if (isDone(message)) break
+    if (message === '') {
+      // Distinct from a real stop: the persona subprocess produced no text at all
+      // (refusal, swallowed error, empty completion).
+      error = `simulated user returned no message (empty completion) on turn ${i + 1}`
+      break
+    }
+    // The persona may have navigated the page — or closed the drawer itself —
+    // between turns, so re-open before sending.
+    await loop.openChat()
+    // While the assistant works, the send control is Stop: an ordinary wait for a
+    // turn, so it gets the turn ceiling rather than the driver's short one.
+    await chat.sendMessage(message, { readyTimeoutMs: TURN_CEILING_MS })
+    // 'ended' is the assistant finished; 'waiting' and 'approval' are it holding the turn open for
+    // the person, which is a turn boundary as far as they are concerned.
+    const outcome = await chat.waitForTurn(TURN_CEILING_MS)
+    handedOver = handsOver(outcome)
+    pendingApproval = outcome === 'approval'
+    // Read first, then replace: a throw from readConversation must not leave the
+    // transcript empty.
+    const read = await chat.readConversation()
+    cards = await chat.readApprovalCards()
+    conversation.length = 0
+    conversation.push(...read)
+    // Counted only once the turn is reflected in the transcript.
+    turns++
+    loop.onTurn?.(turns)
+  }
+  return { turns, ...(error ? { error } : {}) }
 }
 
 export async function runSimulation (page: Page, simCase: SimulationCase, opts: SimulationOptions): Promise<void> {
@@ -150,53 +234,18 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     // reachable — including the drawer toggle, which a real user can and does click.
     perception = createPagePerception(opts.perceptionRoots, { offLimits: [strings.input, strings.send, strings.stop, strings.reset] })
 
-    // Set when the assistant ended a turn by declaring wait_for_user_action rather
-    // than by finishing. It has handed control to the person, and the person only
-    // exists inside nextUserMessage — so the next pass is where they act on it.
-    let handedOver = false
-
-    for (let i = 0; i < simCase.maxTurns; i++) {
-      perception.setTurn(i + 1)
-      const message = await nextUserMessage(simCase, conversation, simCase.maxTurns - i, { perception })
-      if (handedOver) {
-        // The pass above was the person's chance to act on the wait. If they took it,
-        // the wait resolved and the assistant is finishing the turn it paused — let it,
-        // rather than speaking over its reply. If they ignored it, the wait is still
-        // armed and this returns 'waiting' at once.
-        handedOver = (await chat.waitForTurn(TURN_CEILING_MS)) === 'waiting'
-        const resumed = await chat.readConversation()
-        const changed = resumed.length !== conversation.length
-        conversation.length = 0
-        conversation.push(...resumed)
-        // Whatever the person wrote in that pass, they wrote it before the reply
-        // their action caused. Drop it and let them read the reply first; what they
-        // did stays where they did it (the persona stamps each action's place).
-        if (changed) continue
+    const loop = await runTurns({
+      chat,
+      maxTurns: simCase.maxTurns,
+      conversation,
+      openChat,
+      onTurn: done => { turns = done },
+      nextMessage: (turn, turnsLeft, pendingApproval) => {
+        perception!.setTurn(turn)
+        return nextUserMessage(simCase, conversation, turnsLeft, { perception, pendingApproval })
       }
-      if (isDone(message)) break
-      if (message === '') {
-        // Distinct from a real stop: the persona subprocess produced no text at all
-        // (refusal, swallowed error, empty completion).
-        error = `simulated user returned no message (empty completion) on turn ${i + 1}`
-        break
-      }
-      // The persona may have navigated the page — or closed the drawer itself —
-      // between turns, so re-open before sending.
-      await openChat()
-      // While the assistant works, the send control is Stop: an ordinary wait for a
-      // turn, so it gets the turn ceiling rather than the driver's short one.
-      await chat.sendMessage(message, { readyTimeoutMs: TURN_CEILING_MS })
-      // 'ended' is the assistant finished; 'waiting' is it holding the turn open for
-      // the person, which is a turn boundary as far as they are concerned.
-      handedOver = (await chat.waitForTurn(TURN_CEILING_MS)) === 'waiting'
-      // Read first, then replace: a throw from readConversation must not leave the
-      // transcript empty.
-      const read = await chat.readConversation()
-      conversation.length = 0
-      conversation.push(...read)
-      // Counted only once the turn is reflected in the transcript.
-      turns++
-    }
+    })
+    error = loop.error
 
     // A judge cannot judge an empty transcript, and a persona that says DONE on its
     // first message produces one while looking like a clean run.

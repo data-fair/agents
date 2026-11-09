@@ -482,7 +482,8 @@ export function processMockTripwirePrompt (lastMessage: string): MockPromptResul
  * proposed call's nonce-tagged wrapper (the call's arguments, never the intent before it), and reads the stage
  * from the instruction after the wrappers. "REVIEW_DENY": stage 1 yes, stage 2 a deny. "REVIEW_UNSURE": yes, then
  * unsure. "REVIEW_BROKEN": unparseable at both stages (a failed review). "REVIEW_IF_REFUSED_BEFORE": a deny when
- * the earlier calls' wrapper shows one the reviewer refused, an allow otherwise. Anything else: stage 1 no, and
+ * the earlier calls' wrapper shows one the reviewer refused, an allow otherwise. "REVIEW_SLOW": stage 1 answers
+ * no after 200 ms. Anything else: stage 1 no, and
  * stage 2 (reached directly for a destructive call or a grant) an allow.
  */
 const REVIEW_WRAPPER = /<(proposed_call_[0-9a-f]{12})>([\s\S]*?)<\/\1>([\s\S]*)$/
@@ -503,7 +504,9 @@ export function processMockReviewerPrompt (lastMessage: string): MockPromptResul
     return { type: 'text', text: '{"outcome":"allow","reason":"mock allow"}' }
   }
   if (judged.includes('REVIEW_BROKEN')) return { type: 'text', text: '???' }
-  return { type: 'text', text: /REVIEW_DENY|REVIEW_UNSURE/.test(judged) ? 'yes' : 'no' }
+  // Stage 1 only: answers after 200 ms, to measure the stage-1 timeout.
+  const delayMs = judged.includes('REVIEW_SLOW') ? 200 : undefined
+  return { type: 'text', text: /REVIEW_DENY|REVIEW_UNSURE/.test(judged) ? 'yes' : 'no', ...(delayMs ? { delayMs } : {}) }
 }
 
 /**

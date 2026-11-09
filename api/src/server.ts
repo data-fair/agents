@@ -23,6 +23,8 @@ import { sweepConsolidations } from './memory/consolidation.ts'
 import { fileStore, sweepFilesOnce } from './files/service.ts'
 import { runSchedulerPass } from './tasks/scheduler.ts'
 import { configureCodeMode } from './code-mode/tool.ts'
+import { securityKey } from './cipher/service.ts'
+import { getContinuationSigningKey } from './cipher/operations.ts'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -89,8 +91,9 @@ const realClockScope = process.env.NODE_ENV === 'development' ? { 'owner.id': { 
 export const start = async () => {
   if (config.observer?.active) await startObserver(config.observer.port)
   session.init(config.privateDirectoryUrl)
-  // code_mode's worker pool is per process and refuses when full (api/src/code-mode/tool.ts).
-  configureCodeMode(config.codeModeMaxWorkers)
+  // code_mode's worker pool is per process and refuses when full; a paused script's continuation is signed with a
+  // key every instance shares, derived from the cipher key (api/src/code-mode/tool.ts).
+  configureCodeMode(config.codeModeMaxWorkers, getContinuationSigningKey(securityKey))
   await mongo.init()
   await locks.start(mongo.db)
   await runUpgradeScripts()

@@ -15,6 +15,7 @@ import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
+import { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED } from '@agents/shared/approval-cancel'
 import { withheldErrorText, webhookIndexOf, WITHHELD_RESULT, WITHHELD_LATE_RESULT, type TripRecord } from '../tripwire/operations.ts'
 import { replaceWebhookPayload } from '../tasks/operations.ts'
 import { canInstruct, type InstructableAgent } from '../autonomous-agents/operations.ts'
@@ -23,6 +24,7 @@ import { getAutonomousAgent, assertOrganizationOwner, assertCanOwnAgent } from '
 import { getSettings } from '../settings/service.ts'
 import { deleteConversationFiles } from '../files/service.ts'
 import log from '@data-fair/lib-node/log.js'
+import { dropScriptPause, dropConversationScriptPauses } from '../code-mode/pauses.ts'
 
 const debug = Debug('df-agents:conversations')
 
@@ -138,8 +140,12 @@ export const archiveConversation = async (conversationId: string): Promise<boole
     { $set: { archivedAt: new Date().toISOString() } },
     { projection: { _id: 0, owner: 1 } }
   )
-  // Its files go at once: they are not review material (docs/architecture/agent-files.md).
-  if (archived) await deleteConversationFiles(archived.owner, conversationId)
+  // Its files go at once: they are not review material (docs/architecture/agent-files.md). Nor is a paused script's
+  // continuation, which no decision can resume once the thread is gone.
+  if (archived) {
+    await deleteConversationFiles(archived.owner, conversationId)
+    await dropConversationScriptPauses([conversationId])
+  }
   return !!archived
 }
 
@@ -149,6 +155,8 @@ export const purgeConversation = async (conversationId: string): Promise<{ messa
   if (conversation) await deleteConversationFiles(conversation.owner, conversationId)
   const messages = await mongo.messages.deleteMany({ conversationId })
   const runs = await mongo.runs.deleteMany({ conversationId })
+  // What a paused script's calls returned is the thread's content too (api/src/code-mode/pauses.ts).
+  await dropConversationScriptPauses([conversationId])
   await mongo.conversations.deleteOne({ id: conversationId })
   return { messages: messages.deletedCount, runs: runs.deletedCount }
 }
@@ -349,7 +357,7 @@ export const updateMessage = async (conversationId: string, seq: number, patch: 
 export const settleStoredToolPart = async (
   conversationId: string,
   toolCallId: string,
-  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string, tripwire?: TripRecord }
+  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string, tripwire?: TripRecord } | { state: 'output-denied' }
 ): Promise<StoredMessage | null> => {
   const awaiting = { toolCallId, state: 'approval-responded' }
   if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: awaiting } }, { projection: { _id: 1 } })) return null
@@ -364,6 +372,45 @@ export const settleStoredToolPart = async (
     { conversationId, parts: { $elemMatch: awaiting } },
     { $set: { ...set, updatedAt: new Date().toISOString() } },
     { arrayFilters: [{ 'p.toolCallId': toolCallId, 'p.state': 'approval-responded' }], returnDocument: 'after', projection: { _id: 0 } }
+  )
+}
+
+/**
+ * A RESUMED SCRIPT THAT PAUSED AGAIN (api/src/code-mode, a loop of calls that each need a person): its code_mode
+ * part, still `approval-responded` from the decision just resumed, asks again — a new approval id, the call it now
+ * stopped at, that call's review. Only from `approval-responded`, as settleStoredToolPart: a call cannot be asked
+ * about again once it has a result.
+ */
+export const repauseStoredScript = async (
+  conversationId: string,
+  toolCallId: string,
+  ask: { approvalId: string, toolMetadata: Record<string, unknown> }
+): Promise<StoredMessage | null> => {
+  const awaiting = { toolCallId, state: 'approval-responded' }
+  return await mongo.messages.findOneAndUpdate(
+    { conversationId, parts: { $elemMatch: awaiting } },
+    { $set: { 'parts.$[p].state': 'approval-requested', 'parts.$[p].approval': { id: ask.approvalId }, 'parts.$[p].toolMetadata': ask.toolMetadata, updatedAt: new Date().toISOString() } },
+    { arrayFilters: [{ 'p.toolCallId': toolCallId, 'p.state': 'approval-responded' }], returnDocument: 'after', projection: { _id: 0 } }
+  )
+}
+
+/**
+ * A resumed script's whole trace, onto the message of its code_mode call: the calls before the pause, then those after
+ * it, under the one chip. Replaces that call's `data-trace` part, or adds one when the script paused on its first call.
+ */
+export const storeEarlierScriptTrace = async (conversationId: string, parentToolCallId: string, parts: MessagePart[]): Promise<StoredMessage | null> => {
+  const updatedAt = new Date().toISOString()
+  const replaced = await mongo.messages.findOneAndUpdate(
+    { conversationId, parts: { $elemMatch: { type: 'data-trace', 'data.parentToolCallId': parentToolCallId } } },
+    { $set: { 'parts.$[t].data.parts': parts, updatedAt } },
+    { arrayFilters: [{ 't.type': 'data-trace', 't.data.parentToolCallId': parentToolCallId }], returnDocument: 'after', projection: { _id: 0 } }
+  )
+  if (replaced) return replaced
+  const trace = { type: 'data-trace', data: { parentToolCallId, name: 'code_mode', parts } } as unknown as MessagePart
+  return await mongo.messages.findOneAndUpdate(
+    { conversationId, parts: { $elemMatch: { type: 'dynamic-tool', toolCallId: parentToolCallId } } },
+    { $push: { parts: trace }, $set: { updatedAt } },
+    { returnDocument: 'after', projection: { _id: 0 } }
   )
 }
 
@@ -449,9 +496,17 @@ const settleApprovedWithoutResult = async (conversationId: string, errorText: st
     .find({ conversationId, 'parts.state': 'approval-responded' }, { projection: { _id: 0, parts: 1 } })
     .toArray()
   for (const message of messages) {
+    // A step with a call undecided again (a resumed script that paused once more, api/src/code-mode) is not over:
+    // its approved calls wait for the continuation of that decision, as before every call of a step is decided.
+    if ((message.parts as MessagePart[]).some(part => part.type === 'dynamic-tool' && part.state === 'approval-requested')) continue
     for (const part of message.parts as MessagePart[]) {
       if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded') continue
-      const settled = await settleStoredToolPart(conversationId, part.toolCallId, { state: 'output-error', errorText })
+      // A paused script's call the person REJECTED (only those stay `approval-responded` once rejected) keeps its
+      // rejection: the script stopped there, nothing after it ran. Its continuation goes either way: nothing resumes it.
+      const pausedScript = !!(part.toolMetadata as { nested?: unknown } | undefined)?.nested
+      const rejected = (part as { approval?: { approved?: boolean } }).approval?.approved === false
+      const settled = await settleStoredToolPart(conversationId, part.toolCallId, rejected ? { state: 'output-denied' } : { state: 'output-error', errorText })
+      if (pausedScript) await dropScriptPause(conversationId, part.toolCallId)
       if (settled) notifyMessage(conversationId, settled)
     }
   }
@@ -476,17 +531,20 @@ export const decideApproval = async (
 ): Promise<StoredMessage | 'still-finishing' | null> => {
   const at = new Date().toISOString()
   const pending = { 'approval.id': approvalId, state: 'approval-requested' }
-  const asking = await mongo.messages.findOne({ conversationId, parts: { $elemMatch: pending } }, { projection: { _id: 0, pending: 1 } })
+  const asking = await mongo.messages.findOne({ conversationId, parts: { $elemMatch: pending } }, { projection: { _id: 0, pending: 1, 'parts.$': 1 } })
   if (!asking) return null
   if (asking.pending) return 'still-finishing'
+  // A script paused on the call (api/src/code-mode): resumed whatever the decision, a rejected call throwing inside it.
+  const pausedScript = !!(asking.parts?.[0] as { toolMetadata?: { nested?: unknown } } | undefined)?.toolMetadata?.nested
   return await mongo.messages.findOneAndUpdate(
     // `pending` again, in the write itself: the check above is only the reason given.
     { conversationId, pending: { $ne: true }, parts: { $elemMatch: pending } },
     {
       $set: {
         // Approved: `approval-responded`, which the SDK executes on replay. Rejected: `output-denied`,
-        // which replays as a refusal carrying the reason, so the model is told and can react.
-        'parts.$[p].state': decision.approved ? 'approval-responded' : 'output-denied',
+        // which replays as a refusal carrying the reason, so the model is told and can react. A paused script's
+        // call is `approval-responded` either way: the continuation resumes it (model-loop.ts, resumeScripts).
+        'parts.$[p].state': decision.approved || pausedScript ? 'approval-responded' : 'output-denied',
         'parts.$[p].approval.approved': decision.approved,
         ...(decision.reason ? { 'parts.$[p].approval.reason': decision.reason } : {}),
         'parts.$[p].toolMetadata.decision': { ...decision.by, approved: decision.approved, at },
@@ -497,11 +555,8 @@ export const decideApproval = async (
   )
 }
 
-/** The reason a pending approval is rejected with when the person writes instead of deciding. */
-export const PENDING_APPROVAL_SUPERSEDED = 'The person sent a new message instead of deciding.'
-
-/** The reason a pending approval is rejected with when the person acts on the page a wait handed them. */
-export const PENDING_APPROVAL_ACTED = 'The person acted on the page instead of deciding.'
+// Shared with the chat, which shows such a rejection as a cancellation rather than a refusal.
+export { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED }
 
 /**
  * The result a pending wait is settled with when the person decided on an approval stopped in the same
@@ -551,8 +606,19 @@ export const rejectPendingApprovals = async (
         ]
       }
   // The messages it will change, by seq, so the watching page can be sent exactly those afterwards.
-  const seqs = (await mongo.messages.find(filter, { projection: { _id: 0, seq: 1 } }).toArray()).map(m => m.seq)
+  const affected = await mongo.messages.find(filter, { projection: { _id: 0, seq: 1, parts: 1 } }).toArray()
+  const seqs = affected.map(m => m.seq)
   if (!seqs.length) return 0
+  // A paused script whose card is refused here never resumes: its continuation (what its calls returned) goes now. So
+  // does one already decided whose step is settled below: it waited for the rest of the step, now refused.
+  for (const message of affected) {
+    for (const part of (message.parts ?? []) as MessagePart[]) {
+      const settledHere = part.type === 'dynamic-tool' && (part.state === 'approval-requested' || (!opts?.undecidedOnly && part.state === 'approval-responded'))
+      if (settledHere && (part.toolMetadata as { nested?: unknown } | undefined)?.nested) {
+        await dropScriptPause(conversationId, part.toolCallId)
+      }
+    }
+  }
   // Only the messages read just above: one that starts matching in between is left for the next
   // rejection rather than changed without the watcher being sent it.
   const result = await mongo.messages.updateMany(
@@ -562,11 +628,17 @@ export const rejectPendingApprovals = async (
         'parts.$[p].state': 'output-denied',
         'parts.$[p].approval.approved': false,
         'parts.$[p].approval.reason': reason,
-        ...(opts?.undecidedOnly ? {} : { 'parts.$[q].state': 'output-error', 'parts.$[q].errorText': approvedError }),
+        // Approved calls of the step: an error saying they did not run. A paused script's call the person rejected
+        // (still `approval-responded`, to resume the script) keeps its rejection and the person's reason instead.
+        ...(opts?.undecidedOnly ? {} : { 'parts.$[q].state': 'output-error', 'parts.$[q].errorText': approvedError, 'parts.$[r].state': 'output-denied' }),
         updatedAt: new Date().toISOString()
       }
     },
-    { arrayFilters: opts?.undecidedOnly ? [{ 'p.state': 'approval-requested' }] : [{ 'p.state': 'approval-requested' }, { 'q.state': 'approval-responded' }] }
+    {
+      arrayFilters: opts?.undecidedOnly
+        ? [{ 'p.state': 'approval-requested' }]
+        : [{ 'p.state': 'approval-requested' }, { 'q.state': 'approval-responded', 'q.approval.approved': { $ne: false } }, { 'r.state': 'approval-responded', 'r.approval.approved': false }]
+    }
   )
   // The watching page is shown the refusal and loses the "awaiting approval" label, as for a decision.
   if (sessionFor(conversationId) && result.modifiedCount) {

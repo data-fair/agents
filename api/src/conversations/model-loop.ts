@@ -27,7 +27,9 @@ import { denyGoneApprovedTools, TOOL_NO_LONGER_AVAILABLE } from './approved-call
 import { browserToolSet, rawBrowserToolSet } from '../agent-session/browser-tools.ts'
 import { usesPageTools } from '../agent-session/personal-agent.ts'
 import { createScriptTool } from '../code-mode/tool.ts'
-import { codeFacingTools, createCodeTrace, type TurnCalls } from '../code-mode/code-tools.ts'
+import { codeFacingTools, createCodeTrace, createScriptPauses, type TurnCalls } from '../code-mode/code-tools.ts'
+import type { CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
+import { resumeDecidedScripts } from './script-resume.ts'
 import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeModeOfferedTo } from '../code-mode/operations.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
@@ -238,6 +240,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     }
   }
 
+  // A resumed script's calls before its pause, by code_mode call id (./script-resume.ts): its trace frames carry them
+  // first, and its final trace is stored on the earlier message that holds the call, not on this turn's.
+  const earlierTraces = new Map<string, MessagePart[]>()
+  let earlierTraceWrites: Promise<void> = Promise.resolve()
   /** A script's final trace, onto the lead's message: its results are already bounded as it records them. */
   const storeTrace = (trace: { parentToolCallId: string, name: string, parts: MessagePart[] }) => {
     const stored = { type: 'data-trace', data: { parentToolCallId: trace.parentToolCallId, name: trace.name, parts: trace.parts } } as MessagePart
@@ -247,10 +253,26 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   }
   // A script's nested calls, as a trace under its code_mode call (api/src/code-mode/code-tools.ts): streamed while
   // the script runs, stored on the message when it ends, left out of replay.
-  const codeTrace = createCodeTrace(trace => {
-    if (!trace.pending) storeTrace(trace)
+  const codeTrace = createCodeTrace(frame => {
+    const earlier = earlierTraces.get(frame.parentToolCallId)
+    const trace = earlier ? { ...frame, parts: [...earlier, ...frame.parts] } : frame
+    if (!trace.pending) {
+      if (!earlier || !target.scriptPauses) storeTrace(trace)
+      else {
+        const store = target.scriptPauses
+        earlierTraceWrites = earlierTraceWrites
+          .then(() => store.storeTrace(trace.parentToolCallId, trace.parts))
+          .catch(err => log.error('a resumed script\'s trace could not be stored', { code: 'code-mode-resume-trace', runId: run.id, err }))
+      }
+    }
     target.frames.trace(trace)
   })
+
+  // SCRIPTS PAUSED FOR A PERSON (api/src/code-mode): in a chat, a script's call needing a person pauses it, its
+  // continuation kept by the target until the decision; the approval run then resumes it (resumeDecidedScripts).
+  const scriptPauses = target.surface === 'chat' && target.scriptPauses
+    ? createScriptPauses((toolCallId, interrupt, decisions, spent) => target.scriptPauses!.store(toolCallId, interrupt, decisions, spent))
+    : undefined
 
   /**
    * THE TOOL SET IS LIVE FOR THE WHOLE TURN, not frozen when it starts.
@@ -308,8 +330,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         trace: codeTrace,
         turnCalls: scriptCalls,
         // The gate is built below, once the map exists; a script runs only after both.
-        ...(reviewer ? { review: { reviewNested: (...args) => gate!.reviewNested(...args), noteNested: name => gate!.noteNested(name) } } : {})
-      }), { reviewed: !!reviewer })
+        ...(reviewer ? { review: { reviewNested: (...args) => gate!.reviewNested(...args), noteNested: name => gate!.noteNested(name) } } : {}),
+        ...(scriptPauses ? { pauses: scriptPauses } : {})
+      }), { reviewed: !!reviewer, ...(scriptPauses ? { pauses: scriptPauses } : {}) })
       const runScript = scriptTool.execute!
       mainTools[CODE_MODE_TOOL_NAME] = modelTools({
         [CODE_MODE_TOOL_NAME]: {
@@ -357,6 +380,59 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     budgetSpent: () => budgetExceeded || credits + tripwireCredits + reviewCredits + (continuation?.credits ?? 0) >= config.turnCredits
   })
 
+  /**
+   * THE CARD OF A PAUSED SCRIPT: on its code_mode call, the call it stopped at — what the person decides on. Its
+   * tool's title, description, server and file arguments, as a direct call's card has them, and the reviewer's record
+   * when it judged the call first.
+   */
+  const scriptCardMetadata = async (interrupt: CodeModeApprovalInterrupt): Promise<Record<string, unknown>> => {
+    const nestedName = interrupt.toolName
+    const sourced = pageNames.has(nestedName) ? undefined : tools[nestedName]
+    const title = sourced?.annotations?.title
+    const description = toolDescription(liveTools[nestedName])
+    const files = await describeFileArguments(sourced?.fileArgs, interrupt.input, callPath.files)
+    const review = gate?.recordOf(interrupt.toolCallId)
+    return {
+      nested: { toolName: nestedName, input: interrupt.input, ...(typeof title === 'string' ? { title } : {}), ...(sourced?.server ? { serverId: sourced.server } : {}) },
+      ...(description ? { description } : {}),
+      ...(files ? { files } : {}),
+      ...(review ? { review } : {})
+    }
+  }
+
+  // AN APPROVAL RUN RESUMES THE SCRIPTS DECIDED ON FIRST (./script-resume.ts), before the SDK sees the history: their
+  // calls settled there, the history patched to read them. One paused again ends the turn on its card, no model call.
+  if (scriptPauses && target.scriptPauses && run.trigger === 'approval') {
+    const { repausedOn } = await resumeDecidedScripts({
+      store: target.scriptPauses,
+      pauses: scriptPauses,
+      turnCalls: scriptCalls,
+      ...(gate ? { noteNested: (toolName: string) => gate.noteNested(toolName) } : {}),
+      codeTool: () => liveTools[CODE_MODE_TOOL_NAME],
+      history,
+      abortSignal,
+      earlierTraces,
+      settlement: (toolCallId, settled) => {
+        const scanned = withScanCut(settled, toolCallId)
+        const tripped = tripwire?.recordOf(toolCallId)
+        return scanned.state === 'output-error' && tripped ? { ...scanned, tripwire: tripped } : scanned
+      },
+      settle: (toolCallId, settled) => target.settleEarlierCall(toolCallId, settled),
+      cardMetadata: scriptCardMetadata,
+      traceWrites: () => earlierTraceWrites
+    })
+    if (repausedOn) {
+      return {
+        parts: [],
+        steps: 0,
+        credits: credits + tripwireCredits + reviewCredits,
+        stopReason: 'awaiting-approval',
+        awaitingApproval: true,
+        approvalToolName: repausedOn
+      }
+    }
+  }
+
   // A provider that accepted the request and then went quiet would otherwise hold the conversation's
   // lock until the run ceiling. Paused while a tool runs: that silence is the tool's, not the model's.
   const idleAbort = new AbortController()
@@ -401,7 +477,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       () => (tripwire?.tripped ?? lateTripped) !== undefined && tripExplaining,
       // THE REVIEWER'S CIRCUIT BREAKER: too many denials, in a row or in the turn, and the turn stops rather than
       // look for another way to the same outcome.
-      () => gate?.tripped ?? false
+      () => gate?.tripped ?? false,
+      // A SCRIPT PAUSED FOR A PERSON: the turn ends on its card, as on a direct call's.
+      () => (scriptPauses?.paused.size ?? 0) > 0
     ],
     prepareStep: async options => {
       if ((tripwire?.tripped ?? lateTripped) && !tripExplaining) {
@@ -738,6 +816,24 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         await persistStructure()
         // The model now has a result to read, once the step's other calls are done too.
         afterCall(part.toolCallId)
+      }
+      // A SCRIPT PAUSED FOR A PERSON (scriptPauses): not a failure. Its code_mode call becomes the card of the call it
+      // stopped at, its continuation already kept (createScriptTool); the turn ends after this step (stopWhen).
+      const pausedOn = part.type === 'tool-error' ? scriptPauses?.paused.get(part.toolCallId) : undefined
+      if (part.type === 'tool-error' && pausedOn && recorder.hasCall(part.toolCallId)) {
+        awaitingApproval = true
+        const call = parts.find(p => p.type === 'dynamic-tool' && p.toolCallId === part.toolCallId)
+        if (call && call.type === 'dynamic-tool') {
+          Object.assign(call, {
+            state: 'approval-requested',
+            approval: { id: pausedOn.interruptId },
+            toolMetadata: { ...call.toolMetadata, ...await scriptCardMetadata(pausedOn) } as JSONObject
+          })
+        }
+        sendMessageFrame()
+        await persistStructure()
+        afterCall(part.toolCallId)
+        continue
       }
       // A tool that failed does not stop the turn — the model sees the error and usually keeps
       // talking — so without recording it a failed call reads exactly like a successful one.

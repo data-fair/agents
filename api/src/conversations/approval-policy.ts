@@ -21,8 +21,8 @@ export const classifyTool = (annotations?: Record<string, unknown>): ApprovalCla
 /**
  * The tool set the model is offered under the routes: no tool is ever removed here. Every tool that is not
  * a read is marked `review` (the turn's review gate judges it before it runs); a `reviewer+person` one also
- * sets the AI SDK's `needsApproval`, so an unattended run and a script — where no person can decide — keep
- * excluding it (unattended, codeCallable). A read is left exactly as it was.
+ * sets the AI SDK's `needsApproval`, so an unattended run and its scripts — where no person can decide — keep
+ * excluding it (unattended, codeCallable); a chat's script pauses on it for the person. A read is left exactly as it was.
  */
 export const applyApprovalPolicy = (tools: ToolSet, routes?: Partial<ApprovalRoutes>): ToolSet => {
   const gated: ToolSet = {}

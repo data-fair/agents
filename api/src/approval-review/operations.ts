@@ -52,7 +52,9 @@ export type ReviewOutcome = 'allow' | 'deny' | 'unsure'
 export const reviewVerdictSchema = z.object({
   outcome: z.enum(['allow', 'deny', 'unsure']),
   // Not bounded here: a long reason must not fail the verdict; the record cuts it (reviewOutcomeToRecord).
-  reason: z.string()
+  reason: z.string(),
+  // For the person who decides, in their language; optional so an older or terse answer still parses. Cut like `reason`.
+  personReason: z.string().optional()
 })
 export type ReviewVerdict = z.infer<typeof reviewVerdictSchema>
 
@@ -149,6 +151,8 @@ export const refusalTextOf = (record: Pick<ReviewRecord, 'code' | 'reason'>): st
 export interface ReviewRecord {
   outcome: ReviewOutcome
   reason: string
+  /** The card's line for the person, in the language of the conversation (the model reads `reason`). */
+  personReason?: string
   /**
    * `breaker-tripped`: not reviewed at all, the turn's breaker having tripped; `budget`: not reviewed at all, the
    * turn's credit budget being spent (a script's call, createReviewGate).
@@ -211,8 +215,16 @@ Answer in the exact format the instruction after the blocks asks for, and nothin
 export const buildReviewSystemPrompt = (kind: ReviewKind): string =>
   [INSTRUCTIONS_HEAD, kind === 'grant' ? GRANT_RULES : ACTION_RULES, OUTPUT].join('\n\n')
 
-const STAGE1_INSTRUCTION = 'Answer exactly one word: yes if the proposed operation raises any concern under the rules, or is not plainly within what was asked; no otherwise. When in doubt, answer yes.'
-const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the proposed operation, reading the policy carefully. Answer with JSON only: {"outcome": "allow" | "deny" | "unsure", "reason": string}. "allow": plainly within what was asked and against no rule. "deny": against a rule or against what was asked. "unsure": a person should decide. In "reason", at most ${REVIEW_REASON_MAX_CHARS} characters for the person who decides: what the operation does and which rule or request it meets or breaks.`
+const STAGE1_INSTRUCTION = 'Answer exactly one word: yes if the proposed operation raises any concern under the rules, or is not plainly within what was asked, or may change something other than what the people asked about (an index, a path or an id that could name another item); no otherwise. When in doubt, answer yes.'
+const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the proposed operation, reading the policy carefully. Answer with JSON only: {"outcome": "allow" | "deny" | "unsure", "reason": string, "personReason": string}. "allow": plainly within what was asked and against no rule. "deny": against a rule or against what was asked. "unsure": a person should decide. In "reason", at most ${REVIEW_REASON_MAX_CHARS} characters for the person who decides: what the operation does and which rule or request it meets or breaks. personReason: one or two sentences for the person who will decide, in the language of the people's messages, saying what the action will change and what made you hesitate; no tool names, ids, paths or JSON.`
+
+// Stage 2 only, for an action: how to read what was asked, never a clearance. In the shared policy, stage 1's one-word
+// screen read it as one and cleared a harmful call ("no" without stage 2): out of the system prompt, stage 1 never sees
+// it (its own instruction flags instead a target that could name another item), and the prompt cache (system message
+// and blocks) is unchanged, only the restated task after the blocks differs.
+const STAGE2_ACTION_READING = 'In judging whether the operation goes beyond what was asked: a display option of an item the agent added for the people\'s request in this conversation (how it shows: size, place, style, sorting and search for the visitors) is part of that request, unless they said otherwise. It applies only when the operation\'s path plainly names that added item (the position the earlier add gave it, an item appended without an index coming after the existing ones, or a path earlier operations already used for it); a path that may name an existing item is not covered. Nor are what an item says, shows, embeds or links to, and who can see or edit it; and it never lifts the rules of the policy.'
+
+const stage2InstructionOf = (kind: ReviewKind): string => kind === 'action' ? `${STAGE2_ACTION_READING} ${STAGE2_INSTRUCTION}` : STAGE2_INSTRUCTION
 
 const IDENTIFIER = /^[\w.:-]{1,200}$/
 const identifier = (value: unknown): string | undefined => typeof value === 'string' && IDENTIFIER.test(value) ? value : undefined
@@ -297,7 +309,12 @@ const earlierOfPart = (part: ToolPart, inScript: boolean, afterMessage: number):
   const approval = (part as { approval?: { approved?: boolean, reason?: string } }).approval
   // Only gated calls: a read, never reviewed nor asked about, says nothing of what was allowed.
   if (!meta.review && !meta.decision && !approval) return undefined
-  const base = { toolName: part.toolName, input: part.input, afterMessage, ...(inScript ? { inScript } : {}) }
+  // A script's code_mode call paused on a call that needs a person stands for that call (api/src/code-mode): its card,
+  // its decision, its review are that call's. Its trace entry, once resumed, carries none, so it is not counted twice.
+  const nested = (part.toolMetadata as { nested?: { toolName?: unknown, input?: unknown } } | undefined)?.nested
+  const base = typeof nested?.toolName === 'string'
+    ? { toolName: nested.toolName, input: nested.input, afterMessage, inScript: true }
+    : { toolName: part.toolName, input: part.input, afterMessage, ...(inScript ? { inScript } : {}) }
   const withReason = (decision: EarlierCall['decision'], reason?: string): EarlierCall =>
     ({ ...base, decision, ...(reason ? { reason: reason.slice(0, REVIEW_REASON_MAX_CHARS) } : {}) })
   if (meta.decision) return meta.decision.approved ? withReason('approved-by-person') : withReason('rejected-by-person', approval?.reason)
@@ -451,7 +468,7 @@ export const reviewMessage = (input: ReviewInput, stage: 1 | 2): string => {
     wrapGuarded(earlierTag, renderEarlierCalls(input.earlierCalls)),
     wrapGuarded(callTag, renderCall(input.call)),
     renderExposure(input.exposure),
-    `${neverFollow([intentTag, earlierTag, callTag])} ${stage === 1 ? STAGE1_INSTRUCTION : STAGE2_INSTRUCTION}`
+    `${neverFollow([intentTag, earlierTag, callTag])} ${stage === 1 ? STAGE1_INSTRUCTION : stage2InstructionOf(input.call.kind)}`
   ].join('\n\n')
 }
 
@@ -461,7 +478,15 @@ export const reviewOutcomeToRecord = (outcome: TwoStageOutcome<ReviewVerdict>, e
     return { outcome: 'unsure', reason: describeFailedStage(outcome), code: 'review-failed', failure: outcome.cause, exposed, at: now }
   }
   if (!outcome.stage1) return { outcome: 'allow', reason: '', code: 'cleared', exposed, at: now }
-  return { outcome: outcome.verdict.outcome, reason: outcome.verdict.reason.slice(0, REVIEW_REASON_MAX_CHARS), code: 'judged', exposed, at: now }
+  const personReason = outcome.verdict.personReason?.trim()
+  return {
+    outcome: outcome.verdict.outcome,
+    reason: outcome.verdict.reason.slice(0, REVIEW_REASON_MAX_CHARS),
+    ...(personReason ? { personReason: personReason.slice(0, REVIEW_REASON_MAX_CHARS) } : {}),
+    code: 'judged',
+    exposed,
+    at: now
+  }
 }
 
 /** The reason of a call refused once the breaker tripped: no review, no further change this turn. */

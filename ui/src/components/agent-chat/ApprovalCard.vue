@@ -129,6 +129,14 @@
         data-testid="approval-reason"
       />
     </v-card-text>
+    <!-- A script waits on this call: what it did before is done, and it goes on once the person decides. -->
+    <v-card-text
+      v-if="inScript"
+      class="text-body-small pt-0"
+      data-testid="approval-in-script"
+    >
+      {{ t('inScript') }}
+    </v-card-text>
     <!-- Why a person is asked: the reviewer allowed a call of a class that needs one, or could not settle it. -->
     <v-card-text
       v-if="reviewLine"
@@ -192,6 +200,13 @@
         </v-btn>
       </template>
     </v-card-actions>
+    <v-card-text
+      v-if="!readonly"
+      class="text-body-small text-medium-emphasis pt-0"
+      data-testid="approval-typing-cancels"
+    >
+      {{ t('typingCancels') }}
+    </v-card-text>
   </v-card>
 </template>
 
@@ -211,6 +226,8 @@ fr:
   readonly: En attente de la décision de la personne
   approve: Approuver
   reject: Refuser
+  typingCancels: Envoyer un message annule cette demande.
+  inScript: "Un script est en pause sur cette action : ce qu'il a fait avant est fait, il reprend dès que vous décidez."
   reason: Raison (facultative)
   confirmReject: Confirmer le refus
   cancel: Annuler
@@ -241,6 +258,8 @@ en:
   readonly: Awaiting the person's decision
   approve: Approve
   reject: Reject
+  typingCancels: Sending a message cancels this request.
+  inScript: "A script is paused on this action: what it did before is done, and it goes on once you decide."
   reason: Reason (optional)
   confirmReject: Confirm rejection
   cancel: Cancel
@@ -284,6 +303,8 @@ const props = defineProps<{
   readonly?: boolean
   /** What the automated reviewer made of the call, when it was reviewed before being put to a person. */
   review?: NonNullable<ChatMessage['toolInvocations']>[number]['review']
+  /** The call a script paused on (api/src/code-mode): the card says the script waits for this decision. */
+  inScript?: boolean
 }>()
 const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
 
@@ -318,7 +339,7 @@ const reviewLine = computed(() => {
   const review = props.review
   if (!review) return null
   if (review.code === 'review-failed') return t('reviewFailed')
-  if (review.outcome === 'unsure') return t('reviewUnsure', { reason: review.reason })
+  if (review.outcome === 'unsure') return review.personReason || t('reviewUnsure', { reason: review.reason })
   if (review.outcome === 'allow') return t('reviewAllowed')
   return null
 })

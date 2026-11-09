@@ -11,6 +11,7 @@ import type { AgentMemoryVersion } from '#types/agent-memory-version/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
 import type { NhiKeysDocument } from './nhi/operations.ts'
+import type { ScriptPause } from './code-mode/pauses.ts'
 import { RETENTION_SECONDS } from './retention.ts'
 
 import mongoLib from '@data-fair/lib-node/mongo.js'
@@ -80,6 +81,11 @@ export class AgentsMongo {
 
   get agentMemoryVersions () {
     return mongoLib.db.collection<AgentMemoryVersion>('agent-memory-versions')
+  }
+
+  /** The continuations of code_mode scripts paused for a person's decision (api/src/code-mode/pauses.ts). */
+  get scriptPauses () {
+    return mongoLib.db.collection<ScriptPause>('script-pauses')
   }
 
   /** Keys this service generates for itself, addressed by _id (api/src/nhi/service.ts). */
@@ -153,6 +159,12 @@ export class AgentsMongo {
         'status-keys': [{ status: 1 }, {}],
         'task-keys': [{ taskId: 1, startedAt: -1 }, {}],
         'agent-keys': [{ agentId: 1, startedAt: -1 }, {}]
+      },
+      'script-pauses': {
+        // One paused script per code_mode call of a conversation, replaced when it pauses again.
+        'main-keys': [{ conversationId: 1, toolCallId: 1 }, { unique: true }],
+        // Gone when its continuation expires: it could no longer resume anyway.
+        'ttl-keys': [{ expiresAt: 1 }, { expireAfterSeconds: 0 }]
       },
       'agent-memories': {
         // One document per path of a store, and the unique index is the create-race backstop.

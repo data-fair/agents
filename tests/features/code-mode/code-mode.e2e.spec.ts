@@ -1,5 +1,6 @@
 /**
- * stateful E2E test: the calls a code_mode script makes are listed in a panel under its call, and after a reload.
+ * stateful E2E test: the calls a code_mode script makes are listed in a panel under its call, and after a reload; a
+ * call that needs the person pauses the script on a card under its chip, and approving resumes it.
  */
 import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
@@ -58,5 +59,31 @@ test.describe('Panel of a code_mode call', () => {
     const nested = chip.locator('xpath=..').getByTestId('tool-call-detail')
     await expect(nested.getByTestId('tool-call-input')).toContainText('city-center')
     await expect(nested.getByTestId('tool-call-output')).toContainText('"district"')
+  })
+
+  test('a call needing the person pauses the script: its card under the script\'s chip, Approve, the chip settles', async ({ page, goToWithAuth }) => {
+    agentId = (await createFilesAgent({ approvalRoutes: { write: 'reviewer+person' } })).id
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    const js = 'const s = await tools.closure_stats({ district: "city-center" }); const u = await tools.slow_update({}); return { count: s.count, u }'
+    await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill(`call tool code_mode ${JSON.stringify({ js })}`)
+    await page.getByTestId('agent-chat-send').click()
+
+    const script = page.getByTestId('tool-chip').filter({ hasText: 'Run a script' })
+    await expect(script).toBeVisible({ timeout: 15000 })
+    // Under the script's chip: the call it made first, then the card of the one it paused on.
+    const row = script.locator('xpath=..')
+    await expect(row.getByTestId('nested-tool-chip')).toHaveText(['closure_stats'])
+    const card = row.getByTestId('approval-card')
+    await expect(card).toBeVisible({ timeout: 15000 })
+    await expect(card.getByTestId('approval-in-script')).toBeVisible()
+    await expect(card.getByTestId('approval-title')).toContainText('slow_update')
+    expect(fixture.invokedTools()).toEqual(['closure_stats'])
+
+    await expect(card.getByTestId('approval-approve')).toBeEnabled({ timeout: 15000 })
+    await card.getByTestId('approval-approve').click()
+    await expect.poll(() => fixture.invokedTools(), { timeout: 15000 }).toEqual(['closure_stats', 'slow_update'])
+    await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
+    await expect(script).toHaveAttribute('data-state', 'done', { timeout: 15000 })
+    await expect(row.getByTestId('nested-tool-chip')).toHaveText(['closure_stats', 'slow_update'])
   })
 })

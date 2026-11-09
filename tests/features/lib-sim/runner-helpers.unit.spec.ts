@@ -8,6 +8,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { bridgeSettings, MODEL_ROLES, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES } from '../../../lib-sim/bridge-settings.ts'
 import { runErrors } from '../../../lib-sim/conversation-export.ts'
+import { handsOver, runTurns } from '../../../lib-sim/run-simulation.ts'
+import { DONE } from '../../../lib-sim/persona.ts'
 import { simCaseNames } from '../../../lib-sim/cases.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
 
@@ -87,4 +89,54 @@ test.describe('run errors from the conversation export', () => {
 test('simCaseNames reads SIM_CASES', () => {
   assert.deepEqual(simCaseNames({}), [])
   assert.deepEqual(simCaseNames({ SIM_CASES: ' a, b ,,' }), ['a', 'b'])
+})
+
+test('hands an approval over like a wait', () => {
+  assert.equal(handsOver('approval'), true)
+  assert.equal(handsOver('waiting'), true)
+  assert.equal(handsOver('ended'), false)
+})
+
+/**
+ * The turn loop over a fake chat: what the runner sends, and what it holds back after the person acted on a card.
+ * The page's state is the fake's; the persona's passes change it, as a click on the card would.
+ */
+test.describe('the turn loop (runTurns)', () => {
+  const fakeChat = () => {
+    const page = { bubbles: [] as Array<{ role: 'user' | 'assistant', text: string }>, cards: [] as string[], outcome: 'ended' as 'ended' | 'waiting' | 'approval' }
+    const sent: string[] = []
+    const chat = {
+      sendMessage: async (text: string) => { sent.push(text); page.bubbles.push({ role: 'user', text }, { role: 'assistant', text: 'needs your approval' }); page.cards = ['approval-1']; page.outcome = 'approval' },
+      waitForTurn: async () => page.outcome,
+      readConversation: async () => [...page.bubbles],
+      readApprovalCards: async () => [...page.cards]
+    }
+    return { page, sent, chat }
+  }
+
+  test('a decision that ends on a new card (a script paused again) is a move: the message written with it is held back', async () => {
+    const { page, sent, chat } = fakeChat()
+    const passes: Array<() => string> = [
+      () => 'update the dataset',
+      // Approves the card; the resumed script pauses again: a new card, no new text bubble.
+      () => { page.cards = ['approval-2']; return 'is it done?' },
+      // Approves the second card; the script ends and the assistant replies.
+      () => { page.cards = []; page.outcome = 'ended'; page.bubbles.push({ role: 'assistant', text: 'done' }); return 'thanks' },
+      () => DONE
+    ]
+    const conversation: Array<{ role: string, text: string }> = []
+    const { turns, error } = await runTurns({ chat, maxTurns: 6, conversation, openChat: async () => {}, nextMessage: async turn => passes[turn - 1]() })
+    assert.equal(error, undefined)
+    assert.deepEqual(sent, ['update the dataset'], 'nothing sent over the new card')
+    assert.equal(turns, 1)
+    assert.equal(conversation.at(-1)?.text, 'done')
+  })
+
+  test('a card left as it was: the person wrote instead, and the message is sent', async () => {
+    const { sent, chat } = fakeChat()
+    const passes = ['update the dataset', 'actually, do not', DONE]
+    const { turns } = await runTurns({ chat, maxTurns: 6, conversation: [], openChat: async () => {}, nextMessage: async turn => passes[turn - 1] })
+    assert.deepEqual(sent, ['update the dataset', 'actually, do not'])
+    assert.equal(turns, 2)
+  })
 })

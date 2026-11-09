@@ -290,9 +290,13 @@ test.describe('review gate (unit)', () => {
     const task = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure'), surface: 'task' })
     for (const id of ['c1', 'c2', 'c3']) await decide(task.gate, 'set_note', { toolCallId: id })
     assert.equal(task.gate.tripped, true)
-    const nested = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure') })
+    const nested = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure'), surface: 'task' })
     for (const id of ['n1', 'n2', 'n3']) await nested.gate.reviewNested(id, 'set_note', {})
     assert.equal(nested.gate.tripped, true)
+    // In a chat a script's unsure pauses it for the person, as a direct call's cards: no denial.
+    const chatNested = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure') })
+    for (const id of ['n1', 'n2', 'n3']) await chatNested.gate.reviewNested(id, 'set_note', {})
+    assert.equal(chatNested.gate.tripped, false)
     const chat = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('unsure') })
     for (const id of ['c1', 'c2', 'c3']) await decide(chat.gate, 'set_note', { toolCallId: id })
     assert.equal(chat.gate.tripped, false)
@@ -343,9 +347,13 @@ test.describe('The reviewer sees earlier calls', () => {
   test('a script\'s calls are marked, and an allow on the reviewer+person route awaits a person', async () => {
     const { gate, fake } = gateWith({ tools: { set_note: reviewed('reviewer'), delete_note: reviewed('reviewer+person', 'destructive') } })
     await gate.reviewNested('s:tool-1', 'set_note', { note: 'x' })
+    // A script's reviewer+person call pauses the script: awaiting the person, as a direct one.
+    await gate.reviewNested('s:tool-2', 'delete_note', { note: 'w' })
     await decide(gate, 'delete_note', { toolCallId: 'd' })
     await decide(gate, 'set_note', { toolCallId: 'e' })
     assert.deepEqual(fake.calls[1].earlierCalls, [{ toolName: 'set_note', input: { note: 'x' }, decision: 'allowed-by-reviewer', inScript: true, afterMessage: 0 }])
-    assert.equal(fake.calls[2].earlierCalls[1].decision, 'awaiting-person')
+    const paused = fake.calls[2].earlierCalls[1]
+    assert.deepEqual([paused.toolName, paused.decision, paused.inScript], ['delete_note', 'awaiting-person', true])
+    assert.equal(fake.calls[3].earlierCalls[2].decision, 'awaiting-person')
   })
 })

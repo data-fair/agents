@@ -75,5 +75,7 @@ export default {
   codeModeMaxWorkers: 4,
   // The tool-output injection tripwire (api/src/tripwire): outside tool results are classified by the moderator
   // role model before the agent model reads them. A deployment switch, not a per-account setting.
-  tripwire: { enabled: true }
+  tripwire: { enabled: true },
+  // The approval reviewer (api/src/approval-review): stage 1 is a one-word screen, 5 s on a production model.
+  approvalReview: { stage1TimeoutMs: 5000 }
 }

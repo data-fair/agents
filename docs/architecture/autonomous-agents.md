@@ -374,7 +374,8 @@ for each class that makes changes, who decides. A read is never reviewed, and th
 
 `applyApprovalPolicy` marks every catalog tool that is not a read `review: { route, cls, kind: 'action' }`, and a
 `reviewer+person` one also sets the AI SDK's `needsApproval`: that flag is what keeps it out of an unattended run
-and out of a script (`unattended`, `codeCallable`), where no person can decide. No route removes a tool from the
+and out of a task run's scripts (`unattended`, `codeCallable`), where no person can decide. In a chat a script may
+call it, and pauses on it for the person. No route removes a tool from the
 set the model sees in a chat. A write put to a person by default would card every tool of every server that
 declares no annotations — most of them — and teach people to click Approve without reading.
 
@@ -410,11 +411,23 @@ for every tool: a reviewed one by its route, any other by its own `needsApproval
 call whose tool is gone (`goneApprovedToolNames`). The reviewer itself — what it reads, its prompt, its model, how
 it is measured — is described with the other guards in [moderation](./moderation.md#approval-reviewer).
 
-| reviewer says | route `reviewer`, in a chat | route `reviewer+person`, in a chat | a task run or a script |
+| reviewer says | route `reviewer`, in a chat | route `reviewer+person`, in a chat | a task run |
 |---|---|---|---|
 | allow | the call runs | a card, carrying the reviewer's view | runs (only `reviewer` classes reach it) |
 | unsure (or the review failed) | a card stating the concern | a card stating the concern | denied |
 | deny | denied, final | denied, final | denied |
+
+A script's call in a chat follows the same table: where it says "a card", the script pauses on that call and the
+card is the call's, the script resuming after the decision ([code mode](./code-mode.md#a-call-that-needs-a-person)).
+
+The gate table above therefore holds for a script as for the model's own call in a chat: a `reviewer+person` tool, or
+a `reviewer` call judged unsure, pauses the script and asks. In a task run (no person), a `reviewer+person` tool
+(`needsApproval`) is left out of the script's map, while a `reviewer` tool stays callable: it runs on an allow and is
+denied on an unsure or a deny, as a direct call there.
+
+A pending approval that a new message or a page action supersedes is shown as « Annulé » / "Cancelled", not
+« Refusé » / "Denied": nobody decided it. The card says so (« Envoyer un message annule cette demande. »). The
+reviewer's stage 2 writes `personReason` in the people's language, shown on the card and on a reviewer-denial chip.
 
 - **A denial is final.** The call is settled `output-denied` and the model reads `reviewerDenialText`: the
   reviewer's reason, and that it must not reach the same outcome another way but tell the person what it wanted
@@ -422,7 +435,7 @@ it is measured — is described with the other guards in [moderation](./moderati
   more in the chat: a new message is new intent, and the next call is reviewed against it. The model-facing text
   is the stored part's `approval.reason`, so a replay reads it too; the reviewer's own reason is in
   `toolMetadata.review.reason`, which is what the person sees.
-- **A failed review that denies is not a denial** (a task run, a script's call): the model reads
+- **A failed review that denies is not a denial** (a task run, its scripts included): the model reads
   `reviewUnavailableText` instead — the change could not be reviewed now and was not made, it must not retry it
   another way but report that it needs a person (`refusalTextOf`). A failure is no judgement, so the model is given
   no reason to argue with; the raw failure stays in `toolMetadata.review`. In a task run, the first failed review of
@@ -447,7 +460,7 @@ it is measured — is described with the other guards in [moderation](./moderati
   the export and on the review page.
 - **The circuit breaker.** 3 judged denials in a row, or 10 in a turn (`REVIEW_BREAKER`), stop the turn with stop
   reason `review-denied` ("I stopped because the reviewer denied several of my actions."). Where unsure denies (a
-  task run, a script's call) a judged unsure counts as a denial too: the model retrying variants there is refused
+  task run, its scripts included) a judged unsure counts as a denial too: the model retrying variants there is refused
   all the same. Any other judged outcome ends a run of consecutive ones. A `review-failed` record neither counts nor resets the streak: it is no
   judgment. Once tripped, every further reviewed call of the turn — the step's later calls and a running script's
   nested ones — is denied without a review (`breaker-tripped`), since the turn stops after its step but would

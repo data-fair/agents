@@ -89,6 +89,7 @@ export const createTestEnvRouter = () => {
     await mongo.db.collection('conversations').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('messages').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('runs').deleteMany({ 'owner.id': /^test/ })
+    await mongo.db.collection('script-pauses').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('agent-memories').deleteMany({ 'owner.id': /^test/ })
     await mongo.db.collection('agent-memory-versions').deleteMany({ 'owner.id': /^test/ })
     await removeTestOwnersFiles()

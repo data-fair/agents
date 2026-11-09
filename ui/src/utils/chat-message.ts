@@ -22,10 +22,12 @@ export interface ChatMessage {
     tripwire?: { excerpt: string, source: { tool: string, server: string, url?: string } }
     /** Why an approval was refused, when the decision gave a reason: the person's, or the reviewer's own. */
     deniedReason?: string
+    /** Set when a pending approval was cancelled because the person sent a message ('message') or used the page ('page') instead of deciding. */
+    cancelled?: 'message' | 'page'
     /** Set when the automated reviewer refused the call, not a person. */
     deniedByReviewer?: true
     /** What the automated reviewer made of a call awaiting a person's approval: why the card is shown. */
-    review?: { outcome: 'allow' | 'deny' | 'unsure', reason: string, code: 'cleared' | 'judged' | 'review-failed' | 'breaker-tripped' | 'budget' }
+    review?: { outcome: 'allow' | 'deny' | 'unsure', reason: string, personReason?: string, code: 'cleared' | 'judged' | 'review-failed' | 'breaker-tripped' | 'budget' }
     /** Set while the call awaits the person's approval: what their decision names. */
     approvalId?: string
     /** Set while the turn that asked is still finishing: the card shows, but cannot be decided yet. */
@@ -40,6 +42,11 @@ export interface ChatMessage {
     files?: Record<string, { path: string, mimeType?: string, size?: number, missing?: boolean }>
     /** Set on a gated call someone approved: its chip says so, as a denied one says it was declined. */
     approved?: true
+    /**
+     * Set on a script's call paused on a call that needs the person (api/src/code-mode): that call, which its
+     * approval card is about — its name, arguments, title and server, where the script's own are on its chip.
+     */
+    nested?: { toolName: string, input?: unknown, toolTitle?: string, serverId?: string }
   }>
   /**
    * The message in the order it happened: what the agent wrote, the calls a step made, what it wrote

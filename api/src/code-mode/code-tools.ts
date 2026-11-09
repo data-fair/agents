@@ -10,20 +10,24 @@
  *   `data-trace` part under the code_mode call — streamed while the script runs, stored when it ends, left
  *   out of replay.
  * - Reviewed (api/src/approval-review/gate.ts): a configured agent's reviewed tools are judged before they run, as
- *   the model's own calls are — a script is no way around the reviewer. Anything but `allow` fails the call: no
- *   person can decide inside a script. Every call that ran is noted, its output having entered the script.
+ *   the model's own calls are — a script is no way around the reviewer. A deny fails the call. Every call that ran
+ *   is noted, its output having entered the script.
+ * - Paused for a person (`pauses`, a chat turn only): a call the person must decide on — the reviewer unsure, or
+ *   allowing a class routed `reviewer+person`, or a tool asking by its own `needsApproval` — declares it through the
+ *   package's `needsApproval`, and the script pauses there (./tool.ts). Without a person (a task run), unsure and
+ *   such tools stay refused.
  * - A failure is rethrown as CodeModeToolError: the package replaces any other error with "Host tool failed."
  */
 import { jsonSchema, type Tool } from 'ai'
-import { CodeModeToolError } from '@ai-sdk/code-mode'
+import { CodeModeToolError, type CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
 import type { MessagePart } from '@agents/shared/message-parts'
 import type { JSONObject } from '@ai-sdk/provider'
 import type { ToolSet } from '../conversations/operations.ts'
-import type { ReviewGate } from '../approval-review/gate.ts'
-import { refusalTextOf } from '../approval-review/operations.ts'
+import { asksPerson, type ReviewGate } from '../approval-review/gate.ts'
+import { refusalTextOf, type ReviewRecord } from '../approval-review/operations.ts'
 import { createPartsRecorder, resultSettlement, errorSettlement, boundRecordedInput, type CallSettlement } from '../conversations/parts-recorder.ts'
 import { withCallPath, type CallPathContext } from '../files/call-path.ts'
-import { CODE_MODE_TOOL_NAME, codeCallable, SCRIPT_TRANSFER_BYTES, bridgedBytes, transferRefusedMessage, transferExceededMessage, CODE_MODE_TURN_CALLS, turnCallsExceededMessage } from './operations.ts'
+import { CODE_MODE_TOOL_NAME, codeCallable, SCRIPT_TRANSFER_BYTES, bridgedBytes, transferRefusedMessage, transferExceededMessage, CODE_MODE_TURN_CALLS, turnCallsExceededMessage, rejectedCallMessage } from './operations.ts'
 
 export interface CodeTrace {
   record<T> (toolCallId: string, toolName: string, input: unknown, run: () => Promise<T>): Promise<T>
@@ -123,24 +127,83 @@ export interface TurnCalls { count: number, max?: number }
 /** What a script's calls go through in a configured agent's turn: its review gate. The personal assistant has none. */
 export type NestedReview = Pick<ReviewGate, 'reviewNested' | 'noteNested'>
 
-export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: Record<string, Tool>, callPath: CallPathContext, trace: CodeTrace, turnCalls?: TurnCalls, review?: NestedReview }): Record<string, Tool> => {
+/** The person's decision on one call a script paused on. */
+export interface ScriptDecision { toolCallId: string, approved: boolean, reason?: string }
+
+/**
+ * A paused script to resume: its continuation, and EVERY decision made on it so far, the latest on the call it
+ * stopped at. Several calls can be pending in one continuation (parallel calls): the package answers the earlier
+ * decisions without running anything, and runs those calls only once the last is decided — each must then still
+ * find its own decision (a rejection throwing, an approval not reviewed again).
+ */
+export interface ScriptResume { interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[] }
+
+/**
+ * What one script had used before it paused, carried to its resume: `run` answers the calls made before the pause from
+ * its record, through none of our wrappers, so the resumed turn would otherwise count them as never made. `calls`
+ * against CODE_MODE_TURN_CALLS, `bytes` against SCRIPT_TRANSFER_BYTES, `ran` the tools whose output entered the script
+ * (the review gate's exposure, `noteNested`).
+ */
+export interface ScriptSpent { calls: number, bytes: number, ran: string[] }
+export const noScriptSpent = (): ScriptSpent => ({ calls: 0, bytes: 0, ran: [] })
+
+/**
+ * THE SCRIPTS OF A TURN THAT WAIT FOR A PERSON (a chat turn only), shared by every step's map and code_mode tool:
+ * `paused`, the continuations of the scripts that paused this turn, by code_mode call id (the loop makes each a
+ * card); `resumes`, the decided ones this turn resumes, by code_mode call id (model-loop.ts, before its first step);
+ * `keep`, where a pause is stored (api/src/code-mode/pauses.ts, through the turn's target).
+ */
+export interface ScriptPauses {
+  paused: Map<string, CodeModeApprovalInterrupt>
+  resumes: Map<string, ScriptResume>
+  /** What each script of the turn has used so far, by code_mode call id: kept with its pause, seeded on its resume. */
+  spent: Map<string, ScriptSpent>
+  /**
+   * Store a pause's continuation, with the decisions made on it so far and what the script had used, where the next
+   * decision will find it; false when too large to keep.
+   */
+  keep: (toolCallId: string, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[], spent: ScriptSpent) => Promise<boolean>
+}
+export const createScriptPauses = (keep: ScriptPauses['keep']): ScriptPauses => ({ paused: new Map(), resumes: new Map(), spent: new Map(), keep })
+
+export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: Record<string, Tool>, callPath: CallPathContext, trace: CodeTrace, turnCalls?: TurnCalls, review?: NestedReview, pauses?: ScriptPauses }): Record<string, Tool> => {
   const out: Record<string, Tool> = {}
+  // A person can decide in this turn: a call needing one pauses the script instead of being refused.
+  const person = !!opts.pauses
+  // A call of a resumed script the person decided: neither reviewed again nor asked about.
+  const resumedCall = (toolCallId: string): ScriptDecision | undefined => {
+    for (const resume of opts.pauses?.resumes.values() ?? []) {
+      const decision = resume.decisions.find(d => d.toolCallId === toolCallId)
+      if (decision) return decision
+    }
+  }
+  // A review made to decide whether to pause (needsApproval), read again by the call it decided (execute).
+  const records = new Map<string, ReviewRecord>()
   const turnCalls = opts.turnCalls ?? { count: 0 }
   const maxTurnCalls = turnCalls.max ?? CODE_MODE_TURN_CALLS
-  // What each script has moved so far (SCRIPT_TRANSFER_BYTES), keyed like the trace. The map is rebuilt every step
-  // and a running script keeps the one it started with, so this lives as long as the scripts that use it.
-  const moved = new Map<string, number>()
-  const spend = (toolCallId: string, bytes: number, message: string) => {
+  // What each script has used so far (ScriptSpent), keyed like the trace. The map is rebuilt every step and a running
+  // script keeps the one it started with, so this lives as long as the scripts that use it; where a script can pause,
+  // in the turn's ScriptPauses, which keeps it with the pause and seeds it again on the resume.
+  const spent = opts.pauses?.spent ?? new Map<string, ScriptSpent>()
+  const spentOf = (toolCallId: string): ScriptSpent => {
     const parent = toolCallId.replace(/:tool-\d+$/, '')
-    const total = (moved.get(parent) ?? 0) + bytes
-    if (total > SCRIPT_TRANSFER_BYTES) throw new Error(message)
-    moved.set(parent, total)
+    let used = spent.get(parent)
+    if (!used) { used = noScriptSpent(); spent.set(parent, used) }
+    return used
+  }
+  const spend = (toolCallId: string, bytes: number, message: string) => {
+    const used = spentOf(toolCallId)
+    if (used.bytes + bytes > SCRIPT_TRANSFER_BYTES) throw new Error(message)
+    used.bytes += bytes
   }
   for (const name of opts.names) {
     const sourced = opts.fixed[name]
     const base = sourced ? withCallPath(sourced, opts.callPath, 'code') : opts.page[name]
-    if (!base?.execute || !codeCallable(name, sourced?.tool ?? base)) continue
+    if (!base?.execute || !codeCallable(name, sourced?.tool ?? base, { person })) continue
     const execute = base.execute
+    // Who decides this tool's calls when a person can: the reviewer first for a reviewed tool, the person for a tool
+    // asking by its own needsApproval (the personal assistant's writes).
+    const asksFirst = person && (sourced?.review || (sourced?.tool ?? base).needsApproval)
     out[name] = {
       ...base,
       // What the script receives, as the return type of its signature in code_mode's description: the package
@@ -149,18 +212,36 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
       // Its own description and input when the script's tool differs from the model's (SourcedTool.codeDescription).
       ...(sourced?.codeDescription ? { description: sourced.codeDescription } : {}),
       ...(sourced?.codeInputSchema ? { inputSchema: jsonSchema(sourced.codeInputSchema) } : {}),
-      // A script's tool never asks for approval (codeCallable keeps those out); stated so the package never prompts.
-      needsApproval: undefined,
+      // Whether the script pauses on this call for a person (./tool.ts): the package asks before `execute`, and not
+      // for the call a resumed script stopped at. Without a person, never: the package would refuse the call.
+      needsApproval: asksFirst
+        ? async (input: any, options: any) => {
+          // Refused anyway (execute below): no review to spend, no person to ask.
+          if (turnCalls.count >= maxTurnCalls) return false
+          if (!sourced?.review) return true
+          if (!opts.review) return false
+          // The script's input, before the call path's file/URL transformation: as a direct call is reviewed.
+          const record = await opts.review.reviewNested(options.toolCallId, name, input)
+          records.set(options.toolCallId, record)
+          return asksPerson(record, sourced.review.route)
+        }
+        : undefined,
       execute: async (input: any, options: any) => await opts.trace.record(options.toolCallId, name, input, async () => {
         try {
           if (turnCalls.count >= maxTurnCalls) throw new Error(turnCallsExceededMessage(maxTurnCalls))
           turnCalls.count++
+          spentOf(options.toolCallId).calls++
           spend(options.toolCallId, bridgedBytes(input), transferRefusedMessage)
-          if (sourced?.review) {
+          const resumed = resumedCall(options.toolCallId)
+          // A person's rejection, resumed as an approval (the package fails a rejected continuation before the
+          // script could catch it, ./tool.ts): the call throws, inside the script.
+          if (resumed && !resumed.approved) throw new Error(rejectedCallMessage(name, resumed.reason))
+          if (sourced?.review && !resumed) {
             // A reviewed tool without a gate to judge it is refused, never run unjudged.
             if (!opts.review) throw new Error(`${name} needs a review this turn cannot give`)
-            // The script's input, before the call path's file/URL transformation: as a direct call is reviewed.
-            const record = await opts.review.reviewNested(options.toolCallId, name, input)
+            // Reviewed already when a person could have been asked (needsApproval above); otherwise now.
+            const record = records.get(options.toolCallId) ?? await opts.review.reviewNested(options.toolCallId, name, input)
+            records.delete(options.toolCallId)
             opts.trace.annotate(options.toolCallId, { review: record as unknown as JSONObject })
             if (record.outcome !== 'allow') throw new Error(refusalTextOf(record))
           }
@@ -169,6 +250,8 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
             output = await execute(input, options)
           } finally {
             opts.review?.noteNested(name)
+            const used = spentOf(options.toolCallId)
+            if (!used.ran.includes(name)) used.ran.push(name)
           }
           spend(options.toolCallId, bridgedBytes(output), transferExceededMessage)
           return output

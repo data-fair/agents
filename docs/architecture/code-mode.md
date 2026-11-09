@@ -51,8 +51,9 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
   package's "Tool call examples" block and append a short paragraph of ours (`describeScriptTool`): console
   output, failures as exceptions, **the conventions of what a tool returns** (an MCP tool its structured result
   as an object when it has one, otherwise its text as a string to `JSON.parse`; a result carrying files
-  `{ text, files }`; `read_file` the whole text), "check what you got before writing or importing it", and which
-  tools can only be called directly. The conventions are there because a script that guesses a shape parses
+  `{ text, files }`; `read_file` the whole text), "check what you got before writing or importing it", which
+  tools can only be called directly, and, in a chat, that a call needing the person's approval pauses the script
+  (`pausedScriptNote`). The conventions are there because a script that guesses a shape parses
   nothing, silently: in the first simulation of an export-filter-import task, the model guessed `read_file`
   returned `{ text }`, imported an empty table, and needed four scripts.
 - The `js` argument's description is ours too (`SCRIPT_ARGUMENT_DESCRIPTION`): the package's promises the
@@ -160,7 +161,7 @@ The turn's tool set, filtered by `codeCallable` (`api/src/code-mode/operations.t
 
 | Excluded | Why |
 |---|---|
-| any tool with `needsApproval` (a configured agent's classes routed to `reviewer+person`, the personal assistant's writes) | the package refuses a nested call needing approval without an approval callback, and its docs say not to expose such tools; a script cannot pause for a person. Lifting this goes through `run`'s signed continuations (upstream vercel/ai#18143). |
+| in a planned task run only: any tool with `needsApproval` (a configured agent's classes routed to `reviewer+person`) | nobody can decide in a task run. In a chat these tools are callable: a call that needs the person pauses the script ([below](#a-call-that-needs-a-person)). |
 | `wait_for_user_action` | it ends the turn |
 | `request_web_access`, `request_mcp_access`, `plan_task`, `update_task`, `delete_task` | they ask an administrator |
 | `read_skill` | a skill is guidance for the model; inside a script it is data nobody reads |
@@ -175,17 +176,97 @@ alone ([approval routes](./autonomous-agents.md#routes)) carry no `needsApproval
 through the turn's review gate (`reviewNested`, `api/src/approval-review/gate.ts`): the same reviewer, intent and
 record as a direct call, so a script is no way around it. The call is judged on the script's input, before the
 call path turns file arguments into URLs, against the messages of the step whose script it is. Anything but
-`allow` fails that nested call: a deny, and an unsure too, since no person can decide inside a script; the script
-reads `reviewerDenialText` as the call's error (`reviewUnavailableText` when the review itself failed: not made,
-could not be reviewed now), and can catch it. The record is put on the nested call in the
+`allow` that no person can decide fails that nested call: a deny, and in a task run an unsure too; the script reads
+`reviewerDenialText` as the call's error (`reviewUnavailableText` when the review itself failed: not made, could not
+be reviewed now), and can catch it. In a chat, an unsure, or an allow on the `reviewer+person` route, pauses the script
+for the person instead ([below](#a-call-that-needs-a-person)), as the same record cards a direct call (`asksPerson`).
+The record is put on the nested call in the
 `data-trace` part (`toolMetadata.review`). A reviewed tool reached without a gate (never, by construction) is
 refused rather than run unjudged.
 
 The exposure follows the script: every nested call that ran is noted (`noteNested`), and a scanned tool's output
 having entered the script makes the rest of the turn exposed for the reviewer — a script that reads outside
-content and then writes is the same exposure as two direct calls. The circuit breaker counts nested denials (a
-judged unsure among them, since it denies here), and once tripped every further nested reviewed call is denied
-without a review, so a running script cannot go on trying variants until one is allowed.
+content and then writes is the same exposure as two direct calls. It holds across a pause too
+([below](#a-call-that-needs-a-person)): the tools whose output entered the script before it paused are kept with the
+pause and noted again in the turn that resumes it. The circuit breaker counts nested denials (in a task run a judged
+unsure among them, since it denies there; in a chat an unsure pauses the script for the person and is not counted),
+and once tripped every further nested reviewed call is denied without a review, so a running script cannot go on
+trying variants until one is allowed.
+
+## A call that needs a person
+
+In a chat, a script's call that needs the person — the reviewer unsure, an allow on the `reviewer+person` route, a
+personal assistant's write (its own `needsApproval`) — **pauses the script**; the person gets a card, and the script
+resumes after the decision, where it stopped. A planned task run has nobody to decide: there such tools stay out of
+the map and an unsure denies, as before.
+
+- **The pause.** In a chat `codeFacingTools` is given the turn's `ScriptPauses`, and each tool that can need a person
+  declares the package's `needsApproval` as a function: for a reviewed tool the review runs there (`reviewNested`, its
+  record kept for the call's `execute`), and answers whether the record asks a person (`asksPerson`). The package runs
+  in its interrupt mode (`approval: { mode: 'interrupt' }`, `api/src/code-mode/tool.ts`): the script stops at that call
+  and returns an interrupt carrying a **signed continuation** — the script, and `run`'s record of every call it made so
+  far, with their results. `createScriptTool` stores it (`keep`) and throws `ScriptPausedError`, a `LoopSignal` the
+  envelope passes through unscreened; the loop stops after the step (`stopWhen`) and turns the `code_mode` call's part
+  into `approval-requested`: `approval.id` the interrupt's id, `toolMetadata.nested: { toolName, input, title?,
+  serverId? }` the call it stopped at, with that call's description, file arguments and review record. The turn ends
+  `awaiting-approval`.
+- **The continuation** is kept in the `script-pauses` collection (`api/src/code-mode/pauses.ts`), as JSON text, keyed
+  by conversation and call, not in the part: the part is sent to the page on every frame and exported, and the
+  continuation holds everything the script read so far (up to `run`'s 32 MiB record). One too large for a MongoDB
+  document fails the call instead (`scriptPauseTooLargeMessage`). It is signed (the package refuses an unsigned
+  continuation) with a key derived from the cipher key (`getContinuationSigningKey`, HKDF over `CIPHER_PASSWORD`'s
+  key, set at startup with `experimental_setCodeModeContinuationSigningKey`): the cipher password is already the same
+  on every instance and across restarts, so a decision resumes the script wherever it lands, with no secret of its own
+  to deploy. The package's default, a random key per process, would fail every pending card at a restart or on another
+  instance; the signature itself adds little here, since the continuation never leaves the server and expires after 24 h (`PAUSED_SCRIPT_MAX_AGE_MS`), when a TTL
+  index drops it.
+- **The card** is the nested call's: the chat shows the script's chip, the calls it made, then the card of the call it
+  paused on, saying a script waits on it (`nested` on the invocation, `ApprovalCard` `in-script`). The decision goes
+  through the same route as a direct call's (`decideAndContinue`); `decideApproval` leaves a paused script's call
+  `approval-responded` whatever the decision, since a rejected script resumes too.
+- **The resume.** The `approval` run, before its first step, resumes each decided script of the previous message
+  (`resumeDecidedScripts`, `api/src/conversations/script-resume.ts`) through the turn's own `code_mode` tool, whose
+  `ScriptPauses.resumes` entry makes it call `experimental_continueCodeModeApproval` instead of running the script
+  afresh: the calls before the pause are replayed from `run`'s record, not made again. The reviewer is not asked again
+  for the resumed call (a person-approved direct call is not re-reviewed either); the calls after it are reviewed,
+  budget- and breaker-checked as any nested call. The result is settled on the earlier message, and the run's history
+  is patched to read it, before the SDK sees an approval it did not issue (unsigned, it would refuse the run). The
+  trace of the resumed calls is merged into the earlier message's `data-trace`, under the one chip.
+- **What the script used before the pause is carried to its resume** (`ScriptSpent`, `spent` in `script-pauses`): the
+  calls before the pause are answered from `run`'s record, through none of our wrappers, so the resuming turn is
+  handed their count (against `CODE_MODE_TURN_CALLS`), the bytes they moved (against `SCRIPT_TRANSFER_BYTES`) and the
+  tools whose output entered the script (`noteNested`: a scanned read before the pause makes a write after it
+  exposed). Pausing is no way around a bound or the exposure.
+- **A rejection** throws inside the resumed script (`rejectedCallMessage`), which may catch it. 1.0.116 fails a
+  continuation that holds a denial before the script runs again (`assertNoDeniedApproval`), so a script could not:
+  a rejection is resumed as an approval whose call throws instead (pinned by `code-tools.unit.spec.ts`).
+- **Paused again** (a loop of calls that each need the person, parallel calls): the resumed call's part asks once more,
+  with the new interrupt; the run ends `awaiting-approval` with no model call, its own message empty. Calls pending
+  together in one continuation (`Promise.all`) are answered one decision at a time without anything running, and run
+  only after the last: so **every decision of a continuation is kept** with it (`decisions` in `script-pauses`, the
+  earlier ones also on the part as `toolMetadata.earlierDecisions`), and each call finds its own when the script runs
+  — a rejected one throws, an approved one is not reviewed again. The step's
+  other approved direct calls wait for that decision too: `settleApprovedWithoutResult` skips a message that still
+  holds an undecided call.
+- **It cannot resume** when the continuation expired, was tampered with, or no longer matches the tools (the
+  package's `CodeModeProtocolError`): a changed tool set refuses the resume too — the page's tools differing on the
+  tab the person decides on, an MCP server's listing changed since the pause. The package's message is logged
+  (`code-mode-resume-refused`, with the call and interrupt ids). The same when `code_mode` is not offered to the
+  person who decided: the call settles as
+  `The script could not resume after the approval (expired or invalid); nothing after the paused call ran. Run the
+  remaining steps again.`
+- **A new message instead of a decision** cancels the card as a direct call's (`rejectPendingApprovals`). A script's
+  card already rejected, waiting for another call of its step to be decided, keeps its rejection (`output-denied`,
+  the person's reason), never "Approved, but…"; on replay
+  the model reads that the script stopped at that call, the calls before it having run (`pausedScriptDenialText`). The
+  stored continuation is dropped then, and with the conversation when it is deleted, purged or erased, and with an
+  agent's conversations (`dropConversationScriptPauses`): it holds what the script's calls returned.
+- **A restart between pause and decision** loses nothing: the card is the stored part and the continuation is in the
+  collection, signed with a key every instance shares. A restart during the resume is an approval run interrupted
+  like any: its call, still `approval-responded`, is settled as of unknown outcome.
+- **The reviewer reads it as the nested call**: `earlierOfPart` takes a paused script's `code_mode` part for the
+  call it paused on (its name, arguments, `inScript`), awaiting, approved or rejected by the person; the resumed
+  call's trace entry carries no review, so it is not counted twice.
 
 **Reviews take time and credits inside the script.** Each reviewed call waits for the reviewer, seconds each (stage
 1 up to 5 s, stage 2 up to 30 s, the eval's p50 about 3 s), and that wait counts in the script's 120 s wall clock:
@@ -385,11 +466,14 @@ R4, pending.
 Tests: `tests/features/code-mode/code-mode.unit.spec.ts` (the engine against the real package: sandbox,
 console, line numbers, errors, limits, abort, description), `code-tools.unit.spec.ts` (`codeCallable`, data
 and recording, failures, the uncaught failure reported as itself, bounded inputs, a trace closed after a
-timeout with nothing sent after it, coalesced frames, the file tools' return types),
+timeout with nothing sent after it, coalesced frames, the file tools' return types; the package's pause and resume
+pinned, and ours over it),
 `tests/features/autonomous-agents/external-mcp.unit.spec.ts` (a call's abort signal reaches the MCP request), `code-mode.api.spec.ts` (through the mock model: `structuredContent` and nested
-records, files end to end, gated and reserved tools absent, errors, the personal assistant, self-knowledge),
+records, files end to end, a gated call pausing the script: approved, rejected, in a loop, cancelled by a message;
+reserved tools absent, errors, the personal assistant, self-knowledge),
 `tests/features/approval-review/approval-review.api.spec.ts` and `gate.unit.spec.ts` (nested reviewed calls: allowed, denied, exposure, the breaker),
-`code-mode.e2e.spec.ts` (a chip in the chat, the nested calls in a panel under the `code_mode` call on the review page),
+`code-mode.e2e.spec.ts` (a chip in the chat, the nested calls in a panel under the `code_mode` call on the review page;
+a paused script's card under its chip, approved, the chip settling),
 `tests/features/files/call-path.unit.spec.ts` (mode `'code'`). The fixture's `closure_stats` returns
 `structuredContent` without an `outputSchema`, as data-fair's MCP does. The unattended simulation case
 `code-mode-clean-and-import-task-run` does export, filter and import in one script.

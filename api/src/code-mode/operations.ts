@@ -188,7 +188,26 @@ const PAPA_DECLARATION = [
 export const reviewedScriptNote = (timeoutMs: number) =>
   `Changes are checked by a reviewer before they run, a few seconds each, counted in the script's ${timeoutMs / 1000} s: make few reviewed writes in one script (one call writing many lines rather than one call per line), and do bulk work in a processing.`
 
-export const describeScriptTool = (packageDescription: string, opts: { reviewed?: boolean, timeoutMs?: number } = {}): string => {
+/**
+ * A CALL THAT NEEDS A PERSON PAUSES THE SCRIPT (docs/architecture/code-mode.md, "A call that needs a person"): in a
+ * chat, the person decides on a card and the script resumes where it stopped. Model-facing texts of it.
+ */
+export const pausedScriptNote = 'A call that needs the person\'s approval pauses the script: the turn ends on an approval request, and once the person decides the script resumes where it stopped (the calls before it are not made again) and you get its result. A rejected call throws inside the script, which may catch it.'
+/** How long a paused script can wait for its decision: its continuation's age limit, then it can no longer resume. */
+export const PAUSED_SCRIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000
+/** The code_mode call's error when its stored continuation is missing, expired, tampered or no longer matches. */
+export const SCRIPT_RESUME_FAILED_MESSAGE = 'The script could not resume after the approval (expired or invalid); nothing after the paused call ran. Run the remaining steps again.'
+/** The code_mode call's error when the state of a paused script is too large to keep while it waits. */
+export const scriptPauseTooLargeMessage = (toolName: string) => `The script needed the person's approval to call ${toolName}, but what it had read so far is too large to keep while it waits: it stopped there, the calls before it ran, nothing after it ran. Call ${toolName} directly, or from a script that reads less.`
+/** What the nested call a person rejected throws inside the resumed script. */
+export const rejectedCallMessage = (toolName: string, reason?: string) => `${toolName} was not run: the person rejected it${reason ? ` (their reason: ${reason})` : ''}. Do not try to reach the same outcome another way.`
+/**
+ * What the model reads, on replay, of a paused script whose card was cancelled or refused before it resumed: the
+ * approval's own reason, after what happened to the script.
+ */
+export const pausedScriptDenialText = (toolName: string, reason?: string) => `The script was paused before its call to ${toolName}, waiting for the person's approval, and did not resume: the calls before it ran, nothing after it ran.${reason ? ` ${reason}` : ''}`
+
+export const describeScriptTool = (packageDescription: string, opts: { reviewed?: boolean, timeoutMs?: number, person?: boolean } = {}): string => {
   const head = packageDescription.split('\nTool call examples:')[0].trimEnd()
   return [
     head,
@@ -199,7 +218,10 @@ export const describeScriptTool = (packageDescription: string, opts: { reviewed?
     'Have the script read its data itself (call the tool, read_file the path it returned), never paste in what an earlier call showed you: the script must work on what is there when it runs.',
     `Everything a script passes to and gets from its tools counts toward ${transferLimit}; a larger file belongs in a tool that takes the file itself.`,
     'Dates: a script\'s local time zone is the server\'s, not the task\'s. Work in UTC: a date-only string ("2026-10-21") is UTC midnight, so compare YYYY-MM-DD strings, or give every date-time a trailing Z; new Date("2026-10-14T00:00:00") without Z is the server\'s local midnight.',
-    'Tools that need approval, wait_for_user_action, the access and planning requests and read_skill can only be called directly.',
+    opts.person
+      ? 'wait_for_user_action, the access and planning requests and read_skill can only be called directly.'
+      : 'Tools that need approval, wait_for_user_action, the access and planning requests and read_skill can only be called directly.',
+    ...(opts.person ? [pausedScriptNote] : []),
     ...(opts.reviewed ? [reviewedScriptNote(opts.timeoutMs ?? CODE_MODE_POLICY.timeoutMs)] : [])
   ].join('\n\n')
 }
@@ -212,11 +234,6 @@ export const describeScriptTool = (packageDescription: string, opts: { reviewed?
  */
 const DIRECT_ONLY = new Set([WAIT_TOOL_NAME, 'request_web_access', 'request_mcp_access', 'plan_task', 'update_task', 'delete_task', 'read_skill', CODE_MODE_TOOL_NAME])
 
-/**
- * Whether a script may call this tool. Never one needing approval: the package refuses it without an approval
- * callback (and its docs say not to expose one), and a script cannot pause for a person — lifting this goes
- * through `run`'s signed continuations, upstream vercel/ai#18143.
- */
 /**
  * A script's tool input without the keys that pollute a prototype: `__proto__`, and a `constructor` carrying a
  * `prototype` (what secure-json-parse removes). The bridge hands a tool the script's JSON, where `__proto__` is
@@ -234,5 +251,9 @@ export const withoutPrototypeKeys = (value: unknown): unknown => {
   return out
 }
 
-export const codeCallable = (name: string, tool: { needsApproval?: unknown }): boolean =>
-  !tool.needsApproval && !DIRECT_ONLY.has(name)
+/**
+ * Whether a script may call this tool. One needing approval only where a person can decide (`person`, a chat turn):
+ * there the call pauses the script until they do (./tool.ts, signed continuations); in a task run nobody can.
+ */
+export const codeCallable = (name: string, tool: { needsApproval?: unknown }, opts: { person?: boolean } = {}): boolean =>
+  (!tool.needsApproval || !!opts.person) && !DIRECT_ONLY.has(name)

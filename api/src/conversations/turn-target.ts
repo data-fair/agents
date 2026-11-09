@@ -34,7 +34,10 @@ import { usesPageTools } from '../agent-session/personal-agent.ts'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type StopCause } from './interrupted-turn.ts'
-import { updateMessage, settleStoredToolPart, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
+import { updateMessage, settleStoredToolPart, repauseStoredScript, storeEarlierScriptTrace, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
+import { storeScriptPause, scriptPauseOf, dropScriptPause } from '../code-mode/pauses.ts'
+import type { CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
+import type { ScriptDecision, ScriptSpent } from '../code-mode/code-tools.ts'
 import { sessionFor, notifyMessage, notifyActivity } from '../agent-session/registry.ts'
 import { livePartsOf } from './live-runs.ts'
 import { reviewContextOfConversation, type ReviewContext } from '../approval-review/operations.ts'
@@ -64,6 +67,33 @@ export interface TurnHistoryRequest {
   agentId: string
 }
 
+/** A decided pause of the previous turn's script, to resume. */
+export interface DecidedScriptPause {
+  /** The code_mode call, as stored: `approval-responded`, its `toolMetadata.nested` the call it stopped at. */
+  part: Extract<MessagePart, { type: 'dynamic-tool' }>
+  /** Its continuation; none once expired (the TTL removed it). */
+  interrupt?: CodeModeApprovalInterrupt
+  /** The decisions made on that continuation before it paused again (parallel calls), the latest excluded. */
+  earlierDecisions: ScriptDecision[]
+  /** Its trace so far: the calls made before the pause. */
+  trace: MessagePart[]
+  /** What the script had used before the pause, counted again in the turn that resumes it. */
+  spent?: ScriptSpent
+}
+
+export interface TurnScriptPauses {
+  /** The previous message's paused scripts the person has decided on: what this turn resumes first. */
+  decided: () => Promise<DecidedScriptPause[]>
+  /** Keep a pause's continuation for its decision; false when too large to keep. */
+  store: (toolCallId: string, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[], spent: ScriptSpent) => Promise<boolean>
+  /** A resumed script that paused again: its earlier part asks once more (repauseStoredScript). */
+  repause: (toolCallId: string, ask: { approvalId: string, toolMetadata: Record<string, unknown> }) => Promise<void>
+  /** A resumed script's whole trace, onto its earlier message. */
+  storeTrace: (parentToolCallId: string, parts: MessagePart[]) => Promise<void>
+  /** A pause resumed: its continuation is no longer needed. */
+  drop: (toolCallId: string) => Promise<void>
+}
+
 /** What one turn produced. The model loop replaces the body that fills this in. */
 export interface TurnResult {
   /** The turn's ordered parts — the record itself, not a rendering of it. */
@@ -77,6 +107,8 @@ export interface TurnResult {
   handover?: { toolCallId: string, expecting?: string }
   /** The turn ended on a call needing the person's approval (stopReason 'awaiting-approval'). */
   awaitingApproval?: true
+  /** The tool awaiting approval when its card is not in this turn's parts (a resumed script paused again). */
+  approvalToolName?: string
   /**
    * The idle watchdog aborted the stream. The SDK ends an aborted stream without throwing, so the turn
    * still returns — but approved calls run before any part is emitted, unseen by the watchdog, and one
@@ -138,6 +170,11 @@ export interface TurnTarget {
   /** A result for a call an EARLIER turn made: an approved call the SDK executed on replay. */
   settleEarlierCall: (toolCallId: string, settled: Parameters<typeof settleStoredToolPart>[2]) => Promise<void>
   /**
+   * Where a code_mode script paused for a person is kept until the decision, and found again to resume it
+   * (api/src/code-mode, model-loop.ts). A conversation's only: a task run has no person to decide.
+   */
+  scriptPauses?: TurnScriptPauses
+  /**
    * What the approval reviewer judges a call against (api/src/approval-review): the people's messages, or the
    * task's prompt without its payloads, beside `instructions` (the agent's persona and instructions).
    */
@@ -192,6 +229,8 @@ export const conversationTarget = (
   // actually open — not even its `turn-end` arrived.
   const watcher = () => sessionFor(run.conversationId)
   const session = sessionFor(run.conversationId)
+  // The earlier message a resumed script paused again on (scriptPauses.repause): sent once the run is closed.
+  let repaused: Awaited<ReturnType<typeof repauseStoredScript>> = null
   return {
     surface: 'chat',
     session,
@@ -237,6 +276,39 @@ export const conversationTarget = (
     settleEarlierCall: async (toolCallId, settled) => {
       const message = await settleStoredToolPart(run.conversationId, toolCallId, settled)
       if (message) notifyMessage(run.conversationId, message)
+    },
+    scriptPauses: {
+      // From the last message before this turn's, as the SDK executes approvals from the last message only — the last
+      // the replay keeps: an earlier approval run that paused the script again left its own message empty.
+      decided: async () => {
+        const recent = await mongo.messages
+          .find({ conversationId: run.conversationId, seq: { $lt: messageSeq } }, { projection: { _id: 0, role: 1, parts: 1 } })
+          .sort({ seq: -1 })
+          .limit(20)
+          .toArray()
+        const previous = recent.find(message => (message.parts ?? []).some(part => part.type !== 'step-start'))
+        if (previous?.role !== 'assistant') return []
+        const parts = (previous.parts ?? []) as MessagePart[]
+        const decided: DecidedScriptPause[] = []
+        for (const part of parts) {
+          if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded' || !(part.toolMetadata as { nested?: unknown } | undefined)?.nested) continue
+          const trace = parts.find(p => p.type === 'data-trace' && (p as { data?: { parentToolCallId?: string } }).data?.parentToolCallId === part.toolCallId) as { data?: { parts?: MessagePart[] } } | undefined
+          const pause = await scriptPauseOf(run.conversationId, part.toolCallId)
+          decided.push({ part, ...(pause ? { interrupt: pause.interrupt } : {}), earlierDecisions: pause?.decisions ?? [], trace: trace?.data?.parts ?? [], ...(pause?.spent ? { spent: pause.spent } : {}) })
+        }
+        return decided
+      },
+      store: async (toolCallId, interrupt, decisions, spent) => await storeScriptPause({ conversationId: run.conversationId, toolCallId, owner: run.owner, interrupt, decisions, spent }),
+      // The page is shown the new card once this run is closed (close, below): decided while the run still finishes,
+      // its finishRun would settle the call as not run (settleApprovedWithoutResult).
+      repause: async (toolCallId, ask) => {
+        repaused = await repauseStoredScript(run.conversationId, toolCallId, ask) ?? repaused
+      },
+      storeTrace: async (parentToolCallId, parts) => {
+        const message = await storeEarlierScriptTrace(run.conversationId, parentToolCallId, parts)
+        if (message) notifyMessage(run.conversationId, message)
+      },
+      drop: async (toolCallId) => { await dropScriptPause(run.conversationId, toolCallId) }
     },
     // Every message the people wrote in this conversation, as stored (an action button's hidden context
     // included, part of the user turn), not the model's compacted view: a recap is the model's words. And the
@@ -301,6 +373,7 @@ export const conversationTarget = (
       // The turn's one settled frame (see TurnFrames), as stored: notice included, and an approval card
       // decidable only now that its message is closed.
       notifyMessage(run.conversationId, { seq: messageSeq, parts: finalParts })
+      if (repaused) notifyMessage(run.conversationId, repaused)
 
       // The conversation's total, now including this turn — returned by the close itself — then the
       // end-of-turn signal, so a page that refreshes on turn-end already holds the new figure.
@@ -314,7 +387,9 @@ export const conversationTarget = (
       }
       if (result.awaitingApproval) {
         const pending = finalParts.find(p => p.type === 'dynamic-tool' && p.state === 'approval-requested')
-        notifyActivity(run.conversationId, { kind: 'approval', toolName: pending?.type === 'dynamic-tool' ? pending.toolName : '' })
+        // A script's card is its paused call's: the label names that tool, not code_mode.
+        const nested = pending?.type === 'dynamic-tool' ? (pending.toolMetadata as { nested?: { toolName?: string } } | undefined)?.nested?.toolName : undefined
+        notifyActivity(run.conversationId, { kind: 'approval', toolName: result.approvalToolName ?? nested ?? (pending?.type === 'dynamic-tool' ? pending.toolName : '') })
       }
       // A title for a new conversation, from its first exchange (conversations/title.ts). Off the
       // person's path; a refused first turn has nothing to title.

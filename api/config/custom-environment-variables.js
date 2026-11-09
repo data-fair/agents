@@ -61,6 +61,9 @@ export default {
   tripwire: {
     enabled: { __name: 'TRIPWIRE_ENABLED', __format: 'json' }
   },
+  approvalReview: {
+    stage1TimeoutMs: { __name: 'APPROVAL_REVIEW_STAGE1_TIMEOUT_MS', __format: 'json' }
+  },
   files: {
     storage: 'FILES_STORAGE',
     dataDir: 'FILES_DATA_DIR',

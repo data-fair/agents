@@ -6,23 +6,77 @@
  * The package is touched only here and in ./code-tools.ts: its API is experimental.
  */
 import { tool, jsonSchema, type Tool } from 'ai'
-import { experimental_createCodeModeTool as createCodeModeTool, experimental_setMaxWorkers as setMaxWorkers } from '@ai-sdk/code-mode'
-import { CODE_MODE_POLICY, withoutPrototypeKeys, MAX_BRACKET_DEPTH, SCRIPT_ARGUMENT_DESCRIPTION, bracketDepth, bracketDepthMessage, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, type CodeModePolicy } from './operations.ts'
+import log from '@data-fair/lib-node/log.js'
+import {
+  experimental_createCodeModeTool as createCodeModeTool,
+  experimental_setMaxWorkers as setMaxWorkers,
+  experimental_setCodeModeContinuationSigningKey as setContinuationSigningKey,
+  experimental_continueCodeModeApproval as continueCodeModeApproval,
+  experimental_unwrapCodeModeResult as unwrapCodeModeResult,
+  experimental_isCodeModeApprovalInterrupt as isCodeModeApprovalInterrupt,
+  type CodeModeOptions
+} from '@ai-sdk/code-mode'
+import { CODE_MODE_POLICY, withoutPrototypeKeys, MAX_BRACKET_DEPTH, SCRIPT_ARGUMENT_DESCRIPTION, bracketDepth, bracketDepthMessage, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, PAUSED_SCRIPT_MAX_AGE_MS, SCRIPT_RESUME_FAILED_MESSAGE, scriptPauseTooLargeMessage, type CodeModePolicy } from './operations.ts'
+import { noScriptSpent, type ScriptPauses } from './code-tools.ts'
+import { LoopSignal } from '../conversations/operations.ts'
 
-/** The process-wide worker pool's size (config.codeModeMaxWorkers): set once, at startup. */
-export const configureCodeMode = (maxWorkers: number) => { setMaxWorkers(maxWorkers) }
+/**
+ * Set once, at startup: the process-wide worker pool's size (config.codeModeMaxWorkers), and the key signing a paused
+ * script's continuation (derived from the cipher key, getContinuationSigningKey), the same on every instance so the
+ * decision resumes it wherever it lands, and after a restart, for PAUSED_SCRIPT_MAX_AGE_MS.
+ */
+export const configureCodeMode = (maxWorkers: number, continuationSigningKey: Uint8Array) => {
+  setMaxWorkers(maxWorkers)
+  setContinuationSigningKey(continuationSigningKey, { maxAgeMs: PAUSED_SCRIPT_MAX_AGE_MS })
+}
 
-/** `reviewed`: the turn's writes pass the approval reviewer, whose time counts in the script's (describeScriptTool). */
-export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: Partial<CodeModePolicy>, reviewed?: boolean } = {}): Tool => {
+/**
+ * A script paused on a call that needs a person: thrown, not returned, so the loop reads it as no result (a result
+ * would be screened and read by the model). Its continuation is in the turn's ScriptPauses; the loop makes it a card.
+ */
+export class ScriptPausedError extends LoopSignal {
+  constructor () { super('The script is paused for the person\'s approval.') }
+}
+
+/**
+ * `reviewed`: the turn's writes pass the approval reviewer, whose time counts in the script's (describeScriptTool).
+ * `pauses`: a person can decide in this turn (a chat): a call needing one pauses the script (the package's
+ * interrupt mode), and a decided pause is resumed instead of run afresh.
+ */
+export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: Partial<CodeModePolicy>, reviewed?: boolean, pauses?: ScriptPauses } = {}): Tool => {
   const policy = { ...CODE_MODE_POLICY, ...opts.policy }
+  const pauses = opts.pauses
   // The source limit is the model's: what wrapScript adds (the console, papaparse) is checked here, not counted there.
   // Every tool gets its input as the script built it, minus the keys that pollute a prototype.
   const cleaned = Object.fromEntries(Object.entries(tools).map(([name, t]) => [name, t.execute
     ? { ...t, execute: (input: unknown, options: any) => t.execute!(withoutPrototypeKeys(input), options) }
     : t])) as Record<string, Tool>
-  const inner = createCodeModeTool(cleaned, { executionPolicy: { ...policy, maxSourceBytes: policy.maxSourceBytes + WRAPPER_BYTES } })
+  const options: CodeModeOptions = {
+    executionPolicy: { ...policy, maxSourceBytes: policy.maxSourceBytes + WRAPPER_BYTES },
+    ...(pauses ? { approval: { mode: 'interrupt' as const } } : {})
+  }
+  const inner = createCodeModeTool(cleaned, options)
+  /**
+   * A decided pause, resumed from its continuation: the calls before it are replayed from `run`'s record, not made
+   * again. Always as an approval: 1.0.116 fails a rejected continuation before the script runs (assertNoDeniedApproval),
+   * so the rejected call throws inside the script instead (./code-tools.ts, `resumedCall`). A continuation the package
+   * refuses (expired, tampered, the tools changed since) never ran anything: that is the error the model reads.
+   */
+  const resume = async (resumed: NonNullable<ReturnType<ScriptPauses['resumes']['get']>>, executionOptions: any) => {
+    try {
+      return await continueCodeModeApproval({ interrupt: resumed.interrupt, approvalResponse: { approvalId: resumed.interrupt.interruptId, approved: true }, tools: cleaned as any, options, toolExecutionOptions: executionOptions })
+    } catch (err) {
+      if ((err as { name?: string })?.name === 'CodeModeProtocolError' && !/Continuation state exceeds/.test((err as Error).message)) {
+        // The model reads one text for every refusal; which one it was (expired, tampered, the tool set changed since
+        // the pause: page tools differing on the deciding tab, a server's listing) is the package's message, for us.
+        log.warn('a paused script could not resume', { code: 'code-mode-resume-refused', toolCallId: executionOptions?.toolCallId, interruptId: resumed.interrupt.interruptId, reason: (err as Error).message })
+        throw new Error(SCRIPT_RESUME_FAILED_MESSAGE)
+      }
+      throw err
+    }
+  }
   return tool({
-    description: describeScriptTool(inner.description, { reviewed: opts.reviewed, timeoutMs: policy.timeoutMs }),
+    description: describeScriptTool(inner.description, { reviewed: opts.reviewed, timeoutMs: policy.timeoutMs, person: !!pauses }),
     // The package's own input, `{ js }`, with our description of it (SCRIPT_ARGUMENT_DESCRIPTION).
     inputSchema: jsonSchema<{ js: string }>({
       type: 'object',
@@ -30,17 +84,29 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
       required: ['js'],
       additionalProperties: false
     }),
-    execute: async (input: { js: string }, options) => {
+    execute: async (input: { js: string }, executionOptions) => {
       const js = String(input?.js ?? '')
       if (Buffer.byteLength(js) > policy.maxSourceBytes) throw new Error(scriptErrorMessage({ name: 'CodeModeSourceTooLargeError' }, policy))
       if (bracketDepth(js) > MAX_BRACKET_DEPTH) throw new Error(bracketDepthMessage)
+      const resumed = pauses?.resumes.get(executionOptions.toolCallId)
+      let result: unknown
       try {
-        return renderScriptResult(await inner.execute!({ js: wrapScript(js) }, options))
+        result = resumed ? await resume(resumed, executionOptions) : await inner.execute!({ js: wrapScript(js) }, executionOptions)
       } catch (err) {
         // An abort is ours, not the script's: the loop must recognise it.
-        if (options?.abortSignal?.aborted) throw err
+        if (executionOptions?.abortSignal?.aborted) throw err
+        if ((err as Error)?.message === SCRIPT_RESUME_FAILED_MESSAGE) throw err
         throw new Error(scriptErrorMessage(err, policy))
       }
+      if (!pauses) return renderScriptResult(result)
+      const unwrapped = unwrapCodeModeResult(result)
+      if (unwrapped.status === 'completed') return renderScriptResult(unwrapped.output)
+      // Only approvals interrupt here: no tool of ours requests any other interrupt.
+      if (!isCodeModeApprovalInterrupt(unwrapped.interrupt)) throw new Error(scriptErrorMessage(new Error('the script was interrupted for something other than an approval'), policy))
+      // Stored before the step ends, so the loop stops on it (stopWhen) only once it can resume.
+      if (!await pauses.keep(executionOptions.toolCallId, unwrapped.interrupt, resumed?.decisions ?? [], pauses.spent.get(executionOptions.toolCallId) ?? noScriptSpent())) throw new Error(scriptPauseTooLargeMessage(unwrapped.interrupt.toolName))
+      pauses.paused.set(executionOptions.toolCallId, unwrapped.interrupt)
+      throw new ScriptPausedError()
     }
   }) as Tool
 }

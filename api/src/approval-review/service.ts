@@ -8,6 +8,7 @@
  */
 import type { LanguageModelUsage } from 'ai'
 import mongo from '#mongo'
+import config from '#config'
 import log from '@data-fair/lib-node/log.js'
 import type { AccountKeys } from '@data-fair/lib-express'
 import type { ConversationRun, Settings } from '#types'
@@ -17,7 +18,7 @@ import { chargeModelCall } from '../usage/charge.ts'
 import { recordCall } from '../conversations/turn-telemetry.ts'
 import { newNonce, meterGuardCall, classifyTwoStage } from '../guard/service.ts'
 import {
-  reviewOutcomeToRecord, isConfirmationOnly, reviewUnavailableEvent, REVIEW_CLEARED, REVIEW_STAGE1_TIMEOUT_MS, REVIEW_STAGE2_TIMEOUT_MS,
+  reviewOutcomeToRecord, isConfirmationOnly, reviewUnavailableEvent, REVIEW_CLEARED, REVIEW_STAGE2_TIMEOUT_MS,
   modelUnavailableRecord,
   type EarlierCall, type Exposure, type ProposedCall, type ReviewIntent, type ReviewRecord, type ReviewVerdict
 } from './operations.ts'
@@ -103,7 +104,7 @@ export const createTurnReviewer = (ctx: {
       ...(confirmationOnly ? {} : { stage1: (signal: AbortSignal) => reviewStage1(model, input, withTurn(signal)) }),
       stage2: signal => reviewStage2(model, input, withTurn(signal)),
       cleared: REVIEW_CLEARED,
-      hardTimeoutMs: REVIEW_STAGE1_TIMEOUT_MS,
+      hardTimeoutMs: config.approvalReview.stage1TimeoutMs,
       stage2TimeoutMs: REVIEW_STAGE2_TIMEOUT_MS,
       meter
     })

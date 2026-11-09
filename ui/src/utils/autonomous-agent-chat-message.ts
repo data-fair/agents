@@ -14,6 +14,15 @@ import type { ChatMessage, ChatMessageBlock } from './chat-message.ts'
 // Named once in shared/, for both sides of the socket. This file used to declare it, and was the only
 // place that had it right — the server used an open bag and the wire used unknown[].
 import type { MessagePart } from '@agents/shared/message-parts'
+import { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED } from '@agents/shared/approval-cancel'
+
+/** A pending approval the server rejected because the person wrote or used the page instead of deciding. */
+const cancellationOf = (approval: { isAutomatic?: boolean, reason?: string }): 'message' | 'page' | undefined => {
+  if (approval.isAutomatic) return undefined
+  if (approval.reason === PENDING_APPROVAL_SUPERSEDED) return 'message'
+  if (approval.reason === PENDING_APPROVAL_ACTED) return 'page'
+  return undefined
+}
 
 /**
  * The stored message as the UI reads it, described structurally so `shared/` needs no `#types`
@@ -41,6 +50,19 @@ const reviewOf = (call: unknown): InvocationReview | undefined => {
   const review = (call as any).toolMetadata?.review
   if (!review || typeof review.reason !== 'string' || typeof review.outcome !== 'string' || typeof review.code !== 'string') return undefined
   return review
+}
+
+type InvocationNested = NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['nested']>
+/** The call a paused script stopped at (toolMetadata.nested, api/src/conversations/model-loop.ts), when well formed. */
+const nestedOf = (call: unknown): InvocationNested | undefined => {
+  const nested = (call as any).toolMetadata?.nested
+  if (!nested || typeof nested.toolName !== 'string') return undefined
+  return {
+    toolName: nested.toolName,
+    ...('input' in nested ? { input: nested.input } : {}),
+    ...(typeof nested.title === 'string' ? { toolTitle: nested.title } : {}),
+    ...(typeof nested.serverId === 'string' ? { serverId: nested.serverId } : {})
+  }
 }
 
 export function autonomousAgentMessageToChat (message: StoredConversationMessage): ChatMessage {
@@ -78,10 +100,12 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
         // A reviewer's denial (api/src/approval-review) gives the model its own text in approval.reason; the person
         // reads the reviewer's reason, kept in toolMetadata.review. A person's rejection after a review is theirs.
         ...(call.state === 'output-denied' && call.approval.isAutomatic && review
-          ? { deniedByReviewer: true as const, ...(review.reason ? { deniedReason: review.reason } : {}) }
-          : call.state === 'output-denied' && call.approval.reason ? { deniedReason: call.approval.reason } : {}),
+          ? { deniedByReviewer: true as const, ...((review.personReason || review.reason) ? { deniedReason: review.personReason || review.reason } : {}) }
+          : call.state === 'output-denied' && call.approval.reason && !cancellationOf(call.approval) ? { deniedReason: call.approval.reason } : {}),
+        // Not a refusal: the person wrote or used the page instead of deciding.
+        ...(call.state === 'output-denied' && cancellationOf(call.approval) ? { cancelled: cancellationOf(call.approval) } : {}),
         // What the reviewer made of a call put to a person, for its card.
-        ...(call.state === 'approval-requested' && review ? { review: { outcome: review.outcome, reason: review.reason, code: review.code } } : {}),
+        ...(call.state === 'approval-requested' && review ? { review: { outcome: review.outcome, reason: review.reason, ...(review.personReason ? { personReason: review.personReason } : {}), code: review.code } } : {}),
         // PER CALL, not per message. The states before an output arrives are exactly the ones still
         // running, so a parallel step now shows each call finishing as it finishes, instead of every
         // chip waiting on the slowest. A failed call is 'done', because ChatMessage has no failure
@@ -99,6 +123,8 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
         ...(typeof (call as any).toolMetadata?.description === 'string' ? { description: (call as any).toolMetadata.description } : {}),
         // The files a gated call would send (api/src/files/call-path.ts describeFileArguments), for its card.
         ...((call as any).toolMetadata?.files && typeof (call as any).toolMetadata.files === 'object' ? { files: (call as any).toolMetadata.files } : {}),
+        // A script paused on a call that needs the person: that call, for its card (api/src/code-mode).
+        ...(nestedOf(call) ? { nested: nestedOf(call) } : {}),
         // The decision recorded on the call (conversations/service.ts decideApproval). Without it an approved
         // call's chip read like any other, and a judged agent could tell the person it still awaited approval.
         ...((call as any).toolMetadata?.decision?.approved === true ? { approved: true as const } : {}),

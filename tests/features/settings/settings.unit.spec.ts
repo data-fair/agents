@@ -4,7 +4,7 @@
 
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { cipher, decipher, getSecurityKey } from '../../../api/src/cipher/operations.ts'
+import { cipher, decipher, getSecurityKey, getContinuationSigningKey } from '../../../api/src/cipher/operations.ts'
 import { encryptProviderApiKeys, decryptProviderApiKeys, obfuscateProviderApiKeys } from '../../../api/src/settings/operations.ts'
 
 const securityKey = getSecurityKey('test-cipher-password')
@@ -21,6 +21,14 @@ test.describe('Cipher operations', () => {
     const key1 = getSecurityKey('my-password')
     const key2 = getSecurityKey('my-password')
     assert.deepEqual(key1, key2)
+  })
+
+  test('the continuation signing key is derived from the cipher key: stable, 32 bytes, distinct from it', () => {
+    const key = getContinuationSigningKey(getSecurityKey('my-password'))
+    assert.equal(key.length, 32)
+    assert.deepEqual(key, getContinuationSigningKey(getSecurityKey('my-password')))
+    assert.notDeepEqual(key, getSecurityKey('my-password'))
+    assert.notDeepEqual(key, getContinuationSigningKey(getSecurityKey('password2')))
   })
 
   test('different passwords produce different keys', () => {
