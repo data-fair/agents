@@ -29,8 +29,9 @@ import type { UsageIdentity } from '../usage/operations.ts'
 import type { getSettings } from '../settings/service.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 import type { TurnSurface, TaskOutcome } from './service-tools.ts'
-import { withHostContext, chatFactsOnly, LOCATION_KEY } from '../agent-session/host-events.ts'
+import { withHostContext, chatFactsOnly, withServerFacts, personRoleFact, LOCATION_KEY } from '../agent-session/host-events.ts'
 import { usesPageTools } from '../agent-session/personal-agent.ts'
+import { isPersonalAgentId } from '@agents/shared/agent-audit'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
 import { loadHistory, compactHistory } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type StopCause } from './interrupted-turn.ts'
@@ -260,9 +261,12 @@ export const conversationTarget = (
       const reminder = pendingWaitReminder(compacted.messages)
       const hostBlocks = { text: '' }
       // An agent that does not work through its page (usesPageTools) is told the chat's own facts only.
-      const store = session && (usesPageTools(agentId) ? session.hostEvents : chatFactsOnly(session.hostEvents, session.chatFactKeys))
-      const history = session || reminder
-        ? withHostContext(compacted.messages, store ?? null, reminder ? [reminder] : [], hostBlocks)
+      const pageStore = session && (usesPageTools(agentId) ? session.hostEvents : chatFactsOnly(session.hostEvents, session.chatFactKeys))
+      // A configured agent is told who it talks to: the person's role in its organization.
+      const facts = !isPersonalAgentId(agentId) && run.triggeredByRole ? [personRoleFact(run.triggeredByRole)] : []
+      const store = withServerFacts(pageStore ?? null, facts)
+      const history = store || reminder
+        ? withHostContext(compacted.messages, store, reminder ? [reminder] : [], hostBlocks)
         : compacted.messages
       return { messages: history, credits: compacted.credits, hostContext: hostBlocks.text }
     },
@@ -318,7 +322,9 @@ export const conversationTarget = (
         .find({ conversationId: run.conversationId, role: { $in: ['user', 'assistant'] }, seq: { $lt: messageSeq } }, { projection: { _id: 0, role: 1, parts: 1 } })
         .sort({ seq: 1 })
         .toArray()
-      return reviewContextOfConversation(stored.map(message => ({ role: message.role, parts: (message.parts ?? []) as MessagePart[] })), instructions)
+      // The chat's language (a chat fact, host-state), for the card's line: absent on a turn no page watches.
+      const language = session?.hostEvents.snapshot().state.find(event => event.key === 'language')?.detail
+      return reviewContextOfConversation(stored.map(message => ({ role: message.role, parts: (message.parts ?? []) as MessagePart[] })), instructions, language)
     },
 
     close: async (result) => {

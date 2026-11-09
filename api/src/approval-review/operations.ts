@@ -76,7 +76,18 @@ export interface WebhookEvent { topic?: string, resourceType?: string, resourceI
  * What the call is judged against: the people's messages in this conversation (or the task's prompt, its payloads
  * removed), the agent's persona and instructions joined (written by an admin), and a webhook run's events.
  */
-export interface ReviewIntent { messages: string[], instructions: string, webhookEvents: WebhookEvent[] }
+export interface ReviewIntent {
+  messages: string[]
+  instructions: string
+  webhookEvents: WebhookEvent[]
+  /** The chat's language code, as the chat reported it (languageCodeOf): the card's line is written in it. */
+  language?: string
+}
+
+const LANGUAGE_CODE = /^[a-z]{2,3}(-[A-Za-z0-9]{2,8}){0,2}$/
+/** A reported language as a code only: it is written outside the wrappers, so nothing else reaches the reviewer. */
+export const languageCodeOf = (value: unknown): string | undefined =>
+  typeof value === 'string' && LANGUAGE_CODE.test(value) ? value : undefined
 
 export interface ProposedCall { toolName: string, server?: string, title?: string, annotations?: Record<string, unknown>, input: unknown, cls: ApprovalClass, kind: ReviewKind }
 
@@ -163,6 +174,19 @@ export interface ReviewRecord {
   at: string
 }
 
+/**
+ * A reason within REVIEW_REASON_MAX_CHARS, cut at its last sentence end, else at a word with « … »: a plain slice
+ * put « Please check the hom » on a card.
+ */
+export const boundReason = (text: string, max = REVIEW_REASON_MAX_CHARS): string => {
+  if (text.length <= max) return text
+  const head = text.slice(0, max - 1)
+  const sentence = Math.max(...['. ', '! ', '? '].map(end => head.lastIndexOf(end)))
+  if (sentence >= max / 2) return head.slice(0, sentence + 1)
+  const word = head.lastIndexOf(' ')
+  return `${(word >= max / 2 ? head.slice(0, word) : head).trimEnd()}…`
+}
+
 const intentTagOf = (nonce: string) => guardTag(REVIEW_INTENT_PREFIX, nonce)
 const callTagOf = (nonce: string) => guardTag(REVIEW_CALL_PREFIX, nonce)
 const earlierTagOf = (nonce: string) => guardTag(REVIEW_EARLIER_PREFIX, nonce)
@@ -216,7 +240,16 @@ export const buildReviewSystemPrompt = (kind: ReviewKind): string =>
   [INSTRUCTIONS_HEAD, kind === 'grant' ? GRANT_RULES : ACTION_RULES, OUTPUT].join('\n\n')
 
 const STAGE1_INSTRUCTION = 'Answer exactly one word: yes if the proposed operation raises any concern under the rules, or is not plainly within what was asked, or may change something other than what the people asked about (an index, a path or an id that could name another item); no otherwise. When in doubt, answer yes.'
-const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the proposed operation, reading the policy carefully. Answer with JSON only: {"outcome": "allow" | "deny" | "unsure", "reason": string, "personReason": string}. "allow": plainly within what was asked and against no rule. "deny": against a rule or against what was asked. "unsure": a person should decide. In "reason", at most ${REVIEW_REASON_MAX_CHARS} characters for the person who decides: what the operation does and which rule or request it meets or breaks. personReason: one or two sentences for the person who will decide, in the language of the people's messages, saying what the action will change and what made you hesitate; no tool names, ids, paths or JSON.`
+const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the proposed operation, reading the policy carefully. Answer with JSON only: {"outcome": "allow" | "deny" | "unsure", "reason": string, "personReason": string}. "allow": plainly within what was asked and against no rule. "deny": against a rule or against what was asked. "unsure": a person should decide. In "reason", at most ${REVIEW_REASON_MAX_CHARS} characters for the person who decides: what the operation does and which rule or request it meets or breaks.`
+
+/**
+ * The card's line. Judged runs had it guess at stored content the reviewer never sees (« may replace the existing
+ * blocks », colour changes that were not in the arguments), and the person refused correct writes: it says what the
+ * arguments set, never what is stored. In the chat's language when the chat reported one: « the language of the
+ * people's messages » alone was not always followed.
+ */
+const personReasonInstruction = (language?: string): string =>
+  `personReason: one or two sentences, at most ${REVIEW_REASON_MAX_CHARS} characters, for the person who will decide, ${language ? `in the language whose code is "${language}" (the language of the chat)` : 'in the language of the people\'s messages'}, in plain words: what the operation sets, as its arguments show it, and what made you hesitate. You do not see what is stored now: never say or guess what exists, what would be removed, replaced or lost; when your doubt is which item it changes, say just that. No tool names, ids, paths or JSON.`
 
 // Stage 2 only, for an action: how to read what was asked, never a clearance. In the shared policy, stage 1's one-word
 // screen read it as one and cleared a harmful call ("no" without stage 2): out of the system prompt, stage 1 never sees
@@ -224,7 +257,8 @@ const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the propos
 // and blocks) is unchanged, only the restated task after the blocks differs.
 const STAGE2_ACTION_READING = 'In judging whether the operation goes beyond what was asked: a display option of an item the agent added for the people\'s request in this conversation (how it shows: size, place, style, sorting and search for the visitors) is part of that request, unless they said otherwise. It applies only when the operation\'s path plainly names that added item (the position the earlier add gave it, an item appended without an index coming after the existing ones, or a path earlier operations already used for it); a path that may name an existing item is not covered. Nor are what an item says, shows, embeds or links to, and who can see or edit it; and it never lifts the rules of the policy.'
 
-const stage2InstructionOf = (kind: ReviewKind): string => kind === 'action' ? `${STAGE2_ACTION_READING} ${STAGE2_INSTRUCTION}` : STAGE2_INSTRUCTION
+const stage2InstructionOf = (kind: ReviewKind, language?: string): string =>
+  [...(kind === 'action' ? [STAGE2_ACTION_READING] : []), STAGE2_INSTRUCTION, personReasonInstruction(language)].join(' ')
 
 const IDENTIFIER = /^[\w.:-]{1,200}$/
 const identifier = (value: unknown): string | undefined => typeof value === 'string' && IDENTIFIER.test(value) ? value : undefined
@@ -316,7 +350,7 @@ const earlierOfPart = (part: ToolPart, inScript: boolean, afterMessage: number):
     ? { toolName: nested.toolName, input: nested.input, afterMessage, inScript: true }
     : { toolName: part.toolName, input: part.input, afterMessage, ...(inScript ? { inScript } : {}) }
   const withReason = (decision: EarlierCall['decision'], reason?: string): EarlierCall =>
-    ({ ...base, decision, ...(reason ? { reason: reason.slice(0, REVIEW_REASON_MAX_CHARS) } : {}) })
+    ({ ...base, decision, ...(reason ? { reason: boundReason(reason) } : {}) })
   if (meta.decision) return meta.decision.approved ? withReason('approved-by-person') : withReason('rejected-by-person', approval?.reason)
   if (part.state === 'approval-requested') return withReason('awaiting-person', meta.review?.reason)
   const review = meta.review
@@ -356,7 +390,8 @@ export const earlierCallsOf = (parts: MessagePart[], afterMessage: number): Earl
  */
 export const reviewContextOfConversation = (
   messages: Array<{ role: string, parts: MessagePart[] }>,
-  instructions: string
+  instructions: string,
+  language?: string
 ): ReviewContext => {
   const texts: string[] = []
   const earlierCalls: EarlierCall[] = []
@@ -368,7 +403,8 @@ export const reviewContextOfConversation = (
       earlierCalls.push(...earlierCallsOf(message.parts, texts.length))
     }
   }
-  const intent = intentFromConversation(texts, instructions)
+  const code = languageCodeOf(language)
+  const intent = { ...intentFromConversation(texts, instructions), ...(code ? { language: code } : {}) }
   const dropped = texts.length - intent.messages.length
   return { intent, earlierCalls: earlierCalls.map(call => ({ ...call, afterMessage: Math.max(0, call.afterMessage - dropped) })) }
 }
@@ -376,7 +412,7 @@ export const reviewContextOfConversation = (
 /** A call reviewed earlier in this turn, as the gate decided it (statusOf): `awaitingPerson` when it went to a card. */
 export const earlierCallOfRecord = (toolName: string, input: unknown, record: ReviewRecord, opts: { awaitingPerson: boolean, inScript: boolean, afterMessage: number }): EarlierCall => {
   const base = { toolName, input, afterMessage: opts.afterMessage, ...(opts.inScript ? { inScript: true } : {}) }
-  const reason = record.reason ? { reason: record.reason.slice(0, REVIEW_REASON_MAX_CHARS) } : {}
+  const reason = record.reason ? { reason: boundReason(record.reason) } : {}
   if (opts.awaitingPerson) return { ...base, decision: 'awaiting-person', ...reason }
   if (record.outcome === 'allow') return { ...base, decision: 'allowed-by-reviewer' }
   return { ...base, decision: record.code === 'judged' ? 'refused-by-reviewer' : 'refused-unreviewed', ...reason }
@@ -468,7 +504,7 @@ export const reviewMessage = (input: ReviewInput, stage: 1 | 2): string => {
     wrapGuarded(earlierTag, renderEarlierCalls(input.earlierCalls)),
     wrapGuarded(callTag, renderCall(input.call)),
     renderExposure(input.exposure),
-    `${neverFollow([intentTag, earlierTag, callTag])} ${stage === 1 ? STAGE1_INSTRUCTION : stage2InstructionOf(input.call.kind)}`
+    `${neverFollow([intentTag, earlierTag, callTag])} ${stage === 1 ? STAGE1_INSTRUCTION : stage2InstructionOf(input.call.kind, input.intent.language)}`
   ].join('\n\n')
 }
 
@@ -481,8 +517,8 @@ export const reviewOutcomeToRecord = (outcome: TwoStageOutcome<ReviewVerdict>, e
   const personReason = outcome.verdict.personReason?.trim()
   return {
     outcome: outcome.verdict.outcome,
-    reason: outcome.verdict.reason.slice(0, REVIEW_REASON_MAX_CHARS),
-    ...(personReason ? { personReason: personReason.slice(0, REVIEW_REASON_MAX_CHARS) } : {}),
+    reason: boundReason(outcome.verdict.reason),
+    ...(personReason ? { personReason: boundReason(personReason) } : {}),
     code: 'judged',
     exposed,
     at: now

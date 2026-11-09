@@ -81,6 +81,13 @@ the person's language, organization, whether the surface is narrow, whether diag
 render). These used to be concatenated into a client-built system prompt; the prompt is
 the server's now, and as state the next turn simply sees a changed value.
 
+The server adds one fact of its own to a configured agent's turn (`withServerFacts`,
+`personRoleFact`): `person-role`, the role of the person writing in the agent's
+organization (the run's `triggeredByRole`: administrator, contributor, member, external,
+not signed in). It is the server's, not the page's: it replaces any `person-role` a page
+reported, and a turn with no page still gets it. Without it, judged runs had a contributor
+find their role by trial and sent an organization admin to look for an admin.
+
 ## Consuming (`api/src/agent-session/host-events.ts`, `api/src/agent-session/session.ts`)
 
 Each agent session (one socket) owns one `HostEventStore`. `host-events` frames are

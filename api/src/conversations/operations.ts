@@ -172,7 +172,8 @@ export const todayLine = (now: Date, timeZone: string): string => {
   const date = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
   // Asked where the date is: every judged closures run called a closure starting tomorrow « current », and
   // "compare the dates" alone did not change that — naming what to say (today / past / to come) is what is asked.
-  return `Today is ${day} ${date} (${timeZone}). When what you report carries dates, say which apply today and which are past or still to come.`
+  // A judged run gave a page's UTC updatedAt (15:40Z) as « 15:40 » where it was 16:40 in Paris.
+  return `Today is ${day} ${date} (${timeZone}). When what you report carries dates, say which apply today and which are past or still to come. Times in tool results ending in Z or carrying an offset are not in ${timeZone}: convert them before stating a time.`
 }
 
 /**

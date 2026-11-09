@@ -248,8 +248,8 @@ shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to
 may change something other than what the people asked about (an index, a path or an id that could name another
 item: a one-word screen cannot tell an added item's position from an existing one's); its `no` is recorded
 `cleared`. Stage 2 answers
-`{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, in the language of the conversation, shown on the approval card instead of « le relecteur hésite : reason », cut like `reason`); the schema leaves the reason unbounded, so a long one cannot fail a
-real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300).
+`{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, shown on the approval card instead of « le relecteur hésite : reason », cut like `reason`). `personReason` is written in the chat's language when the chat reported one (its `language` host-state fact, checked to be a language code by `languageCodeOf`, else « the language of the people's messages », which a small model did not always follow), and says what the arguments set, never what is stored: the reviewer does not see it, and judged runs' guesses (« may replace the existing blocks ») had people refuse correct writes; the schema leaves the reason unbounded, so a long one cannot fail a
+real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300) at a sentence end, else at a word with « … » (`boundReason`).
 
 **Stage-1 timeout.** A stage 1 that does not answer in time fails the review (`failure: timeout`), the call is
 unsure and, in a chat, becomes an approval card. The timeout is the config `approvalReview.stage1TimeoutMs`

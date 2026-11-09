@@ -118,16 +118,6 @@
           </dd>
         </template>
       </dl>
-      <v-text-field
-        v-if="rejecting"
-        v-model="reason"
-        :label="t('reason')"
-        density="compact"
-        maxlength="1000"
-        hide-details
-        class="mt-2"
-        data-testid="approval-reason"
-      />
     </v-card-text>
     <!-- A script waits on this call: what it did before is done, and it goes on once the person decides. -->
     <v-card-text
@@ -159,46 +149,28 @@
     >
       {{ t('readonly') }}
     </v-card-text>
+    <!-- Refusing is one click, as approving is: a reason, if any, is the person's next message (a two-step refuse
+         left judged runs' cards cancelled, the person writing the reason in the chat before confirming). -->
     <v-card-actions v-else>
-      <template v-if="!rejecting">
-        <v-btn
-          color="success"
-          variant="flat"
-          data-testid="approval-approve"
-          :loading="sending === 'approve'"
-          :disabled="!!sending || locked"
-          @click="decide({ approved: true }, 'approve')"
-        >
-          {{ t('approve') }}
-        </v-btn>
-        <v-btn
-          variant="text"
-          data-testid="approval-reject"
-          :disabled="!!sending || locked"
-          @click="rejecting = true"
-        >
-          {{ t('reject') }}
-        </v-btn>
-      </template>
-      <template v-else>
-        <v-btn
-          color="error"
-          variant="flat"
-          data-testid="approval-confirm-reject"
-          :loading="sending === 'reject'"
-          :disabled="!!sending || locked"
-          @click="decide({ approved: false, ...(reason.trim() ? { reason: reason.trim() } : {}) }, 'reject')"
-        >
-          {{ t('confirmReject') }}
-        </v-btn>
-        <v-btn
-          variant="text"
-          :disabled="!!sending || locked"
-          @click="rejecting = false"
-        >
-          {{ t('cancel') }}
-        </v-btn>
-      </template>
+      <v-btn
+        color="success"
+        variant="flat"
+        data-testid="approval-approve"
+        :loading="sending === 'approve'"
+        :disabled="!!sending || locked"
+        @click="decide({ approved: true }, 'approve')"
+      >
+        {{ t('approve') }}
+      </v-btn>
+      <v-btn
+        variant="text"
+        data-testid="approval-reject"
+        :loading="sending === 'reject'"
+        :disabled="!!sending || locked"
+        @click="decide({ approved: false }, 'reject')"
+      >
+        {{ t('reject') }}
+      </v-btn>
     </v-card-actions>
     <v-card-text
       v-if="!readonly"
@@ -228,9 +200,6 @@ fr:
   reject: Refuser
   typingCancels: Envoyer un message annule cette demande.
   inScript: "Un script est en pause sur cette action : ce qu'il a fait avant est fait, il reprend dès que vous décidez."
-  reason: Raison (facultative)
-  confirmReject: Confirmer le refus
-  cancel: Annuler
   fileMissing: "fichier introuvable"
   unitByte: o
   unitKilo: ko
@@ -260,9 +229,6 @@ en:
   reject: Reject
   typingCancels: Sending a message cancels this request.
   inScript: "A script is paused on this action: what it did before is done, and it goes on once you decide."
-  reason: Reason (optional)
-  confirmReject: Confirm rejection
-  cancel: Cancel
   fileMissing: "no such file"
   unitByte: B
   unitKilo: kB
@@ -321,8 +287,6 @@ const ACCESS_REQUESTS: Record<string, { tool: string, heading: string, warning: 
 const SELF_SERVER_ID = 'agent-self'
 const PLANNING_TOOL_NAMES = ['plan_task', 'update_task', 'delete_task']
 
-const rejecting = ref(false)
-const reason = ref('')
 // Set once a decision is sent: the card stays, locked, until the server re-sends the message with the
 // call decided (which removes the card). Only a failure — the chat's error — gives it back, so the
 // person can read why and retry.

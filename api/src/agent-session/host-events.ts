@@ -265,6 +265,43 @@ export function chatFactsOnly (store: HostEventStore, chatFactKeys: ReadonlySet<
   }
 }
 
+type FactStore = { snapshot: () => HostStateSnapshot, hasPending: () => boolean, takePending: () => AgentEvent[] }
+
+/** The key of the person's role in the host-state block: a fact the server knows, never one a page reports. */
+export const PERSON_ROLE_KEY = 'person-role'
+
+const PERSON_ROLE_TEXT: Record<'admin' | 'contrib' | 'user' | 'external' | 'anonymous', string> = {
+  admin: 'administrator of the organization',
+  contrib: 'contributor of the organization, not an administrator',
+  user: 'member of the organization with read access only, neither contributor nor administrator',
+  external: 'signed in, not a member of the organization',
+  anonymous: 'not signed in'
+}
+
+/**
+ * The role of the person writing this turn (the run's triggeredByRole), as a state fact. Judged runs without it
+ * had a contributor find their own role by trial in the manager, and sent an organization admin to find an admin.
+ */
+export const personRoleFact = (role: keyof typeof PERSON_ROLE_TEXT): AgentEvent =>
+  ({ name: PERSON_ROLE_KEY, key: PERSON_ROLE_KEY, detail: PERSON_ROLE_TEXT[role], at: 0 })
+
+/**
+ * A store with the server's own facts added to its state, after the page's and in place of any the page reported
+ * under the same key; a turn with no page gets a store of these facts alone.
+ */
+export function withServerFacts (store: FactStore | null, facts: AgentEvent[]): FactStore | null {
+  if (!facts.length) return store
+  const keys = new Set(facts.map(fact => fact.key))
+  return {
+    snapshot: () => {
+      const snapshot = store?.snapshot() ?? { state: [], recent: [] }
+      return { ...snapshot, state: [...snapshot.state.filter(event => !keys.has(event.key)), ...facts] }
+    },
+    hasPending: () => store?.hasPending() ?? false,
+    takePending: () => store?.takePending() ?? []
+  }
+}
+
 /**
  * Fold what the page has reported into the last user message of a history, for one model call.
  *

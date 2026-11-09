@@ -427,7 +427,10 @@ denied on an unsure or a deny, as a direct call there.
 
 A pending approval that a new message or a page action supersedes is shown as « Annulé » / "Cancelled", not
 « Refusé » / "Denied": nobody decided it. The card says so (« Envoyer un message annule cette demande. »). The
-reviewer's stage 2 writes `personReason` in the people's language, shown on the card and on a reviewer-denial chip.
+reviewer's stage 2 writes `personReason` in the chat's language, shown on the card and on a reviewer-denial chip.
+Refusing is one click, like approving (as in Claude Code or ChatGPT); a reason, if any, is the person's next
+message. The two-step refuse (a reason field, then « Confirmer le refus ») left judged runs' cards cancelled: the
+person wrote the reason in the chat before confirming.
 
 - **A denial is final.** The call is settled `output-denied` and the model reads `reviewerDenialText`: the
   reviewer's reason, and that it must not reach the same outcome another way but tell the person what it wanted
