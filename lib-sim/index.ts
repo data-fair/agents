@@ -11,5 +11,5 @@ export { createChatDriver, chatDriverStrings, type ChatRoot, type ChatDriverLoca
 export { createPagePerception, truncate, SNAPSHOT_CAP, ACTION_TIMEOUT_MS, MCP_SERVER_NAME as PAGE_MCP_SERVER_NAME } from './page-perception.ts'
 export type { PerceptionRoot, PerceptionContent, Observation, PagePerception } from './page-perception.ts'
 export { BRIDGE_URL, MODEL_ROLES, BACKGROUND_ROLES, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES, bridgeSettings, seedAgentsSettings, assertBridgeUp, type ModelRole, type SimOwner, type HttpClient } from './bridge-settings.ts'
-export { runSimulation, ensureChatOpen, CHAT_FRAME, TURN_CEILING_MS, type SimulationOptions, type SimulationModels } from './run-simulation.ts'
+export { runSimulation, ensureChatOpen, applyAfterRun, CHAT_FRAME, TURN_CEILING_MS, type SimulationOptions, type SimulationModels, type AfterRunResult } from './run-simulation.ts'
 export { defineSimConfig, type SimConfigOptions } from './sim-config.ts'

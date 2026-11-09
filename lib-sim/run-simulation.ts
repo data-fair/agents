@@ -20,6 +20,26 @@ import { writeEvidence } from './transcript.ts'
 /** A turn that stopped on a wait or on an approval card is the person's move, not the end of the exchange. */
 export const handsOver = (outcome: TurnOutcome): boolean => outcome === 'waiting' || outcome === 'approval'
 
+/** What a host's `afterRun` hook found: a premise that did not hold, the state it read back. */
+export type AfterRunResult = { error?: string, hostState?: Record<string, unknown> }
+
+/**
+ * Fold the host's afterRun outcome into the run's: the first error wins (a run already invalid keeps its cause,
+ * which every later symptom is downstream of), a throw is evidence trouble, not invalidity.
+ */
+export const applyAfterRun = (
+  run: { error?: string, evidenceErrors: string[] },
+  outcome: { result?: AfterRunResult | void, thrown?: unknown }
+): { error?: string, hostState?: Record<string, unknown> } => {
+  if (outcome.thrown !== undefined) {
+    run.evidenceErrors.push(`could not check the run's state: ${outcome.thrown instanceof Error ? outcome.thrown.message : String(outcome.thrown)}`)
+    return { ...(run.error ? { error: run.error } : {}) }
+  }
+  const result = outcome.result || {}
+  const error = run.error ?? result.error
+  return { ...(error ? { error } : {}), ...(result.hostState ? { hostState: result.hostState } : {}) }
+}
+
 /** The agents chat frame, whose src is /agents/<type>/<id>/chat?… — not a bare 'iframe': hosts embed other frames beside it. */
 export const CHAT_FRAME = 'iframe[src*="/agents/"][src*="/chat"]'
 
@@ -61,10 +81,17 @@ export type SimulationOptions = {
   perceptionRoots: PerceptionRoot[]
   /** The locale the chat renders in: its composer strings are matched. */
   locale: ChatDriverLocale
-  /** Defaults to CHAT_FRAME. */
-  chatFrame?: string
-  /** Defaults to ensureChatOpen on the page. */
+  /** Defaults to CHAT_FRAME. `null`: the chat is the page itself (the agents page of an autonomous agent), not a frame of it. */
+  chatFrame?: string | null
+  /** Defaults to ensureChatOpen on the page, or, when the chat is the page, waiting for its composer. */
   ensureChatOpen?: (composer: Locator) => Promise<void>
+  /**
+   * After the conversation and its exports are read back: what only the host can check. `error` makes the run
+   * invalid (a premise that did not hold: the run never reached the situation its case is about), unless the
+   * run is already invalid; `hostState` is the state the host read back, given to the judge. A throw is recorded
+   * as an evidence error and never turns a good run into a failed one.
+   */
+  afterRun?: (run: { exports: ConversationExport[], error?: string }) => Promise<AfterRunResult | void>
   /**
    * The conversation exports of what the person said during the run, oldest first: the agents
    * service's review export (`/api/review/<owner>/<conversation>/export`), the same file a real
@@ -217,12 +244,14 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
 
     await opts.setup({ assistantModel, toolsModel })
 
-    const root = page.frameLocator(opts.chatFrame ?? CHAT_FRAME)
+    const root = opts.chatFrame === null ? page : page.frameLocator(opts.chatFrame ?? CHAT_FRAME)
     // Single source of truth for the composer's locale-dependent strings: the chat
     // driver and the perception's off-limits list must agree on what "the composer" is.
     const strings = chatDriverStrings(opts.locale)
     const composer = root.getByPlaceholder(strings.input)
-    const openChat = () => opts.ensureChatOpen ? opts.ensureChatOpen(composer) : ensureChatOpen(page, composer)
+    const openChat = () => opts.ensureChatOpen
+      ? opts.ensureChatOpen(composer)
+      : opts.chatFrame === null ? composer.waitFor({ state: 'visible', timeout: 30_000 }) : ensureChatOpen(page, composer)
     await openChat()
 
     const chat = createChatDriver(root, { locale: opts.locale })
@@ -283,8 +312,23 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     evidenceErrors.push(`could not read the exported runs: ${err instanceof Error ? err.message : String(err)}`)
   }
 
+  // The host's own check, last: it reads the exports and the state the run left.
+  let hostState: Record<string, unknown> | undefined
+  if (opts.afterRun) {
+    let outcome: { result?: AfterRunResult | void, thrown?: unknown }
+    try {
+      outcome = { result: await opts.afterRun({ exports, ...(error ? { error } : {}) }) }
+    } catch (thrown) {
+      outcome = { thrown }
+    }
+    const applied = applyAfterRun({ error, evidenceErrors }, outcome)
+    error = applied.error
+    hostState = applied.hostState
+  }
+
   const transcript: TranscriptInput = {
     case: simCase.name,
+    ...(simCase.surface ? { surface: simCase.surface } : {}),
     goal: simCase.goal,
     persona: simCase.persona,
     route: simCase.route,
@@ -292,6 +336,7 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
     consoleErrors,
     observations: perception?.observations ?? [],
     exports,
+    ...(hostState ? { hostState } : {}),
     ...(evidenceErrors.length ? { evidenceErrors } : {})
   }
   // `valid` is derived, never hardcoded, so that reportCases says "invalid (…)"

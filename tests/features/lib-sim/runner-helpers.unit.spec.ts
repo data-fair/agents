@@ -8,7 +8,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { bridgeSettings, MODEL_ROLES, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES } from '../../../lib-sim/bridge-settings.ts'
 import { runErrors } from '../../../lib-sim/conversation-export.ts'
-import { handsOver, runTurns } from '../../../lib-sim/run-simulation.ts'
+import { handsOver, runTurns, applyAfterRun } from '../../../lib-sim/run-simulation.ts'
 import { DONE } from '../../../lib-sim/persona.ts'
 import { simCaseNames } from '../../../lib-sim/cases.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
@@ -138,5 +138,29 @@ test.describe('the turn loop (runTurns)', () => {
     const { turns } = await runTurns({ chat, maxTurns: 6, conversation: [], openChat: async () => {}, nextMessage: async turn => passes[turn - 1] })
     assert.deepEqual(sent, ['update the dataset', 'actually, do not'])
     assert.equal(turns, 2)
+  })
+})
+
+test.describe('applyAfterRun', () => {
+  test('a premise that did not hold makes a valid run invalid, with the state read back', () => {
+    const evidenceErrors: string[] = []
+    assert.deepEqual(applyAfterRun({ evidenceErrors }, { result: { error: 'premise not met: no page saved', hostState: { pages: 0 } } }),
+      { error: 'premise not met: no page saved', hostState: { pages: 0 } })
+    assert.deepEqual(evidenceErrors, [])
+  })
+
+  test('a run already invalid keeps its first cause, and still carries the state', () => {
+    assert.deepEqual(applyAfterRun({ error: 'bridge down', evidenceErrors: [] }, { result: { error: 'premise not met', hostState: { a: 1 } } }),
+      { error: 'bridge down', hostState: { a: 1 } })
+  })
+
+  test('a throw is an evidence error, never an invalid run', () => {
+    const evidenceErrors: string[] = []
+    assert.deepEqual(applyAfterRun({ evidenceErrors }, { thrown: new Error('state unreadable') }), {})
+    assert.deepEqual(evidenceErrors, ["could not check the run's state: state unreadable"])
+  })
+
+  test('no result leaves the run as it was', () => {
+    assert.deepEqual(applyAfterRun({ evidenceErrors: [] }, { result: undefined }), {})
   })
 })

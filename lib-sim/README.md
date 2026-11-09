@@ -121,6 +121,16 @@ answers it), accepts dialogs (and says so in
 ended in error (a provider failure, `runErrors`), a cold Vite dev server, an empty
 transcript or no exported conversation as an invalid run, then throws.
 
+Two options cover a chat that is not a drawer of the host page, and what only the host can check:
+
+- `chatFrame: null`: the chat is the page itself (the agents page of an autonomous agent, reached by
+  `setup`), not a frame of it; the runner then waits for its composer instead of opening a drawer.
+- `afterRun({ exports, error })`: called once the conversation and its exports are read back. It returns
+  `error` when a premise did not hold (the run never reached the situation its case is about: invalid,
+  not judged; a run already invalid keeps its first cause) and `hostState`, the state the host read back
+  (stored drafts, settings…), written into the transcript for the judge (`applyAfterRun`). A throw is an
+  evidence error, never an invalid run.
+
 ## Minimal runner example
 
 To write your own loop instead:
