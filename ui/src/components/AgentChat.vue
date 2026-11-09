@@ -99,7 +99,7 @@
         type="error"
         variant="tonal"
         density="comfortable"
-        class="mx-4 mb-4"
+        class="mx-4 mb-4 flex-0-0 align-self-stretch"
         data-testid="agent-chat-error"
         :text="chatError"
       />
