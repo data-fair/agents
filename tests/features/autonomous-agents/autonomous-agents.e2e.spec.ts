@@ -329,6 +329,8 @@ test.describe('Autonomous agent chat', () => {
     await openChat(goToWithAuth, 'test1-user1', { org: 'test1' })
     await expect(page.getByTestId('agent-chat-error'))
       .toContainText('not allowed to instruct this autonomous agent', { timeout: 15000 })
+    // No message can change that: no composer inviting one.
+    await expect(page.getByTestId('agent-chat-input')).toBeHidden()
   })
 
   // A listed instructor who is NOT an admin posting in this chat: agent-page.e2e.spec.ts.

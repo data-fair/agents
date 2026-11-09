@@ -45,10 +45,10 @@ const debug = Debug('agents:agent-session')
  * 403 not allowed, 404 unknown, 409 conflict…), 503 while the service is restarting, 500 for anything else.
  * A 500 says only `fallback`: its message is internal (a database error, an address) and is logged here.
  */
-const errorFrame = (err: any, fallback: string): ServerMessage => {
+const errorFrame = (err: any, fallback: string, blocking?: true): ServerMessage => {
   const status = (err?.status >= 400 && err?.status < 500) || err?.status === 503 ? err.status : 500
   if (status === 500) log.error(`agent session: ${fallback}`, { code: 'agent-session', err })
-  return { type: 'error', status, message: status === 500 ? fallback : err?.message || fallback }
+  return { type: 'error', status, message: status === 500 ? fallback : err?.message || fallback, ...(blocking && { blocking }) }
 }
 
 /**
@@ -137,7 +137,7 @@ export const startAgentSessions = (server: Server) => {
           // socket's prompts are answered with: it is bound to nothing, and not because nothing was named.
           debug('could not attach: %O', err)
           helloRefusal = err
-          send(errorFrame(err, 'this conversation could not be opened'))
+          send(errorFrame(err, 'this conversation could not be opened', true))
         }
       },
       // The chat's Stop, for the conversation this socket is bound to — which it is only once its
@@ -288,7 +288,7 @@ export const startAgentSessions = (server: Server) => {
         await assertMayStartConversation(target.owner, target.agentId, callerOf())
       } catch (err: any) {
         debug('refused a hello: %O', err)
-        send(errorFrame(err, 'this conversation could not be opened'))
+        send(errorFrame(err, 'this conversation could not be opened', true))
       }
     }
 
@@ -342,7 +342,8 @@ export const startAgentSessions = (server: Server) => {
         } catch (err: any) {
           // The person pressed send: a refusal to start the thread has to reach them.
           debug('could not start a thread: %O', err)
-          send(errorFrame(err, 'this conversation could not be started'))
+          // The hello's own refusal, repeated, still blocks; any other (a quota, a closing tab) is this send's.
+          send(errorFrame(err, 'this conversation could not be started', err === helloRefusal || undefined))
           return
         }
       }

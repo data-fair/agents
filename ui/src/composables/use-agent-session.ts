@@ -92,7 +92,8 @@ export interface AgentSessionClientOptions {
   onDisconnect?: () => void
   /** What the conversation has cost so far, in credits — sent once attached and before each turn-end. */
   onCost?: (conversationCost: number) => void
-  onError?: (message: string) => void
+  /** `blocking`: the hello was refused, the conversation cannot be opened (see the error frame's schema). */
+  onError?: (message: string, blocking: boolean) => void
 }
 
 /**
@@ -259,7 +260,7 @@ export function useAgentSession (options: AgentSessionClientOptions) {
         return
       case 'error':
         debug('server error %s', message.message)
-        options.onError?.(message.message)
+        options.onError?.(message.message, !!message.blocking)
     }
   }
 

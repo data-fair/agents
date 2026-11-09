@@ -126,6 +126,7 @@ test.describe('Anonymous chat over the agent session', () => {
     const refusal = await refusalOf(socket)
     assert.match(refusal.message, /anonymous action token/)
     assert.equal(refusal.status, 401)
+    assert.equal(refusal.blocking, true)
     // The prompt is answered with the hello's own reason, not with a confusing "not bound".
     socket.send({ type: 'prompt', content: 'hello' })
     const atPrompt = await socket.next(10_000)
