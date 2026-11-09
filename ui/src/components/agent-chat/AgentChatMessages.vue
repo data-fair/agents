@@ -101,6 +101,7 @@
                       <approval-card
                         v-if="invocation.state === 'awaiting-approval' && invocation.approvalId && (!invocation.nested || (showTraces && isTraced(invocation.toolName)))"
                         v-bind="cardOf(invocation)"
+                        :data-approval-id="invocation.approvalId"
                         :description="invocation.description"
                         :files="invocation.files"
                         :review="invocation.review"
@@ -143,6 +144,7 @@
                         <approval-card
                           v-if="invocation.nested && invocation.state === 'awaiting-approval' && invocation.approvalId"
                           v-bind="cardOf(invocation)"
+                          :data-approval-id="invocation.approvalId"
                           in-script
                           :description="invocation.description"
                           :files="invocation.files"

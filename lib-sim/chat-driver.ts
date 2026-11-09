@@ -91,6 +91,13 @@ export const WAITING_SELECTOR = '[data-testid="chat-activity"][data-activity="wa
 export const APPROVAL_SELECTOR = '[data-testid="chat-activity"][data-activity="approval"]'
 
 /**
+ * The approval cards on screen, each read by its approval id (`data-approval-id`), or by its text where the chat does
+ * not set one: a decision that ends on a NEW card (a script paused again after its approval) adds no text bubble, and
+ * only the card telling it apart from the one decided shows that the turn moved.
+ */
+export const APPROVAL_CARD_SELECTOR = '[data-testid="approval-card"]'
+
+/**
  * The one chat surface, in-page or embedded, the driver operates.
  *
  * It used to be two: an autonomous agent had a standalone thread page with its own composer, no
@@ -207,6 +214,12 @@ export function createChatDriver (root: ChatRoot, opts: { locale?: ChatDriverLoc
       // be read back as part of it.
       await expect(root.locator('.agent-chat__user-bubble, .assistant-content')).toHaveCount(0, { timeout: timeoutMs })
       await root.getByPlaceholder(strings.input).waitFor({ state: 'visible', timeout: timeoutMs })
+    },
+
+    /** The pending approval cards, in document order: their ids, or their text without one (APPROVAL_CARD_SELECTOR). */
+    async readApprovalCards (): Promise<string[]> {
+      return await root.locator(APPROVAL_CARD_SELECTOR).evaluateAll(els =>
+        els.map(el => el.getAttribute('data-approval-id') || (el.textContent ?? '').trim()))
     },
 
     async readConversation () {
