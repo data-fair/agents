@@ -91,7 +91,9 @@ export const start = async () => {
   session.init(config.privateDirectoryUrl)
   // code_mode's worker pool is per process and refuses when full; a paused script's continuation is signed with a
   // key every instance shares (api/src/code-mode/tool.ts).
-  configureCodeMode(config.codeModeMaxWorkers, config.codeMode.continuationSecret)
+  if (!configureCodeMode(config.codeModeMaxWorkers, config.codeMode?.continuationSecret)) {
+    log.error('CODE_MODE_CONTINUATION_SECRET is not set: a script\'s call that needs a person cannot pause the script, so in a chat such tools stay out of scripts and a nested call the reviewer is unsure of is denied. Set it (at least 32 characters, the same on every instance) to let scripts pause for an approval.', { code: 'code-mode-continuation-secret-missing' })
+  }
   await mongo.init()
   await locks.start(mongo.db)
   await runUpgradeScripts()

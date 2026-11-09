@@ -11,7 +11,7 @@ import { convertToModelMessages, type ModelMessage, type Tool } from 'ai'
 import type { CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
 import type { MessagePart } from '@agents/shared/message-parts'
 import type { TurnScriptPauses } from './turn-target.ts'
-import type { ScriptPauses } from '../code-mode/code-tools.ts'
+import type { ScriptPauses, TurnCalls } from '../code-mode/code-tools.ts'
 import { SCRIPT_RESUME_FAILED_MESSAGE } from '../code-mode/operations.ts'
 import { resultSettlement, errorSettlement, type CallSettlement } from './parts-recorder.ts'
 import { withMediaOutputs } from './operations.ts'
@@ -53,6 +53,13 @@ export const patchSettledScript = async (history: ModelMessage[], part: ToolPart
 export interface ResumeContext {
   store: TurnScriptPauses
   pauses: ScriptPauses
+  /**
+   * What a resumed script used before its pause is this turn's too (ScriptSpent): `run` answers those calls from its
+   * record, through none of the wrappers that count them. Its calls count against this turn's bound, and the tools
+   * whose output it read make this turn exposed for the reviewer (`noteNested`), as they made the paused one.
+   */
+  turnCalls: TurnCalls
+  noteNested?: (toolName: string) => void
   /** The turn's code_mode tool, as the model's calls run it (envelope, screen, trace): absent when not offered. */
   codeTool: () => Tool | undefined
   history: ModelMessage[]
@@ -72,7 +79,7 @@ export interface ResumeContext {
 export const resumeDecidedScripts = async (ctx: ResumeContext): Promise<{ repausedOn?: string }> => {
   const decided = await ctx.store.decided()
   let repausedOn: string | undefined
-  for (const { part, interrupt, earlierDecisions, trace } of decided) {
+  for (const { part, interrupt, earlierDecisions, trace, spent } of decided) {
     const approval = (part as { approval?: { approved?: boolean, reason?: string } }).approval
     const codeTool = ctx.codeTool()
     let settled: CallSettlement
@@ -83,6 +90,11 @@ export const resumeDecidedScripts = async (ctx: ResumeContext): Promise<{ repaus
       const latest = { toolCallId: interrupt.toolCallId, approved: approval?.approved === true, ...(approval?.reason ? { reason: approval.reason } : {}) }
       ctx.pauses.resumes.set(part.toolCallId, { interrupt, decisions: [...earlierDecisions, latest] })
       ctx.earlierTraces.set(part.toolCallId, trace)
+      if (spent) {
+        ctx.pauses.spent.set(part.toolCallId, { calls: spent.calls, bytes: spent.bytes, ran: [...spent.ran] })
+        ctx.turnCalls.count += spent.calls
+        for (const toolName of spent.ran) ctx.noteNested?.(toolName)
+      }
       try {
         settled = resultSettlement(await codeTool.execute(part.input, { toolCallId: part.toolCallId, messages: ctx.history, abortSignal: ctx.abortSignal } as any))
       } catch (err) {

@@ -10,7 +10,7 @@
 import type { CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
 import type { AccountKeys } from '@data-fair/lib-express'
 import mongo from '#mongo'
-import type { ScriptDecision } from './code-tools.ts'
+import type { ScriptDecision, ScriptSpent } from './code-tools.ts'
 
 export interface ScriptPause {
   conversationId: string
@@ -27,6 +27,8 @@ export interface ScriptPause {
    * of those calls runs, or throws, only when the script runs again, and must find its decision then.
    */
   decisions: ScriptDecision[]
+  /** What the script had used before it paused (calls, bytes moved, tools whose output it read), for its resume. */
+  spent?: ScriptSpent
   createdAt: Date
   /** The continuation's own expiry, for the TTL index. */
   expiresAt: Date
@@ -36,21 +38,21 @@ export interface ScriptPause {
 export const SCRIPT_PAUSE_MAX_BYTES = 15 * 1024 * 1024
 
 /** Store a paused script's continuation. False when it is too large to keep: the script cannot wait then. */
-export const storeScriptPause = async (pause: { conversationId: string, toolCallId: string, owner: AccountKeys, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[] }): Promise<boolean> => {
+export const storeScriptPause = async (pause: { conversationId: string, toolCallId: string, owner: AccountKeys, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[], spent: ScriptSpent }): Promise<boolean> => {
   const interrupt = JSON.stringify(pause.interrupt)
   if (Buffer.byteLength(interrupt) > SCRIPT_PAUSE_MAX_BYTES) return false
   const expiresAt = new Date(pause.interrupt.continuation.auth.expiresAtMs)
   await mongo.scriptPauses.replaceOne(
     { conversationId: pause.conversationId, toolCallId: pause.toolCallId },
-    { conversationId: pause.conversationId, toolCallId: pause.toolCallId, owner: { type: pause.owner.type, id: pause.owner.id, ...(pause.owner.department ? { department: pause.owner.department } : {}) }, interrupt, decisions: pause.decisions.map(d => ({ toolCallId: d.toolCallId, approved: d.approved, ...(d.reason !== undefined ? { reason: d.reason } : {}) })), createdAt: new Date(), expiresAt },
+    { conversationId: pause.conversationId, toolCallId: pause.toolCallId, owner: { type: pause.owner.type, id: pause.owner.id, ...(pause.owner.department ? { department: pause.owner.department } : {}) }, interrupt, decisions: pause.decisions.map(d => ({ toolCallId: d.toolCallId, approved: d.approved, ...(d.reason !== undefined ? { reason: d.reason } : {}) })), spent: { calls: pause.spent.calls, bytes: pause.spent.bytes, ran: [...pause.spent.ran] }, createdAt: new Date(), expiresAt },
     { upsert: true }
   )
   return true
 }
 
-export const scriptPauseOf = async (conversationId: string, toolCallId: string): Promise<{ interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[] } | undefined> => {
-  const stored = await mongo.scriptPauses.findOne({ conversationId, toolCallId }, { projection: { _id: 0, interrupt: 1, decisions: 1 } })
-  return stored ? { interrupt: JSON.parse(stored.interrupt), decisions: stored.decisions ?? [] } : undefined
+export const scriptPauseOf = async (conversationId: string, toolCallId: string): Promise<{ interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[], spent?: ScriptSpent } | undefined> => {
+  const stored = await mongo.scriptPauses.findOne({ conversationId, toolCallId }, { projection: { _id: 0, interrupt: 1, decisions: 1, spent: 1 } })
+  return stored ? { interrupt: JSON.parse(stored.interrupt), decisions: stored.decisions ?? [], ...(stored.spent ? { spent: stored.spent } : {}) } : undefined
 }
 
 export const dropScriptPause = async (conversationId: string, toolCallId: string): Promise<void> => {

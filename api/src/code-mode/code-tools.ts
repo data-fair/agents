@@ -139,6 +139,15 @@ export interface ScriptDecision { toolCallId: string, approved: boolean, reason?
 export interface ScriptResume { interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[] }
 
 /**
+ * What one script had used before it paused, carried to its resume: `run` answers the calls made before the pause from
+ * its record, through none of our wrappers, so the resumed turn would otherwise count them as never made. `calls`
+ * against CODE_MODE_TURN_CALLS, `bytes` against SCRIPT_TRANSFER_BYTES, `ran` the tools whose output entered the script
+ * (the review gate's exposure, `noteNested`).
+ */
+export interface ScriptSpent { calls: number, bytes: number, ran: string[] }
+export const noScriptSpent = (): ScriptSpent => ({ calls: 0, bytes: 0, ran: [] })
+
+/**
  * THE SCRIPTS OF A TURN THAT WAIT FOR A PERSON (a chat turn only), shared by every step's map and code_mode tool:
  * `paused`, the continuations of the scripts that paused this turn, by code_mode call id (the loop makes each a
  * card); `resumes`, the decided ones this turn resumes, by code_mode call id (model-loop.ts, before its first step);
@@ -147,10 +156,15 @@ export interface ScriptResume { interrupt: CodeModeApprovalInterrupt, decisions:
 export interface ScriptPauses {
   paused: Map<string, CodeModeApprovalInterrupt>
   resumes: Map<string, ScriptResume>
-  /** Store a pause's continuation, with the decisions made on it so far, where the next decision will find it; false when too large to keep. */
-  keep: (toolCallId: string, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[]) => Promise<boolean>
+  /** What each script of the turn has used so far, by code_mode call id: kept with its pause, seeded on its resume. */
+  spent: Map<string, ScriptSpent>
+  /**
+   * Store a pause's continuation, with the decisions made on it so far and what the script had used, where the next
+   * decision will find it; false when too large to keep.
+   */
+  keep: (toolCallId: string, interrupt: CodeModeApprovalInterrupt, decisions: ScriptDecision[], spent: ScriptSpent) => Promise<boolean>
 }
-export const createScriptPauses = (keep: ScriptPauses['keep']): ScriptPauses => ({ paused: new Map(), resumes: new Map(), keep })
+export const createScriptPauses = (keep: ScriptPauses['keep']): ScriptPauses => ({ paused: new Map(), resumes: new Map(), spent: new Map(), keep })
 
 export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: Record<string, Tool>, callPath: CallPathContext, trace: CodeTrace, turnCalls?: TurnCalls, review?: NestedReview, pauses?: ScriptPauses }): Record<string, Tool> => {
   const out: Record<string, Tool> = {}
@@ -167,14 +181,20 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
   const records = new Map<string, ReviewRecord>()
   const turnCalls = opts.turnCalls ?? { count: 0 }
   const maxTurnCalls = turnCalls.max ?? CODE_MODE_TURN_CALLS
-  // What each script has moved so far (SCRIPT_TRANSFER_BYTES), keyed like the trace. The map is rebuilt every step
-  // and a running script keeps the one it started with, so this lives as long as the scripts that use it.
-  const moved = new Map<string, number>()
-  const spend = (toolCallId: string, bytes: number, message: string) => {
+  // What each script has used so far (ScriptSpent), keyed like the trace. The map is rebuilt every step and a running
+  // script keeps the one it started with, so this lives as long as the scripts that use it; where a script can pause,
+  // in the turn's ScriptPauses, which keeps it with the pause and seeds it again on the resume.
+  const spent = opts.pauses?.spent ?? new Map<string, ScriptSpent>()
+  const spentOf = (toolCallId: string): ScriptSpent => {
     const parent = toolCallId.replace(/:tool-\d+$/, '')
-    const total = (moved.get(parent) ?? 0) + bytes
-    if (total > SCRIPT_TRANSFER_BYTES) throw new Error(message)
-    moved.set(parent, total)
+    let used = spent.get(parent)
+    if (!used) { used = noScriptSpent(); spent.set(parent, used) }
+    return used
+  }
+  const spend = (toolCallId: string, bytes: number, message: string) => {
+    const used = spentOf(toolCallId)
+    if (used.bytes + bytes > SCRIPT_TRANSFER_BYTES) throw new Error(message)
+    used.bytes += bytes
   }
   for (const name of opts.names) {
     const sourced = opts.fixed[name]
@@ -210,6 +230,7 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
         try {
           if (turnCalls.count >= maxTurnCalls) throw new Error(turnCallsExceededMessage(maxTurnCalls))
           turnCalls.count++
+          spentOf(options.toolCallId).calls++
           spend(options.toolCallId, bridgedBytes(input), transferRefusedMessage)
           const resumed = resumedCall(options.toolCallId)
           // A person's rejection, resumed as an approval (the package fails a rejected continuation before the
@@ -229,6 +250,8 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
             output = await execute(input, options)
           } finally {
             opts.review?.noteNested(name)
+            const used = spentOf(options.toolCallId)
+            if (!used.ran.includes(name)) used.ran.push(name)
           }
           spend(options.toolCallId, bridgedBytes(output), transferExceededMessage)
           return output

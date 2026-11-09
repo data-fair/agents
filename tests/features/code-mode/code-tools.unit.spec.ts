@@ -6,10 +6,12 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema } from 'ai'
 import { experimental_runCodeMode as runCodeMode, experimental_continueCodeModeApproval as continueCodeModeApproval, experimental_unwrapCodeModeResult as unwrapCodeModeResult, experimental_isCodeModeApprovalInterrupt as isCodeModeApprovalInterrupt, experimental_setCodeModeContinuationSigningKey as setCodeModeContinuationSigningKey } from '@ai-sdk/code-mode'
-import { codeCallable, SCRIPT_TRANSFER_BYTES, SCRIPT_RESUME_FAILED_MESSAGE, rejectedCallMessage, scriptPauseTooLargeMessage } from '../../../api/src/code-mode/operations.ts'
+import { codeCallable, SCRIPT_TRANSFER_BYTES, SCRIPT_RESUME_FAILED_MESSAGE, rejectedCallMessage, scriptPauseTooLargeMessage, turnCallsExceededMessage, scriptsMayPause } from '../../../api/src/code-mode/operations.ts'
 import { codeFacingTools, createCodeTrace, createScriptPauses } from '../../../api/src/code-mode/code-tools.ts'
 import { createScriptTool, ScriptPausedError } from '../../../api/src/code-mode/tool.ts'
-import { reviewUnavailableText } from '../../../api/src/approval-review/operations.ts'
+import { reviewUnavailableText, exposureOf } from '../../../api/src/approval-review/operations.ts'
+import { createReviewGate } from '../../../api/src/approval-review/gate.ts'
+import { resumeDecidedScripts } from '../../../api/src/conversations/script-resume.ts'
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../../../api/src/web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME, codeOutputSchemaFor } from '../../../api/src/mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../../../api/src/self-knowledge/operations.ts'
@@ -509,8 +511,111 @@ test.describe('a script paused for a person (createScriptTool, codeFacingTools)'
     assert.deepEqual(reviewed, ['write:a', 'write:b'], 'reviewed once each, before the pause')
   })
 
+  // CODE_MODE_CONTINUATION_SECRET unset: a chat's scripts are built as before pausing existed (no ScriptPauses).
+  test('without a continuation secret, a chat\'s script never pauses: a call needing a person is refused as before', async () => {
+    assert.equal(scriptsMayPause('chat', undefined), false)
+    assert.equal(scriptsMayPause('chat', 'a secret of at least thirty-two characters'), true)
+    assert.equal(scriptsMayPause('task', 'a secret of at least thirty-two characters'), false)
+    const review = { route: 'reviewer' as const, cls: 'write' as const, kind: 'action' as const }
+    const ran: string[] = []
+    const fixed = {
+      ...gated(ran),
+      note: { tool: plain(async () => { ran.push('note'); return 'ok' }), server: 'dev', review }
+    }
+    const tools = codeFacingTools({
+      names: Object.keys(fixed),
+      fixed,
+      page: {},
+      callPath: {},
+      trace: trace(),
+      review: { reviewNested: async () => ({ outcome: 'unsure', reason: 'not sure', code: 'judged' }) as any, noteNested: () => {} }
+    })
+    assert.deepEqual(Object.keys(tools), ['read', 'note'], 'the tool needing a person stays out of the map')
+    const script = createScriptTool(tools)
+    assert.doesNotMatch(String(script.description), /pauses the script/)
+    const out = String(await script.execute!({ js: 'try { await tools.note({}) } catch (e) { return "refused: " + e.message }' }, opts('cmN')))
+    assert.match(out, /^refused: /)
+    assert.deepEqual(ran, [])
+  })
+
   test('without a person (a task run), a tool needing approval stays out of the map', () => {
     const tools = codeFacingTools({ names: ['read', 'write'], fixed: gated([]), page: {}, callPath: {}, trace: trace() })
     assert.deepEqual(Object.keys(tools), ['read'])
+  })
+})
+
+/**
+ * What a script used before its pause, across the pause: the package answers the calls made before it from its
+ * record, through none of our wrappers, so the turn that resumes it is handed what the paused one counted.
+ */
+test.describe('a paused script\'s usage across its pause (resumeDecidedScripts)', () => {
+  const review = { route: 'reviewer' as const, cls: 'write' as const, kind: 'action' as const }
+  const MiB = 1024 * 1024
+  const fixed = {
+    // Scanned: no annotations, so open world.
+    read: { tool: plain(async () => 'outside content'), server: 'dev' },
+    big: { tool: plain(async () => 'x'.repeat(9 * MiB)), server: 'dev', annotations: { openWorldHint: false } },
+    approve: { tool: { ...plain(async () => 'approved'), needsApproval: true }, server: 'dev', annotations: { openWorldHint: false } },
+    write: { tool: plain(async () => 'written'), server: 'dev', review }
+  }
+  const kept = new Map<string, any>()
+  // One turn's script tool over a real review gate, as model-loop.ts assembles it.
+  const turn = (max?: number) => {
+    const exposures: Array<{ toolName: string, exposed: boolean, tools: string[] }> = []
+    const pauses = createScriptPauses(async (id, interrupt, decisions, spent) => { kept.set(id, { interrupt, decisions, spent: structuredClone(spent) }); return true })
+    const gate = createReviewGate({
+      tools: () => Object.fromEntries(Object.entries(fixed).map(([name, sourced]) => [name, { server: 'dev', ...((sourced as any).annotations ? { annotations: (sourced as any).annotations } : {}), ...((sourced.tool as any).needsApproval ? { needsApproval: true } : {}), ...((sourced as any).review ? { review } : {}) }])),
+      history: [],
+      surface: 'chat',
+      review: async (call, exposure) => { exposures.push({ toolName: call.toolName, ...exposure }); return { outcome: 'allow', reason: 'fine', code: 'judged', exposed: exposure.exposed, at: new Date().toISOString() } as any },
+      exposure: messages => exposureOf(messages, fixed as Record<string, { annotations?: Record<string, unknown> }>, { webhookPayloads: false })
+    })
+    const turnCalls = { count: 0, ...(max ? { max } : {}) }
+    const tool = createScriptTool(codeFacingTools({ names: Object.keys(fixed), fixed, page: {}, callPath: {}, trace: trace(), turnCalls, pauses, review: gate }), { pauses })
+    return { pauses, gate, turnCalls, tool, exposures }
+  }
+  const pauseThenResume = async (js: string, max?: number) => {
+    const first = turn(max)
+    await assert.rejects(first.tool.execute!({ js }, { toolCallId: 'cmS', messages: [], context: {} } as any), (err: any) => err instanceof ScriptPausedError)
+    const { interrupt, spent } = kept.get('cmS')
+    const second = turn(max)
+    let settled: any
+    const part = { type: 'dynamic-tool', toolName: 'code_mode', toolCallId: 'cmS', input: { js }, state: 'approval-responded', approval: { id: interrupt.interruptId, approved: true }, toolMetadata: { nested: { toolName: 'approve', input: {} } } } as any
+    await resumeDecidedScripts({
+      store: { decided: async () => [{ part, interrupt, earlierDecisions: [], trace: [], spent }], store: async () => true, repause: async () => {}, storeTrace: async () => {}, drop: async () => {} },
+      pauses: second.pauses,
+      turnCalls: second.turnCalls,
+      noteNested: name => second.gate.noteNested(name),
+      codeTool: () => second.tool,
+      history: [],
+      abortSignal: new AbortController().signal,
+      earlierTraces: new Map(),
+      settlement: (_id, s) => s,
+      settle: async (_id, s) => { settled = s },
+      cardMetadata: async () => ({}),
+      traceWrites: async () => {}
+    })
+    return { first, second, spent, settled }
+  }
+
+  test('a scanned read before the pause makes a write after it exposed', async () => {
+    const { first, second, spent, settled } = await pauseThenResume('await tools.read({}); await tools.approve({}); return await tools.write({})')
+    assert.deepEqual(spent.ran, ['read'])
+    assert.equal(first.exposures.length, 0)
+    assert.equal(settled.state, 'output-available', JSON.stringify(settled))
+    assert.deepEqual(second.exposures, [{ toolName: 'write', exposed: true, tools: ['read'] }])
+  })
+
+  test('the calls made before the pause count against the turn\'s bound after it', async () => {
+    const { spent, settled, second } = await pauseThenResume('await tools.read({}); await tools.approve({}); try { await tools.write({}); return "wrote" } catch (e) { return e.message }', 2)
+    assert.equal(spent.calls, 1)
+    assert.equal(settled.output, turnCallsExceededMessage(2))
+    assert.equal(second.turnCalls.count, 2)
+  })
+
+  test('what the script moved before the pause counts against its transfer budget after it', async () => {
+    const { spent, settled } = await pauseThenResume('await tools.big({}); await tools.big({}); await tools.approve({}); try { await tools.big({}); return "moved" } catch (e) { return e.message }')
+    assert.ok(spent.bytes >= 18 * MiB)
+    assert.match(String(settled.output), new RegExp(`past ${SCRIPT_TRANSFER_BYTES / MiB} MiB`))
   })
 })

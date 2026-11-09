@@ -6,6 +6,7 @@
  * The package is touched only here and in ./code-tools.ts: its API is experimental.
  */
 import { tool, jsonSchema, type Tool } from 'ai'
+import log from '@data-fair/lib-node/log.js'
 import {
   experimental_createCodeModeTool as createCodeModeTool,
   experimental_setMaxWorkers as setMaxWorkers,
@@ -16,17 +17,20 @@ import {
   type CodeModeOptions
 } from '@ai-sdk/code-mode'
 import { CODE_MODE_POLICY, withoutPrototypeKeys, MAX_BRACKET_DEPTH, SCRIPT_ARGUMENT_DESCRIPTION, bracketDepth, bracketDepthMessage, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, PAUSED_SCRIPT_MAX_AGE_MS, SCRIPT_RESUME_FAILED_MESSAGE, scriptPauseTooLargeMessage, type CodeModePolicy } from './operations.ts'
-import type { ScriptPauses } from './code-tools.ts'
+import { noScriptSpent, type ScriptPauses } from './code-tools.ts'
 import { LoopSignal } from '../conversations/operations.ts'
 
 /**
  * Set once, at startup: the process-wide worker pool's size (config.codeModeMaxWorkers), and the key signing a paused
  * script's continuation (config.codeMode.continuationSecret), the same on every instance so the decision resumes it
- * wherever it lands, and after a restart, for PAUSED_SCRIPT_MAX_AGE_MS.
+ * wherever it lands, and after a restart, for PAUSED_SCRIPT_MAX_AGE_MS. Without a secret no script pauses
+ * (scriptsMayPause), so no continuation is signed: false then, for the caller to say so.
  */
-export const configureCodeMode = (maxWorkers: number, continuationSecret: string) => {
+export const configureCodeMode = (maxWorkers: number, continuationSecret: string | undefined): boolean => {
   setMaxWorkers(maxWorkers)
+  if (!continuationSecret) return false
   setContinuationSigningKey(continuationSecret, { maxAgeMs: PAUSED_SCRIPT_MAX_AGE_MS })
+  return true
 }
 
 /**
@@ -65,7 +69,12 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
     try {
       return await continueCodeModeApproval({ interrupt: resumed.interrupt, approvalResponse: { approvalId: resumed.interrupt.interruptId, approved: true }, tools: cleaned as any, options, toolExecutionOptions: executionOptions })
     } catch (err) {
-      if ((err as { name?: string })?.name === 'CodeModeProtocolError' && !/Continuation state exceeds/.test((err as Error).message)) throw new Error(SCRIPT_RESUME_FAILED_MESSAGE)
+      if ((err as { name?: string })?.name === 'CodeModeProtocolError' && !/Continuation state exceeds/.test((err as Error).message)) {
+        // The model reads one text for every refusal; which one it was (expired, tampered, the tool set changed since
+        // the pause: page tools differing on the deciding tab, a server's listing) is the package's message, for us.
+        log.warn('a paused script could not resume', { code: 'code-mode-resume-refused', toolCallId: executionOptions?.toolCallId, interruptId: resumed.interrupt.interruptId, reason: (err as Error).message })
+        throw new Error(SCRIPT_RESUME_FAILED_MESSAGE)
+      }
       throw err
     }
   }
@@ -98,7 +107,7 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
       // Only approvals interrupt here: no tool of ours requests any other interrupt.
       if (!isCodeModeApprovalInterrupt(unwrapped.interrupt)) throw new Error(scriptErrorMessage(new Error('the script was interrupted for something other than an approval'), policy))
       // Stored before the step ends, so the loop stops on it (stopWhen) only once it can resume.
-      if (!await pauses.keep(executionOptions.toolCallId, unwrapped.interrupt, resumed?.decisions ?? [])) throw new Error(scriptPauseTooLargeMessage(unwrapped.interrupt.toolName))
+      if (!await pauses.keep(executionOptions.toolCallId, unwrapped.interrupt, resumed?.decisions ?? [], pauses.spent.get(executionOptions.toolCallId) ?? noScriptSpent())) throw new Error(scriptPauseTooLargeMessage(unwrapped.interrupt.toolName))
       pauses.paused.set(executionOptions.toolCallId, unwrapped.interrupt)
       throw new ScriptPausedError()
     }

@@ -74,7 +74,8 @@ export default {
   // rather than queues when full (api/src/code-mode).
   codeModeMaxWorkers: 4,
   // Signs the continuation of a script paused on a call that needs a person (api/src/code-mode/tool.ts): the same on
-  // every instance, so the decision resumes it wherever it lands, and across a restart. Required in production.
+  // every instance, so the decision resumes it wherever it lands, and across a restart. Without it, scripts never pause
+  // (api/src/code-mode/operations.ts, scriptsMayPause) and the api logs an error at startup.
   codeMode: { continuationSecret: undefined },
   // The tool-output injection tripwire (api/src/tripwire): outside tool results are classified by the moderator
   // role model before the agent model reads them. A deployment switch, not a per-account setting.
