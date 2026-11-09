@@ -25,7 +25,7 @@ import type { Tool } from 'ai'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import type { PageSkillDescriptor } from '@agents/shared/agent-session-protocol'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
-import { PORTAL_ASSISTANT_ID } from '@agents/shared/agent-audit'
+import { PORTAL_ASSISTANT_ID, usesPageTools } from '@agents/shared/agent-audit'
 import Debug from 'debug'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
@@ -272,6 +272,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
 
   /** Which agent the next conversation is with. A conversation carries its own agent. */
   const activeAgentId = ref(options.agentId ?? PORTAL_ASSISTANT_ID)
+  /** The assistant this chat was opened with, the one action buttons address; none for a configured agent's chat. */
+  const assistantId = usesPageTools(activeAgentId.value) ? activeAgentId.value : undefined
 
   // The consent sheet's trigger, and the answer's path back.
   //
@@ -431,12 +433,26 @@ export function useSessionChat (options: UseSessionChatOptions) {
     }
   }
 
-  start().catch(err => {
+  const started = start().catch(err => {
     status.value = 'error'
     // The server's sentence (a 403 naming the missing grant, for instance) is in the response body;
     // `message` on a lib-express error is only the HTTP status text.
     error.value = apiErrorMessage(err) ?? 'this conversation could not be opened'
   })
+
+  /**
+   * Send a turn. The first message of a fresh thread creates it on the server, and a refusal to (a
+   * quota, a revoked grant) comes back as an `error` frame, reported as this send's error.
+   */
+  const sendMessage = (content: string, sendOptions?: { hiddenContext?: string }) => {
+    if (!content.trim()) return
+    error.value = null
+    status.value = 'streaming'
+    // The user turn is NOT added locally. The server stores it and sends it back as a `message`
+    // frame, so the transcript has one source and the optimistic copy cannot disagree with the
+    // stored one — which is what a reload would reveal.
+    agent.prompt(content, sendOptions?.hiddenContext)
+  }
 
   onScopeDispose(() => {
     agent.close()
@@ -459,18 +475,23 @@ export function useSessionChat (options: UseSessionChatOptions) {
     fetchSelfUsage: async () => $fetch(`${$apiPath}/usage/${options.accountType}/${options.accountId}/self`,
       options.anonymous ? { headers: { 'x-anonymous-token': anonymousToken ?? await getAnonymousToken() } } : {}),
 
+    sendMessage,
+
     /**
-     * Send a turn. The first message of a fresh thread creates it on the server, and a refusal to (a
-     * quota, a revoked grant) comes back as an `error` frame, reported as this send's error.
+     * Send an action button's prompt. A button asks the page's ASSISTANT — its hidden context names the
+     * page's WebMCP tools, which only an assistant is offered (usesPageTools) — so a chat whose open
+     * conversation is with a configured agent (resumed from the history, or picked) leaves it for a new
+     * one with the assistant it was opened with, rather than handing the page's request to an
+     * autonomous agent. A chat opened on a configured agent takes no action at all.
+     *
+     * Waits for the start: until then the chat may still resume a configured agent's conversation, and
+     * a prompt queued before it would land there.
      */
-    sendMessage (content: string, sendOptions?: { hiddenContext?: string }) {
-      if (!content.trim()) return
-      error.value = null
-      status.value = 'streaming'
-      // The user turn is NOT added locally. The server stores it and sends it back as a `message`
-      // frame, so the transcript has one source and the optimistic copy cannot disagree with the
-      // stored one — which is what a reload would reveal.
-      agent.prompt(content, sendOptions?.hiddenContext)
+    async sendActionPrompt (content: string, hiddenContext: string) {
+      if (!assistantId) return
+      await started
+      if (activeAgentId.value !== assistantId) await newConversation(assistantId)
+      sendMessage(content, { hiddenContext })
     },
 
     /** The person's decision on a call the approval gate stopped. */

@@ -477,6 +477,12 @@ const showWelcome = computed(() => {
   return welcomeDelayDone.value
 })
 
+// Action buttons address the page's assistant (see sendActionPrompt). A chat opened on a configured
+// agent — an autonomous one, working through MCP with its own identity — never takes them, and leaves a
+// pending one in place for the assistant's chat of the same tab.
+const pinnedAgentId = props.agentId || initConfig?.agentId
+const takesActions = !pinnedAgentId || isPersonalAgentId(pinnedAgentId)
+
 // Listen for action messages via BroadcastChannel
 const actionChannelId = getTabChannelId()
 const actionChannel = new BroadcastChannel(actionChannelId)
@@ -484,7 +490,7 @@ actionChannel.onmessage = (event: MessageEvent) => {
   const data = event.data
   if (!data || data.channel !== actionChannelId) return
 
-  if (data.type === 'agent-start-session') {
+  if (data.type === 'agent-start-session' && takesActions) {
     sessionStarted.value = true
     if (welcomeTimeout) {
       clearTimeout(welcomeTimeout)
@@ -498,7 +504,7 @@ actionChannel.onmessage = (event: MessageEvent) => {
 
 // On mount, check for a pending action stored in sessionStorage
 // (handles case where the BroadcastChannel message was sent before this iframe loaded)
-const pendingAction = sessionStorage.getItem('df-agent-pending-action')
+const pendingAction = takesActions ? sessionStorage.getItem('df-agent-pending-action') : null
 if (pendingAction) {
   try {
     const data = JSON.parse(pendingAction)
@@ -526,10 +532,9 @@ function startActionSession (visiblePrompt: string, hiddenContext: string) {
   actionVisiblePrompt.value = visiblePrompt
   mermaidAutoFixBudget.value = MERMAID_AUTO_FIX_BUDGET
 
-  // The hidden context rides inside this user turn (see startActionSession)
-  // instead of mutating the session system prompt, so it stays scoped to the turn
-  // and surfaces in the trace reviewer.
-  chat.sendMessage(visiblePrompt, { hiddenContext })
+  // The hidden context rides inside this user turn instead of mutating the session
+  // system prompt, so it stays scoped to the turn and surfaces in the trace reviewer.
+  chat.sendActionPrompt(visiblePrompt, hiddenContext)
 }
 
 function handleReset () {
