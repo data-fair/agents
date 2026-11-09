@@ -24,6 +24,7 @@ import { pathToFileURL } from 'node:url'
 import { encodeBreakdownKey } from '../api/src/usage/operations.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../ui/src/review/review-consent.ts'
 import { turnOverSocket, type ConversationTarget } from './socket-turn.ts'
+import { PORTAL_ASSISTANT_ID } from '../shared/agent-audit.ts'
 
 const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
@@ -127,7 +128,7 @@ async function runChatTurn (ax: any, owner: string, target: ConversationTarget, 
 async function seedChats (sessions: Record<string, any>) {
   for (const chat of chats) {
     const ax = sessions[chat.person]
-    const existing = (await ax.get(`/api/conversations/${chat.owner}?agentId=personal`)).data.results as any[]
+    const existing = (await ax.get(`/api/conversations/${chat.owner}?agentId=${PORTAL_ASSISTANT_ID}`)).data.results as any[]
     if (existing.some(conversation => conversation.title === chat.title)) {
       console.log(`  chat already seeded: ${chat.title}`)
       continue
@@ -136,7 +137,7 @@ async function seedChats (sessions: Record<string, any>) {
     let conversationId: string | undefined
     let answer: any
     for (const turn of chat.turns) {
-      const done = await runChatTurn(ax, chat.owner, conversationId ?? { agentId: 'portal-assistant', title: chat.title }, turn)
+      const done = await runChatTurn(ax, chat.owner, conversationId ?? { agentId: PORTAL_ASSISTANT_ID, title: chat.title }, turn)
       conversationId = done.conversationId
       answer = done.assistant
     }
