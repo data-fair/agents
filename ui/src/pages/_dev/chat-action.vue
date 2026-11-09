@@ -9,7 +9,11 @@
   </v-app-bar>
 
   <df-agent-chat-drawer
-    :src="chatSrc"
+    :src="devAgents ? undefined : chatSrc"
+    :account-type="session.account.value?.type"
+    :account-id="session.account.value?.id"
+    :agent-id="devAgentId"
+    :agents="devAgents"
     :drawer-props="drawerProps"
   />
 
@@ -108,16 +112,26 @@ en:
 
 <script lang="ts" setup>
 import { ref, computed } from 'vue'
+import { useRoute } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { DfAgentChatToggle, DfAgentChatDrawer, DfAgentChatAction } from '@data-fair/lib-vuetify-agents'
 import { useFrameServer } from '@data-fair/lib-vue-agents'
 import personalMenu from '@data-fair/lib-vuetify/personal-menu.vue'
+import { useSession } from '@data-fair/lib-vue/session.js'
 
 const { t } = useI18n()
 
 useFrameServer('parent')
 
 const showDestroyable = ref(true)
+
+// `?agentId=` pins the drawer to an agent, `?agents=1` makes it the back-office chat (agent switcher and
+// history) on the account's real chat route: the shapes in which an action button must still reach the
+// assistant only.
+const session = useSession()
+const route = useRoute()
+const devAgentId = computed(() => route.query.agentId as string | undefined)
+const devAgents = computed(() => route.query.agents === '1')
 
 const chatSrc = computed(() => {
   return `${window.location.origin}/agents/_dev/chat`

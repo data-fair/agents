@@ -21,6 +21,7 @@ function createAgentChatMenu () {
   return {
     menuOpen,
     expanded,
+    takesActions: base.takesActions,
     agentStatus: base.agentStatus,
     hasUnread: base.hasUnread,
     fabIcon: base.fabIcon,

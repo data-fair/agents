@@ -9,7 +9,8 @@
  */
 export interface AgentInitConfig {
   /**
-   * Which agent to talk to: `personal` (the personal assistant, the default) or a configured agent's id.
+   * Which agent to talk to: a personal assistant (`portal-assistant`, `back-office-assistant`; unset, the
+   * office's own) or a configured agent's id.
    *
    * This replaces the free-text `prompt` below. A persona is product voice and belongs in
    * configuration: with the loop running on the server, prose supplied by the host would be the one
@@ -63,4 +64,20 @@ export function hostInitConfig (props: { agentId?: string, systemPrompt?: string
     console.warn('[df-agents] the `systemPrompt` prop is ignored — pass `agentId` instead: `personal` (the personal assistant, the default) or a configured agent\'s id. A persona is configuration now, not something a host supplies.')
   }
   return { agentId: props.agentId, title: props.chatTitle }
+}
+
+/**
+ * The personal assistants' ids: shared/agent-audit.ts (PERSONAL_AGENT_IDS), which this published package
+ * cannot import. A unit spec keeps the two lists equal.
+ */
+export const ASSISTANT_AGENT_IDS = ['portal-assistant', 'back-office-assistant']
+
+/**
+ * Whether a host's chat takes the page's action buttons (DfAgentChatAction): only an assistant's chat
+ * does, since only an assistant works through the page's WebMCP tools that a button's context names. A
+ * chat opened on a configured agent — an autonomous one, which works through MCP with its own identity —
+ * neither opens on a button's click nor makes the buttons appear.
+ */
+export function chatTakesActions (agentId?: string): boolean {
+  return !agentId || ASSISTANT_AGENT_IDS.includes(agentId)
 }
