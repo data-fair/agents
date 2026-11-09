@@ -177,6 +177,13 @@ export function toolResultText (output: unknown): string {
   if (typeof output === 'string') return output
   const value = (output as { value?: unknown }).value
   if (typeof value === 'string') return value
+  // An image's base64 is not text the model reads: measured as text, clearing one result "freed" tens of
+  // thousands of tokens and its placeholder reported that size.
+  if ((output as { type?: string }).type === 'content' && Array.isArray(value)) {
+    return JSON.stringify(value.map((item: { type?: string, mediaType?: string }) => item?.type === 'image-data' || item?.type === 'file-data'
+      ? { type: 'text', text: `[image ${item.mediaType}]` }
+      : item))
+  }
   return JSON.stringify(value ?? output)
 }
 

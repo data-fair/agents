@@ -728,6 +728,19 @@ export default {
               fr: "Utilisé pour dimensionner la compaction de l'historique. Laissez vide pour utiliser la valeur rapportée par le fournisseur ; seul OpenRouter en rapporte une, pour les autres renseignez-la ici sinon la valeur par défaut de 128000 s'applique. Renseignez-la explicitement pour les petits modèles auto-hébergés, qui déborderaient sinon."
             }
           },
+          imageInput: {
+            type: 'boolean',
+            title: 'Reads images',
+            'x-i18n-title': { en: 'Reads images', fr: 'Lit les images' },
+            // Unset resolves by provider type (resolveImageInput, api/src/models/operations.ts): on for Anthropic,
+            // OpenAI, Google and OpenRouter, off for Scaleway and OpenAI-compatible endpoints, never for Mistral
+            // and Ollama, whose adapters cannot carry an image in a tool result.
+            description: 'Whether the model is sent the images tools return, such as page screenshots. Unchecked, it gets a short placeholder in their place. Until it is set, the provider default applies: on for Anthropic, OpenAI, Google and OpenRouter, off for Scaleway and OpenAI-compatible endpoints. Never on for Mistral and Ollama.',
+            'x-i18n-description': {
+              en: 'Whether the model is sent the images tools return, such as page screenshots. Unchecked, it gets a short placeholder in their place. Until it is set, the provider default applies: on for Anthropic, OpenAI, Google and OpenRouter, off for Scaleway and OpenAI-compatible endpoints. Never on for Mistral and Ollama.',
+              fr: "Indique si le modèle reçoit les images renvoyées par les outils, comme les captures de pages. Décoché, il reçoit une courte mention à leur place. Tant qu'il n'est pas renseigné, la valeur par défaut du fournisseur s'applique : activé pour Anthropic, OpenAI, Google et OpenRouter, désactivé pour Scaleway et les points d'accès compatibles OpenAI. Jamais activé pour Mistral et Ollama."
+            }
+          },
           inputPricePerMillion: {
             type: 'number',
             minimum: 0,

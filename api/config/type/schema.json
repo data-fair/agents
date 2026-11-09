@@ -113,6 +113,7 @@
           "provider": { "type": "string" },
           "usage": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "enum": ["assistant", "tools", "summarizer", "moderator"] } },
           "contextWindow": { "type": "number", "minimum": 0 },
+          "imageInput": { "type": "boolean" },
           "inputPricePerMillion": { "type": "number", "minimum": 0 },
           "outputPricePerMillion": { "type": "number", "minimum": 0 },
           "cachedInputPricePerMillion": { "type": "number", "minimum": 0 }
