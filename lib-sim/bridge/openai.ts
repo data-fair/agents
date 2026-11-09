@@ -10,11 +10,59 @@ export type OpenAIToolCall = {
   function: { name: string, arguments: string }
 }
 
+export type OpenAIContentPart = { type: string, text?: string, image_url?: { url: string } }
+
 export type OpenAIMessage = {
   role: 'system' | 'user' | 'assistant' | 'tool'
-  content?: string | null
+  content?: string | OpenAIContentPart[] | null
   tool_calls?: OpenAIToolCall[]
   tool_call_id?: string
+}
+
+/**
+ * IMAGES. The agents API sends a tool result's image as an `image_url` part of the tool message (to a model with
+ * `imageInput`), with a base64 data URL. The bridge hands it on as an image wherever Claude Code takes one: an MCP
+ * `image` part of the tool result on the continuation path, an image block of the prompt on the replay path.
+ * Anything it cannot hand on (a remote URL, another part type) becomes a placeholder, never `[object Object]`.
+ */
+export type BridgeImage = { data: string, mimeType: string }
+
+const DATA_URL = /^data:([^;,]+);base64,(.*)$/s
+
+export function imageOf (part: OpenAIContentPart): BridgeImage | null {
+  if (part.type !== 'image_url' || typeof part.image_url?.url !== 'string') return null
+  const match = DATA_URL.exec(part.image_url.url)
+  return match ? { mimeType: match[1], data: match[2] } : null
+}
+
+const partPlaceholder = (part: OpenAIContentPart) =>
+  `[${part.type === 'image_url' ? 'image' : part.type} not shown: the bridge passes text and base64 images only]`
+
+const imagePlaceholder = (image: BridgeImage) => `[image ${image.mimeType}]`
+
+/** A message's content as text, every image as a placeholder. */
+export function contentText (content: OpenAIMessage['content']): string {
+  if (content == null) return ''
+  if (typeof content === 'string') return content
+  return content.map(part => {
+    if (part.type === 'text') return part.text ?? ''
+    const image = imageOf(part)
+    return image ? imagePlaceholder(image) : partPlaceholder(part)
+  }).join('\n\n')
+}
+
+/** What the MCP tool server returns for a call: text, or text and image parts. */
+export type McpContentPart = { type: 'text', text: string } | { type: 'image', data: string, mimeType: string }
+export type ToolResultContent = string | McpContentPart[]
+
+/** A tool message's content as an MCP tool result: a plain string unless it carries an image. */
+export function toolResultContent (content: OpenAIMessage['content']): ToolResultContent {
+  if (!Array.isArray(content) || !content.some(part => imageOf(part))) return contentText(content)
+  return content.map(part => {
+    const image = imageOf(part)
+    if (image) return { type: 'image' as const, ...image }
+    return { type: 'text' as const, text: part.type === 'text' ? part.text ?? '' : partPlaceholder(part) }
+  })
 }
 
 export type OpenAIToolDef = {
@@ -64,42 +112,75 @@ export function systemPromptFor (messages: OpenAIMessage[], tools: OpenAIToolDef
 export function extractSystemPrompt (messages: OpenAIMessage[]): string {
   return messages
     .filter(m => m.role === 'system')
-    .map(m => m.content ?? '')
+    .map(m => contentText(m.content))
     .join('\n\n')
 }
+
+/** A block of the replay prompt, in the Anthropic Messages API's shape. */
+export type PromptBlock =
+  | { type: 'text', text: string }
+  | { type: 'image', source: { type: 'base64', media_type: string, data: string } }
 
 /**
  * Render the conversation as a single prompt, for the replay path (a fresh
  * session). The continuation path never comes through here — it delivers tool
  * results into a query that is already holding the history.
+ *
+ * As blocks: text, with each image of the history as an image block at its place. renderTranscript is the
+ * same prompt as one string.
  */
 // Each message in its own tag, not a « role: » line: continued as a script, a role-prefixed
 // transcript taught the model to write the next « user: » line itself — judged haiku runs
 // invented the person's turns and the application's host-event blocks, then answered them.
 // A real provider receives structured messages and never sees such a transcript.
-export function renderTranscript (messages: OpenAIMessage[]): string {
-  const lines: string[] = ['<conversation_history>']
+export function renderTranscriptBlocks (messages: OpenAIMessage[]): PromptBlock[] {
+  const blocks: PromptBlock[] = []
+  const text = (t: string) => {
+    const last = blocks[blocks.length - 1]
+    if (last?.type === 'text') last.text += t
+    else blocks.push({ type: 'text', text: t })
+  }
+  const content = (c: OpenAIMessage['content']) => {
+    if (!Array.isArray(c)) { text(contentText(c)); return }
+    c.forEach((part, i) => {
+      if (i > 0) text('\n\n')
+      const image = imageOf(part)
+      if (image) blocks.push({ type: 'image', source: { type: 'base64', media_type: image.mimeType, data: image.data } })
+      else text(contentText([part]))
+    })
+  }
+  const tagged = (open: string, close: string, c: OpenAIMessage['content']) => {
+    text(`\n${open}\n`)
+    content(c)
+    text(`\n${close}`)
+  }
+  text('<conversation_history>')
   for (const m of messages) {
     if (m.role === 'system') continue
     if (m.role === 'tool') {
-      lines.push(`<tool_result id="${m.tool_call_id}">\n${m.content ?? ''}\n</tool_result>`)
+      tagged(`<tool_result id="${m.tool_call_id}">`, '</tool_result>', m.content)
       continue
     }
     if (m.role === 'assistant') {
       // Text first: it is what the model wrote before calling. Calls-first made « I'll put the prompt up
       // now » read as said after the call, and the model continued it over an already-approved result.
-      if (m.content) lines.push(`<assistant_message>\n${m.content}\n</assistant_message>`)
+      if (m.content) tagged('<assistant_message>', '</assistant_message>', m.content)
       for (const c of m.tool_calls ?? []) {
-        lines.push(`<tool_call id="${c.id}" name="${c.function.name}">\n${c.function.arguments}\n</tool_call>`)
+        text(`\n<tool_call id="${c.id}" name="${c.function.name}">\n${c.function.arguments}\n</tool_call>`)
       }
       continue
     }
-    lines.push(`<user_message>\n${m.content ?? ''}\n</user_message>`)
+    tagged('<user_message>', '</user_message>', m.content)
   }
-  lines.push('</conversation_history>')
-  lines.push('')
-  lines.push("Write only the assistant's next reply, as the assistant: never write a user message or an application event, they come from the person and the application alone.")
-  return lines.join('\n')
+  text('\n</conversation_history>\n\n')
+  text("Write only the assistant's next reply, as the assistant: never write a user message or an application event, they come from the person and the application alone.")
+  return blocks
+}
+
+export function renderTranscript (messages: OpenAIMessage[]): string {
+  return renderTranscriptBlocks(messages)
+    .map(block => block.type === 'text' ? block.text : imagePlaceholder({ mimeType: block.source.media_type, data: block.source.data }))
+    .join('')
 }
 
 const base = (id: string, model: string) => ({

@@ -5,10 +5,11 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import {
-  toolNameToMcp, mcpNameToTool, extractSystemPrompt, renderTranscript,
+  toolNameToMcp, mcpNameToTool, extractSystemPrompt, renderTranscript, renderTranscriptBlocks, toolResultContent, contentText,
   textChunk, toolCallsChunk, finalChunk, mapUsage, errorBody, completionOf
 } from '../../../lib-sim/bridge/openai.ts'
 import type { OpenAIMessage } from '../../../lib-sim/bridge/openai.ts'
+import { replayPrompt } from '../../../lib-sim/bridge/server.ts'
 
 test.describe('tool name mapping', () => {
   test('round-trips through the mcp prefix', () => {
@@ -176,5 +177,50 @@ test.describe('a whole completion, for a request that did not stream', () => {
   test('an empty answer has a null content; an error chunk makes it an error', () => {
     assert.equal((completionOf('c3', 'haiku', [finalChunk('c3', 'haiku', 'stop')]) as any).completion.choices[0].message.content, null)
     assert.deepEqual(completionOf('c4', 'haiku', [textChunk('c4', 'haiku', 'x'), errorBody('upstream failed'), finalChunk('c4', 'haiku', 'stop')]), { error: errorBody('upstream failed') })
+  })
+})
+
+test.describe('images', () => {
+  const IMAGE_URL = 'data:image/png;base64,iVBORw0KGgo='
+  const withImage: OpenAIMessage[] = [
+    { role: 'user', content: 'preview it' },
+    { role: 'assistant', content: null, tool_calls: [{ id: 'c1', type: 'function', function: { name: 'preview', arguments: '{}' } }] },
+    { role: 'tool', tool_call_id: 'c1', content: [{ type: 'text', text: 'report' }, { type: 'image_url', image_url: { url: IMAGE_URL } }] }
+  ]
+
+  test('a tool result with an image becomes MCP text and image parts', () => {
+    assert.deepEqual(toolResultContent(withImage[2].content), [
+      { type: 'text', text: 'report' },
+      { type: 'image', data: 'iVBORw0KGgo=', mimeType: 'image/png' }
+    ])
+  })
+
+  test('a tool result without an image stays a string, parts joined', () => {
+    assert.equal(toolResultContent([{ type: 'text', text: 'a' }, { type: 'text', text: 'b' }]), 'a\n\nb')
+    assert.equal(toolResultContent('plain'), 'plain')
+  })
+
+  test('an image the bridge cannot hand on is a placeholder, never [object Object]', () => {
+    const text = contentText([{ type: 'image_url', image_url: { url: 'https://example.com/a.png' } }])
+    assert.match(text, /^\[image not shown/)
+  })
+
+  test('the replay transcript carries the image as an image block at its place', () => {
+    const blocks = renderTranscriptBlocks(withImage)
+    assert.deepEqual(blocks.map(b => b.type), ['text', 'image', 'text'])
+    assert.match((blocks[0] as any).text, /<tool_result id="c1">\nreport\n\n$/)
+    assert.deepEqual((blocks[1] as any).source, { type: 'base64', media_type: 'image/png', data: 'iVBORw0KGgo=' })
+    assert.match(renderTranscript(withImage), /report\n\n\[image image\/png\]\n<\/tool_result>/)
+  })
+
+  test('the replay prompt is a string without images, one user message of blocks with one', async () => {
+    assert.equal(typeof replayPrompt(withImage.slice(0, 1)), 'string')
+    const prompt = replayPrompt(withImage)
+    assert.notEqual(typeof prompt, 'string')
+    const sent = []
+    for await (const message of prompt as AsyncIterable<any>) sent.push(message)
+    assert.equal(sent.length, 1)
+    assert.equal(sent[0].message.role, 'user')
+    assert.ok(sent[0].message.content.some((b: any) => b.type === 'image'))
   })
 })

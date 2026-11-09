@@ -69,6 +69,7 @@ export type ApiConfig = {
       ...("assistant" | "tools" | "summarizer" | "moderator")[]
     ];
     contextWindow?: number;
+    imageInput?: boolean;
     inputPricePerMillion: number;
     outputPricePerMillion: number;
     cachedInputPricePerMillion?: number;

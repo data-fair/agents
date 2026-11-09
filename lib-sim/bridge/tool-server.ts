@@ -12,7 +12,7 @@
  */
 import { Server } from '@modelcontextprotocol/sdk/server/index.js'
 import { ListToolsRequestSchema, CallToolRequestSchema } from '@modelcontextprotocol/sdk/types.js'
-import { MCP_SERVER_NAME, listedDescription, type OpenAIToolDef } from './openai.ts'
+import { MCP_SERVER_NAME, listedDescription, type OpenAIToolDef, type ToolResultContent } from './openai.ts'
 
 // A suspended handler must outlive a slow client turn — a tool wired to a human
 // action button can wait minutes. The default MCP timeout would abort it.
@@ -36,13 +36,14 @@ export function listToolsFor (tools: OpenAIToolDef[]) {
 
 export function createToolServer (
   tools: OpenAIToolDef[],
-  onCall: (name: string, args: Record<string, unknown>) => Promise<string>
+  onCall: (name: string, args: Record<string, unknown>) => Promise<ToolResultContent>
 ) {
   const instance = new Server({ name: MCP_SERVER_NAME, version: '1.0.0' }, { capabilities: { tools: {} } })
   instance.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: listToolsFor(tools) }))
   instance.setRequestHandler(CallToolRequestSchema, async (req) => {
-    const text = await onCall(req.params.name, (req.params.arguments ?? {}) as Record<string, unknown>)
-    return { content: [{ type: 'text', text }] }
+    const result = await onCall(req.params.name, (req.params.arguments ?? {}) as Record<string, unknown>)
+    // An image part reaches the model as an image: Claude Code reads MCP image content (openai.ts, IMAGES).
+    return { content: typeof result === 'string' ? [{ type: 'text', text: result }] : result }
   })
   return {
     type: 'sdk' as const,

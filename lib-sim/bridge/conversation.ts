@@ -12,7 +12,7 @@
  * the handlers suspending (tool calls to hand back) or the query finishing.
  */
 import crypto from 'node:crypto'
-import { mcpNameToTool, mapUsage, type OpenAIToolCall } from './openai.ts'
+import { mcpNameToTool, mapUsage, type OpenAIToolCall, type ToolResultContent } from './openai.ts'
 
 // Parallel tool calls in one assistant message arrive as separate handler
 // invocations a tick apart. Wait this long after the first before closing the
@@ -51,7 +51,7 @@ export type SdkMessage = {
 export class Conversation {
   key: string
   lastSeen = Date.now()
-  pending = new Map<string, (result: string) => void>()
+  pending = new Map<string, (result: ToolResultContent) => void>()
   /**
    * The tool names the live MCP tool server was built with. A continuation
    * request declaring a different set cannot be served by this query — the model
@@ -105,7 +105,7 @@ export class Conversation {
    * Called by the MCP tool server. Records the call and suspends: the promise is
    * resolved by deliverToolResults when the client's next request arrives.
    */
-  handleToolCall (name: string, args: Record<string, unknown>): Promise<string> {
+  handleToolCall (name: string, args: Record<string, unknown>): Promise<ToolResultContent> {
     const id = `call_${crypto.randomUUID()}`
     this.#collected.push({
       id,
@@ -115,10 +115,10 @@ export class Conversation {
     if (this.#settle) clearTimeout(this.#settle)
     this.#settle = setTimeout(() => { this.#endTurn({ type: 'tools', calls: this.#collected.slice(this.#handedBack) }) }, SETTLE_MS)
     if (this.#settle.unref) this.#settle.unref()
-    return new Promise<string>(resolve => { this.pending.set(id, resolve) })
+    return new Promise<ToolResultContent>(resolve => { this.pending.set(id, resolve) })
   }
 
-  deliverToolResults (results: Array<{ id: string, content: string }>) {
+  deliverToolResults (results: Array<{ id: string, content: ToolResultContent }>) {
     for (const r of results) {
       const resolve = this.pending.get(r.id)
       if (!resolve) continue

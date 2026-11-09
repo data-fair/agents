@@ -47,6 +47,9 @@ export function bridgeSettings (assistantModelId: string, toolsModelId: string) 
   const priced = (id: string, usage: string[]) => ({
     model: modelRef(id),
     usage,
+    // Claude reads images, and the bridge hands them on (lib-sim/bridge/openai.ts, IMAGES): unset, an
+    // openai-compatible provider defaults to off and every screenshot would be a placeholder.
+    imageInput: true,
     inputPricePerMillion: 0,
     outputPricePerMillion: 0
   })

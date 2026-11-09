@@ -150,7 +150,7 @@ test.describe('continuation across requests', () => {
     const hold = new Promise<void>(resolve => { release = resolve })
     const turn1 = conv.beginTurn(() => {}, openStream([], hold))
 
-    let toolReturned: string | undefined
+    let toolReturned: unknown
     conv.handleToolCall('mcp__bridge__a', {}).then(r => { toolReturned = r }).catch(() => {})
 
     const outcome1 = await turn1

@@ -9,7 +9,7 @@
  * There is no path by which a superseded history is silently answered.
  */
 import crypto from 'node:crypto'
-import type { OpenAIMessage } from './openai.ts'
+import { toolResultContent, type OpenAIMessage, type ToolResultContent } from './openai.ts'
 
 export type LiveSession = {
   key: string
@@ -30,10 +30,10 @@ export function hashMessages (messages: OpenAIMessage[]): string {
  */
 export function continuationOf (messages: OpenAIMessage[]) {
   let i = messages.length
-  const results: Array<{ id: string, content: string }> = []
+  const results: Array<{ id: string, content: ToolResultContent }> = []
   while (i > 0 && messages[i - 1].role === 'tool') {
     i--
-    results.unshift({ id: messages[i].tool_call_id ?? '', content: messages[i].content ?? '' })
+    results.unshift({ id: messages[i].tool_call_id ?? '', content: toolResultContent(messages[i].content) })
   }
   if (results.length === 0) return null
 

@@ -12,9 +12,10 @@ import { generateText, type ModelMessage } from 'ai'
 import Debug from 'debug'
 import type { Conversation } from '#types'
 import type { UsageIdentity } from '../usage/operations.ts'
-import { decideContextManagement, clearOldToolResults, estimateTokens } from './compaction-policy.ts'
+import { decideContextManagement, clearOldToolResults } from './compaction-policy.ts'
 import { compactionSystemPrompt, recapMessage } from './compaction-prompt.ts'
 import { storedTurnsToModelMessages, alignCutToStoredMessage, redactModelMedia, type ConversationTurnRun } from './operations.ts'
+import { estimateModelFill, limitModelImages } from './model-images.ts'
 import { saveCompaction } from './service.ts'
 import { resolveRoleModel } from '../models/service.ts'
 import { chargeModelCall } from '../usage/charge.ts'
@@ -108,8 +109,9 @@ export const compactHistory = async (
   if (!budget) return { messages: loaded.messages, credits: 0 }
   const { history, clearing, compaction: decision } = decideContextManagement({
     history: loaded.messages,
-    // Measured with images as placeholders: base64 counted as text would overstate the fill wildly.
-    fillTokens: estimateTokens(JSON.stringify(redactModelMedia(loaded.messages)).length),
+    // Images at their cost, and only the ones a step will send (model-images.ts: the latest, at most). Counted
+    // as if the model read them: one image of overcount for a model that does not.
+    fillTokens: estimateModelFill(limitModelImages(loaded.messages, { imageInput: true })),
     budget,
     // The REAL generation, read from the persisted recap. It was hardcoded to 0, which told the
     // summarizer every time that it was seeing raw exchanges — so a chained compaction was asked to
