@@ -10,7 +10,6 @@ function createAgentChatBlock () {
   const base = createAgentChatBase(blockOpen)
 
   return {
-    takesActions: base.takesActions,
     agentStatus: base.agentStatus,
     onDFrameMessage: base.onDFrameMessage
   }

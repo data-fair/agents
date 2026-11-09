@@ -12,7 +12,6 @@ function createAgentChatDrawer () {
 
   return {
     drawerOpen,
-    takesActions: base.takesActions,
     agentStatus: base.agentStatus,
     hasUnread: base.hasUnread,
     fabIcon: base.fabIcon,

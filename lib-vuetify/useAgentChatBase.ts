@@ -26,16 +26,13 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) 
   const hasUnread = ref(false)
   const toolsJustChanged = ref(false)
   let toolsChangedTimeout: ReturnType<typeof setTimeout> | null = null
-  // Whether this chat takes the page's action buttons: set by the rendering component from its
-  // `agentId` (chatTakesActions), off for a configured agent's chat.
-  const takesActions = ref(true)
 
   // Listen on BroadcastChannel to auto-open on action start
   const channelId = getTabChannelId()
   const bc = new BroadcastChannel(channelId)
   bc.onmessage = (event: MessageEvent) => {
     const data = event.data
-    if (!data || data.channel !== channelId || !takesActions.value) return
+    if (!data || data.channel !== channelId) return
     if (data.type === 'agent-start-session') {
       debug('received agent-start-session, opening')
       isOpen.value = true
@@ -47,11 +44,8 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) 
     }
   }
 
-  // Announce presence so action buttons already mounted can discover us. After the creating
-  // component's synchronous setup, which is where `takesActions` is set.
-  queueMicrotask(() => {
-    if (takesActions.value) bc.postMessage({ channel: channelId, type: 'agent-chat-ready' })
-  })
+  // Announce presence so action buttons already mounted can discover us
+  bc.postMessage({ channel: channelId, type: 'agent-chat-ready' })
 
   const fabIcon = computed(() => {
     switch (agentStatus.value) {
@@ -117,7 +111,6 @@ export function createAgentChatBase (isOpen: Ref<boolean>, storageKey?: string) 
   }
 
   return {
-    takesActions,
     agentStatus,
     hasUnread,
     fabIcon,

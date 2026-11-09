@@ -10,7 +10,7 @@
 <script lang="ts" setup>
 import { computed } from 'vue'
 import('@data-fair/frame/lib/d-frame.js')
-import { setAgentInitConfig, hostInitConfig, chatTakesActions } from '@data-fair/lib-vue-agents'
+import { setAgentInitConfig, hostInitConfig } from '@data-fair/lib-vue-agents'
 import { useAgentChatBlock } from './useAgentChatBlock.js'
 import { resolveAgentChatUrl, registerAgentChatRouter } from './useAgentChatBase.js'
 
@@ -23,7 +23,7 @@ const props = defineProps<{
   accountId?: string
   src?: string
   chatTitle?: string
-  /** Which agent to talk to: a personal assistant (unset, the office's own) or a configured agent's id, whose chat takes no action button. Replaces `systemPrompt`. */
+  /** Which agent to talk to: `personal` (the personal assistant, the default) or a configured agent's id. Replaces `systemPrompt`. */
   agentId?: string
   /** @deprecated Use `agentId`. Ignored, with a one-time console warning. */
   systemPrompt?: string
@@ -39,7 +39,6 @@ const state = useAgentChatBlock()
 // custom key when mounting several blocks in the same tab.
 const initConfigKey = props.initConfigKey ?? 'block'
 setAgentInitConfig(initConfigKey, hostInitConfig(props))
-state.takesActions.value = chatTakesActions(props.agentId)
 
 const resolvedSrc = computed(() => resolveAgentChatUrl(props, initConfigKey))
 </script>
