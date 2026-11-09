@@ -125,21 +125,25 @@
                           data-testid="tool-chip"
                           @toggle="toggleDetail(invocation.toolCallId)"
                         />
-                        <!-- What a script did is the calls it made: shown under it, without its code, which is
-                             for the review page. -->
-                        <div
+                        <!-- What a script did is the calls it made, summed up beside its chip: each tool once,
+                             with its count — not its code, nor one chip per call, which a loop turned into a
+                             column of chips. Each call is the review page's to open. -->
+                        <span
                           v-if="scriptCalls(message, invocation).length"
                           class="agent-chat__script-calls"
                           data-testid="script-calls"
                         >
-                          <tool-chip
-                            v-for="call in scriptCalls(message, invocation)"
-                            :key="call.toolCallId"
-                            :invocation="call"
-                            :label="chipLabel(call)"
-                            data-testid="nested-tool-chip"
-                          />
-                        </div>
+                          <v-chip
+                            v-for="group in scriptCallGroups(message, invocation)"
+                            :key="group.label"
+                            size="x-small"
+                            variant="tonal"
+                            label
+                            :color="group.failed ? 'error' : undefined"
+                            class="mr-1 mb-1"
+                            data-testid="script-call"
+                          >{{ group.label }}<template v-if="group.count > 1"> ×{{ group.count }}</template></v-chip>
+                        </span>
                         <!-- The call the script paused on, for the person to decide: under the calls it made first. -->
                         <approval-card
                           v-if="invocation.nested && invocation.state === 'awaiting-approval' && invocation.approvalId"
@@ -652,6 +656,18 @@ const scriptCalls = (message: ChatMessage, invocation: Invocation): Invocation[]
   return (message.tracePanels?.[invocation.toolCallId]?.messages ?? []).flatMap(m => m.toolInvocations ?? [])
 }
 
+/** A script's calls summed up by tool, in the order each was first called; a group failed if any call did. */
+const scriptCallGroups = (message: ChatMessage, invocation: Invocation) => {
+  const groups = new Map<string, { label: string, count: number, failed: boolean }>()
+  for (const call of scriptCalls(message, invocation)) {
+    const label = invocationTitle(call)
+    const group = groups.get(label) ?? groups.set(label, { label, count: 0, failed: false }).get(label)!
+    group.count++
+    if (call.errorText !== undefined || call.state === 'denied') group.failed = true
+  }
+  return [...groups.values()]
+}
+
 // Chip label: the tool's title, and for the built-in wait what the agent said it is waiting for.
 const chipLabel = (invocation: { toolName: string, toolTitle?: string, input?: unknown, state?: string, approved?: true, deniedByReviewer?: true, cancelled?: 'message' | 'page' }) => {
   if (invocation.toolName === WAIT_TOOL_NAME) {
@@ -738,9 +754,7 @@ function onContentClick (e: MouseEvent) {
 
 /* the calls a script made hang under its chip, as an open call's detail does */
 .agent-chat__script-calls {
-  margin: 0 0 4px 12px;
-  padding-left: 12px;
-  border-left: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  margin-left: 2px;
 }
 
 .agent-chat-message .markdown-content ul {
