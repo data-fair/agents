@@ -120,7 +120,11 @@ export default {
       properties: {
         type: { const: 'error' },
         status: { type: 'integer' },
-        message: { type: 'string' }
+        message: { type: 'string' },
+        blocking: {
+          type: 'boolean',
+          description: 'The hello was refused: the conversation could not be opened (an unknown agent, a refused grant, an invalid anonymous token), so nothing sent on this socket can go anywhere. Absent for a refusal of one turn or decision, which sending again may get past.'
+        }
       }
     }
   ]

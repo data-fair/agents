@@ -89,6 +89,11 @@ export function useSessionChat (options: UseSessionChatOptions) {
   const usageVersion = ref(0)
   const status = ref<'ready' | 'streaming' | 'error'>('ready')
   const error = ref<string | null>(null)
+  /**
+   * The conversation could not be opened at all (an unknown agent, a refused grant): no message can
+   * fix that, so the chat offers no composer. A failed TURN is not this — its error says to send again.
+   */
+  const blocked = ref(false)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   // The page's skills, discovered with its tools: refreshed by the same callback.
@@ -256,8 +261,9 @@ export function useSessionChat (options: UseSessionChatOptions) {
       debug('turn ended %s', stopReason)
     },
 
-    onError: message => {
+    onError: (message, blocking) => {
       status.value = 'error'
+      if (blocking) blocked.value = true
       error.value = message
     },
 
@@ -336,6 +342,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     tracePanels.value = {}
     conversationCost.value = 0
     error.value = null
+    blocked.value = false
     status.value = 'ready'
   }
 
@@ -356,6 +363,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
       agent.reset({ agentId })
     } catch (err: any) {
       status.value = 'error'
+      blocked.value = true
       error.value = apiErrorMessage(err) ?? 'this conversation could not be opened'
     }
   }
@@ -435,6 +443,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
 
   const started = start().catch(err => {
     status.value = 'error'
+    blocked.value = true
     // The server's sentence (a 403 naming the missing grant, for instance) is in the response body;
     // `message` on a lib-express error is only the HTTP status text.
     error.value = apiErrorMessage(err) ?? 'this conversation could not be opened'
@@ -463,6 +472,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     messages,
     status,
     error,
+    blocked,
     activity: agent.activity as Ref<ChatActivity | null>,
     isWaitingForUser: agent.isWaitingForUser,
     tools,

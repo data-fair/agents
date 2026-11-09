@@ -99,7 +99,7 @@
         type="error"
         variant="tonal"
         density="comfortable"
-        class="mx-4 mb-4"
+        class="mx-4 mb-4 flex-0-0 align-self-stretch"
         data-testid="agent-chat-error"
         :text="chatError"
       />
@@ -114,6 +114,7 @@
     <!-- ONE composer, outside the branches: the first message arriving (a restored conversation, the first
          answer) does not replace it, so nothing typed, focused or being filled in is lost. -->
     <agent-chat-input
+      v-if="!chatBlocked"
       :is-streaming="isStreaming"
       :waiting-for-user="isWaitingForUser"
       @send="handleSend"
@@ -440,6 +441,8 @@ const isStreaming = computed(() => chat.status.value === 'streaming')
 const activity = computed(() => chat.activity.value)
 const isWaitingForUser = computed(() => chat.isWaitingForUser.value)
 const chatError = computed(() => chat.error.value)
+// A conversation that could not be opened: no composer nor welcome, which would invite a message that cannot go anywhere.
+const chatBlocked = computed(() => chat.blocked.value)
 
 const showDebugDialog = ref(false)
 
@@ -473,7 +476,7 @@ onMounted(() => {
 })
 
 const showWelcome = computed(() => {
-  if (sessionStarted.value) return false
+  if (sessionStarted.value || chatBlocked.value) return false
   return welcomeDelayDone.value
 })
 
