@@ -357,7 +357,7 @@ export const updateMessage = async (conversationId: string, seq: number, patch: 
 export const settleStoredToolPart = async (
   conversationId: string,
   toolCallId: string,
-  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string, tripwire?: TripRecord }
+  settled: { state: 'output-available', output: unknown, truncated?: { totalChars: number } } | { state: 'output-error', errorText: string, tripwire?: TripRecord } | { state: 'output-denied' }
 ): Promise<StoredMessage | null> => {
   const awaiting = { toolCallId, state: 'approval-responded' }
   if (!await mongo.messages.findOne({ conversationId, parts: { $elemMatch: awaiting } }, { projection: { _id: 1 } })) return null
@@ -501,7 +501,12 @@ const settleApprovedWithoutResult = async (conversationId: string, errorText: st
     if ((message.parts as MessagePart[]).some(part => part.type === 'dynamic-tool' && part.state === 'approval-requested')) continue
     for (const part of message.parts as MessagePart[]) {
       if (part.type !== 'dynamic-tool' || part.state !== 'approval-responded') continue
-      const settled = await settleStoredToolPart(conversationId, part.toolCallId, { state: 'output-error', errorText })
+      // A paused script's call the person REJECTED (only those stay `approval-responded` once rejected) keeps its
+      // rejection: the script stopped there, nothing after it ran. Its continuation goes either way: nothing resumes it.
+      const pausedScript = !!(part.toolMetadata as { nested?: unknown } | undefined)?.nested
+      const rejected = (part as { approval?: { approved?: boolean } }).approval?.approved === false
+      const settled = await settleStoredToolPart(conversationId, part.toolCallId, rejected ? { state: 'output-denied' } : { state: 'output-error', errorText })
+      if (pausedScript) await dropScriptPause(conversationId, part.toolCallId)
       if (settled) notifyMessage(conversationId, settled)
     }
   }
@@ -604,10 +609,12 @@ export const rejectPendingApprovals = async (
   const affected = await mongo.messages.find(filter, { projection: { _id: 0, seq: 1, parts: 1 } }).toArray()
   const seqs = affected.map(m => m.seq)
   if (!seqs.length) return 0
-  // A paused script whose card is refused here never resumes: its continuation (what its calls returned) goes now.
+  // A paused script whose card is refused here never resumes: its continuation (what its calls returned) goes now. So
+  // does one already decided whose step is settled below: it waited for the rest of the step, now refused.
   for (const message of affected) {
     for (const part of (message.parts ?? []) as MessagePart[]) {
-      if (part.type === 'dynamic-tool' && part.state === 'approval-requested' && (part.toolMetadata as { nested?: unknown } | undefined)?.nested) {
+      const settledHere = part.type === 'dynamic-tool' && (part.state === 'approval-requested' || (!opts?.undecidedOnly && part.state === 'approval-responded'))
+      if (settledHere && (part.toolMetadata as { nested?: unknown } | undefined)?.nested) {
         await dropScriptPause(conversationId, part.toolCallId)
       }
     }
@@ -621,11 +628,17 @@ export const rejectPendingApprovals = async (
         'parts.$[p].state': 'output-denied',
         'parts.$[p].approval.approved': false,
         'parts.$[p].approval.reason': reason,
-        ...(opts?.undecidedOnly ? {} : { 'parts.$[q].state': 'output-error', 'parts.$[q].errorText': approvedError }),
+        // Approved calls of the step: an error saying they did not run. A paused script's call the person rejected
+        // (still `approval-responded`, to resume the script) keeps its rejection and the person's reason instead.
+        ...(opts?.undecidedOnly ? {} : { 'parts.$[q].state': 'output-error', 'parts.$[q].errorText': approvedError, 'parts.$[r].state': 'output-denied' }),
         updatedAt: new Date().toISOString()
       }
     },
-    { arrayFilters: opts?.undecidedOnly ? [{ 'p.state': 'approval-requested' }] : [{ 'p.state': 'approval-requested' }, { 'q.state': 'approval-responded' }] }
+    {
+      arrayFilters: opts?.undecidedOnly
+        ? [{ 'p.state': 'approval-requested' }]
+        : [{ 'p.state': 'approval-requested' }, { 'q.state': 'approval-responded', 'q.approval.approved': { $ne: false } }, { 'r.state': 'approval-responded', 'r.approval.approved': false }]
+    }
   )
   // The watching page is shown the refusal and loses the "awaiting approval" label, as for a decision.
   if (sessionFor(conversationId) && result.modifiedCount) {

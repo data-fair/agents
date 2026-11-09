@@ -8,7 +8,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
-import { turnOverSocket, decideOverSocketToRun } from '../../../dev/socket-turn.ts'
+import { turnOverSocket, decideOverSocket, decideOverSocketToRun } from '../../../dev/socket-turn.ts'
 import { awaitRun } from '../../support/turn.ts'
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 
@@ -185,6 +185,29 @@ test.describe('code_mode', () => {
     assert.equal(cancelled.state, 'output-denied')
     assert.equal(cancelled.approval.reason, 'The person sent a new message instead of deciding.')
     assert.deepEqual(fixture.invokedTools(), ['list_road_closures'])
+  })
+
+  // A script's card rejected while a direct call of the same step is undecided: the script waits for that decision, and
+  // a new message cancels the step. The rejection stands as one, never read as "Approved, but…".
+  test('a new message keeps a rejected script card a rejection beside the cancelled ones', async () => {
+    fixture.resetInvokedTools()
+    const agent = await createFilesAgent({ approvalRoutes: { write: 'reviewer+person' } })
+    const { assistant, conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tools code_mode{"js":"return(await(tools.slow_update({})))"} wipe_everything')
+    const scriptCall = callPart(assistant, 'code_mode')
+    assert.equal(scriptCall.state, 'approval-requested', JSON.stringify(scriptCall))
+    assert.equal(callPart(assistant, 'wipe_everything').state, 'approval-requested')
+    assert.deepEqual(await decideOverSocket(orgAdmin, conversationId, scriptCall.approval.id, { approved: false, reason: 'not this one' }), { pending: 1 })
+    await turnOverSocket(orgAdmin, conversationId, 'hello')
+    const message = await messageAt(conversationId, assistant.seq)
+    const rejected = callPart(message, 'code_mode')
+    assert.equal(rejected.state, 'output-denied', JSON.stringify(rejected))
+    assert.equal(rejected.approval.approved, false)
+    assert.equal(rejected.approval.reason, 'not this one')
+    assert.equal(rejected.errorText, undefined)
+    const cancelled = callPart(message, 'wipe_everything')
+    assert.equal(cancelled.state, 'output-denied')
+    assert.equal(cancelled.approval.reason, 'The person sent a new message instead of deciding.')
+    assert.deepEqual(fixture.invokedTools(), [])
   })
 
   test('get_my_configuration reports code mode', async () => {
