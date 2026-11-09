@@ -198,10 +198,7 @@ trying variants until one is allowed.
 In a chat, a script's call that needs the person — the reviewer unsure, an allow on the `reviewer+person` route, a
 personal assistant's write (its own `needsApproval`) — **pauses the script**; the person gets a card, and the script
 resumes after the decision, where it stopped. A planned task run has nobody to decide: there such tools stay out of
-the map and an unsure denies, as before. So does a chat where the deployment sets no `codeMode.continuationSecret`
-(`CODE_MODE_CONTINUATION_SECRET`, `scriptsMayPause`): without a key to sign continuations no script pauses, and the
-api logs an error at startup (`code-mode-continuation-secret-missing`). A card decided after the secret was removed
-settles as the "could not resume" error below.
+the map and an unsure denies, as before.
 
 - **The pause.** In a chat `codeFacingTools` is given the turn's `ScriptPauses`, and each tool that can need a person
   declares the package's `needsApproval` as a function: for a reviewed tool the review runs there (`reviewNested`, its
@@ -217,7 +214,7 @@ settles as the "could not resume" error below.
   by conversation and call, not in the part: the part is sent to the page on every frame and exported, and the
   continuation holds everything the script read so far (up to `run`'s 32 MiB record). One too large for a MongoDB
   document fails the call instead (`scriptPauseTooLargeMessage`). It is signed with `codeMode.continuationSecret`
-  (`CODE_MODE_CONTINUATION_SECRET`, the same on every instance, set at startup with
+  (`CODE_MODE_CONTINUATION_SECRET`, required in production: at least 32 characters, the same on every instance, set at startup with
   `experimental_setCodeModeContinuationSigningKey`) and expires after 24 h (`PAUSED_SCRIPT_MAX_AGE_MS`), when a TTL
   index drops it.
 - **The card** is the nested call's: the chat shows the script's chip, the calls it made, then the card of the call it

@@ -294,11 +294,12 @@
     "codeMode": {
       "type": "object",
       "additionalProperties": false,
+      "required": ["continuationSecret"],
       "properties": {
         "continuationSecret": {
           "type": "string",
           "minLength": 32,
-          "description": "Signs the continuation of a code_mode script paused on a call that needs a person (CODE_MODE_CONTINUATION_SECRET). The same on every instance: a decision resumes the script wherever it lands, and after a restart. Optional: without it no script pauses (tools needing a person stay out of scripts, a nested call the reviewer is unsure of is denied) and the api logs an error at startup."
+          "description": "Signs the continuation of a code_mode script paused on a call that needs a person (CODE_MODE_CONTINUATION_SECRET). The same on every instance: a decision resumes the script wherever it lands, and after a restart."
         }
       }
     },

@@ -193,13 +193,6 @@ export const reviewedScriptNote = (timeoutMs: number) =>
  * chat, the person decides on a card and the script resumes where it stopped. Model-facing texts of it.
  */
 export const pausedScriptNote = 'A call that needs the person\'s approval pauses the script: the turn ends on an approval request, and once the person decides the script resumes where it stopped (the calls before it are not made again) and you get its result. A rejected call throws inside the script, which may catch it.'
-/**
- * Whether a script's call that needs a person pauses the script: in a chat (someone can decide), and only where the
- * deployment signs continuations (`codeMode.continuationSecret`). Without the secret, scripts never pause, as before
- * pausing existed: tools needing a person stay out of their map, and a nested call the reviewer is unsure of is denied.
- */
-export const scriptsMayPause = (surface: 'chat' | 'task', continuationSecret: string | undefined): boolean =>
-  surface === 'chat' && !!continuationSecret
 /** How long a paused script can wait for its decision: its continuation's age limit, then it can no longer resume. */
 export const PAUSED_SCRIPT_MAX_AGE_MS = 24 * 60 * 60 * 1000
 /** The code_mode call's error when its stored continuation is missing, expired, tampered or no longer matches. */

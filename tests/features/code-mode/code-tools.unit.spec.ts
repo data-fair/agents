@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { tool, jsonSchema } from 'ai'
 import { experimental_runCodeMode as runCodeMode, experimental_continueCodeModeApproval as continueCodeModeApproval, experimental_unwrapCodeModeResult as unwrapCodeModeResult, experimental_isCodeModeApprovalInterrupt as isCodeModeApprovalInterrupt, experimental_setCodeModeContinuationSigningKey as setCodeModeContinuationSigningKey } from '@ai-sdk/code-mode'
-import { codeCallable, SCRIPT_TRANSFER_BYTES, SCRIPT_RESUME_FAILED_MESSAGE, rejectedCallMessage, scriptPauseTooLargeMessage, turnCallsExceededMessage, scriptsMayPause } from '../../../api/src/code-mode/operations.ts'
+import { codeCallable, SCRIPT_TRANSFER_BYTES, SCRIPT_RESUME_FAILED_MESSAGE, rejectedCallMessage, scriptPauseTooLargeMessage, turnCallsExceededMessage } from '../../../api/src/code-mode/operations.ts'
 import { codeFacingTools, createCodeTrace, createScriptPauses } from '../../../api/src/code-mode/code-tools.ts'
 import { createScriptTool, ScriptPausedError } from '../../../api/src/code-mode/tool.ts'
 import { reviewUnavailableText, exposureOf } from '../../../api/src/approval-review/operations.ts'
@@ -509,33 +509,6 @@ test.describe('a script paused for a person (createScriptTool, codeFacingTools)'
     assert.deepEqual([...ran].sort(), ['write:a', 'write:b'])
     assert.equal(out, 'fulfilled:written|fulfilled:written')
     assert.deepEqual(reviewed, ['write:a', 'write:b'], 'reviewed once each, before the pause')
-  })
-
-  // CODE_MODE_CONTINUATION_SECRET unset: a chat's scripts are built as before pausing existed (no ScriptPauses).
-  test('without a continuation secret, a chat\'s script never pauses: a call needing a person is refused as before', async () => {
-    assert.equal(scriptsMayPause('chat', undefined), false)
-    assert.equal(scriptsMayPause('chat', 'a secret of at least thirty-two characters'), true)
-    assert.equal(scriptsMayPause('task', 'a secret of at least thirty-two characters'), false)
-    const review = { route: 'reviewer' as const, cls: 'write' as const, kind: 'action' as const }
-    const ran: string[] = []
-    const fixed = {
-      ...gated(ran),
-      note: { tool: plain(async () => { ran.push('note'); return 'ok' }), server: 'dev', review }
-    }
-    const tools = codeFacingTools({
-      names: Object.keys(fixed),
-      fixed,
-      page: {},
-      callPath: {},
-      trace: trace(),
-      review: { reviewNested: async () => ({ outcome: 'unsure', reason: 'not sure', code: 'judged' }) as any, noteNested: () => {} }
-    })
-    assert.deepEqual(Object.keys(tools), ['read', 'note'], 'the tool needing a person stays out of the map')
-    const script = createScriptTool(tools)
-    assert.doesNotMatch(String(script.description), /pauses the script/)
-    const out = String(await script.execute!({ js: 'try { await tools.note({}) } catch (e) { return "refused: " + e.message }' }, opts('cmN')))
-    assert.match(out, /^refused: /)
-    assert.deepEqual(ran, [])
   })
 
   test('without a person (a task run), a tool needing approval stays out of the map', () => {

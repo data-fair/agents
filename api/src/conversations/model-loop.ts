@@ -30,7 +30,7 @@ import { createScriptTool } from '../code-mode/tool.ts'
 import { codeFacingTools, createCodeTrace, createScriptPauses, type TurnCalls } from '../code-mode/code-tools.ts'
 import type { CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
 import { resumeDecidedScripts } from './script-resume.ts'
-import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeModeOfferedTo, scriptsMayPause } from '../code-mode/operations.ts'
+import { CODE_MODE_TOOL_NAME, CODE_MODE_SERVER_ID, CODE_MODE_ANNOTATIONS, codeModeOfferedTo } from '../code-mode/operations.ts'
 import { waitHandover, repairWaitInput, WAIT_ACCEPTED } from '../agent-session/host-events.ts'
 import { enforceQuotas } from '../usage/enforce.ts'
 import { chargeModelCall } from '../usage/charge.ts'
@@ -270,7 +270,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
 
   // SCRIPTS PAUSED FOR A PERSON (api/src/code-mode): in a chat, a script's call needing a person pauses it, its
   // continuation kept by the target until the decision; the approval run then resumes it (resumeDecidedScripts).
-  const scriptPauses = scriptsMayPause(target.surface, config.codeMode?.continuationSecret) && target.scriptPauses
+  const scriptPauses = target.surface === 'chat' && target.scriptPauses
     ? createScriptPauses((toolCallId, interrupt, decisions, spent) => target.scriptPauses!.store(toolCallId, interrupt, decisions, spent))
     : undefined
 
@@ -402,14 +402,13 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
 
   // AN APPROVAL RUN RESUMES THE SCRIPTS DECIDED ON FIRST (./script-resume.ts), before the SDK sees the history: their
   // calls settled there, the history patched to read them. One paused again ends the turn on its card, no model call.
-  // Pausing off since the card was made (the secret removed): a decided card cannot resume, and settles as such.
-  if (target.surface === 'chat' && target.scriptPauses && run.trigger === 'approval') {
+  if (scriptPauses && target.scriptPauses && run.trigger === 'approval') {
     const { repausedOn } = await resumeDecidedScripts({
       store: target.scriptPauses,
-      pauses: scriptPauses ?? createScriptPauses(async () => false),
+      pauses: scriptPauses,
       turnCalls: scriptCalls,
       ...(gate ? { noteNested: (toolName: string) => gate.noteNested(toolName) } : {}),
-      codeTool: () => scriptPauses ? liveTools[CODE_MODE_TOOL_NAME] : undefined,
+      codeTool: () => liveTools[CODE_MODE_TOOL_NAME],
       history,
       abortSignal,
       earlierTraces,
