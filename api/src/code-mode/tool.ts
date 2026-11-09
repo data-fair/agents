@@ -22,12 +22,12 @@ import { LoopSignal } from '../conversations/operations.ts'
 
 /**
  * Set once, at startup: the process-wide worker pool's size (config.codeModeMaxWorkers), and the key signing a paused
- * script's continuation (config.codeMode.continuationSecret), the same on every instance so the decision resumes it
- * wherever it lands, and after a restart, for PAUSED_SCRIPT_MAX_AGE_MS.
+ * script's continuation (derived from the cipher key, getContinuationSigningKey), the same on every instance so the
+ * decision resumes it wherever it lands, and after a restart, for PAUSED_SCRIPT_MAX_AGE_MS.
  */
-export const configureCodeMode = (maxWorkers: number, continuationSecret: string) => {
+export const configureCodeMode = (maxWorkers: number, continuationSigningKey: Uint8Array) => {
   setMaxWorkers(maxWorkers)
-  setContinuationSigningKey(continuationSecret, { maxAgeMs: PAUSED_SCRIPT_MAX_AGE_MS })
+  setContinuationSigningKey(continuationSigningKey, { maxAgeMs: PAUSED_SCRIPT_MAX_AGE_MS })
 }
 
 /**

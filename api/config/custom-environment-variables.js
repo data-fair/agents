@@ -58,9 +58,6 @@ export default {
     __name: 'CODE_MODE_MAX_WORKERS',
     __format: 'json'
   },
-  codeMode: {
-    continuationSecret: 'CODE_MODE_CONTINUATION_SECRET'
-  },
   tripwire: {
     enabled: { __name: 'TRIPWIRE_ENABLED', __format: 'json' }
   },

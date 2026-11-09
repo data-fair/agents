@@ -213,9 +213,12 @@ the map and an unsure denies, as before.
 - **The continuation** is kept in the `script-pauses` collection (`api/src/code-mode/pauses.ts`), as JSON text, keyed
   by conversation and call, not in the part: the part is sent to the page on every frame and exported, and the
   continuation holds everything the script read so far (up to `run`'s 32 MiB record). One too large for a MongoDB
-  document fails the call instead (`scriptPauseTooLargeMessage`). It is signed with `codeMode.continuationSecret`
-  (`CODE_MODE_CONTINUATION_SECRET`, required in production: at least 32 characters, the same on every instance, set at startup with
-  `experimental_setCodeModeContinuationSigningKey`) and expires after 24 h (`PAUSED_SCRIPT_MAX_AGE_MS`), when a TTL
+  document fails the call instead (`scriptPauseTooLargeMessage`). It is signed (the package refuses an unsigned
+  continuation) with a key derived from the cipher key (`getContinuationSigningKey`, HKDF over `CIPHER_PASSWORD`'s
+  key, set at startup with `experimental_setCodeModeContinuationSigningKey`): the cipher password is already the same
+  on every instance and across restarts, so a decision resumes the script wherever it lands, with no secret of its own
+  to deploy. The package's default, a random key per process, would fail every pending card at a restart or on another
+  instance; the signature itself adds little here, since the continuation never leaves the server and expires after 24 h (`PAUSED_SCRIPT_MAX_AGE_MS`), when a TTL
   index drops it.
 - **The card** is the nested call's: the chat shows the script's chip, the calls it made, then the card of the call it
   paused on, saying a script waits on it (`nested` on the invocation, `ApprovalCard` `in-script`). The decision goes

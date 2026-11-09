@@ -145,7 +145,6 @@ JSON-parsed numbers, global rather than per account. They bound **every** turn o
 | `SHUTDOWN_GRACE_SECONDS` | `90` | on SIGTERM, how long running turns get to finish before being stopped as "the server restarted" (see [autonomous agents](./autonomous-agents.md#recovery)). The pod's `terminationGracePeriodSeconds` must exceed it by about 15 s. |
 | `COMPACTION_PERCENT` | `70` | share of the assistant model's context window above which history is compacted (see [Context management](./context-management.md)). |
 | `CODE_MODE_MAX_WORKERS` | `4` | `code_mode` scripts running at once in one process, one QuickJS worker (64 MiB heap) each; a script arriving when all are busy is refused, not queued (see [Code mode](./code-mode.md#engine-and-limits)). |
-| `CODE_MODE_CONTINUATION_SECRET` | none (a fixed value in development); required in production | at least 32 characters, the same on every instance; signs the continuation of a `code_mode` script paused on a call that needs the person, so the decision resumes it on any instance and after a restart, for 24 h (see [Code mode](./code-mode.md#a-call-that-needs-a-person)). Changing it makes the scripts paused at that moment unable to resume. |
 
 ### `MCP_SERVERS`
 
