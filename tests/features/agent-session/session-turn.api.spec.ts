@@ -344,7 +344,8 @@ test.describe('A turn over the agent session', () => {
     // 404: a conversation that does not exist.
     session.send({ type: 'hello', conversationId: 'no-such-conversation', tools: [] })
     assert.equal((await session.next()).type, 'attached')
-    assert.deepEqual(await session.next(), { type: 'error', status: 404, message: 'unknown conversation' })
+    // A refused hello is blocking: the conversation cannot be opened, so the chat offers no composer.
+    assert.deepEqual(await session.next(), { type: 'error', status: 404, message: 'unknown conversation', blocking: true })
   })
 
   test('a hello and two prompts sent back to back make one thread, with both messages in order', async () => {

@@ -285,7 +285,7 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
     'snapshot',
     // The only tool here that returns an IMAGE, which is what an image-bearing result can only be tested
     // with: such a result is stored and replayed as an envelope, and reaches the model as image parts.
-    { description: 'Returns a tiny PNG chart and a caption', inputSchema: {}, annotations: { readOnlyHint: true } },
+    { description: 'Returns a small PNG chart and a caption', inputSchema: {}, annotations: { readOnlyHint: true } },
     async () => {
       record('snapshot')
       return {
@@ -417,8 +417,11 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
   return mcp
 }
 
-/** A 1x1 PNG, what the `snapshot` tool returns as its image. */
-export const SNAPSHOT_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+/**
+ * What the `snapshot` tool returns as its image: "731" in white on blue, 160x100. A number no model guesses, so a
+ * real model asked what it saw (dev, simulations) shows whether it was sent the image or only its caption.
+ */
+export const SNAPSHOT_PNG = 'iVBORw0KGgoAAAANSUhEUgAAAKAAAABkCAMAAAA2aMu9AAAAIGNIUk0AAHomAACAhAAA+gAAAIDoAAB1MAAA6mAAADqYAAAXcJy6UTwAAAAMUExURR5aqGePxEh4uO3y+Lys+eoAAAAHdElNRQfqCwkQBCrSIkN9AAABYElEQVRo3u2YQZKDMAwEkfL/P28tlXWwMxZcGKey3UcwpUEay4JtAwAAAAAAAAAAAPgvxE6uCp8PxUvd61pI9b93bhUflcCYyB7e7tYMSoExSe7kWb/APAjc7ZfxXuXsX8fFUOEWPMdcxWOJwN70Md4Z5d2/R1QCdUbyqOUvd3m7BQdiHlAILNffQhaW6rTkc53bglXTGDwY7QGjwCwsL5PrtmCRj5TJNVuwCBe6+OYKT8JlxOxE8woUCTyeg0q6tU2rXdAE6nHQa0FVxSvDoEufPFX3WbqbcN702yxYBYsP2CN1tUJKce6RPEnG8jZ9NrnLFzAKPJ87lUCjBc9DrRV4oVazLm7Rd7ZDtuKYsQi88G2rTGqrcFxMoDoHLQJlcPGJPoixtWnZYroBRo+DLgvqHdKGmDYrLDtH5rN8j1xisOCkxYy/lIQSk8B5i4l6nLb/9AAAAAAAAAAAAIAv4AcZMQg7/ffSAgAAAABJRU5ErkJggg=='
 
 export const startMcpFixture = async (port: number): Promise<McpFixture> => {
   let lastHeaders: Record<string, string | string[] | undefined> = {}

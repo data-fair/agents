@@ -98,18 +98,22 @@ function buildProviderModel (provider: Provider, modelId: string): LanguageModel
     case 'ollama':
       return createOllama({ baseURL: provider.baseURL, ...f })(modelId)
     case 'scaleway':
+      // `supportsMultiPartToolContent` (here and below): a tool result's images go as `image_url` parts of the
+      // tool message. Without it the library JSON-stringified them, so the model read the base64 as TEXT (about
+      // 49k tokens for one 1280x800 screenshot, against about 830 as an image) and could not see it. A model
+      // without `imageInput` never gets image parts (api/src/conversations/model-images.ts).
       // Scaleway does not implement the OpenAI /v1/responses endpoint, so it uses the
       // /v1/chat/completions model. Route it through @ai-sdk/openai-compatible (rather
       // than @ai-sdk/openai's .chat()) so reasoning models' `reasoning_content` is
       // captured as reasoning parts — @ai-sdk/openai silently drops that field.
-      return createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId), includeUsage: true, ...f }).chatModel(modelId)
+      return createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, apiKey: provider.apiKey, baseURL: scalewayBaseURL(provider.projectId), includeUsage: true, supportsMultiPartToolContent: true, ...f }).chatModel(modelId)
     case 'openai-compatible': {
       // 'compatible' mode targets /v1/chat/completions; route it through
       // @ai-sdk/openai-compatible to capture `reasoning_content` (see scaleway above).
       // 'default' mode keeps @ai-sdk/openai's /v1/responses callable, which already
       // surfaces reasoning natively.
       if (provider.compatibility === 'compatible') {
-        return createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, apiKey: provider.apiKey, baseURL: provider.baseURL!, includeUsage: true, ...f }).chatModel(modelId)
+        return createOpenAICompatible({ name: OPENAI_COMPATIBLE_PROVIDER_NAME, apiKey: provider.apiKey, baseURL: provider.baseURL!, includeUsage: true, supportsMultiPartToolContent: true, ...f }).chatModel(modelId)
       }
       return createOpenAI({ apiKey: provider.apiKey, baseURL: provider.baseURL, ...f })(modelId)
     }
@@ -186,6 +190,7 @@ export interface GlobalAiModel {
   provider: string
   usage: ModelRole[]
   contextWindow?: number
+  imageInput?: boolean
   inputPricePerMillion: number
   outputPricePerMillion: number
   cachedInputPricePerMillion?: number
@@ -240,6 +245,8 @@ export interface CatalogModel {
    * number field), not a zero-token window, so it falls through.
    */
   contextWindow: number
+  /** Whether tool-result images reach the model as images. Always resolved, see resolveImageInput. */
+  imageInput: boolean
   /** Euros per 1M tokens. Always resolved; see resolveCachePrice for the cache chain. */
   inputPricePerMillion: number
   outputPricePerMillion: number
@@ -254,6 +261,7 @@ export interface OrgModelDef {
   model: { id: string, name: string, provider: { type: string, name: string, id: string }, contextWindow?: number, cachedInputPricePerMillion?: number }
   usage: string[]
   contextWindow?: number
+  imageInput?: boolean
   inputPricePerMillion?: number
   outputPricePerMillion?: number
   cachedInputPricePerMillion?: number
@@ -268,6 +276,25 @@ export interface OrgModelDef {
  */
 function resolveCachePrice (entryPrice: number | undefined, snapshot: number | undefined, inputPrice: number): number {
   return entryPrice ?? snapshot ?? inputPrice
+}
+
+/**
+ * Providers whose AI SDK adapter carries a tool result's images as images (Anthropic tool_result blocks, the
+ * OpenAI Responses function_call_output, Google function results, OpenRouter and the chat-completions
+ * adapter's `image_url` parts). Mistral's adapter JSON-stringifies them and ai-sdk-ollama's shape is not one
+ * Ollama documents: there an image would reach the model as base64 text, so it never does.
+ */
+const IMAGE_CARRIERS = new Set(['anthropic', 'openai', 'google', 'openrouter', 'scaleway', 'openai-compatible', 'mock'])
+/**
+ * When `imageInput` is not set, providers whose catalog is mostly vision models default to on (this was their
+ * behaviour before the flag), and providers that serve any open model (Scaleway, OpenAI-compatible
+ * endpoints) default to off. Off sends a placeholder; on, to a text-only model, sends an image it ignores
+ * (GLM 5.3 on GreenPT answers "no image") or refuses.
+ */
+const IMAGE_INPUT_BY_DEFAULT = new Set(['anthropic', 'openai', 'google', 'openrouter', 'mock'])
+export function resolveImageInput (providerType: string, imageInput: boolean | undefined): boolean {
+  if (!IMAGE_CARRIERS.has(providerType)) return false
+  return imageInput ?? IMAGE_INPUT_BY_DEFAULT.has(providerType)
 }
 
 /** Merge global config models and per-org model definitions into the single
@@ -291,6 +318,7 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
       provider: { type: p.type, name: p.name, id: p.id },
       usage: m.usage,
       contextWindow: m.contextWindow || UNKNOWN_CONTEXT_WINDOW,
+      imageInput: resolveImageInput(p.type, m.imageInput),
       inputPricePerMillion,
       outputPricePerMillion: m.outputPricePerMillion,
       cachedInputPricePerMillion: resolveCachePrice(m.cachedInputPricePerMillion, undefined, inputPricePerMillion),
@@ -307,6 +335,7 @@ export function getModelCatalog (globalProviders: GlobalAiProvider[], globalMode
       provider: om.model.provider,
       usage: om.usage as ModelRole[],
       contextWindow: om.contextWindow || om.model.contextWindow || UNKNOWN_CONTEXT_WINDOW,
+      imageInput: resolveImageInput(om.model.provider.type, om.imageInput),
       inputPricePerMillion,
       outputPricePerMillion: om.outputPricePerMillion ?? 0,
       cachedInputPricePerMillion: resolveCachePrice(om.cachedInputPricePerMillion, om.model.cachedInputPricePerMillion, inputPricePerMillion),

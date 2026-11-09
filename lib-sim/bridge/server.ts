@@ -5,13 +5,13 @@
  */
 import http from 'node:http'
 import crypto from 'node:crypto'
-import { query, type McpServerConfig, type Options } from '@anthropic-ai/claude-agent-sdk'
+import { query, type McpServerConfig, type Options, type SDKUserMessage } from '@anthropic-ai/claude-agent-sdk'
 import { createNeutralCwd, isolationOptions } from '../isolation.ts'
 import { createToolServer, TOOL_TIMEOUT_MS } from './tool-server.ts'
 import { SessionStore, continuationOf, hashMessages, sameToolSet } from './sessions.ts'
 import { Conversation, type TurnOutcome, type SdkMessage } from './conversation.ts'
 import {
-  systemPromptFor, renderTranscript, toolNameToMcp, textChunk, toolCallsChunk,
+  systemPromptFor, renderTranscript, renderTranscriptBlocks, toolNameToMcp, textChunk, toolCallsChunk,
   finalChunk, errorBody, completionOf, MCP_SERVER_NAME,
   type OpenAIMessage, type OpenAIToolDef
 } from './openai.ts'
@@ -76,7 +76,19 @@ type BridgeQueryOptions = Options & Required<Pick<Options,
  * observe the options actually handed over without a network or a model — the
  * isolation guarantee is a property of this call site, not only of the factory.
  */
-export type BridgeQuery = (args: { prompt: string, options: BridgeQueryOptions }) => AsyncIterable<SdkMessage>
+export type BridgeQuery = (args: { prompt: string | AsyncIterable<SDKUserMessage>, options: BridgeQueryOptions }) => AsyncIterable<SdkMessage>
+
+/**
+ * The replay prompt: the transcript as a string, or, when the history carries images, as one user message of text
+ * and image blocks (the SDK's streaming input; a string prompt cannot carry an image).
+ */
+export function replayPrompt (messages: OpenAIMessage[]): string | AsyncIterable<SDKUserMessage> {
+  const blocks = renderTranscriptBlocks(messages)
+  if (!blocks.some(block => block.type === 'image')) return renderTranscript(messages)
+  return (async function * () {
+    yield { type: 'user', message: { role: 'user', content: blocks as any }, parent_tool_use_id: null } as SDKUserMessage
+  })()
+}
 
 function readBody (req: http.IncomingMessage): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -217,7 +229,7 @@ async function handleCompletion (
   active = conv
   const toolServer = createToolServer(tools, (name, args) => conv.handleToolCall(name, args))
   const iterator = runQuery({
-    prompt: renderTranscript(messages),
+    prompt: replayPrompt(messages),
     options: {
       ...isolationOptions(getNeutralCwd()),
       model,

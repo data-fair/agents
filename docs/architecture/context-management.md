@@ -144,6 +144,32 @@ follows: "clears older tool outputs first, then summarizes the conversation if n
 A planned task's run starts from one prompt, so it never compacts at start; the per-step tier is what
 keeps a long run within its window.
 
+## Images
+
+A tool can return images (an MCP `image` part: a page preview, a chart). They reach the model as image
+parts (`mediaModelOutput`, `api/src/conversations/operations.ts`, live and on replay). Before each step,
+ahead of tiers 0 and 1, `limitModelImages` (`api/src/conversations/model-images.ts`) decides which images are
+sent:
+
+- **only the most recent one** (`KEPT_IMAGES`). Each older image is replaced by a placeholder, and its result's
+  text report is kept. This is the convention of Anthropic's computer-use reference loop
+  (`only_n_most_recent_images`): an old screenshot shows a page that has since changed, and the model can call the
+  tool again. A placeholder depends only on its image, and an image only goes from shown to replaced, so the
+  prefix stays cacheable;
+- **none to a model without `imageInput`** (`resolveImageInput`, see
+  [configuration](./configuration.md#models)). It gets a placeholder saying so. GLM 5.3 on GreenPT answers "no
+  image" when sent one, and other text-only models refuse the request.
+
+**Fill counts each image sent at `IMAGE_TOKEN_ESTIMATE` (1,600 tokens)**, Anthropic's ceiling. Measured
+2026-11-09: one 1280x800 screenshot costs about 830 input tokens on DeepSeek V4.1 Flash (GreenPT), and OpenAI's
+high detail bills it 1,105. Before this, images were left out of the fill entirely, and it did not matter
+less than it seemed: the chat-completions adapter (`@ai-sdk/openai-compatible`, used for Scaleway and
+OpenAI-compatible endpoints) JSON-stringified an image in a tool result unless asked otherwise
+(`supportsMultiPartToolContent`). The model then read the base64 as text, about 49k tokens for that same
+screenshot, and invented what it showed. Re-sent at every step, a portals simulation turn with four previews
+carried about 170k tokens of base64. The adapter now sends them as `image_url` parts of the tool message, which
+DeepSeek V4.1 Flash and GLM 5.3 Flash on GreenPT both read.
+
 ## Prompt caching
 
 Clearing **invalidates the cached prompt prefix** — that is why `clear_at_least` exists upstream. The
@@ -210,6 +236,7 @@ The decision estimates fill rather than counting tokens exactly:
 
 ```
 fillTokens = estimateTokens(length of the serialized rebuilt history, images as placeholders)
+           + IMAGE_TOKEN_ESTIMATE x (images a step will send: the latest, at most)
 ```
 
 `estimateTokens` converts characters at a fixed 4 per token (`CHARS_PER_TOKEN`). There is no
@@ -303,6 +330,8 @@ browser's former `sessionStorage` `agent-chat-compaction-threshold` knob went wi
   above before the first step.
 - `api/src/conversations/step-context.ts` — `createStepContext`, tiers 0 and 1 before each step, sticky;
   `tests/features/autonomous-agents/step-context.unit.spec.ts`.
+- `api/src/conversations/model-images.ts` — `limitModelImages` and `estimateModelFill`, the images a step sends
+  and what they weigh; `tests/features/tool-result/2.model-images.unit.spec.ts`.
 - `api/src/conversations/operations.ts` — `boundToolResult`, tier 0, applied as each tool result is stored.
 - `tests/features/chat-hang/compaction-policy.unit.spec.ts` — the policy, including that the loop routes
   through it and that the numbers in this document match the constants.
@@ -313,4 +342,5 @@ browser's former `sessionStorage` `agent-chat-compaction-threshold` knob went wi
 - LangChain built-in middleware (`ContextEditingMiddleware` with `ClearToolUsesEdit`, `SummarizationMiddleware`): https://docs.langchain.com/oss/python/langchain/middleware/built-in
 - AI SDK loop control, context management in `prepareStep`: https://ai-sdk.dev/docs/agents/loop-control
 - Claude Code, how it manages its context: https://code.claude.com/docs/en/how-claude-code-works
+- Anthropic, computer-use reference loop (`only_n_most_recent_images`): https://github.com/anthropics/claude-quickstarts/tree/main/computer-use-demo ; image token cost: https://platform.claude.com/docs/en/build-with-claude/vision
 - Lindenbauer et al., "The Complexity Trap: Simple Observation Masking Is as Efficient as LLM Summarization for Agent Context Management": https://arxiv.org/abs/2508.21433

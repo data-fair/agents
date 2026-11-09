@@ -101,6 +101,10 @@ targets `/v1/responses`, which the bridge does not implement). Leave the API key
 Model listing for org providers goes through lib-node's SSRF-guarded axios, which refuses
 loopback; `df-dev init-env` writes `SSRF_PUBLIC_IPS=127.0.0.1,::1` to `.env` so the bridge is reachable.
 
+Tick **Reads images** (`imageInput`) on its models for page screenshots and other tool images to reach Claude:
+the bridge hands them on as MCP image parts (live tool loop) or image blocks (replayed history). Unset, an
+OpenAI-compatible provider gets placeholders instead. The simulation runners set it.
+
 `GET /_bridge/status` reports how many conversations are holding a live `claude` session.
 It binds `127.0.0.1` only: it is unauthenticated and spends your subscription.
 

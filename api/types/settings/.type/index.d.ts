@@ -91,6 +91,10 @@ export type Moderator = "moderator";
  */
 export type ContextWindowTokens = number;
 /**
+ * Whether the model is sent the images tools return, such as page screenshots. Unchecked, it gets a short placeholder in their place. Until it is set, the provider default applies: on for Anthropic, OpenAI, Google and OpenRouter, off for Scaleway and OpenAI-compatible endpoints. Never on for Mistral and Ollama.
+ */
+export type ReadsImages = boolean;
+/**
  * Euros per million fresh input tokens, as listed by the provider.
  */
 export type InputPricePer1MTokens = number;
@@ -106,6 +110,7 @@ export type Models = {
   model: Model;
   usage: AppropriateUsages;
   contextWindow?: ContextWindowTokens;
+  imageInput?: ReadsImages;
   inputPricePerMillion: InputPricePer1MTokens;
   cachedInputPricePerMillion?: CachedInputPricePer1MTokens1;
   outputPricePerMillion: OutputPricePer1MTokens;

@@ -440,7 +440,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     idleAbort.abort(new Error(`the model stream went silent for ${STREAM_IDLE_TIMEOUT_MS / 1000}s`))
   })
   // Context between steps (./step-context.ts): composed AFTER the loop guards' rebuild, which owns `messages`.
-  const stepContext = createStepContext(budget)
+  const stepContext = createStepContext(budget, { imageInput: entry.imageInput })
   // The step a trip leaves the model to explain it (stopWhen, prepareStep), and whether it did: when it did, its
   // own words are the turn's explanation and the fixed notice is not appended.
   let tripExplaining = false

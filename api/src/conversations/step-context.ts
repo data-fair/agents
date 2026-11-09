@@ -17,13 +17,17 @@
  * placeholder (computed from the tier-0 bounded text both times), so the prefix is byte-identical from step to
  * step and the provider's cache of it survives. Nothing here touches the record.
  *
+ * IMAGES first (./model-images.ts): only the most recent one is sent, and none to a model without `imageInput`;
+ * the fill counts each image sent at its real cost.
+ *
  * Only `{type:'text'}` outputs are BOUNDED (tier 0). `json`, `content` (media) and error variants are left as the
- * tools produced them (no honest string cut; media is excluded from the fill by redactModelMedia), but can still be
+ * tools produced them (no honest string cut), but can still be
  * CLEARED by tier 1, and stay cleared, from the same text clearOldToolResults reads.
  */
 import type { ModelMessage } from 'ai'
-import { boundToolResult, redactModelMedia } from './operations.ts'
-import { clearOldToolResults, clearedToolResultText, estimateTokens, toolResultText } from './compaction-policy.ts'
+import { boundToolResult } from './operations.ts'
+import { clearOldToolResults, clearedToolResultText, toolResultText } from './compaction-policy.ts'
+import { estimateModelFill, limitModelImages } from './model-images.ts'
 
 type ResultPart = { type: 'tool-result', toolCallId: string, toolName: string, output: { type: string, value?: unknown } }
 
@@ -43,7 +47,7 @@ const mapResults = (messages: ModelMessage[], rewrite: (part: ResultPart) => Res
     return changed ? { ...message, content } as ModelMessage : message
   })
 
-export const createStepContext = (budget: number) => {
+export const createStepContext = (budget: number, { imageInput }: { imageInput: boolean }) => {
   const cleared = new Set<string>()
   // The cleared ids re-applied to the tier-0 bounded messages; the placeholder depends on the bounded text only.
   const applyCleared = (bounded: ModelMessage[]) => cleared.size === 0
@@ -55,7 +59,7 @@ export const createStepContext = (budget: number) => {
       return { ...part, output: { type: 'text', value: clearedToolResultText(part.toolName, text.length, text) } }
     })
   return (messages: ModelMessage[]): ModelMessage[] => {
-    const bounded = mapResults(messages, part => {
+    const bounded = mapResults(limitModelImages(messages, { imageInput }), part => {
       const text = textOf(part.output)
       if (text === undefined) return part
       const result = boundToolResult(text).result
@@ -63,7 +67,7 @@ export const createStepContext = (budget: number) => {
     })
     const sticky = applyCleared(bounded)
     if (!budget) return sticky
-    if (estimateTokens(JSON.stringify(redactModelMedia(sticky)).length) <= budget) return sticky
+    if (estimateModelFill(sticky) <= budget) return sticky
     // Decided on the UNCLEARED messages: clearing a placeholder again would rewrite its length.
     const decision = clearOldToolResults(bounded, budget)
     if (!decision.clear) return sticky
