@@ -186,16 +186,22 @@ refused rather than run unjudged.
 
 The exposure follows the script: every nested call that ran is noted (`noteNested`), and a scanned tool's output
 having entered the script makes the rest of the turn exposed for the reviewer — a script that reads outside
-content and then writes is the same exposure as two direct calls. The circuit breaker counts nested denials (a
-judged unsure among them, since it denies here), and once tripped every further nested reviewed call is denied
-without a review, so a running script cannot go on trying variants until one is allowed.
+content and then writes is the same exposure as two direct calls. It holds across a pause too
+([below](#a-call-that-needs-a-person)): the tools whose output entered the script before it paused are kept with the
+pause and noted again in the turn that resumes it. The circuit breaker counts nested denials (in a task run a judged
+unsure among them, since it denies there; in a chat an unsure pauses the script for the person and is not counted),
+and once tripped every further nested reviewed call is denied without a review, so a running script cannot go on
+trying variants until one is allowed.
 
 ## A call that needs a person
 
 In a chat, a script's call that needs the person — the reviewer unsure, an allow on the `reviewer+person` route, a
 personal assistant's write (its own `needsApproval`) — **pauses the script**; the person gets a card, and the script
 resumes after the decision, where it stopped. A planned task run has nobody to decide: there such tools stay out of
-the map and an unsure denies, as before.
+the map and an unsure denies, as before. So does a chat where the deployment sets no `codeMode.continuationSecret`
+(`CODE_MODE_CONTINUATION_SECRET`, `scriptsMayPause`): without a key to sign continuations no script pauses, and the
+api logs an error at startup (`code-mode-continuation-secret-missing`). A card decided after the secret was removed
+settles as the "could not resume" error below.
 
 - **The pause.** In a chat `codeFacingTools` is given the turn's `ScriptPauses`, and each tool that can need a person
   declares the package's `needsApproval` as a function: for a reviewed tool the review runs there (`reviewNested`, its
@@ -226,6 +232,11 @@ the map and an unsure denies, as before.
   budget- and breaker-checked as any nested call. The result is settled on the earlier message, and the run's history
   is patched to read it, before the SDK sees an approval it did not issue (unsigned, it would refuse the run). The
   trace of the resumed calls is merged into the earlier message's `data-trace`, under the one chip.
+- **What the script used before the pause is carried to its resume** (`ScriptSpent`, `spent` in `script-pauses`): the
+  calls before the pause are answered from `run`'s record, through none of our wrappers, so the resuming turn is
+  handed their count (against `CODE_MODE_TURN_CALLS`), the bytes they moved (against `SCRIPT_TRANSFER_BYTES`) and the
+  tools whose output entered the script (`noteNested`: a scanned read before the pause makes a write after it
+  exposed). Pausing is no way around a bound or the exposure.
 - **A rejection** throws inside the resumed script (`rejectedCallMessage`), which may catch it. 1.0.116 fails a
   continuation that holds a denial before the script runs again (`assertNoDeniedApproval`), so a script could not:
   a rejection is resumed as an approval whose call throws instead (pinned by `code-tools.unit.spec.ts`).
@@ -238,10 +249,15 @@ the map and an unsure denies, as before.
   other approved direct calls wait for that decision too: `settleApprovedWithoutResult` skips a message that still
   holds an undecided call.
 - **It cannot resume** when the continuation expired, was tampered with, or no longer matches the tools (the
-  package's `CodeModeProtocolError`), or `code_mode` is not offered to the person who decided: the call settles as
+  package's `CodeModeProtocolError`): a changed tool set refuses the resume too — the page's tools differing on the
+  tab the person decides on, an MCP server's listing changed since the pause. The package's message is logged
+  (`code-mode-resume-refused`, with the call and interrupt ids). The same when `code_mode` is not offered to the
+  person who decided: the call settles as
   `The script could not resume after the approval (expired or invalid); nothing after the paused call ran. Run the
   remaining steps again.`
-- **A new message instead of a decision** cancels the card as a direct call's (`rejectPendingApprovals`); on replay
+- **A new message instead of a decision** cancels the card as a direct call's (`rejectPendingApprovals`). A script's
+  card already rejected, waiting for another call of its step to be decided, keeps its rejection (`output-denied`,
+  the person's reason), never "Approved, but…"; on replay
   the model reads that the script stopped at that call, the calls before it having run (`pausedScriptDenialText`). The
   stored continuation is dropped then, and with the conversation when it is deleted, purged or erased, and with an
   agent's conversations (`dropConversationScriptPauses`): it holds what the script's calls returned.

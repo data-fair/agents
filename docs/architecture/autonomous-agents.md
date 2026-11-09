@@ -421,7 +421,9 @@ A script's call in a chat follows the same table: where it says "a card", the sc
 card is the call's, the script resuming after the decision ([code mode](./code-mode.md#a-call-that-needs-a-person)).
 
 The gate table above therefore holds for a script as for the model's own call in a chat: a `reviewer+person` tool, or
-a `reviewer` call judged unsure, pauses the script and asks; only a task run's scripts (no person) are refused.
+a `reviewer` call judged unsure, pauses the script and asks. In a task run (no person), a `reviewer+person` tool
+(`needsApproval`) is left out of the script's map, while a `reviewer` tool stays callable: it runs on an allow and is
+denied on an unsure or a deny, as a direct call there.
 
 A pending approval that a new message or a page action supersedes is shown as « Annulé » / "Cancelled", not
 « Refusé » / "Denied": nobody decided it. The card says so (« Envoyer un message annule cette demande. »). The
