@@ -72,6 +72,7 @@ test.describe('buildSystemPrompt', () => {
     assert.ok(buildSystemPrompt(agent, undefined, 'chat').includes(APPROVAL_NOTE))
     assert.match(APPROVAL_NOTE, /cancelled/)
     assert.match(APPROVAL_NOTE, /result is in front of you/)
+    assert.match(APPROVAL_NOTE, /answer in those words rather than by its number/)
     // A judged run announced the action and ended its turn without calling it: the sentence goes WITH the call.
     assert.match(APPROVAL_NOTE, /in the same reply as the call/)
     assert.ok(!buildSystemPrompt(agent, undefined, 'task').includes(APPROVAL_NOTE))

@@ -8,7 +8,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { bridgeSettings, MODEL_ROLES, REVIEW_CONSENT_COOKIE, REVIEW_CONSENT_YES } from '../../../lib-sim/bridge-settings.ts'
 import { runErrors } from '../../../lib-sim/conversation-export.ts'
-import { handsOver, runTurns, applyAfterRun } from '../../../lib-sim/run-simulation.ts'
+import { handsOver, runTurns, applyAfterRun, fetchSettledExports } from '../../../lib-sim/run-simulation.ts'
 import { DONE } from '../../../lib-sim/persona.ts'
 import { simCaseNames } from '../../../lib-sim/cases.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
@@ -162,5 +162,22 @@ test.describe('applyAfterRun', () => {
 
   test('no result leaves the run as it was', () => {
     assert.deepEqual(applyAfterRun({ evidenceErrors: [] }, { result: undefined }), {})
+  })
+})
+
+test.describe('fetchSettledExports', () => {
+  const exportWith = (status: string) => ({ conversationId: 'c', jsonl: [JSON.stringify({ type: 'meta' }), JSON.stringify({ type: 'run', status })].join('\n') })
+
+  test('polls until no run is going, so a last approval click is judged once its run ended', async () => {
+    const statuses = ['running', 'running', 'done']
+    let fetched = 0
+    const settled = await fetchSettledExports(async () => [exportWith(statuses[fetched++])], { sleep: async () => {} })
+    assert.equal(fetched, 3)
+    assert.deepEqual(settled, { exports: [exportWith('done')], stillRunning: false })
+  })
+
+  test('gives up at its bound and says a run was still going', async () => {
+    const settled = await fetchSettledExports(async () => [exportWith('running')], { timeoutMs: 0, sleep: async () => {} })
+    assert.equal(settled.stillRunning, true)
   })
 })

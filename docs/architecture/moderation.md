@@ -174,7 +174,7 @@ past (as Codex re-reviews a retry a person grants), and a rare card carrying the
   while a payload's free text never reaches the reviewer.
 - **The earlier calls**: the conversation's earlier gated calls (reviewed, or sent to a person), oldest first, each
   with its tool, its arguments cut to `REVIEW_EARLIER_INPUT_MAX_CHARS` (600), how it was decided (allowed by the
-  reviewer, approved or rejected by a person with the person's reason, refused by the reviewer with its reason,
+  reviewer, approved or rejected by a person, refused by the reviewer with its reason,
   refused unreviewed, awaiting a person), whether a script made it, and which of the people's messages it followed
   (`reviewContextOfConversation` over the stored messages, then the gate's own record of this turn's calls and a
   reminder pass's first-pass parts); the newest `REVIEW_EARLIER_MAX_CALLS` (20). Reads are left out: never gated,
@@ -182,7 +182,8 @@ past (as Codex re-reviews a retry a person grants), and a rare card carrying the
   another way (another tool, a script, the same deletion in smaller parts) looked fine call by call; the denial text
   asking the model not to was a request, not a check. Claude Code's classifier keeps the earlier tool calls for the
   same reason, stripping only their outputs and the assistant's text. Their arguments are the agent's, so the
-  prompt treats them as evidence, never intent; a person's rejection reason is that person's words.
+  prompt treats them as evidence, never intent. A person's rejection carries no reason: what they have to say is
+  their next message, which the reviewer reads with the others.
 - **The proposed call**: tool, server, title, annotations, class, and arguments serialized and capped at
   `REVIEW_INPUT_MAX_CHARS` (8 000), the head kept and the cut stated (`REVIEW_INPUT_CUT_MARK`): unbounded
   arguments would make cost and timeout unbounded. A call whose arguments were cut always reaches stage 2
@@ -248,8 +249,8 @@ shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to
 may change something other than what the people asked about (an index, a path or an id that could name another
 item: a one-word screen cannot tell an added item's position from an existing one's); its `no` is recorded
 `cleared`. Stage 2 answers
-`{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, in the language of the conversation, shown on the approval card instead of « le relecteur hésite : reason », cut like `reason`); the schema leaves the reason unbounded, so a long one cannot fail a
-real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300).
+`{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, shown on the approval card instead of « le relecteur hésite : reason », and as the reviewer's note on a card it allowed, cut like `reason`). `personReason` is asked in the language of the people's messages, with the chat's reported language beside it (its `language` host-state fact, checked to be a language code by `languageCodeOf`): the first alone a small model did not always follow, and the page's language is not always the person's. It shares the verdict's answer, so its wording moves the verdict: two variants telling it not to guess at stored content (judged runs' cards did) raised the guard eval's false cards from 8-11% to 16-18% on haiku, and were dropped; the schema leaves the reason unbounded, so a long one cannot fail a
+real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300) at a sentence end, else at a word with « … » (`boundReason`). Both reasons are asked for at most `REVIEW_REASON_ASKED_CHARS` (200), well under the cut: asked for 300 itself, a model ran past it.
 
 **Stage-1 timeout.** A stage 1 that does not answer in time fails the review (`failure: timeout`), the call is
 unsure and, in a chat, becomes an approval card. The timeout is the config `approvalReview.stage1TimeoutMs`

@@ -78,7 +78,7 @@ export interface AgentSessionOptions {
   onPrompt?: (content: string, hiddenContext?: string) => void | Promise<void>
   onAbort?: (dismissWait: boolean) => void | Promise<void>
   /** Called on an `approval`: the person's decision on a call the approval gate stopped. */
-  onApproval?: (approvalId: string, approved: boolean, reason?: string) => void | Promise<void>
+  onApproval?: (approvalId: string, approved: boolean) => void | Promise<void>
   /** Called after the page reported something — what may answer a pending wait. */
   onHostEvents?: () => void | Promise<void>
   /**
@@ -277,7 +277,7 @@ export function createAgentSession (options: AgentSessionOptions): AgentSession 
         case 'abort':
           return options.onAbort?.(message.dismissWait === true)
         case 'approval':
-          return options.onApproval?.(message.approvalId, message.approved, message.reason)
+          return options.onApproval?.(message.approvalId, message.approved)
         case 'review-consent':
           reviewConsent = message.consented
           return

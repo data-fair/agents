@@ -129,7 +129,9 @@ export const REPLY_STYLE_NOTE = 'The chat shows the person each tool call you ma
  * call first, so its result is already in the model's history — wrote « a fresh approval prompt should be
  * waiting ». The model receives the denial and the result; nothing told it what they mean.
  */
-export const APPROVAL_NOTE = 'Some actions wait for the person to approve them on screen. Say in one sentence what it will do, calling it by the title the approval shows, in the same reply as the call: then make the call, which puts the approval in front of them. If the person writes instead of deciding, that request is cancelled: tell them so in a few words, and put it to them again if they still want it. Once an action\'s result is in front of you, it has run and any approval was given: say what it did, and never ask for an approval already given. Before saying that data is unchanged, read it again.'
+// « in those words »: a judged run's person chose « la première option », which named a change only in the agent's reply,
+// and the reviewer, who never reads that reply, denied the change.
+export const APPROVAL_NOTE = 'Some actions wait for the person to approve them on screen. Say in one sentence what it will do, calling it by the title the approval shows, in the same reply as the call: then make the call, which puts the approval in front of them. If the person writes instead of deciding, that request is cancelled: tell them so in a few words, and put it to them again if they still want it. Once an action\'s result is in front of you, it has run and any approval was given: say what it did, and never ask for an approval already given. Before saying that data is unchanged, read it again. When you offer the person choices, describe each by what it changes, and ask them to answer in those words rather than by its number: what they write is what an approval is checked against, and « the first option » says nothing outside your own reply.'
 
 /** The subset of an autonomous agent that shapes its system prompt. */
 interface PromptableAutonomousAgent {
@@ -172,7 +174,8 @@ export const todayLine = (now: Date, timeZone: string): string => {
   const date = new Intl.DateTimeFormat('en-CA', { timeZone, year: 'numeric', month: '2-digit', day: '2-digit' }).format(now)
   // Asked where the date is: every judged closures run called a closure starting tomorrow « current », and
   // "compare the dates" alone did not change that — naming what to say (today / past / to come) is what is asked.
-  return `Today is ${day} ${date} (${timeZone}). When what you report carries dates, say which apply today and which are past or still to come.`
+  // A judged run gave a page's UTC updatedAt (15:40Z) as « 15:40 » where it was 16:40 in Paris.
+  return `Today is ${day} ${date} (${timeZone}). When what you report carries dates, say which apply today and which are past or still to come. Times in tool results ending in Z or carrying an offset are not in ${timeZone}: convert them before stating a time.`
 }
 
 /**

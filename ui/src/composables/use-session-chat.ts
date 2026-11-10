@@ -505,10 +505,10 @@ export function useSessionChat (options: UseSessionChatOptions) {
     },
 
     /** The person's decision on a call the approval gate stopped. */
-    decideApproval: (approvalId: string, approved: boolean, reason?: string) => {
+    decideApproval: (approvalId: string, approved: boolean) => {
       // Cleared so that a failure of THIS decision is a change the card can see, even when it reads like the last one.
       error.value = null
-      agent.decideApproval(approvalId, approved, reason)
+      agent.decideApproval(approvalId, approved)
     },
 
     /** The person's Stop: the turn in flight, or the handover the assistant is waiting on. */

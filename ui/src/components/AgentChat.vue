@@ -84,7 +84,7 @@
       @navigate="url => sendDFrameMessage({ type: 'navigate', url })"
       @fix-mermaid="handleFixMermaid"
       @mermaid-error="handleMermaidError"
-      @decide-approval="d => chat.decideApproval(d.approvalId, d.approved, d.reason)"
+      @decide-approval="d => chat.decideApproval(d.approvalId, d.approved)"
       @update:scrolled="value => headerElevated = value"
     />
 

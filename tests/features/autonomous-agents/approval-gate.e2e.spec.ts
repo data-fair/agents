@@ -78,12 +78,11 @@ test.describe('Approval card', () => {
     await expect.poll(() => [...fixture.invokedTools()].sort()).toEqual(['slow_lookup', 'wipe_everything'])
   })
 
-  test('rejecting with a reason leaves a declined chip, and nothing runs', async ({ page, goToWithAuth }) => {
+  test('one click on reject declines the call: a declined chip, and nothing runs', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
     await ask(page, 'call tool wipe_everything {}')
-    await page.getByTestId('approval-reject').click({ timeout: 15000 })
-    await page.getByTestId('approval-reason').locator('input').fill('not today')
-    await page.getByTestId('approval-confirm-reject').click()
+    await expect(page.getByTestId('approval-approve')).toBeEnabled({ timeout: 15000 })
+    await page.getByTestId('approval-reject').click()
     await expect(page.getByTestId('approval-card')).toHaveCount(0, { timeout: 15000 })
     await expect(page.getByTestId('tool-chip').first()).toHaveText('Declined: Wipe everything')
     expect(fixture.invokedTools()).toEqual([])

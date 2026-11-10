@@ -210,14 +210,14 @@ export const decideOverSocket = async (
   ax: Ax,
   conversationId: string,
   approvalId: string,
-  decision: { approved: boolean, reason?: string },
+  decision: { approved: boolean },
   opts: SocketTurnOptions = {}
 ): Promise<{ runId: string } | { pending: number }> => {
   const owner = opts.owner ?? 'organization/test1'
   const timeoutMs = opts.timeoutMs ?? 60_000
   const known = new Set((await runsOf(ax, owner, conversationId)).map(r => r.id))
   const { socket } = await attach(ax, conversationId, owner, timeoutMs, opts.host)
-  socket.send({ type: 'approval', approvalId, approved: decision.approved, ...(decision.reason ? { reason: decision.reason } : {}) })
+  socket.send({ type: 'approval', approvalId, approved: decision.approved })
   // The socket stays open until the continuation ends, so its frames are still delivered to whoever
   // reads the record; closed in the background so the caller is not held for the whole run.
   const closeWhenDone = () => {

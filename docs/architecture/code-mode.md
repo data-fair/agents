@@ -256,8 +256,8 @@ the map and an unsure denies, as before.
   `The script could not resume after the approval (expired or invalid); nothing after the paused call ran. Run the
   remaining steps again.`
 - **A new message instead of a decision** cancels the card as a direct call's (`rejectPendingApprovals`). A script's
-  card already rejected, waiting for another call of its step to be decided, keeps its rejection (`output-denied`,
-  the person's reason), never "Approved, but…"; on replay
+  card already rejected, waiting for another call of its step to be decided, keeps its rejection (`output-denied`),
+  never "Approved, but…"; on replay
   the model reads that the script stopped at that call, the calls before it having run (`pausedScriptDenialText`). The
   stored continuation is dropped then, and with the conversation when it is deleted, purged or erased, and with an
   agent's conversations (`dropConversationScriptPauses`): it holds what the script's calls returned.

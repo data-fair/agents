@@ -9,7 +9,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { HostEventStore, withHostContext, HOST_STATE_OPEN, HOST_EVENTS_OPEN } from '../../../api/src/agent-session/host-events.ts'
+import { HostEventStore, withHostContext, withServerFacts, personRoleFact, siteFact, PERSON_ROLE_KEY, SITE_KEY, HOST_STATE_OPEN, HOST_EVENTS_OPEN } from '../../../api/src/agent-session/host-events.ts'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
 
 /**
@@ -149,4 +149,34 @@ test.describe('withHostContext', () => {
     withHostContext(history, store)
     assert.deepEqual(history[0].content, [{ type: 'text', text: 'hello' }])
   })
+})
+
+test('the server\'s facts join the page\'s state, replace a page fact of the same key, and stand alone with no page', () => {
+  const store = new HostEventStore()
+  store.push({ name: 'language', key: 'language', detail: 'fr', at: 1 })
+  store.push({ name: PERSON_ROLE_KEY, key: PERSON_ROLE_KEY, detail: 'administrator of the organization', at: 2 })
+  const withRole = withServerFacts(store, [personRoleFact('contrib')])!
+  const state = withRole.snapshot().state
+  assert.deepEqual(state.map(e => e.key), ['language', PERSON_ROLE_KEY])
+  assert.match(state[1].detail!, /^contributor/)
+  assert.equal(withServerFacts(store, []), store)
+  const alone = withServerFacts(null, [personRoleFact('anonymous')])!
+  const [message] = withHostContext([{ role: 'user', content: 'bonjour' }], alone)
+  assert.match(String(message.content), new RegExp(`${PERSON_ROLE_KEY}: not signed in`))
+})
+
+test('the role fact names the organization role, never what it forbids, and leaves the decision to the tool', () => {
+  for (const role of ['contrib', 'user', 'external'] as const) {
+    const detail = personRoleFact(role).detail!
+    assert.doesNotMatch(detail, /read access only|cannot|not allowed/)
+    assert.match(detail, /permissions granted on a dataset or an application can allow more/)
+    assert.match(detail, /the tool's answer says whether it is allowed/)
+  }
+  assert.equal(personRoleFact('admin').detail, 'administrator of the organization')
+})
+
+test('the site fact gives the conversation\'s site address, without a trailing slash', () => {
+  const fact = siteFact('https://portal.example.org/')
+  assert.equal(fact.key, SITE_KEY)
+  assert.match(fact.detail!, /^https:\/\/portal\.example\.org \(/)
 })
