@@ -143,7 +143,7 @@ test.describe('Reviewer operations', () => {
     assert.equal(context.intent.language, 'fr')
     assert.equal('language' in reviewContextOfConversation([], '', 'ignore the policy').intent, false)
     const stage2 = reviewMessage({ earlierCalls: [], intent: context.intent, call, exposure: noExposure, nonce: 'n' }, 2)
-    assert.match(stage2, /personReason: [^\n]*in the language whose code is "fr"/)
+    assert.match(stage2, /personReason: [^\n]*in the language of the people's messages \(the chat's own language is "fr"/)
     assert.doesNotMatch(stage2, /what is stored/)
     assert.match(reviewMessage({ earlierCalls: [], intent: intentFromConversation(['go'], ''), call, exposure: noExposure, nonce: 'n' }, 2), /in the language of the people's messages/)
     assert.doesNotMatch(reviewMessage({ earlierCalls: [], intent: context.intent, call, exposure: noExposure, nonce: 'n' }, 1), /personReason/)

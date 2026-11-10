@@ -135,11 +135,11 @@
     >
       <div>{{ reviewLine }}</div>
       <div
-        v-if="review?.outcome === 'allow' && review.reason"
+        v-if="review?.outcome === 'allow' && (review.personReason || review.reason)"
         class="text-medium-emphasis"
         data-testid="approval-review-note"
       >
-        {{ t('reviewNote', { reason: review.reason }) }}
+        {{ t('reviewNote', { reason: review.personReason || review.reason }) }}
       </div>
     </v-card-text>
     <v-card-text
