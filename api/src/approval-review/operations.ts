@@ -32,6 +32,11 @@ export const REVIEW_STAGE2_TIMEOUT_MS = 30000
 export const REVIEW_STAGE2_MAX_TOKENS = 2000
 export const REVIEW_INTENT_MAX_CHARS = 12000
 export const REVIEW_REASON_MAX_CHARS = 300
+/**
+ * The length the reasons are ASKED for, well under the cut: a model counts characters loosely, and asked for the cut's
+ * own 300 a judged run's card ran past it and was cut (« … Je ne suis pas certain que ces c »). The cut stays a net.
+ */
+export const REVIEW_REASON_ASKED_CHARS = 200
 /** The proposed call's serialized arguments in the reviewer's message: the head is kept, the cut said. */
 export const REVIEW_INPUT_MAX_CHARS = 8000
 export const REVIEW_INPUT_CUT_MARK = `[… arguments cut: only their first ${REVIEW_INPUT_MAX_CHARS} characters are shown]`
@@ -240,7 +245,7 @@ export const buildReviewSystemPrompt = (kind: ReviewKind): string =>
   [INSTRUCTIONS_HEAD, kind === 'grant' ? GRANT_RULES : ACTION_RULES, OUTPUT].join('\n\n')
 
 const STAGE1_INSTRUCTION = 'Answer exactly one word: yes if the proposed operation raises any concern under the rules, or is not plainly within what was asked, or may change something other than what the people asked about (an index, a path or an id that could name another item); no otherwise. When in doubt, answer yes.'
-const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the proposed operation, reading the policy carefully. Answer with JSON only: {"outcome": "allow" | "deny" | "unsure", "reason": string, "personReason": string}. "allow": plainly within what was asked and against no rule. "deny": against a rule or against what was asked. "unsure": a person should decide. In "reason", at most ${REVIEW_REASON_MAX_CHARS} characters for the person who decides: what the operation does and which rule or request it meets or breaks.`
+const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the proposed operation, reading the policy carefully. Answer with JSON only: {"outcome": "allow" | "deny" | "unsure", "reason": string, "personReason": string}. "allow": plainly within what was asked and against no rule. "deny": against a rule or against what was asked. "unsure": a person should decide. In "reason", at most ${REVIEW_REASON_ASKED_CHARS} characters for the person who decides: what the operation does and which rule or request it meets or breaks.`
 
 /**
  * The card's line, in the language of the people's messages with the chat's reported language beside it: the first alone
@@ -250,7 +255,7 @@ const STAGE2_INSTRUCTION = `A first screening raised a concern: judge the propos
  * cards (8-11% → 16-18%, haiku), the verdict itself starting to doubt the state it does not see.
  */
 const personReasonInstruction = (language?: string): string =>
-  `personReason: one or two sentences, at most ${REVIEW_REASON_MAX_CHARS} characters, for the person who will decide, in the language of the people's messages${language ? ` (the chat's own language is "${language}": the one to use before they wrote)` : ''}, saying what the action will change and what made you hesitate; no tool names, ids, paths or JSON.`
+  `personReason: one or two short sentences, at most ${REVIEW_REASON_ASKED_CHARS} characters, for the person who will decide, in the language of the people's messages${language ? ` (the chat's own language is "${language}": the one to use before they wrote)` : ''}, saying what the action will change and what made you hesitate; no tool names, ids, paths or JSON.`
 
 // Stage 2 only, for an action: how to read what was asked, never a clearance. In the shared policy, stage 1's one-word
 // screen read it as one and cleared a harmful call ("no" without stage 2): out of the system prompt, stage 1 never sees

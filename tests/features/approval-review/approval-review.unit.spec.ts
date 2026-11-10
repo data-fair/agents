@@ -9,7 +9,7 @@ import {
   webhookEventsOf, taskPromptWithoutPayloads, intentFromConversation, intentFromTask, exposureOf, reviewMessage,
   reviewOutcomeToRecord, createReviewBreaker, buildReviewSystemPrompt, reviewVerdictSchema, reviewKindOf,
   isInputCut, isConfirmationOnly, modelUnavailableRecord, refusalTextOf, reviewerDenialText, reviewUnavailableText, reviewUnavailableEvent,
-  earlierCallsOf, reviewContextOfConversation, REVIEW_EARLIER_MAX_CALLS, REVIEW_EARLIER_INPUT_MAX_CHARS, boundReason, languageCodeOf,
+  earlierCallsOf, reviewContextOfConversation, REVIEW_EARLIER_MAX_CALLS, REVIEW_EARLIER_INPUT_MAX_CHARS, boundReason, languageCodeOf, REVIEW_REASON_ASKED_CHARS,
   type EarlierCall, type ProposedCall, type ReviewRecord
 } from '../../../api/src/approval-review/operations.ts'
 import { guardTag } from '../../../api/src/guard/operations.ts'
@@ -145,6 +145,9 @@ test.describe('Reviewer operations', () => {
     const stage2 = reviewMessage({ earlierCalls: [], intent: context.intent, call, exposure: noExposure, nonce: 'n' }, 2)
     assert.match(stage2, /personReason: [^\n]*in the language of the people's messages \(the chat's own language is "fr"/)
     assert.doesNotMatch(stage2, /what is stored/)
+    // Asked for less than the cut, so the cut is rare.
+    assert.match(stage2, new RegExp(`personReason: one or two short sentences, at most ${REVIEW_REASON_ASKED_CHARS} characters`))
+    assert.ok(REVIEW_REASON_ASKED_CHARS < REVIEW_REASON_MAX_CHARS)
     assert.match(reviewMessage({ earlierCalls: [], intent: intentFromConversation(['go'], ''), call, exposure: noExposure, nonce: 'n' }, 2), /in the language of the people's messages/)
     assert.doesNotMatch(reviewMessage({ earlierCalls: [], intent: context.intent, call, exposure: noExposure, nonce: 'n' }, 1), /personReason/)
   })

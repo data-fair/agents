@@ -249,7 +249,7 @@ may change something other than what the people asked about (an index, a path or
 item: a one-word screen cannot tell an added item's position from an existing one's); its `no` is recorded
 `cleared`. Stage 2 answers
 `{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, shown on the approval card instead of « le relecteur hésite : reason », and as the reviewer's note on a card it allowed, cut like `reason`). `personReason` is asked in the language of the people's messages, with the chat's reported language beside it (its `language` host-state fact, checked to be a language code by `languageCodeOf`): the first alone a small model did not always follow, and the page's language is not always the person's. It shares the verdict's answer, so its wording moves the verdict: two variants telling it not to guess at stored content (judged runs' cards did) raised the guard eval's false cards from 8-11% to 16-18% on haiku, and were dropped; the schema leaves the reason unbounded, so a long one cannot fail a
-real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300) at a sentence end, else at a word with « … » (`boundReason`).
+real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300) at a sentence end, else at a word with « … » (`boundReason`). Both reasons are asked for at most `REVIEW_REASON_ASKED_CHARS` (200), well under the cut: asked for 300 itself, a model ran past it.
 
 **Stage-1 timeout.** A stage 1 that does not answer in time fails the review (`failure: timeout`), the call is
 unsure and, in a chat, becomes an approval card. The timeout is the config `approvalReview.stage1TimeoutMs`
