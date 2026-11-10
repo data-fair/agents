@@ -156,7 +156,7 @@ export const startAgentSessions = (server: Server) => {
       // A decision on a call the approval gate stopped, for the conversation this socket is bound to —
       // never one named in the frame, so a socket cannot decide on someone else's thread. An anonymous
       // visitor has none to decide: the personal assistant offers them no tool that asks.
-      onApproval: async (approvalId, approved, reason) => {
+      onApproval: async (approvalId, approved) => {
         const conversationId = boundConversationId
         if (!conversationId || !sessionState?.user) {
           send({ type: 'error', status: 403, message: 'only a signed-in person decides on an approval' })
@@ -168,8 +168,7 @@ export const startAgentSessions = (server: Server) => {
             conversation: await resolveOwnConversation(conversationId),
             session: sessionState,
             approvalId,
-            approved,
-            ...(reason ? { reason } : {})
+            approved
           })
         } catch (err: any) {
           debug('approval refused: %O', err)

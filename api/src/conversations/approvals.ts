@@ -51,7 +51,6 @@ export const decideAndContinue = async (input: {
   session: SessionStateAuthenticated
   approvalId: string
   approved: boolean
-  reason?: string
 }): Promise<{ runId: string } | { pending: number }> => {
   // Before the decision is recorded, so the card stays pending and can be decided again after the restart.
   assertAcceptingTurns()
@@ -70,7 +69,6 @@ export const decideAndContinue = async (input: {
   const by = { userId: session.user.id, userName: session.user.name }
   const message = await decideApproval(conversation.id, input.approvalId, {
     approved: input.approved,
-    ...(input.reason ? { reason: input.reason } : {}),
     by
   })
   if (message === 'still-finishing') throw httpError(409, 'the turn is still finishing: decide once it has ended')

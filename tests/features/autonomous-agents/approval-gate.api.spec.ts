@@ -73,9 +73,9 @@ test.describe('The approval gate', () => {
     const { assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool wipe_everything {}')
     return { agent, conv: { id: conversationId }, approvalId: callPart(assistant, 'wipe_everything').approval.id as string, seq: assistant.seq as number }
   }
-  const decide = (conversationId: string, approvalId: string, body: { approved: boolean, reason?: string }) =>
+  const decide = (conversationId: string, approvalId: string, body: { approved: boolean }) =>
     decideOverSocket(orgAdmin, conversationId, approvalId, body)
-  const decideRun = (conversationId: string, approvalId: string, body: { approved: boolean, reason?: string }) =>
+  const decideRun = (conversationId: string, approvalId: string, body: { approved: boolean }) =>
     decideOverSocketToRun(orgAdmin, conversationId, approvalId, body)
   const messageAt = async (conversationId: string, seq: number) =>
     (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
@@ -134,14 +134,15 @@ test.describe('The approval gate', () => {
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
   })
 
-  test('rejecting tells the model why, and nothing runs', async () => {
+  test('rejecting tells the model it was refused, and nothing runs', async () => {
     const { conv, approvalId, seq } = await pendingApproval()
-    const { runId } = await decideRun(conv.id, approvalId, { approved: false, reason: 'not today' })
+    const { runId } = await decideRun(conv.id, approvalId, { approved: false })
     await awaitRun(orgAdmin, conv.id, runId)
     assert.deepEqual(fixture.invokedTools(), [])
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
     assert.equal(part.state, 'output-denied')
-    assert.equal(part.approval.reason, 'not today')
+    assert.equal(part.approval.approved, false)
+    assert.equal(part.approval.reason, undefined)
   })
 
   test('a new message rejects a pending approval before it is answered', async () => {
@@ -158,11 +159,6 @@ test.describe('The approval gate', () => {
     const member = await axiosAuth('test1-user1', { org: 'test1' })
     await assert.rejects(decideOverSocket(member, conv.id, approvalId, { approved: true }), { status: 403 })
     assert.deepEqual(fixture.invokedTools(), [])
-  })
-
-  test('a reason is bounded', async () => {
-    const { conv, approvalId } = await pendingApproval()
-    await assert.rejects(decide(conv.id, approvalId, { approved: false, reason: 'x'.repeat(1001) }), { status: 400 })
   })
 
   test('an autonomous agent disabled before the decision does not run the approved call', async () => {

@@ -251,8 +251,8 @@ export default {
         type: { const: 'approval' },
         approvalId: { type: 'string', minLength: 1, maxLength: L.id, errorMessage: 'approvalId must be a non-empty string' },
         // Strictly boolean: a truthy string must not read as an approval.
-        approved: { type: 'boolean', errorMessage: 'approved must be a boolean' },
-        reason: { type: 'string', maxLength: 1000, errorMessage: 'reason must be a string of at most 1000 characters' }
+        // No reason: refusing is one click, as approving is, and what the person has to say is their next message.
+        approved: { type: 'boolean', errorMessage: 'approved must be a boolean' }
       }
     }
   ]

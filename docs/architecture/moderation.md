@@ -174,7 +174,7 @@ past (as Codex re-reviews a retry a person grants), and a rare card carrying the
   while a payload's free text never reaches the reviewer.
 - **The earlier calls**: the conversation's earlier gated calls (reviewed, or sent to a person), oldest first, each
   with its tool, its arguments cut to `REVIEW_EARLIER_INPUT_MAX_CHARS` (600), how it was decided (allowed by the
-  reviewer, approved or rejected by a person with the person's reason, refused by the reviewer with its reason,
+  reviewer, approved or rejected by a person, refused by the reviewer with its reason,
   refused unreviewed, awaiting a person), whether a script made it, and which of the people's messages it followed
   (`reviewContextOfConversation` over the stored messages, then the gate's own record of this turn's calls and a
   reminder pass's first-pass parts); the newest `REVIEW_EARLIER_MAX_CALLS` (20). Reads are left out: never gated,
@@ -182,7 +182,8 @@ past (as Codex re-reviews a retry a person grants), and a rare card carrying the
   another way (another tool, a script, the same deletion in smaller parts) looked fine call by call; the denial text
   asking the model not to was a request, not a check. Claude Code's classifier keeps the earlier tool calls for the
   same reason, stripping only their outputs and the assistant's text. Their arguments are the agent's, so the
-  prompt treats them as evidence, never intent; a person's rejection reason is that person's words.
+  prompt treats them as evidence, never intent. A person's rejection carries no reason: what they have to say is
+  their next message, which the reviewer reads with the others.
 - **The proposed call**: tool, server, title, annotations, class, and arguments serialized and capped at
   `REVIEW_INPUT_MAX_CHARS` (8 000), the head kept and the cut stated (`REVIEW_INPUT_CUT_MARK`): unbounded
   arguments would make cost and timeout unbounded. A call whose arguments were cut always reaches stage 2

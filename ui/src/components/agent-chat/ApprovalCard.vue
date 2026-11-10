@@ -272,7 +272,7 @@ const props = defineProps<{
   /** The call a script paused on (api/src/code-mode): the card says the script waits for this decision. */
   inScript?: boolean
 }>()
-const emit = defineEmits<{ decide: [decision: { approved: boolean, reason?: string }] }>()
+const emit = defineEmits<{ decide: [decision: { approved: boolean }] }>()
 
 const { t, locale } = useI18n()
 // The access requests, by the source they record (WEB_SERVER_ID in api/src/web/operations.ts,
@@ -291,7 +291,7 @@ const PLANNING_TOOL_NAMES = ['plan_task', 'update_task', 'delete_task']
 // call decided (which removes the card). Only a failure — the chat's error — gives it back, so the
 // person can read why and retry.
 const sending = ref<'approve' | 'reject' | null>(null)
-const decide = (decision: { approved: boolean, reason?: string }, which: 'approve' | 'reject') => {
+const decide = (decision: { approved: boolean }, which: 'approve' | 'reject') => {
   if (sending.value || props.locked) return
   sending.value = which
   emit('decide', decision)

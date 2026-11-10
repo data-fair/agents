@@ -428,8 +428,8 @@ denied on an unsure or a deny, as a direct call there.
 A pending approval that a new message or a page action supersedes is shown as « Annulé » / "Cancelled", not
 « Refusé » / "Denied": nobody decided it. The card says so (« Envoyer un message annule cette demande. »). The
 reviewer's stage 2 writes `personReason` in the chat's language, shown on the card and on a reviewer-denial chip.
-Refusing is one click, like approving (as in Claude Code or ChatGPT); a reason, if any, is the person's next
-message. The two-step refuse (a reason field, then « Confirmer le refus ») left judged runs' cards cancelled: the
+Refusing is one click, like approving (as in Claude Code or ChatGPT), and the decision carries no reason: what
+the person has to say is their next message. The two-step refuse (a reason field, then « Confirmer le refus ») left judged runs' cards cancelled: the
 person wrote the reason in the chat before confirming.
 
 - **A denial is final.** The call is settled `output-denied` and the model reads `reviewerDenialText`: the
@@ -503,8 +503,9 @@ Why this shape:
 - **An unannotated tool is a `write`**, not a fourth class: most hand-written MCP servers declare no
   annotations, and reading silence as read-only would leave the common case unreviewed.
 
-**The decision** is `{ approved, reason? }`, over the chat socket only (frame `{ type: 'approval', approvalId, approved,
-reason? }`); there is no HTTP route for it. Only the person whose
+**The decision** is `{ approved }`, over the chat socket only (frame `{ type: 'approval', approvalId, approved }`);
+there is no HTTP route for it, and no reason: what the person has to say is their next message, which the
+reviewer and the agent both read. Only the person whose
 conversation it is may decide — ownership (`resolveOwnConversation` on the socket) **and** the grant to instruct the agent (`assertCanInstruct`, checked in `decideAndContinue`), both apply —
 and it is atomic: a second decision on the same approval is a `409`. So is a decision on a message **still being
 written** (`pending`), with "the turn is still finishing": the AI SDK asks for an approval before the step's other
@@ -517,7 +518,7 @@ one by one and the model resumes once, after the last.
 
 The `approval` run **replays** the conversation and the AI SDK executes the approved call, **settled on its original
 part** — that is the double-execution guard: the call has exactly one part, and a part that holds a result is never
-run again. A call the person rejected is stored `output-denied` and replays with its reason as its result. An approved call whose tool is gone on replay (removed, or filtered out of an unattended run) is denied by name and settled `output-error` on its own part ("this tool is no longer available"), never left open; a call whose route was relaxed since the request runs, because the person approved it and the policy now requires less. Moderation is **skipped** on an
+run again. A call the person rejected is stored `output-denied` and replays as a refusal. An approved call whose tool is gone on replay (removed, or filtered out of an unattended run) is denied by name and settled `output-error` on its own part ("this tool is no longer available"), never left open; a call whose route was relaxed since the request runs, because the person approved it and the policy now requires less. Moderation is **skipped** on an
 approval run: there is no new user text, and the decision is not something to classify.
 
 A run that does not reach the model must not leave an approved call without a result. `finishRun` settles them at the
@@ -550,7 +551,7 @@ An approved call's result, settled on its original part by the next run, keeps `
 cut at the result bound, beside `toolMetadata.decision`.
 
 In the chat the call is an **approval card** (`ui/src/components/agent-chat/ApprovalCard.vue`): the tool, its server
-and arguments, the reviewer's view when it judged the call first (why the card is shown, and its reason), Approve and Reject with an optional reason. It is locked while the message asking is still pending
+and arguments, the reviewer's view when it judged the call first (why the card is shown, and its reason), Approve and Reject, one click each. It is locked while the message asking is still pending
 (`approvalLocked`, set by the mapper) and while the decision is sending (released on a chat error). Once decided the
 card is gone: the call becomes an ordinary tool chip, and a rejection a "Declined: <tool>" chip. A call the reviewer denied never had a card: it is a "Denied by the reviewer: <tool>" chip, followed in a chat by "If you want this done, tell the agent so" (the way past a denial is the person's words, which the next review reads: [moderation](./moderation.md#approval-reviewer)), whose detail gives the reviewer's reason (the mapper reads `toolMetadata.review.reason`, not the model-facing `approval.reason`). Who decided, and
 when, is not shown in any UI; it is stored on the call (`toolMetadata.decision`) for audit, and is in the

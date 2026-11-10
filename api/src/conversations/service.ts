@@ -527,7 +527,7 @@ const settleApprovedWithoutResult = async (conversationId: string, errorText: st
 export const decideApproval = async (
   conversationId: string,
   approvalId: string,
-  decision: { approved: boolean, reason?: string, by: { userId: string, userName?: string } }
+  decision: { approved: boolean, by: { userId: string, userName?: string } }
 ): Promise<StoredMessage | 'still-finishing' | null> => {
   const at = new Date().toISOString()
   const pending = { 'approval.id': approvalId, state: 'approval-requested' }
@@ -542,11 +542,10 @@ export const decideApproval = async (
     {
       $set: {
         // Approved: `approval-responded`, which the SDK executes on replay. Rejected: `output-denied`,
-        // which replays as a refusal carrying the reason, so the model is told and can react. A paused script's
+        // which replays as a refusal, so the model is told and can react. A paused script's
         // call is `approval-responded` either way: the continuation resumes it (model-loop.ts, resumeScripts).
         'parts.$[p].state': decision.approved || pausedScript ? 'approval-responded' : 'output-denied',
         'parts.$[p].approval.approved': decision.approved,
-        ...(decision.reason ? { 'parts.$[p].approval.reason': decision.reason } : {}),
         'parts.$[p].toolMetadata.decision': { ...decision.by, approved: decision.approved, at },
         updatedAt: at
       }
@@ -629,7 +628,7 @@ export const rejectPendingApprovals = async (
         'parts.$[p].approval.approved': false,
         'parts.$[p].approval.reason': reason,
         // Approved calls of the step: an error saying they did not run. A paused script's call the person rejected
-        // (still `approval-responded`, to resume the script) keeps its rejection and the person's reason instead.
+        // (still `approval-responded`, to resume the script) keeps its rejection instead.
         ...(opts?.undecidedOnly ? {} : { 'parts.$[q].state': 'output-error', 'parts.$[q].errorText': approvedError, 'parts.$[r].state': 'output-denied' }),
         updatedAt: new Date().toISOString()
       }

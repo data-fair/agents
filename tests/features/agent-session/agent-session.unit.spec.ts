@@ -80,12 +80,12 @@ test.describe('parseClientMessage', () => {
     assert.equal(parse({ type: 'hello', tools: [], anonymousToken: 42 }).type, 'invalid')
   })
 
-  test('accepts an approval decision, with or without a reason', () => {
+  test('accepts an approval decision, which carries no reason', () => {
     assert.deepEqual(parse({ type: 'approval', approvalId: 'a1', approved: true }), { type: 'approval', approvalId: 'a1', approved: true })
+    // An older page's reason is stripped like any unknown property: what the person has to say is their next message.
     assert.deepEqual(parse({ type: 'approval', approvalId: 'a1', approved: false, reason: 'not today', extra: 1 }), {
-      type: 'approval', approvalId: 'a1', approved: false, reason: 'not today'
+      type: 'approval', approvalId: 'a1', approved: false
     })
-    assert.deepEqual(parse({ type: 'approval', approvalId: 'a1', approved: false, reason: 'x'.repeat(1000) }).type, 'approval')
   })
 
   test('refuses a malformed approval decision', () => {
@@ -94,8 +94,6 @@ test.describe('parseClientMessage', () => {
     assert.equal(parse({ type: 'approval', approvalId: 'a1' }).type, 'invalid')
     assert.equal(parse({ type: 'approval', approved: true }).type, 'invalid')
     assert.equal(parse({ type: 'approval', approvalId: '', approved: true }).type, 'invalid')
-    assert.equal(parse({ type: 'approval', approvalId: 'a1', approved: false, reason: 'x'.repeat(1001) }).type, 'invalid')
-    assert.equal(parse({ type: 'approval', approvalId: 'a1', approved: false, reason: 42 }).type, 'invalid')
   })
 
   test('refuses anything that is not valid JSON, or not an object', () => {
@@ -117,7 +115,6 @@ test.describe('parseClientMessage', () => {
     assert.equal(reason({ type: 'host-events', events: [{ name: '', at: 1 }] }), eventReason)
     assert.equal(reason({ type: 'host-events', events: [{ name: 'saved', at: 1, detail: 3 }] }), eventReason)
     assert.equal(reason({ type: 'host-events', events: [{ name: 'saved', at: 1, key: {} }] }), eventReason)
-    assert.equal(reason({ type: 'approval', approvalId: 'a1', approved: false, reason: 'x'.repeat(1001) }), 'reason must be a string of at most 1000 characters')
     assert.equal(reason([]), 'a message must be an object')
   })
 

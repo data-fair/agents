@@ -443,7 +443,7 @@ const emit = defineEmits<{
   // True once the transcript is scrolled down from the very top, so the header can
   // raise its elevation (mirrors v-app-bar's scroll-behavior="elevate").
   'update:scrolled': [scrolled: boolean]
-  'decide-approval': [payload: { approvalId: string, approved: boolean, reason?: string }]
+  'decide-approval': [payload: { approvalId: string, approved: boolean }]
 }>()
 
 const props = withDefaults(defineProps<{

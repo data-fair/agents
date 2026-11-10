@@ -384,7 +384,7 @@ test.describe('Earlier calls', () => {
       tool({ toolName: 'list_road_closures' }),
       tool({ toolMetadata: { review: judged('allow') } }),
       tool({ state: 'output-denied', toolMetadata: { review: judged('deny', 'not asked') } }),
-      tool({ state: 'output-denied', approval: { id: 'a', approved: false, reason: 'wrong note' }, toolMetadata: { review: judged('allow'), decision: { approved: false } } }),
+      tool({ state: 'output-denied', approval: { id: 'a', approved: false }, toolMetadata: { review: judged('allow'), decision: { approved: false } } }),
       tool({ state: 'output-available', approval: { id: 'b', approved: true }, toolMetadata: { decision: { approved: true } } }),
       tool({ state: 'approval-requested', approval: { id: 'c' }, toolMetadata: { review: judged('unsure', 'which note?') } }),
       tool({ state: 'output-denied', approval: { id: 'd', approved: false, reason: 'The person sent a new message instead of deciding.' }, toolMetadata: { review: judged('allow') } })
@@ -392,7 +392,7 @@ test.describe('Earlier calls', () => {
     assert.deepEqual(calls.map(c => [c.decision, c.reason]), [
       ['allowed-by-reviewer', undefined],
       ['refused-by-reviewer', 'not asked'],
-      ['rejected-by-person', 'wrong note'],
+      ['rejected-by-person', undefined],
       ['approved-by-person', undefined],
       ['awaiting-person', 'which note?'],
       ['refused-unreviewed', 'The person sent a new message instead of deciding.']
@@ -436,15 +436,15 @@ test.describe('Earlier calls', () => {
   test('the reviewer message shows earlier calls in their own wrapper, bounded, placed by message', () => {
     const nonce = 'abcdef012345'
     const many: EarlierCall[] = Array.from({ length: REVIEW_EARLIER_MAX_CALLS + 2 }, (_, i) => ({ toolName: `t${i}`, input: { v: i }, decision: 'allowed-by-reviewer' as const, afterMessage: 1 }))
-    many.push({ toolName: 'delete_note', input: { note: 'y'.repeat(REVIEW_EARLIER_INPUT_MAX_CHARS * 2) }, decision: 'rejected-by-person', reason: 'keep it', afterMessage: 2, inScript: true })
+    many.push({ toolName: 'delete_note', input: { note: 'y'.repeat(REVIEW_EARLIER_INPUT_MAX_CHARS * 2) }, decision: 'refused-by-reviewer', reason: 'keep it', afterMessage: 2, inScript: true })
     const message = reviewMessage({ earlierCalls: many, intent: intentFromConversation(['a', 'b'], ''), call, exposure: noExposure, nonce }, 2)
     const tag = guardTag('earlier_calls_', nonce)
     const block = message.slice(message.indexOf(`<${tag}>`), message.indexOf(`</${tag}>`))
     assert.ok(message.indexOf(`</${tag}>`) < message.indexOf(`<${guardTag('proposed_call_', nonce)}>`))
     assert.ok(block.includes('(3 older ones not shown)'), block)
     assert.ok(!block.includes('t0:') && !block.includes('t2:') && block.includes('t3:'), block)
-    assert.ok(block.includes('(after message 2) delete_note (from a script): rejected by a person'), block)
-    assert.ok(block.includes('the person\'s reason: keep it'), block)
+    assert.ok(block.includes('(after message 2) delete_note (from a script): refused by the reviewer'), block)
+    assert.ok(block.includes('reason: keep it'), block)
     assert.ok(!block.includes('y'.repeat(REVIEW_EARLIER_INPUT_MAX_CHARS + 1)), 'arguments cut')
     assert.ok(message.includes(tag) && ENVELOPE_TAGS.includes('earlier_calls_'))
     assert.ok(reviewMessage({ earlierCalls: [], intent: intentFromConversation(['a'], ''), call, exposure: noExposure, nonce }, 1).includes('(none)'))

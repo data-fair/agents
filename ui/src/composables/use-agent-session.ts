@@ -353,8 +353,8 @@ export function useAgentSession (options: AgentSessionClientOptions) {
     },
 
     /** The person's decision on a call the approval gate stopped. */
-    decideApproval (approvalId: string, approved: boolean, reason?: string) {
-      send({ type: 'approval', approvalId, approved, ...(reason ? { reason } : {}) })
+    decideApproval (approvalId: string, approved: boolean) {
+      send({ type: 'approval', approvalId, approved })
     },
 
     /**
