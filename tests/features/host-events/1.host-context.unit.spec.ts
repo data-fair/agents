@@ -165,6 +165,16 @@ test('the server\'s facts join the page\'s state, replace a page fact of the sam
   assert.match(String(message.content), new RegExp(`${PERSON_ROLE_KEY}: not signed in`))
 })
 
+test('the role fact names the organization role, never what it forbids, and leaves the decision to the tool', () => {
+  for (const role of ['contrib', 'user', 'external'] as const) {
+    const detail = personRoleFact(role).detail!
+    assert.doesNotMatch(detail, /read access only|cannot|not allowed/)
+    assert.match(detail, /permissions granted on a dataset or an application can allow more/)
+    assert.match(detail, /the tool's answer says whether it is allowed/)
+  }
+  assert.equal(personRoleFact('admin').detail, 'administrator of the organization')
+})
+
 test('the site fact gives the conversation\'s site address, without a trailing slash', () => {
   const fact = siteFact('https://portal.example.org/')
   assert.equal(fact.key, SITE_KEY)

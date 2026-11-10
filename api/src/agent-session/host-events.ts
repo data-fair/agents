@@ -270,11 +270,19 @@ type FactStore = { snapshot: () => HostStateSnapshot, hasPending: () => boolean,
 /** The key of the person's role in the host-state block: a fact the server knows, never one a page reports. */
 export const PERSON_ROLE_KEY = 'person-role'
 
+/**
+ * Only the organization role is known here, and data-fair permissions are finer: a dataset or an application can grant
+ * a member, or someone outside the organization, more than their role. So the text names the role and never what it
+ * forbids, and says the tool's answer is what decides: "read access only" would have an agent refuse a write the
+ * person may well be allowed.
+ */
+const FINER_PERMISSIONS = '; permissions granted on a dataset or an application can allow more than this role, so do not decline an action for the role alone: the tool\'s answer says whether it is allowed'
+
 const PERSON_ROLE_TEXT: Record<'admin' | 'contrib' | 'user' | 'external' | 'anonymous', string> = {
   admin: 'administrator of the organization',
-  contrib: 'contributor of the organization, not an administrator',
-  user: 'member of the organization with read access only, neither contributor nor administrator',
-  external: 'signed in, not a member of the organization',
+  contrib: `contributor of the organization, not an administrator${FINER_PERMISSIONS}`,
+  user: `member of the organization with the role "user", neither contributor nor administrator${FINER_PERMISSIONS}`,
+  external: `signed in, not a member of the organization${FINER_PERMISSIONS}`,
   anonymous: 'not signed in'
 }
 
