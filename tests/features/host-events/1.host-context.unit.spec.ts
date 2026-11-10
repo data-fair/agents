@@ -9,7 +9,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { HostEventStore, withHostContext, withServerFacts, personRoleFact, PERSON_ROLE_KEY, HOST_STATE_OPEN, HOST_EVENTS_OPEN } from '../../../api/src/agent-session/host-events.ts'
+import { HostEventStore, withHostContext, withServerFacts, personRoleFact, siteFact, PERSON_ROLE_KEY, SITE_KEY, HOST_STATE_OPEN, HOST_EVENTS_OPEN } from '../../../api/src/agent-session/host-events.ts'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
 
 /**
@@ -163,4 +163,10 @@ test('the server\'s facts join the page\'s state, replace a page fact of the sam
   const alone = withServerFacts(null, [personRoleFact('anonymous')])!
   const [message] = withHostContext([{ role: 'user', content: 'bonjour' }], alone)
   assert.match(String(message.content), new RegExp(`${PERSON_ROLE_KEY}: not signed in`))
+})
+
+test('the site fact gives the conversation\'s site address, without a trailing slash', () => {
+  const fact = siteFact('https://portal.example.org/')
+  assert.equal(fact.key, SITE_KEY)
+  assert.match(fact.detail!, /^https:\/\/portal\.example\.org \(/)
 })

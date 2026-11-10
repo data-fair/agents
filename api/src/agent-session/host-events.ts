@@ -285,6 +285,17 @@ const PERSON_ROLE_TEXT: Record<'admin' | 'contrib' | 'user' | 'external' | 'anon
 export const personRoleFact = (role: keyof typeof PERSON_ROLE_TEXT): AgentEvent =>
   ({ name: PERSON_ROLE_KEY, key: PERSON_ROLE_KEY, detail: PERSON_ROLE_TEXT[role], at: 0 })
 
+/** The key of the conversation's site in the host-state block: the server's record, like the person's role. */
+export const SITE_KEY = 'site'
+
+/**
+ * The site the conversation runs on (its siteUrl), as a state fact: the address links to its pages start with. A
+ * portals skill took it from a page preview's URL, and a page attached to no portal has none: the agent could not give
+ * a link to the back-office screen it was handing over to.
+ */
+export const siteFact = (siteUrl: string): AgentEvent =>
+  ({ name: SITE_KEY, key: SITE_KEY, detail: `${siteUrl.replace(/\/+$/, '')} (the data-fair site of this conversation: links to its pages start with it)`, at: 0 })
+
 /**
  * A store with the server's own facts added to its state, after the page's and in place of any the page reported
  * under the same key; a turn with no page gets a store of these facts alone.

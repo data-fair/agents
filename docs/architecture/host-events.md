@@ -86,7 +86,9 @@ The server adds one fact of its own to a configured agent's turn (`withServerFac
 organization (the run's `triggeredByRole`: administrator, contributor, member, external,
 not signed in). It is the server's, not the page's: it replaces any `person-role` a page
 reported, and a turn with no page still gets it. Without it, judged runs had a contributor
-find their role by trial and sent an organization admin to look for an admin.
+find their role by trial and sent an organization admin to look for an admin. Beside it, `site`
+(`siteFact`): the conversation's `siteUrl`, the address links to its pages start with; a
+portals skill took it from a page preview's URL, which a page attached to no portal lacks.
 
 ## Consuming (`api/src/agent-session/host-events.ts`, `api/src/agent-session/session.ts`)
 

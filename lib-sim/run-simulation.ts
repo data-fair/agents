@@ -183,6 +183,30 @@ export async function runTurns (loop: TurnLoop): Promise<{ turns: number, error?
   return { turns, ...(error ? { error } : {}) }
 }
 
+/** Whether any exported conversation still has a run going: its record is not final yet. */
+export const hasRunningRun = (exports: ConversationExport[]): boolean =>
+  exports.some(exported => parseConversationExport(exported).runs.some(run => run.status === 'running'))
+
+/**
+ * The exports once no run is going, polled up to `timeoutMs`: the persona's last action (an approval click at
+ * maxTurns) can start a run the chat did not show yet, and a judged run read back 18 s later judged a half-done
+ * operation. Past the bound, the last exports, with `stillRunning` set.
+ */
+export async function fetchSettledExports (
+  fetch: () => Promise<ConversationExport[]>,
+  opts: { timeoutMs?: number, intervalMs?: number, sleep?: (ms: number) => Promise<void> } = {}
+): Promise<{ exports: ConversationExport[], stillRunning: boolean }> {
+  const { timeoutMs = TURN_CEILING_MS, intervalMs = 2000, sleep = ms => new Promise(resolve => setTimeout(resolve, ms)) } = opts
+  const deadline = Date.now() + timeoutMs
+  let exports = await fetch()
+  while (hasRunningRun(exports)) {
+    if (Date.now() >= deadline) return { exports, stillRunning: true }
+    await sleep(intervalMs)
+    exports = await fetch()
+  }
+  return { exports, stillRunning: false }
+}
+
 export async function runSimulation (page: Page, simCase: SimulationCase, opts: SimulationOptions): Promise<void> {
   const assistantModel = process.env.SIM_ASSISTANT_MODEL ?? 'sonnet'
   // The memory, compaction and moderation roles, pinned separately and lower: that
@@ -297,7 +321,10 @@ export async function runSimulation (page: Page, simCase: SimulationCase, opts: 
   let exports: ConversationExport[] = []
   const evidenceErrors: string[] = []
   try {
-    exports = await opts.fetchExports(new Date(started))
+    const settled = await fetchSettledExports(() => opts.fetchExports(new Date(started)))
+    exports = settled.exports
+    // The judge would grade an operation half done: the run is not judgeable.
+    if (settled.stillRunning && !error) error = `a run was still going ${TURN_CEILING_MS / 60000} minutes after the last turn (run is not judgeable)`
   } catch (err) {
     evidenceErrors.push(`could not export the run's conversations: ${err instanceof Error ? err.message : String(err)}`)
   }

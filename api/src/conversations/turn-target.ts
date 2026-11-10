@@ -29,7 +29,7 @@ import type { UsageIdentity } from '../usage/operations.ts'
 import type { getSettings } from '../settings/service.ts'
 import type { AgentSession } from '../agent-session/session.ts'
 import type { TurnSurface, TaskOutcome } from './service-tools.ts'
-import { withHostContext, chatFactsOnly, withServerFacts, personRoleFact, LOCATION_KEY } from '../agent-session/host-events.ts'
+import { withHostContext, chatFactsOnly, withServerFacts, personRoleFact, siteFact, LOCATION_KEY } from '../agent-session/host-events.ts'
 import { usesPageTools } from '../agent-session/personal-agent.ts'
 import { isPersonalAgentId } from '@agents/shared/agent-audit'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
@@ -262,8 +262,12 @@ export const conversationTarget = (
       const hostBlocks = { text: '' }
       // An agent that does not work through its page (usesPageTools) is told the chat's own facts only.
       const pageStore = session && (usesPageTools(agentId) ? session.hostEvents : chatFactsOnly(session.hostEvents, session.chatFactKeys))
-      // A configured agent is told who it talks to: the person's role in its organization.
-      const facts = !isPersonalAgentId(agentId) && run.triggeredByRole ? [personRoleFact(run.triggeredByRole)] : []
+      // A configured agent is told who it talks to (the person's role in its organization) and on which site.
+      const configured = !isPersonalAgentId(agentId)
+      const facts = [
+        ...(configured && run.triggeredByRole ? [personRoleFact(run.triggeredByRole)] : []),
+        ...(configured && conversation.siteUrl ? [siteFact(conversation.siteUrl)] : [])
+      ]
       const store = withServerFacts(pageStore ?? null, facts)
       const history = store || reminder
         ? withHostContext(compacted.messages, store, reminder ? [reminder] : [], hostBlocks)
