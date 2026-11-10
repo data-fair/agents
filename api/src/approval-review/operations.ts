@@ -85,7 +85,7 @@ export interface ReviewIntent {
   messages: string[]
   instructions: string
   webhookEvents: WebhookEvent[]
-  /** The chat's language code, as the chat reported it (languageCodeOf): the card's line is written in it. */
+  /** The chat's language code, as the chat reported it (languageCodeOf): a hint for the card's line, after the people's messages. */
   language?: string
 }
 
