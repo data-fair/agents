@@ -9,7 +9,7 @@ import {
   webhookEventsOf, taskPromptWithoutPayloads, intentFromConversation, intentFromTask, exposureOf, reviewMessage,
   reviewOutcomeToRecord, createReviewBreaker, buildReviewSystemPrompt, reviewVerdictSchema, reviewKindOf,
   isInputCut, isConfirmationOnly, modelUnavailableRecord, refusalTextOf, reviewerDenialText, reviewUnavailableText, reviewUnavailableEvent,
-  earlierCallsOf, reviewContextOfConversation, REVIEW_EARLIER_MAX_CALLS, REVIEW_EARLIER_INPUT_MAX_CHARS, boundReason, languageCodeOf, REVIEW_REASON_ASKED_CHARS,
+  earlierCallsOf, reviewContextOfConversation, REVIEW_EARLIER_MAX_CALLS, REVIEW_EARLIER_INPUT_MAX_CHARS, boundReason, languageCodeOf, REVIEW_REASON_ASKED_CHARS, checkedArgumentsOf,
   type EarlierCall, type ProposedCall, type ReviewRecord
 } from '../../../api/src/approval-review/operations.ts'
 import { guardTag } from '../../../api/src/guard/operations.ts'
@@ -375,6 +375,33 @@ test.describe('Reviewer mock seam', () => {
   })
 })
 
+test.describe('Checked arguments', () => {
+  const schema = {
+    type: 'object',
+    properties: {
+      id: { type: 'string' },
+      pageTitle: { type: 'string', 'x-checked': { against: 'id', field: '/title' } },
+      // A marker naming no argument of the tool, or malformed, is ignored.
+      stray: { type: 'string', 'x-checked': { against: 'nope', field: '/title' } },
+      bare: { type: 'string', 'x-checked': true }
+    }
+  }
+
+  test('checkedArgumentsOf reads the server\'s x-checked markers', () => {
+    assert.deepEqual(checkedArgumentsOf(schema), { pageTitle: { against: 'id', field: '/title' } })
+    assert.deepEqual(checkedArgumentsOf(undefined), {})
+  })
+
+  test('the call block says which given arguments the server checked', () => {
+    const checkedCall: ProposedCall = { ...call, toolName: 'attach_page', checked: checkedArgumentsOf(schema), input: { id: 'b51f', pageTitle: 'Agenda' } }
+    const message = reviewMessage({ earlierCalls: [], intent: intentFromConversation(['attach it'], ''), call: checkedCall, exposure: noExposure, nonce: 'abcdef012345' }, 2)
+    assert.match(message, /"checkedArguments": \{\n\s+"pageTitle": "checked by the server before the call: the title of what \\"id\\" names; the call is refused, nothing done, if it differs"/)
+    // Not given: not shown.
+    const without = reviewMessage({ earlierCalls: [], intent: intentFromConversation(['attach it'], ''), call: { ...checkedCall, input: { id: 'b51f' } }, exposure: noExposure, nonce: 'abcdef012345' }, 2)
+    assert.doesNotMatch(without, /"checkedArguments"/)
+  })
+})
+
 test.describe('Earlier calls', () => {
   const tool = (over: Record<string, unknown>) => ({ type: 'dynamic-tool', toolCallId: 't', toolName: 'set_note', input: { note: 'n' }, state: 'output-available', ...over }) as any
   const judged = (outcome: ReviewRecord['outcome'], reason = 'r'): ReviewRecord => ({ outcome, reason, code: 'judged', exposed: false, at: '2026-11-04T00:00:00.000Z' })
@@ -387,7 +414,12 @@ test.describe('Earlier calls', () => {
       tool({ state: 'output-denied', approval: { id: 'a', approved: false }, toolMetadata: { review: judged('allow'), decision: { approved: false } } }),
       tool({ state: 'output-available', approval: { id: 'b', approved: true }, toolMetadata: { decision: { approved: true } } }),
       tool({ state: 'approval-requested', approval: { id: 'c' }, toolMetadata: { review: judged('unsure', 'which note?') } }),
-      tool({ state: 'output-denied', approval: { id: 'd', approved: false, reason: 'The person sent a new message instead of deciding.' }, toolMetadata: { review: judged('allow') } })
+      tool({ state: 'output-denied', approval: { id: 'd', approved: false, reason: 'The person sent a new message instead of deciding.' }, toolMetadata: { review: judged('allow') } }),
+      // A card the reviewer was unsure of, left by the person writing: refused by nobody, not by the reviewer.
+      tool({ state: 'output-denied', approval: { id: 'e', approved: false, reason: 'The person sent a new message instead of deciding.' }, toolMetadata: { review: judged('unsure', 'which portal?') } }),
+      tool({ state: 'output-denied', approval: { id: 'f', approved: false, reason: 'The person acted on the page instead of deciding.' }, toolMetadata: { review: judged('unsure') } }),
+      // An unsure where no person could decide (a task run) stays the reviewer's refusal.
+      tool({ state: 'output-denied', approval: { id: 'g', approved: false }, toolMetadata: { review: judged('unsure', 'which one?') } })
     ], 3)
     assert.deepEqual(calls.map(c => [c.decision, c.reason]), [
       ['allowed-by-reviewer', undefined],
@@ -395,9 +427,23 @@ test.describe('Earlier calls', () => {
       ['rejected-by-person', undefined],
       ['approved-by-person', undefined],
       ['awaiting-person', 'which note?'],
-      ['refused-unreviewed', 'The person sent a new message instead of deciding.']
+      ['undecided-by-person', undefined],
+      ['undecided-by-person', undefined],
+      ['undecided-by-person', undefined],
+      ['refused-by-reviewer', 'which one?']
     ])
     assert.ok(calls.every(c => c.afterMessage === 3 && !c.inScript))
+  })
+
+  test('an earlier call that ran and returned an error is marked failed, and said so to the reviewer', () => {
+    const calls = earlierCallsOf([
+      tool({ state: 'output-error', toolMetadata: { review: judged('allow') } }),
+      tool({ state: 'output-error', approval: { id: 'a', approved: true }, toolMetadata: { review: judged('unsure'), decision: { approved: true } } }),
+      tool({ toolMetadata: { review: judged('allow') } })
+    ], 1)
+    assert.deepEqual(calls.map(c => [c.decision, c.failed]), [['allowed-by-reviewer', true], ['approved-by-person', true], ['allowed-by-reviewer', undefined]])
+    const message = reviewMessage({ earlierCalls: calls, intent: intentFromConversation(['note it'], ''), call, exposure: noExposure, nonce: 'abcdef012345' }, 2)
+    assert.equal(message.split('returned an error: it may have changed nothing').length - 1, 2)
   })
 
   test('a script\'s gated calls follow their code_mode call', () => {

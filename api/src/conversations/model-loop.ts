@@ -357,9 +357,13 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const webhookPayloads = run.kind === 'task' && webhookPayloadsOf(run.prompt ?? '').length > 0
   const gateToolOf = (name: string, tool: Tool): GateTool => {
     const sourced = pageNames.has(name) ? undefined : tools[name]
+    // The tool's display name: MCP's top-level `title`, folded into annotations.title by the client (mcp-servers/client.ts).
+    const title = sourced?.annotations?.title
     return {
       ...(tool.needsApproval !== undefined ? { needsApproval: tool.needsApproval } : {}),
       ...(sourced?.server ? { server: sourced.server } : {}),
+      ...(typeof title === 'string' && title ? { title } : {}),
+      ...(sourced?.checkedArgs ? { checked: sourced.checkedArgs } : {}),
       ...(sourced?.annotations ? { annotations: sourced.annotations } : {}),
       ...(sourced?.review ? { review: sourced.review } : {})
     }

@@ -12,12 +12,13 @@
  * `reviewNested`, pausing the script for a person where the record asks one (`asksPerson`, in a chat), and
  * `noteNested` for every nested call that ran, so a script that read outside content makes the turn exposed.
  */
+import { isDeepStrictEqual } from 'node:util'
 import type { ModelMessage, ToolApprovalConfiguration, ToolSet } from 'ai'
 import type { ReviewRoute } from '@agents/shared/approval-policy'
 import type { ApprovalClass } from '../conversations/approval-policy.ts'
 import { goneApprovedToolNames, TOOL_NO_LONGER_AVAILABLE } from '../conversations/approved-calls.ts'
 import { isScanned } from '../tripwire/operations.ts'
-import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, createReviewBreaker, earlierCallOfRecord, refusalTextOf, type EarlierCall, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
+import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, createReviewBreaker, earlierCallOfRecord, refusalTextOf, type CheckedArgument, type EarlierCall, type Exposure, type ProposedCall, type ReviewKind, type ReviewRecord } from './operations.ts'
 
 export type { ReviewRoute }
 
@@ -26,6 +27,8 @@ export interface GateTool {
   annotations?: Record<string, unknown>
   server?: string
   title?: string
+  /** The arguments its server checks before the call (`x-checked`, checkedArgumentsOf). */
+  checked?: Record<string, CheckedArgument>
   /** Present on the tools the reviewer judges: their route, class and kind. */
   review?: { route: ReviewRoute, cls: ApprovalClass, kind: ReviewKind }
 }
@@ -69,7 +72,7 @@ const withReason = (type: 'approved' | 'denied' | 'user-approval', reason: strin
  * statusOf applies to a direct call, for a script's (its wrapper pauses the script on it).
  */
 export const asksPerson = (record: ReviewRecord, route: ReviewRoute): boolean =>
-  record.code !== 'breaker-tripped' && (record.outcome === 'unsure' || (record.outcome === 'allow' && route !== 'reviewer'))
+  record.code !== 'breaker-tripped' && (record.outcome === 'unsure' || (record.outcome === 'allow' && (route !== 'reviewer' || record.personAgain === true)))
 
 /**
  * What a review's record decides: a denial is final; unsure asks a person in a chat and denies elsewhere. A denial
@@ -79,7 +82,7 @@ export const asksPerson = (record: ReviewRecord, route: ReviewRoute): boolean =>
 const statusOf = (record: ReviewRecord, route: ReviewRoute, surface: 'chat' | 'task'): Status => {
   if (record.outcome === 'deny' || (record.outcome === 'unsure' && surface === 'task')) return { type: 'denied', reason: refusalTextOf(record) }
   if (record.outcome === 'unsure') return withReason('user-approval', record.reason)
-  return withReason(route === 'reviewer' ? 'approved' : 'user-approval', record.reason)
+  return withReason(route === 'reviewer' && !record.personAgain ? 'approved' : 'user-approval', record.reason)
 }
 
 export const createReviewGate = (opts: {
@@ -130,6 +133,7 @@ export const createReviewGate = (opts: {
       ...(tool.server ? { server: tool.server } : {}),
       ...(tool.title ? { title: tool.title } : {}),
       ...(tool.annotations ? { annotations: tool.annotations } : {}),
+      ...(tool.checked && Object.keys(tool.checked).length ? { checked: tool.checked } : {}),
       input,
       cls: tool.review.cls,
       kind: tool.review.kind
@@ -149,7 +153,13 @@ export const createReviewGate = (opts: {
     if (nested && opts.budgetSpent?.()) {
       return settle({ outcome: 'deny', reason: BUDGET_SPENT_REASON, code: 'budget', exposed: exposureFor(messages).exposed, at: new Date().toISOString() })
     }
-    const record = settle(await opts.review(call, exposureFor(messages), [...(opts.earlier?.calls ?? []), ...turnCalls]))
+    const earlierCalls = [...(opts.earlier?.calls ?? []), ...turnCalls]
+    const reviewed = await opts.review(call, exposureFor(messages), earlierCalls)
+    // The same call as a card the person left undecided goes to a person again, whatever the reviewer now says
+    // (ReviewRecord.personAgain). Only in a chat, the one place a card can be left undecided.
+    const again = opts.surface === 'chat' && reviewed.outcome === 'allow' &&
+      earlierCalls.some(earlier => earlier.decision === 'undecided-by-person' && earlier.toolName === toolName && isDeepStrictEqual(earlier.input, input))
+    const record = settle(again ? { ...reviewed, personAgain: true } : reviewed)
     // A failed review is no judgment at all: it neither counts as a denial nor ends a run of them. An unsure counts
     // as a denial where it denies (a task run): variants retried there are refused all the same.
     if (record.code !== 'review-failed') breaker.count(record, opts.surface === 'task')

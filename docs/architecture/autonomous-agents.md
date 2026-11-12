@@ -544,7 +544,11 @@ A **new message** from the person rejects every pending approval (`rejectPending
 `PENDING_APPROVAL_SUPERSEDED`, and it settles approved calls of a superseded step the same way). So does a **wake**:
 when the model called `wait_for_user_action` and a gated tool in one step, the handover wins and the turn ends
 `waiting` with the request beside it; the person acting on the page rejects it (`PENDING_APPROVAL_ACTED`) before the
-wait is settled. Two guards keep this true: a turn answering a message (`user` run) rejects pending approvals again when it starts, so a rejection cannot be lost to the asking turn's last writes; and `decideAndContinue` settles a wait handed over in the same step as the gated call with `WAIT_SUPERSEDED_BY_DECISION`. A pending approval is therefore always the conversation's latest step, so no undecided call can be
+wait is settled. To the reviewer such a call is `undecided-by-person` among the earlier calls ("refused by nobody, it
+did not run"), never the reviewer's refusal: read as one, a judged portals run's relaunch was allowed as "asked again
+after the refusal", and ran without the card the person had said she would approve. And **the same call relaunched**
+(same tool, arguments equal as values) goes to a person again whatever the reviewer now says (`personAgain` on its
+record, `createReviewGate`): who is asked must not depend on how the reviewer happens to judge a relaunch. Two guards keep this true: a turn answering a message (`user` run) rejects pending approvals again when it starts, so a rejection cannot be lost to the asking turn's last writes; and `decideAndContinue` settles a wait handed over in the same step as the gated call with `WAIT_SUPERSEDED_BY_DECISION`. A pending approval is therefore always the conversation's latest step, so no undecided call can be
 compacted away or approved out of order, and the compaction policy needs no guard for it.
 
 An approved call's result, settled on its original part by the next run, keeps `toolMetadata.truncated` when it was
