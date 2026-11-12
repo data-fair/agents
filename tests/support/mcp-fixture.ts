@@ -284,7 +284,8 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
   mcp.registerTool(
     'snapshot',
     // The only tool here that returns an IMAGE, which is what an image-bearing result can only be tested
-    // with: such a result is stored and replayed as an envelope, and reaches the model as image parts.
+    // with: such a result is stored and replayed as an envelope, and reaches the model as image parts; a script
+    // gets its text and structuredContent with a note instead (scriptViewOfMedia).
     { description: 'Returns a small PNG chart and a caption', inputSchema: {}, annotations: { readOnlyHint: true } },
     async () => {
       record('snapshot')
@@ -292,7 +293,9 @@ const buildMcpServer = (record: (toolName: string) => void, headers: Record<stri
         content: [
           { type: 'text' as const, text: 'a chart of closures' },
           { type: 'image' as const, data: SNAPSHOT_PNG, mimeType: 'image/png' }
-        ]
+        ],
+        // As openapi-mcp's `response.image` tools: the body without its image and text (code_mode's media view).
+        structuredContent: { closures: 3 }
       }
     }
   )

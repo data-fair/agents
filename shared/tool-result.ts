@@ -46,6 +46,26 @@ export function formatMcpToolResult (callResult: McpCallResult): FormattedToolRe
   return { _agentsMediaResult: true, ...(text !== undefined ? { text } : {}), media }
 }
 
+/** What a script gets from a media result (scriptViewOfMedia): its text and data, a note where the images were. */
+export interface ScriptMediaView {
+  text: string
+  note: string
+  [key: string]: unknown
+}
+
+/**
+ * What a SCRIPT (code mode) gets from a result carrying images: the text and, when the tool sent one, its
+ * structuredContent, with a note that the images were left out and how to see them. A script cannot look at an
+ * image, and its base64 returned by the script would reach the model as JSON, not as an image. The data stays the
+ * declared shape (structuredContent's own keys win), so a script typed on the tool's outputSchema still reads it.
+ */
+export function scriptViewOfMedia (toolName: string, result: MediaToolResult, structured?: unknown): ScriptMediaView {
+  const n = result.media.length
+  const note = `This result also carries ${n === 1 ? 'an image' : `${n} images`}, which a script cannot see. To look at ${n === 1 ? 'it' : 'them'}, call ${toolName} directly, outside code_mode.`
+  const data = structured && typeof structured === 'object' && !Array.isArray(structured) ? structured as Record<string, unknown> : {}
+  return { text: result.text ?? '', note, ...data }
+}
+
 /**
  * The formatted result, or a throw when the tool reported its own failure (`isError`). Throwing is what
  * the model loop treats as a failure (a `tool-error`, stored `output-error`); returned as a value, a failed

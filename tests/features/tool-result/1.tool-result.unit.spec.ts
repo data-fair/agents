@@ -1,6 +1,6 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { formatMcpToolResult, toolOutputOrThrow, isMediaToolResult, redactMediaToolResult, redactHistoryMediaToolResults } from '@agents/shared/tool-result'
+import { formatMcpToolResult, toolOutputOrThrow, isMediaToolResult, redactMediaToolResult, redactHistoryMediaToolResults, scriptViewOfMedia } from '@agents/shared/tool-result'
 
 const PNG = 'iVBORw0KGgoAAAANSUhEUg=='
 
@@ -121,5 +121,24 @@ test.describe('media redaction (unit)', () => {
     assert.equal(envelope.media[0].data, PNG)
     // unrelated messages pass through by reference
     assert.equal(redacted[0], history[0])
+  })
+})
+
+test.describe('scriptViewOfMedia (unit)', () => {
+  const media = { _agentsMediaResult: true as const, text: 'the report', media: [{ data: PNG, mediaType: 'image/png' }] }
+
+  test('gives a script the text and the structured data, with a note instead of the image', () => {
+    const view = scriptViewOfMedia('preview_page', media, { report: { ok: true } })
+    assert.equal(view.text, 'the report')
+    assert.deepEqual(view.report, { ok: true })
+    assert.match(view.note, /an image, which a script cannot see.*call preview_page directly/)
+    assert.doesNotMatch(JSON.stringify(view), new RegExp(PNG))
+  })
+
+  test('the structured data keeps its own keys, and is optional', () => {
+    assert.equal(scriptViewOfMedia('t', media, { text: 'declared' }).text, 'declared')
+    const bare = scriptViewOfMedia('t', { ...media, text: undefined, media: [media.media[0], media.media[0]] })
+    assert.equal(bare.text, '')
+    assert.match(bare.note, /2 images/)
   })
 })

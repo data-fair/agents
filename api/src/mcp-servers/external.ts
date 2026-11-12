@@ -20,7 +20,7 @@ import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/
 import { CallToolResultSchema } from '@modelcontextprotocol/sdk/types.js'
 import { tool, jsonSchema, type Tool } from 'ai'
 import Debug from 'debug'
-import { formatMcpToolResult } from '@agents/shared/tool-result'
+import { formatMcpToolResult, scriptViewOfMedia } from '@agents/shared/tool-result'
 import { toolDescription } from '@agents/shared/tool-description'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
 import { publicDispatcher } from '../web/public-lookup.ts'
@@ -138,11 +138,12 @@ export const openExternalMcpTools = async (servers: { url: string }[], opts: { p
           }
         })
         // A script gets structuredContent when the server sent one, else the text (as a catalog tool, ./client.ts);
-        // a media result, its text only.
+        // a media result, its text and data with a note on the images (scriptViewOfMedia).
         const codeExecute = async (args: any, options?: { abortSignal?: AbortSignal }) => {
           const { callResult, formatted } = await callExternal(args, options?.abortSignal)
-          const text = typeof formatted === 'string' ? formatted : formatted.text ?? ''
           const structured = (callResult as { structuredContent?: unknown }).structuredContent
+          if (typeof formatted !== 'string') return scriptViewOfMedia(t.name, formatted, structured)
+          const text = formatted
           return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, { catalog: false }) : structured
         }
         tools[name] = { tool: externalTool, codeExecute, codeOutputSchema: codeOutputSchemaFor(t.outputSchema), server: serverId(url), ...(t.annotations ? { annotations: t.annotations as Record<string, unknown> } : {}) }
