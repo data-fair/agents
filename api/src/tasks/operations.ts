@@ -89,8 +89,8 @@ export type TaskEvent = Omit<Event, 'date'> & { topic: { key: string } }
 
 /**
  * The notification one task run pushes, by kind. Keyed per task (processings' `<service>:<kind>:<id>`
- * shape), so an admin can subscribe to one task or, by prefix, to all of them. In French, like data-fair
- * processings' notifications. The body is what the reader needs to act on it: the run's error, or the
+ * shape), so an admin can subscribe to one task or, by prefix, to all of them. The title is in English
+ * and French; the body is what the reader needs to act on it: the run's error, or the
  * agent's own summary (for `done`, its final answer when it reported none). `done` is pushed for every run
  * that did its task, like processings' `finish-ok`: who hears of it is who subscribed to the topic.
  *
@@ -104,16 +104,25 @@ export const taskEvent = (
   run: Pick<ConversationRun, 'id' | 'agentId' | 'error' | 'outcome' | 'parts'>,
   opts: { failures?: number, siteUrl?: string } = {}
 ): TaskEvent => {
-  const subject = `La tâche planifiée « ${task.title} »`
   const error = run.error ?? (partsText((run.parts ?? []) as MessagePart[]).trim() || undefined)
   const summary = run.outcome?.summary
+  const short = summary && truncate(summary, TITLE_SUMMARY_MAX)
+  const en = `The planned task "${task.title}"`
+  const fr = `La tâche planifiée « ${task.title} »`
   const title = kind === 'done'
-    ? (summary ? `${subject} est terminée : ${truncate(summary, TITLE_SUMMARY_MAX)}` : `${subject} est terminée.`)
+    ? (short
+        ? { en: `${en} is done: ${short}`, fr: `${fr} est terminée : ${short}` }
+        : { en: `${en} is done.`, fr: `${fr} est terminée.` })
     : kind === 'needs-attention'
-      ? (summary ? `${subject} demande votre attention : ${truncate(summary, TITLE_SUMMARY_MAX)}` : `${subject} demande votre attention.`)
+      ? (short
+          ? { en: `${en} needs your attention: ${short}`, fr: `${fr} demande votre attention : ${short}` }
+          : { en: `${en} needs your attention.`, fr: `${fr} demande votre attention.` })
       : kind === 'paused'
-        ? `${subject} a été mise en pause après ${opts.failures ?? 'plusieurs'} exécutions en échec consécutives.`
-        : `${subject} a échoué.`
+        ? {
+            en: `${en} was paused after ${opts.failures ?? 'several'} consecutive failed runs.`,
+            fr: `${fr} a été mise en pause après ${opts.failures ?? 'plusieurs'} exécutions en échec consécutives.`
+          }
+        : { en: `${en} failed.`, fr: `${fr} a échoué.` }
   // done: the agent's summary, or its final answer when it reported no outcome (`error` is that text then).
   const body = kind === 'needs-attention' ? summary : kind === 'done' ? summary ?? error : error
   const page = opts.siteUrl && `${opts.siteUrl.replace(/\/+$/, '')}/agents/${task.owner.type}/${task.owner.id}/agents/${run.agentId}`

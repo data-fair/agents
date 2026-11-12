@@ -174,7 +174,7 @@ export const tripExplanationInstruction = (surface: 'chat' | 'task', late = fals
 
 /**
  * The notification a configured agent's trip pushes. The excerpt is deliberately left out: an event leaves the
- * service, and the flagged text is by definition hostile. French, like the task events.
+ * service, and the flagged text is by definition hostile. English and French, like the task events.
  */
 export const injectionEvent = (
   agent: { id: string, title?: string },
@@ -184,8 +184,12 @@ export const injectionEvent = (
 ): TaskEvent => {
   const title = agent.title ?? agent.id
   const url = siteUrl && `${siteUrl.replace(/\/+$/, '')}/agents/${run.owner.type}/${run.owner.id}/agents/${agent.id}?tab=history&run=${run.id}`
+  const sourceFr = source.url ? `${source.tool} sur ${boundUrl(source.url)}` : describeSource(source)
   return {
-    title: `L'agent « ${title} » a interrompu une exécution : contenu suspect (injection de consignes) dans le résultat de ${describeSource(source)}.`,
+    title: {
+      en: `The agent "${title}" stopped a run: suspicious content (prompt injection) in the result of ${describeSource(source)}.`,
+      fr: `L'agent « ${title} » a interrompu une exécution : contenu suspect (injection de consignes) dans le résultat de ${sourceFr}.`
+    },
     topic: { key: `agents:injection-suspected:${agent.id}` },
     sender: run.owner,
     visibility: 'private',

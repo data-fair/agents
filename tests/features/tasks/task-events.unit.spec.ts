@@ -5,6 +5,9 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { taskEvent, failedInARow } from '../../../api/src/tasks/operations.ts'
 
+/** The { en, fr } title of a task event (the event type also allows a plain string). */
+const titleOf = (event: { title: unknown }) => event.title as { en: string, fr: string }
+
 const task = { id: 'task-1', title: 'Weekly check', owner: { type: 'organization' as const, id: 'test1', name: 'Test 1' } }
 const run = { id: 'run-1', agentId: 'agent-1', status: 'error' as const, error: 'mock stream error', outcome: { status: 'needs-attention' as const, summary: 'two datasets are stale' } }
 
@@ -17,32 +20,50 @@ test.describe('taskEvent', () => {
       assert.equal(event.visibility, 'private')
       assert.deepEqual(event.resource, { type: 'autonomous-agent-task', id: 'task-1', title: 'Weekly check' })
       assert.deepEqual(event.originator, { internalProcess: { id: 'agents-scheduler', name: 'Agents scheduler' } })
-      assert.match(String(event.title), /Weekly check/)
+      assert.match(titleOf(event).en, /Weekly check/)
+      assert.match(titleOf(event).fr, /Weekly check/)
     })
   }
 
-  test('titles are in French, like processings\' notifications', () => {
-    assert.equal(taskEvent('failed', task, run).title, 'La tâche planifiée « Weekly check » a échoué.')
-    assert.equal(taskEvent('needs-attention', task, run).title, 'La tâche planifiée « Weekly check » demande votre attention : two datasets are stale')
-    assert.equal(taskEvent('paused', task, run, { failures: 5 }).title, 'La tâche planifiée « Weekly check » a été mise en pause après 5 exécutions en échec consécutives.')
+  test('titles are in English and French', () => {
+    assert.deepEqual(taskEvent('failed', task, run).title, {
+      en: 'The planned task "Weekly check" failed.',
+      fr: 'La tâche planifiée « Weekly check » a échoué.'
+    })
+    assert.deepEqual(taskEvent('needs-attention', task, run).title, {
+      en: 'The planned task "Weekly check" needs your attention: two datasets are stale',
+      fr: 'La tâche planifiée « Weekly check » demande votre attention : two datasets are stale'
+    })
+    assert.deepEqual(taskEvent('paused', task, run, { failures: 5 }).title, {
+      en: 'The planned task "Weekly check" was paused after 5 consecutive failed runs.',
+      fr: 'La tâche planifiée « Weekly check » a été mise en pause après 5 exécutions en échec consécutives.'
+    })
   })
 
   test('a done event carries the agent\'s summary, or its final answer when it reported none, and links to the run', () => {
     const done = { id: 'run-1', agentId: 'agent-1', status: 'done' as const, outcome: { status: 'done' as const, summary: 'all good' } }
     const event = taskEvent('done', task, done, { siteUrl: 'https://example.org' })
-    assert.equal(event.title, 'La tâche planifiée « Weekly check » est terminée : all good')
+    assert.deepEqual(event.title, {
+      en: 'The planned task "Weekly check" is done: all good',
+      fr: 'La tâche planifiée « Weekly check » est terminée : all good'
+    })
     assert.equal(event.body, 'all good')
     assert.equal(event.url, 'https://example.org/agents/organization/test1/agents/agent-1?tab=history&run=run-1')
     const bare = { id: 'run-2', agentId: 'agent-1', status: 'done' as const, parts: [{ type: 'text', text: 'three datasets updated' }] as any }
-    assert.equal(taskEvent('done', task, bare).title, 'La tâche planifiée « Weekly check » est terminée.')
+    assert.deepEqual(taskEvent('done', task, bare).title, {
+      en: 'The planned task "Weekly check" is done.',
+      fr: 'La tâche planifiée « Weekly check » est terminée.'
+    })
     assert.equal(taskEvent('done', task, bare).body, 'three datasets updated')
   })
 
   test('a long summary is truncated in the title, and kept whole in the body', () => {
     const long = { ...run, outcome: { status: 'needs-attention' as const, summary: 'x'.repeat(10_000) } }
     const event = taskEvent('needs-attention', task, long)
-    assert.ok(String(event.title).length < 250)
-    assert.match(String(event.title), /…$/)
+    for (const title of [titleOf(event).en, titleOf(event).fr]) {
+      assert.ok(title.length < 250)
+      assert.match(title, /…$/)
+    }
     assert.equal(event.body, 'x'.repeat(10_000))
   })
 
