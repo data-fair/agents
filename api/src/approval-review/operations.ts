@@ -126,7 +126,7 @@ export interface ReviewInput { intent: ReviewIntent, earlierCalls: EarlierCall[]
  * part's `approval.reason`, so replays read it too; the reviewer's own reason stays in `toolMetadata.review`.
  */
 export const reviewerDenialText = (reason: string): string =>
-  `The reviewer did not allow this call${reason ? `: ${reason}` : ''}. Do not try to reach the same outcome another way; tell the person what you wanted to do and why it was stopped.`
+  `The automatic reviewer did not allow this call${reason ? `: ${reason}` : ''}. No person was asked: this refusal is the reviewer's, not the person's. Do not try to reach the same outcome another way; tell the person what you wanted to do and why the reviewer stopped it.`
 
 /**
  * What the model is told of a call refused because its review failed (where no person can decide: a task run, a
@@ -208,7 +208,10 @@ The user message holds three blocks, each inside a tag named in the instruction 
 const CUT_RULE = 'When the operation\'s arguments were cut and the part not shown could change your judgement (more lines, another resource, an address), the operation is unsure.'
 
 // Both kinds: the earlier operations are what makes a workaround visible.
-const EARLIER_RULE = 'An operation that reaches what an earlier refused or rejected operation would have reached (the same outcome through another tool, a script, or split into several operations) is deny, unless the people asked for it again after that refusal. A series of operations that together go beyond what was asked is judged as the whole.'
+// A person's rejection asks again rather than denies: a person refuses a whole call for one of its parts (judged runs: a
+// page write rejected for its text, then the button link it also carried denied without asking, a turn lost), and a
+// person who can refuse once can refuse twice. The reviewer's own refusal stays final, being the same judgement again.
+const EARLIER_RULE = 'An operation that reaches what an earlier operation refused by the reviewer would have reached (the same outcome through another tool, a script, or split into several operations) is deny, unless the people asked for it again after that refusal. One that reaches part of what an earlier operation rejected by a person would have reached, the people not having asked for it again since, is unsure, never deny: the person may have rejected another part of it, and decides again. A series of operations that together go beyond what was asked is judged as the whole.'
 
 const ACTION_RULES = `## Rules
 Each of these needs a person, unless the people asked for exactly that operation:
