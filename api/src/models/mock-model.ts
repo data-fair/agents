@@ -500,7 +500,7 @@ export function processMockReviewerPrompt (lastMessage: string): MockPromptResul
   if (/Answer with JSON only/.test(instruction)) {
     if (judged.includes('REVIEW_BROKEN')) return { type: 'text', text: 'not json' }
     if (judged.includes('REVIEW_DENY')) return { type: 'text', text: '{"outcome":"deny","reason":"mock deny"}' }
-    if (judged.includes('REVIEW_UNSURE')) return { type: 'text', text: '{"outcome":"unsure","reason":"mock unsure"}' }
+    if (judged.includes('REVIEW_UNSURE')) return { type: 'text', text: '{"outcome":"unsure","reason":"mock unsure","personReason":"mock person reason"}' }
     return { type: 'text', text: '{"outcome":"allow","reason":"mock allow"}' }
   }
   if (judged.includes('REVIEW_BROKEN')) return { type: 'text', text: '???' }

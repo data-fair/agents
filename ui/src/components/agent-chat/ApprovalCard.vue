@@ -11,10 +11,37 @@
     >
       {{ access ? t(access.heading) : t('heading', { name: heading }) }}
     </v-card-title>
+    <!-- Why a person is asked: the reviewer allowed a call of a class that needs one, or could not settle it. First,
+         in the person's language: judged runs' people decided on the English description and raw arguments below. -->
+    <v-card-text
+      v-if="reviewLine"
+      class="text-body-medium pb-0"
+      data-testid="approval-review"
+    >
+      <div>{{ reviewLine }}</div>
+      <div
+        v-if="review?.outcome === 'allow' && (review.personReason || review.reason)"
+        class="text-medium-emphasis"
+        data-testid="approval-review-note"
+      >
+        {{ t('reviewNote', { reason: review.personReason || review.reason }) }}
+      </div>
+      <v-btn
+        v-if="detailsFolded"
+        variant="text"
+        size="small"
+        class="px-0 mt-1"
+        data-testid="approval-details-toggle"
+        :append-icon="showDetails ? mdiChevronUp : mdiChevronDown"
+        @click="showDetails = !showDetails"
+      >
+        {{ t('details') }}
+      </v-btn>
+    </v-card-text>
     <!-- Not for a planning call or an access request: the card below says what it does, and the
          description and server are written for the model. -->
     <v-card-subtitle
-      v-if="!taskSections && !access && (clippedDescription || serverId)"
+      v-if="!taskSections && !access && (clippedDescription || serverId) && (!detailsFolded || showDetails)"
       class="approval-card__subtitle"
     >
       <div
@@ -30,7 +57,7 @@
         {{ t('server', { server: serverId }) }}
       </div>
     </v-card-subtitle>
-    <v-card-text>
+    <v-card-text v-if="!detailsFolded || showDetails">
       <div
         v-if="access"
         data-testid="approval-access"
@@ -127,21 +154,6 @@
     >
       {{ t('inScript') }}
     </v-card-text>
-    <!-- Why a person is asked: the reviewer allowed a call of a class that needs one, or could not settle it. -->
-    <v-card-text
-      v-if="reviewLine"
-      class="text-body-small pt-0"
-      data-testid="approval-review"
-    >
-      <div>{{ reviewLine }}</div>
-      <div
-        v-if="review?.outcome === 'allow' && (review.personReason || review.reason)"
-        class="text-medium-emphasis"
-        data-testid="approval-review-note"
-      >
-        {{ t('reviewNote', { reason: review.personReason || review.reason }) }}
-      </div>
-    </v-card-text>
     <v-card-text
       v-if="readonly"
       class="text-body-small text-medium-emphasis pt-0"
@@ -209,7 +221,8 @@ fr:
   mcpHeading: Connecter ce serveur MCP à l'agent ?
   reviewAllowed: "Revu : autorisé, votre confirmation est requise"
   reviewUnsure: "Le relecteur hésite : {reason}"
-  reviewFailed: Le relecteur n'a pas pu décider
+  reviewFailed: "Le relecteur automatique n'a pas pu se prononcer : la décision vous revient."
+  details: Détails
   reviewNote: "Note du relecteur : {reason}"
   mcpWarning: "Les réponses de ce serveur pourront donner des instructions à l'agent, qui agit avec son identité et tous ses outils."
 en:
@@ -238,7 +251,8 @@ en:
   mcpHeading: Connect this MCP server to the agent?
   reviewAllowed: "Reviewed: allowed, your confirmation is required"
   reviewUnsure: "The reviewer is unsure: {reason}"
-  reviewFailed: The reviewer could not decide
+  reviewFailed: "The automatic reviewer could not give an opinion: the decision is yours."
+  details: Details
   reviewNote: "Reviewer's note: {reason}"
   mcpWarning: "This server's responses can give the agent instructions, and it acts with its identity and all its tools."
 </i18n>
@@ -246,6 +260,7 @@ en:
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { mdiChevronDown, mdiChevronUp } from '@mdi/js'
 import { describeScheduling, type ScheduleRule } from '@agents/shared/task-schedule'
 import { $fetch } from '~/context'
 import type { ChatMessage } from '~/utils/chat-message'
@@ -307,6 +322,12 @@ const reviewLine = computed(() => {
   if (review.outcome === 'allow') return t('reviewAllowed')
   return null
 })
+
+// A judged review's line for the person says what the call does in their language: the tool's description (written for
+// the model, often in English) and the raw arguments then fold under « Détails », still one click away, as what the
+// person approves is this exact call. Not for an access request nor a planning call: their own card is already plain.
+const detailsFolded = computed(() => !!props.review?.personReason && props.review.code === 'judged' && !access.value && !taskSections.value)
+const showDetails = ref(false)
 
 // Written for the person deciding, not for a developer: the tool's own title and description rather
 // than its name and a JSON dump.

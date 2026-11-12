@@ -114,6 +114,19 @@ test.describe('Approval card', () => {
     expect(fixture.invokedTools()).toEqual([])
   })
 
+  test('an unsure review leads the card with its line for the person, the call\'s details folded', async ({ page, goToWithAuth }) => {
+    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await ask(page, 'call tool set_note {"note":"REVIEW_UNSURE"}')
+    const card = page.getByTestId('approval-card')
+    await expect(card).toBeVisible({ timeout: 15000 })
+    await expect(card.getByTestId('approval-review')).toContainText('mock person reason')
+    // The tool's description and raw arguments are written for the model: one click away, not in the person's way.
+    await expect(card).not.toContainText('REVIEW_UNSURE')
+    await card.getByTestId('approval-details-toggle').click()
+    await expect(card).toContainText('REVIEW_UNSURE')
+    expect(fixture.invokedTools()).toEqual([])
+  })
+
   test('a reviewer denial shows as a denied chip with its reason', async ({ page, goToWithAuth }) => {
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
     await ask(page, 'call tool set_note {"note":"REVIEW_DENY"}')
