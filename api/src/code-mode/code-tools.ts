@@ -21,6 +21,7 @@
 import { jsonSchema, type Tool } from 'ai'
 import { CodeModeToolError, type CodeModeApprovalInterrupt } from '@ai-sdk/code-mode'
 import type { MessagePart } from '@agents/shared/message-parts'
+import { isMediaToolResult, scriptViewOfMedia } from '@agents/shared/tool-result'
 import type { JSONObject } from '@ai-sdk/provider'
 import type { ToolSet } from '../conversations/operations.ts'
 import { asksPerson, type ReviewGate } from '../approval-review/gate.ts'
@@ -253,6 +254,9 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
             const used = spentOf(options.toolCallId)
             if (!used.ran.includes(name)) used.ran.push(name)
           }
+          // A page tool's image result arrives as the envelope the model would get: the script gets its text (as an
+          // MCP tool's, ../mcp-servers/client.ts), never the base64.
+          if (isMediaToolResult(output)) output = scriptViewOfMedia(name, output)
           spend(options.toolCallId, bridgedBytes(output), transferExceededMessage)
           return output
         } catch (err) {

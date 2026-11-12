@@ -13,7 +13,7 @@ import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } fro
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, platformMcpServer, type SiteCredentials, type SiteCredential, type GlobalMcpServer, type McpServerRef } from './operations.ts'
-import { formatMcpToolResult } from '@agents/shared/tool-result'
+import { formatMcpToolResult, scriptViewOfMedia } from '@agents/shared/tool-result'
 import { credentialScopes } from '../nhi/operations.ts'
 import { toolDescription } from '@agents/shared/tool-description'
 import { withPublicMessage, type ToolSet } from '../conversations/operations.ts'
@@ -293,11 +293,13 @@ export const openAutonomousAgentTools = async (
       })
       // A script gets the data (spec §6.4): structuredContent when the server sent one — data-fair's MCP does —
       // its text otherwise. A result with links is the text, so the call path stores them (records, for code).
-      // A media result reaches a script as its text only: the images are for the model, not for code.
+      // A media result reaches a script as its text and data, with a note that the images are for a direct call
+      // (scriptViewOfMedia): a script cannot look at them, and their base64 would reach the model as JSON.
       const codeExecute = async (rawArgs: any, options?: { abortSignal?: AbortSignal }) => {
         const { callResult, formatted, origin } = await callMcp(rawArgs, options?.abortSignal)
-        const text = typeof formatted === 'string' ? formatted : formatted.text ?? ''
         const structured = (callResult as { structuredContent?: unknown }).structuredContent
+        if (typeof formatted !== 'string') return scriptViewOfMedia(t.name, formatted, structured)
+        const text = formatted
         return resourceLinksOf(callResult as any).length || structured === undefined ? withResourceLinks(text, callResult as any, origin) : structured
       }
       // The declared outputSchema is what structuredContent follows: a script's return type when the server has one.

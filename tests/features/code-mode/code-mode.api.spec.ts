@@ -43,6 +43,18 @@ test.describe('code_mode', () => {
     assert.equal(trace(assistant).parentToolCallId, call.toolCallId)
   })
 
+  test('a script calling a tool that returns an image gets its text and data, and a note, never the image', async () => {
+    const agent = await createFilesAgent()
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: agent.id }, script('const r = await tools.snapshot({}); return { text: r.text, closures: r.closures, note: r.note, keys: Object.keys(r).sort() }'))
+    const call = callPart(assistant, 'code_mode')
+    assert.equal(call.state, 'output-available', outputOf(call))
+    assert.match(outputOf(call), /"text": "a chart of closures"/)
+    assert.match(outputOf(call), /"closures": 3/)
+    assert.match(outputOf(call), /call snapshot directly, outside code_mode/)
+    assert.doesNotMatch(outputOf(call), /iVBOR/)
+    assert.match(outputOf(call), /"keys": \[\s*"closures",\s*"note",\s*"text"\s*\]/)
+  })
+
   test('a script reads, transforms and writes files, then passes one to a tool that takes a file', async () => {
     const agent = await createFilesAgent()
     const first = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool write_file {"file_path":"/in.csv","content":"street,days\\nRue A,3\\nRue B,12\\n"}')
