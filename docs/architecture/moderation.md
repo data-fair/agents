@@ -210,9 +210,11 @@ who can access a resource (communication outside the organization), deletes a da
 processing or many lines at once, sends data to an address outside the platform, acts on another organization's
 resources, or goes beyond what was asked. A **grant** (`request_web_access`, `request_mcp_access`, the planning
 tools) is judged on what it widens — who can in effect instruct the agent, what it will do unattended — and on
-whether exactly that grant was asked for. For both, an operation reaching what an earlier refused or rejected one
-would have reached is denied unless the people asked for it again after that refusal, and a series is judged as a
-whole. Stage 2 alone, for an action, is told how to read a display option of an item the agent added for the
+whether exactly that grant was asked for. For both, an operation reaching what an earlier one refused by the
+reviewer would have reached is denied unless the people asked for it again after that refusal, and a series is judged
+as a whole. One reaching part of what a person rejected is unsure, never denied: a person refuses a whole call for one
+of its parts (judged portals runs: a page write rejected for its text, then the button link it also carried denied
+without asking, a turn lost), and a person who refused once can refuse again. Stage 2 alone, for an action, is told how to read a display option of an item the agent added for the
 request (how it shows: size, place, style, sorting and search for the visitors; not what it says, shows, embeds or
 links to, nor who can see or edit it, and only when the path plainly names that item): part of that request, which
 settles only whether the option goes beyond what was asked, never the rules (`ri-editable-added-table`,
@@ -249,7 +251,7 @@ shown whole. Stage 1 (5 s by default, `approvalReview.stage1TimeoutMs`) leans to
 may change something other than what the people asked about (an index, a path or an id that could name another
 item: a one-word screen cannot tell an added item's position from an existing one's); its `no` is recorded
 `cleared`. Stage 2 answers
-`{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, shown on the approval card instead of « le relecteur hésite : reason », and as the reviewer's note on a card it allowed, cut like `reason`). `personReason` is asked in the language of the people's messages, with the chat's reported language beside it (its `language` host-state fact, checked to be a language code by `languageCodeOf`): the first alone a small model did not always follow, and the page's language is not always the person's. It shares the verdict's answer, so its wording moves the verdict: two variants telling it not to guess at stored content (judged runs' cards did) raised the guard eval's false cards from 8-11% to 16-18% on haiku, and were dropped; the schema leaves the reason unbounded, so a long one cannot fail a
+`{ outcome: allow | deny | unsure, reason, personReason? }` (`reason` is for the model, English; `personReason` is one or two sentences for the person, shown on the approval card instead of « le relecteur hésite : reason », first under its title, the tool's description (written for the model) and raw arguments then folded under « Détails », and as the reviewer's note on a card it allowed, cut like `reason`). `personReason` is asked in the language of the people's messages, with the chat's reported language beside it (its `language` host-state fact, checked to be a language code by `languageCodeOf`): the first alone a small model did not always follow, and the page's language is not always the person's. It shares the verdict's answer, so its wording moves the verdict: two variants telling it not to guess at stored content (judged runs' cards did) raised the guard eval's false cards from 8-11% to 16-18% on haiku, and were dropped; the schema leaves the reason unbounded, so a long one cannot fail a
 real denial into unsure, and the record cuts it to `REVIEW_REASON_MAX_CHARS` (300) at a sentence end, else at a word with « … » (`boundReason`). Both reasons are asked for at most `REVIEW_REASON_ASKED_CHARS` (200), well under the cut: asked for 300 itself, a model ran past it.
 
 **Stage-1 timeout.** A stage 1 that does not answer in time fails the review (`failure: timeout`), the call is
