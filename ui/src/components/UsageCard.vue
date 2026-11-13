@@ -146,6 +146,6 @@ function formatCost (amount: number): string {
 }
 
 function formatDate (iso: string): string {
-  return new Date(iso).toLocaleString()
+  return new Date(iso).toLocaleString(locale.value)
 }
 </script>

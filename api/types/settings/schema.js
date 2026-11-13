@@ -625,7 +625,7 @@ export default {
               },
               description: 'Use "compatible" for providers that do not support the new /v1/responses endpoint (e.g. LiteLLM, older OpenAI-compatible APIs). Leave empty for standard OpenAI behavior.',
               'x-i18n-description': {
-                en: 'Utilisez "compatible" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.',
+                en: 'Use "compatible" for providers that do not support the new /v1/responses endpoint (e.g. LiteLLM, older OpenAI-compatible APIs). Leave empty for standard OpenAI behavior.',
                 fr: 'Utilisez "compatible" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.'
               },
               enum: ['default', 'compatible'],
@@ -767,7 +767,7 @@ export default {
             description: 'Euros per million output tokens, as listed by the provider.',
             'x-i18n-description': {
               en: 'Euros per million output tokens, as listed by the provider.',
-              fr: 'Euros par million de tokens de sortie, tels quaffichés par le fournisseur.'
+              fr: "Euros par million de tokens de sortie, tels qu'affichés par le fournisseur."
             }
           }
         }
