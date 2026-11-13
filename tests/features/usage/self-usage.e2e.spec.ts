@@ -16,7 +16,7 @@ test.describe('Chat consumption tab', () => {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [{
         model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-        usage: ['assistant', 'tools', 'summarizer'],
+        usage: ['assistant', 'summarizer'],
         inputPricePerMillion: 8_000,
         outputPricePerMillion: 8_000
       }],
