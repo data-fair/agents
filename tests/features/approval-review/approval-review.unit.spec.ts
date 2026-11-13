@@ -405,6 +405,13 @@ test.describe('Checked arguments', () => {
     const without = reviewMessage({ earlierCalls: [], intent: intentFromConversation(['attach it'], ''), call: { ...checkedCall, input: { id: 'b51f' } }, exposure: noExposure, nonce: 'abcdef012345' }, 2)
     assert.doesNotMatch(without, /"checkedArguments"/)
   })
+
+  test('a checked item guard (json-layout, field \'\') says the item holds the given keys', () => {
+    const formSchema = { type: 'object', properties: { path: { type: 'string' }, value: {}, item: { type: 'object', 'x-checked': { against: 'path', field: '' } } } }
+    const formCall: ProposedCall = { ...call, toolName: 'page_config_setFieldValue', checked: checkedArgumentsOf(formSchema), input: { path: '/elements/1/link', item: { type: 'button' }, value: { type: 'standard' } } }
+    const message = reviewMessage({ earlierCalls: [], intent: intentFromConversation(['add a button'], ''), call: formCall, exposure: noExposure, nonce: 'abcdef012345' }, 2)
+    assert.match(message, /"item": "checked by the server before the call: the item \\"path\\" names \(the list item it is in, or removes or moves\) holds these keys and values; the call is refused, nothing done, if it does not"/)
+  })
 })
 
 test.describe('Earlier calls', () => {

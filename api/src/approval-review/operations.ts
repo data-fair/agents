@@ -534,6 +534,11 @@ export const isInputCut = (input: unknown): boolean => serializedInput(input).le
 export const isConfirmationOnly = (call: Pick<ProposedCall, 'cls' | 'kind' | 'input'>): boolean =>
   call.cls === 'destructive' || call.kind === 'grant' || isInputCut(call.input)
 
+// field '' (json-layout's item guard): keys and values the item itself must hold, not one property of it
+const checkedText = (check: CheckedArgument): string => check.field.split('/').filter(Boolean).length
+  ? `checked by the server before the call: the ${check.field.split('/').filter(Boolean).at(-1)} of what "${check.against}" names; the call is refused, nothing done, if it differs`
+  : `checked by the server before the call: the item "${check.against}" names (the list item it is in, or removes or moves) holds these keys and values; the call is refused, nothing done, if it does not`
+
 const renderCall = (call: ProposedCall): string => {
   // The title once: the gate takes it from annotations.title, where the MCP client puts it.
   const { title: annotatedTitle, ...annotations } = call.annotations ?? {}
@@ -542,7 +547,7 @@ const renderCall = (call: ProposedCall): string => {
   const given = (call.input && typeof call.input === 'object' ? call.input : {}) as Record<string, unknown>
   const checked = Object.entries(call.checked ?? {})
     .filter(([name, check]) => given[name] !== undefined && identifier(name) && identifier(check.against))
-    .map(([name, check]) => [name, `checked by the server before the call: the ${check.field.split('/').filter(Boolean).at(-1) ?? 'label'} of what "${check.against}" names; the call is refused, nothing done, if it differs`])
+    .map(([name, check]) => [name, checkedText(check)])
   const head = JSON.stringify({
     tool: call.toolName,
     ...(call.server ? { server: call.server } : {}),

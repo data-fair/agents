@@ -30,7 +30,7 @@ test.describe('limitModelImages', () => {
     assert.equal(outputOf(out, 'c2').type, 'content', 'the latest is sent as an image')
     const older = outputOf(out, 'c0')
     assert.equal(older.type, 'text', 'a result left with no image takes the shape every provider accepts')
-    assert.match(older.value, /^report c0\n\n\[image image\/png ~3kB no longer shown/)
+    assert.match(older.value, /^report c0\n\n\[image image\/png ~3kB, which you saw when it came, no longer shown/)
   })
 
   test('a model that does not read images gets none, and is told why', () => {
