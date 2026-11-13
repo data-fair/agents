@@ -40,7 +40,8 @@ const isMedia = (item: unknown): item is MediaItem =>
 const sizeKb = (item: MediaItem) => Math.round(String(item.data).length * 3 / 4 / 1024)
 
 export const imagePlaceholder = (item: MediaItem, reason: 'earlier' | 'unsupported') => reason === 'earlier'
-  ? `[image ${item.mediaType} ~${sizeKb(item)}kB no longer shown: a later image replaced it, call the tool again to see the current state]`
+  // "call again to see it" read as "I could not see it": the agent told a person it had not seen a render it had described
+  ? `[image ${item.mediaType} ~${sizeKb(item)}kB, which you saw when it came, no longer shown: a later image replaced it. What you saw then still holds; call the tool again only if what it shows may have changed since]`
   : `[image ${item.mediaType} ~${sizeKb(item)}kB not shown: this model does not read images]`
 
 const isContentResult = (part: any): part is { type: 'tool-result', output: { type: 'content', value: ContentItem[] } } =>
