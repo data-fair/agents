@@ -24,7 +24,7 @@ export default {
   cipherPassword: 'test',
   upgradeRoot: '../',
   providers: [{ type: 'mock', id: 'global-mock', name: 'Global Mock', enabled: true }],
-  models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'tools', 'summarizer', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
+  models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'summarizer', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
   defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } },
   // Two MCP servers on two ports drawn in .env (dev/dev.json "ports"), so no literal port can be taken
   // on another checkout or in CI.

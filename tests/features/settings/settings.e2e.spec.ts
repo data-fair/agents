@@ -85,10 +85,10 @@ test.describe('Settings UI', () => {
     // account's providers — proof the getItems URL resolved the provider ids.
     await page.getByRole('option', { name: 'Mock Tools Model' }).click()
 
-    // Flag it for the "tools" usage
+    // Flag it for the "summarizer" usage
     // the outer combobox wrapper, not the input it overlays (which intercepts clicks)
     await page.getByRole('combobox').filter({ hasText: 'Appropriate usages' }).last().click()
-    await page.getByRole('option', { name: 'Tools', exact: true }).click()
+    await page.getByRole('option', { name: 'Summarizer', exact: true }).click()
     await page.keyboard.press('Escape')
 
     // exact: true — Playwright's name matcher is a substring match, and
@@ -102,7 +102,7 @@ test.describe('Settings UI', () => {
     // Reload: the new definition is persisted and the form is clean again
     await page.reload()
     await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
-    await expect(page.getByText('Mock Tools Model (tools)')).toBeVisible()
+    await expect(page.getByText('Mock Tools Model (summarizer)')).toBeVisible()
     await expect(page.getByRole('textbox', { name: 'Input price (per 1M tokens)', exact: true }).last()).toHaveValue('0.4')
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()

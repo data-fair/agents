@@ -1,6 +1,6 @@
 # Configuration: providers, models and credits
 
-AI configuration is split across **three layers**, each owned by a different actor and stored in a different place. A request resolves a role (`assistant`, `tools`, `summarizer`, `moderator`) to a concrete model by walking the layers from the most specific (org mapping) down to the least specific (global default), then a per-role fallback chain.
+AI configuration is split across **three layers**, each owned by a different actor and stored in a different place. A request resolves a role (`assistant`, `summarizer`, `moderator`) to a concrete model by walking the layers from the most specific (org mapping) down to the least specific (global default), then a per-role fallback chain.
 
 ```mermaid
 graph TD
@@ -57,7 +57,7 @@ JSON array of provider definitions. `type` is one of the 9 supported provider ty
 
 ### `MODELS`
 
-JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `tools`, `summarizer`, `moderator` — at least one, no duplicates). These four are the only roles: the former `evaluator` role was removed with the trace evaluator, and `upgrade/0.12.2/remove-evaluator-role.js` strips it from stored settings.
+JSON array of global model definitions, each referencing a `provider` id from `PROVIDERS`. `usage` flags which roles the model is *allowed* to serve (`assistant`, `summarizer`, `moderator` — at least one, no duplicates). These three are the only roles. The former `evaluator` role was removed with the trace evaluator, and `upgrade/0.12.2/remove-evaluator-role.js` strips it from stored settings. The former `tools` role was removed once memory consolidation, its last consumer, moved to `assistant`; `upgrade/0.12.2/remove-tools-role.js` strips it from stored settings. For one release a `tools` usage in `MODELS` or a `tools` key in `DEFAULT_MODELS` is still accepted: it is dropped at boot with a `config-removed-model-role` warning (`dropRemovedModelRoles`, `api/src/models/operations.ts`), so a manifest updated after the image does not stop the pod.
 
 `inputPricePerMillion` and `outputPricePerMillion` are **mandatory**, in euros per million tokens, copied from the provider's own pricing page. `cachedInputPricePerMillion` is optional and means *unknown* when absent, not free — it falls back to the input price (see [Credits](#credits)). `assertGlobalAiConfig` rejects a model referencing an unknown provider id, rejects duplicate `provider/id` pairs, and **exits the process at boot** on a model missing either mandatory price, naming the offending `provider/id`. A price of `0` is legitimate; an absent one is not, because every account on this deployment can resolve a global model (see the [release note](#release-note-every-account-can-now-resolve-a-model-so-credits-are-the-gate) below) and a model free by omission would be an uncapped consumer of the deployment's own keys.
 
@@ -75,7 +75,7 @@ as DeepSeek V4.1 Flash or GLM 5.3 Flash on GreenPT, needs `"imageInput": true`. 
     "id": "gpt-5.4",
     "name": "GPT-5.4",
     "provider": "global-openai",
-    "usage": ["assistant", "tools"],
+    "usage": ["assistant"],
     "inputPricePerMillion": 1.25,
     "cachedInputPricePerMillion": 0.125,
     "outputPricePerMillion": 10
@@ -98,7 +98,6 @@ JSON object mapping each role to a `{ provider, id }` ref that must resolve to a
 ```json
 {
   "assistant": { "provider": "global-openai", "id": "gpt-5.4" },
-  "tools": { "provider": "global-openai", "id": "gpt-5.4" },
   "summarizer": { "provider": "global-openai", "id": "gpt-5.4-mini" },
   "moderator": { "provider": "global-openai", "id": "gpt-5.4-mini" }
 }
@@ -289,12 +288,11 @@ Both routes upsert (`$setOnInsert` seeds the other layer's defaults on a first w
 
 ```
 assistant:  assistant
-tools:      tools      -> assistant
 summarizer: summarizer -> assistant
 moderator:  moderator  -> summarizer -> assistant
 ```
 
-So for role `tools`: try `modelMapping.tools`, then `defaultModels.tools`; if neither resolves to a catalog entry, try `modelMapping.assistant`, then `defaultModels.assistant`. An unresolvable ref (e.g. a deleted provider) logs a warning and falls through rather than failing the request outright; only running out of the whole chain throws `No model configured for <role>`.
+So for role `summarizer`: try `modelMapping.summarizer`, then `defaultModels.summarizer`; if neither resolves to a catalog entry, try `modelMapping.assistant`, then `defaultModels.assistant`. An unresolvable ref (e.g. a deleted provider) logs a warning and falls through rather than failing the request outright; only running out of the whole chain throws `No model configured for <role>`.
 
 ## Credits
 

@@ -150,14 +150,15 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
   const transcript = conversationsForConsolidation(conversations)
 
   const settings = await getSettings(agent.owner)
-  const { model, entry } = resolveRoleModel(settings, 'tools')
+  const { model, entry } = resolveRoleModel(settings, 'assistant')
   const documents = await loadMemory(agentStoreId(agent.id))
   const withdrawn = new AbortController()
   const author: MemoryAuthor = { kind: 'consolidation', agentId: agent.id, since, until }
   const tools = withProvenance({ [MEMORY_TOOL_NAME]: consolidationMemoryTool(agent, author, withdrawn) }, () => MEMORY_SERVER_ID)
 
   // Billed per COMPLETED step, like a turn's: a pass that fails or is withdrawn after a step has still
-  // spent that step's tokens. At the tools model's prices, under the agent's own identity, and with no
+  // spent that step's tokens. On the assistant role: a multi-step tool-calling pass deciding what to keep
+  // and what to merge is judgement work, not a background chore for a small model. At its prices, under the agent's own identity, and with no
   // run: a consolidation has none, so its cost lives in usage only.
   const identity = usageIdentityFor(agent, { owner: agent.owner })
   let generated
@@ -172,7 +173,7 @@ const consolidate = async (agent: AutonomousAgent, now: Date): Promise<Consolida
       stopWhen: isStepCount(CONSOLIDATION_STEP_LIMIT),
       abortSignal: AbortSignal.any([withdrawn.signal, AbortSignal.timeout(CONSOLIDATION_TIMEOUT_MS)]),
       onStepEnd: async ({ usage }) => {
-        await chargeModelCall({ owner: agent.owner, identity, modelRole: 'tools', entry, usage })
+        await chargeModelCall({ owner: agent.owner, identity, modelRole: 'assistant', entry, usage })
           .catch(err => log.error('memory consolidation usage not recorded', { code: 'memory-consolidation-usage', agentId: agent.id, err }))
       }
     })

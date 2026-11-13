@@ -366,7 +366,7 @@ function getCalledToolNames (prompt: string | Array<any>): Set<string> {
 }
 
 /**
- * mock-tools: the `tools` seat's mock, context-aware tool chaining.
+ * mock-tools: a mock for context-aware tool chaining.
  * Inspects conversation history to deterministically chain: get_schema → query_data → text summary.
  * Also supports "call tool" syntax and "hello" → "world" as overrides.
  */

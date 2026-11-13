@@ -79,11 +79,10 @@ export type CachedInputPricePer1MTokens = number;
  * @minItems 1
  */
 export type AppropriateUsages = [
-  (Assistant | Tools | Summarizer | Moderator) & string & (Assistant | Tools | Summarizer | Moderator) & string,
-  ...((Assistant | Tools | Summarizer | Moderator) & string & (Assistant | Tools | Summarizer | Moderator) & string)[]
+  (Assistant | Summarizer | Moderator) & string & (Assistant | Summarizer | Moderator) & string,
+  ...((Assistant | Summarizer | Moderator) & string & (Assistant | Summarizer | Moderator) & string)[]
 ];
 export type Assistant = "assistant";
-export type Tools = "tools";
 export type Summarizer = "summarizer";
 export type Moderator = "moderator";
 /**
@@ -252,22 +251,13 @@ export type Model = {
  */
 export type ModelPerRole = {
   assistant?: Assistant1;
-  tools?: Tools1;
   summarizer?: Summarizer1;
   moderator?: Moderator1;
 }
 /**
- * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools.
+ * The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools. It also consolidates the memory of autonomous agents.
  */
 export type Assistant1 = {
-  provider: string;
-  id: string;
-  name?: string;
-}
-/**
- * The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.
- */
-export type Tools1 = {
   provider: string;
   id: string;
   name?: string;
@@ -281,7 +271,7 @@ export type Summarizer1 = {
   name?: string;
 }
 /**
- * The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.
+ * The "gatekeeper." Makes three security judgements: it classifies each new user message (profanity, prompt injection, persona override, out-of-scope requests); it checks tool outputs for injected instructions (the tripwire); and, as an autonomous agent's approval reviewer, it decides whether the agent's write calls may run. Pick a model that follows a policy reliably: a weak classifier here lets injections and unwanted writes through. It also sits on the path to the first response token, so latency matters too. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: their fixed taxonomies and output formats cannot express this platform's policies.
  */
 export type Moderator1 = {
   provider: string;

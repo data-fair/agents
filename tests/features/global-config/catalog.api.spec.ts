@@ -39,25 +39,25 @@ test.describe('Catalog API', () => {
     assert.equal(orgModel.provider.id, 'mock-provider')
   })
 
-  test('?usage=tools filters to models flagged for that role', async () => {
-    const toolsModel = { id: 'tools-model', name: 'Tools Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
+  test('?usage=moderator filters to models flagged for that role', async () => {
+    const guardModel = { id: 'guard-model', name: 'Guard Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
     const assistantOnlyModel = { id: 'assistant-only-model', name: 'Assistant Only', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
     await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
-        { model: toolsModel, usage: ['tools'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
+        { model: guardModel, usage: ['moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
         { model: assistantOnlyModel, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
       ],
       modelMapping: { assistant: { provider: 'mock-provider', id: 'assistant-only-model' } },
       quotas: defaultQuotas
     })
 
-    const res = await orgAdmin.get('/api/catalog/organization/test1?usage=tools')
+    const res = await orgAdmin.get('/api/catalog/organization/test1?usage=moderator')
     assert.equal(res.status, 200)
     for (const m of res.data.results) {
-      assert.ok(m.usage.includes('tools'), `expected model ${m.id} to be flagged for "tools"`)
+      assert.ok(m.usage.includes('moderator'), `expected model ${m.id} to be flagged for "moderator"`)
     }
-    assert.ok(res.data.results.some((m: any) => m.id === 'tools-model'))
+    assert.ok(res.data.results.some((m: any) => m.id === 'guard-model'))
     assert.ok(!res.data.results.some((m: any) => m.id === 'assistant-only-model'))
     // the dev-config global model is flagged for every role, so it stays in the filtered set
     assert.ok(res.data.results.some((m: any) => m.source === 'global' && m.id === 'mock-model'))
@@ -68,7 +68,7 @@ test.describe('Catalog API', () => {
     assert.equal(res.status, 200)
     // only assistant has a global default in the dev config; every other role
     // walks its fallback chain down to it
-    for (const role of ['assistant', 'tools', 'summarizer', 'moderator']) {
+    for (const role of ['assistant', 'summarizer', 'moderator']) {
       assert.equal(res.data.defaults[role]?.id, 'mock-model', `default for ${role}`)
       assert.equal(res.data.defaults[role]?.provider.id, 'global-mock', `default provider for ${role}`)
     }
@@ -78,14 +78,14 @@ test.describe('Catalog API', () => {
     const orgModel = { id: 'org-model', name: 'Org Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
     await putSettings(admin, 'organization/test1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
-      models: [{ model: orgModel, usage: ['assistant', 'tools'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
+      models: [{ model: orgModel, usage: ['assistant', 'summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
       modelMapping: { assistant: { provider: 'mock-provider', id: 'org-model' } },
       quotas: defaultQuotas
     })
 
-    const res = await orgAdmin.get('/api/catalog/organization/test1?usage=tools')
+    const res = await orgAdmin.get('/api/catalog/organization/test1?usage=summarizer')
     assert.equal(res.data.defaults.assistant.id, 'mock-model')
-    assert.equal(res.data.defaults.tools.id, 'org-model')
+    assert.equal(res.data.defaults.summarizer.id, 'org-model')
   })
 
   test('unknown usage value yields an empty result set', async () => {

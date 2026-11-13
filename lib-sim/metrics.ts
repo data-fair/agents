@@ -40,8 +40,8 @@ export type RunMetrics = {
   /** Model calls the server recorded, every role included. */
   modelRequests: number | null
   /**
-   * Calls per model role — `assistant` is the person's own conversation; `tools`, `summarizer` and
-   * `moderator` are memory consolidation, compaction and the moderation gate. The record names the role, so
+   * Calls per model role — `assistant` is the person's own conversation and memory consolidation;
+   * `summarizer` and `moderator` are compaction and the guards. The record names the role, so
    * nothing is inferred from the shape of the history.
    */
   requestsByRole: Record<string, number> | null

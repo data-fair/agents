@@ -35,9 +35,8 @@ test.describe('bridge settings', () => {
 
   test('runs the background roles on the tools model', () => {
     const { org } = bridgeSettings('sonnet', 'haiku')
-    assert.deepEqual([...MODEL_ROLES].sort(), ['assistant', 'moderator', 'summarizer', 'tools'])
+    assert.deepEqual([...MODEL_ROLES].sort(), ['assistant', 'moderator', 'summarizer'])
     assert.equal(org.modelMapping.assistant.id, 'sonnet')
-    assert.equal(org.modelMapping.tools.id, 'haiku')
     assert.equal(org.modelMapping.summarizer.id, 'haiku')
     assert.equal(org.modelMapping.moderator.id, 'haiku')
   })

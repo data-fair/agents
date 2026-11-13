@@ -79,11 +79,10 @@ export type CachedInputPricePer1MTokens = number;
  * @minItems 1
  */
 export type AppropriateUsages = [
-  (Assistant | Tools | Summarizer | Moderator) & string & (Assistant | Tools | Summarizer | Moderator) & string,
-  ...((Assistant | Tools | Summarizer | Moderator) & string & (Assistant | Tools | Summarizer | Moderator) & string)[]
+  (Assistant | Summarizer | Moderator) & string & (Assistant | Summarizer | Moderator) & string,
+  ...((Assistant | Summarizer | Moderator) & string & (Assistant | Summarizer | Moderator) & string)[]
 ];
 export type Assistant = "assistant";
-export type Tools = "tools";
 export type Summarizer = "summarizer";
 export type Moderator = "moderator";
 /**

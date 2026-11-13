@@ -111,7 +111,7 @@
           "id": { "type": "string" },
           "name": { "type": "string" },
           "provider": { "type": "string" },
-          "usage": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "enum": ["assistant", "tools", "summarizer", "moderator"] } },
+          "usage": { "type": "array", "minItems": 1, "uniqueItems": true, "items": { "type": "string", "enum": ["assistant", "summarizer", "moderator"] } },
           "contextWindow": { "type": "number", "minimum": 0 },
           "imageInput": { "type": "boolean" },
           "inputPricePerMillion": { "type": "number", "minimum": 0 },
@@ -196,7 +196,6 @@
       "default": {},
       "properties": {
         "assistant": { "$ref": "#/$defs/modelRef" },
-        "tools": { "$ref": "#/$defs/modelRef" },
         "summarizer": { "$ref": "#/$defs/modelRef" },
         "moderator": { "$ref": "#/$defs/modelRef" }
       }

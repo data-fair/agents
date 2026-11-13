@@ -1,12 +1,11 @@
 // The roles a model can be bound to. Each org may pick, per role, any model of
 // its catalog (global models + its own `models` entries); an unmapped role falls
 // back to the global default, then along the role's fallback chain.
-const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'moderator']
+const MODEL_ROLES = ['assistant', 'summarizer', 'moderator']
 
 /** @type {Record<string, { en: string, fr: string }>} */
 const MODEL_ROLE_TITLES = {
   assistant: { en: 'Assistant', fr: 'Assistant' },
-  tools: { en: 'Tools', fr: 'Outils' },
   summarizer: { en: 'Summarizer', fr: 'Résumeur' },
   moderator: { en: 'Moderator', fr: 'Modérateur' }
 }
@@ -14,20 +13,16 @@ const MODEL_ROLE_TITLES = {
 /** @type {Record<string, { en: string, fr: string }>} */
 const MODEL_ROLE_DESCRIPTIONS = {
   assistant: {
-    en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools.',
-    fr: "L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle mène la conversation et appelle les outils."
-  },
-  tools: {
-    en: 'The "technician." Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.',
-    fr: "Le « technicien ». Spécialisé dans les données structurées et l'interaction avec les API. Il excelle à enchaîner plusieurs appels d'outils sans remplissage conversationnel, garantissant une haute fiabilité dans les workflows automatisés."
+    en: 'The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools. It also consolidates the memory of autonomous agents.',
+    fr: "L'interface conversationnelle principale. Équilibré pour le raisonnement, le suivi d'instructions et l'interaction naturelle. Ce modèle mène la conversation et appelle les outils. Il consolide aussi la mémoire des agents autonomes."
   },
   summarizer: {
     en: 'A "shorthand" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.',
     fr: "Un spécialiste de la « synthèse ». Optimisé pour extraire rapidement les points clés de blocs de texte petits à moyens. Il privilégie la densité d'information et la concision pour garder les fenêtres de contexte légères et les coûts bas."
   },
   moderator: {
-    en: 'The "gatekeeper." Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform\'s custom policy.',
-    fr: 'Le « gardien ». Classe chaque nouveau message utilisateur (grossièretés, injection de prompt, usurpation de persona, demandes hors périmètre). Doit être rapide et peu coûteux — il se trouve sur le chemin critique vers le premier token de réponse. Les classifieurs de modération dédiés (Llama Guard, API de modération) ne sont pas compatibles : leurs taxonomies et formats de sortie fixes ne peuvent pas exprimer la politique spécifique de cette plateforme.'
+    en: 'The "gatekeeper." Makes three security judgements: it classifies each new user message (profanity, prompt injection, persona override, out-of-scope requests); it checks tool outputs for injected instructions (the tripwire); and, as an autonomous agent\'s approval reviewer, it decides whether the agent\'s write calls may run. Pick a model that follows a policy reliably: a weak classifier here lets injections and unwanted writes through. It also sits on the path to the first response token, so latency matters too. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: their fixed taxonomies and output formats cannot express this platform\'s policies.',
+    fr: "Le « gardien ». Il porte trois jugements de sécurité : il classe chaque nouveau message utilisateur (grossièretés, injection de prompt, usurpation de persona, demandes hors périmètre) ; il vérifie que les résultats d'outils ne contiennent pas d'instructions injectées (le tripwire) ; et, comme relecteur d'approbation d'un agent autonome, il décide si les appels en écriture de l'agent peuvent s'exécuter. Choisissez un modèle qui applique une politique de façon fiable : un classifieur faible laisse passer injections et écritures non voulues. Il se trouve aussi sur le chemin du premier token de réponse, la latence compte donc également. Les classifieurs de modération dédiés (Llama Guard, API de modération) ne sont pas compatibles : leurs taxonomies et formats de sortie fixes ne peuvent pas exprimer les politiques de cette plateforme."
   }
 }
 
@@ -707,7 +702,6 @@ export default {
               type: 'string',
               oneOf: [
                 { const: 'assistant', title: 'Assistant' },
-                { const: 'tools', title: 'Tools', 'x-i18n-title': { en: 'Tools', fr: 'Outils' } },
                 { const: 'summarizer', title: 'Summarizer', 'x-i18n-title': { en: 'Summarizer', fr: 'Résumeur' } },
                 { const: 'moderator', title: 'Moderator', 'x-i18n-title': { en: 'Moderator', fr: 'Modérateur' } }
               ]
