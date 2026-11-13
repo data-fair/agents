@@ -129,6 +129,26 @@ test.describe('The approval reviewer', () => {
     assert.equal(part.toolMetadata.review.code, 'judged')
   })
 
+  test('the same call relaunched after the person wrote instead of deciding is put to them again', async () => {
+    const agent = await createAgent()
+    const ask = 'call tool set_note {"note":"REVIEW_UNSURE_UNLESS_UNDECIDED"}'
+    const first = await turn({ agentId: agent.id }, ask)
+    assert.equal(first.run.stopReason, 'awaiting-approval')
+    // The person writes instead of deciding (here, the same request again): the card is cancelled, the call relaunched.
+    const second = await turn(first.conversationId, ask)
+    const cancelled = callPart(await messageAt(first.conversationId, first.assistant.seq), 'set_note')
+    assert.equal(cancelled.approval.reason, 'The person sent a new message instead of deciding.')
+    // The mock reviewer allows it only when it is shown that card as undecided, not as refused: the label reaches it.
+    const relaunched = callPart(await messageAt(first.conversationId, second.assistant.seq), 'set_note')
+    assert.equal(relaunched.toolMetadata.review.outcome, 'allow')
+    assert.equal(relaunched.toolMetadata.review.reason, 'mock allow: asked again')
+    // An allow on the reviewer route, a card all the same: the person was asked the first time.
+    assert.equal(relaunched.toolMetadata.review.personAgain, true)
+    assert.equal(relaunched.state, 'approval-requested')
+    assert.equal(second.run.stopReason, 'awaiting-approval')
+    assert.deepEqual(fixture.invokedTools(), [])
+  })
+
   test('a destructive call is reviewed, then put to the person', async () => {
     const agent = await createAgent()
     const { run, assistant, conversationId } = await turn({ agentId: agent.id }, 'call tool delete_note {"note":"ok"}')

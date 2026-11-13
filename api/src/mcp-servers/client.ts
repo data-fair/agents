@@ -10,6 +10,7 @@ import { tool, jsonSchema } from 'ai'
 import memoize from 'memoizee'
 import config from '#config'
 import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } from '../files/operations.ts'
+import { checkedArgumentsOf } from '../approval-review/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
 import { callHeaders, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, platformMcpServer, type SiteCredentials, type SiteCredential, type GlobalMcpServer, type McpServerRef } from './operations.ts'
@@ -306,7 +307,9 @@ export const openAutonomousAgentTools = async (
       // A top-level title (openapi-mcp declares one) joins the annotations, where the run records them and the
       // chat reads its chip label: without it the person saw « datafair_list_account_datasets ».
       const annotations = typeof t.title === 'string' && t.title ? { title: t.title, ...(t.annotations as Record<string, unknown> | undefined) } : t.annotations as Record<string, unknown> | undefined
-      tools[t.name] = { tool: mcpTool, codeExecute, codeOutputSchema: codeOutputSchemaFor(t.outputSchema), server: server.id, ...(annotations ? { annotations } : {}), ...(fileArgs.length ? { fileArgs } : {}) }
+      // Arguments the server checks before running the call (openapi-mcp's checked labels): facts for the reviewer.
+      const checkedArgs = checkedArgumentsOf(schema)
+      tools[t.name] = { tool: mcpTool, codeExecute, codeOutputSchema: codeOutputSchemaFor(t.outputSchema), server: server.id, ...(annotations ? { annotations } : {}), ...(fileArgs.length ? { fileArgs } : {}), ...(Object.keys(checkedArgs).length ? { checkedArgs } : {}) }
     }
   }
 

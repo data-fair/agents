@@ -6,7 +6,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import type { ModelMessage } from 'ai'
 import { createReviewGate, type GateTool } from '../../../api/src/approval-review/gate.ts'
-import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, exposureOf, reviewerDenialText, reviewUnavailableText, type EarlierCall, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
+import { BREAKER_TRIPPED_REASON, BUDGET_SPENT_REASON, exposureOf, intentFromConversation, reviewMessage, reviewerDenialText, reviewUnavailableText, type EarlierCall, type Exposure, type ProposedCall, type ReviewRecord } from '../../../api/src/approval-review/operations.ts'
 import { TOOL_NO_LONGER_AVAILABLE } from '../../../api/src/conversations/approved-calls.ts'
 import { recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 
@@ -76,6 +76,14 @@ test.describe('review gate (unit)', () => {
     assert.deepEqual(await decide(gate, 'set_note', { input: { note: 'n' } }), { type: 'approved', reason: 'r' })
     assert.equal(fake.calls.length, 1)
     assert.deepEqual(fake.calls[0].call, { toolName: 'set_note', server: 'dev', annotations: {}, input: { note: 'n' }, cls: 'write', kind: 'action' })
+  })
+
+  test('gate: the review gets the tool\'s title, and the reviewer reads it once', async () => {
+    const { gate, fake } = gateWith({ tools: { set_note: { ...reviewed('reviewer'), annotations: { title: 'Set a note' }, title: 'Set a note' } } })
+    await decide(gate, 'set_note', { input: { note: 'n' } })
+    assert.equal(fake.calls[0].call.title, 'Set a note')
+    const message = reviewMessage({ earlierCalls: [], intent: intentFromConversation(['note it'], ''), call: fake.calls[0].call, exposure: { exposed: false, tools: [] }, nonce: 'abcdef012345' }, 2)
+    assert.equal(message.split('Set a note').length - 1, 1)
   })
 
   test('gate: a cleared allow carries no reason', async () => {
@@ -355,5 +363,26 @@ test.describe('The reviewer sees earlier calls', () => {
     const paused = fake.calls[2].earlierCalls[1]
     assert.deepEqual([paused.toolName, paused.decision, paused.inScript], ['delete_note', 'awaiting-person', true])
     assert.equal(fake.calls[3].earlierCalls[2].decision, 'awaiting-person')
+  })
+
+  test('the same call as a card left undecided goes to a person again, whatever the reviewer now says', async () => {
+    const undecided: EarlierCall = { toolName: 'set_note', input: { note: 'x', tags: ['a'] }, decision: 'undecided-by-person', afterMessage: 1 }
+    const { gate } = gateWith({ tools: { set_note: reviewed('reviewer') }, earlier: { calls: [undecided], afterMessage: 2 } })
+    // The arguments compared as values: the model may write the keys in another order.
+    assert.deepEqual(await decide(gate, 'set_note', { toolCallId: 'a', input: { tags: ['a'], note: 'x' } }), { type: 'user-approval', reason: 'r' })
+    assert.equal(gate.recordOf('a')?.personAgain, true)
+    // Other arguments: a new call, judged as such.
+    assert.deepEqual(await decide(gate, 'set_note', { toolCallId: 'b', input: { note: 'y' } }), { type: 'approved', reason: 'r' })
+    // A script's call pauses for the person the same way.
+    assert.equal((await gate.reviewNested('s:tool-1', 'set_note', { note: 'x', tags: ['a'] })).personAgain, true)
+  })
+
+  test('a relaunch of an undecided card is not asked again in a task, nor when the reviewer does not allow it', async () => {
+    const undecided: EarlierCall = { toolName: 'set_note', input: { note: 'x' }, decision: 'undecided-by-person', afterMessage: 1 }
+    const task = gateWith({ tools: { set_note: reviewed('reviewer') }, surface: 'task', earlier: { calls: [undecided], afterMessage: 1 } })
+    assert.deepEqual(await decide(task.gate, 'set_note', { input: { note: 'x' } }), { type: 'approved', reason: 'r' })
+    const denied = gateWith({ tools: { set_note: reviewed('reviewer') }, answer: record('deny', { reason: 'no' }), earlier: { calls: [undecided], afterMessage: 1 } })
+    assert.equal(((await decide(denied.gate, 'set_note', { input: { note: 'x' } })) as { type: string }).type, 'denied')
+    assert.equal(denied.gate.recordOf('c1')?.personAgain, undefined)
   })
 })
