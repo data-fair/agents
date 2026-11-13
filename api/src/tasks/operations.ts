@@ -133,7 +133,7 @@ export const taskEvent = (
     sender: task.owner,
     visibility: 'private',
     resource: { type: 'autonomous-agent-task', id: task.id, title: task.title },
-    originator: { internalProcess: { id: 'agents-scheduler', name: 'Agents scheduler' } },
+    originator: { internalProcess: { id: 'agents-scheduler', title: 'Agents scheduler' } },
     ...(body ? { body } : {}),
     ...(url ? { url } : {})
   }

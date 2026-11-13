@@ -158,7 +158,7 @@ export const reviewUnavailableEvent = (
     sender: run.owner,
     visibility: 'private',
     resource: { type: 'autonomous-agent', id: agent.id, title },
-    originator: { internalProcess: { id: 'agents-approval-review', name: 'Agents approval reviewer' } },
+    originator: { internalProcess: { id: 'agents-approval-review', title: 'Agents approval reviewer' } },
     ...(url ? { url } : {})
   }
 }

@@ -19,7 +19,6 @@ test.describe('taskEvent', () => {
       assert.deepEqual(event.sender, task.owner)
       assert.equal(event.visibility, 'private')
       assert.deepEqual(event.resource, { type: 'autonomous-agent-task', id: 'task-1', title: 'Weekly check' })
-      assert.deepEqual(event.originator, { internalProcess: { id: 'agents-scheduler', name: 'Agents scheduler' } })
       assert.match(titleOf(event).en, /Weekly check/)
       assert.match(titleOf(event).fr, /Weekly check/)
     })

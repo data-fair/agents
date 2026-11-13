@@ -141,8 +141,8 @@ export const tripSource = (toolName: string, server: string, input: unknown): Tr
 
 const boundUrl = (url: string): string => url.length <= SOURCE_URL_MAX_CHARS ? url : `${url.slice(0, SOURCE_URL_MAX_CHARS)}…`
 
-export const describeSource = (source: TripSource): string =>
-  source.url ? `${source.tool} on ${boundUrl(source.url)}` : `${source.tool} (${source.server})`
+export const describeSource = (source: TripSource, lang: 'en' | 'fr' = 'en'): string =>
+  source.url ? `${source.tool} ${lang === 'fr' ? 'sur' : 'on'} ${boundUrl(source.url)}` : `${source.tool} (${source.server})`
 
 /**
  * A webhook payload is screened as a call of its own, with no part to store it on: its result is the run's
@@ -184,17 +184,16 @@ export const injectionEvent = (
 ): TaskEvent => {
   const title = agent.title ?? agent.id
   const url = siteUrl && `${siteUrl.replace(/\/+$/, '')}/agents/${run.owner.type}/${run.owner.id}/agents/${agent.id}?tab=history&run=${run.id}`
-  const sourceFr = source.url ? `${source.tool} sur ${boundUrl(source.url)}` : describeSource(source)
   return {
     title: {
       en: `The agent "${title}" stopped a run: suspicious content (prompt injection) in the result of ${describeSource(source)}.`,
-      fr: `L'agent « ${title} » a interrompu une exécution : contenu suspect (injection de consignes) dans le résultat de ${sourceFr}.`
+      fr: `L'agent « ${title} » a interrompu une exécution : contenu suspect (injection de consignes) dans le résultat de ${describeSource(source, 'fr')}.`
     },
     topic: { key: `agents:injection-suspected:${agent.id}` },
     sender: run.owner,
     visibility: 'private',
     resource: { type: 'autonomous-agent', id: agent.id, title },
-    originator: { internalProcess: { id: 'agents-tripwire', name: 'Agents tripwire' } },
+    originator: { internalProcess: { id: 'agents-tripwire', title: 'Agents tripwire' } },
     ...(url ? { url } : {})
   }
 }
