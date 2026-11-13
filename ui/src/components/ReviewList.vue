@@ -60,7 +60,7 @@ import { mdiDelete } from '@mdi/js'
 import { $apiPath } from '~/context'
 
 const props = defineProps<{ accountType: string, accountId: string, base: string }>()
-const { t } = useI18n()
+const { t, locale } = useI18n()
 const SIZE = 20
 
 const rows = ref<any[]>([])
@@ -68,7 +68,7 @@ const page = ref(1)
 const pageCount = ref(1)
 const loadError = ref('')
 
-const formatDate = (iso: string) => new Date(iso).toLocaleString()
+const formatDate = (iso: string) => new Date(iso).toLocaleString(locale.value)
 
 const apiBase = computed(() => `${$apiPath}/review/${props.accountType}/${props.accountId}`)
 

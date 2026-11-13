@@ -32,7 +32,7 @@
               md="4"
             >
               <div class="text-caption text-medium-emphasis mb-2">
-                {{ t('usage', { documents: memory?.usage.documents ?? 0, maxDocuments: memory?.limits.documents ?? 0, chars: (memory?.usage.totalChars ?? 0).toLocaleString(), maxChars: (memory?.limits.totalChars ?? 0).toLocaleString() }) }}
+                {{ t('usage', { documents: memory?.usage.documents ?? 0, maxDocuments: memory?.limits.documents ?? 0, chars: (memory?.usage.totalChars ?? 0).toLocaleString(locale), maxChars: (memory?.limits.totalChars ?? 0).toLocaleString(locale) }) }}
               </div>
               <v-list density="compact">
                 <v-list-item

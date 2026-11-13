@@ -81,7 +81,7 @@ const props = defineProps<{
   accountId: string
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const dimension = ref<UsageDimension | ''>('')
 
@@ -106,7 +106,7 @@ const weekDays = computed(() => {
     const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - i))
     days.push({
       date: d.toISOString().slice(0, 10),
-      label: d.toLocaleDateString(undefined, { weekday: 'short', month: 'numeric', day: 'numeric' })
+      label: d.toLocaleDateString(locale.value, { weekday: 'short', month: 'numeric', day: 'numeric' })
     })
   }
   return days

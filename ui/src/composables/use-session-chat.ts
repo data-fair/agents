@@ -27,6 +27,7 @@ import type { PageSkillDescriptor } from '@agents/shared/agent-session-protocol'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
 import { PORTAL_ASSISTANT_ID, usesPageTools } from '@agents/shared/agent-audit'
 import Debug from 'debug'
+import { useSession } from '@data-fair/lib-vue/session.js'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
 import { FrameClientAggregator } from '~/transports/frame-client-aggregator'
 import { useAgentSession } from '~/composables/use-agent-session'
@@ -82,6 +83,7 @@ interface Turn {
 }
 
 export function useSessionChat (options: UseSessionChatOptions) {
+  const session = useSession()
   const turns = ref<Turn[]>([])
   // What this conversation has cost, as the server reports it (the `cost` frame), and a counter the
   // Consumption tab watches to refetch the caller's quota windows after each turn.
@@ -163,7 +165,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     // The cookie is the browser's memory of the answer; the server is told it, never reads it.
     reviewConsent: () => consentRef.value === undefined ? undefined : consentRef.value === 'yes',
     // Stamped when the first message is sent, so the history labels a thread by when it started.
-    newThreadTitle: () => options.title ?? new Date().toLocaleString(),
+    newThreadTitle: () => options.title ?? new Date().toLocaleString(session.lang.value),
 
     /**
      * The thread the socket is bound to now — what the server says, after every hello and when a first

@@ -30,7 +30,7 @@ import App from './App.vue'
   vuetify.defaults.value!['VjsfVerticalTabs-VSheet'] = { border: false, color: 'background' }
   vuetify.defaults.value!['VjsfTabs-VSheet'] = { rounded: true, color: 'background' }
 
-  const i18n = createI18n({ locale: session.state.lang })
+  const i18n = createI18n({ legacy: false, locale: session.state.lang, fallbackLocale: 'en' })
   const head = createHead()
 
   const app = createApp(App)

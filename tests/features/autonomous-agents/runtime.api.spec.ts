@@ -1104,7 +1104,7 @@ test.describe('Autonomous agent run traces', () => {
       reviewPersonalAssistant: false,
       models: [{
         model: mockModelRef,
-        usage: ['assistant', 'tools', 'summarizer', 'moderator'],
+        usage: ['assistant', 'summarizer', 'moderator'],
         contextWindow: 200,
         inputPricePerMillion: 400_000,
         outputPricePerMillion: 400_000
@@ -1159,7 +1159,7 @@ test.describe('Autonomous agent run traces', () => {
       reviewPersonalAssistant: true,
       models: [{
         model: mockModelRef,
-        usage: ['assistant', 'tools', 'summarizer', 'moderator'],
+        usage: ['assistant', 'summarizer', 'moderator'],
         // Big enough that the 3 most recent results plus every instruction fit with margin; small enough
         // that adding the older payloads on top crosses it, which happens around the fifth turn.
         contextWindow: 8000,
@@ -1234,7 +1234,7 @@ test.describe('Autonomous agent run traces', () => {
       // merged, so a partial one loses the required model/usage/price fields and the PUT 400s.
       models: [{
         model: mockModelRef,
-        usage: ['assistant', 'tools', 'summarizer', 'moderator'],
+        usage: ['assistant', 'summarizer', 'moderator'],
         contextWindow: 200,
         inputPricePerMillion: 0,
         outputPricePerMillion: 0
