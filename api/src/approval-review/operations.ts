@@ -165,7 +165,7 @@ export const reviewUnavailableText = (): string =>
 
 /**
  * The notification of a task run whose change could not be reviewed (R15), pushed once per turn: the change was not
- * made, and nobody reads a task run as it goes. Keyed per agent and in French, like the tripwire's (injectionEvent).
+ * made, and nobody reads a task run as it goes. Keyed per agent, in English and French, like the tripwire's (injectionEvent).
  */
 export const reviewUnavailableEvent = (
   agent: { id: string, title?: string },
@@ -175,13 +175,17 @@ export const reviewUnavailableEvent = (
 ): TaskEvent => {
   const title = agent.title ?? agent.id
   const url = siteUrl && `${siteUrl.replace(/\/+$/, '')}/agents/${run.owner.type}/${run.owner.id}/agents/${agent.id}?tab=history&run=${run.id}`
+  const tool = identifier(toolName)
   return {
-    title: `L'agent « ${title} » n'a pas pu faire relire une modification (${identifier(toolName) ?? 'outil'}) : elle n'a pas été faite, le relecteur automatique n'a pas pu décider.`,
+    title: {
+      en: `The agent "${title}" could not get a change reviewed (${tool ?? 'tool'}): it was not made, the automatic reviewer could not decide.`,
+      fr: `L'agent « ${title} » n'a pas pu faire relire une modification (${tool ?? 'outil'}) : elle n'a pas été faite, le relecteur automatique n'a pas pu décider.`
+    },
     topic: { key: `agents:review-failed:${agent.id}` },
     sender: run.owner,
     visibility: 'private',
     resource: { type: 'autonomous-agent', id: agent.id, title },
-    originator: { internalProcess: { id: 'agents-approval-review', name: 'Agents approval reviewer' } },
+    originator: { internalProcess: { id: 'agents-approval-review', title: 'Agents approval reviewer' } },
     ...(url ? { url } : {})
   }
 }

@@ -100,13 +100,8 @@ export const start = async () => {
 
   // BEFORE the recovery pass: a task run it interrupts is notified (tasks/follow-up.ts, afterTaskRun),
   // and pushing to a queue not yet started throws.
-  if (config.privateEventsUrl) {
-    if (!config.secretKeys?.events) {
-      log.error('missing secretKeys.events in config', { code: 'config-events-secret' })
-    } else {
-      await eventsQueue.start({ eventsUrl: config.privateEventsUrl, eventsSecret: config.secretKeys.events })
-    }
-  }
+  // Inactive without privateEventsUrl (events is optional): pushed events are dropped then.
+  await eventsQueue.start({ eventsUrl: config.privateEventsUrl, eventsSecret: config.secretKeys?.events })
 
   // The NHI signing keys: created on a fresh deployment before the issuer routes can be asked for them,
   // then rotated when due (api/src/nhi/service.ts).
@@ -192,7 +187,7 @@ export const stop = async () => {
   const drained = await drainLiveRuns(liveRuns, config.shutdownGraceSeconds * 1000, { onTick: closeIdleSessions })
   if (drained.finished || drained.stopped) log.info(`shutdown: ${drained.finished} turn(s) finished, ${drained.stopped} stopped at the end of the grace period`)
   // After the drain: a task run closing in it notifies through the queue.
-  await eventsQueue.stop?.()
+  await eventsQueue.stop()
   // Before the HTTP server goes: a connected browser holding a turn open must be told rather than
   // left with a socket that stops answering, and every pending browser tool call has to fail so the
   // turn waiting on it can finish.

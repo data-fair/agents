@@ -27,7 +27,7 @@ const createTask = async (agentId: string, prompt: string) =>
   (await admin.post(base(agentId), { title: 'Probe', prompt, scheduling: [daily] })).data
 const runNow = async (agentId: string, taskId: string) =>
   (await admin.post(`${base(agentId)}/${taskId}/run`)).data.runId as string
-// notifications are pushed only when the API was started with the events service (privateEventsUrl)
+// the specs reading notifications run with the events service (privateEventsUrl) the CI starts
 const eventsUp = await serviceUp('EVENTS_PORT')
 const events = async () => (await admin.get('/api/test-env/pushed-events')).data as any[]
 // matches api/config/development.js secretKeys.limits

@@ -16,6 +16,9 @@ import { withProvenance, modelTools, type ToolResultScreen } from '../../../api/
 import { webhookPrompt, webhookPayloadsOf, replaceWebhookPayload } from '../../../api/src/tasks/operations.ts'
 import { withoutNestedResults, NESTED_RESULT_HIDDEN } from '../../../api/src/self-knowledge/operations.ts'
 
+/** The { en, fr } title of a task event (the event type also allows a plain string). */
+const titleOf = (event: { title: unknown }) => event.title as { en: string, fr: string }
+
 test.describe('Tripwire operations', () => {
   test('isScanned follows openWorldHint, defaulting to scanned', () => {
     assert.equal(isScanned('list_road_closures', undefined), true)
@@ -87,7 +90,8 @@ test.describe('Tripwire operations', () => {
     assert.equal(describeSource(tripSource('echo', 'dev', {})), 'echo (dev)')
     const event = injectionEvent({ id: 'ag1', title: 'Veille' }, { id: 'r1', owner: { type: 'organization', id: 'o1' }, kind: 'conversation' } as any, source, 'https://site.example')
     assert.equal(event.topic.key, 'agents:injection-suspected:ag1')
-    assert.match(String(event.title), /fetch_url on https:\/\/evil\.example\/p/)
+    assert.match(titleOf(event).en, /fetch_url on https:\/\/evil\.example\/p/)
+    assert.match(titleOf(event).fr, /fetch_url sur https:\/\/evil\.example\/p/)
     assert.equal(event.body, undefined)
     assert.equal(event.url, 'https://site.example/agents/organization/o1/agents/ag1?tab=history&run=r1')
   })
