@@ -626,7 +626,7 @@ export default {
               description: 'Use "compatible" for providers that do not support the new /v1/responses endpoint (e.g. LiteLLM, older OpenAI-compatible APIs). Leave empty for standard OpenAI behavior.',
               'x-i18n-description': {
                 en: 'Use "compatible" for providers that do not support the new /v1/responses endpoint (e.g. LiteLLM, older OpenAI-compatible APIs). Leave empty for standard OpenAI behavior.',
-                fr: 'Utilisez "compatible" pour les fournisseurs qui ne supportent pas le nouveau endpoint /v1/responses (ex: LiteLLM, anciennes APIs compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.'
+                fr: 'Utilisez « compatible » pour les fournisseurs qui ne prennent pas en charge le nouveau endpoint /v1/responses (ex. : LiteLLM, anciennes API compatibles OpenAI). Laissez vide pour le comportement OpenAI standard.'
               },
               enum: ['default', 'compatible'],
               default: 'default'
