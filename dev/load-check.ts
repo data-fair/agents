@@ -182,7 +182,7 @@ const main = async () => {
     providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
     models: [{
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant', 'tools', 'summarizer'],
+      usage: ['assistant', 'summarizer'],
       inputPricePerMillion: 0,
       outputPricePerMillion: 0
     }],

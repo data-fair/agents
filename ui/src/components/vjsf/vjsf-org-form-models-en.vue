@@ -21,7 +21,7 @@ import localizeErrors from "ajv-i18n/localize/en/index.js";
 
 const export0 = validate22;
 const schema26 = {"$id":"export0","$ref":"https://github.com/data-fair/agents/settings/org-form-models#"};
-const schema27 = {"$id":"https://github.com/data-fair/agents/settings/org-form-models","x-exports":["vjsf"],"x-vjsf":{"xI18n":true},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","default":false},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","description":"Weekly limit = monthly / 2, daily limit = monthly / 4","default":0,"minimum":0}}}},"properties":{"modelMapping":{"type":"object","additionalProperties":false,"title":"Model per role","layout":{"title":null},"properties":{"assistant":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Assistant","description":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools.","layout":{"comp":"autocomplete","cols":{"md":6},"getProps":"({ placeholder: context.roleDefaults?.assistant, persistentPlaceholder: !!context.roleDefaults?.assistant })","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=assistant","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":6},"itemTitle":{"type":"js-eval","expr":"item.provider.name ? `${item.name} (${item.provider.name})` : item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"(item.provider.id || item.provider) + \":\" + item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"({ provider: item.provider.id, id: item.id, name: item.name })","pure":true,"dataAlias":"item","ref":5},"returnObjects":true}},"properties":{"provider":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/provider","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/name","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant","errorMessage":{"required":{"provider":"required information","id":"required information"}}},"tools":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Tools","description":"The \"technician.\" Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.","layout":{"comp":"autocomplete","cols":{"md":6},"getProps":"({ placeholder: context.roleDefaults?.tools, persistentPlaceholder: !!context.roleDefaults?.tools })","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=tools","pure":true,"dataAlias":"value","ref":8},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":6},"itemTitle":{"type":"js-eval","expr":"item.provider.name ? `${item.name} (${item.provider.name})` : item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"(item.provider.id || item.provider) + \":\" + item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"({ provider: item.provider.id, id: item.id, name: item.name })","pure":true,"dataAlias":"item","ref":5},"returnObjects":true}},"properties":{"provider":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/provider","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/name","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools","errorMessage":{"required":{"provider":"required information","id":"required information"}}},"summarizer":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Summarizer","description":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.","layout":{"comp":"autocomplete","cols":{"md":6},"getProps":"({ placeholder: context.roleDefaults?.summarizer, persistentPlaceholder: !!context.roleDefaults?.summarizer })","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=summarizer","pure":true,"dataAlias":"value","ref":10},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":6},"itemTitle":{"type":"js-eval","expr":"item.provider.name ? `${item.name} (${item.provider.name})` : item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"(item.provider.id || item.provider) + \":\" + item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"({ provider: item.provider.id, id: item.id, name: item.name })","pure":true,"dataAlias":"item","ref":5},"returnObjects":true}},"properties":{"provider":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/provider","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/name","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer","errorMessage":{"required":{"provider":"required information","id":"required information"}}},"moderator":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Moderator","description":"The \"gatekeeper.\" Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform's custom policy.","layout":{"comp":"autocomplete","cols":{"md":6},"getProps":"({ placeholder: context.roleDefaults?.moderator, persistentPlaceholder: !!context.roleDefaults?.moderator })","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=moderator","pure":true,"dataAlias":"value","ref":12},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":6},"itemTitle":{"type":"js-eval","expr":"item.provider.name ? `${item.name} (${item.provider.name})` : item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"(item.provider.id || item.provider) + \":\" + item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"({ provider: item.provider.id, id: item.id, name: item.name })","pure":true,"dataAlias":"item","ref":5},"returnObjects":true}},"properties":{"provider":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/provider","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/name","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator","errorMessage":{"required":{"provider":"required information","id":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#","errorMessage":{}};
+const schema27 = {"$id":"https://github.com/data-fair/agents/settings/org-form-models","x-exports":["vjsf"],"x-vjsf":{"xI18n":true},"x-vjsf-locales":["en","fr"],"type":"object","additionalProperties":false,"layout":{"title":null},"definitions":{"RoleQuota":{"type":"object","layout":"card","required":["unlimited","monthlyLimit"],"properties":{"unlimited":{"type":"boolean","title":"Unlimited","default":false},"monthlyLimit":{"layout":{"if":"!parent.data.unlimited"},"type":"number","title":"Monthly Limit","description":"Weekly limit = monthly / 2, daily limit = monthly / 4","default":0,"minimum":0}}}},"properties":{"modelMapping":{"type":"object","additionalProperties":false,"title":"Model per role","layout":{"title":null},"properties":{"assistant":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Assistant","description":"The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools. It also consolidates the memory of autonomous agents.","layout":{"comp":"autocomplete","cols":{"md":6},"getProps":"({ placeholder: context.roleDefaults?.assistant, persistentPlaceholder: !!context.roleDefaults?.assistant })","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=assistant","pure":true,"dataAlias":"value","ref":2},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":6},"itemTitle":{"type":"js-eval","expr":"item.provider.name ? `${item.name} (${item.provider.name})` : item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"(item.provider.id || item.provider) + \":\" + item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"({ provider: item.provider.id, id: item.id, name: item.name })","pure":true,"dataAlias":"item","ref":5},"returnObjects":true}},"properties":{"provider":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/provider","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/name","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant","errorMessage":{"required":{"provider":"required information","id":"required information"}}},"summarizer":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Summarizer","description":"A \"shorthand\" specialist. Optimized for quickly distilling key points from small-to-medium text blocks. It focuses on high information density and brevity to keep context windows lean and costs low.","layout":{"comp":"autocomplete","cols":{"md":6},"getProps":"({ placeholder: context.roleDefaults?.summarizer, persistentPlaceholder: !!context.roleDefaults?.summarizer })","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=summarizer","pure":true,"dataAlias":"value","ref":8},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":6},"itemTitle":{"type":"js-eval","expr":"item.provider.name ? `${item.name} (${item.provider.name})` : item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"(item.provider.id || item.provider) + \":\" + item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"({ provider: item.provider.id, id: item.id, name: item.name })","pure":true,"dataAlias":"item","ref":5},"returnObjects":true}},"properties":{"provider":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/provider","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/name","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer","errorMessage":{"required":{"provider":"required information","id":"required information"}}},"moderator":{"type":"object","additionalProperties":false,"required":["provider","id"],"title":"Moderator","description":"The \"gatekeeper.\" Makes three security judgements: it classifies each new user message (profanity, prompt injection, persona override, out-of-scope requests); it checks tool outputs for injected instructions (the tripwire); and, as an autonomous agent's approval reviewer, it decides whether the agent's write calls may run. Pick a model that follows a policy reliably: a weak classifier here lets injections and unwanted writes through. It also sits on the path to the first response token, so latency matters too. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: their fixed taxonomies and output formats cannot express this platform's policies.","layout":{"comp":"autocomplete","cols":{"md":6},"getProps":"({ placeholder: context.roleDefaults?.moderator, persistentPlaceholder: !!context.roleDefaults?.moderator })","getItems":{"url":{"type":"js-tpl","expr":"${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=moderator","pure":true,"dataAlias":"value","ref":10},"itemsResults":{"type":"js-eval","expr":"data.results","pure":true,"dataAlias":"body","ref":6},"itemTitle":{"type":"js-eval","expr":"item.provider.name ? `${item.name} (${item.provider.name})` : item.name","pure":true,"dataAlias":"item","ref":3},"itemKey":{"type":"js-eval","expr":"(item.provider.id || item.provider) + \":\" + item.id","pure":true,"dataAlias":"item","ref":4},"itemValue":{"type":"js-eval","expr":"({ provider: item.provider.id, id: item.id, name: item.name })","pure":true,"dataAlias":"item","ref":5},"returnObjects":true}},"properties":{"provider":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/provider","errorMessage":{}},"id":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/id","errorMessage":{}},"name":{"type":"string","__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/name","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator","errorMessage":{"required":{"provider":"required information","id":"required information"}}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping","errorMessage":{}}},"__pointer":"https://github.com/data-fair/agents/settings/org-form-models#","errorMessage":{}};
 const obj0 = {"required":"missingProperty","dependencies":"property","dependentRequired":"property"};
 
 function validate22(data, {instancePath="", parentData, parentDataProperty, rootData=data, dynamicAnchors={}}={}){
@@ -52,7 +52,7 @@ if(data.modelMapping !== undefined){
 let data0 = data.modelMapping;
 if(data0 && typeof data0 == "object" && !Array.isArray(data0)){
 for(const key1 in data0){
-if(!((((key1 === "assistant") || (key1 === "tools")) || (key1 === "summarizer")) || (key1 === "moderator"))){
+if(!(((key1 === "assistant") || (key1 === "summarizer")) || (key1 === "moderator"))){
 const err1 = {instancePath:instancePath+"/modelMapping",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key1},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.modelMapping,data:data0};
 if(vErrors === null){
 vErrors = [err1];
@@ -219,11 +219,11 @@ vErrors = emErrs3;
 errors = emErrs3.length;
 }
 }
-if(data0.tools !== undefined){
-let data5 = data0.tools;
+if(data0.summarizer !== undefined){
+let data5 = data0.summarizer;
 if(data5 && typeof data5 == "object" && !Array.isArray(data5)){
 if(data5.provider === undefined){
-const err15 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema27.properties.modelMapping.properties.tools.required,parentSchema:schema27.properties.modelMapping.properties.tools,data:data5};
+const err15 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema27.properties.modelMapping.properties.summarizer.required,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data5};
 if(vErrors === null){
 vErrors = [err15];
 }
@@ -233,7 +233,7 @@ vErrors.push(err15);
 errors++;
 }
 if(data5.id === undefined){
-const err16 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.modelMapping.properties.tools.required,parentSchema:schema27.properties.modelMapping.properties.tools,data:data5};
+const err16 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.modelMapping.properties.summarizer.required,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data5};
 if(vErrors === null){
 vErrors = [err16];
 }
@@ -244,7 +244,7 @@ errors++;
 }
 for(const key4 in data5){
 if(!(((key4 === "provider") || (key4 === "id")) || (key4 === "name"))){
-const err17 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key4},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.modelMapping.properties.tools,data:data5};
+const err17 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key4},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data5};
 if(vErrors === null){
 vErrors = [err17];
 }
@@ -257,7 +257,7 @@ errors++;
 if(data5.provider !== undefined){
 let data6 = data5.provider;
 if(typeof data6 !== "string"){
-const err18 = {instancePath:instancePath+"/modelMapping/tools/provider",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.tools.properties.provider.type,parentSchema:schema27.properties.modelMapping.properties.tools.properties.provider,data:data6};
+const err18 = {instancePath:instancePath+"/modelMapping/summarizer/provider",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.summarizer.properties.provider.type,parentSchema:schema27.properties.modelMapping.properties.summarizer.properties.provider,data:data6};
 if(vErrors === null){
 vErrors = [err18];
 }
@@ -280,7 +280,7 @@ errors = emErrs4.length;
 if(data5.id !== undefined){
 let data7 = data5.id;
 if(typeof data7 !== "string"){
-const err20 = {instancePath:instancePath+"/modelMapping/tools/id",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.tools.properties.id.type,parentSchema:schema27.properties.modelMapping.properties.tools.properties.id,data:data7};
+const err20 = {instancePath:instancePath+"/modelMapping/summarizer/id",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.summarizer.properties.id.type,parentSchema:schema27.properties.modelMapping.properties.summarizer.properties.id,data:data7};
 if(vErrors === null){
 vErrors = [err20];
 }
@@ -303,7 +303,7 @@ errors = emErrs5.length;
 if(data5.name !== undefined){
 let data8 = data5.name;
 if(typeof data8 !== "string"){
-const err22 = {instancePath:instancePath+"/modelMapping/tools/name",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.tools.properties.name.type,parentSchema:schema27.properties.modelMapping.properties.tools.properties.name,data:data8};
+const err22 = {instancePath:instancePath+"/modelMapping/summarizer/name",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.summarizer.properties.name.type,parentSchema:schema27.properties.modelMapping.properties.summarizer.properties.name,data:data8};
 if(vErrors === null){
 vErrors = [err22];
 }
@@ -325,7 +325,7 @@ errors = emErrs6.length;
 }
 }
 else {
-const err24 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.modelMapping.properties.tools.type,parentSchema:schema27.properties.modelMapping.properties.tools,data:data5};
+const err24 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.modelMapping.properties.summarizer.type,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data5};
 if(vErrors === null){
 vErrors = [err24];
 }
@@ -340,7 +340,7 @@ const templates1 = {required:{}};
 let emPropParams1;
 let emParamsErrors1;
 for(const err25 of vErrors){
-if((((((err25.keyword !== "errorMessage") && (!err25.emUsed)) && (err25.instancePath === instancePath+"/modelMapping/tools")) && (err25.keyword in emErrors1)) && (err25.schemaPath.indexOf("https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools") === 0)) && (/^\/[^\/]*$/.test(err25.schemaPath.slice(102)))){
+if((((((err25.keyword !== "errorMessage") && (!err25.emUsed)) && (err25.instancePath === instancePath+"/modelMapping/summarizer")) && (err25.keyword in emErrors1)) && (err25.schemaPath.indexOf("https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer") === 0)) && (/^\/[^\/]*$/.test(err25.schemaPath.slice(107)))){
 emPropParams1 = obj0[err25.keyword];
 emParamsErrors1 = emErrors1[err25.keyword][err25.params[emPropParams1]];
 if(emParamsErrors1){
@@ -354,7 +354,7 @@ for(const keyProp1 in emErrors1[key5]){
 emParamsErrors1 = emErrors1[key5][keyProp1];
 if(emParamsErrors1.length){
 const tmpl1 = templates1[key5] && templates1[key5][keyProp1];
-const err26 = {instancePath:instancePath+"/modelMapping/tools",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.modelMapping.properties.tools.errorMessage[key5][keyProp1],schema:schema27.properties.modelMapping.properties.tools.errorMessage,parentSchema:schema27.properties.modelMapping.properties.tools,data:data5};
+const err26 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors1},message:tmpl1 ? tmpl1() : schema27.properties.modelMapping.properties.summarizer.errorMessage[key5][keyProp1],schema:schema27.properties.modelMapping.properties.summarizer.errorMessage,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data5};
 if(vErrors === null){
 vErrors = [err26];
 }
@@ -375,11 +375,11 @@ vErrors = emErrs7;
 errors = emErrs7.length;
 }
 }
-if(data0.summarizer !== undefined){
-let data9 = data0.summarizer;
+if(data0.moderator !== undefined){
+let data9 = data0.moderator;
 if(data9 && typeof data9 == "object" && !Array.isArray(data9)){
 if(data9.provider === undefined){
-const err28 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema27.properties.modelMapping.properties.summarizer.required,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data9};
+const err28 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema27.properties.modelMapping.properties.moderator.required,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data9};
 if(vErrors === null){
 vErrors = [err28];
 }
@@ -389,7 +389,7 @@ vErrors.push(err28);
 errors++;
 }
 if(data9.id === undefined){
-const err29 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.modelMapping.properties.summarizer.required,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data9};
+const err29 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.modelMapping.properties.moderator.required,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data9};
 if(vErrors === null){
 vErrors = [err29];
 }
@@ -400,7 +400,7 @@ errors++;
 }
 for(const key6 in data9){
 if(!(((key6 === "provider") || (key6 === "id")) || (key6 === "name"))){
-const err30 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key6},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data9};
+const err30 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key6},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data9};
 if(vErrors === null){
 vErrors = [err30];
 }
@@ -413,7 +413,7 @@ errors++;
 if(data9.provider !== undefined){
 let data10 = data9.provider;
 if(typeof data10 !== "string"){
-const err31 = {instancePath:instancePath+"/modelMapping/summarizer/provider",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.summarizer.properties.provider.type,parentSchema:schema27.properties.modelMapping.properties.summarizer.properties.provider,data:data10};
+const err31 = {instancePath:instancePath+"/modelMapping/moderator/provider",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.moderator.properties.provider.type,parentSchema:schema27.properties.modelMapping.properties.moderator.properties.provider,data:data10};
 if(vErrors === null){
 vErrors = [err31];
 }
@@ -436,7 +436,7 @@ errors = emErrs8.length;
 if(data9.id !== undefined){
 let data11 = data9.id;
 if(typeof data11 !== "string"){
-const err33 = {instancePath:instancePath+"/modelMapping/summarizer/id",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.summarizer.properties.id.type,parentSchema:schema27.properties.modelMapping.properties.summarizer.properties.id,data:data11};
+const err33 = {instancePath:instancePath+"/modelMapping/moderator/id",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.moderator.properties.id.type,parentSchema:schema27.properties.modelMapping.properties.moderator.properties.id,data:data11};
 if(vErrors === null){
 vErrors = [err33];
 }
@@ -459,7 +459,7 @@ errors = emErrs9.length;
 if(data9.name !== undefined){
 let data12 = data9.name;
 if(typeof data12 !== "string"){
-const err35 = {instancePath:instancePath+"/modelMapping/summarizer/name",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.summarizer.properties.name.type,parentSchema:schema27.properties.modelMapping.properties.summarizer.properties.name,data:data12};
+const err35 = {instancePath:instancePath+"/modelMapping/moderator/name",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.moderator.properties.name.type,parentSchema:schema27.properties.modelMapping.properties.moderator.properties.name,data:data12};
 if(vErrors === null){
 vErrors = [err35];
 }
@@ -481,7 +481,7 @@ errors = emErrs10.length;
 }
 }
 else {
-const err37 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.modelMapping.properties.summarizer.type,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data9};
+const err37 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.modelMapping.properties.moderator.type,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data9};
 if(vErrors === null){
 vErrors = [err37];
 }
@@ -496,7 +496,7 @@ const templates2 = {required:{}};
 let emPropParams2;
 let emParamsErrors2;
 for(const err38 of vErrors){
-if((((((err38.keyword !== "errorMessage") && (!err38.emUsed)) && (err38.instancePath === instancePath+"/modelMapping/summarizer")) && (err38.keyword in emErrors2)) && (err38.schemaPath.indexOf("https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer") === 0)) && (/^\/[^\/]*$/.test(err38.schemaPath.slice(107)))){
+if((((((err38.keyword !== "errorMessage") && (!err38.emUsed)) && (err38.instancePath === instancePath+"/modelMapping/moderator")) && (err38.keyword in emErrors2)) && (err38.schemaPath.indexOf("https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator") === 0)) && (/^\/[^\/]*$/.test(err38.schemaPath.slice(106)))){
 emPropParams2 = obj0[err38.keyword];
 emParamsErrors2 = emErrors2[err38.keyword][err38.params[emPropParams2]];
 if(emParamsErrors2){
@@ -510,7 +510,7 @@ for(const keyProp2 in emErrors2[key7]){
 emParamsErrors2 = emErrors2[key7][keyProp2];
 if(emParamsErrors2.length){
 const tmpl2 = templates2[key7] && templates2[key7][keyProp2];
-const err39 = {instancePath:instancePath+"/modelMapping/summarizer",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema27.properties.modelMapping.properties.summarizer.errorMessage[key7][keyProp2],schema:schema27.properties.modelMapping.properties.summarizer.errorMessage,parentSchema:schema27.properties.modelMapping.properties.summarizer,data:data9};
+const err39 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors2},message:tmpl2 ? tmpl2() : schema27.properties.modelMapping.properties.moderator.errorMessage[key7][keyProp2],schema:schema27.properties.modelMapping.properties.moderator.errorMessage,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data9};
 if(vErrors === null){
 vErrors = [err39];
 }
@@ -531,11 +531,9 @@ vErrors = emErrs11;
 errors = emErrs11.length;
 }
 }
-if(data0.moderator !== undefined){
-let data13 = data0.moderator;
-if(data13 && typeof data13 == "object" && !Array.isArray(data13)){
-if(data13.provider === undefined){
-const err41 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/required",keyword:"required",params:{missingProperty: "provider"},message:"must have required property '"+"provider"+"'",schema:schema27.properties.modelMapping.properties.moderator.required,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data13};
+}
+else {
+const err41 = {instancePath:instancePath+"/modelMapping",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.modelMapping.type,parentSchema:schema27.properties.modelMapping,data:data0};
 if(vErrors === null){
 vErrors = [err41];
 }
@@ -544,19 +542,20 @@ vErrors.push(err41);
 }
 errors++;
 }
-if(data13.id === undefined){
-const err42 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/required",keyword:"required",params:{missingProperty: "id"},message:"must have required property '"+"id"+"'",schema:schema27.properties.modelMapping.properties.moderator.required,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data13};
-if(vErrors === null){
-vErrors = [err42];
+if(errors > 0){
+const emErrs12 = [];
+for(const err42 of vErrors){
+if(!err42.emUsed){
+emErrs12.push(err42);
+}
+}
+vErrors = emErrs12;
+errors = emErrs12.length;
+}
+}
 }
 else {
-vErrors.push(err42);
-}
-errors++;
-}
-for(const key8 in data13){
-if(!(((key8 === "provider") || (key8 === "id")) || (key8 === "name"))){
-const err43 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/additionalProperties",keyword:"additionalProperties",params:{additionalProperty: key8},message:"must NOT have additional properties",schema:false,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data13};
+const err43 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
 if(vErrors === null){
 vErrors = [err43];
 }
@@ -565,170 +564,15 @@ vErrors.push(err43);
 }
 errors++;
 }
-}
-if(data13.provider !== undefined){
-let data14 = data13.provider;
-if(typeof data14 !== "string"){
-const err44 = {instancePath:instancePath+"/modelMapping/moderator/provider",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/provider/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.moderator.properties.provider.type,parentSchema:schema27.properties.modelMapping.properties.moderator.properties.provider,data:data14};
-if(vErrors === null){
-vErrors = [err44];
-}
-else {
-vErrors.push(err44);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs12 = [];
-for(const err45 of vErrors){
-if(!err45.emUsed){
-emErrs12.push(err45);
-}
-}
-vErrors = emErrs12;
-errors = emErrs12.length;
-}
-}
-if(data13.id !== undefined){
-let data15 = data13.id;
-if(typeof data15 !== "string"){
-const err46 = {instancePath:instancePath+"/modelMapping/moderator/id",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/id/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.moderator.properties.id.type,parentSchema:schema27.properties.modelMapping.properties.moderator.properties.id,data:data15};
-if(vErrors === null){
-vErrors = [err46];
-}
-else {
-vErrors.push(err46);
-}
-errors++;
-}
 if(errors > 0){
 const emErrs13 = [];
-for(const err47 of vErrors){
-if(!err47.emUsed){
-emErrs13.push(err47);
+for(const err44 of vErrors){
+if(!err44.emUsed){
+emErrs13.push(err44);
 }
 }
 vErrors = emErrs13;
 errors = emErrs13.length;
-}
-}
-if(data13.name !== undefined){
-let data16 = data13.name;
-if(typeof data16 !== "string"){
-const err48 = {instancePath:instancePath+"/modelMapping/moderator/name",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/name/type",keyword:"type",params:{type: "string"},message:"must be string",schema:schema27.properties.modelMapping.properties.moderator.properties.name.type,parentSchema:schema27.properties.modelMapping.properties.moderator.properties.name,data:data16};
-if(vErrors === null){
-vErrors = [err48];
-}
-else {
-vErrors.push(err48);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs14 = [];
-for(const err49 of vErrors){
-if(!err49.emUsed){
-emErrs14.push(err49);
-}
-}
-vErrors = emErrs14;
-errors = emErrs14.length;
-}
-}
-}
-else {
-const err50 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.modelMapping.properties.moderator.type,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data13};
-if(vErrors === null){
-vErrors = [err50];
-}
-else {
-vErrors.push(err50);
-}
-errors++;
-}
-if(errors > 0){
-const emErrors3 = {"required":{"provider":[],"id":[]}};
-const templates3 = {required:{}};
-let emPropParams3;
-let emParamsErrors3;
-for(const err51 of vErrors){
-if((((((err51.keyword !== "errorMessage") && (!err51.emUsed)) && (err51.instancePath === instancePath+"/modelMapping/moderator")) && (err51.keyword in emErrors3)) && (err51.schemaPath.indexOf("https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator") === 0)) && (/^\/[^\/]*$/.test(err51.schemaPath.slice(106)))){
-emPropParams3 = obj0[err51.keyword];
-emParamsErrors3 = emErrors3[err51.keyword][err51.params[emPropParams3]];
-if(emParamsErrors3){
-emParamsErrors3.push(err51);
-err51.emUsed = true;
-}
-}
-}
-for(const key9 in emErrors3){
-for(const keyProp3 in emErrors3[key9]){
-emParamsErrors3 = emErrors3[key9][keyProp3];
-if(emParamsErrors3.length){
-const tmpl3 = templates3[key9] && templates3[key9][keyProp3];
-const err52 = {instancePath:instancePath+"/modelMapping/moderator",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/errorMessage",keyword:"errorMessage",params:{errors: emParamsErrors3},message:tmpl3 ? tmpl3() : schema27.properties.modelMapping.properties.moderator.errorMessage[key9][keyProp3],schema:schema27.properties.modelMapping.properties.moderator.errorMessage,parentSchema:schema27.properties.modelMapping.properties.moderator,data:data13};
-if(vErrors === null){
-vErrors = [err52];
-}
-else {
-vErrors.push(err52);
-}
-errors++;
-}
-}
-}
-const emErrs15 = [];
-for(const err53 of vErrors){
-if(!err53.emUsed){
-emErrs15.push(err53);
-}
-}
-vErrors = emErrs15;
-errors = emErrs15.length;
-}
-}
-}
-else {
-const err54 = {instancePath:instancePath+"/modelMapping",schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.properties.modelMapping.type,parentSchema:schema27.properties.modelMapping,data:data0};
-if(vErrors === null){
-vErrors = [err54];
-}
-else {
-vErrors.push(err54);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs16 = [];
-for(const err55 of vErrors){
-if(!err55.emUsed){
-emErrs16.push(err55);
-}
-}
-vErrors = emErrs16;
-errors = emErrs16.length;
-}
-}
-}
-else {
-const err56 = {instancePath,schemaPath:"https://github.com/data-fair/agents/settings/org-form-models#/type",keyword:"type",params:{type: "object"},message:"must be object",schema:schema27.type,parentSchema:schema27,data};
-if(vErrors === null){
-vErrors = [err56];
-}
-else {
-vErrors.push(err56);
-}
-errors++;
-}
-if(errors > 0){
-const emErrs17 = [];
-for(const err57 of vErrors){
-if(!err57.emUsed){
-emErrs17.push(err57);
-}
-}
-vErrors = emErrs17;
-errors = emErrs17.length;
 }
 validate22.errors = vErrors;
 return errors === 0;
@@ -757,20 +601,14 @@ return (({ provider: item.provider.id, id: item.id, name: item.name }))
 return (data.results)
 }function expression7(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
-return (({ placeholder: context.roleDefaults?.tools, persistentPlaceholder: !!context.roleDefaults?.tools }))
+return (({ placeholder: context.roleDefaults?.summarizer, persistentPlaceholder: !!context.roleDefaults?.summarizer }))
 }function expression8(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
-return `${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=tools`
+return `${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=summarizer`
 }function expression9(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
-return (({ placeholder: context.roleDefaults?.summarizer, persistentPlaceholder: !!context.roleDefaults?.summarizer }))
-}function expression10(data,value,options,context,display,layout,readOnly,summary,validates
-) {
-return `${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=summarizer`
-}function expression11(data,value,options,context,display,layout,readOnly,summary,validates
-) {
 return (({ placeholder: context.roleDefaults?.moderator, persistentPlaceholder: !!context.roleDefaults?.moderator }))
-}function expression12(data,value,options,context,display,layout,readOnly,summary,validates
+}function expression10(data,value,options,context,display,layout,readOnly,summary,validates
 ) {
 return `${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=moderator`
 }
@@ -813,7 +651,6 @@ const compiledLayout = {
 
       propertyKeys: [
         "assistant",
-        "tools",
         "summarizer",
         "moderator"
       ],
@@ -824,7 +661,6 @@ const compiledLayout = {
 
       children: [
         "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant",
-        "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools",
         "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer",
         "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator"
       ]
@@ -877,60 +713,6 @@ const compiledLayout = {
       key: "name",
       pointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/name",
       refPointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/name",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: false
-    },
-
-    "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools": {
-      title: "Tools",
-      key: "tools",
-      pointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools",
-      refPointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools",
-      pure: true,
-      propertyKeys: ["provider", "id", "name"],
-      roPropertyKeys: [],
-      nullable: false,
-      required: undefined,
-
-      children: [
-        "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/provider",
-        "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/id",
-        "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/name"
-      ]
-    },
-
-    "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/provider": {
-      title: undefined,
-      key: "provider",
-      pointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/provider",
-      refPointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/provider",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: true
-    },
-
-    "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/id": {
-      title: undefined,
-      key: "id",
-      pointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/id",
-      refPointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/id",
-      pure: true,
-      propertyKeys: [],
-      roPropertyKeys: [],
-      nullable: false,
-      required: true
-    },
-
-    "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/name": {
-      title: undefined,
-      key: "name",
-      pointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/name",
-      refPointer: "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/name",
       pure: true,
       propertyKeys: [],
       roPropertyKeys: [],
@@ -1074,8 +856,6 @@ const compiledLayout = {
       children: [{
         key: "assistant"
       }, {
-        key: "tools"
-      }, {
         key: "summarizer"
       }, {
         key: "moderator"
@@ -1143,7 +923,7 @@ const compiledLayout = {
       },
 
       label: "Assistant",
-      help: "<p>The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools.</p>"
+      help: "<p>The primary conversational interface. Balanced for reasoning, instruction-following, and human-like interaction. This model manages the conversation and calls the tools. It also consolidates the memory of autonomous agents.</p>"
     },
 
     "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/assistant/properties/provider": {
@@ -1161,85 +941,6 @@ const compiledLayout = {
       label: "name"
     },
 
-    "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools": {
-      comp: "autocomplete",
-
-      cols: {
-        xs: 12,
-        md: 6
-      },
-
-      getProps: {
-        type: "js-eval",
-        expr: "({ placeholder: context.roleDefaults?.tools, persistentPlaceholder: !!context.roleDefaults?.tools })",
-        pure: true,
-        dataAlias: "value",
-        ref: 7
-      },
-
-      getItems: {
-        url: {
-          type: "js-tpl",
-          expr: "${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=tools",
-          pure: true,
-          dataAlias: "value",
-          ref: 8
-        },
-
-        itemsResults: {
-          type: "js-eval",
-          expr: "data.results",
-          pure: true,
-          dataAlias: "body",
-          ref: 6
-        },
-
-        itemTitle: {
-          type: "js-eval",
-          expr: "item.provider.name ? `${item.name} (${item.provider.name})` : item.name",
-          pure: true,
-          dataAlias: "item",
-          ref: 3
-        },
-
-        itemKey: {
-          type: "js-eval",
-          expr: "(item.provider.id || item.provider) + \":\" + item.id",
-          pure: true,
-          dataAlias: "item",
-          ref: 4
-        },
-
-        itemValue: {
-          type: "js-eval",
-          expr: "({ provider: item.provider.id, id: item.id, name: item.name })",
-          pure: true,
-          dataAlias: "item",
-          ref: 5
-        },
-
-        returnObjects: true
-      },
-
-      label: "Tools",
-      help: "<p>The &quot;technician.&quot; Specialized in structured data and API interaction. It excels at chaining multiple tool calls without conversational filler, ensuring high reliability in automated workflows.</p>"
-    },
-
-    "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/provider": {
-      comp: "text-field",
-      label: "provider"
-    },
-
-    "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/id": {
-      comp: "text-field",
-      label: "id"
-    },
-
-    "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/tools/properties/name": {
-      comp: "text-field",
-      label: "name"
-    },
-
     "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/summarizer": {
       comp: "autocomplete",
 
@@ -1253,7 +954,7 @@ const compiledLayout = {
         expr: "({ placeholder: context.roleDefaults?.summarizer, persistentPlaceholder: !!context.roleDefaults?.summarizer })",
         pure: true,
         dataAlias: "value",
-        ref: 9
+        ref: 7
       },
 
       getItems: {
@@ -1262,7 +963,7 @@ const compiledLayout = {
           expr: "${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=summarizer",
           pure: true,
           dataAlias: "value",
-          ref: 10
+          ref: 8
         },
 
         itemsResults: {
@@ -1332,7 +1033,7 @@ const compiledLayout = {
         expr: "({ placeholder: context.roleDefaults?.moderator, persistentPlaceholder: !!context.roleDefaults?.moderator })",
         pure: true,
         dataAlias: "value",
-        ref: 11
+        ref: 9
       },
 
       getItems: {
@@ -1341,7 +1042,7 @@ const compiledLayout = {
           expr: "${context.apiPath}/catalog/${context.accountType}/${context.accountId}?usage=moderator",
           pure: true,
           dataAlias: "value",
-          ref: 12
+          ref: 10
         },
 
         itemsResults: {
@@ -1380,7 +1081,7 @@ const compiledLayout = {
       },
 
       label: "Moderator",
-      help: "<p>The &quot;gatekeeper.&quot; Classifies each new user message for profanity, prompt-injection, persona override, and out-of-scope requests. Should be fast and cheap — it sits on the critical path to the first response token. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: they use fixed taxonomies and output formats that cannot express this platform&#39;s custom policy.</p>"
+      help: "<p>The &quot;gatekeeper.&quot; Makes three security judgements: it classifies each new user message (profanity, prompt injection, persona override, out-of-scope requests); it checks tool outputs for injected instructions (the tripwire); and, as an autonomous agent&#39;s approval reviewer, it decides whether the agent&#39;s write calls may run. Pick a model that follows a policy reliably: a weak classifier here lets injections and unwanted writes through. It also sits on the path to the first response token, so latency matters too. Dedicated moderation classifiers (Llama Guard, moderation APIs) are not compatible: their fixed taxonomies and output formats cannot express this platform&#39;s policies.</p>"
     },
 
     "https://github.com/data-fair/agents/settings/org-form-models#/properties/modelMapping/properties/moderator/properties/provider": {
@@ -1416,9 +1117,7 @@ const compiledLayout = {
     expression7,
     expression8,
     expression9,
-    expression10,
-    expression11,
-    expression12
+    expression10
   ],
 
   locale: "en",

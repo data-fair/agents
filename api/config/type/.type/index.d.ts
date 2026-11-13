@@ -64,10 +64,7 @@ export type ApiConfig = {
     /**
      * @minItems 1
      */
-    usage: [
-      "assistant" | "tools" | "summarizer" | "moderator",
-      ...("assistant" | "tools" | "summarizer" | "moderator")[]
-    ];
+    usage: ["assistant" | "summarizer" | "moderator", ...("assistant" | "summarizer" | "moderator")[]];
     contextWindow?: number;
     imageInput?: boolean;
     inputPricePerMillion: number;
@@ -149,7 +146,6 @@ export type ApiConfig = {
   };
   defaultModels?: {
     assistant?: ModelRef;
-    tools?: ModelRef;
     summarizer?: ModelRef;
     moderator?: ModelRef;
   };

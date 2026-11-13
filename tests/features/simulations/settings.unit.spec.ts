@@ -11,7 +11,7 @@ test.describe('bridge settings', () => {
     // PUT validates exactly that pair, and an unmapped role would silently fall
     // through to the dev global config's mock model.
     const s = bridgeSettings('sonnet', 'haiku') as any
-    for (const role of ['assistant', 'tools', 'summarizer', 'moderator']) {
+    for (const role of ['assistant', 'summarizer', 'moderator']) {
       const ref = s.modelMapping[role]
       assert.ok(ref, `${role} mapped`)
       assert.equal(ref.provider, 'bridge', `${role} provider`)
@@ -23,12 +23,11 @@ test.describe('bridge settings', () => {
   })
 
   test('runs the background roles on the cheaper model, as a deployment would', () => {
-    // Memory consolidation, compaction and the moderation guard are where a deployment
+    // Compaction and the moderation guard are where a deployment
     // puts a small model, so a case that only works on the assistant's tier is
     // a case that does not work.
     const s = bridgeSettings('sonnet', 'haiku') as any
     assert.equal(s.modelMapping.assistant.id, 'sonnet')
-    assert.equal(s.modelMapping.tools.id, 'haiku')
     assert.equal(s.modelMapping.summarizer.id, 'haiku')
     assert.equal(s.modelMapping.moderator.id, 'haiku')
   })
@@ -40,7 +39,7 @@ test.describe('bridge settings', () => {
     assert.equal(s.models.length, 1)
     assert.deepEqual(
       [...s.models[0].usage].sort(),
-      ['assistant', 'moderator', 'summarizer', 'tools']
+      ['assistant', 'moderator', 'summarizer']
     )
   })
 

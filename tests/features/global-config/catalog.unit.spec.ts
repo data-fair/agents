@@ -12,7 +12,7 @@ const gModels: GlobalAiModel[] = [
 ]
 const orgProviders = [{ id: 'uuid-1', enabled: true }]
 const orgModels = [
-  { model: { id: 'o-model', name: 'O Model', provider: { type: 'mock', name: 'Org Mock', id: 'uuid-1' } }, usage: ['tools'], inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
+  { model: { id: 'o-model', name: 'O Model', provider: { type: 'mock', name: 'Org Mock', id: 'uuid-1' } }, usage: ['summarizer'], inputPricePerMillion: 0.4, outputPricePerMillion: 0.8 }
 ]
 
 test.describe('getModelCatalog', () => {
@@ -77,8 +77,8 @@ test.describe('getRoleModel', () => {
     const entry = getRoleModel(catalog, {}, { assistant: { provider: 'global-mock', id: 'g-model' } }, 'assistant')
     assert.equal(entry.id, 'g-model')
   })
-  test('tools falls back to assistant', () => {
-    const entry = getRoleModel(catalog, { assistant: { provider: 'global-mock', id: 'g-model' } }, {}, 'tools')
+  test('summarizer falls back to assistant', () => {
+    const entry = getRoleModel(catalog, { assistant: { provider: 'global-mock', id: 'g-model' } }, {}, 'summarizer')
     assert.equal(entry.id, 'g-model')
   })
   test('moderator chain: moderator -> summarizer -> assistant', () => {
@@ -94,7 +94,7 @@ test.describe('getRoleModel', () => {
     // to it and resolveRoleModel throws "Provider is disabled" — a blanket
     // outage for the org instead of the documented log-and-fall-through
     const orphanedCatalog = getModelCatalog(gProviders, gModels, [{ id: 'uuid-1', enabled: false }], orgModels)
-    const entry = getRoleModel(orphanedCatalog, { tools: { provider: 'uuid-1', id: 'o-model' } }, { assistant: { provider: 'global-mock', id: 'g-model' } }, 'tools')
+    const entry = getRoleModel(orphanedCatalog, { summarizer: { provider: 'uuid-1', id: 'o-model' } }, { assistant: { provider: 'global-mock', id: 'g-model' } }, 'summarizer')
     assert.equal(entry.id, 'g-model')
   })
   test('throws when nothing resolves', () => {
@@ -110,10 +110,10 @@ test.describe('getRoleDefaults', () => {
     assert.equal(defaults.assistant?.id, 'g-model')
   })
   test('the other mapped roles still take part in the fallback chain', () => {
-    // tools has no global default of its own, so an unmapped tools role follows
+    // summarizer has no global default of its own, so an unmapped summarizer role follows
     // the ORG's assistant mapping, not the global assistant default
     const defaults = getRoleDefaults(catalog, { assistant: { provider: 'uuid-1', id: 'o-model' } }, globalDefaults)
-    assert.equal(defaults.tools?.id, 'o-model')
+    assert.equal(defaults.summarizer?.id, 'o-model')
   })
   test('a role that resolves to nothing is omitted', () => {
     const defaults = getRoleDefaults(catalog, {}, {})

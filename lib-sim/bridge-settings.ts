@@ -5,16 +5,15 @@
 
 export const BRIDGE_URL = process.env.BRIDGE_URL ?? `http://localhost:${process.env.BRIDGE_PORT ?? 3194}/v1`
 
-export const MODEL_ROLES = ['assistant', 'tools', 'summarizer', 'moderator'] as const
+export const MODEL_ROLES = ['assistant', 'summarizer', 'moderator'] as const
 export type ModelRole = typeof MODEL_ROLES[number]
 
 /**
- * Roles a deployment puts on a small model: memory consolidation, compaction, the
- * moderation guard. Running them on the assistant's model would both cost more
+ * Roles a deployment puts on a small model: compaction, the moderation guard. Running them on the assistant's model would both cost more
  * per case and flatter the product — a prompt that only a large model
  * can follow reads as working until a real deployment runs it on the cheap tier.
  */
-export const BACKGROUND_ROLES: readonly ModelRole[] = ['tools', 'summarizer', 'moderator']
+export const BACKGROUND_ROLES: readonly ModelRole[] = ['summarizer', 'moderator']
 
 export type SimOwner = { type: string, id: string }
 

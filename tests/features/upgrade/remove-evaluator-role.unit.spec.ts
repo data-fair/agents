@@ -20,11 +20,11 @@ const entry = (id: string, usage: string[]) => ({
 
 test.describe('stripEvaluatorUsage', () => {
   test('pulls the role from an entry that has other usages, keeping everything else', () => {
-    const models = [entry('gpt-x', ['assistant', 'evaluator', 'tools'])]
+    const models = [entry('gpt-x', ['assistant', 'evaluator', 'summarizer'])]
     const next = stripEvaluatorUsage(models)
     assert.ok(next)
     assert.equal(next.length, 1)
-    assert.deepEqual(next[0].usage, ['assistant', 'tools'])
+    assert.deepEqual(next[0].usage, ['assistant', 'summarizer'])
     assert.equal(next[0].inputPricePerMillion, 1, 'prices survive')
     assert.equal(next[0].model.id, 'gpt-x')
   })
@@ -46,7 +46,7 @@ test.describe('stripEvaluatorUsage', () => {
 
   test('returns null when no entry carries the role, so the write is skipped', () => {
     // Also what makes a second run a no-op on a document the first run already rewrote.
-    assert.equal(stripEvaluatorUsage([entry('gpt-x', ['assistant', 'tools'])]), null)
+    assert.equal(stripEvaluatorUsage([entry('gpt-x', ['assistant', 'summarizer'])]), null)
     assert.equal(stripEvaluatorUsage([]), null)
   })
 

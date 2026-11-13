@@ -23,6 +23,11 @@
         value="quotas"
         eager
       >
+        <df-tutorial-alert
+          id="agents-config-quotas-scope"
+          :text="t('quotasHint')"
+          persistent
+        />
         <v-form v-model="tabValid.quotas">
           <quotas-table
             :model-value="parts.quotas.quotas"
@@ -36,6 +41,11 @@
         value="moderation"
         eager
       >
+        <df-tutorial-alert
+          id="agents-config-moderation-guards"
+          :text="t('moderationHint')"
+          persistent
+        />
         <v-form v-model="tabValid.moderation">
           <vjsf-org-form-moderation
             :model-value="parts.moderation"
@@ -75,7 +85,9 @@ fr:
   tabs:
     models: Modèle par rôle
     quotas: Quotas
-    moderation: Modération et relecture
+    moderation: Modération et relecture des conversations
+  quotasHint: Ces quotas par profil s'appliquent aux personnes de l'organisation, y compris à leurs conversations avec l'assistant personnel. Ils ne s'appliquent pas aux agents autonomes configurés, bornés seulement par le plafond de crédits du compte et par le budget de chaque exécution.
+  moderationHint: "La modération ci-dessous classe les messages écrits par les personnes. Deux autres gardes utilisent le même modèle Modérateur et lui sont facturées, et désactiver la modération ne les désactive pas : le tripwire sur les résultats d'outils, qui relève de la configuration du déploiement, et le relecteur d'approbation, réglé sur chaque agent autonome. La « relecture » de cet onglet désigne la relecture des conversations enregistrées par les administrateurs, pas le relecteur d'approbation."
   modelsHint: Laissez les rôles vides pour utiliser les modèles par défaut affichés dans les champs. C'est le choix recommandé, ne sélectionnez un autre modèle que si vous avez une raison précise de le faire.
   defaultModel: "Par défaut : {model}"
 en:
@@ -85,7 +97,9 @@ en:
   tabs:
     models: Model per role
     quotas: Quotas
-    moderation: Moderation and review
+    moderation: Moderation and conversation review
+  quotasHint: These per-profile quotas apply to the people of the organization, including their conversations with the personal assistant. They do not apply to configured autonomous agents, which are bounded only by the account's credit cap and by each run's budget.
+  moderationHint: "Moderation below classifies the messages people write. Two other guards use the same Moderator model and are billed to it, and switching moderation off does not switch them off: the tripwire on tool outputs, which is deployment configuration, and the approval reviewer, set on each autonomous agent. \"Review\" in this tab means admins re-reading stored conversations, not the approval reviewer."
   modelsHint: Leave the roles empty to use the default models shown in the fields. This is the recommended choice, only select another model if you have a specific reason to.
   defaultModel: "Default: {model}"
 </i18n>

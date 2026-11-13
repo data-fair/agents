@@ -133,9 +133,19 @@ test.describe('Memory consolidation', () => {
   })
 
   test('a pass withdrawn after a model step still bills that step, and moves nothing on', async () => {
+    // Only the assistant role is priced: the background roles run on a free model, so the spend
+    // below also proves a pass runs on the assistant role, not on a small background one.
+    const free = { id: 'mock-tools', name: 'Mock Tools Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
     await putMockSettings(admin, 'organization/test1', {
-      models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000 }),
-      modelMapping: { tools: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } }
+      models: [
+        { ...mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000 })[0], usage: ['assistant'] },
+        { model: free, usage: ['summarizer', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }
+      ],
+      modelMapping: {
+        assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' },
+        summarizer: { provider: 'mock-provider', id: 'mock-tools', name: 'Mock Tools Model' },
+        moderator: { provider: 'mock-provider', id: 'mock-tools', name: 'Mock Tools Model' }
+      }
     })
     const agent = await createAgent()
     await say({ agentId: agent.id }, 'remember: billed anyway. consolidate slowly')

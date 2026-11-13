@@ -22,7 +22,7 @@ const seedProviderAndModel = async () => {
     providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
     models: [{
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
-      usage: ['assistant', 'tools', 'summarizer', 'moderator'],
+      usage: ['assistant', 'summarizer', 'moderator'],
       inputPricePerMillion: 0,
       outputPricePerMillion: 0
     }]
@@ -66,7 +66,7 @@ test.describe('Org admin config UI', () => {
     await page.getByRole('option', { name: 'Mock Model (Mock Provider)' }).click()
 
     // And the personal-assistant review switch
-    await openTab(page, 'Moderation and review')
+    await openTab(page, 'Moderation and conversation review')
     await page.getByText('Review personal assistant conversations').click()
 
     await page.getByRole('button', { name: 'Save' }).click()
@@ -80,7 +80,7 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('spinbutton', { name: 'Contributors - Monthly limit (AI credits)' })).toHaveValue('42')
     await openTab(page, 'Model per role')
     await expect(page.getByText('Mock Model (Mock Provider)')).toBeVisible()
-    await openTab(page, 'Moderation and review')
+    await openTab(page, 'Moderation and conversation review')
     await expect(page.getByRole('checkbox', { name: 'Review personal assistant conversations' })).toBeChecked()
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()
@@ -96,7 +96,7 @@ test.describe('Org admin config UI', () => {
     await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
 
-    await openTab(page, 'Moderation and review')
+    await openTab(page, 'Moderation and conversation review')
     await page.getByText('Review personal assistant conversations').click()
     await expect(page.getByRole('checkbox', { name: 'Review personal assistant conversations' })).toBeChecked()
     // the pruning (and the error it raised) happens once vjsf settles after the edit
@@ -121,14 +121,14 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('cell', { name: 'Admins', exact: true })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'Contributors', exact: true })).not.toBeVisible()
 
-    await openTab(page, 'Moderation and review')
+    await openTab(page, 'Moderation and conversation review')
     await page.getByText('Review personal assistant conversations').click()
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByText('Changes have been saved')).toBeVisible()
 
     await page.reload()
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
-    await openTab(page, 'Moderation and review')
+    await openTab(page, 'Moderation and conversation review')
     await expect(page.getByRole('checkbox', { name: 'Review personal assistant conversations' })).toBeChecked()
     await page.waitForTimeout(800)
     await expect(page.getByRole('button', { name: 'Save' })).not.toBeVisible()

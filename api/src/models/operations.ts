@@ -124,7 +124,7 @@ function buildProviderModel (provider: Provider, modelId: string): LanguageModel
   }
 }
 
-export type ModelRole = 'assistant' | 'summarizer' | 'tools' | 'moderator'
+export type ModelRole = 'assistant' | 'summarizer' | 'moderator'
 
 /**
  * Used when neither the admin nor the provider listing supplies a window. Sized
@@ -197,6 +197,37 @@ export interface GlobalAiModel {
 }
 
 export type DefaultModelRefs = Partial<Record<ModelRole, { provider: string, id: string }>>
+
+/**
+ * Model roles a release removed but a deployment's config may still name. The `tools` role went after
+ * 0.12.2 (memory consolidation, its last consumer, moved to the assistant). The config schema is
+ * strict (`defaultModels` refuses unknown keys, `usage` is an enum), and the deployment manifests
+ * are updated separately from the image: refusing the old key would stop the pod from starting, so
+ * for one release it is dropped with a warning instead. Remove the entry once the manifests no
+ * longer carry it.
+ */
+const TOLERATED_REMOVED_ROLES = ['tools']
+
+/**
+ * `defaultModels` and `models` with the tolerated removed roles taken out, and what was dropped, for
+ * the caller to warn about. Pure and non-mutating: node-config's objects are frozen. A model whose
+ * only usage was a removed role is dropped whole (an empty `usage` fails `minItems`).
+ */
+export function dropRemovedModelRoles (defaultModels: Record<string, unknown> | undefined, models: Array<{ provider: string, id: string, usage: string[] }> | undefined) {
+  const dropped: string[] = []
+  const nextDefaults = Object.fromEntries(Object.entries(defaultModels ?? {}).filter(([role]) => {
+    if (!TOLERATED_REMOVED_ROLES.includes(role)) return true
+    dropped.push(`defaultModels.${role}`)
+    return false
+  }))
+  const nextModels = (models ?? []).flatMap(m => {
+    if (!Array.isArray(m.usage) || !m.usage.some(u => TOLERATED_REMOVED_ROLES.includes(u))) return [m]
+    const usage = m.usage.filter(u => !TOLERATED_REMOVED_ROLES.includes(u))
+    dropped.push(`models[${m.provider}/${m.id}].usage ${m.usage.filter(u => TOLERATED_REMOVED_ROLES.includes(u)).join(', ')}${usage.length ? '' : ' (model dropped: no usage left)'}`)
+    return usage.length ? [{ ...m, usage }] : []
+  })
+  return { defaultModels: nextDefaults, models: nextModels, dropped }
+}
 
 /**
  * Fail-fast consistency check of the env-var-provided global AI config.
@@ -358,7 +389,6 @@ export function contextBudget (entry: CatalogModel, percent: number): number {
 
 const FALLBACK_CHAINS: Record<ModelRole, ModelRole[]> = {
   assistant: ['assistant'],
-  tools: ['tools', 'assistant'],
   summarizer: ['summarizer', 'assistant'],
   moderator: ['moderator', 'summarizer', 'assistant']
 }
