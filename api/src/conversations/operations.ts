@@ -779,14 +779,19 @@ export const titleInput = (messages: { role: string, parts?: Array<{ type: strin
   const asked = textOf('user')
   if (!asked) return undefined
   const answered = textOf('assistant')
-  return `Person: ${asked}${answered ? `\n\nAssistant: ${answered}` : ''}`
+  // wrapped and followed by the instruction: given as a bare "Person: … Assistant: …", small models went on with the
+  // conversation (« Bonjour ! Je regarde le portail… ») instead of titling it
+  return `<conversation>\nPerson: ${asked}${answered ? `\n\nAssistant: ${answered}` : ''}\n</conversation>\n\nThe title of this conversation, and nothing else:`
 }
 
 /** A model's title, made safe to show: one line, no wrapping quotes or trailing period, bounded. */
 export const cleanTitle = (text: string): string | undefined => {
-  const line = text.split('\n').map(l => l.trim()).find(Boolean) ?? ''
+  // a label before the title (« Titre de la conversation : … », "Title: …") is dropped; a line that only introduces the
+  // next one ends with a colon (« Titre sans citation ni point final, … : ») and is skipped
+  const lines = text.split('\n').map(l => l.trim().replace(/^(title|titre)( de la conversation| of the conversation| demandé| proposé| suggéré)?\s*:\s*/i, '')).filter(Boolean)
+  const line = lines.find(l => !l.endsWith(':')) ?? ''
   // eslint-disable-next-line no-control-regex
-  const title = line.replace(/^(title|titre)\s*:\s*/i, '').replace(/^["'«“\s]+|["'»”\s.]+$/g, '').replace(/[\u0000-\u001F\u007F]/g, '')
+  const title = line.replace(/^["'«“\s]+|["'»”\s.]+$/g, '').replace(/[\u0000-\u001F\u007F]/g, '')
   if (!title) return undefined
   return title.length > TITLE_MAX_CHARS ? title.slice(0, TITLE_MAX_CHARS - 1).trimEnd() + '…' : title
 }
