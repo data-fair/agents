@@ -656,6 +656,8 @@ export interface SourcedTool {
   annotations?: Record<string, unknown>
   /** Top-level arguments that take one of the turn's files (`x-mcp-file`): the call path signs them (api/src/files/call-path.ts). */
   fileArgs?: string[]
+  /** Top-level arguments the server checks before the call (`x-checked`): the approval reviewer reads them as facts. */
+  checkedArgs?: Record<string, { against: string, field: string }>
   /** The tool envelopes its own result (`read_skill`'s skill envelope): recorded with its server, not wrapped again. */
   selfEnveloped?: boolean
   /**

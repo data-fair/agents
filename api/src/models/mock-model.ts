@@ -482,7 +482,8 @@ export function processMockTripwirePrompt (lastMessage: string): MockPromptResul
  * proposed call's nonce-tagged wrapper (the call's arguments, never the intent before it), and reads the stage
  * from the instruction after the wrappers. "REVIEW_DENY": stage 1 yes, stage 2 a deny. "REVIEW_UNSURE": yes, then
  * unsure. "REVIEW_BROKEN": unparseable at both stages (a failed review). "REVIEW_IF_REFUSED_BEFORE": a deny when
- * the earlier calls' wrapper shows one the reviewer refused, an allow otherwise. "REVIEW_SLOW": stage 1 answers
+ * the earlier calls' wrapper shows one the reviewer refused, an allow otherwise. "REVIEW_UNSURE_UNLESS_UNDECIDED": unsure,
+ * but an allow when the earlier calls' wrapper shows a card the person left by writing. "REVIEW_SLOW": stage 1 answers
  * no after 200 ms. Anything else: stage 1 no, and
  * stage 2 (reached directly for a destructive call or a grant) an allow.
  */
@@ -496,6 +497,11 @@ export function processMockReviewerPrompt (lastMessage: string): MockPromptResul
     const refusedBefore = (EARLIER_WRAPPER.exec(lastMessage)?.[2] ?? '').includes('refused by the reviewer')
     if (!/Answer with JSON only/.test(instruction)) return { type: 'text', text: 'yes' }
     return { type: 'text', text: refusedBefore ? '{"outcome":"deny","reason":"mock deny: refused before"}' : '{"outcome":"allow","reason":"mock allow"}' }
+  }
+  if (judged.includes('REVIEW_UNSURE_UNLESS_UNDECIDED')) {
+    const undecidedBefore = (EARLIER_WRAPPER.exec(lastMessage)?.[2] ?? '').includes('who wrote instead of deciding')
+    if (!/Answer with JSON only/.test(instruction)) return { type: 'text', text: 'yes' }
+    return { type: 'text', text: undecidedBefore ? '{"outcome":"allow","reason":"mock allow: asked again"}' : '{"outcome":"unsure","reason":"mock unsure"}' }
   }
   if (/Answer with JSON only/.test(instruction)) {
     if (judged.includes('REVIEW_BROKEN')) return { type: 'text', text: 'not json' }
