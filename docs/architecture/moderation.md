@@ -136,7 +136,7 @@ The service's own tools declare `openWorldHint` explicitly (`false`, except the 
 | `tripwire-assistant-model` | `warn` | once per process: no small moderator model, the assistant classifies |
 | `tool-output-tripwire-charge`, `-notify`, `-late` | `error` | metering, notification or late-withholding failed |
 
-Reviewers see each call on its run (`calls` notes `tripwire-fail-open`, `tripwire-confirm-failed`, `tripwire-late-suspected`) and the trip record on the stored call.
+Reviewers see each call on its run (`calls` notes each classifier call `tripwire`, a moderation call `moderation`, so neither reads as the other under their shared `moderator` role; and `tripwire-fail-open`, `tripwire-confirm-failed`, `tripwire-late-suspected`) and the trip record on the stored call.
 
 **Known gaps:**
 

@@ -114,7 +114,7 @@ export const createTurnTripwire = (ctx: {
         modelRole: 'moderator',
         entry,
         usage,
-        ...(charged ? { run: { run: ctx.run, durationMs: Date.now() - startedAt } } : {})
+        ...(charged ? { run: { run: ctx.run, durationMs: Date.now() - startedAt, note: 'tripwire' } } : {})
       })
       if (charged) ctx.onCredits(credits.total)
     }
