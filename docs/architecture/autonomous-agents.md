@@ -565,7 +565,7 @@ label reads "Awaiting your approval", with a static icon rather than a spinner, 
 
 ## The admin page
 
-An agent is edited in ONE place: its page, `ui/src/pages/[type]/[id]/agents/[agentId].vue`, with configuration, tasks and history tabs (see [planned tasks](planned-tasks.md#the-admin-page)). The organization list (`ui/src/components/AutonomousAgentsSection.vue`) creates an agent, then opens its page, and links to it; it has no edit dialog.
+An agent is edited in ONE place: its page, `ui/src/pages/[type]/[id]/agents/[agentId]/index.vue`, with its configuration and an Activity block (conversations, task runs, scheduled tasks) (see [planned tasks](planned-tasks.md#the-admin-page)). The organization list (`ui/src/components/AutonomousAgentsSection.vue`) creates an agent, then opens its page, and links to it; it has no edit dialog.
 
 ## Spend
 

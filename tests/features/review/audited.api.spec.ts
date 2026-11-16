@@ -42,6 +42,17 @@ test.describe('Audited conversations', () => {
     assert.deepEqual(where.data.owner, { type: 'organization', id: 'test1' })
   })
 
+  test('the list narrows to one agent\'s conversations', async () => {
+    const [first, second] = [await createAgent(), await createAgent()]
+    const firstThread = await instructorThread(first.id)
+    await instructorThread(second.id)
+    const all = (await orgAdmin.get('/api/review/organization/test1')).data
+    assert.equal(all.count, 2)
+    const one = (await orgAdmin.get('/api/review/organization/test1', { params: { agentId: first.id } })).data
+    assert.equal(one.count, 1)
+    assert.deepEqual(one.results.map((r: any) => r.conversationId), [firstThread])
+  })
+
   test('a non-admin instructor cannot review, not even their own audited thread', async () => {
     const agent = await createAgent()
     await instructorThread(agent.id)

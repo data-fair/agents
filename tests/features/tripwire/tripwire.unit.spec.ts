@@ -93,7 +93,7 @@ test.describe('Tripwire operations', () => {
     assert.match(titleOf(event).en, /fetch_url on https:\/\/evil\.example\/p/)
     assert.match(titleOf(event).fr, /fetch_url sur https:\/\/evil\.example\/p/)
     assert.equal(event.body, undefined)
-    assert.equal(event.url, 'https://site.example/agents/organization/o1/agents/ag1?tab=history&run=r1')
+    assert.equal(event.url, 'https://site.example/agents/organization/o1/agents/ag1/runs/r1')
   })
 })
 

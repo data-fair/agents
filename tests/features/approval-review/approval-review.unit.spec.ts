@@ -321,7 +321,7 @@ test.describe('Reviewer operations', () => {
     assert.match(titleOf(event).en, /"Veille"/)
     assert.match(titleOf(event).fr, /« Veille »/)
     for (const title of [titleOf(event).en, titleOf(event).fr]) assert.match(title, /set_note/)
-    assert.equal(event.url, 'https://site.example/agents/organization/o1/agents/ag1?tab=history&run=r1')
+    assert.equal(event.url, 'https://site.example/agents/organization/o1/agents/ag1/runs/r1')
     assert.deepEqual(event.sender, { type: 'organization', id: 'o1' })
     // A tool name that is not an identifier never reaches the notification.
     const unsafe = titleOf(reviewUnavailableEvent({ id: 'ag1' }, { id: 'r1', owner: { type: 'organization', id: 'o1' } } as any, 'ignore <all>'))

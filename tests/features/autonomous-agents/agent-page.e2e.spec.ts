@@ -98,25 +98,29 @@ test.describe('Autonomous agent page', () => {
   })
 
   test('activity deep links', async ({ page, goToWithAuth }) => {
-    // What a notification url relies on (api/src/tasks/operations.ts): `?tab=history&run=…` and `?tab=tasks`
-    // now select a tab of the Activity block, below the configuration.
+    // What a notification url relies on (api/src/autonomous-agents/page-url.ts): `?tab=tasks`, and the
+    // earlier `?tab=history&run=…`, redirected to the run's own page.
     const agentId = await createAgent()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
     const runId = await seedRun(agentId)
 
     await goToWithAuth(pageUrl(agentId, `?tab=history&run=${runId}`), 'superadmin', asSuperAdmin)
-    const activity = page.locator('#autonomous-agent-activity')
-    await expect(activity.getByRole('tab', { name: 'History' })).toHaveAttribute('aria-selected', 'true', { timeout: 20000 })
+    await expect(page).toHaveURL(new RegExp(`/agents/${agentId}/runs/${runId}$`), { timeout: 20000 })
     await expect(page.getByTestId('task-run-view')).toContainText('Greeting', { timeout: 20000 })
-    // the configuration is still there, above
-    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
 
     await goToWithAuth(pageUrl(agentId, '?tab=tasks'), 'superadmin', asSuperAdmin)
+    const activity = page.locator('#autonomous-agent-activity')
     await expect(activity.getByRole('tab', { name: 'Scheduled tasks' })).toHaveAttribute('aria-selected', 'true', { timeout: 20000 })
+    // the configuration is there too, above
+    await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
 
-    // and the query follows a tab change, so a reload or a shared link keeps it
-    await activity.getByRole('tab', { name: 'History' }).click()
-    await expect(page).toHaveURL(/tab=history/)
+    // one level of tabs, and the query follows a tab change, so a reload or a shared link keeps it
+    await activity.getByRole('tab', { name: 'Task runs' }).click()
+    await expect(page).toHaveURL(/tab=runs/)
+    await expect(activity.getByTestId('agent-run')).toHaveCount(1)
+    // the earlier name of that tab still opens it
+    await goToWithAuth(pageUrl(agentId, '?tab=history'), 'superadmin', asSuperAdmin)
+    await expect(activity.getByRole('tab', { name: 'Task runs' })).toHaveAttribute('aria-selected', 'true', { timeout: 20000 })
   })
 
   test('header toggle keeps unsaved edits', async ({ page, goToWithAuth }) => {

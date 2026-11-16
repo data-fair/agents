@@ -1,6 +1,9 @@
 <template>
   <div>
-    <div class="text-body-2 text-medium-emphasis">
+    <div
+      class="text-medium-emphasis"
+      :class="textClass"
+    >
       {{ new Date(run.startedAt).toLocaleString(locale) }} · {{ t(`trigger.${run.trigger}`) }}
       <!-- A running run has not been billed yet: a figure would read as its final cost. -->
       <span
@@ -10,43 +13,45 @@
     </div>
     <div class="d-flex flex-wrap align-center ga-2 mt-1">
       <v-chip
-        size="small"
+        :size="dense ? 'x-small' : 'small'"
         variant="tonal"
         :color="statusColor[run.status]"
         :text="runStatusLabel(run.status, locale)"
       />
       <v-chip
         v-if="run.outcome"
-        size="small"
+        :size="dense ? 'x-small' : 'small'"
         variant="outlined"
         :color="outcomeColor[run.outcome.status]"
         :text="t(`outcomes.${run.outcome.status}`)"
       />
       <span
         v-if="run.outcome && reminded"
-        class="text-body-2 text-medium-emphasis"
+        class="text-medium-emphasis"
+        :class="textClass"
         data-testid="agent-run-reminded"
       >{{ t('afterReminder') }}</span>
       <!-- Only a task run reports an outcome, and only a finished one could have: saying "none" of a
            skipped or running one would suggest it should have. -->
       <span
         v-else-if="run.kind === 'task' && run.status === 'done'"
-        class="text-body-2 text-medium-emphasis"
+        class="text-medium-emphasis"
+        :class="textClass"
         data-testid="agent-run-no-outcome"
       >{{ reminded ? t('noOutcomeReminded') : t('noOutcome') }}</span>
     </div>
     <div
       v-if="run.outcome?.summary"
-      class="text-body-2 mt-1"
-      :class="{ 'run-summary__clip': clip }"
+      class="mt-1"
+      :class="[textClass, { 'run-summary__clip': clip }]"
     >
       {{ run.outcome.summary }}
     </div>
     <!-- Why it was skipped, or what failed: the same field on the run. -->
     <div
       v-if="run.error"
-      class="text-body-2 mt-1"
-      :class="[{ 'run-summary__clip': clip }, run.status === 'skipped' ? 'text-medium-emphasis' : 'text-error']"
+      class="mt-1"
+      :class="[textClass, { 'run-summary__clip': clip }, run.status === 'skipped' ? 'text-medium-emphasis' : 'text-error']"
       data-testid="agent-run-error"
     >
       {{ run.error }}
@@ -103,7 +108,11 @@ const props = defineProps<{
   run: any
   /** Clip the outcome summary and the error to two lines, as a list does. */
   clip?: boolean
+  /** A list row's scale: caption text and smaller chips, as the conversations list. */
+  dense?: boolean
 }>()
+
+const textClass = computed(() => props.dense ? 'text-caption' : 'text-body-2')
 
 const { t, locale } = useI18n()
 

@@ -81,7 +81,10 @@ router.get('/:type/:id', async (req, res, next) => {
 
     const size = Math.min(Math.max(parseInt(String(req.query.size ?? '20'), 10) || 20, 1), 200)
     const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1)
-    const filter = reviewableFilter(owner, scope)
+    // `agentId`: one agent's conversations, the Conversations tab of its page. Added to the reviewable
+    // filter, never in place of it: a personal-assistant thread stays consent-gated when named.
+    const agentId = typeof req.query.agentId === 'string' && req.query.agentId ? req.query.agentId : undefined
+    const filter = { ...reviewableFilter(owner, scope), ...(agentId ? { agentId } : {}) }
 
     // A plain find on the conversations collection, where the old version aggregated and grouped the
     // trace collection to reconstitute one row per conversation. The rows ARE conversations now.

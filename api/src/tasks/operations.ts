@@ -12,6 +12,7 @@ import type { Event } from '@data-fair/lib-common-types/event/index.js'
 import { partsText, type MessagePart } from '@agents/shared/message-parts'
 import { DEFAULT_TIME_ZONE } from '@agents/shared/task-schedule'
 import { defuseEnvelopes } from '../mcp-servers/guides.ts'
+import { agentPageUrl, agentRunUrl } from '../autonomous-agents/page-url.ts'
 
 export type Scheduling = AutonomousAgentTask['scheduling'][number]
 
@@ -125,8 +126,9 @@ export const taskEvent = (
         : { en: `${en} failed.`, fr: `${fr} a échoué.` }
   // done: the agent's summary, or its final answer when it reported no outcome (`error` is that text then).
   const body = kind === 'needs-attention' ? summary : kind === 'done' ? summary ?? error : error
-  const page = opts.siteUrl && `${opts.siteUrl.replace(/\/+$/, '')}/agents/${task.owner.type}/${task.owner.id}/agents/${run.agentId}`
-  const url = page && (kind === 'paused' ? `${page}?tab=tasks` : `${page}?tab=history&run=${run.id}`)
+  const url = opts.siteUrl && (kind === 'paused'
+    ? `${agentPageUrl(opts.siteUrl, task.owner, run.agentId)}?tab=tasks`
+    : agentRunUrl(opts.siteUrl, task.owner, run.agentId, run.id))
   return {
     title,
     topic: { key: `agents:task-${kind}:${task.id}` },

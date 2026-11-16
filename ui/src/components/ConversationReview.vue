@@ -10,6 +10,8 @@
       {{ loadError }}
     </p>
     <template v-else-if="loaded">
+      <!-- What the record holds that the bar does not: a task run's outcome, its abort. -->
+      <slot name="header" />
       <!-- What the conversation cannot say about itself: which models answered, what it cost, how
            long it took, and the instructions they were given. -->
       <div class="conversation-review__bar d-flex align-center flex-wrap ga-2 px-3 py-2">
@@ -58,7 +60,7 @@
           otherwise would offer a button that answers 403.
         -->
         <v-btn
-          v-if="session.state.user?.adminMode"
+          v-if="mayExport"
           size="small"
           variant="text"
           :prepend-icon="mdiDownload"
@@ -390,9 +392,17 @@ import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-mess
 import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
 
+/**
+ * Two sources, one rendering: a conversation, which this component loads by its id, or a task run, which
+ * the run page loads (it re-reads a running run and aborts it) and hands over as `run` — read as a
+ * conversation of one turn, since the run route presents its content as the same messages.
+ */
 const props = defineProps<{
-  conversationId: string
   owner: { type: string, id: string }
+  conversationId?: string
+  run?: any
+  /** The task run's agent, for its export route and the approval cards' task reads. */
+  agentId?: string
 }>()
 
 const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
@@ -400,8 +410,13 @@ const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label
 const { t, locale } = useI18n()
 const session = useSession()
 
-const exportUrl = computed(() =>
-  `${$apiPath}/review/${props.owner.type}/${props.owner.id}/${props.conversationId}/export`)
+const agentUrl = (agentId: string) => `${$apiPath}/autonomous-agents/${props.owner.type}/${props.owner.id}/${agentId}`
+const exportUrl = computed(() => props.run
+  ? `${agentUrl(props.agentId ?? props.run.agentId)}/runs/${props.run.id}/export`
+  : `${$apiPath}/review/${props.owner.type}/${props.owner.id}/${props.conversationId}/export`)
+// What each export route requires: a conversation's is for a superadmin in admin mode (it is a platform
+// engineering file), a task run's for the agent's admins, who are the only ones on the run page.
+const mayExport = computed(() => !!props.run || !!session.state.user?.adminMode)
 
 const loaded = ref(false)
 const loadError = ref('')
@@ -454,15 +469,14 @@ const turnLine = (run: any) => [
 ].filter(Boolean).join(' · ')
 
 const load = async () => {
+  if (props.run) return
   loaded.value = false
   loadError.value = ''
   try {
     const data = await $fetch(`${$apiPath}/review/${props.owner.type}/${props.owner.id}/${props.conversationId}`)
     messages.value = (data.messages ?? []).map((message: any) => autonomousAgentMessageToChat(message))
     runs.value = data.runs ?? []
-    agentPath.value = data.conversation?.agentId
-      ? `${$apiPath}/autonomous-agents/${props.owner.type}/${props.owner.id}/${data.conversation.agentId}`
-      : undefined
+    agentPath.value = data.conversation?.agentId ? agentUrl(data.conversation.agentId) : undefined
     loaded.value = true
     emit('loaded', { owner: props.owner, label: data.conversation?.title ?? props.conversationId })
   } catch (err: any) {
@@ -472,6 +486,16 @@ const load = async () => {
 
 onMounted(load)
 watch(() => props.conversationId, load)
+
+// A task run is applied as it comes, re-read or not: no loading state in between, so a running run
+// refreshing does not blink.
+watch(() => props.run, (run) => {
+  if (!run) return
+  messages.value = (run.messages ?? []).map((message: any) => autonomousAgentMessageToChat(message))
+  runs.value = [run]
+  agentPath.value = agentUrl(props.agentId ?? run.agentId)
+  loaded.value = true
+}, { immediate: true })
 </script>
 
 <style scoped>

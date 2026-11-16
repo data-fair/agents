@@ -70,7 +70,7 @@ test.describe('Task runs', () => {
     const task = await createTask(agent.id, 'call tool report_outcome {"status":"needs-attention","summary":"look"}')
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, task.id))
     const event = (await events()).find(e => e.topic.key === `agents:task-needs-attention:${task.id}`)
-    assert.equal(event.url, `${siteUrl}/agents/organization/test1/agents/${agent.id}?tab=history&run=${run.id}`)
+    assert.equal(event.url, `${siteUrl}/agents/organization/test1/agents/${agent.id}/runs/${run.id}`)
   })
 
   test('a run that ends without report_outcome is reminded once, in the same run, and its outcome recorded', async () => {

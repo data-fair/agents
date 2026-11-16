@@ -336,7 +336,7 @@ id `<outer>:tool-<n>`:
   late frame would replace the finished trace in the chat with an empty pending one;
 - left out of replay — the point: the model never sees intermediate results;
 - shown where it is read: the chat shows the script as a tool chip like any call; the review page and the task
-  run view (`AgentChatMessages` with `show-traces`, from `ConversationReview.vue` and `TaskRunView.vue`) show an
+  run view (`AgentChatMessages` with `show-traces`, from `ConversationReview.vue`, for conversations and task runs alike) show an
   expandable panel under the call, titled "Script", collapsed by default, listing the nested calls.
 
 Nested calls are not entries of the run's `calls` telemetry, which records model calls.

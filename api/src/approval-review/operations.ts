@@ -23,6 +23,7 @@ import { webhookPayloadsOf, replaceWebhookPayload, type TaskEvent } from '../tas
 import { REQUEST_WEB_ACCESS_TOOL_NAME } from '../web/operations.ts'
 import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../mcp-servers/operations.ts'
 import { PLANNING_TOOL_NAMES } from '../self-knowledge/operations.ts'
+import { agentRunUrl } from '../autonomous-agents/page-url.ts'
 
 // Prefixed to the system prompt so reviewer requests are recognizable in logs, traces and provider dashboards.
 export const REVIEW_TASK_MARKER = 'APPROVAL_REVIEW_TASK'
@@ -174,7 +175,7 @@ export const reviewUnavailableEvent = (
   siteUrl?: string
 ): TaskEvent => {
   const title = agent.title ?? agent.id
-  const url = siteUrl && `${siteUrl.replace(/\/+$/, '')}/agents/${run.owner.type}/${run.owner.id}/agents/${agent.id}?tab=history&run=${run.id}`
+  const url = siteUrl && agentRunUrl(siteUrl, run.owner, agent.id, run.id)
   const tool = identifier(toolName)
   return {
     title: {
