@@ -380,6 +380,7 @@ en:
  */
 import { ref, computed, onMounted, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { useSession } from '@data-fair/lib-vue/session.js'
 import { mdiDownload } from '@mdi/js'
 import AgentChatMessages from '~/components/agent-chat/AgentChatMessages.vue'
@@ -397,7 +398,8 @@ const props = defineProps<{
 
 const emit = defineEmits<{ loaded: [{ owner: { type: string, id: string }, label: string }] }>()
 
-const { t, locale } = useI18n()
+const { t } = useI18n()
+const { dayjs } = useLocaleDayjs()
 const session = useSession()
 
 const exportUrl = computed(() =>
@@ -443,7 +445,7 @@ const turns = computed(() => runs.value.map((run, i) => {
   }
 }))
 
-const formatDate = (date: string) => new Date(date).toLocaleString(locale.value)
+const formatDate = (date: string) => dayjs(date).format('lll')
 const turnLine = (run: any) => [
   run.startedAt && formatDate(run.startedAt),
   run.startedAt && run.endedAt && `${new Date(run.endedAt).getTime() - new Date(run.startedAt).getTime()}ms`,

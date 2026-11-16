@@ -38,7 +38,7 @@
         class="text-body-2"
         data-testid="agent-task-next-run"
       >
-        {{ t('nextRun', { date: new Date(task.nextRunAt).toLocaleString(locale) }) }}
+        {{ t('nextRun', { date: dayjs(task.nextRunAt).format('lll') }) }}
       </div>
       <!-- Paused by the server (the failure streak, or a schedule it could not compute) while still
            enabled: the admin is told why, and that the way out is to save it (updateTask resumes a
@@ -351,6 +351,7 @@ fr:
 <script lang="ts" setup>
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { mdiBell, mdiContentCopy, mdiDelete, mdiPencil, mdiPlay, mdiPlus, mdiRefresh, mdiWebhook } from '@mdi/js'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
@@ -367,6 +368,7 @@ const props = defineProps<{
 }>()
 
 const { t, locale } = useI18n()
+const { dayjs } = useLocaleDayjs()
 const { sendUiNotif } = useUiNotif()
 const lang = computed(() => locale.value === 'fr' ? 'fr' : 'en')
 

@@ -177,10 +177,12 @@ en:
 <script lang="ts" setup>
 import { ref, computed, onMounted } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { $apiPath } from '~/context'
 
 const props = defineProps<{ accountType: string, accountId: string }>()
 const { t } = useI18n()
+const { dayjs } = useLocaleDayjs()
 
 const stats = ref<any>(null)
 const blocks = ref<any[]>([])
@@ -190,7 +192,7 @@ const tripwireEnabled = ref(true)
 const probing = ref(false)
 const loadError = ref('')
 
-const formatDate = (iso: string) => new Date(iso).toLocaleString()
+const formatDate = (iso: string) => dayjs(iso).format('lll')
 
 const failOpenRatePct = computed(() => {
   if (!stats.value || !stats.value.last24h.checks) return 0

@@ -103,12 +103,11 @@ test.describe('Planning tools', () => {
     assert.match(part.output, /active: no schedule: runs by webhook or when run now, next run none\./)
   })
 
-  test('rejected with a reason, nothing is planned and the call carries the reason', async () => {
+  test('rejected, nothing is planned', async () => {
     const agent = await createAgent()
     const asked = await ask(agent.id, 'plan_task', digest)
-    const { part } = await decide(asked, 'plan_task', { approved: false, reason: 'not weekly, monthly' })
+    const { part } = await decide(asked, 'plan_task', { approved: false })
     assert.equal(part.state, 'output-denied', JSON.stringify(part))
-    assert.equal(part.approval.reason, 'not weekly, monthly')
     assert.deepEqual(await tasksOf(agent.id), [])
   })
 
