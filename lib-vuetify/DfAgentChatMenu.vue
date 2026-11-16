@@ -33,17 +33,19 @@
       style="height: 100%; width: 100%; position: relative;"
       v-bind="cardProps"
     >
-      <div style="position: absolute; top: 4px; right: 4px; z-index: 1; display: flex; gap: 2px;">
+      <!-- laid over the right end of the chat header (AgentChatHeader.vue): same padding, spacing and
+           density as its own buttons, so the two sets read as one toolbar -->
+      <div style="position: absolute; top: 8px; right: 16px; z-index: 1; display: flex; gap: 8px;">
         <v-btn
           :icon="state.expanded.value ? mdiArrowCollapse : mdiArrowExpand"
-          size="small"
           variant="flat"
+          density="compact"
           @click="state.toggleExpanded"
         />
         <v-btn
           icon="$close"
-          size="small"
           variant="flat"
+          density="compact"
           @click="state.toggleMenu"
         />
       </div>
@@ -104,6 +106,7 @@ const props = withDefaults(defineProps<{
 })
 
 const state = useAgentChatMenu()
+
 const dFrameRef = ref<HTMLElement | null>(null)
 
 watch(() => state.menuOpen.value, async (open) => {
@@ -134,6 +137,8 @@ onUnmounted(() => window.removeEventListener('resize', onResize))
 const resolvedMenuProps = computed(() => {
   const base = {
     location: 'bottom end' as const,
+    // a gap between the button and the menu, which would otherwise touch it
+    offset: 8,
     width: 400,
     height: 500,
     scrollStrategy: 'none' as const,
