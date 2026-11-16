@@ -65,15 +65,52 @@ export const isCacheableStatus = (status: number): boolean =>
   (status >= 200 && status < 400) || status === 404 || status === 405 || status === 410 || status === 414
 
 /**
+ * RETRYING A PASSING REFUSAL, in the client rather than by the model: a 429 or a 503 is retried once, after the
+ * site's `Retry-After` when it asks for at most `maxWaitMs`, after `defaultWaitMs` when it says nothing. A longer
+ * wait goes back to the agent at once, with what the site asked (httpStatusMessage). This is what HTTP clients do
+ * (GitHub's own Octokit throttling plugin, the provider SDKs, the AI SDK's `maxRetries`); a tool letting the model
+ * wait would spend a model step re-sending the whole context per wait, on a clock models judge poorly, and while a
+ * conversation turn holds its conversation. Every agent of a deployment shares the address a site limits, so the
+ * cache is what spares the limit; this only rides out a short one.
+ */
+export const RETRY_STATUSES = [429, 503]
+export const RETRY_DEFAULTS = { maxWaitMs: 20_000, defaultWaitMs: 5_000 }
+
+/** How long to wait before the one retry of this response, or undefined for none. */
+export const retryWaitMs = (
+  status: number,
+  retryAfter: string | undefined,
+  { maxWaitMs, defaultWaitMs } = RETRY_DEFAULTS,
+  now = Date.now()
+): number | undefined => {
+  if (!RETRY_STATUSES.includes(status)) return undefined
+  const value = retryAfter?.trim()
+  if (!value) return defaultWaitMs
+  const ms = /^\d+$/.test(value) ? Number(value) * 1000 : Date.parse(value) - now
+  if (Number.isNaN(ms)) return defaultWaitMs
+  const wait = Math.max(0, ms)
+  return wait <= maxWaitMs ? wait : undefined
+}
+
+/** A wait that ends early, rejecting, when the turn is aborted. */
+export const abortableSleep = (ms: number, signal?: AbortSignal): Promise<void> => new Promise((resolve, reject) => {
+  if (signal?.aborted) { reject(signal.reason ?? new Error('aborted')); return }
+  const timer = setTimeout(() => { signal?.removeEventListener('abort', onAbort); resolve() }, ms)
+  const onAbort = () => { clearTimeout(timer); reject(signal!.reason ?? new Error('aborted')) }
+  signal?.addEventListener('abort', onAbort, { once: true })
+})
+
+/**
  * An HTTP error as the agent reads it. A 429 says what it is and that calling again at once fails the same
  * way: told only "answered HTTP 429", an agent retried, spent its calls, and guessed at a cause.
  */
-export const httpStatusMessage = (url: string, status: number, retryAfter?: string): string => {
-  if (status !== 429) return `${displayUrl(url)} answered HTTP ${status}`
+export const httpStatusMessage = (url: string, status: number, retryAfter?: string, retriedAfterMs?: number): string => {
+  const retried = retriedAfterMs !== undefined ? `, again after waiting ${Math.round(retriedAfterMs / 1000)} s and trying once more` : ''
+  if (status !== 429) return `${displayUrl(url)} answered HTTP ${status}${retried}`
   const seconds = retryAfter && /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter) : undefined
   const date = retryAfter && seconds === undefined && !Number.isNaN(Date.parse(retryAfter)) ? new Date(retryAfter).toISOString() : undefined
   const wait = seconds !== undefined ? ` and asks to wait ${seconds} s` : date ? ` and asks to wait until ${date}` : ''
-  return `${displayUrl(url)} answered HTTP 429: the site limits how often it may be read${wait}. Calling it again now fails the same way; read what you need elsewhere first, or less of it.`
+  return `${displayUrl(url)} answered HTTP 429${retried}: the site limits how often it may be read${wait}. Calling it again now fails the same way; read what you need elsewhere first, or less of it.`
 }
 
 /** A URL without its scheme: http and https are the same address for the allowlist. */

@@ -10,7 +10,7 @@ import http from 'node:http'
 import https from 'node:https'
 import axios, { type AxiosInstance } from 'axios'
 import Debug from 'debug'
-import { checkUrl, displayUrl, isCacheableStatus, type UrlScope } from './operations.ts'
+import { abortableSleep, checkUrl, displayUrl, isCacheableStatus, retryWaitMs, RETRY_DEFAULTS, type UrlScope } from './operations.ts'
 import { envPublicIps, ipList, publicLookup } from './public-lookup.ts'
 
 const debug = Debug('agents:web')
@@ -28,6 +28,8 @@ export interface WebResponse {
    */
   body: Buffer
   headers: Record<string, string>
+  /** Set when this answer came after a 429 or 503 retried once (retryWaitMs): how long the client waited. */
+  retriedAfterMs?: number
 }
 
 export interface WebClientOptions {
@@ -39,15 +41,26 @@ export interface WebClientOptions {
   maxBodyBytes?: number
   timeoutMs?: number
   maxRedirects?: number
+  /** The one retry of a 429 or a 503 (RETRY_DEFAULTS). */
+  retry?: { maxWaitMs: number, defaultWaitMs: number }
 }
 
 export interface WebClient {
   /**
    * `accept` sees the final response's type before its body is read, and throws to refuse it.
    */
-  get: (url: string, allowedUrls: string[], scope?: UrlScope, accept?: (contentType: string, url: string) => void) => Promise<WebResponse>
+  get: (url: string, allowedUrls: string[], scope?: UrlScope, options?: GetOptions) => Promise<WebResponse>
   /** Forget every cached response. */
   clear: () => void
+}
+
+export interface GetOptions {
+  /** Sees the final response's type before its body is read, and throws to refuse it. */
+  accept?: (contentType: string, url: string) => void
+  /** Ends the request, and a retry's wait, when the turn is aborted. */
+  signal?: AbortSignal
+  /** Whether a 429 or a 503 is retried once (true by default): not for a read the caller can do without. */
+  retry?: boolean
 }
 
 interface CacheEntry {
@@ -69,7 +82,8 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
     cacheMaxBytes = 64 * 1024 * 1024,
     maxBodyBytes = 10 * 1024 * 1024,
     timeoutMs = 15_000,
-    maxRedirects = 5
+    maxRedirects = 5,
+    retry = RETRY_DEFAULTS
   } = opts
   const lookup = publicLookup(ipList(opts.publicIps ?? envPublicIps()))
   const ax: AxiosInstance = axios.create({
@@ -124,7 +138,7 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
     })
 
   /** One request, no redirect following: a redirect is a response like any other, and is cached. */
-  const getOne = async (url: string, accept?: (contentType: string, url: string) => void): Promise<WebResponse> => {
+  const getOne = async (url: string, accept?: (contentType: string, url: string) => void, signal?: AbortSignal): Promise<WebResponse> => {
     const accepted = (response: WebResponse) => {
       if (accept && response.status >= 200 && response.status < 300) accept(response.contentType, url)
       return response
@@ -144,8 +158,9 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
 
     let res
     try {
-      res = await ax.get(url, { headers: conditional })
+      res = await ax.get(url, { headers: conditional, ...(signal ? { signal } : {}) })
     } catch (err: any) {
+      if (signal?.aborted) throw signal.reason ?? err
       throw new Error(`could not fetch ${displayUrl(url)}: ${err.message}`)
     }
     if (res.status === 304 && cached) {
@@ -173,10 +188,20 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
     return response
   }
 
-  const get = async (rawUrl: string, allowedUrls: string[], scope: UrlScope = 'page', accept?: (contentType: string, url: string) => void): Promise<WebResponse> => {
+  /** One URL, a 429 or a 503 retried once when the wait it asks for is short (retryWaitMs). Never cached, so asked again. */
+  const getRetried = async (url: string, { accept, signal, retry: retrying = true }: GetOptions): Promise<WebResponse> => {
+    const response = await getOne(url, accept, signal)
+    const wait = retrying ? retryWaitMs(response.status, response.headers['retry-after'], retry) : undefined
+    if (wait === undefined) return response
+    debug('%s answered %d: retrying once in %d ms', url, response.status, wait)
+    await abortableSleep(wait, signal)
+    return { ...await getOne(url, accept, signal), retriedAfterMs: wait }
+  }
+
+  const get = async (rawUrl: string, allowedUrls: string[], scope: UrlScope = 'page', options: GetOptions = {}): Promise<WebResponse> => {
     let url = checkUrl(rawUrl, allowedUrls, scope).href
     for (let hop = 0; ; hop++) {
-      const response = await getOne(url, accept)
+      const response = await getRetried(url, options)
       const location = response.headers.location
       if (response.status < 300 || response.status >= 400 || !location) return response
       if (hop >= maxRedirects) throw new Error(`too many redirects from ${displayUrl(rawUrl)}`)

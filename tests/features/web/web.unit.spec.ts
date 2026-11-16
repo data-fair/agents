@@ -7,7 +7,7 @@ import assert from 'node:assert/strict'
 import { gzipSync } from 'node:zlib'
 import {
   normalizeAllowedUrl, normalizeAllowedUrls, urlAllowed, hostAllowed, checkUrl, classifyContent, charsetOf, paginate,
-  robotsSitemaps, parseSitemap, sitemapText, filterEntries, normalizeSearchTemplate, parseOpenSearchDescription, parseAiCatalog, mcpServerFromCard
+  robotsSitemaps, parseSitemap, sitemapText, filterEntries, normalizeSearchTemplate, parseOpenSearchDescription, parseAiCatalog, mcpServerFromCard, retryWaitMs
 } from '../../../api/src/web/operations.ts'
 import { ipList, isPublicAddress } from '../../../api/src/web/public-lookup.ts'
 import { extractHtml, renderFeed } from '../../../api/src/web/extract.ts'
@@ -311,5 +311,19 @@ test.describe('MCP discovery parsing', () => {
     assert.equal(mcpServerFromCard({ ...card, remotes: [{ type: 'sse', url: 'https://a.example.org/sse' }] }), undefined)
     assert.equal(mcpServerFromCard({ ...card, remotes: [{ type: 'streamable-http', url: 'javascript:alert(1)' }] }), undefined)
     assert.equal(mcpServerFromCard('nope'), undefined)
+  })
+})
+
+test.describe('retryWaitMs', () => {
+  const opts = { maxWaitMs: 20_000, defaultWaitMs: 5_000 }
+  test('a 429 or 503 is retried after a short Retry-After, in seconds or as a date; anything else is not', () => {
+    assert.equal(retryWaitMs(429, '3', opts), 3000)
+    assert.equal(retryWaitMs(503, new Date(1_000_010_000).toUTCString(), opts, 1_000_000_000), 10_000)
+    assert.equal(retryWaitMs(429, undefined, opts), 5000, 'no Retry-After: the default wait')
+    assert.equal(retryWaitMs(429, 'soon', opts), 5000, 'an unreadable one: the default wait')
+    assert.equal(retryWaitMs(429, '60', opts), undefined, 'a long wait goes back to the agent')
+    assert.equal(retryWaitMs(429, new Date(0).toUTCString(), opts, 1_000_000_000), 0, 'a date already past: at once')
+    assert.equal(retryWaitMs(500, '1', opts), undefined)
+    assert.equal(retryWaitMs(403, undefined, opts), undefined)
   })
 })

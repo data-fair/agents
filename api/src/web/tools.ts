@@ -85,7 +85,7 @@ export const createWebTools = (opts: WebToolsOptions): Record<string, Tool> => {
         if (input.saveAs !== undefined && files) {
           return await saveUrl({ url: input.url, path: input.saveAs, allowedUrls: ctx.allowedUrls, files, signal: options?.abortSignal })
         }
-        return await fetchUrl(input, { ...ctx, filesOn: !!files })
+        return await fetchUrl(input, { ...ctx, filesOn: !!files, ...(options?.abortSignal ? { signal: options.abortSignal } : {}) })
       }
     }),
     [LIST_SITE_PAGES_TOOL_NAME]: tool({
@@ -101,9 +101,9 @@ export const createWebTools = (opts: WebToolsOptions): Record<string, Tool> => {
           offset: { type: 'integer', minimum: 0 }
         }
       }),
-      execute: async (input: ListSitePagesInput) => {
+      execute: async (input: ListSitePagesInput, options?: { abortSignal?: AbortSignal }) => {
         spend()
-        return await listSitePages(input, ctx)
+        return await listSitePages(input, { ...ctx, ...(options?.abortSignal ? { signal: options.abortSignal } : {}) })
       }
     })
   }

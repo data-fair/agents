@@ -31,6 +31,8 @@ export interface WebContext {
   filesOn?: boolean
   /** Names of the run's tools rendering the platform's own pages with JavaScript (preview_application, preview_portal_page). */
   previewTools?: string[]
+  /** The turn's: ends a request and a retry's wait when the turn is aborted, or reaches its deadline. */
+  signal?: AbortSignal
 }
 
 let defaultClient: WebClient | undefined
@@ -48,7 +50,7 @@ const httpError = (res: WebResponse) => {
   const challenge = res.headers['cf-mitigated'] === 'challenge' || (res.status === 403 && /cloudflare/i.test(res.headers.server ?? ''))
   return new Error(challenge
     ? `${displayUrl(res.url)} refused an automated client (bot protection, HTTP ${res.status}); its content cannot be read this way`
-    : httpStatusMessage(res.url, res.status, res.headers['retry-after']))
+    : httpStatusMessage(res.url, res.status, res.headers['retry-after'], res.retriedAfterMs))
 }
 
 export interface FetchUrlInput {
@@ -89,7 +91,7 @@ const openSearchTemplates = async (descriptions: string[], ctx: WebContext): Pro
   const templates: string[] = []
   for (const description of descriptions) {
     try {
-      const res = await clientOf(ctx).get(description, ctx.allowedUrls, 'site')
+      const res = await clientOf(ctx).get(description, ctx.allowedUrls, 'site', { signal: ctx.signal, retry: false })
       if (res.status < 400) templates.push(...parseOpenSearchDescription(decode(res), res.url))
     } catch {}
   }
@@ -104,13 +106,13 @@ const openSearchTemplates = async (descriptions: string[], ctx: WebContext): Pro
 const discoverMcpServers = async (pageUrl: string, ctx: WebContext): Promise<DiscoveredMcpServer[]> => {
   const servers: DiscoveredMcpServer[] = []
   try {
-    const res = await clientOf(ctx).get(new URL(AI_CATALOG_PATH, pageUrl).href, ctx.allowedUrls, 'site')
+    const res = await clientOf(ctx).get(new URL(AI_CATALOG_PATH, pageUrl).href, ctx.allowedUrls, 'site', { signal: ctx.signal, retry: false })
     if (res.status >= 400) return servers
     for (const entry of parseAiCatalog(decode(res)).slice(0, 5)) {
       let card = entry.data
       if (entry.url) {
         try {
-          const cardRes = await clientOf(ctx).get(new URL(entry.url, res.url).href, ctx.allowedUrls, 'site')
+          const cardRes = await clientOf(ctx).get(new URL(entry.url, res.url).href, ctx.allowedUrls, 'site', { signal: ctx.signal, retry: false })
           if (cardRes.status < 400) card = JSON.parse(decode(cardRes))
         } catch {}
       }
@@ -126,7 +128,7 @@ const MCP_DISCOVERY_NOTE = 'This site publishes an MCP server (see mcpServers): 
 const joinNotes = (...notes: Array<string | undefined>) => notes.filter(Boolean).join(' ')
 
 export const fetchUrl = async (input: FetchUrlInput, ctx: WebContext): Promise<FetchUrlResult> => {
-  const res = await clientOf(ctx).get(input.url, ctx.allowedUrls, 'page', refuseBinary(ctx.filesOn))
+  const res = await clientOf(ctx).get(input.url, ctx.allowedUrls, 'page', { accept: refuseBinary(ctx.filesOn), signal: ctx.signal })
   if (res.status >= 400) throw httpError(res)
   const text = decode(res)
   const kind = classifyContent(res.contentType, text.slice(0, 500))
@@ -196,7 +198,7 @@ export interface ListSitePagesResult {
 }
 
 const loadSitemap = async (url: string, ctx: WebContext) => {
-  const res = await clientOf(ctx).get(url, ctx.allowedUrls, 'site')
+  const res = await clientOf(ctx).get(url, ctx.allowedUrls, 'site', { signal: ctx.signal })
   if (res.status >= 400) throw httpError(res)
   return parseSitemap(sitemapText(res.body))
 }
@@ -207,7 +209,7 @@ export const listSitePages = async (input: ListSitePagesInput, ctx: WebContext):
   // where the site declares its sitemaps, or the conventional place
   let roots: string[] = []
   try {
-    const robots = await clientOf(ctx).get(`${origin}/robots.txt`, ctx.allowedUrls, 'site')
+    const robots = await clientOf(ctx).get(`${origin}/robots.txt`, ctx.allowedUrls, 'site', { signal: ctx.signal })
     if (robots.status < 400) roots = robotsSitemaps(decode(robots))
   } catch {}
   roots = roots.filter(loc => { try { return hostAllowed(new URL(loc).host, ctx.allowedUrls) } catch { return false } })

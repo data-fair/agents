@@ -19,6 +19,7 @@ import { createTurnFiles } from '../../../api/src/files/turn-files.ts'
 const publicIps = ['127.0.0.1', '::1']
 const seen: { server: 'a' | 'b', url: string, cookie?: string, authorization?: string }[] = []
 let a: http.Server, b: http.Server, A: string, B: string
+let limitedOnce = false
 
 const start = (name: 'a' | 'b', routes: Record<string, (req: http.IncomingMessage, res: http.ServerResponse) => void>) => {
   const server = http.createServer((req, res) => {
@@ -40,6 +41,13 @@ test.beforeAll(async () => {
     '/hop': (req, res) => res.writeHead(302, { location: '/data.csv' }).end(),
     '/away': (req, res) => res.writeHead(302, { location: `${B}/elsewhere.csv` }).end(),
     '/missing': (req, res) => res.writeHead(404).end(),
+    // a 429 on every other request: the first answer of each pair refuses, the next one serves
+    '/limited-once.csv': (req, res) => {
+      limitedOnce = !limitedOnce
+      if (limitedOnce) res.writeHead(429, { 'retry-after': '0' }).end()
+      else res.writeHead(200, { 'content-type': 'text/csv' }).end('ok')
+    },
+    '/limited.csv': (req, res) => res.writeHead(429, { 'retry-after': '3600' }).end(),
     '/nowhere': (req, res) => res.writeHead(302).end(),
     '/signed': (req, res) => res.writeHead(302, { location: `${B}/elsewhere.csv?X-Signature=secret#frag` }).end(),
     '/slow': (req, res) => { res.writeHead(200, { 'content-type': 'text/csv' }); res.write('x') },
@@ -172,5 +180,18 @@ test.describe('createLinkOpener', () => {
     const anonymous = createLinkOpener({ sites: { credentialFor: async () => ({ cookie: 'id_token=abc' }) } as any, allowedUrls: [A], publicIps })
     ;(await anonymous({ uri: `${A}/data.csv`, name: 'd' }, { catalog: false, site: A })).body.destroy()
     assert.deepEqual(seen.map(s => s.cookie), [undefined])
+  })
+})
+
+test.describe('openDownload, a passing refusal', () => {
+  test('a 429 asking for a short wait is retried once, and the download goes on', async () => {
+    const opened = await openDownload({ url: `${A}/limited-once.csv`, allowedUrls: [A], publicIps })
+    opened.body.resume()
+    assert.equal(seen.filter(entry => entry.url === '/limited-once.csv').length, 2)
+  })
+
+  test('a 429 asking for a long wait goes back to the agent at once, saying so', async () => {
+    await assert.rejects(openDownload({ url: `${A}/limited.csv`, allowedUrls: [A], publicIps }), /answered HTTP 429: the site limits how often it may be read and asks to wait 3600 s/)
+    assert.equal(seen.filter(entry => entry.url === '/limited.csv').length, 1)
   })
 })
