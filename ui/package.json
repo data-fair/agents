@@ -21,7 +21,6 @@
     "@koumoul/vjsf-markdown": "^0.5.0",
     "@mcp-b/webmcp-ts-sdk": "^2.3.2",
     "@mdi/js": "^7.4.47",
-    "@unhead/vue": "^3.4.0",
     "ai": "7.0.159",
     "chart.js": "^4.5.1",
     "dayjs": "^1.11.19",
