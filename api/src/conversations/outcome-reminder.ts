@@ -6,4 +6,4 @@
  * A leaf module, imported by the mock model too: it must stay free of imports, or the UI's type check, which reaches
  * the mock through ui-config, would compile the service's modules.
  */
-export const OUTCOME_REMINDER = 'You ended this planned task run without calling report_outcome. Call it now: done, nothing-to-do or needs-attention, with a summary of what this run found or did.'
+export const OUTCOME_REMINDER = 'You ended this planned task run without calling report_outcome. Call it now: done, nothing-to-do or needs-attention, with a short summary (one to three sentences) of what this run found or did; the details belong in your answer.'

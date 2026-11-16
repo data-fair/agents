@@ -8,7 +8,7 @@ import { tool, jsonSchema } from 'ai'
 import { applyApprovalPolicy, unattended } from '../../../api/src/conversations/approval-policy.ts'
 import { buildSystemPrompt, turnDeadlineSeconds } from '../../../api/src/conversations/operations.ts'
 import { renderMemoryBlock } from '../../../api/src/memory/operations.ts'
-import { validateTaskOutcome } from '../../../api/src/tasks/operations.ts'
+import { validateTaskOutcome, TASK_OUTCOME_SUMMARY_MAX } from '../../../api/src/tasks/operations.ts'
 
 const t = () => tool({ description: 'x', inputSchema: jsonSchema({ type: 'object', properties: {} }), execute: async () => 'ok' })
 
@@ -52,8 +52,8 @@ test.describe('validateTaskOutcome', () => {
   })
 
   test('an over-long or empty summary is refused', () => {
-    assert.throws(() => validateTaskOutcome({ status: 'done', summary: 'x'.repeat(10_001) }), /at most 10000 characters/)
-    assert.doesNotThrow(() => validateTaskOutcome({ status: 'done', summary: `${'x'.repeat(10_000)}   ` }))
+    assert.throws(() => validateTaskOutcome({ status: 'done', summary: 'x'.repeat(TASK_OUTCOME_SUMMARY_MAX + 1) }), /at most 500 characters .*shorten it/)
+    assert.doesNotThrow(() => validateTaskOutcome({ status: 'done', summary: `${'x'.repeat(TASK_OUTCOME_SUMMARY_MAX)}   ` }))
     assert.throws(() => validateTaskOutcome({ status: 'done', summary: '   ' }), /non-empty string/)
     assert.throws(() => validateTaskOutcome({ status: 'done', summary: 42 }), /non-empty string/)
   })
