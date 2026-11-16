@@ -210,6 +210,7 @@ fr:
 <script lang="ts" setup>
 import { ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 
@@ -221,6 +222,7 @@ const props = defineProps<{
 }>()
 
 const { t, locale } = useI18n()
+const { dayjs } = useLocaleDayjs()
 const { sendUiNotif } = useUiNotif()
 
 const tab = ref('documents')
@@ -324,5 +326,5 @@ const redact = (id: string) => act(async () => {
 const authorLabel = (author: any) => author.kind === 'agent'
   ? t('byAgent')
   : author.kind === 'consolidation' ? t('byConsolidation') : t('byUser', { name: author.userName ?? author.userId })
-const formatDate = (iso: string) => new Date(iso).toLocaleString(locale.value)
+const formatDate = (iso: string) => dayjs(iso).format('lll')
 </script>
