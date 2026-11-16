@@ -54,6 +54,28 @@ export const normalizeHttpUrl = (input: string): string => {
  */
 export const MAX_CALLS_PER_RUN = 50
 
+/**
+ * Which responses the shared web cache may keep: the statuses HTTP lets a cache keep without being told
+ * (RFC 9111 §4.2.2, the server errors aside), and redirects. Never a 429, a 403, a 401 or a 408: a refusal
+ * that lasts a moment. Kept, a 429 from GitHub answered every agent of the instance for the cache's ten
+ * minutes without the site being asked again; an agent concluded fetch_url could not read github.com and
+ * saved every page as a file instead, which goes around the cache.
+ */
+export const isCacheableStatus = (status: number): boolean =>
+  (status >= 200 && status < 400) || status === 404 || status === 405 || status === 410 || status === 414
+
+/**
+ * An HTTP error as the agent reads it. A 429 says what it is and that calling again at once fails the same
+ * way: told only "answered HTTP 429", an agent retried, spent its calls, and guessed at a cause.
+ */
+export const httpStatusMessage = (url: string, status: number, retryAfter?: string): string => {
+  if (status !== 429) return `${displayUrl(url)} answered HTTP ${status}`
+  const seconds = retryAfter && /^\d+$/.test(retryAfter.trim()) ? Number(retryAfter) : undefined
+  const date = retryAfter && seconds === undefined && !Number.isNaN(Date.parse(retryAfter)) ? new Date(retryAfter).toISOString() : undefined
+  const wait = seconds !== undefined ? ` and asks to wait ${seconds} s` : date ? ` and asks to wait until ${date}` : ''
+  return `${displayUrl(url)} answered HTTP 429: the site limits how often it may be read${wait}. Calling it again now fails the same way; read what you need elsewhere first, or less of it.`
+}
+
 /** A URL without its scheme: http and https are the same address for the allowlist. */
 const withoutScheme = (href: string) => href.replace(/^https?:\/\//, '')
 

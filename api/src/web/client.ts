@@ -10,7 +10,7 @@ import http from 'node:http'
 import https from 'node:https'
 import axios, { type AxiosInstance } from 'axios'
 import Debug from 'debug'
-import { checkUrl, displayUrl, type UrlScope } from './operations.ts'
+import { checkUrl, displayUrl, isCacheableStatus, type UrlScope } from './operations.ts'
 import { envPublicIps, ipList, publicLookup } from './public-lookup.ts'
 
 const debug = Debug('agents:web')
@@ -56,7 +56,7 @@ interface CacheEntry {
   freshMs: number
 }
 
-const KEPT_HEADERS = ['content-type', 'location', 'etag', 'last-modified', 'cache-control', 'server', 'cf-mitigated']
+const KEPT_HEADERS = ['content-type', 'location', 'etag', 'last-modified', 'cache-control', 'server', 'cf-mitigated', 'retry-after']
 
 const maxAgeMs = (cacheControl: string | undefined) => {
   const seconds = /max-age=(\d+)/.exec(cacheControl ?? '')?.[1]
@@ -166,8 +166,8 @@ export const createWebClient = (opts: WebClientOptions = {}): WebClient => {
     }
     const response: WebResponse = { url, status: res.status, contentType, body: await readBody(res.data, url), headers }
     debug('fetched %s %d %d bytes', url, res.status, response.body.length)
-    // server errors are not kept: the next call tries again
-    if (res.status < 500 && !/no-store/.test(headers['cache-control'] ?? '')) {
+    // server errors and passing refusals (a 429) are not kept: the next call tries again (isCacheableStatus)
+    if (isCacheableStatus(res.status) && !/no-store/.test(headers['cache-control'] ?? '')) {
       store(url, { response, storedAt: Date.now(), freshMs: Math.max(freshMs, maxAgeMs(headers['cache-control'])) })
     }
     return response

@@ -12,7 +12,7 @@ import net from 'node:net'
 import { Transform, type Readable } from 'node:stream'
 import { createHash } from 'node:crypto'
 import { request, type Agent } from 'undici'
-import { checkUrl, displayUrl } from '../web/operations.ts'
+import { checkUrl, displayUrl, httpStatusMessage } from '../web/operations.ts'
 import { USER_AGENT } from '../web/client.ts'
 import { envPublicIps, ipList, isPublicAddress, publicDispatcher } from '../web/public-lookup.ts'
 import { credentialHeaders, type SiteCredentials, type SiteCredential } from '../mcp-servers/operations.ts'
@@ -104,7 +104,7 @@ export const openDownload = async (opts: DownloadOptions): Promise<OpenedDownloa
     // anything else that is not a success is not a file: 4xx, 5xx, and a redirect that goes nowhere
     if (res.statusCode >= 300) {
       discard(res.body as unknown as Readable)
-      throw new Error(`${displayUrl(url)} answered HTTP ${res.statusCode}`)
+      throw new Error(httpStatusMessage(url, res.statusCode, first(res.headers['retry-after'])))
     }
     const length = first(res.headers['content-length'])
     // a caller that gives up on the body destroys it: that must not be an uncaught error
