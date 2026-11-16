@@ -20,6 +20,16 @@ test.describe('autonomousAgentMessageToChat', () => {
     assert.equal(chat.content, 'hello')
   })
 
+  test('a user turn shows what the person asked, its hidden context apart', () => {
+    const chat = autonomousAgentMessageToChat({ ...base, parts: [{ type: 'text', text: '<hidden-context>\nThe dataset is "roads".\n</hidden-context>\n\nCreate a dataset' }] })
+    assert.equal(chat.content, 'Create a dataset')
+    assert.equal(chat.hiddenContext, 'The dataset is "roads".')
+    assert.equal(autonomousAgentMessageToChat({ ...base, parts: [{ type: 'text', text: 'hello' }] }).hiddenContext, undefined)
+    // an assistant never had any: its text is kept whole, whatever it quotes
+    const quoted = '<hidden-context>\nx\n</hidden-context>\n\ny'
+    assert.equal(autonomousAgentMessageToChat({ ...base, role: 'assistant', parts: [{ type: 'text', text: quoted }] }).content, quoted)
+  })
+
   test('a message with no parts maps to an empty string, never undefined', () => {
     // ChatMessage.content is required and the renderer indexes into it; a pending assistant
     // message legitimately has none yet.

@@ -24,7 +24,6 @@ import { ref, shallowRef, computed, watch, onScopeDispose, readonly, type Ref } 
 import type { Tool } from 'ai'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import type { PageSkillDescriptor } from '@agents/shared/agent-session-protocol'
-import { splitHiddenContext } from '@agents/shared/hidden-context'
 import { PORTAL_ASSISTANT_ID, usesPageTools } from '@agents/shared/agent-audit'
 import Debug from 'debug'
 import { getTabChannelId } from '@data-fair/lib-vue-agents'
@@ -215,16 +214,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
         parts: frame.parts,
         pending: frame.pending
       })
-      // A user turn is STORED wrapped when an action button supplied hidden context. The person must
-      // see what they asked, not the context the page added on their behalf.
+      // A user turn's hidden context is split out by the mapper: the person sees what they asked.
       // A refusal is stored as English text plus a structured part; the chat says it in its own
       // language when it can.
       const refusal = frame.parts.find((part: any) => part?.type === 'data-refusal') as { data?: RefusalInfo } | undefined
       const localized = refusal?.data ? options.formatRefusal?.(refusal.data) : undefined
-      turn.message = frame.role === 'user'
-        ? { ...chat, content: splitHiddenContext(chat.content).visible }
-        // the localized text replaces the stored one: no blocks, which would still show the English
-        : localized ? { ...chat, content: localized, blocks: undefined } : chat
+      // the localized text replaces the stored one: no blocks, which would still show the English
+      turn.message = frame.role !== 'user' && localized ? { ...chat, content: localized, blocks: undefined } : chat
     },
 
     onTrace: frame => {

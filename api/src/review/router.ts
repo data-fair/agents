@@ -32,6 +32,7 @@ import { buildConversationExport, exportFilename } from './operations.ts'
 import { retentionCutoff } from '../retention.ts'
 import { reviewableFilter } from './reviewable.ts'
 import { PERSONAL_AGENT_IDS } from '@agents/shared/agent-audit'
+import { splitHiddenContext } from '@agents/shared/hidden-context'
 
 const router = Router()
 export default router
@@ -105,7 +106,8 @@ router.get('/:type/:id', async (req, res, next) => {
         { conversationId: conversation.id, role: 'user' },
         { projection: { _id: 0, parts: 1 }, sort: { seq: 1 } }
       )
-      return partsText((first?.parts ?? []) as any).slice(0, 150)
+      // What the person asked: an action button's hidden context is the page's, not theirs.
+      return splitHiddenContext(partsText((first?.parts ?? []) as any)).visible.slice(0, 150)
     }))
 
     res.json({

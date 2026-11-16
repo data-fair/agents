@@ -8,6 +8,12 @@
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  /**
+   * What an action button or the page added to a user turn (shared/hidden-context.ts), split out of `content`,
+   * which keeps only what the person asked. The chat never shows it; a transcript showing tool details (the
+   * review page) shows it folded under the bubble.
+   */
+  hiddenContext?: string
   toolInvocations?: Array<{
     toolCallId: string
     toolName: string

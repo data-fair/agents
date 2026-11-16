@@ -14,6 +14,7 @@ import type { ChatMessage, ChatMessageBlock } from './chat-message.ts'
 // Named once in shared/, for both sides of the socket. This file used to declare it, and was the only
 // place that had it right — the server used an open bag and the wire used unknown[].
 import type { MessagePart } from '@agents/shared/message-parts'
+import { splitHiddenContext } from '@agents/shared/hidden-context'
 import { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED } from '@agents/shared/approval-cancel'
 
 /** A pending approval the server rejected because the person wrote or used the page instead of deciding. */
@@ -76,6 +77,13 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
     // text part means a step or a tool call came between — joined with nothing, the sentences on
     // either side ran together ("…levels.Now let me…").
     content: parts.filter(p => p.type === 'text').map(p => p.text).join('\n\n')
+  }
+  // A user turn is STORED wrapped when an action button supplied hidden context: the person asked only the
+  // visible half, and every reader shows that; the review page shows the rest folded (hiddenContext).
+  if (message.role === 'user') {
+    const { visible, hidden } = splitHiddenContext(chat.content)
+    chat.content = visible
+    if (hidden !== undefined) chat.hiddenContext = hidden
   }
 
   // One part per tool call, carrying its own state — so a call that FAILED is readable directly, where

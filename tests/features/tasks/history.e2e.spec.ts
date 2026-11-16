@@ -172,6 +172,26 @@ test.describe('Agent page, activity', () => {
     }
   })
 
+  test('a conversation an action button started reads as the person asked it, the hidden context folded on the review page', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    const started = await startTurnOverSocket(orgAdmin, { agentId }, 'hello', { hiddenContext: 'The open dataset is "roads".' })
+    await awaitRunEnd(agentId, started.runId)
+
+    await openRuns(page, goToWithAuth, agentId, 'conversations')
+    const row = page.getByTestId('review-row')
+    await expect(row).toHaveCount(1, { timeout: 20000 })
+    await expect(row.getByText('hello', { exact: true })).toBeVisible()
+    await expect(row).not.toContainText('hidden-context')
+    await row.click()
+
+    await expect(page.locator('.agent-chat__user-bubble')).toHaveText('hello')
+    // folded: nowhere in the transcript until opened (the user turn rendered once, as a bubble)
+    await expect(page.getByText('roads')).toHaveCount(0)
+    const hidden = page.getByTestId('hidden-context')
+    await hidden.getByRole('button', { name: 'Context added by the page' }).click()
+    await expect(hidden).toContainText('The open dataset is "roads".')
+  })
+
   test('conversations are listed one per conversation, apart from task runs, and open on the review page', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     await runTask(agentId, 'Task digest', 'hello')

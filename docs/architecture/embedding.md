@@ -293,7 +293,7 @@ bc.postMessage({
 })
 ```
 
-The container composable listens for `agent-start-session` and automatically opens. The `visiblePrompt` is shown to the user; `hiddenContext` is passed to the agent without displaying it: the iframe sends it as its own field of the `prompt` frame and the server does the `<hidden-context>` wrapping, so a client cannot place the sentinels itself.
+The container composable listens for `agent-start-session` and automatically opens. The `visiblePrompt` is shown to the user; `hiddenContext` is passed to the agent without displaying it: the iframe sends it as its own field of the `prompt` frame and the server does the `<hidden-context>` wrapping, so a client cannot place the sentinels itself. The turn is stored wrapped, and `autonomousAgentMessageToChat` (`ui/src/utils/autonomous-agent-chat-message.ts`) splits it back for every reader: the chat shows only the visible prompt, the review page shows the hidden context folded under the bubble ("Context added by the page"), and the conversations list previews only the visible prompt. The page's host state and events, folded into the last user message for each model call, are not stored with it: the review shows only their size per call (`hostBlockChars`).
 
 To check if a drawer is available before sending:
 

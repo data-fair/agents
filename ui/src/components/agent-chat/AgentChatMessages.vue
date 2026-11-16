@@ -27,18 +27,47 @@
           :key="index"
         >
           <div class="px-2 py-1 px-sm-4 py-sm-2">
-            <div
-              v-if="message.role === 'user'"
-              class="d-flex justify-end"
-            >
-              <v-card
-                class="px-3 py-2 text-body-medium agent-chat__user-bubble"
-                :color="isActionPrompt(message) ? 'accent' : 'secondary'"
-                variant="flat"
+            <template v-if="message.role === 'user'">
+              <div class="d-flex justify-end">
+                <v-card
+                  class="px-3 py-2 text-body-medium agent-chat__user-bubble"
+                  :color="isActionPrompt(message) ? 'accent' : 'secondary'"
+                  variant="flat"
+                >
+                  {{ message.content }}
+                </v-card>
+              </div>
+              <!-- What the page or an action button added to the turn: the model read it, the person never saw it. -->
+              <div
+                v-if="showToolDetails && message.hiddenContext"
+                class="agent-chat__reasoning agent-chat__hidden-context d-flex flex-column align-end my-1"
+                data-testid="hidden-context"
               >
-                {{ message.content }}
-              </v-card>
-            </div>
+                <button
+                  type="button"
+                  class="d-inline-flex align-center text-caption text-medium-emphasis"
+                  :aria-expanded="!!reasoningOpen[`${index}/hidden`]"
+                  @click="toggleReasoning(`${index}/hidden`)"
+                >
+                  <v-icon
+                    :icon="mdiEyeOff"
+                    size="x-small"
+                    class="mr-1"
+                  />
+                  {{ t('hiddenContext') }}
+                  <v-icon
+                    :icon="reasoningOpen[`${index}/hidden`] ? mdiChevronUp : mdiChevronDown"
+                    size="x-small"
+                  />
+                </button>
+                <div
+                  v-if="reasoningOpen[`${index}/hidden`]"
+                  class="text-caption text-medium-emphasis agent-chat__reasoning-text agent-chat__hidden-context-text mt-1"
+                >
+                  {{ message.hiddenContext }}
+                </div>
+              </div>
+            </template>
             <div
               v-else
               class="text-body-medium"
@@ -336,6 +365,7 @@
 <i18n lang="yaml">
 fr:
   reasoning: Raisonnement
+  hiddenContext: Contexte ajouté par la page, non affiché
   scriptTitle: Script
   scriptDone: Script terminé.
   jumpToBottom: Aller en bas
@@ -377,6 +407,7 @@ fr:
   toolReportOutcome: Rendre compte du résultat
 en:
   reasoning: Reasoning
+  hiddenContext: Context added by the page, not shown
   scriptTitle: Script
   scriptDone: Script finished.
   jumpToBottom: Jump to bottom
@@ -422,7 +453,7 @@ en:
 import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
-import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain } from '@mdi/js'
+import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain, mdiEyeOff } from '@mdi/js'
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import ApprovalCard from './ApprovalCard.vue'
@@ -750,6 +781,14 @@ function onContentClick (e: MouseEvent) {
   word-break: break-word;
   padding-left: 12px;
   border-left: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
+/* Under the user bubble it belongs to, as wide as a bubble may be; long page state scrolls rather than
+   pushing the transcript down. */
+.agent-chat-message .agent-chat__hidden-context-text {
+  max-width: 80%;
+  max-height: 320px;
+  overflow-y: auto;
 }
 
 /* the calls a script made hang under its chip, as an open call's detail does */
