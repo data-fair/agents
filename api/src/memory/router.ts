@@ -14,7 +14,7 @@ import log from '@data-fair/lib-node/log.js'
 import { ownerLogFields } from '../log-fields.ts'
 import { reqAgent } from '../autonomous-agents/service.ts'
 import { agentStoreId, MEMORY_LIMITS, normalizeMemoryPath, MemoryCommandError, MemoryConflictError } from './operations.ts'
-import { loadMemory, writeMemoryAsUser, deleteMemoryAsUser, listMemoryVersions, restoreMemoryVersion, redactMemoryVersion } from './service.ts'
+import { loadMemory, writeMemoryAsUser, deleteMemoryAsUser, listMemoryVersions, listDeletedMemoryDocuments, restoreMemoryVersion, redactMemoryVersion } from './service.ts'
 
 const router = Router()
 export default router
@@ -96,6 +96,13 @@ router.get('/:type/:id/:agentId/versions', async (req, res, next) => {
     const size = Math.min(Math.max(parseInt(String(req.query.size ?? '20'), 10) || 20, 1), 100)
     const page = Math.max(parseInt(String(req.query.page ?? '1'), 10) || 1, 1)
     res.json(await listMemoryVersions(storeId, { path: typeof req.query.path === 'string' && req.query.path ? req.query.path : undefined, skip: (page - 1) * size, limit: size }))
+  } catch (err) { next(mapError(err)) }
+})
+
+router.get('/:type/:id/:agentId/deleted', async (req, res, next) => {
+  try {
+    const { storeId } = await requireAgentReader(req)
+    res.json(await listDeletedMemoryDocuments(storeId))
   } catch (err) { next(mapError(err)) }
 })
 

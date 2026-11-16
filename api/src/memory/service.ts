@@ -125,6 +125,22 @@ export const listMemoryVersions = async (storeId: string, opts: { path?: string,
   return { count, results }
 }
 
+/**
+ * The paths whose latest version is a delete, newest deletion first: what the admin panel offers to
+ * restore. A path renamed away has no delete row (its text lives on under the new path), and a path
+ * re-created since has a newer row, so neither is listed.
+ */
+export const listDeletedMemoryDocuments = async (storeId: string) => {
+  const rows = await mongo.agentMemoryVersions.aggregate<{ _id: string, op: string, createdAt: string, author: unknown }>([
+    { $match: { storeId } },
+    { $sort: { path: 1, createdAt: -1, _id: -1 } },
+    { $group: { _id: '$path', op: { $first: '$op' }, createdAt: { $first: '$createdAt' }, author: { $first: '$author' } } },
+    { $match: { op: 'delete' } },
+    { $sort: { createdAt: -1 } }
+  ]).toArray()
+  return rows.map(r => ({ path: r._id, deletedAt: r.createdAt, deletedBy: r.author }))
+}
+
 /** Restore = write that version's content again, as a NEW version. History is never rewound. */
 export const restoreMemoryVersion = async (storeId: string, owner: AccountKeys, versionId: string, user: { id: string, name?: string }) => {
   const version = await mongo.agentMemoryVersions.findOne({ storeId, id: versionId }, { projection: { _id: 0 } })

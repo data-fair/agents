@@ -172,7 +172,7 @@ export class AgentsMongo {
       },
       'agent-memory-versions': {
         'main-keys': [{ id: 1 }, { unique: true }],
-        // One document's history, newest first; and a whole store's, for the admin history tab.
+        // One document's history, newest first; and a whole store's (its deleted documents, the agent's delete cascade).
         'path-keys': [{ storeId: 1, path: 1, createdAt: -1 }, {}],
         'store-keys': [{ storeId: 1, createdAt: -1 }, {}]
       }
