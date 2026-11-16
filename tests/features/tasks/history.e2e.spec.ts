@@ -79,9 +79,11 @@ test.describe('Agent page, activity', () => {
       await openRuns(page, goToWithAuth, agentId)
 
       const reported = runItem(page, 'Reported digest')
-      await expect(reported).toContainText('Done')
       await expect(reported).toContainText('Run manually')
+      // the outcome alone: "Done" is implied by it, and it never also reads as "no outcome"
       await expect(reported).toContainText('Needs attention')
+      await expect(reported).not.toContainText('Done')
+      await expect(reported.getByTestId('agent-run-no-outcome')).toHaveCount(0)
       await expect(reported).toContainText('Two datasets are stale')
       await expect(reported.getByTestId('agent-run-credits')).toBeVisible()
 
