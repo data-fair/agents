@@ -58,7 +58,7 @@ test.describe('Task runs', () => {
     assert.equal(run.prompt, undefined)
     assert.equal(run.parts, undefined)
     assert.deepEqual(run.messages.map((m: any) => m.role), ['user', 'assistant'])
-    assert.equal(run.messages[0].parts[0].text, task.prompt)
+    assert.equal(run.messages[0].parts[0].text, `Planned task "${task.title}":\n\n${task.prompt}`)
     assert.ok(run.messages[1].parts.some((p: any) => p.type === 'dynamic-tool' && p.toolName === 'report_outcome'))
   })
 

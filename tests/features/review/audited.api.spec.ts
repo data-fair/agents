@@ -6,6 +6,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { runTurn } from '../../support/turn.ts'
+import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
@@ -40,6 +41,33 @@ test.describe('Audited conversations', () => {
     assert.equal(read.data.conversation.id, conversationId)
     const where = await orgAdmin.get(`/api/review/conversation/${conversationId}`)
     assert.deepEqual(where.data.owner, { type: 'organization', id: 'test1' })
+  })
+
+  test('the review and its export resolve the tools the model was offered, described', async () => {
+    // Enrolled, so its turn runs and offers tools (one with no identity is refused before any model call).
+    const agent = await createEnrolledAgent({ title: 'Described', persona: 'x', mcpServers: [], enabled: true })
+    const { conversationId } = await runTurn(orgAdmin, 'organization/test1', 'hello', { agentId: agent.id })
+    const read = (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data
+    const run = read.runs[0]
+    assert.equal(run.status, 'done', JSON.stringify(run))
+    const ref = run.toolDefinitionsRef
+    assert.match(ref ?? '', /^tools-[0-9a-f]{32}$/)
+    const tools = read.toolDefinitions[ref]
+    // every tool offered, each with what the model was told about it
+    assert.deepEqual(tools.map((tool: any) => tool.name), run.calls.find((call: any) => call.modelRole === 'assistant').toolNames)
+    // the built-in data-fair server's (dev/mcp-server.ts /platform/), which the agent's identity reaches
+    const closures = tools.find((tool: any) => tool.name === 'platform_list_road_closures')
+    assert.ok(closures?.description?.length > 0, JSON.stringify(tools.map((tool: any) => tool.name)))
+    assert.equal(closures.inputSchema.type, 'object')
+
+    // the export carries the same set once, as a blob under the key the run names
+    const exported = (await admin.get(`/api/review/organization/test1/${conversationId}/export`, { responseType: 'text', transformResponse: r => r })).data as string
+    const records = exported.trim().split('\n').map(line => JSON.parse(line))
+    const blobs = records.filter(record => record.type === 'blob' && record.ref === ref)
+    assert.equal(blobs.length, 1)
+    assert.deepEqual(blobs[0].value, tools)
+    assert.equal(records.find(record => record.type === 'run').toolDefinitionsRef, ref)
+    assert.match(records[0].guide, /toolDefinitionsRef/)
   })
 
   test('the list narrows to one agent\'s conversations', async () => {

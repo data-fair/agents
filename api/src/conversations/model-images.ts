@@ -44,7 +44,7 @@ export const imagePlaceholder = (item: MediaItem, reason: 'earlier' | 'unsupport
   ? `[image ${item.mediaType} ~${sizeKb(item)}kB, which you saw when it came, no longer shown: a later image replaced it. What you saw then still holds; call the tool again only if what it shows may have changed since]`
   : `[image ${item.mediaType} ~${sizeKb(item)}kB not shown: this model does not read images]`
 
-const isContentResult = (part: any): part is { type: 'tool-result', output: { type: 'content', value: ContentItem[] } } =>
+const isContentResult = (part: any): part is { type: 'tool-result', toolCallId: string, output: { type: 'content', value: ContentItem[] } } =>
   part?.type === 'tool-result' && part.output?.type === 'content' && Array.isArray(part.output.value)
 
 /** How many image parts the messages send to the model. */
@@ -59,8 +59,14 @@ export const countModelImages = (messages: ModelMessage[]): number => {
   return count
 }
 
-/** The messages with only the images this model is sent (see the module comment); copied, never mutated. */
-export function limitModelImages (messages: ModelMessage[], options: { imageInput: boolean, keep?: number }): ModelMessage[] {
+/**
+ * The messages with only the images this model is sent (see the module comment); copied, never mutated.
+ * `onReplaced` is told each result whose image was replaced, for the run's record (step-context.ts).
+ */
+export function limitModelImages (
+  messages: ModelMessage[],
+  options: { imageInput: boolean, keep?: number, onReplaced?: (toolCallId: string, reason: 'earlier' | 'unsupported') => void }
+): ModelMessage[] {
   const keep = options.imageInput ? (options.keep ?? KEPT_IMAGES) : 0
   const total = countModelImages(messages)
   if (total <= keep) return messages
@@ -74,6 +80,7 @@ export function limitModelImages (messages: ModelMessage[], options: { imageInpu
       const value = part.output.value.map(item => {
         if (!isMedia(item) || toReplace === 0) return item
         toReplace--
+        options.onReplaced?.(part.toolCallId, options.imageInput ? 'earlier' : 'unsupported')
         return { type: 'text', text: imagePlaceholder(item, options.imageInput ? 'earlier' : 'unsupported') }
       })
       changed = true

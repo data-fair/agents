@@ -24,7 +24,8 @@
  *     enough to read whole (`sed -n '3,60p'`), and each large tool result is one addressable line —
  *     the archive-with-a-file-per-result idea, without the archive.
  *  3. Identical system prompts are stored once and referenced, because every run of a conversation
- *     normally has the same one and repeating it N times is most of the file for a long thread.
+ *     normally has the same one and repeating it N times is most of the file for a long thread. The tool
+ *     sets the runs were offered are blobs too, keyed as the runs reference them (`toolDefinitionsRef`).
  *
  * The alternative considered was a zip with an index, a file per model call and tool results as
  * separate files. It loses on two counts: there are no stored per-call HTTP bodies to make files out
@@ -48,6 +49,8 @@ export interface ExportInput {
   conversation: Record<string, any>
   messages: Array<Record<string, any>>
   runs: Array<Record<string, any>>
+  /** The tool sets the runs reference by `toolDefinitionsRef` (api/src/conversations/tool-definitions.ts). */
+  toolDefinitions?: Record<string, unknown>
 }
 
 export interface OutlineEntry {
@@ -101,7 +104,16 @@ const GUIDE = [
   'A part larger than its threshold was lifted into its own `blob` record; the message keeps a stub',
   'with `__ref`, `__bytes` and `__preview`, and the blob with that `ref` holds the full value.',
   '`run` records carry the per-call telemetry (model, tokens, credits, duration, how much history each',
-  'call actually sent) and a reference to the system prompt the model was given.',
+  'call actually sent), a reference to the system prompt the model was given (`systemPromptRef`) and to the',
+  'tools it was offered with their descriptions and input schemas (`toolDefinitionsRef`, a blob), and',
+  '`hostContext`, the page state and events folded into the last user message.',
+  'The messages are stored as they were written, and the model was sent a transformed view of them: each',
+  'run\'s `context` says how. `context.recap`: the messages up to `coversUpToSeq` were replaced by a summary',
+  '(the `summary` is on the run that wrote it, `written: true`; later runs name its `generation`).',
+  '`context.removed`: tool results the model got a placeholder for instead, from that `step` of the run on',
+  '(`cleared` to free context; `image-earlier`, `image-unsupported`: an image not sent). `context.steps`: a',
+  'step given other instructions than `systemPrompt`, or a message added after the history (`injected`).',
+  'A user message starting with a `<hidden-context>` block carries what the page added to what the person typed.',
   'An agent reading this through its read_conversation tool passes the line (and offset) instead of using sed.'
 ].join(' ')
 
@@ -112,7 +124,7 @@ const GUIDE = [
  * authorize it, and every line's number has to be known before line 2 can be written.
  */
 export function buildConversationExport (input: ExportInput, exportedAt = new Date()): string {
-  const { conversation, messages, runs } = input
+  const { conversation, messages, runs, toolDefinitions = {} } = input
 
   // Records in reading order, each with the outline entry describing it — minus its line number,
   // which is only known once every record exists.
@@ -180,9 +192,17 @@ export function buildConversationExport (input: ExportInput, exportedAt = new Da
     }
   })
 
-  // Prompts before the runs that reference them, so a reader going top to bottom has the
+  // Each tool set once, under the key its runs reference.
+  const toolRecords = [...new Set(runs.map(run => run.toolDefinitionsRef).filter((ref): ref is string => typeof ref === 'string' && ref in toolDefinitions))]
+    .map(ref => {
+      const json = stringify({ type: 'blob', ref, value: toolDefinitions[ref] })
+      const names = Array.isArray(toolDefinitions[ref]) ? (toolDefinitions[ref] as Array<{ name?: string }>).map(tool => tool.name).join(', ') : ''
+      return { json, outline: { record: 'blob' as const, ref, bytes: json.length, preview: previewOf(`tools: ${names}`) } }
+    })
+
+  // Prompts and tools before the runs that reference them, so a reader going top to bottom has the
   // instructions in hand before the calls made under them.
-  records.push(...promptRecords, ...runRecords)
+  records.push(...promptRecords, ...toolRecords, ...runRecords)
 
   const HEADER_LINES = 2
   const outline: OutlineEntry[] = records.map((record, index) => ({ line: HEADER_LINES + 1 + index, ...record.outline }))

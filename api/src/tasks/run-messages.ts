@@ -14,7 +14,14 @@ export interface StoredMessageLike {
   runId?: string
 }
 
-export const runAsMessages = (run: { id: string, prompt?: string, parts?: unknown[] }): StoredMessageLike[] => [
-  { seq: 1, role: 'user', parts: [textPart(run.prompt ?? '')] },
+/**
+ * The message a task run gives the model: its task's title, then its prompt. The ONE place it is written, so the
+ * run's transcript shows exactly what was sent. A run recorded before it kept its title shows its prompt alone.
+ */
+export const taskTurnText = (run: { prompt?: string, taskTitle?: string }): string =>
+  run.taskTitle !== undefined ? `Planned task "${run.taskTitle}":\n\n${run.prompt ?? ''}` : (run.prompt ?? '')
+
+export const runAsMessages = (run: { id: string, prompt?: string, taskTitle?: string, parts?: unknown[] }): StoredMessageLike[] => [
+  { seq: 1, role: 'user', parts: [textPart(taskTurnText(run))] },
   { seq: 2, role: 'assistant', parts: (run.parts ?? []) as MessagePart[], runId: run.id }
 ]

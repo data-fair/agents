@@ -795,3 +795,31 @@ export const cleanTitle = (text: string): string | undefined => {
   if (!title) return undefined
   return title.length > TITLE_MAX_CHARS ? title.slice(0, TITLE_MAX_CHARS - 1).trimEnd() + '…' : title
 }
+
+/**
+ * What this run gave the model beyond the stored messages, recorded once: the instructions, the page context folded
+ * into its last user message, what its context management changed (`context`), and the tools it offered.
+ */
+export interface RunInputs {
+  systemPrompt: string
+  hostContext?: string
+  context?: NonNullable<ConversationRun['context']>
+  toolDefinitionsRef?: string
+}
+
+/**
+ * A task's reminder pass is a second loop on the same run: it ADDS to the first pass's record. The first pass's
+ * instructions, page context, recap and tools stand (the reminder pass is offered report_outcome alone, already in
+ * the first pass's set); its removals and steps are appended, its steps numbered on from the first pass's.
+ */
+export const mergeRunInputs = (first: RunInputs | undefined, next: RunInputs): RunInputs => {
+  if (!first) return next
+  const removed = [...(first.context?.removed ?? [])]
+  for (const entry of next.context?.removed ?? []) {
+    if (!removed.some(known => known.toolCallId === entry.toolCallId && known.reason === entry.reason)) removed.push(entry)
+  }
+  const steps = [...(first.context?.steps ?? []), ...(next.context?.steps ?? [])]
+  const recap = first.context?.recap ?? next.context?.recap
+  const context = { ...(recap ? { recap } : {}), ...(removed.length ? { removed } : {}), ...(steps.length ? { steps } : {}) }
+  return { ...first, ...(Object.keys(context).length ? { context } : {}), ...(!first.toolDefinitionsRef && next.toolDefinitionsRef ? { toolDefinitionsRef: next.toolDefinitionsRef } : {}) }
+}

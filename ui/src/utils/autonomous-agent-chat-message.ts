@@ -66,7 +66,16 @@ const nestedOf = (call: unknown): InvocationNested | undefined => {
   }
 }
 
-export function autonomousAgentMessageToChat (message: StoredConversationMessage): ChatMessage {
+/**
+ * What the review page adds to a message from its run's record: a note at the start of a step (counted from 1, the
+ * message's step-start parts), and the label of the outcome reminder, both in the reader's language.
+ */
+export interface MessageReviewNotes {
+  stepNotes?: Record<number, Array<{ label: string, text: string }>>
+  reminderLabel?: string
+}
+
+export function autonomousAgentMessageToChat (message: StoredConversationMessage, notes: MessageReviewNotes = {}): ChatMessage {
   const parts = message.parts ?? []
   const chat: ChatMessage = {
     role: message.role,
@@ -147,8 +156,15 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
   // The order the parts were written in, which the flat views above lose: a call made between two
   // sentences shows between them, not after the whole answer. Consecutive calls (one step's) share a row.
   const blocks: ChatMessageBlock[] = []
+  let step = 0
   for (const part of parts) {
-    if (part.type === 'text') {
+    if (part.type === 'step-start') {
+      step++
+      for (const note of notes.stepNotes?.[step] ?? []) blocks.push({ type: 'note', ...note })
+    } else if ((part as any).type === 'data-outcome-reminder' && typeof (part as any).data?.text === 'string') {
+      // A task run reminded to report: the message the model was sent, where it was sent.
+      blocks.push({ type: 'note', label: notes.reminderLabel ?? 'Reminder sent to the model', text: (part as any).data.text })
+    } else if (part.type === 'text') {
       if (part.text) blocks.push({ type: 'text', text: part.text })
     } else if (part.type === 'reasoning') {
       // A step's reasoning where it happened, in one block however many parts the provider streamed it in.

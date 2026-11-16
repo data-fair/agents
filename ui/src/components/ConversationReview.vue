@@ -243,6 +243,30 @@
               data-testid="review-host-context"
             >{{ turn.run.hostContext || '—' }}</pre>
 
+            <!-- What the model read that the stored messages do not say (the run's context): the transcript marks
+                 each where it applies; here, the turn's whole list. -->
+            <template v-if="turn.contextLines.length">
+              <div class="text-caption font-weight-bold mb-1">
+                {{ t('contextChanges') }}
+              </div>
+              <ul
+                class="text-body-2 mb-2 ps-4"
+                data-testid="review-context-changes"
+              >
+                <li
+                  v-for="(line, k) in turn.contextLines"
+                  :key="k"
+                >
+                  {{ line.label }}
+                  <details v-if="line.text">
+                    <summary class="text-caption text-medium-emphasis">
+                      {{ t('showText') }}
+                    </summary>
+                    <pre class="conversation-review__pre pa-3 my-1">{{ line.text }}</pre>
+                  </details>
+                </li>
+              </ul>
+            </template>
             <div class="text-caption font-weight-bold mb-1">
               {{ t('offeredTools', { n: turn.toolCount }) }}
             </div>
@@ -252,11 +276,37 @@
             >
               {{ t('sameAsPrevious') }}
             </div>
-            <tool-group-list
-              v-else
-              :groups="turn.toolGroups"
-              data-testid="review-offered-tools"
-            />
+            <template v-else>
+              <tool-group-list
+                :groups="turn.toolGroups"
+                data-testid="review-offered-tools"
+              />
+              <!-- Each tool as the model was told about it: its description and the schema of its input. -->
+              <details
+                v-if="turn.definitions.length"
+                class="mt-1 mb-2"
+                data-testid="review-tool-definitions"
+              >
+                <summary class="text-caption text-medium-emphasis">
+                  {{ t('toolDefinitions') }}
+                </summary>
+                <details
+                  v-for="tool in turn.definitions"
+                  :key="tool.name"
+                  class="ms-3 my-1"
+                  data-testid="review-tool-definition"
+                >
+                  <summary class="text-body-2">
+                    {{ tool.name }}
+                  </summary>
+                  <pre class="conversation-review__pre pa-3 my-1">{{ tool.description ?? '—' }}</pre>
+                  <pre
+                    v-if="tool.inputSchema"
+                    class="conversation-review__pre pa-3 my-1"
+                  >{{ JSON.stringify(tool.inputSchema, null, 2) }}</pre>
+                </details>
+              </details>
+            </template>
           </section>
         </div>
       </v-expand-transition>
@@ -297,6 +347,31 @@ fr:
   offeredTools: "Outils proposés ({n})"
   turn: "Tour {n}"
   sameAsPrevious: Identique au tour précédent.
+  contextChanges: Ce que le modèle a lu en plus ou à la place des messages enregistrés
+  showText: Afficher le texte
+  toolDefinitions: Descriptions et schémas d'entrée, tels que le modèle les a reçus
+  recapLine: "Les messages jusqu'au n° {seq} ont été remplacés par un résumé (génération {generation}{written})"
+  recapWritten: ", écrit pendant ce tour"
+  recapNote: "Jusqu'ici, à partir du tour {turn}, le modèle a reçu un résumé à la place de ces messages"
+  recapNoteRun: Jusqu'ici, le modèle a reçu un résumé à la place de ces messages
+  removedLine: "Étape {step} : résultat de {tool} ({reason})"
+  removedReason:
+    cleared: retiré pour libérer du contexte, remplacé par un espace réservé
+    image-earlier: image non renvoyée, une image plus récente l'a remplacée
+    image-unsupported: image non envoyée, ce modèle ne lit pas les images
+  notSent:
+    cleared: "Non renvoyé au modèle à partir du tour {turn}, étape {step} : retiré pour libérer du contexte"
+    image-earlier: "Image non renvoyée au modèle à partir du tour {turn}, étape {step}"
+    image-unsupported: "Image non envoyée au modèle (il ne lit pas les images)"
+  notSentRun:
+    cleared: "Non renvoyé au modèle à partir de l'étape {step} : retiré pour libérer du contexte"
+    image-earlier: "Image non renvoyée au modèle à partir de l'étape {step}"
+    image-unsupported: "Image non envoyée au modèle (il ne lit pas les images)"
+  stepInstructions: "Étape {step} : d'autres instructions que celles ci-dessus"
+  stepInjected: "Étape {step} : message ajouté par le service après l'historique"
+  noteInstructions: Instructions de cette étape, différentes de celles du tour
+  noteInjected: Message ajouté par le service à cette étape
+  reminderNote: Rappel envoyé au modèle
   abortRequested: "Arrêt demandé le {at} : {reason}"
   by: "par {name} ({role})"
   provider: Fournisseur
@@ -338,6 +413,31 @@ en:
   offeredTools: "Tools offered ({n})"
   turn: "Turn {n}"
   sameAsPrevious: Same as the previous turn.
+  contextChanges: What the model read besides or instead of the stored messages
+  showText: Show the text
+  toolDefinitions: Descriptions and input schemas, as the model was given them
+  recapLine: "The messages up to #{seq} were replaced by a summary (generation {generation}{written})"
+  recapWritten: ", written during this turn"
+  recapNote: "Up to here, from turn {turn} on, the model was sent a summary instead of these messages"
+  recapNoteRun: Up to here, the model was sent a summary instead of these messages
+  removedLine: "Step {step}: result of {tool} ({reason})"
+  removedReason:
+    cleared: removed to free context, replaced by a placeholder
+    image-earlier: image not sent again, a later image replaced it
+    image-unsupported: image not sent, this model does not read images
+  notSent:
+    cleared: "Not sent to the model again from turn {turn}, step {step}: removed to free context"
+    image-earlier: "Image not sent to the model again from turn {turn}, step {step}"
+    image-unsupported: "Image not sent to the model (it does not read images)"
+  notSentRun:
+    cleared: "Not sent to the model again from step {step}: removed to free context"
+    image-earlier: "Image not sent to the model again from step {step}"
+    image-unsupported: "Image not sent to the model (it does not read images)"
+  stepInstructions: "Step {step}: other instructions than the ones above"
+  stepInjected: "Step {step}: a message the service added after the history"
+  noteInstructions: This step's instructions, other than the turn's
+  noteInjected: A message the service added at this step
+  reminderNote: Reminder sent to the model
   abortRequested: "Abort requested on {at}: {reason}"
   by: "by {name} ({role})"
   provider: Provider
@@ -388,7 +488,7 @@ import AgentChatMessages from '~/components/agent-chat/AgentChatMessages.vue'
 import ToolGroupList from '~/components/agent-chat/ToolGroupList.vue'
 import { groupTools, turnTools, type SourcedTools } from '~/utils/tool-groups'
 import { createToolTitleMemo } from '~/composables/tool-titles'
-import { autonomousAgentMessageToChat } from '~/utils/autonomous-agent-chat-message'
+import { annotateTranscript, turnContextLines, type ContextLabels } from '~/utils/review-context'
 import type { ChatMessage } from '~/utils/chat-message'
 import { $apiPath, $fetch } from '~/context'
 
@@ -423,6 +523,26 @@ const loadError = ref('')
 const showDetail = ref(false)
 const messages = ref<ChatMessage[]>([])
 const runs = ref<any[]>([])
+// The tool sets the runs reference (toolDefinitionsRef), as the review and run routes resolve them.
+const toolDefinitions = ref<Record<string, Array<{ name: string, description?: string, inputSchema?: unknown }>>>({})
+// The stored messages as loaded, for what the transcript is annotated with (each call's tool name).
+const storedMessages = ref<any[]>([])
+
+// What the model read that the stored messages do not say, marked where it applies (~/utils/review-context).
+const isTaskRun = computed(() => !!props.run)
+const contextLabels = computed<ContextLabels>(() => ({
+  recapNote: turn => isTaskRun.value ? t('recapNoteRun') : t('recapNote', { turn }),
+  notSent: (reason, turn, step) => t(`${isTaskRun.value ? 'notSentRun' : 'notSent'}.${reason}`, { turn, step }),
+  noteInstructions: t('noteInstructions'),
+  noteInjected: t('noteInjected'),
+  reminderNote: t('reminderNote'),
+  recapLine: (seq, generation, written) => t('recapLine', { seq, generation, written: written ? t('recapWritten') : '' }),
+  removedLine: (step, tool, reason) => t('removedLine', { step, tool, reason: t(`removedReason.${reason}`) }),
+  stepInstructions: step => t('stepInstructions', { step }),
+  stepInjected: step => t('stepInjected', { step })
+}))
+const buildMessages = (stored: any[], allRuns: any[]): ChatMessage[] => annotateTranscript(stored, allRuns, contextLabels.value)
+const contextLinesOf = (run: any) => turnContextLines(run, runs.value, storedMessages.value, contextLabels.value)
 // Where an approval card left open in the thread reads the task a planning call would change.
 const agentPath = ref<string>()
 
@@ -452,6 +572,8 @@ const turns = computed(() => runs.value.map((run, i) => {
     run,
     toolGroups: groupTools(tools.names, tools.sources),
     toolCount: tools.names.length,
+    definitions: run.toolDefinitionsRef ? toolDefinitions.value[run.toolDefinitionsRef] ?? [] : [],
+    contextLines: contextLinesOf(run),
     samePrompt: !!previous && !!run.systemPrompt && run.systemPrompt === previous.systemPrompt,
     sameHostContext: !!previous && !!run.hostContext && run.hostContext === previous.hostContext,
     sameTools: !!previous && tools.names.length > 0 && toolsKey(tools) === toolsKey(turnTools(previous))
@@ -474,8 +596,10 @@ const load = async () => {
   loadError.value = ''
   try {
     const data = await $fetch(`${$apiPath}/review/${props.owner.type}/${props.owner.id}/${props.conversationId}`)
-    messages.value = (data.messages ?? []).map((message: any) => autonomousAgentMessageToChat(message))
     runs.value = data.runs ?? []
+    toolDefinitions.value = data.toolDefinitions ?? {}
+    storedMessages.value = data.messages ?? []
+    messages.value = buildMessages(storedMessages.value, runs.value)
     agentPath.value = data.conversation?.agentId ? agentUrl(data.conversation.agentId) : undefined
     loaded.value = true
     emit('loaded', { owner: props.owner, label: data.conversation?.title ?? props.conversationId })
@@ -491,8 +615,10 @@ watch(() => props.conversationId, load)
 // refreshing does not blink.
 watch(() => props.run, (run) => {
   if (!run) return
-  messages.value = (run.messages ?? []).map((message: any) => autonomousAgentMessageToChat(message))
   runs.value = [run]
+  toolDefinitions.value = run.toolDefinitions ?? {}
+  storedMessages.value = run.messages ?? []
+  messages.value = buildMessages(storedMessages.value, runs.value)
   agentPath.value = agentUrl(props.agentId ?? run.agentId)
   loaded.value = true
 }, { immediate: true })

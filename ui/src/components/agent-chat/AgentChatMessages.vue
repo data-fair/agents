@@ -27,6 +27,14 @@
           :key="index"
         >
           <div class="px-2 py-1 px-sm-4 py-sm-2">
+            <!-- Where the model's context stopped being these messages (a compaction recap took their place). -->
+            <folded-note
+              v-if="showToolDetails && message.contextNote"
+              :icon="mdiArrowCollapseUp"
+              :label="message.contextNote.label"
+              :text="message.contextNote.text"
+              data-testid="context-note"
+            />
             <template v-if="message.role === 'user'">
               <div class="d-flex justify-end">
                 <v-card
@@ -38,35 +46,14 @@
                 </v-card>
               </div>
               <!-- What the page or an action button added to the turn: the model read it, the person never saw it. -->
-              <div
+              <folded-note
                 v-if="showToolDetails && message.hiddenContext"
-                class="agent-chat__reasoning agent-chat__hidden-context d-flex flex-column align-end my-1"
+                :icon="mdiEyeOff"
+                :label="t('hiddenContext')"
+                :text="message.hiddenContext"
+                align-end
                 data-testid="hidden-context"
-              >
-                <button
-                  type="button"
-                  class="d-inline-flex align-center text-caption text-medium-emphasis"
-                  :aria-expanded="!!reasoningOpen[`${index}/hidden`]"
-                  @click="toggleReasoning(`${index}/hidden`)"
-                >
-                  <v-icon
-                    :icon="mdiEyeOff"
-                    size="x-small"
-                    class="mr-1"
-                  />
-                  {{ t('hiddenContext') }}
-                  <v-icon
-                    :icon="reasoningOpen[`${index}/hidden`] ? mdiChevronUp : mdiChevronDown"
-                    size="x-small"
-                  />
-                </button>
-                <div
-                  v-if="reasoningOpen[`${index}/hidden`]"
-                  class="text-caption text-medium-emphasis agent-chat__reasoning-text agent-chat__hidden-context-text mt-1"
-                >
-                  {{ message.hiddenContext }}
-                </div>
-              </div>
+              />
             </template>
             <div
               v-else
@@ -117,6 +104,14 @@
                     {{ block.text }}
                   </div>
                 </div>
+                <!-- What the service told the model at this point, which the person never saw. -->
+                <folded-note
+                  v-else-if="block.type === 'note' && showToolDetails"
+                  :icon="mdiMessageArrowRightOutline"
+                  :label="block.label"
+                  :text="block.text"
+                  data-testid="context-step-note"
+                />
                 <template v-else-if="block.type === 'tools'">
                   <div
                     v-if="hasVisibleTools(block.invocations)"
@@ -154,6 +149,11 @@
                           data-testid="tool-chip"
                           @toggle="toggleDetail(invocation.toolCallId)"
                         />
+                        <span
+                          v-if="showToolDetails && invocation.notSent"
+                          class="text-caption text-medium-emphasis ms-2"
+                          data-testid="not-sent"
+                        >{{ invocation.notSent }}</span>
                         <!-- What a script did is the calls it made, summed up beside its chip: each tool once,
                              with its count — not its code, nor one chip per call, which a loop turned into a
                              column of chips. Each call is the review page's to open. -->
@@ -228,6 +228,11 @@
                           :color="invocation.state === 'done' ? 'success' : 'warning'"
                         />
                         <span class="text-body-medium font-weight-medium">{{ t('scriptTitle') }}</span>
+                        <span
+                          v-if="showToolDetails && invocation.notSent"
+                          class="text-caption text-medium-emphasis ms-2"
+                          data-testid="not-sent"
+                        >{{ invocation.notSent }}</span>
                         <v-spacer />
                         <v-icon
                           :icon="expanded[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown"
@@ -453,12 +458,13 @@ en:
 import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
-import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain, mdiEyeOff } from '@mdi/js'
+import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain, mdiEyeOff, mdiArrowCollapseUp, mdiMessageArrowRightOutline } from '@mdi/js'
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import ApprovalCard from './ApprovalCard.vue'
 import ToolCallDetail from './ToolCallDetail.vue'
 import ToolChip from './ToolChip.vue'
+import FoldedNote from './FoldedNote.vue'
 import { builtinToolLabel } from '~/utils/builtin-tool-labels'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import type { MermaidFailure } from '~/utils/mermaid'
@@ -512,7 +518,7 @@ const isActionPrompt = (message: ChatMessage) => {
 }
 
 type Invocation = NonNullable<ChatMessage['toolInvocations']>[number]
-type RenderedBlock = { type: 'text' | 'reasoning', text: string } | { type: 'tools', invocations: Invocation[] }
+type RenderedBlock = { type: 'text' | 'reasoning', text: string } | { type: 'note', label: string, text: string } | { type: 'tools', invocations: Invocation[] }
 /**
  * Each message's blocks (ChatMessage.blocks), with each call resolved. Without blocks (a message not built
  * from stored parts, like the welcome), the text and then the calls.
@@ -781,14 +787,6 @@ function onContentClick (e: MouseEvent) {
   word-break: break-word;
   padding-left: 12px;
   border-left: 2px solid rgba(var(--v-border-color), var(--v-border-opacity));
-}
-
-/* Under the user bubble it belongs to, as wide as a bubble may be; long page state scrolls rather than
-   pushing the transcript down. */
-.agent-chat-message .agent-chat__hidden-context-text {
-  max-width: 80%;
-  max-height: 320px;
-  overflow-y: auto;
 }
 
 /* the calls a script made hang under its chip, as an open call's detail does */

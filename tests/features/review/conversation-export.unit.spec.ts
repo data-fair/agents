@@ -167,3 +167,16 @@ test.describe('buildConversationExport', () => {
     assert.equal(exportFilename('conv-1'), 'conversation-conv-1.jsonl')
   })
 })
+
+test.describe('buildConversationExport, tool definitions', () => {
+  test('each tool set the runs reference is one blob, before the runs, under the key they name', () => {
+    const tools = [{ name: 'echo', description: 'Echo a value', inputSchema: { type: 'object' } }]
+    const twoRuns = [{ ...runs[0], toolDefinitionsRef: 'tools-a' }, { ...runs[0], id: 'r2', toolDefinitionsRef: 'tools-a' }]
+    const lines = buildConversationExport({ conversation, messages, runs: twoRuns, toolDefinitions: { 'tools-a': tools, 'tools-unused': [] } }).trim().split('\n').map(line => JSON.parse(line))
+    const blobs = lines.filter(record => record.type === 'blob' && String(record.ref).startsWith('tools-'))
+    assert.deepEqual(blobs.map(blob => blob.ref), ['tools-a'])
+    assert.deepEqual(blobs[0].value, tools)
+    assert.ok(lines.indexOf(blobs[0]) < lines.findIndex(record => record.type === 'run'))
+    assert.match(lines[1].records.find((entry: any) => entry.ref === 'tools-a').preview, /tools: echo/)
+  })
+})

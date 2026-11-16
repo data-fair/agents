@@ -144,6 +144,39 @@ follows: "clears older tool outputs first, then summarizes the conversation if n
 A planned task's run starts from one prompt, so it never compacts at start; the per-step tier is what
 keeps a long run within its window.
 
+## What a run records
+
+The stored messages are the conversation of record and are never rewritten; the model is sent a transformed
+view of them. A review of a conversation, or an agent analysing its export, needs that view: otherwise a long
+thread shows the model results it no longer had, and its token counts cannot be explained. So each
+transformation records what it did, AS IT DOES IT, on the run (`context`, api/types/conversation-run/schema.js),
+rather than the review re-deriving it later from the policy, which would drift from the code the moment either
+changed:
+
+- **`context.recap`** — the recap the turn's history began with (`generation`, `coversUpToSeq`). Its `summary`
+  is on the run that wrote it (`written: true`, and the conversation's `compaction.runId` names that run); later
+  runs name its generation only, since the conversation keeps only the latest recap and a summary per turn
+  would repeat it until the next compaction.
+- **`context.removed`** — each tool result the model was sent a placeholder for, from the step it first was:
+  cleared by tier 1 (by the turn's history, step 1, or before a later step), or an image not sent
+  (`image-earlier`, `image-unsupported`, [Images](#images)). Tier 0 is not recorded: the record is bounded the
+  same way.
+- **`context.steps`** — what a step was given beyond the history: instructions other than the run's
+  `systemPrompt` (rebuilt when the page's skills changed mid-turn, or with the tripwire's request to explain a
+  withheld result), and the repeated-call reminder ([loop guards](./loop-guards.md)), which is never stored in
+  the transcript.
+- **`toolDefinitionsRef`** — the tools offered, with their descriptions and input schemas, in the
+  `tool-definitions` collection, one document per distinct set (`api/src/conversations/tool-definitions.ts`):
+  most runs of an agent are offered the same set, and task runs accumulate with no retention limit.
+
+With `systemPrompt`, `hostContext` (the page's state and events folded into the last user message), a task
+run's `taskTitle` (which heads the message it is given) and the action-button hidden context kept in the user
+message, that is everything the model was sent. A task's reminder pass adds to its first pass's record
+(`mergeRunInputs`). The review page marks each where it applies (`ui/src/utils/review-context.ts`): a recap
+folded above the first message after it, "not sent to the model again from turn N, step k" on a removed result,
+a step's additions in place, and the tools' definitions in the turn's detail; the export carries the same
+fields, and its guide says how to read them.
+
 ## Images
 
 A tool can return images (an MCP `image` part: a page preview, a chart). They reach the model as image

@@ -127,7 +127,7 @@ export const startTaskRun = async (
   try {
     // Every run takes the pending payloads, whatever its trigger: a run of the task is what they waited for.
     const { pending, dropped } = await takePendingTriggers(task.id)
-    run = await createRun({ ...base, status: 'running', prompt: webhookPrompt(task.prompt, pending, dropped) })
+    run = await createRun({ ...base, status: 'running', prompt: webhookPrompt(task.prompt, pending, dropped), taskTitle: task.title })
   } catch (err) {
     await locks.release(lockId)
     throw err

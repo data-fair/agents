@@ -86,8 +86,22 @@ grep -n 'list_road_closures' conversation-<id>.jsonl | cut -c1-200
 | `meta` | `exportVersion`, `exportedAt`, `guide`, `extractThreshold`, `conversation` (the stored document: id, `agentId`, owner, `userId`, title, dates, `consentedToReview`, `archivedAt`), `counts`, `lines` |
 | `outline` | `records[]`: `line`, `record`, `seq`/`ref`, `role`, `bytes`, `preview` |
 | `message` | `seq` (order), `role` (`user`/`assistant`), `author`, `createdAt`, `parts[]` |
-| `blob` | `ref`, `conversationSeq` (absent for a prompt), `value` — the lifted part, or the system prompt |
-| `run` | one per turn: `status`, `stopReason`, `steps`, `credits`, `calls[]`, `systemPromptRef`, `triggeredBy`, `triggeredByRole`, timestamps |
+| `blob` | `ref`, `conversationSeq` (absent for a prompt), `value` — the lifted part, the system prompt (`prompt:N`), or a tool set (`tools-…`: each tool's `name`, `description`, `inputSchema`) |
+| `run` | one per turn: `status`, `stopReason`, `steps`, `credits`, `calls[]`, `systemPromptRef`, `toolDefinitionsRef`, `hostContext`, `context`, `taskTitle` (a task run), `triggeredBy`, `triggeredByRole`, timestamps |
+
+**What the model was actually sent** is the messages transformed as each run's `context` says — read it before
+concluding the model "saw" something:
+
+- `context.recap`: the messages up to `coversUpToSeq` were replaced by a summary. The `summary` is on the run
+  with `written: true`; later runs name its `generation`.
+- `context.removed[]`: `{toolCallId, step, reason}` — from that step of that run on, the model got a placeholder
+  instead of that result (`cleared` to free context, `image-earlier` / `image-unsupported` for an image).
+- `context.steps[]`: a step given other `instructions` than `systemPrompt`, or a message `injected` after the
+  history (the repeated-call reminder).
+- `hostContext`: the page's state and events folded into the last user message; a user message beginning with
+  `<hidden-context>` carries what an action button added to what the person typed.
+- A task run's first message is exactly what it was given: `Planned task "<taskTitle>":` then its prompt; a
+  `data-outcome-reminder` part is the reminder it was sent when it ended without reporting.
 
 A message's `parts` are the AI SDK's `UIMessagePart` list, **in order**, and the
 order is the turn: `text`, then `dynamic-tool` parts whose `state` is
@@ -103,11 +117,14 @@ missing part, and not a successful-looking one.
 - **"Did a tool fail?"** `grep -n 'output-error' <file>`, then read that part's
   blob. Also check for a call with no result at all: a `dynamic-tool` part stuck
   in `input-available` means the turn ended before the tool returned.
-- **"Where did the context go?"** Compare each call's `messageCount` and
-  `historyUpToSeq` against the number of stored messages. A `messageCount` well
-  below it means compaction replaced a prefix with a recap; `inputTokens` far
-  below the stored size means old tool results were cleared. Both are normal —
-  see `docs/architecture/context-management.md`.
+- **"Where did the context go?"** Read each run's `context`: `recap` says which
+  prefix was replaced by which summary, `removed` which results were sent as
+  placeholders from which step. Both are normal — see
+  `docs/architecture/context-management.md`. Each call's `messageCount` and
+  `inputTokens` then line up with what was sent, not with what is stored.
+- **"What did it know about a tool?"** Its description and input schema are in
+  the run's `toolDefinitionsRef` blob — a misleading description explains a
+  misused tool.
 - **"What did it cost, and on what?"** Sum `credits` across runs, and read
   `calls[].modelRole` to see which seat spent it (an `assistant` turn, the
   `summarizer` compacting, the `moderator` gate).

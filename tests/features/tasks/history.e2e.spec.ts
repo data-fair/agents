@@ -127,8 +127,9 @@ test.describe('Agent page, activity', () => {
     await expect(page).toHaveURL(new RegExp(`/agents/${agentId}/runs/${runId}$`))
     const view = page.getByTestId('task-run-view')
     await expect(view).toContainText('Greeting')
-    // the prompt as the user's turn, the mock's answer as the agent's, in the chat's own transcript
-    await expect(view.locator('.agent-chat__user-bubble')).toHaveText('hello')
+    // the message the model was given as the user's turn (the task's title, then its prompt), the mock's answer
+    // as the agent's, in the chat's own transcript
+    await expect(view.locator('.agent-chat__user-bubble')).toHaveText(/^Planned task "Greeting":\s+hello$/)
     await expect(view.locator('.assistant-content').filter({ hasText: 'world' })).toHaveCount(1)
     // read-only: nothing to type into
     await expect(view.getByRole('textbox')).toHaveCount(0)
@@ -138,8 +139,21 @@ test.describe('Agent page, activity', () => {
     // the review page's bar and detail: what it cost, which model calls, what the model was given
     // two: the mock reports its outcome only when reminded
     await expect(view).toContainText('2 model calls')
+    // the reminder the model was sent, folded where it was sent
+    const reminder = view.getByTestId('context-step-note')
+    await expect(reminder).toHaveCount(1)
+    await reminder.getByRole('button', { name: 'Reminder sent to the model' }).click()
+    await expect(reminder).toContainText('without calling report_outcome')
+
     await view.getByRole('button', { name: 'Show detail' }).click()
     await expect(view.getByTestId('review-turn')).toHaveCount(1)
+    // each tool offered as the model was told about it
+    const definitions = view.getByTestId('review-tool-definitions')
+    await definitions.locator('summary').first().click()
+    const reportOutcome = definitions.getByTestId('review-tool-definition').filter({ has: page.locator('summary', { hasText: /^\s*report_outcome\s*$/ }) })
+    await reportOutcome.locator('summary').click()
+    await expect(reportOutcome).toContainText('Report the outcome of this planned task run')
+    await expect(reportOutcome).toContainText('"summary"')
 
     const downloadPromise = page.waitForEvent('download')
     await view.getByRole('link', { name: 'Download' }).click()

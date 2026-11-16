@@ -122,6 +122,7 @@ export const createSelfKnowledgeTools = (ctx: ServiceToolContext, serviceToolNam
           mongo.messages.find({ conversationId: conversation.id }, { projection: { _id: 0 } }).sort({ seq: 1 }).toArray(),
           mongo.runs.find({ conversationId: conversation.id }, { projection: { _id: 0 } }).sort({ startedAt: 1 }).toArray()
         ])
+        // Without the tool definitions the review's export carries: the agent has its own tools in front of it.
         return exportPage(buildConversationExport({ conversation, messages: withoutNestedResults(messages), runs }), line, offset)
       }
     })

@@ -53,7 +53,8 @@ test.describe('Run history', () => {
     // the content once, as the two messages: the prompt and what the model produced
     assert.equal(one.prompt, undefined)
     assert.equal(one.parts, undefined)
-    assert.equal(one.messages[0].parts[0].text, 'hello')
+    // the message the model was given: the task's title, then its prompt
+    assert.match(one.messages[0].parts[0].text, /^Planned task "[^"]+":\n\nhello$/)
     assert.ok(one.messages[1].parts.length > 0)
     await assert.rejects(orgAdmin.get(`${agentBase(agent.id)}/runs/no-such-run`), { status: 404 })
 

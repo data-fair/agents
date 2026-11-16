@@ -24,6 +24,15 @@ const outputOf = (messages: ModelMessage[], id: string) =>
   (messages.find(m => m.role === 'tool' && (m.content as any)[0].toolCallId === id)!.content as any)[0].output
 
 test.describe('limitModelImages', () => {
+  test('each replaced image is told, by its call and why', () => {
+    const told: string[] = []
+    limitModelImages(history(3), { imageInput: true, onReplaced: (id, reason) => told.push(`${id}:${reason}`) })
+    assert.deepEqual(told, ['c0:earlier', 'c1:earlier'])
+    const none: string[] = []
+    limitModelImages(history(2), { imageInput: false, onReplaced: (id, reason) => none.push(`${id}:${reason}`) })
+    assert.deepEqual(none, ['c0:unsupported', 'c1:unsupported'])
+  })
+
   test('a model that reads images gets the latest one; older ones become text with their report kept', () => {
     const out = limitModelImages(history(3), { imageInput: true })
     assert.equal(countModelImages(out), 1)

@@ -33,6 +33,7 @@ import { retentionCutoff } from '../retention.ts'
 import { reviewableFilter } from './reviewable.ts'
 import { PERSONAL_AGENT_IDS } from '@agents/shared/agent-audit'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
+import { readToolDefinitions } from '../conversations/tool-definitions.ts'
 
 const router = Router()
 export default router
@@ -160,7 +161,7 @@ const loadForReview = async (owner: AccountKeys, scope: { reviewPersonalAssistan
       .toArray()
   ])
 
-  return { conversation, messages, runs }
+  return { conversation, messages, runs, toolDefinitions: await readToolDefinitions(runs) }
 }
 
 router.get('/:type/:id/:conversationId', async (req, res, next) => {
