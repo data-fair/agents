@@ -1,7 +1,7 @@
 /**
  * The approval reviewer's two stage calls: the shared engine's (api/src/guard/service.ts) with the reviewer's
  * policy, wrappers and schema. Kept apart from the reviewer's service, which needs mongo and config, so the
- * classifier eval (dev/guard-eval) can run exactly these calls. Unlike the other guards, stage 2 reasons.
+ * classifier eval (dev/guard-eval) can run exactly these calls. Unlike the other guards, stage 2 writes its analysis first.
  */
 import type { LanguageModel } from 'ai'
 import { stage1Call, stage2Call } from '../guard/service.ts'
@@ -18,7 +18,6 @@ export const reviewStage2 = (model: LanguageModel, input: ReviewInput, abortSign
   model,
   schema: reviewVerdictSchema,
   maxOutputTokens: REVIEW_STAGE2_MAX_TOKENS,
-  reasoning: true,
   instructions: buildReviewSystemPrompt(input.call.kind),
   content: reviewMessage(input, 2),
   abortSignal
