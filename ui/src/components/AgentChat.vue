@@ -111,6 +111,41 @@
       </p>
     </div>
 
+    <v-card
+      v-if="heldAction"
+      data-testid="agent-chat-held-action"
+      variant="tonal"
+      color="primary"
+      density="compact"
+      class="mx-4 mb-2 flex-0-0"
+    >
+      <v-card-text class="pb-0 text-body-2">
+        {{ t('heldAction', { assistant: heldAssistantTitle, agent: heldAgentTitle }) }}
+        <div class="mt-1 font-italic">
+          {{ heldAction.visiblePrompt }}
+        </div>
+      </v-card-text>
+      <v-card-actions class="justify-end flex-wrap px-4">
+        <v-btn
+          variant="text"
+          size="small"
+          data-testid="agent-chat-held-action-dismiss"
+          @click="heldAction = null"
+        >
+          {{ t('heldActionDismiss') }}
+        </v-btn>
+        <v-btn
+          variant="flat"
+          color="primary"
+          size="small"
+          data-testid="agent-chat-held-action-confirm"
+          @click="confirmHeldAction"
+        >
+          {{ t('heldActionConfirm', { assistant: heldAssistantTitle }) }}
+        </v-btn>
+      </v-card-actions>
+    </v-card>
+
     <!-- ONE composer, outside the branches: the first message arriving (a restored conversation, the first
          answer) does not replace it, so nothing typed, focused or being filled in is lost. -->
     <agent-chat-input
@@ -159,6 +194,10 @@ fr:
   quota_monthly: "Votre quota IA du mois est épuisé. Il sera réinitialisé le {date}."
   quotaShared: "Le quota IA partagé par les visiteurs est épuisé. Il sera réinitialisé le {date}."
   quotaAccount: "Le budget IA de ce compte est épuisé jusqu'au {date}."
+  heldAction: "Cette demande de la page s'adresse à {assistant}. Votre conversation avec {agent} restera dans l'historique."
+  heldActionConfirm: "Demander à {assistant}"
+  heldActionDismiss: Ignorer
+  thisAgent: cet agent
 en:
   auditedShort: Conversation not private
   details: Details
@@ -174,6 +213,10 @@ en:
   quota_monthly: "Your monthly AI quota is used up. It resets on {date}."
   quotaShared: "The AI quota shared by visitors is used up. It resets on {date}."
   quotaAccount: "This account's AI budget is exhausted until {date}."
+  heldAction: "This request from the page is for {assistant}. Your conversation with {agent} stays in the history."
+  heldActionConfirm: "Ask {assistant}"
+  heldActionDismiss: Dismiss
+  thisAgent: this agent
 </i18n>
 
 <script lang="ts" setup>
@@ -526,9 +569,37 @@ onUnmounted(() => {
   actionChannel.close()
 })
 
-function startActionSession (visiblePrompt: string, hiddenContext: string) {
-  sessionStorage.removeItem('df-agent-pending-action')
+/**
+ * A button's request that would leave the conversation on screen, held until the person says so.
+ *
+ * A button asks the assistant (sendActionPrompt). When the chat already shows a conversation with
+ * another agent, moving to the assistant without a word replaced what the person was reading — and
+ * stopped that agent's turn — for a click elsewhere on the page. So the chat asks, in place. A
+ * conversation the chat only resumed by itself is left without asking (actionLeavesConversation).
+ */
+const heldAction = ref<{ visiblePrompt: string, hiddenContext: string } | null>(null)
+const agentTitle = (id: string | undefined) => agents.value.find(agent => agent.id === id)?.title
+const heldAssistantTitle = computed(() => agentTitle(chat.assistantId) ?? t('defaultTitle'))
+const heldAgentTitle = computed(() => agentTitle(chat.activeAgentId.value) ?? t('thisAgent'))
+// Any other move of the chat (the picker, the history, a reset) answers the question by itself.
+watch([() => chat.activeAgentId.value, () => chat.conversationId.value], () => { heldAction.value = null })
 
+async function startActionSession (visiblePrompt: string, hiddenContext: string) {
+  sessionStorage.removeItem('df-agent-pending-action')
+  if (await chat.actionLeavesConversation()) {
+    heldAction.value = { visiblePrompt, hiddenContext }
+    return
+  }
+  runAction(visiblePrompt, hiddenContext)
+}
+
+function confirmHeldAction () {
+  const held = heldAction.value
+  heldAction.value = null
+  if (held) runAction(held.visiblePrompt, held.hiddenContext)
+}
+
+function runAction (visiblePrompt: string, hiddenContext: string) {
   // Abort any in-flight response so sendMessage won't be silently dropped
   chat.abort()
 

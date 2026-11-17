@@ -331,7 +331,15 @@ export function useSessionChat (options: UseSessionChatOptions) {
    *
    * It unbinds the conversation too, so nothing shows as open until the socket says what it is bound to.
    */
+  /**
+   * Whether the person chose the conversation on screen in this chat — picked its agent, opened it
+   * from the history, or wrote in it — rather than the chat landing on it by itself (the start
+   * resumes the person's last conversation, even in a drawer nobody has opened yet).
+   */
+  let chosen = false
+
   const clearThread = () => {
+    chosen = false
     agent.abort()
     conversationId.value = undefined
     turns.value = []
@@ -370,6 +378,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     activeAgentId.value = agentId
     conversationId.value = id
     agent.reset({ conversationId: id })
+    chosen = true
   }
 
   /**
@@ -386,6 +395,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
   const switchAgent = async (agentId: string) => {
     if (agentId === activeAgentId.value) return
     await newConversation(agentId)
+    chosen = true
   }
 
   /** Select the next conversation's agent: what the picker lands on when the agent the chat was opened
@@ -451,6 +461,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
    */
   const sendMessage = (content: string, sendOptions?: { hiddenContext?: string }) => {
     if (!content.trim()) return
+    chosen = true
     error.value = null
     status.value = 'streaming'
     // The user turn is NOT added locally. The server stores it and sends it back as a `message`
@@ -483,12 +494,27 @@ export function useSessionChat (options: UseSessionChatOptions) {
 
     sendMessage,
 
+    /** The assistant an action button addresses: the agent the chat was opened with, when it takes page tools. */
+    assistantId,
+
+    /**
+     * Whether an action button's prompt would leave a conversation the person chose: one with another
+     * agent than the assistant. One the chat only resumed by itself is left without asking. Waits for
+     * the start, which may resume such a conversation.
+     */
+    async actionLeavesConversation () {
+      if (!assistantId) return false
+      await started
+      return chosen && activeAgentId.value !== assistantId
+    },
+
     /**
      * Send an action button's prompt. A button asks the page's ASSISTANT — its hidden context names the
      * page's WebMCP tools, which only an assistant is offered (usesPageTools) — so a chat whose open
      * conversation is with a configured agent (resumed from the history, or picked) leaves it for a new
      * one with the assistant it was opened with, rather than handing the page's request to an
-     * autonomous agent. A chat opened on a configured agent takes no action at all.
+     * autonomous agent. A chat opened on a configured agent takes no action at all. Whether that move
+     * is asked first is the component's call (actionLeavesConversation).
      *
      * Waits for the start: until then the chat may still resume a configured agent's conversation, and
      * a prompt queued before it would land there.

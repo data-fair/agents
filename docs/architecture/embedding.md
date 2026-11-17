@@ -306,6 +306,8 @@ bc.postMessage({ channel: channelId, type: 'agent-chat-ping' })
 
 `DfAgentChatAction` is a button a host app drops directly into a page (for example a contextual "ask the assistant" help action next to a creation or configuration form — this is how it is used in data-fair on creation/config pages). On mount it pings over BroadcastChannel for a live drawer and only shows itself once one answers (`agent-chat-pong` / `agent-chat-ready`). On click it broadcasts an `agent-start-session` message carrying a `visiblePrompt` (shown to the user) and a `hiddenContext` (page context passed to the agent silently), which opens the drawer and starts the conversation. It also stores the message in sessionStorage (`df-agent-pending-action`), which the iframe reads on mount, for when the iframe was not loaded yet to hear the broadcast. It is the declarative, in-page counterpart to the programmatic `agent-start-session` snippet above.
 
+A button addresses the page's assistant, the only agent offered the page's tools. A chat opened on a configured agent ignores it. A chat whose open conversation is with another agent moves to a new conversation with the assistant — without asking when the chat only resumed that conversation by itself (the drawer's chat loads with the page and reopens the person's last thread before anyone looks at it), and after asking in place when the person chose it (picked the agent, opened it from the history, or wrote in it). Done silently, that move replaced what the person was reading, and stopped the agent's turn, for a click elsewhere on the page.
+
 ---
 
 ## URL Resolution
