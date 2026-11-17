@@ -87,7 +87,7 @@ test.describe('Deleting a reviewable conversation', () => {
     await user.delete(`/api/conversations/${OWNER}/${conversationId}`)
     assert.equal((await admin.get(`/api/review/${OWNER}`)).data.count, 1, 'archived and visible')
 
-    await admin.delete(`/api/review/${OWNER}/${conversationId}`)
+    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
     assert.equal((await admin.get(`/api/review/${OWNER}`)).data.count, 0, 'and erasable by an admin')
   })
 

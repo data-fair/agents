@@ -85,9 +85,9 @@ test.describe('Signed file URLs', () => {
   })
 
   test('an admin erasure purges the conversation and its files at once', async () => {
-    const { scope, conversationId } = await withFile()
+    const { scope } = await withFile()
     assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results.length, 1)
-    await orgAdmin.delete(`/api/review/organization/test1/${conversationId}`)
+    await orgAdmin.delete('/api/review/organization/test1?userId=test1-admin1')
     assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
   })
 

@@ -57,6 +57,9 @@ test.describe('Activity and review pages', () => {
     await expect(page).toHaveURL(new RegExp(`/organization/test1/review/${convId}`), { timeout: 10000 })
 
     await expect(page.getByText('Conversation not found or access denied.', { exact: false })).toHaveCount(0)
+    // Who it was between: the agent by its name, not its id, and the person.
+    await expect(page.getByTestId('review-participants')).toContainText(/Agent: (Assistant|Back-office assistant)/, { timeout: 15000 })
+    await expect(page.getByTestId('review-participants')).toContainText('Person:')
 
     // The exchange itself, rendered by the SAME component the chat uses — so a reviewer sees what the
     // person saw. The old assertion looked for a `user-message` TYPE CHIP, which the reconstruction
@@ -93,9 +96,12 @@ test.describe('Activity and review pages', () => {
       expect(JSON.parse(lines[entry.line - 1]).type).toBe(entry.record)
     }
 
-    // The instructions are behind the detail toggle rather than always on screen.
-    await page.getByRole('button', { name: 'Show detail' }).click()
-    await expect(page.getByText('Instructions given to the model')).toBeVisible()
+    // Each turn's record is folded in the thread, above what the turn wrote, rather than stacked above it.
+    await expect(page.getByText('Instructions given to the model')).not.toBeVisible()
+    await page.getByTestId('review-turn').first().locator(':scope > summary').click()
+    // and inside it, each long part is folded again
+    await expect(page.getByText('tool result', { exact: false }).first()).not.toBeVisible()
+    await page.getByText('Instructions given to the model').click()
     await expect(page.getByText('tool result', { exact: false }).first()).toBeVisible()
     // What else the model was given that the thread does not show: the page's context (none from a bare
     // socket) and the tools the turn offered, by source; and per call, what the provider cache served.

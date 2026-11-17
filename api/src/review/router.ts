@@ -32,11 +32,34 @@ import { buildConversationExport, exportFilename } from './operations.ts'
 import { retentionCutoff } from '../retention.ts'
 import { reviewableFilter } from './reviewable.ts'
 import { PERSONAL_AGENT_IDS } from '@agents/shared/agent-audit'
+import { personalAgentTitle } from '../agent-session/personal-agent.ts'
 import { splitHiddenContext } from '@agents/shared/hidden-context'
 import { readToolDefinitions } from '../conversations/tool-definitions.ts'
 
 const router = Router()
 export default router
+
+/**
+ * The names of the agents these conversations were with, by id: a personal assistant's built-in one, a
+ * configured agent's title. A deleted agent has none, and the id stands.
+ */
+const agentTitles = async (owner: AccountKeys, agentIds: Array<string | undefined>): Promise<Record<string, string>> => {
+  const ids = [...new Set(agentIds.filter((id): id is string => !!id))]
+  const titles: Record<string, string> = {}
+  const configured: string[] = []
+  for (const id of ids) {
+    const title = personalAgentTitle(id)
+    if (title) titles[id] = title
+    else configured.push(id)
+  }
+  if (configured.length) {
+    const agents = await mongo.autonomousAgents
+      .find({ 'owner.type': owner.type, 'owner.id': owner.id, id: { $in: configured } }, { projection: { _id: 0, id: 1, title: 1 } })
+      .toArray()
+    for (const agent of agents) titles[agent.id] = agent.title
+  }
+  return titles
+}
 
 const reqOwner = (req: any): AccountKeys => ({ type: req.params.type, id: req.params.id })
 
@@ -102,6 +125,7 @@ router.get('/:type/:id', async (req, res, next) => {
 
     // The preview is the first thing the person said, read from the conversation rather than dug out
     // of a stored request body — which is why it is a real preview again.
+    const titles = await agentTitles(owner, results.map(conversation => conversation.agentId))
     const previews = await Promise.all(results.map(async conversation => {
       const first = await mongo.messages.findOne(
         { conversationId: conversation.id, role: 'user' },
@@ -121,6 +145,7 @@ router.get('/:type/:id', async (req, res, next) => {
         userId: conversation.userId,
         userName: conversation.userName,
         agentId: conversation.agentId,
+        ...(conversation.agentId && titles[conversation.agentId] ? { agentTitle: titles[conversation.agentId] } : {}),
         // Surfaced so an admin can see the person has deleted their side of it. An audited thread is
         // kept as the organization's record; a personal assistant's is purged when its review window
         // closes, which is worth knowing before relying on it still being there tomorrow.
@@ -168,7 +193,10 @@ router.get('/:type/:id/:conversationId', async (req, res, next) => {
   try {
     const owner = reqOwner(req)
     const scope = await assertMayReview(req, owner)
-    res.json(await loadForReview(owner, scope, req.params.conversationId))
+    const loaded = await loadForReview(owner, scope, req.params.conversationId)
+    const agentId = loaded.conversation.agentId
+    const agentTitle = agentId ? (await agentTitles(owner, [agentId]))[agentId] : undefined
+    res.json({ ...loaded, ...(agentTitle ? { agentTitle } : {}) })
   } catch (err) { next(err) }
 })
 
@@ -202,18 +230,13 @@ router.get('/:type/:id/:conversationId/export', async (req, res, next) => {
   } catch (err) { next(err) }
 })
 
-router.delete('/:type/:id/:conversationId', async (req, res, next) => {
-  try {
-    const owner = reqOwner(req)
-    const scope = await assertMayReview(req, owner)
-    await deleteConversations({ ...reviewableFilter(owner, scope), id: req.params.conversationId })
-    log.info('reviewed conversation deleted', { code: 'agents.review.delete', conversationId: req.params.conversationId, ...ownerLogFields(owner) })
-    res.status(204).send()
-  } catch (err) { next(err) }
-})
-
 /**
- * Per-user erasure, for a GDPR request.
+ * Per-user erasure, for a GDPR request: the one way an admin deletes stored conversations.
+ *
+ * There is no deleting one conversation. Review is the organization's record of what its agents did and
+ * were asked: an admin able to remove a thread one click at a time could remove exactly the one that
+ * mattered. A person's erasure request is the instruction that outranks that record, and it is logged.
+ * Otherwise conversations leave by retention (../retention.ts) or with their agent.
  *
  * `userId` is required rather than optional, so a request meant to erase one person's history cannot
  * silently erase the account's.

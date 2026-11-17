@@ -47,6 +47,24 @@ export function annotateTranscript (stored: Stored[], runs: Run[], labels: Conte
     const next = stored.find(message => message.seq > recap.coversUpToSeq)
     if (next && !recapAt.has(next.seq)) recapAt.set(next.seq, { turn: i + 1, recap })
   })
+  // Each turn on the first message it wrote; a turn that wrote none (failed before answering) on the next one that
+  // does, else on the last message, so no turn's record is left out.
+  const firstOf = new Map<number, number>()
+  for (const message of stored) {
+    const index = message.runId !== undefined ? turnOf.get(message.runId) : undefined
+    if (index !== undefined && !firstOf.has(index)) firstOf.set(index, message.seq)
+  }
+  const turnsAt = new Map<number, number[]>()
+  let pending: number[] = []
+  runs.forEach((_, i) => {
+    pending.push(i)
+    const seq = firstOf.get(i)
+    if (seq === undefined) return
+    turnsAt.set(seq, [...(turnsAt.get(seq) ?? []), ...pending])
+    pending = []
+  })
+  const last = stored[stored.length - 1]
+  if (pending.length && last) turnsAt.set(last.seq, [...(turnsAt.get(last.seq) ?? []), ...pending])
   return stored.map(message => {
     const index = message.runId !== undefined ? turnOf.get(message.runId) : undefined
     const run = index !== undefined ? runs[index] : undefined
@@ -57,6 +75,8 @@ export function annotateTranscript (stored: Stored[], runs: Run[], labels: Conte
       if (entry.injected) list.push({ label: labels.noteInjected, text: entry.injected })
     }
     const chat = autonomousAgentMessageToChat(message as any, { stepNotes, reminderLabel: labels.reminderNote })
+    const turns = turnsAt.get(message.seq)
+    if (turns) chat.turns = turns
     const recap = recapAt.get(message.seq)
     if (recap) chat.contextNote = { label: labels.recapNote(recap.turn), text: recapSummary(recap.recap, runs) }
     for (const invocation of chat.toolInvocations ?? []) {

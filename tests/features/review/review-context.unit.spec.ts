@@ -33,6 +33,16 @@ const runs = [
 ]
 
 test.describe('annotateTranscript', () => {
+  test('each turn\'s record goes above the first message it wrote, a turn that wrote none with the next one', () => {
+    const turns = annotateTranscript(stored, runs, labels).map(chat => chat.turns)
+    assert.deepEqual(turns, [undefined, [0], undefined, [1], undefined, [2]])
+    // r2 wrote nothing (it failed before answering): its record goes with r3's, in order
+    const withSilent = annotateTranscript(stored.filter(message => message.runId !== 'r2'), runs, labels).map(chat => chat.turns)
+    assert.deepEqual(withSilent, [undefined, [0], undefined, undefined, [1, 2]])
+    // and a last turn that wrote nothing goes on the last message
+    assert.deepEqual(annotateTranscript(stored.slice(0, 5), runs, labels).map(chat => chat.turns), [undefined, [0], undefined, [1], [2]])
+  })
+
   test('a removed result is marked on its call, from the turn and step it was first removed', () => {
     const chats = annotateTranscript(stored, runs, labels)
     assert.equal(chats[1].toolInvocations![0].notSent, 'cleared from turn 2 step 1')

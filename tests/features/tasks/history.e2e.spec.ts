@@ -145,8 +145,8 @@ test.describe('Agent page, activity', () => {
     await reminder.getByRole('button', { name: 'Reminder sent to the model' }).click()
     await expect(reminder).toContainText('without calling report_outcome')
 
-    await view.getByRole('button', { name: 'Show detail' }).click()
     await expect(view.getByTestId('review-turn')).toHaveCount(1)
+    await view.getByTestId('review-turn').locator(':scope > summary').click()
     // each tool offered as the model was told about it
     const definitions = view.getByTestId('review-tool-definitions')
     await definitions.locator('summary').first().click()

@@ -19,6 +19,11 @@ export interface ChatMessage {
    * review page shows folded above this message. Set by the review page, from the runs' records.
    */
   contextNote?: { label: string, text?: string }
+  /**
+   * The turns (indexes of the conversation's runs) whose record the review page folds in above this message:
+   * the turn that wrote it, on its first message, and any turn before it that wrote nothing. Set by the review page.
+   */
+  turns?: number[]
   toolInvocations?: Array<{
     toolCallId: string
     toolName: string

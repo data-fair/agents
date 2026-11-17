@@ -27,6 +27,15 @@
           :key="index"
         >
           <div class="px-2 py-1 px-sm-4 py-sm-2">
+            <!-- The record of the turns that wrote this message (the review page's). -->
+            <template v-if="showToolDetails">
+              <slot
+                v-for="turn in message.turns ?? []"
+                :key="turn"
+                name="turn"
+                :index="turn"
+              />
+            </template>
             <!-- Where the model's context stopped being these messages (a compaction recap took their place). -->
             <folded-note
               v-if="showToolDetails && message.contextNote"

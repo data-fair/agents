@@ -69,247 +69,16 @@
         >
           {{ t('downloadExport') }}
         </v-btn>
-        <v-btn
-          size="small"
-          variant="text"
-          @click="showDetail = !showDetail"
-        >
-          {{ showDetail ? t('hideDetail') : t('showDetail') }}
-        </v-btn>
       </div>
 
-      <v-expand-transition>
-        <!-- Everything a turn's record holds that the thread cannot show, turn by turn: why it ran and how
-             it ended, each model call, and what the model was given. A turn given the same instructions,
-             page context or tools as the one before says so rather than repeating them. -->
-        <div
-          v-if="showDetail"
-          class="px-3 pb-3"
-        >
-          <section
-            v-for="(turn, i) in turns"
-            :key="turn.run.id ?? i"
-            class="conversation-review__turn pt-3"
-            data-testid="review-turn"
-          >
-            <div class="d-flex align-center flex-wrap ga-2 mb-2">
-              <span class="text-subtitle-2">{{ t('turn', { n: i + 1 }) }}</span>
-              <v-chip
-                size="small"
-                variant="tonal"
-                :color="turn.run.status === 'done' ? 'success' : turn.run.status === 'running' ? 'info' : 'error'"
-              >
-                {{ turn.run.status }}{{ turn.run.stopReason ? ` · ${turn.run.stopReason}` : '' }}
-              </v-chip>
-              <span class="text-caption text-medium-emphasis">
-                {{ turnLine(turn.run) }}
-              </span>
-            </div>
-            <div
-              v-if="turn.run.error"
-              class="text-body-2 text-error mb-2"
-            >
-              {{ turn.run.error }}
-            </div>
-            <div
-              v-if="turn.run.abortRequestedAt"
-              class="text-body-2 text-medium-emphasis mb-2"
-            >
-              {{ t('abortRequested', { at: formatDate(turn.run.abortRequestedAt), reason: turn.run.abortReason ?? '—' }) }}
-            </div>
-
-            <div class="text-caption font-weight-bold mb-1">
-              {{ t('modelCalls') }}
-            </div>
-            <v-table
-              density="compact"
-              class="mb-2"
-            >
-              <thead>
-                <tr>
-                  <th>{{ t('role') }}</th>
-                  <th>{{ t('model') }}</th>
-                  <th>{{ t('provider') }}</th>
-                  <th class="text-right">
-                    {{ t('steps') }}
-                  </th>
-                  <th
-                    class="text-right"
-                    :title="t('messagesHint')"
-                  >
-                    {{ t('messages') }}
-                  </th>
-                  <th class="text-right">
-                    {{ t('input') }}
-                  </th>
-                  <th class="text-right">
-                    {{ t('cacheRead') }}
-                  </th>
-                  <th class="text-right">
-                    {{ t('cacheWrite') }}
-                  </th>
-                  <th class="text-right">
-                    {{ t('output') }}
-                  </th>
-                  <th class="text-right">
-                    {{ t('creditsShort') }}
-                  </th>
-                  <th class="text-right">
-                    {{ t('duration') }}
-                  </th>
-                  <th>{{ t('finish') }}</th>
-                  <th
-                    class="text-right"
-                    :title="t('hostBlockHint')"
-                  >
-                    {{ t('hostBlock') }}
-                  </th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr
-                  v-for="(call, j) in turn.run.calls ?? []"
-                  :key="j"
-                >
-                  <td>{{ call.modelRole }}</td>
-                  <td>{{ call.model }}</td>
-                  <td>{{ call.provider ? `${call.provider} (${call.providerType})` : '—' }}</td>
-                  <td class="text-right">
-                    {{ call.steps ?? '—' }}
-                  </td>
-                  <td class="text-right">
-                    {{ call.messageCount ?? '—' }}{{ call.historyUpToSeq !== undefined ? ` (≤ #${call.historyUpToSeq})` : '' }}
-                  </td>
-                  <td class="text-right">
-                    {{ call.inputTokens ?? '—' }}
-                  </td>
-                  <td class="text-right">
-                    {{ call.cacheReadTokens ?? '—' }}
-                  </td>
-                  <td class="text-right">
-                    {{ call.cacheWriteTokens ?? '—' }}
-                  </td>
-                  <td class="text-right">
-                    {{ call.outputTokens ?? '—' }}
-                  </td>
-                  <td class="text-right">
-                    {{ call.credits?.toFixed(4) ?? '—' }}
-                    <div
-                      v-if="call.creditsInput !== undefined"
-                      class="text-caption text-medium-emphasis text-no-wrap"
-                    >
-                      {{ t('creditBreakdown', { input: call.creditsInput.toFixed(4), cached: call.creditsCachedInput.toFixed(4), output: call.creditsOutput.toFixed(4) }) }}
-                    </div>
-                  </td>
-                  <td class="text-right">
-                    {{ call.durationMs ? call.durationMs + 'ms' : '—' }}
-                  </td>
-                  <td>{{ call.finishReason ?? '—' }}</td>
-                  <td class="text-right">
-                    {{ call.hostBlockChars ?? '—' }}
-                  </td>
-                </tr>
-              </tbody>
-            </v-table>
-
-            <div class="text-caption font-weight-bold mb-1">
-              {{ t('systemPrompt') }}
-            </div>
-            <div
-              v-if="turn.samePrompt"
-              class="text-caption text-medium-emphasis mb-2"
-            >
-              {{ t('sameAsPrevious') }}
-            </div>
-            <pre
-              v-else
-              class="conversation-review__pre pa-3 mb-2"
-            >{{ turn.run.systemPrompt || '—' }}</pre>
-
-            <!-- What the page told the model: state and events folded into the person's message at call
-                 time, which the thread does not show. -->
-            <div class="text-caption font-weight-bold mb-1">
-              {{ t('hostContext') }}
-            </div>
-            <div
-              v-if="turn.sameHostContext"
-              class="text-caption text-medium-emphasis mb-2"
-            >
-              {{ t('sameAsPrevious') }}
-            </div>
-            <pre
-              v-else
-              class="conversation-review__pre pa-3 mb-2"
-              data-testid="review-host-context"
-            >{{ turn.run.hostContext || '—' }}</pre>
-
-            <!-- What the model read that the stored messages do not say (the run's context): the transcript marks
-                 each where it applies; here, the turn's whole list. -->
-            <template v-if="turn.contextLines.length">
-              <div class="text-caption font-weight-bold mb-1">
-                {{ t('contextChanges') }}
-              </div>
-              <ul
-                class="text-body-2 mb-2 ps-4"
-                data-testid="review-context-changes"
-              >
-                <li
-                  v-for="(line, k) in turn.contextLines"
-                  :key="k"
-                >
-                  {{ line.label }}
-                  <details v-if="line.text">
-                    <summary class="text-caption text-medium-emphasis">
-                      {{ t('showText') }}
-                    </summary>
-                    <pre class="conversation-review__pre pa-3 my-1">{{ line.text }}</pre>
-                  </details>
-                </li>
-              </ul>
-            </template>
-            <div class="text-caption font-weight-bold mb-1">
-              {{ t('offeredTools', { n: turn.toolCount }) }}
-            </div>
-            <div
-              v-if="turn.sameTools"
-              class="text-caption text-medium-emphasis mb-2"
-            >
-              {{ t('sameAsPrevious') }}
-            </div>
-            <template v-else>
-              <tool-group-list
-                :groups="turn.toolGroups"
-                data-testid="review-offered-tools"
-              />
-              <!-- Each tool as the model was told about it: its description and the schema of its input. -->
-              <details
-                v-if="turn.definitions.length"
-                class="mt-1 mb-2"
-                data-testid="review-tool-definitions"
-              >
-                <summary class="text-caption text-medium-emphasis">
-                  {{ t('toolDefinitions') }}
-                </summary>
-                <details
-                  v-for="tool in turn.definitions"
-                  :key="tool.name"
-                  class="ms-3 my-1"
-                  data-testid="review-tool-definition"
-                >
-                  <summary class="text-body-2">
-                    {{ tool.name }}
-                  </summary>
-                  <pre class="conversation-review__pre pa-3 my-1">{{ tool.description ?? '—' }}</pre>
-                  <pre
-                    v-if="tool.inputSchema"
-                    class="conversation-review__pre pa-3 my-1"
-                  >{{ JSON.stringify(tool.inputSchema, null, 2) }}</pre>
-                </details>
-              </details>
-            </template>
-          </section>
-        </div>
-      </v-expand-transition>
+      <!-- Who the conversation was between: the agent, and the person who wrote to it. -->
+      <div
+        v-if="participants"
+        class="px-3 pt-2 text-body-2"
+        data-testid="review-participants"
+      >
+        {{ participants }}
+      </div>
 
       <!-- The conversation, through the SAME renderer the chat uses. There is one way to display a
            turn, so a reviewer sees what the person saw rather than a second rendering of it that can
@@ -326,7 +95,242 @@
         show-tool-details
         readonly
         :agent-path="agentPath"
-      />
+      >
+        <!-- Each turn's record, folded where the turn happened, above what it wrote: why it ran and how it
+             ended, each model call, and what the model was given — each part folded again. A turn given the
+             same instructions, page context or tools as the one before says so rather than repeating them. -->
+        <template #turn="{ index }">
+          <details
+            v-for="turn in [turns[index]]"
+            :key="turn.run.id ?? index"
+            class="conversation-review__turn mb-2"
+            data-testid="review-turn"
+          >
+            <summary class="conversation-review__summary text-caption">
+              <span class="font-weight-bold">{{ t('turn', { n: index + 1 }) }}</span>
+              <v-chip
+                size="small"
+                variant="tonal"
+                :color="turn.run.status === 'done' ? 'success' : turn.run.status === 'running' ? 'info' : 'error'"
+              >
+                {{ turn.run.status }}{{ turn.run.stopReason ? ` · ${turn.run.stopReason}` : '' }}
+              </v-chip>
+              <span class="text-medium-emphasis">
+                {{ turnLine(turn.run) }}
+              </span>
+            </summary>
+            <div class="conversation-review__turn-body pa-3">
+              <div
+                v-if="turn.run.error"
+                class="text-body-2 text-error mb-2"
+              >
+                {{ turn.run.error }}
+              </div>
+              <div
+                v-if="turn.run.abortRequestedAt"
+                class="text-body-2 text-medium-emphasis mb-2"
+              >
+                {{ t('abortRequested', { at: formatDate(turn.run.abortRequestedAt), reason: turn.run.abortReason ?? '—' }) }}
+              </div>
+
+              <div class="text-caption font-weight-bold mb-1">
+                {{ t('modelCalls') }}
+              </div>
+              <v-table
+                density="compact"
+                class="mb-2"
+              >
+                <thead>
+                  <tr>
+                    <th>{{ t('role') }}</th>
+                    <th>{{ t('model') }}</th>
+                    <th>{{ t('provider') }}</th>
+                    <th class="text-right">
+                      {{ t('steps') }}
+                    </th>
+                    <th
+                      class="text-right"
+                      :title="t('messagesHint')"
+                    >
+                      {{ t('messages') }}
+                    </th>
+                    <th class="text-right">
+                      {{ t('input') }}
+                    </th>
+                    <th class="text-right">
+                      {{ t('cacheRead') }}
+                    </th>
+                    <th class="text-right">
+                      {{ t('cacheWrite') }}
+                    </th>
+                    <th class="text-right">
+                      {{ t('output') }}
+                    </th>
+                    <th class="text-right">
+                      {{ t('creditsShort') }}
+                    </th>
+                    <th class="text-right">
+                      {{ t('duration') }}
+                    </th>
+                    <th>{{ t('finish') }}</th>
+                    <th
+                      class="text-right"
+                      :title="t('hostBlockHint')"
+                    >
+                      {{ t('hostBlock') }}
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr
+                    v-for="(call, j) in turn.run.calls ?? []"
+                    :key="j"
+                  >
+                    <td>{{ call.modelRole }}</td>
+                    <td>{{ call.model }}</td>
+                    <td>{{ call.provider ? `${call.provider} (${call.providerType})` : '—' }}</td>
+                    <td class="text-right">
+                      {{ call.steps ?? '—' }}
+                    </td>
+                    <td class="text-right">
+                      {{ call.messageCount ?? '—' }}{{ call.historyUpToSeq !== undefined ? ` (≤ #${call.historyUpToSeq})` : '' }}
+                    </td>
+                    <td class="text-right">
+                      {{ call.inputTokens ?? '—' }}
+                    </td>
+                    <td class="text-right">
+                      {{ call.cacheReadTokens ?? '—' }}
+                    </td>
+                    <td class="text-right">
+                      {{ call.cacheWriteTokens ?? '—' }}
+                    </td>
+                    <td class="text-right">
+                      {{ call.outputTokens ?? '—' }}
+                    </td>
+                    <td class="text-right">
+                      {{ call.credits?.toFixed(4) ?? '—' }}
+                      <div
+                        v-if="call.creditsInput !== undefined"
+                        class="text-caption text-medium-emphasis text-no-wrap"
+                      >
+                        {{ t('creditBreakdown', { input: call.creditsInput.toFixed(4), cached: call.creditsCachedInput.toFixed(4), output: call.creditsOutput.toFixed(4) }) }}
+                      </div>
+                    </td>
+                    <td class="text-right">
+                      {{ call.durationMs ? call.durationMs + 'ms' : '—' }}
+                    </td>
+                    <td>{{ call.finishReason ?? '—' }}</td>
+                    <td class="text-right">
+                      {{ call.hostBlockChars ?? '—' }}
+                    </td>
+                  </tr>
+                </tbody>
+              </v-table>
+
+              <div
+                v-if="turn.samePrompt"
+                class="text-caption mb-2"
+              >
+                <span class="font-weight-bold">{{ t('systemPrompt') }}</span> · {{ t('sameAsPrevious') }}
+              </div>
+              <details
+                v-else
+                class="mb-2"
+                data-testid="review-system-prompt"
+              >
+                <summary class="text-caption font-weight-bold">
+                  {{ t('systemPrompt') }}
+                </summary>
+                <pre class="conversation-review__pre pa-3 my-1">{{ turn.run.systemPrompt || '—' }}</pre>
+              </details>
+
+              <!-- What the page told the model: state and events folded into the person's message at call
+                   time, which the thread does not show. -->
+              <div
+                v-if="turn.sameHostContext"
+                class="text-caption mb-2"
+              >
+                <span class="font-weight-bold">{{ t('hostContext') }}</span> · {{ t('sameAsPrevious') }}
+              </div>
+              <details
+                v-else
+                class="mb-2"
+                data-testid="review-host-context"
+              >
+                <summary class="text-caption font-weight-bold">
+                  {{ t('hostContext') }}
+                </summary>
+                <pre class="conversation-review__pre pa-3 my-1">{{ turn.run.hostContext || '—' }}</pre>
+              </details>
+
+              <!-- What the model read that the stored messages do not say (the run's context): the transcript marks
+                   each where it applies; here, the turn's whole list. -->
+              <template v-if="turn.contextLines.length">
+                <div class="text-caption font-weight-bold mb-1">
+                  {{ t('contextChanges') }}
+                </div>
+                <ul
+                  class="text-body-2 mb-2 ps-4"
+                  data-testid="review-context-changes"
+                >
+                  <li
+                    v-for="(line, k) in turn.contextLines"
+                    :key="k"
+                  >
+                    {{ line.label }}
+                    <details v-if="line.text">
+                      <summary class="text-caption text-medium-emphasis">
+                        {{ t('showText') }}
+                      </summary>
+                      <pre class="conversation-review__pre pa-3 my-1">{{ line.text }}</pre>
+                    </details>
+                  </li>
+                </ul>
+              </template>
+              <div class="text-caption font-weight-bold mb-1">
+                {{ t('offeredTools', { n: turn.toolCount }) }}
+              </div>
+              <div
+                v-if="turn.sameTools"
+                class="text-caption text-medium-emphasis mb-2"
+              >
+                {{ t('sameAsPrevious') }}
+              </div>
+              <template v-else>
+                <tool-group-list
+                  :groups="turn.toolGroups"
+                  data-testid="review-offered-tools"
+                />
+                <!-- Each tool as the model was told about it: its description and the schema of its input. -->
+                <details
+                  v-if="turn.definitions.length"
+                  class="mt-1 mb-2"
+                  data-testid="review-tool-definitions"
+                >
+                  <summary class="text-caption text-medium-emphasis">
+                    {{ t('toolDefinitions') }}
+                  </summary>
+                  <details
+                    v-for="tool in turn.definitions"
+                    :key="tool.name"
+                    class="ms-3 my-1"
+                    data-testid="review-tool-definition"
+                  >
+                    <summary class="text-body-2">
+                      {{ tool.name }}
+                    </summary>
+                    <pre class="conversation-review__pre pa-3 my-1">{{ tool.description ?? '—' }}</pre>
+                    <pre
+                      v-if="tool.inputSchema"
+                      class="conversation-review__pre pa-3 my-1"
+                    >{{ JSON.stringify(tool.inputSchema, null, 2) }}</pre>
+                  </details>
+                </details>
+              </template>
+            </div>
+          </details>
+        </template>
+      </agent-chat-messages>
     </template>
   </v-container>
 </template>
@@ -340,8 +344,10 @@ fr:
   creditsShort: Crédits
   downloadExport: Télécharger
   downloadExportHint: Télécharge la conversation complète (messages, résultats d'outils, télémétrie par appel) dans un fichier JSONL, pour analyse par un agent de code.
-  hideDetail: Masquer le détail
-  showDetail: Voir le détail
+  withAgent: "Agent : {agent}"
+  withPerson: "Personne : {person}"
+  startedAt: "commencée le {at}"
+  anonymous: visiteur anonyme
   systemPrompt: Instructions données au modèle
   hostContext: Contexte transmis par la page
   offeredTools: "Outils proposés ({n})"
@@ -406,8 +412,10 @@ en:
   creditsShort: Credits
   downloadExport: Download
   downloadExportHint: Downloads the whole conversation (messages, tool results, per-call telemetry) as a JSONL file, for analysis by a coding agent.
-  hideDetail: Hide detail
-  showDetail: Show detail
+  withAgent: "Agent: {agent}"
+  withPerson: "Person: {person}"
+  startedAt: "started {at}"
+  anonymous: anonymous visitor
   systemPrompt: Instructions given to the model
   hostContext: Context reported by the page
   offeredTools: "Tools offered ({n})"
@@ -520,7 +528,8 @@ const mayExport = computed(() => !!props.run || !!session.state.user?.adminMode)
 
 const loaded = ref(false)
 const loadError = ref('')
-const showDetail = ref(false)
+const conversation = ref<any>()
+const agentTitle = ref<string>()
 const messages = ref<ChatMessage[]>([])
 const runs = ref<any[]>([])
 // The tool sets the runs reference (toolDefinitionsRef), as the review and run routes resolve them.
@@ -581,6 +590,16 @@ const turns = computed(() => runs.value.map((run, i) => {
 }))
 
 const formatDate = (date: string) => new Date(date).toLocaleString(locale.value)
+// A task run's page says its agent and trigger itself; a conversation says it here.
+const participants = computed(() => {
+  const c = conversation.value
+  if (!c) return ''
+  return [
+    t('withAgent', { agent: agentTitle.value ?? c.agentId ?? '—' }),
+    t('withPerson', { person: c.userName || c.userId || t('anonymous') }),
+    c.createdAt && t('startedAt', { at: formatDate(c.createdAt) })
+  ].filter(Boolean).join(' · ')
+})
 const turnLine = (run: any) => [
   run.startedAt && formatDate(run.startedAt),
   run.startedAt && run.endedAt && `${new Date(run.endedAt).getTime() - new Date(run.startedAt).getTime()}ms`,
@@ -597,6 +616,8 @@ const load = async () => {
   try {
     const data = await $fetch(`${$apiPath}/review/${props.owner.type}/${props.owner.id}/${props.conversationId}`)
     runs.value = data.runs ?? []
+    conversation.value = data.conversation
+    agentTitle.value = data.agentTitle
     toolDefinitions.value = data.toolDefinitions ?? {}
     storedMessages.value = data.messages ?? []
     messages.value = buildMessages(storedMessages.value, runs.value)
@@ -628,8 +649,16 @@ watch(() => props.run, (run) => {
 .conversation-review__bar {
   border-bottom: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
 }
-.conversation-review__turn + .conversation-review__turn {
-  border-top: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+.conversation-review__turn {
+  border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+  border-radius: 4px;
+}
+.conversation-review__summary {
+  cursor: pointer;
+  padding: 4px 8px;
+}
+.conversation-review__summary > * {
+  margin-right: 8px;
 }
 .conversation-review__pre {
   white-space: pre-wrap;

@@ -89,8 +89,9 @@ test.describe('History Compaction', () => {
 
     // And an admin can see it on the review page, in the per-call detail.
     await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
-    await expect(page.getByRole('button', { name: 'Show detail' })).toBeVisible({ timeout: 15000 })
-    await page.getByRole('button', { name: 'Show detail' }).click()
+    const turn = page.getByTestId('review-turn').filter({ hasText: 'mock-summarizer' }).first()
+    await expect(turn).toBeAttached({ timeout: 15000 })
+    await turn.locator(':scope > summary').click()
     await expect(page.getByRole('cell', { name: 'summarizer' }).first()).toBeVisible()
     await expect(page.getByRole('cell', { name: 'mock-summarizer' }).first()).toBeVisible()
   })

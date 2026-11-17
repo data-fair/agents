@@ -25,14 +25,6 @@
         <v-list-item-subtitle class="text-caption">
           {{ rowLine(row) }}
         </v-list-item-subtitle>
-        <template #append>
-          <v-btn
-            :icon="mdiDelete"
-            size="small"
-            variant="text"
-            @click.prevent="deleteConversation(row.conversationId)"
-          />
-        </template>
       </v-list-item>
     </v-list>
     <v-pagination
@@ -57,7 +49,6 @@ en:
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
-import { mdiDelete } from '@mdi/js'
 import { $apiPath } from '~/context'
 
 // `agentId`: one agent's conversations only, on that agent's page (where naming the agent on each row is noise).
@@ -71,7 +62,7 @@ const pageCount = ref(1)
 const loadError = ref('')
 
 const formatDate = (iso: string) => new Date(iso).toLocaleString()
-const rowLine = (row: any) => [row.userName || row.userId || '—', formatDate(row.lastMessageAt || row.startedAt), ...(props.agentId ? [] : [row.agentId])].join(' · ')
+const rowLine = (row: any) => [row.userName || row.userId || '—', formatDate(row.lastMessageAt || row.startedAt), ...(props.agentId ? [] : [row.agentTitle ?? row.agentId])].join(' · ')
 
 const apiBase = computed(() => `${$apiPath}/review/${props.accountType}/${props.accountId}`)
 
@@ -84,14 +75,6 @@ const fetchRows = async () => {
     rows.value = body.results
     pageCount.value = Math.max(1, Math.ceil((body.count ?? 0) / SIZE))
   } catch { loadError.value = t('loadError') }
-}
-
-const deleteConversation = async (conversationId: string) => {
-  try {
-    const res = await fetch(`${apiBase.value}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
-    if (!res.ok) { loadError.value = t('loadError'); return }
-  } catch { loadError.value = t('loadError'); return }
-  await fetchRows()
 }
 
 // Refetch on mount and whenever the account changes (the section is reused
