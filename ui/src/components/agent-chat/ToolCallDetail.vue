@@ -12,6 +12,38 @@
         data-testid="tool-call-input"
       >{{ inputText }}</pre>
     </template>
+    <!-- Who let the call run or stopped it: the reviewer's verdict, then the person's decision on its card. -->
+    <template v-if="show !== 'input' && invocation.decision">
+      <div class="text-caption font-weight-bold mb-1">
+        {{ t('review') }}
+      </div>
+      <div
+        class="text-body-2 mb-2"
+        data-testid="tool-call-review"
+      >
+        <div v-if="invocation.decision.review">
+          {{ reviewerLine }}
+          <div
+            v-if="invocation.decision.review.reason"
+            class="text-caption text-medium-emphasis"
+          >
+            {{ invocation.decision.review.reason }}
+          </div>
+          <div
+            v-if="invocation.decision.review.personReason && invocation.decision.review.personReason !== invocation.decision.review.reason"
+            class="text-caption text-medium-emphasis"
+          >
+            {{ t('personReason', { reason: invocation.decision.review.personReason }) }}
+          </div>
+        </div>
+        <div
+          v-if="invocation.decision.person"
+          :class="{ 'mt-1': invocation.decision.review }"
+        >
+          {{ personLine }}
+        </div>
+      </div>
+    </template>
     <template v-if="show !== 'input'">
       <template v-if="invocation.errorText !== undefined">
         <v-alert
@@ -94,6 +126,20 @@ fr:
   tripwire: Injection de prompt suspectée — masquée à l'agent
   tripwireSource: "Source : {tool} ({server})"
   noOutput: Aucun résultat enregistré.
+  review: Relecture
+  reviewer:
+    allow: Autorisé par le relecteur.
+    deny: Refusé par le relecteur.
+    unsure: Le relecteur n'a pas su décider et a demandé une personne.
+    cleared: Autorisé par le relecteur, dès son premier examen.
+    review-failed: Le relecteur n'a pas pu examiner l'appel.
+    breaker-tripped: Refusé sans examen, après trop de refus dans ce tour.
+    budget: Refusé sans examen, le budget du tour étant épuisé.
+  personReason: "Expliqué à la personne : {reason}"
+  approvedBy: "Approuvé par {name}"
+  declinedBy: "Refusé par {name}"
+  on: " le {at}"
+  someone: une personne
 en:
   input: Input
   script: Script
@@ -109,6 +155,20 @@ en:
   tripwire: Suspected prompt injection — withheld from the agent
   tripwireSource: "Source: {tool} ({server})"
   noOutput: No result recorded.
+  review: Review
+  reviewer:
+    allow: Allowed by the reviewer.
+    deny: Refused by the reviewer.
+    unsure: The reviewer could not decide and asked a person.
+    cleared: Allowed by the reviewer, at its first screening.
+    review-failed: The reviewer could not review the call.
+    breaker-tripped: Refused without review, after too many refusals this turn.
+    budget: Refused without review, the turn's budget being spent.
+  personReason: "Explained to the person: {reason}"
+  approvedBy: "Approved by {name}"
+  declinedBy: "Declined by {name}"
+  on: " on {at}"
+  someone: a person
 </i18n>
 
 <script lang="ts" setup>
@@ -126,10 +186,22 @@ const props = defineProps<{
   show?: 'input' | 'output'
 }>()
 
-const { t } = useI18n()
+const { t, locale } = useI18n()
 
 const isScript = computed(() => props.invocation.toolName === 'code_mode' && typeof (props.invocation.input as any)?.js === 'string')
 const format = (value: unknown) => typeof value === 'string' ? value : JSON.stringify(value, null, 2)
+const reviewerLine = computed(() => {
+  const review = props.invocation.decision?.review
+  if (!review) return ''
+  return review.code === 'judged' ? t(`reviewer.${review.outcome}`) : t(`reviewer.${review.code}`)
+})
+const personLine = computed(() => {
+  const person = props.invocation.decision?.person
+  if (!person) return ''
+  const name = person.userName || person.userId || t('someone')
+  const at = person.at ? t('on', { at: new Date(person.at).toLocaleString(locale.value) }) : ''
+  return t(person.approved ? 'approvedBy' : 'declinedBy', { name }) + at + '.'
+})
 const inputText = computed(() => isScript.value ? (props.invocation.input as any).js : format(props.invocation.input ?? {}))
 </script>
 

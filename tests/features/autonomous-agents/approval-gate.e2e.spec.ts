@@ -6,7 +6,7 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { axiosAuth, clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
-import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
+import { decideOverSocketToRun, startTurnOverSocket, turnOverSocket } from '../../../dev/socket-turn.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
@@ -145,7 +145,38 @@ test.describe('Approval card', () => {
     await expect(chip).toHaveText('Denied by the reviewer: set_note', { timeout: 15000 })
     await chip.click()
     await expect(page.getByTestId('tool-call-denied')).toHaveText('Denied by the reviewer: mock deny')
+    await expect(page.getByTestId('tool-call-review')).toContainText('Refused by the reviewer.')
+    await expect(page.getByTestId('tool-call-review')).toContainText('mock deny')
     await expect(page.getByTestId('reviewer-denied-hint')).toHaveCount(0)
+  })
+
+  test('the review page says who let each call run: the reviewer alone, or a person after it', async ({ page, goToWithAuth }) => {
+    const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+    // a write: the reviewer decides it alone
+    const { conversationId } = await turnOverSocket(orgAdmin, { agentId }, 'call tool set_note {"note":"ok"}')
+    // a destructive call: the reviewer, then the person's card
+    const { assistant } = await turnOverSocket(orgAdmin, conversationId, 'call tool delete_note {"note":"ok"}')
+    const approvalId = assistant.parts.find((p: any) => p.toolName === 'delete_note').approval.id
+    await decideOverSocketToRun(orgAdmin, conversationId, approvalId, { approved: true })
+    await expect.poll(() => fixture.invokedTools(), { timeout: 15000 }).toEqual(['set_note', 'delete_note'])
+
+    await goToWithAuth(`/agents/organization/test1/review/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    const chips = page.getByTestId('tool-chip')
+    await expect(chips).toHaveCount(2, { timeout: 15000 })
+    // the person's decision reads as the card they saw, their choice where the buttons were
+    const decided = page.getByTestId('decided-approval-card')
+    await expect(decided).toHaveCount(1)
+    await expect(decided.getByTestId('approval-review')).toContainText('Reviewed: allowed, your confirmation is required')
+    await expect(decided.getByTestId('approval-decided')).toContainText('Approved by Test1-admin1 on ')
+    await expect(decided.getByTestId('approval-approve')).toHaveCount(0)
+    await expect(decided.getByTestId('approval-readonly')).toHaveCount(0)
+    await chips.nth(0).click()
+    await expect(page.getByTestId('tool-call-review').first()).toContainText('by the reviewer')
+    await chips.nth(1).click()
+    const personal = page.getByTestId('tool-call-review').nth(1)
+    await expect(personal).toContainText('Allowed by the reviewer.')
+    await expect(personal).toContainText('mock allow')
+    await expect(personal).toContainText('Approved by Test1-admin1')
   })
 
   test('the admin review page shows a pending approval read-only', async ({ page, goToWithAuth }) => {

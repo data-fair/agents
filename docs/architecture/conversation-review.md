@@ -119,6 +119,11 @@ segments, so the param route would otherwise match it with `type: 'conversation'
   it, every field of every model call, and the system prompt, page context and offered tools — each
   said to be unchanged rather than repeated when it is the previous turn's. Nothing is shown that is
   not stored: tool descriptions, per-step telemetry and per-tool durations are not recorded.
+  Each call a reviewer judged or a person decided has a **Review** section between its input and output:
+  the reviewer's verdict and reason (allowed alone, at its first screening or judged; refused; unsure; or
+  not reviewed and why), then who approved or declined it and when. A call a person decided also shows
+  the approval card they saw, read-only, their choice where the buttons were. Both are read from what the
+  call records (`toolMetadata.review`, `toolMetadata.decision`), which the export carries too.
 
 This replaced about a thousand lines of reconstruction — `reconstruct-trace.ts`,
 `session-recorder.ts` and a bespoke `TraceView` — all of which existed because the conversation was

@@ -53,6 +53,17 @@ const reviewOf = (call: unknown): InvocationReview | undefined => {
   return review
 }
 
+type InvocationDecision = NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['decision']>
+/** The reviewer's verdict and the person's decision recorded on a call (conversations/service.ts decideApproval). */
+const decisionOf = (call: unknown, review: InvocationReview | undefined): InvocationDecision | undefined => {
+  const decided = (call as any).toolMetadata?.decision
+  const person = decided && typeof decided.approved === 'boolean'
+    ? { approved: decided.approved, ...(typeof decided.userName === 'string' ? { userName: decided.userName } : {}), ...(typeof decided.userId === 'string' ? { userId: decided.userId } : {}), ...(typeof decided.at === 'string' ? { at: decided.at } : {}) }
+    : undefined
+  if (!review && !person) return undefined
+  return { ...(review ? { review } : {}), ...(person ? { person } : {}) }
+}
+
 type InvocationNested = NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['nested']>
 /** The call a paused script stopped at (toolMetadata.nested, api/src/conversations/model-loop.ts), when well formed. */
 const nestedOf = (call: unknown): InvocationNested | undefined => {
@@ -145,6 +156,7 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
         // The decision recorded on the call (conversations/service.ts decideApproval). Without it an approved
         // call's chip read like any other, and a judged agent could tell the person it still awaited approval.
         ...((call as any).toolMetadata?.decision?.approved === true ? { approved: true as const } : {}),
+        ...(decisionOf(call, review) ? { decision: decisionOf(call, review) } : {}),
         state: call.state === 'approval-requested'
           ? 'awaiting-approval'
           : call.state === 'output-denied'

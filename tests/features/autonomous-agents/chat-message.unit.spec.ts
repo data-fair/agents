@@ -233,6 +233,29 @@ test.describe('approval states', () => {
     assert.equal(declined.deniedReason, 'not today')
   })
 
+  test('every reviewed or decided call carries who let it run or stopped it, for the review page', () => {
+    const review = { outcome: 'allow', reason: 'as asked', code: 'judged', exposed: false, at: '2026-11-03T00:00:00.000Z' }
+    const decision = { approved: true, userId: 'u1', userName: 'Alice', at: '2026-11-03T00:01:00.000Z' }
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        // allowed by the reviewer alone: no card, no person
+        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'set_note', state: 'output-available', input: {}, output: 'ok', approval: { id: 'ap1', approved: true, isAutomatic: true }, toolMetadata: { review } } as any,
+        // reviewed, then approved by a person
+        { type: 'dynamic-tool', toolCallId: 'b', toolName: 'delete_note', state: 'output-available', input: {}, output: 'ok', approval: { id: 'ap2', approved: true }, toolMetadata: { review, decision } } as any,
+        // neither
+        { type: 'dynamic-tool', toolCallId: 'c', toolName: 'echo', state: 'output-available', input: {}, output: 'ok' } as any
+      ]
+    } as any)
+    const [byReviewer, byPerson, plain] = chat.toolInvocations ?? []
+    assert.deepEqual(byReviewer.decision, { review })
+    assert.deepEqual(byPerson.decision, { review, person: { approved: true, userId: 'u1', userName: 'Alice', at: '2026-11-03T00:01:00.000Z' } })
+    assert.equal(plain.decision, undefined)
+    // the card's own field stays the pending card's
+    assert.equal(byReviewer.review, undefined)
+  })
+
   test('an approval cancelled by a message or by the page reads as cancelled, not as a refusal', () => {
     const denied = (id: string, reason: string) => ({ type: 'dynamic-tool', toolCallId: id, toolName: 'wipe', state: 'output-denied', input: {}, approval: { id: 'ap' + id, approved: false, reason } } as any)
     const chat = autonomousAgentMessageToChat({

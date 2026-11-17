@@ -150,6 +150,19 @@
                         v-else-if="!showTraces || !isTraced(invocation.toolName)"
                         :class="showToolDetails || scriptCalls(message, invocation).length || invocation.nested ? 'agent-chat__tool-call' : 'd-inline'"
                       >
+                        <!-- A call a person decided, read after the fact (the review page): the card they saw, with
+                             their choice where the buttons were, then the call itself. -->
+                        <approval-card
+                          v-if="showToolDetails && invocation.decision?.person"
+                          v-bind="cardOf(invocation)"
+                          :description="invocation.description"
+                          :files="invocation.files"
+                          :review="invocation.decision.review"
+                          :agent-path="agentPath"
+                          :decided="invocation.decision.person"
+                          readonly
+                          data-testid="decided-approval-card"
+                        />
                         <tool-chip
                           :invocation="invocation"
                           :label="chipLabel(invocation)"

@@ -61,6 +61,14 @@ export interface ChatMessage {
     /** Set on a gated call someone approved: its chip says so, as a denied one says it was declined. */
     approved?: true
     /**
+     * Who let the call run or stopped it, as recorded on the call: the reviewer's verdict (every reviewed call,
+     * allowed ones included) and the person's decision on its card. What the review page's Review section shows.
+     */
+    decision?: {
+      review?: NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['review']>
+      person?: { approved: boolean, userName?: string, userId?: string, at?: string }
+    }
+    /**
      * Set on a script's call paused on a call that needs the person (api/src/code-mode): that call, which its
      * approval card is about — its name, arguments, title and server, where the script's own are on its chip.
      */
