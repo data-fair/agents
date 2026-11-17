@@ -26,11 +26,19 @@
       >
         {{ t('reviewNote', { reason: review.personReason || review.reason }) }}
       </div>
+    </v-card-text>
+    <!-- The tool's description and server are written for the model, often in English, and the heading already
+         names the call by its title: one click away under « Détails », never in the person's way. With them, the
+         arguments, when a judged review's line already says what the call does. Not for a planning call or an
+         access request: their card says what they do. -->
+    <v-card-text
+      v-if="hasDetails"
+      class="py-0"
+    >
       <v-btn
-        v-if="detailsFolded"
         variant="text"
         size="small"
-        class="px-0 mt-1"
+        class="px-0"
         data-testid="approval-details-toggle"
         :append-icon="showDetails ? mdiChevronUp : mdiChevronDown"
         @click="showDetails = !showDetails"
@@ -38,10 +46,8 @@
         {{ t('details') }}
       </v-btn>
     </v-card-text>
-    <!-- Not for a planning call or an access request: the card below says what it does, and the
-         description and server are written for the model. -->
     <v-card-subtitle
-      v-if="!taskSections && !access && (clippedDescription || serverId) && (!detailsFolded || showDetails)"
+      v-if="hasDetails && showDetails"
       class="approval-card__subtitle"
     >
       <div
@@ -353,6 +359,7 @@ const reviewLine = computed(() => {
 // person approves is this exact call. Not for an access request nor a planning call: their own card is already plain.
 const detailsFolded = computed(() => !!props.review?.personReason && props.review.code === 'judged' && !access.value && !taskSections.value)
 const showDetails = ref(false)
+const hasDetails = computed(() => !taskSections.value && !access.value && (detailsFolded.value || !!clippedDescription.value || !!props.serverId))
 
 // Written for the person deciding, not for a developer: the tool's own title and description rather
 // than its name and a JSON dump.

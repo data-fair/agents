@@ -14,7 +14,7 @@ import { sessionLogFields } from '@data-fair/lib-express/req-log-context.js'
 import Debug from 'debug'
 import { parseClientMessage, isAgentSessionPath, isSupersededFrame, type ServerMessage, type ClientMessage } from '@agents/shared/agent-session-protocol'
 import { createAgentSession, holdingSender, type AgentSession } from './session.ts'
-import { attachSession, detachSession } from './registry.ts'
+import { attachSession, detachSession, isDisplaced } from './registry.ts'
 import {
   requireConversationById,
   assertOwnsConversation,
@@ -333,6 +333,15 @@ export const startAgentSessions = (server: Server) => {
       if ((parsed.type === 'prompt' || parsed.type === 'approval') && expired()) {
         send({ type: 'error', status: 401, message: 'your session expired, send again' })
         ws.close(1008, 'the session expired')
+        return
+      }
+      // Another tab took the conversation over (attachSession): this one no longer follows it, and what it
+      // sends FOR the conversation is refused until it says hello again. A prompt from it would run with
+      // the other tab's page tools and stream there, while this tab showed nothing. Tool results and page
+      // events still pass: they answer a turn this socket started, or describe its own page.
+      if ((parsed.type === 'prompt' || parsed.type === 'approval' || parsed.type === 'abort') &&
+        boundConversationId && isDisplaced(boundConversationId, agentSession)) {
+        send({ type: 'displaced', conversationId: boundConversationId })
         return
       }
       if (parsed.type === 'prompt' && !boundConversationId && agentSession.attached()) {

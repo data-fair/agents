@@ -41,6 +41,9 @@ test.describe('Approval card', () => {
     // A gated catalog call reads as plain language: its tool's description, and its (empty) arguments
     // in words rather than raw JSON.
     const card = page.getByTestId('approval-card')
+    // The description is written for the model: folded under Details, the heading naming the call.
+    await expect(card.getByTestId('approval-description')).toHaveCount(0)
+    await card.getByTestId('approval-details-toggle').click()
     await expect(card.getByTestId('approval-description')).toHaveText('Declares destructive annotations, and does nothing')
     await expect(card).toContainText('no arguments')
     expect(await card.innerText()).not.toContain('{')
