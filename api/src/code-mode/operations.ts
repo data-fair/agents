@@ -246,10 +246,11 @@ export const describeScriptTool = (packageDescription: string, opts: { reviewed?
 /**
  * Tools a script may NOT call, whatever the turn offers (spec §6.3, plan 4 decision 4): the handover ends the
  * turn; the access and planning requests ask an administrator; read_skill is guidance for the model, which in a
- * script would be data nobody reads; and code_mode itself. Names restated, not imported, to keep this module pure
+ * script would be data nobody reads; load_tools changes the model's own tool list (a script's tools follow it);
+ * and code_mode itself. Names restated, not imported, to keep this module pure
  * of the service tools' modules — a unit test pins them against the real constants.
  */
-const DIRECT_ONLY = new Set([WAIT_TOOL_NAME, 'request_web_access', 'request_mcp_access', 'plan_task', 'update_task', 'delete_task', 'read_skill', CODE_MODE_TOOL_NAME])
+const DIRECT_ONLY = new Set([WAIT_TOOL_NAME, 'request_web_access', 'request_mcp_access', 'plan_task', 'update_task', 'delete_task', 'read_skill', 'load_tools', CODE_MODE_TOOL_NAME])
 
 /**
  * A script's tool input without the keys that pollute a prototype: `__proto__`, and a `constructor` carrying a

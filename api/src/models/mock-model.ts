@@ -541,6 +541,26 @@ function processChainSeam (lastMessage: string, prompt: string | Array<any>, too
 }
 
 /**
+ * The seams of on-demand tool loading (api/src/conversations/tool-loading.ts, tests/features/conversations/tool-loading.api.spec.ts).
+ *
+ * `list tools` answers the names of the tools THIS step was offered, sorted: what a step's activeTools let through.
+ * `load and call <name> <args?>` loads the tool by exact name, then, from the next step, calls it if it was offered —
+ * or says it is not available, which is what a load that did not take looks like.
+ */
+function processToolLoadingSeams (lastMessage: string, prompt: string | Array<any>, tools: Array<any> | undefined): MockPromptResult | null {
+  const offered = (tools ?? []).map((t: any) => t?.name ?? t?.function?.name).filter((name: unknown): name is string => typeof name === 'string')
+  if (commandLine(lastMessage) === 'list tools') return { type: 'text', text: JSON.stringify([...offered].sort()) }
+  const match = commandLine(lastMessage).match(/^load and call (\w+)(.*)$/i)
+  if (!match) return null
+  const [, name, rest] = match
+  const called = getCalledToolNames(prompt)
+  if (called.has(name)) return { type: 'text', text: `loaded and called ${name}` }
+  if (!called.has('load_tools')) return { type: 'tool-call', toolName: 'load_tools', toolArgs: JSON.stringify({ names: [name] }) }
+  if (!offered.includes(name)) return { type: 'text', text: `tool ${name} is not available` }
+  return { type: 'tool-call', toolName: name, toolArgs: rest.trim() || '{}' }
+}
+
+/**
  * The mock's artificial latency, abortable.
  *
  * A bare setTimeout would make the mock the ONE provider that ignores abortSignal, so a
@@ -596,6 +616,8 @@ export function processForModel (modelId: string, options: { prompt: string | Ar
   }
   const chained = processChainSeam(lastMessage, options.prompt, options.tools)
   if (chained) return chained
+  const loading = processToolLoadingSeams(lastMessage, options.prompt, options.tools)
+  if (loading) return loading
   // Silent-drop test seams (apply to every model role): "empty" makes the model
   // return an empty completion (no text, no tool call), "stream error" makes the
   // stream fail mid-flight. Both previously ended the conversation silently.

@@ -477,7 +477,7 @@ sequenceDiagram
 
 The behaviour is exercised end to end by `tests/features/chat-mcp/3.live-tools.e2e.spec.ts` (the `_dev/chat-live-tools` page).
 
-> Every tool is offered on every step. The former opt-in **exploration mode** (progressive disclosure through `explore_tools`) belonged to the in-browser loop and is not implemented server-side — see [Tool exploration](./tool-exploration.md).
+> The set also grows by loading: above a size threshold, the MCP tools are listed in the prompt and offered only once the model loads them by name, each step's `activeTools` holding back the others, and `code_mode` is rebuilt when a load adds one — see [On-demand tool loading](./tool-loading.md).
 
 ---
 

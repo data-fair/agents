@@ -6,7 +6,7 @@
 
 import config from '#config'
 import Debug from 'debug'
-import { streamText, isStepCount, convertToModelMessages, type Tool } from 'ai'
+import { streamText, isStepCount, convertToModelMessages, NoSuchToolError, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
 import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, repeatedCallNudge, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
@@ -40,6 +40,7 @@ import { tokenCountsOf, quotaStopText } from '../usage/operations.ts'
 import type { MemoryDocument } from '../memory/operations.ts'
 import { mayBePageTool, REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
 import { createStepContext } from './step-context.ts'
+import { deferrableNames, definitionsTokens, shouldDefer, catalogEntries, createLoadTools, loadedToolNames, loadedInSteps, isHeldBack, toolOrderFor, notLoadedMessage, LOAD_TOOLS_TOOL_NAME } from './tool-loading.ts'
 import { liveRuns } from './live-runs.ts'
 import type { ServerGuide } from '../mcp-servers/guides.ts'
 import log from '@data-fair/lib-node/log.js'
@@ -104,8 +105,19 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // The page in front of the person as the turn started: its tools (below) and host events (folded into
   // the history by the target). Its tools only for an agent that works through its page (usesPageTools).
   const pageSession = usesPageTools(autonomousAgent.id) ? target.session : undefined
+  /**
+   * ON-DEMAND TOOL LOADING (./tool-loading.ts): when the turn's MCP tools weigh more than a share of the model's
+   * context window, they are listed in the prompt's catalog and offered only once loaded by name (load_tools), the
+   * others held back by each step's activeTools. Decided once, before the stream: the catalog is part of the prompt.
+   * A page tool shadowing an MCP tool is the page's, never deferred.
+   */
+  const shadowed = new Set((pageSession?.tools() ?? []).map(descriptor => descriptor.name).filter(name => mayBePageTool(name)))
+  const deferrableAll = deferrableNames(tools, toolOrigins, shadowed)
+  const deferring = deferrableAll.length > 0 && shouldDefer(await definitionsTokens(tools, deferrableAll), entry.contextWindow, config.toolDeferralPercent)
+  const deferrable: ReadonlySet<string> = new Set(deferring ? deferrableAll : [])
+  const toolCatalog = deferring ? catalogEntries(tools, deferrableAll) : undefined
   // Computed ONCE: the prompt the model gets and the prompt recorded on the run must be the same string.
-  const promptFor = () => buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides: guides?.(), timeZone: target.timeZone })
+  const promptFor = () => buildSystemPrompt(autonomousAgent, memory, target.surface, { anonymousOn, unconfirmedOn, guides: guides?.(), timeZone: target.timeZone, ...(toolCatalog ? { toolCatalog } : {}) })
   const systemPrompt = promptFor()
   // The page's skills as the prompt was built. When they change mid-turn (a tool call mounted a form), the
   // following steps get a prompt rebuilt with them; the run records the turn's first prompt.
@@ -126,6 +138,13 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         { role: 'user' as const, content: continuation.note }
       ]
     : loaded.messages
+
+  // The tools loaded so far: those the conversation loaded or called before, then this turn's loads (prepareStep).
+  // Read from the history, so the next turn, a revived conversation or an approval run offers the same set.
+  const historyLoaded = loadedToolNames(history)
+  let loadedTools: ReadonlySet<string> = historyLoaded
+  // Read live: pageNames is the page's current tools (assembleTools), which shadow a deferred MCP tool of the same name.
+  const isActive = (name: string) => !isHeldBack(name, deferrable, loadedTools, pageNames)
 
   // Every tool offered on any step of the turn, with where it came from, for its telemetry (see the run
   // schema's `toolNames` and `toolSources`).
@@ -333,6 +352,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     const pageTools = pageSession ? Object.fromEntries(Object.entries(browserToolSet(pageSession, undefined, screen)).filter(([name]) => mayBePageTool(name))) : {}
     pageNames = new Set(Object.keys(pageTools))
     const mainTools: Record<string, Tool> = { ...fixedTools, ...pageTools }
+    if (deferring) mainTools[LOAD_TOOLS_TOOL_NAME] = createLoadTools(deferrable)
     // CODE MODE (spec §6): rebuilt with the set, so a script reaches exactly what the model can reach this step —
     // page tools that appeared mid-turn included.
     // A page tool shadows a catalog tool of the same name for the model ({ ...fixedTools, ...page } above), so
@@ -340,8 +360,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     if (codeModeOfferedTo(run.triggeredByRole)) {
       const page = pageSession ? Object.fromEntries(Object.entries(rawBrowserToolSet(pageSession, undefined, { drainEvents: false })).filter(([name]) => mayBePageTool(name))) : {}
       const scriptTool = createScriptTool(codeFacingTools({
-        names: Object.keys(mainTools),
-        fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page))),
+        // Only the tools the model can call this step: a deferred tool reaches a script once loaded.
+        names: Object.keys(mainTools).filter(isActive),
+        fixed: Object.fromEntries(Object.entries(tools).filter(([name]) => !(name in page) && isActive(name))),
         page,
         callPath,
         trace: codeTrace,
@@ -362,7 +383,9 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     Object.assign(liveTools, Object.fromEntries(Object.entries(mainTools).map(([name, tool]) => [name, afterTripGate(name, tool)])))
   }
   await assembleTools()
-  let assembledFrom = pageToolNames()
+  // What the map was assembled from: the page's tool names, and the deferred tools loaded so far (code_mode follows both).
+  const assemblyKey = () => `${pageToolNames()}\n--\n${[...loadedTools].filter(name => deferrable.has(name)).sort().join('\n')}`
+  let assembledFrom = assemblyKey()
 
   /**
    * THE REVIEW GATE: the one `toolApproval` function of a configured agent's turn (api/src/approval-review/gate.ts).
@@ -525,13 +548,17 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
           toolChoice: reports ? 'auto' : 'none'
         }
       }
-      const current = pageToolNames()
+      if (deferring) loadedTools = new Set([...historyLoaded, ...loadedInSteps(options.steps)])
+      const current = assemblyKey()
       if (current !== assembledFrom) {
         assembledFrom = current
         await assembleTools()
         debug('tool set refreshed mid-turn: %d tool(s)', Object.keys(liveTools).length)
       }
+      // The active tools, in the order they are sent: a load appends to the list (toolOrderFor), it does not insert.
+      const active = deferring ? toolOrderFor(Object.keys(liveTools), deferrable, loadedTools, pageNames) : undefined
       for (const [name, offered] of Object.entries(liveTools)) {
+        if (!isActive(name)) continue
         if (!offeredTools.has(name)) offeredTools.set(name, sourceOf(name))
         if (!offeredDefinitions.has(name)) offeredDefinitions.set(name, offered as Tool)
       }
@@ -543,7 +570,13 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       }
       const guarded = loopGuardPrepareStep(options)
       noteStep(step, stepInstructions ?? systemPrompt, repeatedCallNudge(options.steps))
-      return { ...guarded, messages: stepContext(guarded.messages, step), ...(stepInstructions ? { instructions: stepInstructions } : {}) }
+      return { ...guarded, messages: stepContext(guarded.messages, step), ...(stepInstructions ? { instructions: stepInstructions } : {}), ...(active ? { activeTools: active, toolOrder: active } : {}) }
+    },
+    // A call to a listed tool not loaded yet: it is not in the step's tools, so the SDK fails it as unknown; the
+    // model reads how to load it instead of the list of every tool it has.
+    repairToolCall: async ({ toolCall, error }) => {
+      if (NoSuchToolError.isInstance(error) && isHeldBack(toolCall.toolName, deferrable, loadedTools, pageNames)) throw new Error(notLoadedMessage(toolCall.toolName))
+      return null
     },
     // No SDK `timeout`: the run's deadline (driveTurn) bounds the whole turn, stream included, and its
     // abort reaches the stream through abortSignal. The IDLE bound is ours (idleWatchdog below), not the

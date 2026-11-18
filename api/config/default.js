@@ -49,6 +49,7 @@ export default {
   // safety/efficiency tuning knob, not something an org should have to reason
   // about. See docs/architecture/compaction.md.
   compactionPercent: 70,
+  toolDeferralPercent: 10,
   // Bounds one autonomous agent turn. Global rather than per-agent: nothing has asked for
   // per-agent tuning, and the account credit cap still applies on top of this.
   //

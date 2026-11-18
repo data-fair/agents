@@ -34,6 +34,10 @@ export default {
     __name: 'COMPACTION_PERCENT',
     __format: 'json'
   },
+  toolDeferralPercent: {
+    __name: 'TOOL_DEFERRAL_PERCENT',
+    __format: 'json'
+  },
   liveTurnsPerCaller: {
     __name: 'LIVE_TURNS_PER_CALLER',
     __format: 'json'

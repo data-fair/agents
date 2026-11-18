@@ -25,8 +25,8 @@ const trace = () => createCodeTrace(t => { traces.push(t) })
 test.describe('code-facing tools', () => {
   test.beforeEach(() => { traces.length = 0 })
 
-  test('codeCallable excludes gates, handovers, admin requests, skills and itself', () => {
-    for (const name of ['wait_for_user_action', 'request_web_access', 'request_mcp_access', 'plan_task', 'update_task', 'delete_task', 'read_skill', 'code_mode']) {
+  test('codeCallable excludes gates, handovers, admin requests, skills, tool loading and itself', () => {
+    for (const name of ['wait_for_user_action', 'request_web_access', 'request_mcp_access', 'plan_task', 'update_task', 'delete_task', 'read_skill', 'load_tools', 'code_mode']) {
       assert.equal(codeCallable(name, {}), false, name)
     }
     assert.equal(codeCallable('wipe_everything', { needsApproval: true }), false)

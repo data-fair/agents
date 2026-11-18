@@ -5,7 +5,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { createMockLanguageModel, estimateMockTokens } from '../../../api/src/models/mock-model.ts'
+import { createMockLanguageModel, estimateMockTokens, processForModel } from '../../../api/src/models/mock-model.ts'
 
 test.describe('mock model token estimation (unit)', () => {
   test('estimateMockTokens approximates ~4 chars per token, rounding up', () => {
@@ -69,5 +69,27 @@ test.describe('mock model token estimation (unit)', () => {
       process.off('uncaughtException', onCrash)
     }
     assert.deepEqual(crashes.map(e => e.message), [])
+  })
+})
+
+test.describe('mock model tool-loading seams (unit)', () => {
+  const user = (text: string) => ({ role: 'user', content: [{ type: 'text', text }] })
+  const loadedResult = (names: string[]) => [
+    { role: 'assistant', content: [{ type: 'tool-call', toolCallId: 'l1', toolName: 'load_tools', input: { names } }] },
+    { role: 'tool', content: [{ type: 'tool-result', toolCallId: 'l1', toolName: 'load_tools', output: { type: 'json', value: { loaded: names } } }] }
+  ]
+
+  test('"list tools" answers the names of the tools the step was offered, sorted', () => {
+    const result = processForModel('mock-model', { prompt: [user('list tools')], tools: [{ name: 'b' }, { name: 'a' }] })
+    assert.deepEqual(result, { type: 'text', text: '["a","b"]' })
+  })
+
+  test('"load and call" loads the tool by name, then calls it once it is offered', () => {
+    const first = processForModel('mock-model', { prompt: [user('load and call echo {"value":"x"}')], tools: [{ name: 'load_tools' }] })
+    assert.deepEqual(first, { type: 'tool-call', toolName: 'load_tools', toolArgs: '{"names":["echo"]}' })
+    const offered = processForModel('mock-model', { prompt: [user('load and call echo {"value":"x"}'), ...loadedResult(['echo'])], tools: [{ name: 'load_tools' }, { name: 'echo' }] })
+    assert.deepEqual(offered, { type: 'tool-call', toolName: 'echo', toolArgs: '{"value":"x"}' })
+    const missing = processForModel('mock-model', { prompt: [user('load and call echo {"value":"x"}'), ...loadedResult(['echo'])], tools: [{ name: 'load_tools' }] })
+    assert.deepEqual(missing, { type: 'text', text: 'tool echo is not available' })
   })
 })

@@ -44,6 +44,11 @@ const withName = (key: string, name: string | undefined): BuiltinToolLabel => na
 const LABELS: Record<string, (input: unknown) => BuiltinToolLabel> = {
   read_skill: input => withName('toolReadSkill', skillName(str(input, 'uri'))),
   code_mode: () => ({ key: 'toolCodeMode' }),
+  // The names it loads, as given (docs/architecture/tool-loading.md): the catalog's exact tool names.
+  load_tools: input => {
+    const names = (input as { names?: unknown } | undefined)?.names
+    return withName('toolLoadTools', Array.isArray(names) ? names.filter(name => typeof name === 'string').join(', ') || undefined : undefined)
+  },
   memory: input => ({ key: str(input, 'command') === 'view' ? 'toolMemoryView' : 'toolMemoryEdit' }),
   fetch_url: input => withName('toolFetchUrl', host(str(input, 'url'))),
   list_site_pages: input => withName('toolListSitePages', host(str(input, 'site'))),

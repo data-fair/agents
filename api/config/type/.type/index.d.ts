@@ -7,6 +7,10 @@ export const schemaExports: string[]
  */
 export type CompactionPercent = number;
 /**
+ * Share of the assistant model's context window above which a turn's MCP tool definitions are deferred: listed in the system prompt and loaded by name with load_tools (docs/architecture/tool-loading.md). 100: never.
+ */
+export type ToolDeferralPercent = number;
+/**
  * Credits one turn may spend before it is stopped — any turn, the chat's as well as an autonomous agent's. The account credit cap still applies on top of this.
  */
 export type TurnCreditBudget = number;
@@ -165,6 +169,7 @@ export type ApiConfig = {
   get?: unknown;
   has?: unknown;
   compactionPercent: CompactionPercent;
+  toolDeferralPercent: ToolDeferralPercent;
   turnCredits: TurnCreditBudget;
   liveTurnsPerCaller: TurnsAtOncePerCaller;
   turnTimeoutSeconds: TurnTimeoutSeconds;

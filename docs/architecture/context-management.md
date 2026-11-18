@@ -342,9 +342,9 @@ sequenceDiagram
 ```
 
 `retainedToolNames` (the exact tool names a retained window still references) is still exported from the
-policy module and unit tested, but nothing calls it: it served the browser loop's tool-exploration
-bookkeeping, and tool exploration is not implemented on the server loop (see
-[tool exploration](./tool-exploration.md)).
+policy module and unit tested, but nothing calls it: it served the browser loop's `explore_tools`
+bookkeeping. On-demand tool loading reads its loaded set from the history instead
+([tool loading](./tool-loading.md)).
 
 ## Testing
 

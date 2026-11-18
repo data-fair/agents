@@ -412,6 +412,8 @@ fr:
   toolReadSkill: "Lire le guide : {name}"
   toolReadSkillAny: Lire un guide
   toolCodeMode: Exécuter un script
+  toolLoadTools: "Charger des outils : {name}"
+  toolLoadToolsAny: Charger des outils
   toolMemoryView: Consulter la mémoire
   toolMemoryEdit: Mettre à jour la mémoire
   toolFetchUrl: "Consulter {name}"
@@ -454,6 +456,8 @@ en:
   toolReadSkill: "Read guide: {name}"
   toolReadSkillAny: Read a guide
   toolCodeMode: Run a script
+  toolLoadTools: "Load tools: {name}"
+  toolLoadToolsAny: Load tools
   toolMemoryView: Read memory
   toolMemoryEdit: Update memory
   toolFetchUrl: "Fetch {name}"
