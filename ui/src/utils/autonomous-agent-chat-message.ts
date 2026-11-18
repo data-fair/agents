@@ -14,6 +14,7 @@ import type { ChatMessage, ChatMessageBlock } from './chat-message.ts'
 // Named once in shared/, for both sides of the socket. This file used to declare it, and was the only
 // place that had it right — the server used an open bag and the wire used unknown[].
 import type { MessagePart } from '@agents/shared/message-parts'
+import { splitHiddenContext } from '@agents/shared/hidden-context'
 import { PENDING_APPROVAL_SUPERSEDED, PENDING_APPROVAL_ACTED } from '@agents/shared/approval-cancel'
 
 /** A pending approval the server rejected because the person wrote or used the page instead of deciding. */
@@ -52,6 +53,17 @@ const reviewOf = (call: unknown): InvocationReview | undefined => {
   return review
 }
 
+type InvocationDecision = NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['decision']>
+/** The reviewer's verdict and the person's decision recorded on a call (conversations/service.ts decideApproval). */
+const decisionOf = (call: unknown, review: InvocationReview | undefined): InvocationDecision | undefined => {
+  const decided = (call as any).toolMetadata?.decision
+  const person = decided && typeof decided.approved === 'boolean'
+    ? { approved: decided.approved, ...(typeof decided.userName === 'string' ? { userName: decided.userName } : {}), ...(typeof decided.userId === 'string' ? { userId: decided.userId } : {}), ...(typeof decided.at === 'string' ? { at: decided.at } : {}) }
+    : undefined
+  if (!review && !person) return undefined
+  return { ...(review ? { review } : {}), ...(person ? { person } : {}) }
+}
+
 type InvocationNested = NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['nested']>
 /** The call a paused script stopped at (toolMetadata.nested, api/src/conversations/model-loop.ts), when well formed. */
 const nestedOf = (call: unknown): InvocationNested | undefined => {
@@ -65,7 +77,16 @@ const nestedOf = (call: unknown): InvocationNested | undefined => {
   }
 }
 
-export function autonomousAgentMessageToChat (message: StoredConversationMessage): ChatMessage {
+/**
+ * What the review page adds to a message from its run's record: a note at the start of a step (counted from 1, the
+ * message's step-start parts), and the label of the outcome reminder, both in the reader's language.
+ */
+export interface MessageReviewNotes {
+  stepNotes?: Record<number, Array<{ label: string, text: string }>>
+  reminderLabel?: string
+}
+
+export function autonomousAgentMessageToChat (message: StoredConversationMessage, notes: MessageReviewNotes = {}): ChatMessage {
   const parts = message.parts ?? []
   const chat: ChatMessage = {
     role: message.role,
@@ -76,6 +97,13 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
     // text part means a step or a tool call came between — joined with nothing, the sentences on
     // either side ran together ("…levels.Now let me…").
     content: parts.filter(p => p.type === 'text').map(p => p.text).join('\n\n')
+  }
+  // A user turn is STORED wrapped when an action button supplied hidden context: the person asked only the
+  // visible half, and every reader shows that; the review page shows the rest folded (hiddenContext).
+  if (message.role === 'user') {
+    const { visible, hidden } = splitHiddenContext(chat.content)
+    chat.content = visible
+    if (hidden !== undefined) chat.hiddenContext = hidden
   }
 
   // One part per tool call, carrying its own state — so a call that FAILED is readable directly, where
@@ -128,6 +156,7 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
         // The decision recorded on the call (conversations/service.ts decideApproval). Without it an approved
         // call's chip read like any other, and a judged agent could tell the person it still awaited approval.
         ...((call as any).toolMetadata?.decision?.approved === true ? { approved: true as const } : {}),
+        ...(decisionOf(call, review) ? { decision: decisionOf(call, review) } : {}),
         state: call.state === 'approval-requested'
           ? 'awaiting-approval'
           : call.state === 'output-denied'
@@ -139,8 +168,15 @@ export function autonomousAgentMessageToChat (message: StoredConversationMessage
   // The order the parts were written in, which the flat views above lose: a call made between two
   // sentences shows between them, not after the whole answer. Consecutive calls (one step's) share a row.
   const blocks: ChatMessageBlock[] = []
+  let step = 0
   for (const part of parts) {
-    if (part.type === 'text') {
+    if (part.type === 'step-start') {
+      step++
+      for (const note of notes.stepNotes?.[step] ?? []) blocks.push({ type: 'note', ...note })
+    } else if ((part as any).type === 'data-outcome-reminder' && typeof (part as any).data?.text === 'string') {
+      // A task run reminded to report: the message the model was sent, where it was sent.
+      blocks.push({ type: 'note', label: notes.reminderLabel ?? 'Reminder sent to the model', text: (part as any).data.text })
+    } else if (part.type === 'text') {
       if (part.text) blocks.push({ type: 'text', text: part.text })
     } else if (part.type === 'reasoning') {
       // A step's reasoning where it happened, in one block however many parts the provider streamed it in.

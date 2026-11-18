@@ -57,7 +57,7 @@ test.describe('Purging a conversation', () => {
     assert.ok(before.messages >= 2, 'the exchange is stored')
     assert.ok(before.runs >= 1, 'and so is its run')
 
-    await admin.delete(`/api/review/${OWNER}/${conversationId}`)
+    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
 
     assert.deepEqual(await counts(conversationId), { conversations: 0, messages: 0, runs: 0 })
   })
@@ -70,7 +70,7 @@ test.describe('Purging a conversation', () => {
     assert.equal((await counts(conversationId)).conversations, 1, 'archived, not deleted')
     assert.ok((await counts(conversationId)).messages >= 2, 'with its messages retained for review')
 
-    await admin.delete(`/api/review/${OWNER}/${conversationId}`)
+    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
     assert.deepEqual(await counts(conversationId), { conversations: 0, messages: 0, runs: 0 })
   })
 
@@ -86,7 +86,7 @@ test.describe('Purging a conversation', () => {
 
     const purged = await runTurn(user, OWNER)
     await db.collection('script-pauses').insertOne(pause(purged.conversationId))
-    await admin.delete(`/api/review/${OWNER}/${purged.conversationId}`)
+    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
     assert.equal(await pauses(purged.conversationId), 0, 'dropped by the purge')
   })
 

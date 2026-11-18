@@ -9,7 +9,8 @@ import Debug from 'debug'
 import { streamText, isStepCount, convertToModelMessages, type Tool } from 'ai'
 // 'ai' does not re-export JSONObject; @ai-sdk/provider is where the library declares it.
 import type { JSONObject } from '@ai-sdk/provider'
-import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
+import { STEP_LIMIT, repeatedCallGuard, loopGuardPrepareStep, repeatedCallNudge, STREAM_IDLE_TIMEOUT_MS, createIdleWatchdog } from './loop-guards.ts'
+import { toolDefinitionOf, saveToolDefinitions } from './tool-definitions.ts'
 import type { AutonomousAgent, ConversationRun } from '#types'
 import { withCallPath, describeFileArguments, type CallPathContext } from '../files/call-path.ts'
 import { buildSystemPrompt, modelTools, type ToolSet, usageIdentityFor, partsText, withAppendedText, type RunStopReason, type MessagePart } from './operations.ts'
@@ -114,7 +115,7 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   const identity = usageIdentityFor(autonomousAgent, run)
 
   const loaded = await target.history({ identity, budget, settings, abortSignal, agentId: autonomousAgent.id })
-  const { credits: compactionCredits, hostContext } = loaded
+  const { credits: compactionCredits, hostContext, context: historyContext } = loaded
   const continuation = ctx.continuation
   // A second pass sees the first as the model produced it, then the note: the same conversion a stored turn's
   // replay uses (data parts, such as the reminder itself, are left out of it by the SDK).
@@ -129,6 +130,22 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
   // Every tool offered on any step of the turn, with where it came from, for its telemetry (see the run
   // schema's `toolNames` and `toolSources`).
   const offeredTools = new Map<string, ToolSource>()
+  // And each one as the model was given it (description, input schema), for the run's toolDefinitionsRef: the
+  // tool as first offered, since the page's tools may be replaced between steps.
+  const offeredDefinitions = new Map<string, Tool>()
+
+  // WHAT THE MODEL READ THAT THE STORED MESSAGES DO NOT SAY, for the run's `context` (see its schema). Steps are
+  // numbered from 1; a reminder pass numbers on from its first pass's steps.
+  const stepOffset = continuation?.steps ?? 0
+  const removed: NonNullable<NonNullable<ConversationRun['context']>['removed']> =
+    (historyContext?.cleared ?? []).map(toolCallId => ({ toolCallId, step: stepOffset + 1, reason: 'cleared' as const }))
+  const stepRecords: NonNullable<NonNullable<ConversationRun['context']>['steps']> = []
+  let lastInstructions = systemPrompt
+  const noteStep = (step: number, instructions: string, injected: string | null) => {
+    const changed = instructions !== lastInstructions
+    lastInstructions = instructions
+    if (changed || injected) stepRecords.push({ step, ...(changed ? { instructions } : {}), ...(injected ? { injected } : {}) })
+  }
 
   // Credits spent so far this turn, accumulated per step so the budget can stop the loop
   // between steps rather than only reporting the overrun afterwards.
@@ -444,7 +461,12 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     idleAbort.abort(new Error(`the model stream went silent for ${STREAM_IDLE_TIMEOUT_MS / 1000}s`))
   })
   // Context between steps (./step-context.ts): composed AFTER the loop guards' rebuild, which owns `messages`.
-  const stepContext = createStepContext(budget, { imageInput: entry.imageInput })
+  const stepContext = createStepContext(budget, {
+    imageInput: entry.imageInput,
+    onRemoved: (toolCallId, reason, step) => {
+      if (!removed.some(known => known.toolCallId === toolCallId && known.reason === reason)) removed.push({ toolCallId, step, reason })
+    }
+  })
   // The step a trip leaves the model to explain it (stopWhen, prepareStep), and whether it did: when it did, its
   // own words are the turn's explanation and the fixed notice is not appended.
   let tripExplaining = false
@@ -486,16 +508,19 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
       () => (scriptPauses?.paused.size ?? 0) > 0
     ],
     prepareStep: async options => {
+      const step = stepOffset + options.stepNumber + 1
       if ((tripwire?.tripped ?? lateTripped) && !tripExplaining) {
         tripExplaining = true
         // A late verdict's result was read: the instruction says so, rather than that it was never seen.
         const late = !tripwire?.tripped
         const guarded = loopGuardPrepareStep(options)
         const reports = run.kind === 'task' && REPORT_OUTCOME_TOOL_NAME in liveTools
+        const instructions = `${stepInstructions ?? systemPrompt}\n\n${tripExplanationInstruction(run.kind === 'task' ? 'task' : 'chat', late)}`
+        noteStep(step, instructions, repeatedCallNudge(options.steps))
         return {
           ...guarded,
-          messages: stepContext(guarded.messages),
-          instructions: `${stepInstructions ?? systemPrompt}\n\n${tripExplanationInstruction(run.kind === 'task' ? 'task' : 'chat', late)}`,
+          messages: stepContext(guarded.messages, step),
+          instructions,
           activeTools: reports ? [REPORT_OUTCOME_TOOL_NAME] : [],
           toolChoice: reports ? 'auto' : 'none'
         }
@@ -506,7 +531,10 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         await assembleTools()
         debug('tool set refreshed mid-turn: %d tool(s)', Object.keys(liveTools).length)
       }
-      for (const name of Object.keys(liveTools)) if (!offeredTools.has(name)) offeredTools.set(name, sourceOf(name))
+      for (const [name, offered] of Object.entries(liveTools)) {
+        if (!offeredTools.has(name)) offeredTools.set(name, sourceOf(name))
+        if (!offeredDefinitions.has(name)) offeredDefinitions.set(name, offered as Tool)
+      }
       const skills = pageSkillsKey()
       if (skills !== promptSkills) {
         promptSkills = skills
@@ -514,7 +542,8 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
         debug('page skills changed mid-turn: prompt rebuilt')
       }
       const guarded = loopGuardPrepareStep(options)
-      return { ...guarded, messages: stepContext(guarded.messages), ...(stepInstructions ? { instructions: stepInstructions } : {}) }
+      noteStep(step, stepInstructions ?? systemPrompt, repeatedCallNudge(options.steps))
+      return { ...guarded, messages: stepContext(guarded.messages, step), ...(stepInstructions ? { instructions: stepInstructions } : {}) }
     },
     // No SDK `timeout`: the run's deadline (driveTurn) bounds the whole turn, stream included, and its
     // abort reaches the stream through abortSignal. The IDLE bound is ours (idleWatchdog below), not the
@@ -919,10 +948,27 @@ export const runModelLoop = async (ctx: ModelLoopContext): Promise<TurnResult> =
     toolSources: Object.fromEntries(offeredTools),
     hostBlockChars: hostContext.length
   })
-  // The instructions and the page's context, recorded ONCE per run rather than on every call: they do
-  // not change within a turn, and they are what a reviewer needs that the conversation does not contain.
-  setRunInputs(run.id, systemPrompt, hostContext)
-    .catch(err => log.error('could not record the run inputs', { code: 'run-inputs-record', runId: run.id, err }))
+  // The instructions, the page's context, what context management changed and the tools offered, recorded ONCE per
+  // run rather than on every call: what a reviewer needs that the conversation does not contain.
+  let toolDefinitionsRef: string | undefined
+  try {
+    const definitions = await Promise.all([...offeredDefinitions].map(([name, offered]) => toolDefinitionOf(name, offered)))
+    if (definitions.length) toolDefinitionsRef = await saveToolDefinitions(definitions)
+  } catch (err) {
+    log.error('could not record the tools offered', { code: 'run-tool-definitions-record', runId: run.id, err })
+  }
+  const recap = historyContext?.recap
+  const context = {
+    ...(recap && !continuation ? { recap } : {}),
+    ...(removed.length ? { removed } : {}),
+    ...(stepRecords.length ? { steps: stepRecords } : {})
+  }
+  setRunInputs(run.id, {
+    systemPrompt,
+    ...(hostContext ? { hostContext } : {}),
+    ...(Object.keys(context).length ? { context } : {}),
+    ...(toolDefinitionsRef ? { toolDefinitionsRef } : {})
+  }).catch(err => log.error('could not record the run inputs', { code: 'run-inputs-record', runId: run.id, err }))
   // A guard-stopped turn is a truncation, not a provider error: the model still wanted to
   // call tools when a cap cut it off. The budget is checked first because it is the reason
   // that is not otherwise visible from the finish reason.

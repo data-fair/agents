@@ -210,8 +210,11 @@ export const codeFacingTools = (opts: { names: string[], fixed: ToolSet, page: R
       // What the script receives, as the return type of its signature in code_mode's description: the package
       // renders `outputSchema` there, and a tool without one reads `Promise<unknown>` (SourcedTool.codeOutputSchema).
       ...(sourced?.codeOutputSchema ? { outputSchema: jsonSchema(sourced.codeOutputSchema) } : {}),
-      // Its own description and input when the script's tool differs from the model's (SourcedTool.codeDescription).
-      ...(sourced?.codeDescription ? { description: sourced.codeDescription } : {}),
+      // No description, unless the script's tool differs from the model's (SourcedTool.codeDescription): the package
+      // writes it as JSDoc above the signature, and the model already reads it in the tool's own definition — every
+      // tool named here is one the model has this step. Repeated, it was over half of code_mode's description.
+      description: sourced?.codeDescription,
+      title: undefined,
       ...(sourced?.codeInputSchema ? { inputSchema: jsonSchema(sourced.codeInputSchema) } : {}),
       // Whether the script pauses on this call for a person (./tool.ts): the package asks before `execute`, and not
       // for the call a resumed script stopped at. Without a person, never: the package would refuse the call.

@@ -691,6 +691,13 @@ test.describe('Autonomous agent model loop', () => {
     assert.ok(run.steps > 1, 'expected several steps before the guard fired')
     assert.ok(partsText(assistant.parts).length > 0, 'a truncated turn must still explain itself')
     assert.match(partsText(assistant.parts), /repeating the same tool call/i)
+    // The reminder the guard added to a step is not in the conversation: the run records it, and on which step.
+    const nudged = (run.context?.steps ?? []).filter((step: any) => step.injected)
+    assert.ok(nudged.length >= 1, JSON.stringify(run.context))
+    assert.match(nudged[0].injected, /same/i)
+    assert.ok(nudged[0].step > 1 && nudged[0].step <= run.steps, JSON.stringify(nudged))
+    // And the tools it was offered, described, once per distinct set.
+    assert.match(run.toolDefinitionsRef, /^tools-[0-9a-f]{32}$/)
   })
 
   test('an autonomous agent with no enrolled identity refuses with an actionable message', async () => {
@@ -1204,6 +1211,12 @@ test.describe('Autonomous agent run traces', () => {
     assert.equal(payloads.length, 8, 'every call is still recorded')
     assert.ok(payloads.every((text: string) => text.includes('bbbbbbbbbb')), 'and every payload is still whole in the store')
 
+    // What the model was sent instead is on the runs: each cleared result, by its call, and from which step.
+    const bulkIds = new Set(messages.flatMap((m: any) => (m.parts ?? []).filter((p: any) => p.toolName === 'bulk').map((p: any) => p.toolCallId)))
+    const removed = runs.flatMap((run: any) => run.context?.removed ?? [])
+    assert.ok(removed.some((entry: any) => entry.reason === 'cleared'), JSON.stringify(runs.map((run: any) => run.context)))
+    assert.ok(removed.every((entry: any) => bulkIds.has(entry.toolCallId) && entry.step >= 1), JSON.stringify(removed))
+
     // THE CROSSING, which "no compaction" alone does not prove: a conversation that never grew past the
     // budget would also leave no recap. The mock reports its input size, so the last turn's trace says
     // how much context actually reached the model — and it must be far below the stored conversation,
@@ -1272,6 +1285,18 @@ test.describe('Autonomous agent run traces', () => {
     const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conv.id}/messages`)).data.results
     const seqs = messages.map((m: any) => m.seq)
     assert.ok(seqs.includes(conversation.compaction.coversUpToSeq), 'coversUpToSeq must name a real stored message')
+
+    // The recap is on the run that wrote it, and every later run names it: what the review and the export show
+    // in place of the messages it covers.
+    const runs = (await admin.get(`/api/conversations/organization/test1/${conv.id}/runs`)).data.results
+    // the latest compaction's, since a tiny window compacts on more than one turn
+    const writer = runs.filter((run: any) => run.context?.recap?.written).pop()
+    assert.ok(writer, JSON.stringify(runs.map((run: any) => run.context)))
+    assert.equal(conversation.compaction.runId, writer.id)
+    assert.equal(writer.context.recap.summary, conversation.compaction.summary)
+    const last = runs[runs.length - 1]
+    assert.equal(last.context?.recap?.generation, conversation.compaction.generation)
+    assert.equal(last.context?.recap?.coversUpToSeq, conversation.compaction.coversUpToSeq)
 
     // THE POINT: the covered prefix is no longer sent. The turn's traced messageCount counts
     // [recap, ...tail], so it must be below the number of stored messages the conversation now holds.

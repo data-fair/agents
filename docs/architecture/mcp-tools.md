@@ -215,7 +215,7 @@ Only the descriptors cross the socket. A page tool's implementation is the page'
 
 - **Scopes.** A scope-filtered server (data-fair's mcp) lists only the tools the session's scopes allow, and data-fair enforces them on every call. For a configured agent, that is its non-human identity's maximum scopes, stored in simple-directory and granted whole by the token request (no `scope` is requested): nothing is selected or filtered here.
 
-- **Which sites.** A site-bound entry is listed on the turn's home site, and its tools take an optional `portal` naming another account site.
+- **Which sites.** A site-bound entry is listed and called on the turn's home site, and only there (see Sites below).
 - **Which servers.** A configured autonomous agent uses data-fair's built-in server and the catalog servers its admin selected. A personal assistant (`personalAgent()` in `api/src/agent-session/personal-agent.ts`) uses the servers the deployment configured for it (`PERSONAL_ASSISTANTS`, see [Configuration](./configuration.md#personal_assistants)), and none otherwise: the catalog is shared with configured agents, whose write tools must not reach it by accident. Within them it acts as the person, so their own permissions are the ceiling.
 - **Who it acts as.** Injected as `SiteCredentials` (type in `mcp-servers/operations.ts`, built in `performTurn`; see Sites below): `agentSiteCredentials` for a configured agent (its own non-human identity, a bearer token obtained and cached per site), `personSiteCredentials` for the personal assistant (the cookie from the person's socket upgrade — held per connection, never stored; it cannot be refreshed server-side, so its life is the socket's — which closes when that token expires and is reopened with a fresh cookie — and it is valid on the socket's site only). A session is only requested when some referenced entry has `auth: 'nhi-session'`, or the agent gets data-fair's built-in server (`getsPlatformServer`), which is site-bound: without it, data-fair would be called anonymously, outside the agent's scopes.
 - **Listings are cached** for `TOOL_LISTING_TTL_MS` (60s) per server and identity (for session-authenticated entries, keyed by who asks — the agent's id, or a hash of the person's session — so two identities never share a listing; not by the credential itself, which a configured agent renews every few minutes). A site-bound listing is also keyed on the scopes of the session it is listed with (`credentialScopes`, `api/src/nhi/operations.ts`): an administrator changing an identity's scopes is followed by the next token, not by the cache's lifetime. Reading them asks for the token, which the broker reuses until it nears its expiry, so a cached listing still costs no token request per turn. The same scopes are what the agent reads about its identity (`get_my_configuration`). Listing on every turn was half of an unloaded turn's time to first token. The cached value is the promise, so turns starting together share one listing; failures are not cached. Servers are listed in parallel.
@@ -230,20 +230,26 @@ The diagnostic endpoint `GET /api/autonomous-agents/:type/:id/:agentId/tools` go
 
 Every call of a catalog entry with `auth: 'nhi-session'` (a stack service) acts on one **site**, because
 credentials are per site (see [Hosts](./overview.md#hosts)). The `SiteCredentials` a turn is given
-(`mcp-servers/operations.ts`) says which: a home site, the other account sites (`portals`), and `credentialFor(site)`,
+(`mcp-servers/operations.ts`) says which: a home site, and `credentialFor(site)`,
 which yields that site's credential (`SiteCredential`: a cookie or a bearer) or nothing. `callHeaders` then sends
 the site's `x-forwarded-host` and, when there is one, its credential (`credentialHeaders`, the one place a
 credential becomes headers); without one the call is anonymous. The agent's credentials come from
 `agentSiteCredentials` (`nhi/service.ts`: a bearer token per site), the personal assistant's from
-`personSiteCredentials` (its socket's cookie, valid on its socket's site only, no portals).
+`personSiteCredentials` (its socket's cookie, valid on its socket's site only).
 A chat turn also forwards the person's IP (`x-forwarded-for`, `SiteCredentials.clientIp`, read from the
 socket's upgrade request with lib-express `reqIp`), so the stack limits them as if they called it directly; a
 planned task's run forwards none and is limited by the agent's identity (data-fair
 `docs/architecture/agent-rate-limiting.md`).
 
-When the agent has portals, each site-bound tool's input schema gains an optional `portal` argument
-(an enum of the portal hosts) unless the tool declares its own; `splitPortalArgument` removes it before
-the call. Naming a host outside the list is a tool error. When the home site is outside the account, the
+**No site argument.** Every call of a turn acts on its home site. A site-bound tool used to take an
+optional `portal` (an enum of the account's other hosts) to act on another of its sites; it was dropped
+(2026-11-18): data-fair's platform server is the back-office, whose tools answer the same on any site of
+the account — writes name portals explicitly (`publicationSites`), lookups resolve within the account — and
+the one tool that depended on the site, the published catalog of the site called from (`list_datasets`), is
+now served by the datasets server only (data-fair/mcp `DATASETS_ONLY_TOOLS`); the account's datasets on a
+given portal are `list_account_datasets` filtered on `publicationSites`. Repeated on every tool, the argument
+was about 73k characters of a 438k-character production request (135 tools, 6 portals), and grew with
+each portal. When the home site is outside the account, the
 agent's prompt says it acts anonymously there. Listings and connections are keyed per site (and listings
 per credential hash): a connection's headers are fixed when it opens, and what a server lists may depend
 on the site and on who asks. `none` and `apiKey` entries are not site-bound and keep one listing and one

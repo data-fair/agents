@@ -23,6 +23,7 @@ import { abortRun } from '../conversations/live-runs.ts'
 import { assertAcceptingTurns } from '../conversations/shutdown.ts'
 import { readWebhookKey, regenerateWebhookKey, acceptTrigger } from './webhook-triggers.ts'
 import { renderWebhookPayload, WEBHOOK_LIMITS } from './operations.ts'
+import { readToolDefinitions } from '../conversations/tool-definitions.ts'
 
 const router = Router()
 export default router
@@ -79,9 +80,9 @@ router.get('/:type/:id/:agentId/runs/:runId', async (req, res, next) => {
     // the telemetry and system prompt, as in the list.
     if (run.kind === 'task') {
       const { prompt, parts, ...runWithoutContent } = run
-      res.json({ ...runWithoutContent, messages: runAsMessages(run) })
+      res.json({ ...runWithoutContent, messages: runAsMessages(run), toolDefinitions: await readToolDefinitions([run]) })
     } else {
-      const { systemPrompt, calls, ...metadata } = run
+      const { systemPrompt, calls, context, ...metadata } = run
       res.json(metadata)
     }
   } catch (err) { next(err) }
@@ -101,7 +102,8 @@ router.get('/:type/:id/:agentId/runs/:runId/export', async (req, res, next) => {
     res.type('application/jsonl').send(buildConversationExport({
       conversation: { kind: 'task', id: run.id, taskId: run.taskId, agentId: agent.id, ...(task ? { title: task.title } : {}) },
       messages: runAsMessages(run),
-      runs: [runWithoutContent]
+      runs: [runWithoutContent],
+      toolDefinitions: await readToolDefinitions([run])
     }))
   } catch (err) { next(err) }
 })

@@ -45,7 +45,7 @@ const APPROVAL_NOTE = 'The person in this chat will see the task and approve or 
 // findings would have ended `done`, which notifies nobody (docs/architecture/planned-tasks.md): the
 // promise was kept in words only. Told this, the agent can write the prompt so findings are flagged.
 const DELIVERY_NOTE = 'Nobody watches a task run. People hear about it only through the notifications they subscribed to for the task, from its admin page: when a run is done (with your report_outcome summary, or your final answer when you reported none), needs attention, fails, or when the task is paused. A run that reports nothing-to-do notifies nobody. ' +
-  'When the person wants to hear about what a task finds, tell them to subscribe to its notifications; and for anything a person must act on, say in its prompt when to report needs-attention (for example: "if there are closures, report needs-attention with the list"). Never promise to report back in any other way.'
+  'When the person wants to hear about what a task finds, tell them to subscribe to its notifications; and for anything a person must act on, say in its prompt when to report needs-attention (for example: "if there are closures, report needs-attention saying how many and where"). Never promise to report back in any other way.'
 const REFUSAL_NOTE = 'A refusal for the schedule, the minimum interval or the task cap is final: do not retry the same input, tell the person.'
 const SCHEDULE_NOTE = 'Schedules use the rule format of data-fair processings (see the schema): monthly, weekly, daily or every-N-hours rules, each at a time in a time zone. An empty schedule is allowed for a task that should run only when something happens: an administrator then wires its trigger URL (for example to a dataset\'s update events) from the task\'s admin page, which you cannot do yourself; until then it runs only when an administrator runs it now.'
 
@@ -91,7 +91,9 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       }
     }),
     update_task: tool({
-      description: `Change one of your planned tasks: give its id and the whole new task (title, prompt, scheduling, enabled), not only what changes. ${APPROVAL_NOTE} ${DELIVERY_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
+      // The delivery, schedule and refusal notes are plan_task's, always offered beside it (the three come as one set):
+      // said twice they were 2.5k characters of every request. The approval note stays: it is about this call's result.
+      description: `Change one of your planned tasks: give its id and the whole new task (title, prompt, scheduling, enabled), not only what changes. ${APPROVAL_NOTE} What plan_task says about who hears about a run, schedules and refusals holds here too.`,
       inputSchema: jsonSchema<unknown>({
         ...taskSchema,
         required: ['taskId', ...taskSchema.required],

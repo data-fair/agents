@@ -6,7 +6,10 @@ const STORAGE_KEY = 'df-agent-chat-open'
 let singleton: AgentChatDrawerState | null = null
 
 function createAgentChatDrawer () {
-  const wasOpen = localStorage.getItem(STORAGE_KEY) === '1'
+  // Per TAB (sessionStorage), not per browser: a tab opened beside this one starts with the panel
+  // closed, rather than opening it and taking the conversation over from the tab the person was in.
+  // It still survives a reload, and a navigation within the tab.
+  const wasOpen = sessionStorage.getItem(STORAGE_KEY) === '1'
   const drawerOpen = ref(wasOpen)
   const base = createAgentChatBase(drawerOpen, STORAGE_KEY)
 

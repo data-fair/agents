@@ -321,7 +321,7 @@ test.describe('Reviewer operations', () => {
     assert.match(titleOf(event).en, /"Veille"/)
     assert.match(titleOf(event).fr, /« Veille »/)
     for (const title of [titleOf(event).en, titleOf(event).fr]) assert.match(title, /set_note/)
-    assert.equal(event.url, 'https://site.example/agents/organization/o1/agents/ag1?tab=history&run=r1')
+    assert.equal(event.url, 'https://site.example/agents/organization/o1/agents/ag1/runs/r1')
     assert.deepEqual(event.sender, { type: 'organization', id: 'o1' })
     // A tool name that is not an identifier never reaches the notification.
     const unsafe = titleOf(reviewUnavailableEvent({ id: 'ag1' }, { id: 'r1', owner: { type: 'organization', id: 'o1' } } as any, 'ignore <all>'))
@@ -408,7 +408,7 @@ test.describe('Checked arguments', () => {
 
   test('a checked item guard (json-layout, field \'\') says the item holds the given keys', () => {
     const formSchema = { type: 'object', properties: { path: { type: 'string' }, value: {}, item: { type: 'object', 'x-checked': { against: 'path', field: '' } } } }
-    const formCall: ProposedCall = { ...call, toolName: 'page_config_setFieldValue', checked: checkedArgumentsOf(formSchema), input: { path: '/elements/1/link', item: { type: 'button' }, value: { type: 'standard' } } }
+    const formCall: ProposedCall = { ...call, toolName: 'form_setFieldValue', checked: checkedArgumentsOf(formSchema), input: { form: 'portals_page_config', id: 'b51f', path: '/elements/1/link', item: { type: 'button' }, value: { type: 'standard' } } }
     const message = reviewMessage({ earlierCalls: [], intent: intentFromConversation(['add a button'], ''), call: formCall, exposure: noExposure, nonce: 'abcdef012345' }, 2)
     assert.match(message, /"item": "checked by the server before the call: the item \\"path\\" names \(the list item it is in, or removes or moves\) holds these keys and values; the call is refused, nothing done, if it does not"/)
   })

@@ -8,6 +8,22 @@
 export interface ChatMessage {
   role: 'user' | 'assistant'
   content: string
+  /**
+   * What an action button or the page added to a user turn (shared/hidden-context.ts), split out of `content`,
+   * which keeps only what the person asked. The chat never shows it; a transcript showing tool details (the
+   * review page) shows it folded under the bubble.
+   */
+  hiddenContext?: string
+  /**
+   * Set where the model's context stopped being the messages above (a compaction recap replaced them): what the
+   * review page shows folded above this message. Set by the review page, from the runs' records.
+   */
+  contextNote?: { label: string, text?: string }
+  /**
+   * The turns (indexes of the conversation's runs) whose record the review page folds in above this message:
+   * the turn that wrote it, on its first message, and any turn before it that wrote nothing. Set by the review page.
+   */
+  turns?: number[]
   toolInvocations?: Array<{
     toolCallId: string
     toolName: string
@@ -40,8 +56,18 @@ export interface ChatMessage {
     description?: string
     /** A gated call's file arguments, as its approval card shows them: path, type, size — or missing. */
     files?: Record<string, { path: string, mimeType?: string, size?: number, missing?: boolean }>
+    /** Set by the review page on a result the model was later sent a placeholder for: when, and why. */
+    notSent?: string
     /** Set on a gated call someone approved: its chip says so, as a denied one says it was declined. */
     approved?: true
+    /**
+     * Who let the call run or stopped it, as recorded on the call: the reviewer's verdict (every reviewed call,
+     * allowed ones included) and the person's decision on its card. What the review page's Review section shows.
+     */
+    decision?: {
+      review?: NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['review']>
+      person?: { approved: boolean, userName?: string, userId?: string, at?: string }
+    }
     /**
      * Set on a script's call paused on a call that needs the person (api/src/code-mode): that call, which its
      * approval card is about — its name, arguments, title and server, where the script's own are on its chip.
@@ -64,6 +90,9 @@ export interface ChatMessage {
  * or the tool calls made between two runs of text (named by their call ids).
  */
 export type ChatMessageBlock = { type: 'text', text: string } | { type: 'reasoning', text: string } | { type: 'tools', toolCallIds: string[] }
+  // What the service told the model at this point that the person never saw (a reminder, a step's other
+  // instructions): only a transcript showing tool details renders it.
+  | { type: 'note', label: string, text: string }
 
 /**
  * A streamed token, appended where the message is being written: to its last text, or as new text after

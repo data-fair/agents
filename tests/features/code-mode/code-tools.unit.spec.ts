@@ -218,17 +218,36 @@ test.describe('the trace of a script', () => {
     assert.match(description, /\{ text, files/)
   })
 
+  test('a tool\'s own description is not repeated in the script\'s signatures: the model reads it in the tool\'s definition', async () => {
+    const lookup = tool({ description: 'Look up one road closure by its id.', title: 'Lookup', inputSchema: jsonSchema({ type: 'object', properties: { id: { type: 'string' } } }), execute: async () => '' })
+    const fixed: any = { lookup: { tool: lookup, server: 'dev' }, ls: { tool: plain(async () => []), server: 'files', ...FILE_CODE_SIGNATURES.ls } }
+    const description = String(createScriptTool(codeFacingTools({ names: Object.keys(fixed), fixed, page: { page_tool: lookup }, callPath: {}, trace: trace() })).description)
+    assert.match(description, /lookup: \(input: \{[^}]*id\?: string/)
+    assert.doesNotMatch(description, /Look up one road closure|Lookup/)
+    assert.match(description, /\/\*\* List your files/, 'a script-specific description stays')
+  })
+
   test('an MCP tool that declares no output schema reads as what the call path can return, files included', async () => {
     const declared = { type: 'object', properties: { count: { type: 'number' } } }
     assert.equal(codeOutputSchemaFor(declared), declared)
     const fixed: any = { export_closures: { tool: plain(async () => ''), server: 'dev', codeOutputSchema: codeOutputSchemaFor(undefined) } }
     const description = String(createScriptTool(codeFacingTools({ names: ['export_closures'], fixed, page: {}, callPath: {}, trace: trace() })).description)
-    const signature = description.slice(description.indexOf('export_closures:'))
-    assert.match(signature, /=> Promise<string \|/)
-    assert.match(signature, /text: string/)
-    assert.match(signature, /files: \{[^}]*file_path: string[^}]*sha256: string[^}]*\}\[\]/)
-    assert.match(signature, /Record<string, unknown>/)
+    assert.match(description, /export_closures: \(input: \{[^}]*\}\) => Promise<ToolResult>;/)
+    // Named once, declared in the tools' own block, not written out in every signature.
+    const alias = description.slice(description.indexOf('type ToolResult = '), description.indexOf('declare const tools'))
+    assert.match(alias, /^type ToolResult = string \|/)
+    assert.match(alias, /text: string/)
+    assert.match(alias, /files: \{[^}]*file_path: string[^}]*sha256: string[^}]*\}\[\]/)
+    assert.match(alias, /Record<string, unknown>;\n$/)
     assert.match(description, /`text` only describes the files/)
+  })
+
+  test('the shared return type is declared once however many tools return it', async () => {
+    const fixed: any = Object.fromEntries(['a', 'b', 'c'].map(name => [name, { tool: plain(async () => ''), server: 'dev', codeOutputSchema: codeOutputSchemaFor(undefined) }]))
+    const description = String(createScriptTool(codeFacingTools({ names: Object.keys(fixed), fixed, page: {}, callPath: {}, trace: trace() })).description)
+    assert.equal(description.match(/Promise<ToolResult>/g)?.length, 3)
+    assert.equal(description.match(/Record<string, unknown>/g)?.length, 1)
+    assert.equal(description.match(/type ToolResult =/g)?.length, 1)
   })
 
   test('a reviewed nested call is judged first; every call that ran is noted; no gate refuses it', async () => {

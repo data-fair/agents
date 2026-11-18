@@ -318,7 +318,7 @@ test.describe('A turn over the agent session', () => {
     assert.equal(kinds[kinds.length - 1], null, `the answer's text clears the label, got ${JSON.stringify(kinds)}`)
   })
 
-  test('a second connection takes the conversation over, and the first is told', async () => {
+  test('a second connection takes the conversation over, the first is told and may take it back', async () => {
     // A reload, a second tab, a reconnect — all look the same, and the newest connection is the one the
     // person is looking at. The displaced tab is told rather than silently going deaf.
     const conversationId = await personalConversation()
@@ -329,11 +329,28 @@ test.describe('A turn over the agent session', () => {
     const second = await open(await cookieOf(orgAdmin))
     second.send({ type: 'hello', conversationId, tools: [] })
 
-    // Past whatever the attach sent (the history, the conversation's cost): the next ERROR is the one.
-    let displaced = await first.next()
-    while (displaced.type !== 'error') displaced = await first.next()
-    assert.match(displaced.message, /opened somewhere else/)
-    assert.equal(displaced.status, 409)
+    // Past whatever the attach sent (the history, the conversation's cost): the displaced frame.
+    const untilDisplaced = async (session: typeof first) => {
+      let frame = await session.next()
+      while (frame.type !== 'displaced') frame = await session.next()
+      return frame
+    }
+    assert.deepEqual(await untilDisplaced(first), { type: 'displaced', conversationId })
+
+    // What the displaced tab sends FOR the conversation is refused: it would run with the other tab's
+    // page tools and stream there. Nothing is stored.
+    first.send({ type: 'prompt', content: 'hello' })
+    assert.deepEqual(await first.next(), { type: 'displaced', conversationId })
+    const stored = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    // The fixture's own first turn only.
+    assert.equal(stored.filter((m: any) => m.role === 'user').length, 1, 'the refused prompt was not stored')
+
+    // "Continue here": a hello on the same conversation takes it back, and the other tab is told.
+    first.send({ type: 'hello', conversationId, tools: [] })
+    let attached = await first.next()
+    while (attached.type !== 'attached') attached = await first.next()
+    assert.equal(attached.conversationId, conversationId)
+    assert.deepEqual(await untilDisplaced(second), { type: 'displaced', conversationId })
   })
 
   test('an error frame carries the status of its refusal', async () => {

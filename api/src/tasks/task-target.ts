@@ -17,6 +17,7 @@ import { livePartsOf } from '../conversations/live-runs.ts'
 import type { TurnTarget } from '../conversations/turn-target.ts'
 import type { TaskOutcome } from '../conversations/service-tools.ts'
 import { afterTaskRun } from './follow-up.ts'
+import { taskTurnText } from './run-messages.ts'
 import { intentFromTask } from '../approval-review/operations.ts'
 import log from '@data-fair/lib-node/log.js'
 
@@ -61,7 +62,7 @@ export const taskTarget = (run: ConversationRun, task: AutonomousAgentTask): Tur
     // an admin set up first.
     timeZone: task.scheduling[0]?.timeZone,
     history: async () => ({
-      messages: [{ role: 'user', content: `Planned task "${task.title}":\n\n${run.prompt}` }],
+      messages: [{ role: 'user', content: taskTurnText({ prompt: run.prompt, taskTitle: run.taskTitle ?? task.title }) }],
       credits: 0,
       hostContext: ''
     }),

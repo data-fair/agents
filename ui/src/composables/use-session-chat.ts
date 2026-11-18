@@ -24,7 +24,6 @@ import { ref, shallowRef, computed, watch, onScopeDispose, readonly, type Ref } 
 import type { Tool } from 'ai'
 import type { ChatActivity } from '@agents/shared/agent-activity'
 import type { PageSkillDescriptor } from '@agents/shared/agent-session-protocol'
-import { splitHiddenContext } from '@agents/shared/hidden-context'
 import { PORTAL_ASSISTANT_ID, usesPageTools } from '@agents/shared/agent-audit'
 import Debug from 'debug'
 import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
@@ -53,9 +52,9 @@ export interface UseSessionChatOptions {
    * list shows, so two threads of the same agent are distinguishable. */
   title?: string
   /**
-   * Opening resumes the person's latest conversation WHATEVER its agent, and the chat switches to that
-   * agent: the back office when its host named none, where a picker lets the person move between agents.
-   * Otherwise opening resumes the latest conversation of `agentId` only.
+   * Opening resumes the tab's conversation WHATEVER its agent, and the chat switches to that agent: the
+   * back office when its host named none, where a picker lets the person move between agents. Otherwise
+   * opening resumes the tab's conversation only when it is with `agentId`.
    */
   resumeAnyAgent?: boolean
   /**
@@ -96,6 +95,12 @@ export function useSessionChat (options: UseSessionChatOptions) {
    * fix that, so the chat offers no composer. A failed TURN is not this — its error says to send again.
    */
   const blocked = ref(false)
+  /**
+   * Another tab opened this conversation and follows it now: nothing more of it arrives here, and the
+   * server refuses what this tab sends for it. The chat says so and offers `continueHere` in place of
+   * the composer.
+   */
+  const displaced = ref(false)
   const tools = ref<Record<string, Tool>>({})
   const toolsVersion = ref(0)
   // The page's skills, discovered with its tools: refreshed by the same callback.
@@ -174,6 +179,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
      */
     onAttached: id => {
       conversationId.value = id
+      displaced.value = false
       if (status.value === 'error') {
         status.value = 'ready'
         error.value = null
@@ -217,16 +223,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
         parts: frame.parts,
         pending: frame.pending
       })
-      // A user turn is STORED wrapped when an action button supplied hidden context. The person must
-      // see what they asked, not the context the page added on their behalf.
+      // A user turn's hidden context is split out by the mapper: the person sees what they asked.
       // A refusal is stored as English text plus a structured part; the chat says it in its own
       // language when it can.
       const refusal = frame.parts.find((part: any) => part?.type === 'data-refusal') as { data?: RefusalInfo } | undefined
       const localized = refusal?.data ? options.formatRefusal?.(refusal.data) : undefined
-      turn.message = frame.role === 'user'
-        ? { ...chat, content: splitHiddenContext(chat.content).visible }
-        // the localized text replaces the stored one: no blocks, which would still show the English
-        : localized ? { ...chat, content: localized, blocks: undefined } : chat
+      // the localized text replaces the stored one: no blocks, which would still show the English
+      turn.message = frame.role !== 'user' && localized ? { ...chat, content: localized, blocks: undefined } : chat
     },
 
     onTrace: frame => {
@@ -264,9 +267,24 @@ export function useSessionChat (options: UseSessionChatOptions) {
     },
 
     onError: (message, blocking) => {
+      // The conversation this tab remembered could not be reopened (deleted meanwhile, a grant revoked):
+      // a fresh one, as in a new tab, rather than a chat blocked on a thread the person did not ask for.
+      if (blocking && restoring) {
+        restoring = false
+        forgetTabConversation()
+        newConversation().catch(() => {})
+        return
+      }
       status.value = 'error'
       if (blocking) blocked.value = true
       error.value = message
+    },
+
+    onDisplaced: () => {
+      displaced.value = true
+      // Whatever this tab was showing as in progress goes on in the other one.
+      status.value = 'ready'
+      error.value = null
     },
 
     // No turn-end will come on a closed socket: a turn left streaming would show Stop forever. Idle,
@@ -307,26 +325,42 @@ export function useSessionChat (options: UseSessionChatOptions) {
   }
 
   /**
-   * The conversation of an agent with the latest activity.
+   * The conversation this TAB is in, kept in its sessionStorage.
    *
-   * Opening the chat of an agent resumes this instead of forcing a new thread: a person coming back
-   * to the assistant expects the thread they were in the middle of, not another one.
+   * A reload or a navigation within the tab resumes it, so moving between pages keeps the thread. A new
+   * tab has none and starts a new conversation (nothing is created until its first message), as a new
+   * tab of ChatGPT or Claude.ai does; the earlier ones are in the history. Resuming the person's latest
+   * conversation in every tab instead made a ctrl-clicked tab take over the conversation of the tab the
+   * person was in, which only one tab may follow (the server's registry: it runs on one page's tools).
    *
-   * Best-effort on purpose: an unknown agent or a revoked grant must surface from the socket's answer
-   * to the hello, with the server's own sentence, not from this lookup.
+   * Never for an anonymous visitor: their thread lives as long as its socket.
    */
-  const findLatestConversation = async (agentId: string | undefined): Promise<{ id: string, agentId: string } | undefined> => {
+  const tabConversationKey = `df-agents-conversation:${options.accountType}:${options.accountId}`
+  const readTabConversation = (): { id: string, agentId: string } | undefined => {
     if (options.anonymous) return undefined
     try {
-      // Without an agent, the history route answers across every agent the person may use.
-      const res = await $fetch<{ results: Array<{ id: string, agentId: string }> }>(
-        `${$apiPath}/conversations/${options.accountType}/${options.accountId}?${agentId ? `agentId=${encodeURIComponent(agentId)}&` : ''}size=1`
-      )
-      return res.results?.[0]
+      const stored = JSON.parse(sessionStorage.getItem(tabConversationKey) ?? 'null')
+      return typeof stored?.id === 'string' && typeof stored?.agentId === 'string' ? stored : undefined
     } catch {
       return undefined
     }
   }
+  const forgetTabConversation = () => {
+    try { sessionStorage.removeItem(tabConversationKey) } catch {}
+  }
+  watch(conversationId, id => {
+    if (options.anonymous) return
+    try {
+      if (id) sessionStorage.setItem(tabConversationKey, JSON.stringify({ id, agentId: activeAgentId.value }))
+      else sessionStorage.removeItem(tabConversationKey)
+    } catch {}
+  })
+  /**
+   * The start is reopening the tab's conversation, and a refusal of that hello falls back to a new one.
+   * Not cleared by `attached`: the server sends it BEFORE its refusal (session.ts, bind). Cleared by
+   * whatever the person does next, which a later refusal is then about.
+   */
+  let restoring = false
 
   /**
    * Drop the local transcript before the socket is rebound.
@@ -337,7 +371,16 @@ export function useSessionChat (options: UseSessionChatOptions) {
    *
    * It unbinds the conversation too, so nothing shows as open until the socket says what it is bound to.
    */
+  /**
+   * Whether the person chose the conversation on screen in this chat — picked its agent, opened it
+   * from the history, or wrote in it — rather than the chat landing on it by itself (the start
+   * resumes the tab's conversation, even in a drawer nobody has opened yet).
+   */
+  let chosen = false
+
   const clearThread = () => {
+    chosen = false
+    restoring = false
     agent.abort()
     conversationId.value = undefined
     turns.value = []
@@ -376,6 +419,18 @@ export function useSessionChat (options: UseSessionChatOptions) {
     activeAgentId.value = agentId
     conversationId.value = id
     agent.reset({ conversationId: id })
+    chosen = true
+  }
+
+  /**
+   * Take back a conversation another tab opened (see `displaced`): a hello on the same thread, whose
+   * replay brings this transcript up to date by `seq`. Not clearThread: its Stop would end the turn the
+   * other tab may be following.
+   */
+  const continueHere = () => {
+    if (!conversationId.value) return
+    error.value = null
+    agent.reset({ conversationId: conversationId.value })
   }
 
   /**
@@ -392,6 +447,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
   const switchAgent = async (agentId: string) => {
     if (agentId === activeAgentId.value) return
     await newConversation(agentId)
+    chosen = true
   }
 
   /** Select the next conversation's agent: what the picker lands on when the agent the chat was opened
@@ -432,12 +488,13 @@ export function useSessionChat (options: UseSessionChatOptions) {
     aggregator.start()
     // A visitor's thread is created only for a browser that proves itself with an action token.
     if (options.anonymous) await refreshAnonymousToken()
-    // Opening the chat of an agent resumes the thread this person was in the middle of, if any.
-    const latest = await findLatestConversation(options.resumeAnyAgent ? undefined : activeAgentId.value)
-    if (latest) {
-      activeAgentId.value = latest.agentId
-      conversationId.value = latest.id
-      agent.connect({ conversationId: latest.id })
+    // The tab's own conversation, if it has one with this chat's agent (see readTabConversation).
+    const resumed = readTabConversation()
+    if (resumed && (options.resumeAnyAgent || resumed.agentId === activeAgentId.value)) {
+      activeAgentId.value = resumed.agentId
+      conversationId.value = resumed.id
+      restoring = true
+      agent.connect({ conversationId: resumed.id })
     } else {
       agent.connect({ agentId: activeAgentId.value })
     }
@@ -457,6 +514,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
    */
   const sendMessage = (content: string, sendOptions?: { hiddenContext?: string }) => {
     if (!content.trim()) return
+    chosen = true
+    restoring = false
     error.value = null
     status.value = 'streaming'
     // The user turn is NOT added locally. The server stores it and sends it back as a `message`
@@ -475,6 +534,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     status,
     error,
     blocked,
+    displaced,
     activity: agent.activity as Ref<ChatActivity | null>,
     isWaitingForUser: agent.isWaitingForUser,
     tools,
@@ -489,12 +549,27 @@ export function useSessionChat (options: UseSessionChatOptions) {
 
     sendMessage,
 
+    /** The assistant an action button addresses: the agent the chat was opened with, when it takes page tools. */
+    assistantId,
+
+    /**
+     * Whether an action button's prompt would leave a conversation the person chose: one with another
+     * agent than the assistant. One the chat only resumed by itself is left without asking. Waits for
+     * the start, which may resume such a conversation.
+     */
+    async actionLeavesConversation () {
+      if (!assistantId) return false
+      await started
+      return chosen && activeAgentId.value !== assistantId
+    },
+
     /**
      * Send an action button's prompt. A button asks the page's ASSISTANT — its hidden context names the
      * page's WebMCP tools, which only an assistant is offered (usesPageTools) — so a chat whose open
      * conversation is with a configured agent (resumed from the history, or picked) leaves it for a new
      * one with the assistant it was opened with, rather than handing the page's request to an
-     * autonomous agent. A chat opened on a configured agent takes no action at all.
+     * autonomous agent. A chat opened on a configured agent takes no action at all. Whether that move
+     * is asked first is the component's call (actionLeavesConversation).
      *
      * Waits for the start: until then the chat may still resume a configured agent's conversation, and
      * a prompt queued before it would land there.
@@ -502,6 +577,8 @@ export function useSessionChat (options: UseSessionChatOptions) {
     async sendActionPrompt (content: string, hiddenContext: string) {
       if (!assistantId) return
       await started
+      // The person acted on THIS page: the conversation comes back to this tab, whose tools the turn needs.
+      if (displaced.value) continueHere()
       if (activeAgentId.value !== assistantId) await newConversation(assistantId)
       sendMessage(content, { hiddenContext })
     },
@@ -518,6 +595,9 @@ export function useSessionChat (options: UseSessionChatOptions) {
       agent.abort({ dismissWait: true })
       status.value = 'ready'
     },
+
+    /** Take the conversation back from the tab that opened it: this tab follows it again. */
+    continueHere,
 
     /** Start a fresh thread with the current agent: the socket is rebound, and the next message creates it. */
     reset () {

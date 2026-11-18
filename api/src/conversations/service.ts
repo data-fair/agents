@@ -12,6 +12,7 @@ import { type AccountKeys, httpError } from '@data-fair/lib-express'
 import { expiredArchiveFilter } from '../retention.ts'
 import Debug from 'debug'
 import type { AutonomousAgent, Conversation, ConversationRun } from '#types'
+import { mergeRunInputs, type RunInputs } from './operations.ts'
 // The stored shape, whose `parts` carry the library's own part type (see mongo.ts).
 import type { StoredMessage } from '#mongo'
 import type { MessagePart } from '@agents/shared/message-parts'
@@ -681,11 +682,9 @@ export const appendRunCall = async (id: string, call: NonNullable<ConversationRu
   await mongo.runs.updateOne({ id }, { $push: { calls: call } })
 }
 
-/** The instructions this run gave the model and the page context folded into its last user message, recorded once. */
-export const setRunInputs = async (id: string, systemPrompt: string, hostContext: string) => {
-  const inputs = { systemPrompt, ...(hostContext ? { hostContext } : {}) }
+export const setRunInputs = async (id: string, inputs: RunInputs) => {
   const buffer = runBuffers.get(id)
-  if (buffer) { buffer.inputs = inputs; return }
+  if (buffer) { buffer.inputs = mergeRunInputs(buffer.inputs, inputs); return }
   await mongo.runs.updateOne({ id }, { $set: inputs })
 }
 
@@ -710,7 +709,7 @@ export const incrementRunSpend = async (id: string, credits: number, steps: numb
  * deadline, still spending) writes directly. The price: a process dying mid-turn loses that turn's
  * telemetry. Its spend is not lost — the usage ledger is written per call, separately.
  */
-interface RunBuffer { calls: NonNullable<ConversationRun['calls']>, credits: number, steps: number, inputs?: { systemPrompt: string, hostContext?: string } }
+interface RunBuffer { calls: NonNullable<ConversationRun['calls']>, credits: number, steps: number, inputs?: RunInputs }
 const runBuffers = new Map<string, RunBuffer>()
 
 export const bufferRunWrites = (runId: string) => {
@@ -810,7 +809,7 @@ export const finishRun = async (
  */
 export const saveCompaction = async (
   conversationId: string,
-  compaction: { summary: string, generation: number, coversUpToSeq: number }
+  compaction: { summary: string, generation: number, coversUpToSeq: number, runId: string }
 ) => {
   await mongo.conversations.updateOne(
     { id: conversationId },

@@ -82,21 +82,26 @@ always reviewable (`assertMayReview` no longer refuses).
 | Route | What it does |
 | --- | --- |
 | `GET /api/review/:type/:id` | paginated, newest-first list of audited threads plus, with `reviewPersonalAssistant`, consented personal-assistant threads inside the window, each with a real preview of the first user message |
-| `GET /api/review/:type/:id/:conversationId` | one thread: `{ conversation, messages, runs }` |
+| `GET /api/review/:type/:id/:conversationId` | one thread: `{ conversation, messages, runs, toolDefinitions, agentTitle }` |
 | `GET /api/review/:type/:id/:conversationId/export` | the same, as a JSONL file — **superadmin (admin mode) only** |
 | `GET /api/review/conversation/:conversationId` | resolve which account a thread lives in, for a link that does not carry it |
-| `DELETE /api/review/:type/:id/:conversationId` | purge one thread and everything hanging off it |
 | `DELETE /api/review/:type/:id?userId=…` | per-user erasure; `userId` is required so it cannot silently erase the account |
 
 A personal-assistant thread that exists but was not consented to answers **404, not 403**: an admin has no business
 learning which of their members declined.
+
+There is **no deleting one thread**. Review is the organization's record of what its agents did and were
+asked; an admin able to remove threads one at a time could remove exactly the one that mattered. Threads
+leave by retention, with their agent, or by a person's GDPR erasure — the one instruction that outranks the
+record, logged as `agents.review.erase`. The list and the page name the agent by its title (a personal
+assistant's built-in name, a configured agent's title; a deleted agent's id stands).
 
 `GET /review/conversation/:id` is declared **before** `/:type/:id` and that is load-bearing — two
 segments, so the param route would otherwise match it with `type: 'conversation'`.
 
 ## Viewing
 
-- **Activity page** (`/:type/:id`) — the paginated list, with per-row delete and per-user erase.
+- **Activity page** (`/:type/:id`) — the paginated list: preview, person, date and agent.
 - **Review page** (`/:type/:id/review/:convId`, and a superadmin variant under `admin/`) —
   `ui/src/components/ConversationReview.vue`. It renders the thread through
   `AgentChatMessages`, the **same** renderer the chat uses, so a reviewer sees what the person saw
@@ -107,11 +112,18 @@ segments, so the param route would otherwise match it with `type: 'conversation'
   the agent did; a reviewer reads what it fetched. An account admin sees this as a superadmin does —
   the review route always returned it, and the export's tighter gate is about its purpose, not its
   content.
-  Above it, run telemetry chips (turns, model calls, credits, models used) and a detail toggle
-  showing what each run recorded, turn by turn: status and stop reason, trigger and who triggered
+  Above it, run telemetry chips (turns, model calls, credits, models used) and who the thread was
+  between (agent, person, start). Each turn's record is folded INTO the thread, above the first message
+  the turn wrote (a turn that wrote none, with the next that did), one summary line unfolding into what
+  the run recorded, its long parts folded again: status and stop reason, trigger and who triggered
   it, every field of every model call, and the system prompt, page context and offered tools — each
   said to be unchanged rather than repeated when it is the previous turn's. Nothing is shown that is
   not stored: tool descriptions, per-step telemetry and per-tool durations are not recorded.
+  Each call a reviewer judged or a person decided has a **Review** section between its input and output:
+  the reviewer's verdict and reason (allowed alone, at its first screening or judged; refused; unsure; or
+  not reviewed and why), then who approved or declined it and when. A call a person decided also shows
+  the approval card they saw, read-only, their choice where the buttons were. Both are read from what the
+  call records (`toolMetadata.review`, `toolMetadata.decision`), which the export carries too.
 
 This replaced about a thousand lines of reconstruction — `reconstruct-trace.ts`,
 `session-recorder.ts` and a bespoke `TraceView` — all of which existed because the conversation was

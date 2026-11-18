@@ -34,7 +34,12 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
 - Input `{ js }`, the package's own. JavaScript; TypeScript syntax is stripped, not checked. Top-level
   `await` and `return`.
 - The description is the package's: the TypeScript signatures of every callable tool, generated from its
-  input schema, with its output schema as the return type (`Promise<unknown>` without one). The output schema
+  input schema, with its output schema as the return type (`Promise<unknown>` without one). **Without the tools'
+  own descriptions** (`codeFacingTools`): the package writes each as JSDoc above its signature, and every tool a
+  script can call is one the model has in the same step, its description in its own definition. Repeated, they
+  were 56% of the code_mode description, a quarter of a whole request on a production autonomous agent (2026-11-18:
+  109k of 438k characters, 141 tools, resent every step). Only a script-specific description stays
+  (`codeDescription`, below). The output schema
   is the code-facing tool's only (`SourcedTool.codeOutputSchema`, set in `codeFacingTools`; the model's tools
   are unchanged): the file tools declare a whole signature of their own (`FILE_CODE_SIGNATURES`, also
   `SourcedTool.codeDescription` and `codeInputSchema`: `read_file` takes a path and returns the whole text, with no
@@ -47,7 +52,12 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
   | Record<string, unknown>>`. With `unknown` there, a script twice took a link tool's one-line text for the
   file's content and imported it (the code-mode simulation, 2026-10-13 and 2026-10-14): a model that cannot see the
   shape writes code that guesses keys. A union a script can branch on is truthful where an exact type is not
-  knowable; an exact one would need data-fair's MCP to mark its file tools in the listing. We also drop the
+  knowable; an exact one would need data-fair's MCP to mark its file tools in the listing. That union is
+  **named once**, `type ToolResult = …` at the top of the tools' block, and each such signature returns
+  `Promise<ToolResult>` (`nameToolResultType`): the package writes every return type inline, and it was the same
+  union 135 times on a production autonomous agent (26k characters). The package cannot emit a name, so
+  `./tool.ts` renders the union with the package itself (a probe tool) and replaces that exact text; a rendering
+  that changes leaves the package's description as it was. We also drop the
   package's "Tool call examples" block and append a short paragraph of ours (`describeScriptTool`): console
   output, failures as exceptions, **the conventions of what a tool returns** (an MCP tool its structured result
   as an object when it has one, otherwise its text as a string to `JSON.parse`; a result carrying files
@@ -336,7 +346,7 @@ id `<outer>:tool-<n>`:
   late frame would replace the finished trace in the chat with an empty pending one;
 - left out of replay — the point: the model never sees intermediate results;
 - shown where it is read: the chat shows the script as a tool chip like any call; the review page and the task
-  run view (`AgentChatMessages` with `show-traces`, from `ConversationReview.vue` and `TaskRunView.vue`) show an
+  run view (`AgentChatMessages` with `show-traces`, from `ConversationReview.vue`, for conversations and task runs alike) show an
   expandable panel under the call, titled "Script", collapsed by default, listing the nested calls.
 
 Nested calls are not entries of the run's `calls` telemetry, which records model calls.

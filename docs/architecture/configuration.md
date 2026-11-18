@@ -185,7 +185,7 @@ Boot validation (`assertGlobalMcpConfig`) rejects:
 - the id `data-fair`, reserved for the built-in server below.
 
 A site-bound (`nhi-session`) entry is called on the home site — as the agent when it has a session there,
-anonymously otherwise — and on the account's portals through the `portal` argument.
+anonymously otherwise. Its tools take no site argument (see [MCP tools](./mcp-tools.md#sites)).
 
 data-fair's MCP is **not** a catalog entry: it is built in (`PRIVATE_MCP_URL`, below).
 

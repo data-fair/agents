@@ -17,21 +17,14 @@
         v-for="row in rows"
         :key="row.conversationId"
         :to="`${base}/review/${row.conversationId}`"
+        data-testid="review-row"
       >
         <v-list-item-title class="text-body-2">
           {{ row.preview || row.conversationId }}
         </v-list-item-title>
         <v-list-item-subtitle class="text-caption">
-          {{ row.userName || row.userId || '—' }} · {{ formatDate(row.lastMessageAt || row.startedAt) }} · {{ row.agentId }}
+          {{ rowLine(row) }}
         </v-list-item-subtitle>
-        <template #append>
-          <v-btn
-            :icon="mdiDelete"
-            size="small"
-            variant="text"
-            @click.prevent="deleteConversation(row.conversationId)"
-          />
-        </template>
       </v-list-item>
     </v-list>
     <v-pagination
@@ -57,10 +50,10 @@ en:
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
-import { mdiDelete } from '@mdi/js'
 import { $apiPath } from '~/context'
 
-const props = defineProps<{ accountType: string, accountId: string, base: string }>()
+// `agentId`: one agent's conversations only, on that agent's page (where naming the agent on each row is noise).
+const props = defineProps<{ accountType: string, accountId: string, base: string, agentId?: string }>()
 const { t } = useI18n()
 const { dayjs } = useLocaleDayjs()
 const SIZE = 20
@@ -71,12 +64,14 @@ const pageCount = ref(1)
 const loadError = ref('')
 
 const formatDate = (iso: string) => dayjs(iso).format('lll')
+const rowLine = (row: any) => [row.userName || row.userId || '—', formatDate(row.lastMessageAt || row.startedAt), ...(props.agentId ? [] : [row.agentTitle ?? row.agentId])].join(' · ')
 
 const apiBase = computed(() => `${$apiPath}/review/${props.accountType}/${props.accountId}`)
 
 const fetchRows = async () => {
   try {
-    const res = await fetch(`${apiBase.value}?page=${page.value}&size=${SIZE}`, { credentials: 'include' })
+    const query = new URLSearchParams({ page: String(page.value), size: String(SIZE), ...(props.agentId ? { agentId: props.agentId } : {}) })
+    const res = await fetch(`${apiBase.value}?${query}`, { credentials: 'include' })
     if (!res.ok) { loadError.value = t('loadError'); return }
     const body = await res.json()
     rows.value = body.results
@@ -84,15 +79,7 @@ const fetchRows = async () => {
   } catch { loadError.value = t('loadError') }
 }
 
-const deleteConversation = async (conversationId: string) => {
-  try {
-    const res = await fetch(`${apiBase.value}/${conversationId}`, { method: 'DELETE', credentials: 'include' })
-    if (!res.ok) { loadError.value = t('loadError'); return }
-  } catch { loadError.value = t('loadError'); return }
-  await fetchRows()
-}
-
 // Refetch on mount and whenever the account changes (the section is reused
 // across org switches in the admin settings view), resetting pagination.
-watch(apiBase, () => { page.value = 1; fetchRows() }, { immediate: true })
+watch([apiBase, () => props.agentId], () => { page.value = 1; fetchRows() }, { immediate: true })
 </script>

@@ -24,15 +24,23 @@ test.describe('Audited chat notice', () => {
       instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
     })).data
     await admin.put(`/api/memory/organization/test1/${agent.id}/document`, { description: 'Core facts', content: '- the sales dataset is "ventes"' }, { params: { path: 'MEMORY.md' } })
+    await admin.put(`/api/memory/organization/test1/${agent.id}/document`, { description: 'Notes', content: '<img src="https://images.example.com/x.png" onerror="window.__memoryXss = 1"> plain' }, { params: { path: 'notes.md' } })
     await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
     await expect(page.getByTestId('agent-chat-audited-notice')).toContainText('not private', { timeout: 20000 })
     await page.getByTestId('agent-chat-audited-details').click()
     await expect(page.getByText('other people it talks with')).toBeVisible()
     await page.getByTestId('agent-chat-memory').click()
     await page.getByTestId('memory-document-MEMORY.md').click()
-    const content = page.getByTestId('memory-content').locator('textarea:not([aria-hidden="true"])')
-    await expect(content).toHaveValue('- the sales dataset is "ventes"')
-    await expect(content).not.toBeEditable()
+    // read-only: the text is rendered, with no editor
+    const content = page.getByTestId('memory-content')
+    await expect(content.locator('li')).toHaveText('the sales dataset is "ventes"')
+    await expect(content.locator('.CodeMirror, textarea')).toHaveCount(0)
+    // rendered sanitized: memory text can come from tool output
+    await page.getByTestId('memory-document-notes.md').click()
+    await expect(content).toContainText('plain')
+    await expect(content.locator('img')).toHaveCount(0) // another site's image becomes a link
+    await expect(content.locator('[onerror]')).toHaveCount(0)
+    expect(await page.evaluate(() => (window as any).__memoryXss)).toBeUndefined()
     await expect(page.getByTestId('memory-save')).toHaveCount(0)
   })
 

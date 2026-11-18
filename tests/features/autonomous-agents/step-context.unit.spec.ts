@@ -14,6 +14,15 @@ const exchange = (n: number, chars: number) => Array.from({ length: n }, (_, i) 
 const outputOf = (messages: ModelMessage[], id: string) => ((messages.find(m => m.role === 'tool' && (m.content as any)[0].toolCallId === id)!.content as any)[0].output.value as string)
 
 test.describe('createStepContext', () => {
+  test('each removal is reported once, at the first step it applied, for the run\'s record', () => {
+    const reported: Array<[string, string, number]> = []
+    const step = createStepContext(20_000, { imageInput: true, onRemoved: (id, reason, at) => reported.push([id, reason, at]) })
+    const messages: ModelMessage[] = [{ role: 'user', content: 'go' }, ...exchange(6, 20_000)]
+    step(messages, 2)
+    step(messages, 3)
+    assert.deepEqual(reported, [['c0', 'cleared', 2], ['c1', 'cleared', 2], ['c2', 'cleared', 2]])
+  })
+
   test('under budget, the messages are sent as they are', () => {
     const messages = [{ role: 'user', content: 'go' } as ModelMessage, ...exchange(2, 100)]
     assert.deepEqual(createStepContext(100_000, { imageInput: true })(messages), messages)

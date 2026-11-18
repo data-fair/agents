@@ -1,6 +1,6 @@
 /**
- * stateful E2E tests of the History tab of an autonomous agent's page: its runs, and a task run read like
- * a conversation. Runs are seeded through the API, with the mock model.
+ * stateful E2E tests of an autonomous agent's activity: the Task runs and Conversations tabs of its page, and
+ * a task run's own page, read like a conversation. Runs are seeded through the API, with the mock model.
  */
 
 import { readFile } from 'node:fs/promises'
@@ -51,12 +51,15 @@ const skippedRun = async (agentId: string) => {
   await admin.post(`${agentBase(agentId)}/tasks/${task.id}/run`).catch(() => {})
 }
 
-const openHistory = async (page: Page, goToWithAuth: any, agentId: string, query = '') => {
-  await goToWithAuth(`/agents/organization/test1/agents/${agentId}?tab=history${query}`, 'superadmin', asSuperAdmin)
+const openRuns = async (page: Page, goToWithAuth: any, agentId: string, tab = 'runs') => {
+  await goToWithAuth(`/agents/organization/test1/agents/${agentId}?tab=${tab}`, 'superadmin', asSuperAdmin)
+}
+const openRun = async (page: Page, goToWithAuth: any, agentId: string, runId: string) => {
+  await goToWithAuth(`/agents/organization/test1/agents/${agentId}/runs/${runId}`, 'superadmin', asSuperAdmin)
 }
 const runItem = (page: Page, text: string) => page.getByTestId('agent-run').filter({ hasText: text })
 
-test.describe('Agent page, History tab', () => {
+test.describe('Agent page, activity', () => {
   test.beforeEach(async () => {
     await clean()
     await putMockSettings(admin, 'organization/test1')
@@ -73,12 +76,14 @@ test.describe('Agent page, History tab', () => {
     ])
     try {
       await skippedRun(agentId)
-      await openHistory(page, goToWithAuth, agentId)
+      await openRuns(page, goToWithAuth, agentId)
 
       const reported = runItem(page, 'Reported digest')
-      await expect(reported).toContainText('Done')
       await expect(reported).toContainText('Run manually')
+      // the outcome alone: "Done" is implied by it, and it never also reads as "no outcome"
       await expect(reported).toContainText('Needs attention')
+      await expect(reported).not.toContainText('Done')
+      await expect(reported.getByTestId('agent-run-no-outcome')).toHaveCount(0)
       await expect(reported).toContainText('Two datasets are stale')
       await expect(reported.getByTestId('agent-run-credits')).toBeVisible()
 
@@ -100,7 +105,7 @@ test.describe('Agent page, History tab', () => {
 
       await runItem(page, 'Silent digest').click()
       await expect(page.getByTestId('task-run-view').getByTestId('agent-run-no-outcome')).toHaveText('No outcome reported, even after a reminder')
-      await page.getByTestId('task-run-view').getByRole('button', { name: 'Back to history' }).click()
+      await page.getByTestId('task-run-view').getByRole('link', { name: 'Back to the agent' }).click()
 
       // the status filter
       await page.getByRole('combobox').filter({ hasText: 'Status' }).click()
@@ -113,38 +118,54 @@ test.describe('Agent page, History tab', () => {
     }
   })
 
-  test('a task run opens as a transcript, and its export downloads as a .jsonl', async ({ page, goToWithAuth }) => {
+  test('a task run opens on its page, read as the review page reads a conversation, and its export downloads as a .jsonl', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     const runId = await runTask(agentId, 'Greeting', 'hello')
-    await openHistory(page, goToWithAuth, agentId)
+    await openRuns(page, goToWithAuth, agentId)
     await runItem(page, 'Greeting').click()
 
-    await expect(page).toHaveURL(new RegExp(`run=${runId}`))
+    await expect(page).toHaveURL(new RegExp(`/agents/${agentId}/runs/${runId}$`))
     const view = page.getByTestId('task-run-view')
     await expect(view).toContainText('Greeting')
-    // the prompt as the user's turn, the mock's answer as the agent's, in the chat's own transcript
-    await expect(view.locator('.agent-chat__user-bubble')).toHaveText('hello')
+    // the message the model was given as the user's turn (the task's title, then its prompt), the mock's answer
+    // as the agent's, in the chat's own transcript
+    await expect(view.locator('.agent-chat__user-bubble')).toHaveText(/^Planned task "Greeting":\s+hello$/)
     await expect(view.locator('.assistant-content').filter({ hasText: 'world' })).toHaveCount(1)
     // read-only: nothing to type into
     await expect(view.getByRole('textbox')).toHaveCount(0)
     // the mock reports only when reminded: the header says so, the transcript having no place for it
     await expect(view.getByTestId('agent-run-reminded')).toHaveText('after a reminder')
 
+    // the review page's bar and detail: what it cost, which model calls, what the model was given
+    // two: the mock reports its outcome only when reminded
+    await expect(view).toContainText('2 model calls')
+    // the reminder the model was sent, folded where it was sent
+    const reminder = view.getByTestId('context-step-note')
+    await expect(reminder).toHaveCount(1)
+    await reminder.getByRole('button', { name: 'Reminder sent to the model' }).click()
+    await expect(reminder).toContainText('without calling report_outcome')
+
+    await expect(view.getByTestId('review-turn')).toHaveCount(1)
+    await view.getByTestId('review-turn').locator(':scope > summary').click()
+    // each tool offered as the model was told about it
+    const definitions = view.getByTestId('review-tool-definitions')
+    await definitions.locator('summary').first().click()
+    const reportOutcome = definitions.getByTestId('review-tool-definition').filter({ has: page.locator('summary', { hasText: /^\s*report_outcome\s*$/ }) })
+    await reportOutcome.locator('summary').click()
+    await expect(reportOutcome).toContainText('Report the outcome of this planned task run')
+    await expect(reportOutcome).toContainText('"summary"')
+
     const downloadPromise = page.waitForEvent('download')
-    await view.getByRole('link', { name: 'Export' }).click()
+    await view.getByRole('link', { name: 'Download' }).click()
     const download = await downloadPromise
     expect(download.suggestedFilename()).toBe(`task-run-${runId}.jsonl`)
     const lines = (await readFile(await download.path(), 'utf8')).trim().split('\n').map(line => JSON.parse(line))
     expect(lines[0].type).toBe('meta')
 
-    // closing goes back to the list, and drops the run from the url
-    await view.getByRole('button', { name: 'Back to history' }).click()
+    // back to the agent, on the task runs tab
+    await view.getByRole('link', { name: 'Back to the agent' }).click()
+    await expect(page).toHaveURL(/tab=runs/)
     await expect(runItem(page, 'Greeting')).toBeVisible()
-    await expect(page).not.toHaveURL(/run=/)
-    // ...in place of the run, so Back does not reopen the run just closed
-    await page.goBack()
-    await expect(page).not.toHaveURL(/run=/)
-    await expect(view).toHaveCount(0)
   })
 
   // Opened as a notification url opens it: directly on the run.
@@ -152,7 +173,7 @@ test.describe('Agent page, History tab', () => {
     const agentId = await createAgent()
     const runId = await runTask(agentId, 'Stalling digest', 'stall', false)
     try {
-      await openHistory(page, goToWithAuth, agentId, `&run=${runId}`)
+      await openRun(page, goToWithAuth, agentId, runId)
       const view = page.getByTestId('task-run-view')
       await expect(view).toContainText('Stalling digest', { timeout: 20000 })
       await expect(view).toContainText('Running')
@@ -165,19 +186,53 @@ test.describe('Agent page, History tab', () => {
     }
   })
 
-  test('conversation runs are listed apart, and open on the existing review page', async ({ page, goToWithAuth }) => {
+  test('a conversation an action button started reads as the person asked it, the hidden context folded on the review page', async ({ page, goToWithAuth }) => {
+    const agentId = await createAgent()
+    const started = await startTurnOverSocket(orgAdmin, { agentId }, 'hello', { hiddenContext: 'The open dataset is "roads".' })
+    await awaitRunEnd(agentId, started.runId)
+
+    await openRuns(page, goToWithAuth, agentId, 'conversations')
+    const row = page.getByTestId('review-row')
+    await expect(row).toHaveCount(1, { timeout: 20000 })
+    await expect(row.getByText('hello', { exact: true })).toBeVisible()
+    await expect(row).not.toContainText('hidden-context')
+    await row.click()
+
+    await expect(page.locator('.agent-chat__user-bubble')).toHaveText('hello')
+    // folded: nowhere in the transcript until opened (the user turn rendered once, as a bubble)
+    await expect(page.getByText('roads')).toHaveCount(0)
+    const hidden = page.getByTestId('hidden-context')
+    await hidden.getByRole('button', { name: 'Context added by the page' }).click()
+    await expect(hidden).toContainText('The open dataset is "roads".')
+  })
+
+  test('conversations are listed one per conversation, apart from task runs, and open on the review page', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     await runTask(agentId, 'Task digest', 'hello')
-    const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId }, 'hello')
-    await awaitRunEnd(agentId, runId)
-    await openHistory(page, goToWithAuth, agentId)
-    await expect(runItem(page, 'Task digest')).toBeVisible()
+    // two turns of one conversation: one row
+    const first = await startTurnOverSocket(orgAdmin, { agentId }, 'hello')
+    await awaitRunEnd(agentId, first.runId)
+    const second = await startTurnOverSocket(orgAdmin, first.conversationId, 'hello again')
+    await awaitRunEnd(agentId, second.runId)
+    // another agent's conversation is not listed
+    const other = (await createEnrolledAgent({ title: 'Other agent', persona: 'x', mcpServers: [], enabled: true }, 'test-scoped-fixture')).id as string
+    const elsewhere = await startTurnOverSocket(orgAdmin, { agentId: other }, 'hello')
+    await awaitRunEnd(other, elsewhere.runId)
 
-    await page.getByRole('button', { name: 'Conversations' }).click()
+    await openRuns(page, goToWithAuth, agentId)
+    await expect(runItem(page, 'Task digest')).toBeVisible()
     await expect(page.getByTestId('agent-run')).toHaveCount(1)
-    await expect(runItem(page, 'Task digest')).toHaveCount(0)
-    await page.getByTestId('agent-run').click()
-    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/review/${conversationId}`))
-    await expect(page.locator('.agent-chat__user-bubble')).toHaveText('hello')
+
+    await openRuns(page, goToWithAuth, agentId, 'conversations')
+    const rows = page.getByTestId('review-row')
+    await expect(rows).toHaveCount(1, { timeout: 20000 })
+    await expect(rows).toContainText('hello')
+    await rows.click()
+    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/review/${first.conversationId}`))
+    await expect(page.locator('.agent-chat__user-bubble').first()).toHaveText('hello')
+
+    // a conversation run's page (a tripwire or reviewer notification can name one) sends on to the review
+    await openRun(page, goToWithAuth, agentId, second.runId)
+    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/review/${first.conversationId}`), { timeout: 20000 })
   })
 })

@@ -62,7 +62,7 @@ export const stage1Answer = (generated: Promise<{ text: string }>): Promise<bool
 })
 
 /** Stage 2, only on a stage-1 flag: the same policy and wrapped content, a structured verdict. */
-export const stage2Call = <T>(call: GuardCall & { schema: z.ZodType<T>, maxOutputTokens: number, reasoning?: boolean }): Promise<{ object: T, usage: LanguageModelUsage }> => {
+export const stage2Call = <T>(call: GuardCall & { schema: z.ZodType<T>, maxOutputTokens: number }): Promise<{ object: T, usage: LanguageModelUsage }> => {
   const generate = (extra: { providerOptions?: Record<string, Record<string, any>> }) => generateObject({
     model: call.model,
     schema: call.schema,
@@ -73,8 +73,9 @@ export const stage2Call = <T>(call: GuardCall & { schema: z.ZodType<T>, maxOutpu
     abortSignal: call.abortSignal,
     ...extra
   }) as Promise<{ object: T, usage: LanguageModelUsage }>
-  // `reasoning`: the model may think before it answers (a reviewer's judgement), so reasoning is left on.
-  return call.reasoning ? generate({}) : withReasoningDisabled(generate)
+  // Thinking is off: a guard that must reason writes it in its verdict (the reviewer's `analysis`), bounded by
+  // maxOutputTokens. Left on, a reasoning model's thinking is unbounded (docs/architecture/moderation.md, "Stages").
+  return withReasoningDisabled(generate)
 }
 
 /**

@@ -1,5 +1,5 @@
 /**
- * stateful E2E tests of the Tasks tab of an autonomous agent's page: an agent's planned tasks, planned
+ * stateful E2E tests of the Scheduled tasks tab of an autonomous agent's page: an agent's planned tasks, planned
  * and run from there.
  */
 
@@ -44,6 +44,13 @@ const openTasks = async (page: Page, goToWithAuth: any, agentId: string) => {
   await expect(page.getByRole('button', { name: 'New task' })).toBeVisible({ timeout: 20000 })
 }
 const taskItem = (page: Page, title: string) => page.getByTestId('agent-task').filter({ hasText: title })
+/** Picks an action of a task's menu: edit, notifications, trigger or delete. */
+const taskAction = async (page: Page, title: string, action: 'edit' | 'notifications' | 'trigger' | 'delete') => {
+  await taskItem(page, title).getByTestId('agent-task-actions').click()
+  // Dispatched on the item, not a pointer click: the menu still moves while the page settles below it,
+  // and a pointer click aimed at the item then landed on the menu's padding (about 1 run in 25).
+  await page.getByTestId(`agent-task-${action}`).dispatchEvent('click')
+}
 
 /** Adds a schedule rule of `type` at hour:minute to the dialog's form. */
 const addRule = async (page: Page, type: string, hour: string, minute = '0') => {
@@ -108,7 +115,7 @@ test.describe('Agent page, Tasks tab', () => {
     await expect(item).toContainText('5 consecutive failed runs')
     await expect(item).toContainText('Saving the task resumes it')
 
-    await item.getByRole('button', { name: 'Edit' }).click()
+    await taskAction(page, 'Failing digest', 'edit')
     await expect(page.getByRole('dialog').getByRole('textbox', { name: 'Title' })).toHaveValue('Failing digest')
     await page.getByRole('dialog').getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('dialog')).toBeHidden()
@@ -173,9 +180,8 @@ test.describe('Agent page, Tasks tab', () => {
     await createTask(agentId)
     await openTasks(page, goToWithAuth, agentId)
     const item = taskItem(page, 'Morning digest')
-    await item.getByRole('button', { name: 'Delete' }).click()
-    // exact: the open menu is owned by the Delete button, whose accessible name then includes it
-    await page.getByRole('button', { name: 'Confirm deletion', exact: true }).click()
+    await taskAction(page, 'Morning digest', 'delete')
+    await page.getByRole('dialog').getByRole('button', { name: 'Confirm deletion' }).click()
     await expect(item).toHaveCount(0)
     expect((await admin.get(tasksUrl(agentId))).data.results).toEqual([])
   })
@@ -184,7 +190,7 @@ test.describe('Agent page, Tasks tab', () => {
     const agentId = await createAgent()
     const task = await createTask(agentId)
     await openTasks(page, goToWithAuth, agentId)
-    await taskItem(page, 'Morning digest').getByRole('button', { name: 'Trigger URL' }).click()
+    await taskAction(page, 'Morning digest', 'trigger')
     // The URL carries no key: it is sent in the x-webhook-key header, out of access logs.
     const url = page.getByTestId('task-trigger-url')
     await expect(url).toHaveText(new RegExp(`/tasks/${task.id}/_trigger$`))
@@ -202,7 +208,7 @@ test.describe('Agent page, Tasks tab', () => {
     const agentId = await createAgent()
     const task = await createTask(agentId)
     await openTasks(page, goToWithAuth, agentId)
-    await taskItem(page, 'Morning digest').getByRole('button', { name: 'Notifications' }).click()
+    await taskAction(page, 'Morning digest', 'notifications')
     const frame = page.locator('d-frame')
     await expect(frame).toHaveAttribute('src', /\/events\/embed\/subscribe\?/)
     const src = new URL(String(await frame.getAttribute('src')), 'http://x')

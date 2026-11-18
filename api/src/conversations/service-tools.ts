@@ -20,7 +20,7 @@ import { agentStoreId, memoryEnabledFor, MEMORY_TOOL_NAME, MEMORY_SERVER_ID, MEM
 import { loadMemory } from '../memory/service.ts'
 import { createMemoryTool } from '../memory/tool.ts'
 import { REPORT_OUTCOME_TOOL_NAME } from './service-tool-names.ts'
-import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_MAX, type TaskOutcome } from '../tasks/operations.ts'
+import { validateTaskOutcome, TASK_OUTCOME_STATUSES, TASK_OUTCOME_SUMMARY_ASKED, TASK_OUTCOME_SUMMARY_MAX, type TaskOutcome } from '../tasks/operations.ts'
 import type { TurnFiles } from '../files/turn-files.ts'
 import { createFileTools, createFileCodeExecutes, FILE_CODE_SIGNATURES } from '../files/tools.ts'
 import { FILES_SERVER_ID, FILE_TOOL_ANNOTATIONS } from '../files/operations.ts'
@@ -219,7 +219,10 @@ const ENTRIES: ServiceToolEntry[] = [
     build: async ({ reportOutcome }, into) => {
       Object.assign(into.tools, sourcedTools({
         [REPORT_OUTCOME_TOOL_NAME]: tool({
-          description: 'Report the outcome of this planned task run, once you are done: "done" when you did what the task asks, "nothing-to-do" when there was nothing to do, "needs-attention" when a person should look at something. The summary is what an administrator reads.',
+          description: 'Report the outcome of this planned task run, once you are done: "done" when you did what the task asks, "nothing-to-do" when there was nothing to do, "needs-attention" when a person should look at something. ' +
+            `The summary is what people are notified with and what an administrator scans in the list of runs: one to three sentences, about ${TASK_OUTCOME_SUMMARY_ASKED} characters, saying what this run found or did and what a person should do, if anything. ` +
+            'When the run could not do its work, the summary says that it could not and why, never a sentence that reads as a result (such as "nothing was found"). ' +
+            'Write the details (lists, counts, links) in your answer before calling this tool: the answer stays readable in the run, which the notification links to.',
           inputSchema: jsonSchema<unknown>({
             type: 'object',
             additionalProperties: false,

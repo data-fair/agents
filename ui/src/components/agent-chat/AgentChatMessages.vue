@@ -27,18 +27,43 @@
           :key="index"
         >
           <div class="px-2 py-1 px-sm-4 py-sm-2">
-            <div
-              v-if="message.role === 'user'"
-              class="d-flex justify-end"
-            >
-              <v-card
-                class="px-3 py-2 text-body-medium agent-chat__user-bubble"
-                :color="isActionPrompt(message) ? 'accent' : 'secondary'"
-                variant="flat"
-              >
-                {{ message.content }}
-              </v-card>
-            </div>
+            <!-- The record of the turns that wrote this message (the review page's). -->
+            <template v-if="showToolDetails">
+              <slot
+                v-for="turn in message.turns ?? []"
+                :key="turn"
+                name="turn"
+                :index="turn"
+              />
+            </template>
+            <!-- Where the model's context stopped being these messages (a compaction recap took their place). -->
+            <folded-note
+              v-if="showToolDetails && message.contextNote"
+              :icon="mdiArrowCollapseUp"
+              :label="message.contextNote.label"
+              :text="message.contextNote.text"
+              data-testid="context-note"
+            />
+            <template v-if="message.role === 'user'">
+              <div class="d-flex justify-end">
+                <v-card
+                  class="px-3 py-2 text-body-medium agent-chat__user-bubble"
+                  :color="isActionPrompt(message) ? 'accent' : 'secondary'"
+                  variant="flat"
+                >
+                  {{ message.content }}
+                </v-card>
+              </div>
+              <!-- What the page or an action button added to the turn: the model read it, the person never saw it. -->
+              <folded-note
+                v-if="showToolDetails && message.hiddenContext"
+                :icon="mdiEyeOff"
+                :label="t('hiddenContext')"
+                :text="message.hiddenContext"
+                align-end
+                data-testid="hidden-context"
+              />
+            </template>
             <div
               v-else
               class="text-body-medium"
@@ -88,6 +113,14 @@
                     {{ block.text }}
                   </div>
                 </div>
+                <!-- What the service told the model at this point, which the person never saw. -->
+                <folded-note
+                  v-else-if="block.type === 'note' && showToolDetails"
+                  :icon="mdiMessageArrowRightOutline"
+                  :label="block.label"
+                  :text="block.text"
+                  data-testid="context-step-note"
+                />
                 <template v-else-if="block.type === 'tools'">
                   <div
                     v-if="hasVisibleTools(block.invocations)"
@@ -117,6 +150,19 @@
                         v-else-if="!showTraces || !isTraced(invocation.toolName)"
                         :class="showToolDetails || scriptCalls(message, invocation).length || invocation.nested ? 'agent-chat__tool-call' : 'd-inline'"
                       >
+                        <!-- A call a person decided, read after the fact (the review page): the card they saw, with
+                             their choice where the buttons were, then the call itself. -->
+                        <approval-card
+                          v-if="showToolDetails && invocation.decision?.person"
+                          v-bind="cardOf(invocation)"
+                          :description="invocation.description"
+                          :files="invocation.files"
+                          :review="invocation.decision.review"
+                          :agent-path="agentPath"
+                          :decided="invocation.decision.person"
+                          readonly
+                          data-testid="decided-approval-card"
+                        />
                         <tool-chip
                           :invocation="invocation"
                           :label="chipLabel(invocation)"
@@ -125,6 +171,11 @@
                           data-testid="tool-chip"
                           @toggle="toggleDetail(invocation.toolCallId)"
                         />
+                        <span
+                          v-if="showToolDetails && invocation.notSent"
+                          class="text-caption text-medium-emphasis ms-2"
+                          data-testid="not-sent"
+                        >{{ invocation.notSent }}</span>
                         <!-- What a script did is the calls it made, summed up beside its chip: each tool once,
                              with its count — not its code, nor one chip per call, which a loop turned into a
                              column of chips. Each call is the review page's to open. -->
@@ -199,6 +250,11 @@
                           :color="invocation.state === 'done' ? 'success' : 'warning'"
                         />
                         <span class="text-body-medium font-weight-medium">{{ t('scriptTitle') }}</span>
+                        <span
+                          v-if="showToolDetails && invocation.notSent"
+                          class="text-caption text-medium-emphasis ms-2"
+                          data-testid="not-sent"
+                        >{{ invocation.notSent }}</span>
                         <v-spacer />
                         <v-icon
                           :icon="expanded[invocation.toolCallId] ? mdiChevronUp : mdiChevronDown"
@@ -336,6 +392,7 @@
 <i18n lang="yaml">
 fr:
   reasoning: Raisonnement
+  hiddenContext: Contexte ajouté par la page, non affiché
   scriptTitle: Script
   scriptDone: Script terminé.
   jumpToBottom: Aller en bas
@@ -377,6 +434,7 @@ fr:
   toolReportOutcome: Rendre compte du résultat
 en:
   reasoning: Reasoning
+  hiddenContext: Context added by the page, not shown
   scriptTitle: Script
   scriptDone: Script finished.
   jumpToBottom: Jump to bottom
@@ -422,12 +480,13 @@ en:
 import { ref, reactive, watch, computed, onMounted, onBeforeUnmount } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAutoScrollBottom } from '@data-fair/lib-vue/auto-scroll-bottom.js'
-import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain } from '@mdi/js'
+import { mdiLoading, mdiAccountClock, mdiArrowDown, mdiSubdirectoryArrowRight, mdiChevronDown, mdiChevronUp, mdiBrain, mdiEyeOff, mdiArrowCollapseUp, mdiMessageArrowRightOutline } from '@mdi/js'
 import { streamedLength } from './auto-scroll'
 import MarkdownContent from './MarkdownContent.vue'
 import ApprovalCard from './ApprovalCard.vue'
 import ToolCallDetail from './ToolCallDetail.vue'
 import ToolChip from './ToolChip.vue'
+import FoldedNote from './FoldedNote.vue'
 import { builtinToolLabel } from '~/utils/builtin-tool-labels'
 import { WAIT_TOOL_NAME } from '@agents/shared/agent-activity'
 import type { MermaidFailure } from '~/utils/mermaid'
@@ -481,7 +540,7 @@ const isActionPrompt = (message: ChatMessage) => {
 }
 
 type Invocation = NonNullable<ChatMessage['toolInvocations']>[number]
-type RenderedBlock = { type: 'text' | 'reasoning', text: string } | { type: 'tools', invocations: Invocation[] }
+type RenderedBlock = { type: 'text' | 'reasoning', text: string } | { type: 'note', label: string, text: string } | { type: 'tools', invocations: Invocation[] }
 /**
  * Each message's blocks (ChatMessage.blocks), with each call resolved. Without blocks (a message not built
  * from stored parts, like the welcome), the text and then the calls.

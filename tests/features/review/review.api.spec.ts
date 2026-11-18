@@ -47,6 +47,7 @@ test.describe('Conversation review API', () => {
     // silently became empty — the list fell back to showing the conversation id.
     assert.equal(res.data.results[0].preview, 'hello')
     assert.equal(res.data.results[0].agentId, 'portal-assistant')
+    assert.equal(res.data.results[0].agentTitle, 'Assistant')
   })
 
   test('a thread the person did NOT consent to is invisible', async () => {
@@ -106,9 +107,16 @@ test.describe('Conversation review API', () => {
     assert.equal(res.status, 404)
   })
 
-  test('deleting a reviewed conversation removes its messages and runs too', async () => {
+  test('one reviewed conversation cannot be deleted: review is the record', async () => {
     const conversationId = await chat(true, true)
-    await admin.delete(`/api/review/user/test-standalone1/${conversationId}`)
+    const res = await admin.delete(`/api/review/user/test-standalone1/${conversationId}`).catch((err: any) => err.response ?? err)
+    assert.equal(res.status, 404)
+    assert.equal((await admin.get(`/api/review/user/test-standalone1/${conversationId}`)).status, 200)
+  })
+
+  test('a per-user erasure removes the conversations\' messages and runs too', async () => {
+    const conversationId = await chat(true, true)
+    await admin.delete('/api/review/user/test-standalone1?userId=test-standalone1')
 
     assert.equal((await admin.get('/api/review/user/test-standalone1')).data.count, 0)
     // Orphans are the failure that matters for an erasure: messages and runs are separate documents,

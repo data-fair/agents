@@ -150,7 +150,9 @@ export default {
         // re-digest, which is what keeps chained generations from compounding loss.
         generation: { type: 'number', minimum: 1 },
         coversUpToSeq: { type: 'number', minimum: 1 },
-        createdAt: { type: 'string', format: 'date-time' }
+        createdAt: { type: 'string', format: 'date-time' },
+        // The run that wrote it, whose `context.recap` holds the summary for review: later runs name it only.
+        runId: { type: 'string' }
       }
     }
   }

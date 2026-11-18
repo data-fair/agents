@@ -7,6 +7,9 @@
  * one, which opened and sent it, and the back-office chat, which reopens the person's last conversation
  * whatever agent it was with and sent the button's prompt into it. Both are decided by the chat itself
  * (the service), not by the host embed of the published libraries.
+ *
+ * When the chat already SHOWS a conversation with another agent, the move to the assistant is asked
+ * first: done silently, it replaced what the person was reading for a click elsewhere on the page.
  */
 
 import { expect, type Frame, type Page } from '@playwright/test'
@@ -33,6 +36,14 @@ test.describe('Action buttons reach the assistant only', () => {
     // Enrolled, or it refuses every turn: a refused button prompt would pass the tests below for the wrong reason.
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: created.data.id })
     return created.data.id as string
+  }
+  const backOfficeFrame = async (page: Page) => {
+    let frame: Frame | undefined
+    await expect(() => {
+      frame = page.frames().find(f => new URL(f.url()).pathname.endsWith('/organization/test1/chat'))
+      expect(frame).toBeTruthy()
+    }).toPass({ timeout: 10000 })
+    return frame!
   }
   const threadsOf = async (id: string) => (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${id}`)).data.results
   const userTurns = async (conversationId: string) => (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
@@ -71,15 +82,43 @@ test.describe('Action buttons reach the assistant only', () => {
     await expect(action).toBeVisible({ timeout: 10000 })
     await action.click()
 
-    let frame: Frame | undefined
-    await expect(() => {
-      frame = page.frames().find(f => new URL(f.url()).pathname.endsWith('/organization/test1/chat'))
-      expect(frame).toBeTruthy()
-    }).toPass({ timeout: 10000 })
-    await expect(frame!.getByTestId('agent-chat-agent-picker')).toContainText('Back-office assistant', { timeout: 20000 })
-    await expect(frame!.getByTestId('agent-chat-transcript')).toContainText('Help me create a new dataset', { timeout: 15000 })
+    const frame = await backOfficeFrame(page)
+    await expect(frame.getByTestId('agent-chat-agent-picker')).toContainText('Back-office assistant', { timeout: 20000 })
+    await expect(frame.getByTestId('agent-chat-transcript')).toContainText('Help me create a new dataset', { timeout: 15000 })
 
     // The server's record: the autonomous agent got nothing more, the assistant got the button's turn.
+    const [agentThread] = await threadsOf(agentId)
+    expect(await userTurns(agentThread.id)).toHaveLength(1)
+    await expect.poll(async () => (await threadsOf('back-office-assistant')).length, { timeout: 10000 }).toBe(1)
+  })
+
+  test('a chat showing a conversation the person chose with an autonomous agent asks before leaving it', async ({ page, goToWithAuth }) => {
+    test.setTimeout(60000)
+    const agentId = await createAgent('Open agent')
+    await goToWithAuth('/agents/_dev/chat-action?agents=1', 'test1-admin1', { org: 'test1' })
+    await page.locator('.df-agent-chat-toggle').click()
+    const frame = await backOfficeFrame(page)
+    await frame.getByTestId('agent-chat-agent-picker').click()
+    await frame.getByTestId('agent-chat-agent-option').filter({ hasText: 'Open agent' }).click()
+    await composer(frame).fill('hello')
+    await frame.getByTestId('agent-chat-send').click()
+    await expect(frame.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
+
+    // Dismissed: the agent's conversation stays on screen, and nothing was sent anywhere.
+    await page.locator('.df-agent-chat-action').first().click()
+    const held = frame.getByTestId('agent-chat-held-action')
+    await expect(held).toContainText('Help me create a new dataset')
+    await expect(held).toContainText('Open agent')
+    await held.getByTestId('agent-chat-held-action-dismiss').click()
+    await expect(held).toHaveCount(0)
+    await expect(frame.getByTestId('agent-chat-agent-picker')).toContainText('Open agent')
+    await expect(frame.getByTestId('agent-chat-transcript')).not.toContainText('Help me create a new dataset')
+
+    // Confirmed: a new conversation with the assistant, the agent's left as it was.
+    await page.locator('.df-agent-chat-action').first().click()
+    await held.getByTestId('agent-chat-held-action-confirm').click()
+    await expect(frame.getByTestId('agent-chat-agent-picker')).toContainText('Back-office assistant', { timeout: 20000 })
+    await expect(frame.getByTestId('agent-chat-transcript')).toContainText('Help me create a new dataset', { timeout: 15000 })
     const [agentThread] = await threadsOf(agentId)
     expect(await userTurns(agentThread.id)).toHaveLength(1)
     await expect.poll(async () => (await threadsOf('back-office-assistant')).length, { timeout: 10000 }).toBe(1)

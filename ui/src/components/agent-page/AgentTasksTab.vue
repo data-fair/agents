@@ -17,139 +17,173 @@
     {{ t('noTasks') }}
   </p>
 
-  <v-card
-    v-for="task of tasks"
-    :key="task.id"
-    variant="outlined"
-    class="mb-3"
-    data-testid="agent-task"
+  <!-- The same list as the conversations and task runs tabs: one row per task, what it does at a glance,
+       its switch and Run now at hand, the rest in its menu. -->
+  <v-list
+    v-if="tasks.length"
+    density="compact"
   >
-    <v-card-item>
-      <v-card-title class="text-wrap">
+    <v-list-item
+      v-for="task of tasks"
+      :key="task.id"
+      data-testid="agent-task"
+    >
+      <v-list-item-title class="text-body-2 text-wrap">
         {{ task.title }}
-      </v-card-title>
-      <v-card-subtitle class="text-wrap">
-        {{ describeScheduling(task.scheduling, lang) }}
-      </v-card-subtitle>
-    </v-card-item>
-    <v-card-text class="pb-0">
-      <div
-        v-if="task.nextRunAt"
-        class="text-body-2"
-        data-testid="agent-task-next-run"
-      >
-        {{ t('nextRun', { date: dayjs(task.nextRunAt).format('lll') }) }}
-      </div>
+      </v-list-item-title>
+      <v-list-item-subtitle class="text-caption text-wrap">
+        {{ describeScheduling(task.scheduling, lang) }}<span
+          v-if="task.nextRunAt"
+          data-testid="agent-task-next-run"
+        > · {{ t('nextRun', { date: dayjs(task.nextRunAt).format('lll') }) }}</span>
+      </v-list-item-subtitle>
       <!-- Paused by the server (the failure streak, or a schedule it could not compute) while still
            enabled: the admin is told why, and that the way out is to save it (updateTask resumes a
            paused task on any save that leaves it enabled). A task switched off reads as disabled: its
            pause is kept, but "saving resumes it" would not be true of it. -->
       <div
         v-if="task.pausedReason && task.enabled"
-        class="d-flex flex-wrap align-center ga-2 mt-2"
+        class="d-flex flex-wrap align-center ga-2 mt-1 text-caption"
       >
         <v-chip
-          size="small"
+          size="x-small"
           color="warning"
           variant="tonal"
           data-testid="agent-task-paused"
           :text="t('paused')"
         />
-        <span class="text-body-2">{{ task.pausedReason }}</span>
-        <span class="text-body-2 text-medium-emphasis">{{ t('resumeHint') }}</span>
+        <span>{{ task.pausedReason }}</span>
+        <span class="text-medium-emphasis">{{ t('resumeHint') }}</span>
       </div>
       <v-alert
         v-if="runErrors[task.id]"
         type="warning"
         variant="tonal"
         density="compact"
-        class="mt-2"
+        class="mt-1"
         closable
         data-testid="agent-task-run-error"
         :text="runErrors[task.id]"
         @click:close="delete runErrors[task.id]"
       />
-    </v-card-text>
-    <v-card-actions class="flex-wrap">
-      <v-switch
-        :model-value="task.enabled"
-        :label="t('enabled')"
-        color="primary"
-        density="compact"
-        hide-details
-        class="flex-grow-0 ms-2 me-2"
-        :loading="busy[task.id] === 'enabled'"
-        :disabled="!!busy[task.id]"
-        @update:model-value="setEnabled(task, !!$event)"
-      />
-      <v-spacer />
-      <v-btn
-        variant="text"
-        :prepend-icon="mdiPlay"
-        :loading="busy[task.id] === 'run'"
-        :disabled="!!busy[task.id]"
-        :text="t('runNow')"
-        @click="runNow(task)"
-      />
-      <!-- Who hears of a task's runs is who subscribed to its topics in the events service, as for data-fair
-           processings: the subscription page of the events service, embedded, for this task's four topics. -->
-      <v-menu
-        max-width="500"
-        :close-on-content-click="false"
-      >
-        <template #activator="{ props: activatorProps }">
-          <v-btn
-            v-bind="activatorProps"
-            variant="text"
-            :prepend-icon="mdiBell"
-            :text="t('notifications')"
-          />
-        </template>
-        <v-card :title="t('notifications')">
-          <v-card-text class="pa-0">
-            <d-frame :src="eventsSubscribeUrl(task)" />
-          </v-card-text>
-        </v-card>
-      </v-menu>
-      <v-btn
-        variant="text"
-        :prepend-icon="mdiWebhook"
-        :text="t('triggerUrl')"
-        @click="openTrigger(task)"
-      />
-      <v-btn
-        variant="text"
-        :prepend-icon="mdiPencil"
-        :text="t('edit')"
-        @click="openForm(task)"
-      />
-      <v-menu max-width="400">
-        <template #activator="{ props: activatorProps }">
-          <v-btn
-            v-bind="activatorProps"
-            variant="text"
-            color="error"
-            :prepend-icon="mdiDelete"
-            :disabled="!!busy[task.id]"
-            :text="t('delete')"
-          />
-        </template>
-        <v-card>
-          <v-card-text>{{ t('confirmDelete', { title: task.title }) }}</v-card-text>
-          <v-card-actions>
-            <v-spacer />
-            <v-btn :text="t('cancel')" />
+      <template #append>
+        <v-switch
+          :model-value="task.enabled"
+          :label="t('enabled')"
+          color="primary"
+          density="compact"
+          hide-details
+          class="flex-grow-0 me-2"
+          :loading="busy[task.id] === 'enabled'"
+          :disabled="!!busy[task.id]"
+          @update:model-value="setEnabled(task, !!$event)"
+        />
+        <v-btn
+          variant="text"
+          size="small"
+          :icon="mdiPlay"
+          :aria-label="t('runNow')"
+          :title="t('runNow')"
+          :loading="busy[task.id] === 'run'"
+          :disabled="!!busy[task.id]"
+          @click="runNow(task)"
+        />
+        <v-menu>
+          <template #activator="{ props: activatorProps }">
             <v-btn
-              color="error"
-              variant="flat"
-              :text="t('confirmDeletion')"
-              @click="remove(task)"
+              v-bind="activatorProps"
+              variant="text"
+              size="small"
+              :icon="mdiDotsVertical"
+              :aria-label="t('actions')"
+              :title="t('actions')"
+              data-testid="agent-task-actions"
             />
-          </v-card-actions>
-        </v-card>
-      </v-menu>
-    </v-card-actions>
-  </v-card>
+          </template>
+          <v-list density="compact">
+            <v-list-item
+              :prepend-icon="mdiPencil"
+              :title="t('edit')"
+              data-testid="agent-task-edit"
+              @click="openForm(task)"
+            />
+            <!-- Who hears of a task's runs is who subscribed to its topics in the events service, as for
+                 data-fair processings: the subscription page of the events service, embedded, for this
+                 task's four topics. -->
+            <v-list-item
+              :prepend-icon="mdiBell"
+              :title="t('notifications')"
+              data-testid="agent-task-notifications"
+              @click="notificationsTask = task"
+            />
+            <v-list-item
+              :prepend-icon="mdiWebhook"
+              :title="t('triggerUrl')"
+              data-testid="agent-task-trigger"
+              @click="openTrigger(task)"
+            />
+            <v-list-item
+              :prepend-icon="mdiDelete"
+              base-color="error"
+              :title="t('delete')"
+              data-testid="agent-task-delete"
+              :disabled="!!busy[task.id]"
+              @click="deletedTask = task"
+            />
+          </v-list>
+        </v-menu>
+      </template>
+    </v-list-item>
+  </v-list>
+
+  <!-- Wide: the embedded subscription page lists each topic's full title, which names the task (it is
+       what the person reads later in their subscriptions, away from this page). -->
+  <v-dialog
+    :model-value="!!notificationsTask"
+    max-width="900"
+    @update:model-value="notificationsTask = null"
+  >
+    <v-card
+      v-if="notificationsTask"
+      :title="t('notifications')"
+    >
+      <v-card-text class="pa-0">
+        <d-frame :src="eventsSubscribeUrl(notificationsTask)" />
+      </v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :text="t('close')"
+          @click="notificationsTask = null"
+        />
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
+
+  <v-dialog
+    :model-value="!!deletedTask"
+    max-width="400"
+    @update:model-value="deletedTask = null"
+  >
+    <v-card v-if="deletedTask">
+      <v-card-text>{{ t('confirmDelete', { title: deletedTask.title }) }}</v-card-text>
+      <v-card-actions>
+        <v-spacer />
+        <v-btn
+          variant="text"
+          :text="t('cancel')"
+          @click="deletedTask = null"
+        />
+        <v-btn
+          color="error"
+          variant="flat"
+          :text="t('confirmDeletion')"
+          @click="remove(deletedTask)"
+        />
+      </v-card-actions>
+    </v-card>
+  </v-dialog>
 
   <!-- The one task form, for create and edit. A refusal (the per-agent cap, the minimum interval, a
        schedule with no next slot) is shown here and keeps the dialog open with the admin's input. -->
@@ -287,10 +321,11 @@ en:
   resumeHint: Saving the task resumes it.
   enabled: Enabled
   runNow: Run now
-  runStarted: The run has started. Its result will be in the history.
+  actions: Actions
+  runStarted: The run has started. Its result will be in the task runs.
   edit: Edit
   delete: Delete
-  confirmDelete: "Delete the task \"{title}\"? Its past runs stay in the history."
+  confirmDelete: "Delete the task \"{title}\"? Its past runs stay in the task runs."
   confirmDeletion: Confirm deletion
   cancel: Cancel
   save: Save
@@ -321,10 +356,11 @@ fr:
   resumeHint: Enregistrer la tâche la reprend.
   enabled: Activée
   runNow: Exécuter maintenant
-  runStarted: L'exécution a démarré. Son résultat sera dans l'historique.
+  actions: Actions
+  runStarted: L'exécution a démarré. Son résultat sera dans les exécutions de tâches.
   edit: Modifier
   delete: Supprimer
-  confirmDelete: "Supprimer la tâche « {title} » ? Ses exécutions passées restent dans l'historique."
+  confirmDelete: "Supprimer la tâche « {title} » ? Ses exécutions passées restent dans les exécutions de tâches."
   confirmDeletion: Confirmer la suppression
   cancel: Annuler
   save: Enregistrer
@@ -352,7 +388,7 @@ fr:
 import { computed, reactive, ref } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
-import { mdiBell, mdiContentCopy, mdiDelete, mdiPencil, mdiPlay, mdiPlus, mdiRefresh, mdiWebhook } from '@mdi/js'
+import { mdiBell, mdiContentCopy, mdiDelete, mdiDotsVertical, mdiPencil, mdiPlay, mdiPlus, mdiRefresh, mdiWebhook } from '@mdi/js'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { describeScheduling } from '@agents/shared/task-schedule'
@@ -413,7 +449,11 @@ const runNow = async (task: any) => {
   }
 }
 
+const notificationsTask = ref<any>(null)
+const deletedTask = ref<any>(null)
+
 const remove = async (task: any) => {
+  deletedTask.value = null
   busy[task.id] = 'delete'
   try {
     await $fetch(`${tasksUrl.value}/${task.id}`, { method: 'DELETE', credentials: 'include' })

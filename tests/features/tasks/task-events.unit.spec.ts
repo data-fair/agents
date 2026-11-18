@@ -47,7 +47,7 @@ test.describe('taskEvent', () => {
       fr: 'La tâche planifiée « Weekly check » est terminée : all good'
     })
     assert.equal(event.body, 'all good')
-    assert.equal(event.url, 'https://example.org/agents/organization/test1/agents/agent-1?tab=history&run=run-1')
+    assert.equal(event.url, 'https://example.org/agents/organization/test1/agents/agent-1/runs/run-1')
     const bare = { id: 'run-2', agentId: 'agent-1', status: 'done' as const, parts: [{ type: 'text', text: 'three datasets updated' }] as any }
     assert.deepEqual(taskEvent('done', task, bare).title, {
       en: 'The planned task "Weekly check" is done.',
@@ -68,8 +68,8 @@ test.describe('taskEvent', () => {
 
   test('an event links to the run in the agent page, a paused one to its tasks', () => {
     const siteUrl = 'https://example.org/portal'
-    assert.equal(taskEvent('failed', task, run, { siteUrl }).url, 'https://example.org/portal/agents/organization/test1/agents/agent-1?tab=history&run=run-1')
-    assert.equal(taskEvent('needs-attention', task, run, { siteUrl }).url, 'https://example.org/portal/agents/organization/test1/agents/agent-1?tab=history&run=run-1')
+    assert.equal(taskEvent('failed', task, run, { siteUrl }).url, 'https://example.org/portal/agents/organization/test1/agents/agent-1/runs/run-1')
+    assert.equal(taskEvent('needs-attention', task, run, { siteUrl }).url, 'https://example.org/portal/agents/organization/test1/agents/agent-1/runs/run-1')
     assert.equal(taskEvent('paused', task, run, { siteUrl, failures: 5 }).url, 'https://example.org/portal/agents/organization/test1/agents/agent-1?tab=tasks')
     assert.equal(taskEvent('failed', task, run).url, undefined)
   })

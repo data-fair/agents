@@ -16,6 +16,9 @@ export default {
     taskId: { type: 'string' },
     // A task run: the message the task gave the model, and what the model produced.
     prompt: { type: 'string' },
+    // A task run: the task's title as it ran, which heads the message the model is given (taskTurnText,
+    // api/src/tasks/run-messages.ts). A later rename must not change what the run's record says was sent.
+    taskTitle: { type: 'string' },
     parts: { type: 'array', items: { type: 'object' } },
     // What a task run reported through report_outcome.
     outcome: {
@@ -148,6 +151,72 @@ export default {
      * Absent when the page said nothing, and on runs recorded before it existed.
      */
     hostContext: { type: 'string' },
+    /**
+     * WHAT THE MODEL READ THAT THE STORED MESSAGES DO NOT SAY (docs/architecture/context-management.md,
+     * "What a run records"). The messages are the conversation of record, never rewritten; the model is sent a
+     * transformed view of them. Each transformation records here what it did, as it does it, so a reviewer
+     * and an exported transcript can tell what the model actually had in front of it. Absent on runs recorded
+     * before it existed. Steps are counted from 1, the turn's first model step.
+     */
+    context: {
+      type: 'object',
+      additionalProperties: false,
+      properties: {
+        // The compaction recap the turn's history began with: the messages up to `coversUpToSeq` were not
+        // sent, this summary was. `summary` is on the run that wrote the recap (and on a run reading one written
+        // before runs recorded it); the others name its generation, the summary being the same.
+        recap: {
+          type: 'object',
+          additionalProperties: false,
+          required: ['generation', 'coversUpToSeq'],
+          properties: {
+            generation: { type: 'number' },
+            coversUpToSeq: { type: 'number' },
+            summary: { type: 'string' },
+            // Set on the run that wrote it.
+            written: { type: 'boolean' }
+          }
+        },
+        // Tool results the model was sent a placeholder for instead, from the given step on: cleared to free
+        // context ('cleared'), or an image not sent ('image-earlier': a later image replaced it; 'image-unsupported':
+        // the model does not read images). A result of an earlier turn appears in each turn that did not send it.
+        removed: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['toolCallId', 'step', 'reason'],
+            properties: {
+              toolCallId: { type: 'string' },
+              step: { type: 'number' },
+              reason: { type: 'string', enum: ['cleared', 'image-earlier', 'image-unsupported'] }
+            }
+          }
+        },
+        // What a step was given beyond the stored messages: instructions other than `systemPrompt` (rebuilt when
+        // the page's skills changed mid-turn, or with the tripwire's explanation request), and a message the loop
+        // added after the history (the repeated-call reminder).
+        steps: {
+          type: 'array',
+          items: {
+            type: 'object',
+            additionalProperties: false,
+            required: ['step'],
+            properties: {
+              step: { type: 'number' },
+              instructions: { type: 'string' },
+              injected: { type: 'string' }
+            }
+          }
+        }
+      }
+    },
+    /**
+     * The tools the model was offered this run, with their descriptions and input schemas: the key of a
+     * `tool-definitions` document (api/src/conversations/tool-definitions.ts), stored once per distinct set,
+     * since most runs of an agent are offered the same set. Absent on runs recorded before it existed.
+     */
+    toolDefinitionsRef: { type: 'string' },
     status: { type: 'string', enum: ['running', 'done', 'error', 'aborted', 'interrupted', 'skipped'] },
     // 'waiting': the turn handed over to the person (wait_for_user_action) and ends there; their action
     // starts the next one. Not 'completed', which would read as work finished.

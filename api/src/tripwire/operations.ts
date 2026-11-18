@@ -10,6 +10,7 @@ import { z } from 'zod'
 import { guardTag, wrapGuarded, neverFollow } from '../guard/operations.ts'
 import { wrapToolResult } from '../conversations/operations.ts'
 import type { TaskEvent } from '../tasks/operations.ts'
+import { agentRunUrl } from '../autonomous-agents/page-url.ts'
 
 // Prefixed to the system prompt so tripwire requests are recognizable in logs, traces and provider dashboards.
 export const TRIPWIRE_TASK_MARKER = 'TRIPWIRE_TASK'
@@ -183,7 +184,7 @@ export const injectionEvent = (
   siteUrl?: string
 ): TaskEvent => {
   const title = agent.title ?? agent.id
-  const url = siteUrl && `${siteUrl.replace(/\/+$/, '')}/agents/${run.owner.type}/${run.owner.id}/agents/${agent.id}?tab=history&run=${run.id}`
+  const url = siteUrl && agentRunUrl(siteUrl, run.owner, agent.id, run.id)
   return {
     title: {
       en: `The agent "${title}" stopped a run: suspicious content (prompt injection) in the result of ${describeSource(source)}.`,

@@ -19,6 +19,9 @@ import { recordCall } from '../conversations/turn-telemetry.ts'
  *   run's own record agree.
  * - `run.durationMs`: records the call's telemetry entry on the run. The lead omits it: it records ONE
  *   entry for its whole turn, aggregated over its steps (see the executor).
+ * - `run.note`: what the call was for, on that entry, where its role does not say it: the tripwire and moderation
+ *   share the `moderator` role, and a reader of the run (a person, a simulation judge) took a tripwire call on a task
+ *   run for moderation, which never runs there.
  *
  * Returns the breakdown, so a caller that bounds a budget keeps doing it.
  */
@@ -30,7 +33,7 @@ export async function chargeModelCall (input: {
   /** As the AI SDK reports it; undefined when the provider reported none. */
   usage: LanguageModelUsage | undefined
   finishReason?: string
-  run?: { run: ConversationRun, steps?: number, durationMs?: number }
+  run?: { run: ConversationRun, steps?: number, durationMs?: number, note?: string }
 }): Promise<CreditBreakdown> {
   const { owner, identity, modelRole, entry, finishReason, run } = input
   const counts = tokenCountsOf(input.usage)
@@ -47,7 +50,8 @@ export async function chargeModelCall (input: {
       credits: credits.total,
       creditBreakdown: tokenCosts,
       durationMs: run.durationMs,
-      ...(finishReason ? { finishReason } : {})
+      ...(finishReason ? { finishReason } : {}),
+      ...(run.note ? { note: run.note } : {})
     })
   }
   if (credits.total > 0) {

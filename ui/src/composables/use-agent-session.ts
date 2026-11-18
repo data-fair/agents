@@ -94,6 +94,11 @@ export interface AgentSessionClientOptions {
   onCost?: (conversationCost: number) => void
   /** `blocking`: the hello was refused, the conversation cannot be opened (see the error frame's schema). */
   onError?: (message: string, blocking: boolean) => void
+  /**
+   * Another tab opened this conversation and follows it now (see the displaced frame): nothing more of
+   * it arrives here, and a `reset` on the same conversation takes it back.
+   */
+  onDisplaced?: (conversationId: string) => void
 }
 
 /**
@@ -261,6 +266,11 @@ export function useAgentSession (options: AgentSessionClientOptions) {
       case 'error':
         debug('server error %s', message.message)
         options.onError?.(message.message, !!message.blocking)
+        return
+      case 'displaced':
+        debug('displaced from %s', message.conversationId)
+        activity.value = null
+        options.onDisplaced?.(message.conversationId)
     }
   }
 

@@ -20,6 +20,16 @@ test.describe('autonomousAgentMessageToChat', () => {
     assert.equal(chat.content, 'hello')
   })
 
+  test('a user turn shows what the person asked, its hidden context apart', () => {
+    const chat = autonomousAgentMessageToChat({ ...base, parts: [{ type: 'text', text: '<hidden-context>\nThe dataset is "roads".\n</hidden-context>\n\nCreate a dataset' }] })
+    assert.equal(chat.content, 'Create a dataset')
+    assert.equal(chat.hiddenContext, 'The dataset is "roads".')
+    assert.equal(autonomousAgentMessageToChat({ ...base, parts: [{ type: 'text', text: 'hello' }] }).hiddenContext, undefined)
+    // an assistant never had any: its text is kept whole, whatever it quotes
+    const quoted = '<hidden-context>\nx\n</hidden-context>\n\ny'
+    assert.equal(autonomousAgentMessageToChat({ ...base, role: 'assistant', parts: [{ type: 'text', text: quoted }] }).content, quoted)
+  })
+
   test('a message with no parts maps to an empty string, never undefined', () => {
     // ChatMessage.content is required and the renderer indexes into it; a pending assistant
     // message legitimately has none yet.
@@ -221,6 +231,29 @@ test.describe('approval states', () => {
     assert.deepEqual(withPerson.toolInvocations?.[0].review, { outcome: 'unsure', reason: 'saveForm persists', personReason: 'Sera enregistré dans le brouillon.', code: 'judged' })
     assert.equal(declined.deniedByReviewer, undefined)
     assert.equal(declined.deniedReason, 'not today')
+  })
+
+  test('every reviewed or decided call carries who let it run or stopped it, for the review page', () => {
+    const review = { outcome: 'allow', reason: 'as asked', code: 'judged', exposed: false, at: '2026-11-03T00:00:00.000Z' }
+    const decision = { approved: true, userId: 'u1', userName: 'Alice', at: '2026-11-03T00:01:00.000Z' }
+    const chat = autonomousAgentMessageToChat({
+      ...base,
+      role: 'assistant',
+      parts: [
+        // allowed by the reviewer alone: no card, no person
+        { type: 'dynamic-tool', toolCallId: 'a', toolName: 'set_note', state: 'output-available', input: {}, output: 'ok', approval: { id: 'ap1', approved: true, isAutomatic: true }, toolMetadata: { review } } as any,
+        // reviewed, then approved by a person
+        { type: 'dynamic-tool', toolCallId: 'b', toolName: 'delete_note', state: 'output-available', input: {}, output: 'ok', approval: { id: 'ap2', approved: true }, toolMetadata: { review, decision } } as any,
+        // neither
+        { type: 'dynamic-tool', toolCallId: 'c', toolName: 'echo', state: 'output-available', input: {}, output: 'ok' } as any
+      ]
+    } as any)
+    const [byReviewer, byPerson, plain] = chat.toolInvocations ?? []
+    assert.deepEqual(byReviewer.decision, { review })
+    assert.deepEqual(byPerson.decision, { review, person: { approved: true, userId: 'u1', userName: 'Alice', at: '2026-11-03T00:01:00.000Z' } })
+    assert.equal(plain.decision, undefined)
+    // the card's own field stays the pending card's
+    assert.equal(byReviewer.review, undefined)
   })
 
   test('an approval cancelled by a message or by the page reads as cancelled, not as a refusal', () => {

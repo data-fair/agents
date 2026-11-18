@@ -284,13 +284,12 @@ export function credentialScopes (credential: SiteCredential | undefined): strin
 /**
  * Where an agent's home site stands in its account, given the account's sites as listed, or undefined
  * when they could not be listed. Unlisted, the account is the enrolment site alone: the agent still acts
- * as itself there, offers no portal, and a home elsewhere is UNCONFIRMED rather than known to be foreign.
+ * as itself there, and a home elsewhere is UNCONFIRMED rather than known to be foreign.
  */
-export function accountPlacement (enrolled: string, home: string, listed: string[] | undefined): { account: string[], portals: string[], home: 'account' | 'anonymous' | 'unconfirmed' } {
+export function accountPlacement (enrolled: string, home: string, listed: string[] | undefined): { account: string[], home: 'account' | 'anonymous' | 'unconfirmed' } {
   const account = listed ?? [enrolled]
   return {
     account,
-    portals: listed ? account.filter(site => site !== home) : [],
     home: account.includes(home) ? 'account' : listed ? 'anonymous' : 'unconfirmed'
   }
 }

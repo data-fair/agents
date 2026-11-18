@@ -167,6 +167,21 @@ test.describe('Agent memory admin API', () => {
     assert.equal(restored.version, 1)
   })
 
+  test('deleted documents are listed until re-created; a renamed one is not deleted', async () => {
+    const agent = await createAgent()
+    await put(agent.id, 'gone.md', { description: 'd', content: 'a' })
+    await put(agent.id, 'back.md', { description: 'd', content: 'b' })
+    await put(agent.id, 'moved.md', { description: 'd', content: 'c' })
+    await admin.delete(`${base(agent.id)}/document`, { params: { path: 'gone.md', version: 1 } })
+    await admin.delete(`${base(agent.id)}/document`, { params: { path: 'back.md', version: 1 } })
+    await put(agent.id, 'back.md', { description: 'd', content: 'b again' })
+    await command(agent.id, { command: 'rename', path: 'moved.md', new_path: 'elsewhere.md' })
+    const deleted = (await instructor.get(`${base(agent.id)}/deleted`)).data
+    assert.deepEqual(deleted.map((d: any) => d.path), ['gone.md'])
+    assert.equal(deleted[0].deletedBy.kind, 'user')
+    assert.ok(deleted[0].deletedAt)
+  })
+
   test('the agent-side rename moves the document and logs it', async () => {
     const agent = await createAgent()
     await put(agent.id, 'old.md', { description: 'd', content: 'text' })

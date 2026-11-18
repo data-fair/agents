@@ -12,7 +12,7 @@ import net from 'node:net'
 import { Transform, type Readable } from 'node:stream'
 import { createHash } from 'node:crypto'
 import { request, type Agent } from 'undici'
-import { checkUrl, displayUrl } from '../web/operations.ts'
+import { abortableSleep, checkUrl, displayUrl, httpStatusMessage, retryWaitMs, RETRY_DEFAULTS } from '../web/operations.ts'
 import { USER_AGENT } from '../web/client.ts'
 import { envPublicIps, ipList, isPublicAddress, publicDispatcher } from '../web/public-lookup.ts'
 import { credentialHeaders, type SiteCredentials, type SiteCredential } from '../mcp-servers/operations.ts'
@@ -42,6 +42,8 @@ export interface DownloadOptions {
   maxRedirects?: number
   /** Bound on the whole download, body included (default 5 minutes). */
   deadlineMs?: number
+  /** The one retry of a 429 or a 503, as fetch_url's (RETRY_DEFAULTS, ../web/operations.ts). */
+  retry?: { maxWaitMs: number, defaultWaitMs: number }
 }
 
 const DEADLINE_MS = 5 * 60_000
@@ -77,6 +79,7 @@ export const openDownload = async (opts: DownloadOptions): Promise<OpenedDownloa
     return url.href
   }
   let url = check(opts.url)
+  let retriedAfterMs: number | undefined
   for (let hop = 0; ; hop++) {
     let res
     try {
@@ -104,7 +107,16 @@ export const openDownload = async (opts: DownloadOptions): Promise<OpenedDownloa
     // anything else that is not a success is not a file: 4xx, 5xx, and a redirect that goes nowhere
     if (res.statusCode >= 300) {
       discard(res.body as unknown as Readable)
-      throw new Error(`${displayUrl(url)} answered HTTP ${res.statusCode}`)
+      const retryAfter = first(res.headers['retry-after'])
+      const wait = retriedAfterMs === undefined ? retryWaitMs(res.statusCode, retryAfter, opts.retry ?? RETRY_DEFAULTS) : undefined
+      if (wait !== undefined) {
+        // The same URL once more, not a hop: a passing refusal ridden out, as fetch_url's client does.
+        await abortableSleep(wait, signal)
+        retriedAfterMs = wait
+        hop--
+        continue
+      }
+      throw new Error(httpStatusMessage(url, res.statusCode, retryAfter, retriedAfterMs))
     }
     const length = first(res.headers['content-length'])
     // a caller that gives up on the body destroys it: that must not be an uncaught error

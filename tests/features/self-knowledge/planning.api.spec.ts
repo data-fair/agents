@@ -49,7 +49,7 @@ const ask = async (agentId: string, toolName: string, input: unknown) => {
   return { run, conversationId, seq: assistant.seq as number, part }
 }
 /** Decide the pending call and wait for the continuation; the call's part as settled on its message. */
-const decide = async (asked: Awaited<ReturnType<typeof ask>>, toolName: string, decision: { approved: boolean, reason?: string }) => {
+const decide = async (asked: Awaited<ReturnType<typeof ask>>, toolName: string, decision: { approved: boolean }) => {
   const { runId } = await decideOverSocketToRun(orgAdmin, asked.conversationId, asked.part.approval.id, decision)
   const run = await awaitRun(orgAdmin, asked.conversationId, runId)
   return { run, part: callPart(await messageAt(asked.conversationId, asked.seq), toolName) }
@@ -103,11 +103,13 @@ test.describe('Planning tools', () => {
     assert.match(part.output, /active: no schedule: runs by webhook or when run now, next run none\./)
   })
 
+  // Refusing is one click and carries no reason: the person's reason, if any, is their next message.
   test('rejected, nothing is planned', async () => {
     const agent = await createAgent()
     const asked = await ask(agent.id, 'plan_task', digest)
     const { part } = await decide(asked, 'plan_task', { approved: false })
     assert.equal(part.state, 'output-denied', JSON.stringify(part))
+    assert.equal(part.approval.reason, undefined)
     assert.deepEqual(await tasksOf(agent.id), [])
   })
 

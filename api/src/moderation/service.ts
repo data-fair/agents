@@ -231,7 +231,7 @@ export function startModeration (params: {
       modelRole: 'moderator',
       entry,
       usage,
-      ...(params.run && !timedOut ? { run: { run: params.run, durationMs: Date.now() - callStartedAt } } : {})
+      ...(params.run && !timedOut ? { run: { run: params.run, durationMs: Date.now() - callStartedAt, note: 'moderation' } } : {})
     }))
   })().catch((err): ModerationDecision => ({ kind: 'stage1-failed', cause: 'error', message: err instanceof Error ? err.message : String(err) }))
 

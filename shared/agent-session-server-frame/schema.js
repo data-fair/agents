@@ -112,8 +112,19 @@ export default {
       }
     },
     {
+      title: 'Displaced frame',
+      description: 'Another connection (another tab, most often) opened this conversation and now follows it: this one no longer receives its frames, and what it sends for the conversation (a prompt, a decision, a Stop) is refused with this frame again. A new `hello` naming the conversation takes it back. `conversationId` is the conversation left.',
+      type: 'object',
+      additionalProperties: false,
+      required: ['type', 'conversationId'],
+      properties: {
+        type: { const: 'displaced' },
+        conversationId: { type: 'string' }
+      }
+    },
+    {
       title: 'Error frame',
-      description: 'A refusal or a failure, with the HTTP status it would have had: 400 a malformed frame, 401 a refused anonymous token, 403 not allowed, 404 an unknown conversation, approval or tool call, 409 a conflict (a decision already taken, a turn still finishing, the thread opened elsewhere), 503 the service is restarting (send again), 500 anything else.',
+      description: 'A refusal or a failure, with the HTTP status it would have had: 400 a malformed frame, 401 a refused anonymous token, 403 not allowed, 404 an unknown conversation, approval or tool call, 409 a conflict (a decision already taken, a turn still finishing), 503 the service is restarting (send again), 500 anything else.',
       type: 'object',
       additionalProperties: false,
       required: ['type', 'status', 'message'],

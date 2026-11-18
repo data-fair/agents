@@ -1,7 +1,7 @@
 <template>
   <v-card
     variant="outlined"
-    color="warning"
+    :color="decided ? undefined : 'warning'"
     class="my-2"
     data-testid="approval-card"
   >
@@ -26,11 +26,19 @@
       >
         {{ t('reviewNote', { reason: review.personReason || review.reason }) }}
       </div>
+    </v-card-text>
+    <!-- The tool's description and server are written for the model, often in English, and the heading already
+         names the call by its title: one click away under « Détails », never in the person's way. With them, the
+         arguments, when a judged review's line already says what the call does. Not for a planning call or an
+         access request: their card says what they do. -->
+    <v-card-text
+      v-if="hasDetails"
+      class="py-0"
+    >
       <v-btn
-        v-if="detailsFolded"
         variant="text"
         size="small"
-        class="px-0 mt-1"
+        class="px-0"
         data-testid="approval-details-toggle"
         :append-icon="showDetails ? mdiChevronUp : mdiChevronDown"
         @click="showDetails = !showDetails"
@@ -38,10 +46,8 @@
         {{ t('details') }}
       </v-btn>
     </v-card-text>
-    <!-- Not for a planning call or an access request: the card below says what it does, and the
-         description and server are written for the model. -->
     <v-card-subtitle
-      v-if="!taskSections && !access && (clippedDescription || serverId) && (!detailsFolded || showDetails)"
+      v-if="hasDetails && showDetails"
       class="approval-card__subtitle"
     >
       <div
@@ -154,8 +160,17 @@
     >
       {{ t('inScript') }}
     </v-card-text>
+    <!-- A card already decided, as the review page reads it: the person's choice where the buttons were. -->
     <v-card-text
-      v-if="readonly"
+      v-if="decided"
+      class="text-body-medium font-weight-bold pt-0"
+      :class="decided.approved ? 'text-success' : 'text-error'"
+      data-testid="approval-decided"
+    >
+      {{ decidedLine }}
+    </v-card-text>
+    <v-card-text
+      v-else-if="readonly"
       class="text-body-small text-medium-emphasis pt-0"
       data-testid="approval-readonly"
     >
@@ -185,7 +200,7 @@
       </v-btn>
     </v-card-actions>
     <v-card-text
-      v-if="!readonly"
+      v-if="!readonly && !decided"
       class="text-body-small text-medium-emphasis pt-0"
       data-testid="approval-typing-cancels"
     >
@@ -208,6 +223,10 @@ fr:
   paused: "en pause : {reason}"
   resumes: "activée : cette modification lève la pause et planifie la prochaine exécution"
   readonly: En attente de la décision de la personne
+  approvedBy: "Approuvé par {name}{at}"
+  declinedBy: "Refusé par {name}{at}"
+  decidedAt: " le {at}"
+  someone: la personne
   approve: Approuver
   reject: Refuser
   typingCancels: Envoyer un message annule cette demande.
@@ -238,6 +257,10 @@ en:
   paused: "paused: {reason}"
   resumes: "enabled: this change lifts the pause and plans the next run"
   readonly: Awaiting the person's decision
+  approvedBy: "Approved by {name}{at}"
+  declinedBy: "Declined by {name}{at}"
+  decidedAt: " on {at}"
+  someone: the person
   approve: Approve
   reject: Reject
   typingCancels: Sending a message cancels this request.
@@ -286,8 +309,16 @@ const props = defineProps<{
   review?: NonNullable<ChatMessage['toolInvocations']>[number]['review']
   /** The call a script paused on (api/src/code-mode): the card says the script waits for this decision. */
   inScript?: boolean
+  /** The person's decision on it, for a card read after the fact (the review page): shown instead of the buttons. */
+  decided?: NonNullable<NonNullable<ChatMessage['toolInvocations']>[number]['decision']>['person']
 }>()
 const emit = defineEmits<{ decide: [decision: { approved: boolean }] }>()
+const decidedLine = computed(() => {
+  const decided = props.decided
+  if (!decided) return ''
+  const at = decided.at ? t('decidedAt', { at: new Date(decided.at).toLocaleString(locale.value) }) : ''
+  return t(decided.approved ? 'approvedBy' : 'declinedBy', { name: decided.userName || decided.userId || t('someone'), at })
+})
 
 const { t, locale } = useI18n()
 // The access requests, by the source they record (WEB_SERVER_ID in api/src/web/operations.ts,
@@ -328,6 +359,7 @@ const reviewLine = computed(() => {
 // person approves is this exact call. Not for an access request nor a planning call: their own card is already plain.
 const detailsFolded = computed(() => !!props.review?.personReason && props.review.code === 'judged' && !access.value && !taskSections.value)
 const showDetails = ref(false)
+const hasDetails = computed(() => !taskSections.value && !access.value && (detailsFolded.value || !!clippedDescription.value || !!props.serverId))
 
 // Written for the person deciding, not for a developer: the tool's own title and description rather
 // than its name and a JSON dump.

@@ -10,6 +10,7 @@ import type { AgentMemory } from '#types/agent-memory/index.ts'
 import type { AgentMemoryVersion } from '#types/agent-memory-version/index.ts'
 import type { Usage } from './usage/service.ts'
 import type { ModerationEvent, ModerationStrike } from './moderation/types.ts'
+import type { ToolDefinitionsDocument } from './conversations/tool-definitions.ts'
 import type { NhiKeysDocument } from './nhi/operations.ts'
 import type { ScriptPause } from './code-mode/pauses.ts'
 import { RETENTION_SECONDS } from './retention.ts'
@@ -86,6 +87,11 @@ export class AgentsMongo {
   /** The continuations of code_mode scripts paused for a person's decision (api/src/code-mode/pauses.ts). */
   get scriptPauses () {
     return mongoLib.db.collection<ScriptPause>('script-pauses')
+  }
+
+  /** The tool sets offered to runs, one document per distinct set, addressed by _id (api/src/conversations/tool-definitions.ts). */
+  get toolDefinitions () {
+    return mongoLib.db.collection<ToolDefinitionsDocument>('tool-definitions')
   }
 
   /** Keys this service generates for itself, addressed by _id (api/src/nhi/service.ts). */
@@ -172,7 +178,7 @@ export class AgentsMongo {
       },
       'agent-memory-versions': {
         'main-keys': [{ id: 1 }, { unique: true }],
-        // One document's history, newest first; and a whole store's, for the admin history tab.
+        // One document's history, newest first; and a whole store's (its deleted documents, the agent's delete cascade).
         'path-keys': [{ storeId: 1, path: 1, createdAt: -1 }, {}],
         'store-keys': [{ storeId: 1, createdAt: -1 }, {}]
       }

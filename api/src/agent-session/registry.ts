@@ -25,12 +25,14 @@ const byConversation = new Map<string, AgentSession>()
  *
  * A second attach REPLACES the first: a reconnect, a second tab, or a reloaded page all look like
  * this, and the newest connection is the one the person is actually looking at. The displaced session
- * is told, so its tab shows something rather than silently going deaf.
+ * is told, so its tab says the conversation continues elsewhere and offers to take it back (a new
+ * hello) rather than silently going deaf. Until it does, what it sends for the conversation is refused
+ * (isDisplaced, service.ts): a prompt from it would run with the OTHER tab's page tools, and stream there.
  */
 export const attachSession = (conversationId: string, session: AgentSession) => {
   const displaced = byConversation.get(conversationId)
   if (displaced && displaced !== session) {
-    displaced.send({ type: 'error', status: 409, message: 'this conversation was opened somewhere else' })
+    displaced.send({ type: 'displaced', conversationId })
   }
   byConversation.set(conversationId, session)
   debug('attached %s, %d live', conversationId, byConversation.size)
@@ -56,6 +58,13 @@ export const detachSession = (conversationId: string, session: AgentSession) => 
  * turn simply has no page tools and streams to no one; the stored message is still the record.
  */
 export const sessionFor = (conversationId: string): AgentSession | undefined => byConversation.get(conversationId)
+
+/**
+ * Whether another session took this conversation over from this one. Not merely "unwatched": a
+ * conversation nobody watches any more (the other tab closed) is not taken, but this session is no
+ * longer its watcher either, so it has to say hello again all the same.
+ */
+export const isDisplaced = (conversationId: string, session: AgentSession): boolean => byConversation.get(conversationId) !== session
 
 /** Tell whoever watches this conversation what one of its assistant messages now is. */
 export const notifyMessage = (conversationId: string, message: { seq: number, parts?: unknown[] }, pending = false) => {

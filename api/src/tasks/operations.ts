@@ -12,6 +12,7 @@ import type { Event } from '@data-fair/lib-common-types/event/index.js'
 import { partsText, type MessagePart } from '@agents/shared/message-parts'
 import { DEFAULT_TIME_ZONE } from '@agents/shared/task-schedule'
 import { defuseEnvelopes } from '../mcp-servers/guides.ts'
+import { agentPageUrl, agentRunUrl } from '../autonomous-agents/page-url.ts'
 
 export type Scheduling = AutonomousAgentTask['scheduling'][number]
 
@@ -58,7 +59,14 @@ export const minGapSeconds = (rules: Scheduling[], from: Date, samples = 50): nu
 
 export type TaskOutcome = NonNullable<ConversationRun['outcome']>
 export const TASK_OUTCOME_STATUSES: TaskOutcome['status'][] = ['done', 'nothing-to-do', 'needs-attention']
-export const TASK_OUTCOME_SUMMARY_MAX = 10_000
+// Short, as a notification or a commit subject is: it is what people are notified with and what an
+// admin scans in the runs list. The details are the run's answer, read on the run's page.
+export const TASK_OUTCOME_SUMMARY_MAX = 500
+/**
+ * The length the summary is ASKED for, well under the refusal: a model counts characters loosely, so asked for the
+ * limit itself it lands near it and is refused, an extra model step (REVIEW_REASON_ASKED_CHARS, the same split).
+ */
+export const TASK_OUTCOME_SUMMARY_ASKED = 300
 
 /**
  * What `report_outcome` was called with, checked. The AI SDK does not validate a tool's input against
@@ -73,7 +81,7 @@ export const validateTaskOutcome = (input: unknown): TaskOutcome => {
   if (typeof summary !== 'string' || !summary.trim()) throw new Error('summary must be a non-empty string')
   const trimmed = summary.trim()
   if (trimmed.length > TASK_OUTCOME_SUMMARY_MAX) {
-    throw new Error(`summary must be at most ${TASK_OUTCOME_SUMMARY_MAX} characters (it has ${trimmed.length}): shorten it`)
+    throw new Error(`summary must be at most ${TASK_OUTCOME_SUMMARY_MAX} characters (it has ${trimmed.length}): shorten it to about ${TASK_OUTCOME_SUMMARY_ASKED} (one to three sentences); put the details in your answer, which stays readable in the run`)
   }
   return { status: status as TaskOutcome['status'], summary: trimmed }
 }
@@ -125,8 +133,9 @@ export const taskEvent = (
         : { en: `${en} failed.`, fr: `${fr} a échoué.` }
   // done: the agent's summary, or its final answer when it reported no outcome (`error` is that text then).
   const body = kind === 'needs-attention' ? summary : kind === 'done' ? summary ?? error : error
-  const page = opts.siteUrl && `${opts.siteUrl.replace(/\/+$/, '')}/agents/${task.owner.type}/${task.owner.id}/agents/${run.agentId}`
-  const url = page && (kind === 'paused' ? `${page}?tab=tasks` : `${page}?tab=history&run=${run.id}`)
+  const url = opts.siteUrl && (kind === 'paused'
+    ? `${agentPageUrl(opts.siteUrl, task.owner, run.agentId)}?tab=tasks`
+    : agentRunUrl(opts.siteUrl, task.owner, run.agentId, run.id))
   return {
     title,
     topic: { key: `agents:task-${kind}:${task.id}` },

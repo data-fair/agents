@@ -80,13 +80,10 @@ test.describe('Sites of an autonomous agent', () => {
     assert.deepEqual(whoami(assistant), { forwardedHost: `localhost:${PORT}`, userId: 'test-autonomous-agent-nhi' })
   })
 
-  test('a portal of its organization is reached with a session for that portal', async () => {
+  test('a chat on a portal of its organization acts there, as the agent', async () => {
     await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
-    const { assistant, conversationId } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, `call tool whoami {"portal":"${ownPortal}"}`)
+    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami', { host: ownPortal })
     assert.deepEqual(whoami(assistant), { forwardedHost: ownPortal, userId: 'test-autonomous-agent-nhi' })
-    // and the home site again in the same conversation: no session leaks from one site to the other
-    const again = await turnOverSocket(orgAdmin, conversationId, 'call tool whoami')
-    assert.deepEqual(whoami(again.assistant), { forwardedHost: `localhost:${PORT}`, userId: 'test-autonomous-agent-nhi' })
   })
 
   test('a chat on another organization\'s site acts there anonymously, and the agent is told', async () => {
@@ -103,14 +100,6 @@ test.describe('Sites of an autonomous agent', () => {
     // continued through the default host: still the foreign site, still anonymous
     const again = await turnOverSocket(orgAdmin, first.conversationId, 'call tool whoami')
     assert.deepEqual(whoami(again.assistant), { forwardedHost: foreignPortal, userId: null })
-  })
-
-  test('a portal that is not one of its organization\'s is refused by name', async () => {
-    await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
-    const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, `call tool whoami {"portal":"${foreignPortal}"}`)
-    const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'whoami')
-    assert.equal(part.state, 'output-error')
-    assert.match(part.errorText, /is not a portal of your organization/)
   })
 
   // Binding: an identity without its enrolment site is a misconfiguration to surface, never a reason to
@@ -132,9 +121,9 @@ test.describe('Sites of an autonomous agent', () => {
     assert.match(run.error, /no enrolled non-human identity/)
   })
 
-  test('a portal call carries the agent\'s token for that portal, addressed to the site\'s MCP and issued by its enrolment site', async () => {
+  test('a call on a portal carries the agent\'s token for that portal, addressed to the site\'s MCP and issued by its enrolment site', async () => {
     await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
-    await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, `call tool whoami {"portal":"${ownPortal}"}`)
+    await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami', { host: ownPortal })
     assert.equal(fixture.lastHeaders()['x-forwarded-host'], ownPortal)
     assert.equal(fixture.lastHeaders().cookie, undefined)
     const token = String(fixture.lastHeaders().authorization).slice('Bearer '.length)

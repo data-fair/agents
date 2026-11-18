@@ -358,17 +358,17 @@ test.describe('credentialScopes', () => {
 test.describe('accountPlacement', () => {
   const enrolled = 'https://a.example.org'
   const portal = 'https://portal.example.org'
-  test('a listed account offers its other sites as portals', () => {
-    assert.deepEqual(accountPlacement(enrolled, enrolled, [enrolled, portal]), { account: [enrolled, portal], portals: [portal], home: 'account' })
-    assert.deepEqual(accountPlacement(enrolled, portal, [enrolled, portal]), { account: [enrolled, portal], portals: [enrolled], home: 'account' })
+  test('a listed account is every site the agent acts on as itself, the home among them', () => {
+    assert.deepEqual(accountPlacement(enrolled, enrolled, [enrolled, portal]), { account: [enrolled, portal], home: 'account' })
+    assert.deepEqual(accountPlacement(enrolled, portal, [enrolled, portal]), { account: [enrolled, portal], home: 'account' })
   })
   test('a site outside a listed account is anonymous', () => {
     assert.equal(accountPlacement(enrolled, 'https://other.example.org', [enrolled]).home, 'anonymous')
   })
-  test('a failed listing still acts as the agent on its enrolment site, with no portal', () => {
-    assert.deepEqual(accountPlacement(enrolled, enrolled, undefined), { account: [enrolled], portals: [], home: 'account' })
+  test('a failed listing still acts as the agent on its enrolment site', () => {
+    assert.deepEqual(accountPlacement(enrolled, enrolled, undefined), { account: [enrolled], home: 'account' })
   })
   test('a failed listing leaves another site unconfirmed, not foreign', () => {
-    assert.deepEqual(accountPlacement(enrolled, portal, undefined), { account: [enrolled], portals: [], home: 'unconfirmed' })
+    assert.deepEqual(accountPlacement(enrolled, portal, undefined), { account: [enrolled], home: 'unconfirmed' })
   })
 })

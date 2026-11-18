@@ -29,7 +29,27 @@ export interface LoadedHistory {
   messages: ModelMessage[]
   seqs: number[]
   generation: number
+  /** The persisted recap heading `messages`, when there is one. */
+  recap?: NonNullable<Conversation['compaction']>
 }
+
+/**
+ * What the turn's history did to the stored messages before its first step, for the run's `context`
+ * (docs/architecture/context-management.md, "What a run records"): the recap it began with, and the tool
+ * results it cleared.
+ */
+export interface HistoryContext {
+  recap?: { generation: number, coversUpToSeq: number, summary?: string, written?: boolean }
+  cleared: string[]
+}
+
+/** The recap as the run records it: its summary only where no earlier run's record holds it. */
+const recapRecord = (recap: NonNullable<Conversation['compaction']>): HistoryContext['recap'] => ({
+  generation: recap.generation,
+  coversUpToSeq: recap.coversUpToSeq,
+  // A recap written before runs recorded it names no run: this run's record is the first to hold its summary.
+  ...(recap.runId ? {} : { summary: recap.summary })
+})
 
 /**
  * The conversation so far, as model messages.
@@ -76,7 +96,8 @@ export const loadHistory = async (
   return {
     messages: [recapMessage(recap.summary), ...messages],
     seqs: [recap.coversUpToSeq, ...seqs],
-    generation: recap.generation
+    generation: recap.generation,
+    recap
   }
 }
 
@@ -105,8 +126,9 @@ export const compactHistory = async (
   // Only so the compaction's own trace is gated exactly like the turn's — a summarizer call is a
   // model call on the person's conversation, so it is the same disclosure.
   tracing: { agentId: string }
-): Promise<{ messages: ModelMessage[], credits: number }> => {
-  if (!budget) return { messages: loaded.messages, credits: 0 }
+): Promise<{ messages: ModelMessage[], credits: number, context: HistoryContext }> => {
+  const loadedContext: HistoryContext = { ...(loaded.recap ? { recap: recapRecord(loaded.recap) } : {}), cleared: [] }
+  if (!budget) return { messages: loaded.messages, credits: 0, context: loadedContext }
   const { history, clearing, compaction: decision } = decideContextManagement({
     history: loaded.messages,
     // Images at their cost, and only the ones a step will send (model-images.ts: the latest, at most). Counted
@@ -120,19 +142,20 @@ export const compactHistory = async (
   })
   // Clearing leaves the message LIST untouched — only payloads inside it — so `loaded.seqs` still lines
   // up with `history` and the cut alignment below is unaffected.
+  const context: HistoryContext = { ...loadedContext, cleared: clearing.clear ? clearing.clearedToolCallIds : [] }
   if (clearing.clear) {
     debug('cleared %d old tool results, freeing ~%d tokens', clearing.clearedCount, clearing.freedTokens)
   }
   if (!decision.compact) {
     // The saving tier 1 exists for: over budget, brought back under it without a model call.
     debug('no compaction: %s', decision.reason)
-    return { messages: history, credits: 0 }
+    return { messages: history, credits: 0, context }
   }
   // The recap is cached against a STORED MESSAGE boundary, so the cut has to land on one.
   const cut = alignCutToStoredMessage(loaded.seqs, decision.prefixToSummarize.length)
   if (cut <= 0) {
     debug('no compaction: the cut aligned away to nothing')
-    return { messages: history, credits: 0 }
+    return { messages: history, credits: 0, context }
   }
   const prefixToSummarize = history.slice(0, cut)
   const retained = history.slice(cut)
@@ -178,11 +201,23 @@ export const compactHistory = async (
     await saveCompaction(run.conversationId, {
       summary,
       generation: decision.generation,
-      coversUpToSeq
+      coversUpToSeq,
+      runId: run.id
     })
     debug('compacted %d messages into a recap (generation %d, covers up to seq %d)', prefixToSummarize.length, decision.generation, coversUpToSeq)
     notifyActivity(run.conversationId, null)
-    return { messages: [recapMessage(summary), ...retained], credits: compactionCredits.total }
+    // The results cleared before the cut went into the summary; those after it were sent as placeholders.
+    const retainedIds = new Set(retained.flatMap(message => message.role === 'tool' && Array.isArray(message.content)
+      ? (message.content as Array<{ type?: string, toolCallId?: string }>).filter(part => part.type === 'tool-result').map(part => part.toolCallId as string)
+      : []))
+    return {
+      messages: [recapMessage(summary), ...retained],
+      credits: compactionCredits.total,
+      context: {
+        recap: { generation: decision.generation, coversUpToSeq, summary, written: true },
+        cleared: context.cleared.filter(id => retainedIds.has(id))
+      }
+    }
   } catch (err) {
     if (abortSignal.aborted) throw err
     // A failed compaction used to return the FULL history, which the comment above admits risks a
@@ -203,6 +238,6 @@ export const compactHistory = async (
       JSON.stringify(cleared).length,
       err
     )
-    return { messages: cleared, credits: 0 }
+    return { messages: cleared, credits: 0, context: { ...loadedContext, cleared: fallback.clear ? fallback.clearedToolCallIds : [] } }
   }
 }

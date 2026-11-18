@@ -68,7 +68,8 @@ test.describe('Webhook triggers', () => {
     assert.equal(run.trigger, 'webhook')
     assert.equal(run.triggeredBy, undefined)
     assert.equal(run.status, 'done')
-    const prompt = run.messages[0].parts[0].text as string
+    // after the task's title, which heads the message the model is given
+    const prompt = (run.messages[0].parts[0].text as string).replace(/^Planned task "[^"]*":\n\n/, '')
     assert.match(prompt, /^Webhook calls received since the last run\./)
     assert.match(prompt, /<webhook-payload received="[^"]+">\n\{\n {2}"topic": \{\n {4}"key": "data-fair:dataset-data-updated:abc"/)
     assert.ok(prompt.endsWith('\n\nhello'))

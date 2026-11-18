@@ -33,7 +33,7 @@ import { withHostContext, chatFactsOnly, withServerFacts, personRoleFact, siteFa
 import { usesPageTools } from '../agent-session/personal-agent.ts'
 import { isPersonalAgentId } from '@agents/shared/agent-audit'
 import { MODERATION_REFUSAL } from '../moderation/operations.ts'
-import { loadHistory, compactHistory } from './turn-history.ts'
+import { loadHistory, compactHistory, type HistoryContext } from './turn-history.ts'
 import { pendingWaitReminder, settleInterruptedParts, type InterruptReason, type StopCause } from './interrupted-turn.ts'
 import { updateMessage, settleStoredToolPart, repauseStoredScript, storeEarlierScriptTrace, finishRun, conversationCost, type ApprovedCallsEnd } from './service.ts'
 import { storeScriptPause, scriptPauseOf, dropScriptPause } from '../code-mode/pauses.ts'
@@ -164,7 +164,7 @@ export interface TurnTarget {
    */
   messageSeq?: number
   /** The model's context for this turn, within budget, as it is sent. */
-  history: (request: TurnHistoryRequest) => Promise<{ messages: ModelMessage[], credits: number, hostContext: string }>
+  history: (request: TurnHistoryRequest) => Promise<{ messages: ModelMessage[], credits: number, hostContext: string, context?: HistoryContext }>
   /** Persist the turn's structure as it stands: called when a call opens or settles. */
   persist: (parts: MessagePart[]) => Promise<void>
   frames: TurnFrames
@@ -272,7 +272,7 @@ export const conversationTarget = (
       const history = store || reminder
         ? withHostContext(compacted.messages, store, reminder ? [reminder] : [], hostBlocks)
         : compacted.messages
-      return { messages: history, credits: compacted.credits, hostContext: hostBlocks.text }
+      return { messages: history, credits: compacted.credits, hostContext: hostBlocks.text, context: compacted.context }
     },
     persist: async (parts) => { await updateMessage(run.conversationId, messageSeq, { parts, pending: true }) },
     frames: {

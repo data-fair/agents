@@ -135,7 +135,9 @@ const state = useAgentChatDrawer()
 // state.drawerOpen, state.agentStatus, state.hasUnread, state.fabIcon, state.fabColor
 ```
 
-The drawer's open state is persisted to `localStorage` (`df-agent-chat-open`), so it stays open across page navigations. The menu's open state is deliberately not persisted — restoring it made the menu pop up on its own — only its expanded size (`df-agent-menu-expanded`). The block has no open/close state (it is always visible) and so persists nothing.
+The drawer's open state is persisted to the tab's `sessionStorage` (`df-agent-chat-open`), so it stays open across page navigations and reloads in that tab, while a tab opened beside it (a ctrl-click) starts with it closed. It was `localStorage`, shared by every tab: a new tab opened the drawer, resumed the same conversation and took it over from the tab the person was in. The menu's open state is deliberately not persisted — restoring it made the menu pop up on its own — only its expanded size (`df-agent-menu-expanded`). The block has no open/close state (it is always visible) and so persists nothing.
+
+The conversation follows the same rule. The chat keeps the conversation it is in in the tab's `sessionStorage` (`df-agents-conversation:<account>`): a reload or a navigation within the tab resumes it, and a new tab starts a new conversation (created only by its first message), as a new tab of ChatGPT or Claude.ai does; the earlier ones are in the history. Only one connection follows a conversation, because a turn runs on one page's tools (`api/src/agent-session/registry.ts`). Opening it elsewhere, from the history or a duplicated tab, takes it over: the tab left behind gets a `displaced` frame, says *This conversation continues in another tab* with a **Continue here** button (a new `hello`, which takes it back), and the server refuses what it sends for the conversation until then. Before, the left tab only showed an error and could still prompt, and its turn then ran on the other tab's page tools and streamed there.
 
 ---
 
@@ -293,7 +295,7 @@ bc.postMessage({
 })
 ```
 
-The container composable listens for `agent-start-session` and automatically opens. The `visiblePrompt` is shown to the user; `hiddenContext` is passed to the agent without displaying it: the iframe sends it as its own field of the `prompt` frame and the server does the `<hidden-context>` wrapping, so a client cannot place the sentinels itself.
+The container composable listens for `agent-start-session` and automatically opens. The `visiblePrompt` is shown to the user; `hiddenContext` is passed to the agent without displaying it: the iframe sends it as its own field of the `prompt` frame and the server does the `<hidden-context>` wrapping, so a client cannot place the sentinels itself. The turn is stored wrapped, and `autonomousAgentMessageToChat` (`ui/src/utils/autonomous-agent-chat-message.ts`) splits it back for every reader: the chat shows only the visible prompt, the review page shows the hidden context folded under the bubble ("Context added by the page"), and the conversations list previews only the visible prompt. The page's host state and events, folded into the last user message at call time, are not stored with the message: the run records them (`hostContext`), shown in the turn's detail and carried by the export ([what a run records](./context-management.md#what-a-run-records)).
 
 To check if a drawer is available before sending:
 
@@ -305,6 +307,8 @@ bc.postMessage({ channel: channelId, type: 'agent-chat-ping' })
 ### Inline action button
 
 `DfAgentChatAction` is a button a host app drops directly into a page (for example a contextual "ask the assistant" help action next to a creation or configuration form — this is how it is used in data-fair on creation/config pages). On mount it pings over BroadcastChannel for a live drawer and only shows itself once one answers (`agent-chat-pong` / `agent-chat-ready`). On click it broadcasts an `agent-start-session` message carrying a `visiblePrompt` (shown to the user) and a `hiddenContext` (page context passed to the agent silently), which opens the drawer and starts the conversation. It also stores the message in sessionStorage (`df-agent-pending-action`), which the iframe reads on mount, for when the iframe was not loaded yet to hear the broadcast. It is the declarative, in-page counterpart to the programmatic `agent-start-session` snippet above.
+
+A button addresses the page's assistant, the only agent offered the page's tools. A chat opened on a configured agent ignores it. A chat whose open conversation is with another agent moves to a new conversation with the assistant — without asking when the chat only resumed that conversation by itself (the drawer's chat loads with the page and reopens the tab's thread before anyone looks at it), and after asking in place when the person chose it (picked the agent, opened it from the history, or wrote in it). Done silently, that move replaced what the person was reading, and stopped the agent's turn, for a click elsewhere on the page.
 
 ---
 

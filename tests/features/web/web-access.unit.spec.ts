@@ -59,6 +59,15 @@ const routes: Record<string, (req: http.IncomingMessage, res: http.ServerRespons
   },
   '/spa': (req, res) => { res.writeHead(200, { 'content-type': 'text/html' }).end('<html><body><div id="app"></div><script src="/app.js"></script></body></html>') },
   '/big': (req, res) => { res.writeHead(200, { 'content-type': 'text/plain' }).end('x'.repeat(5000)) },
+  // GitHub's answer to too many reads of its HTML pages
+  '/limited': (req, res) => { res.writeHead(429, { 'content-type': 'text/html', 'retry-after': '60' }).end('Too many requests') },
+  // a short limit: refused, then served
+  '/limited-once': (req, res) => {
+    if (hits['/limited-once'] === 1) res.writeHead(429, { 'retry-after': '0' }).end()
+    else res.writeHead(200, { 'content-type': 'application/json' }).end('{"ok":true}')
+  },
+  // a 429 that says nothing of how long, every time
+  '/limited-quiet': (req, res) => { res.writeHead(429).end() },
   '/bot': (req, res) => { res.writeHead(403, { 'content-type': 'text/html', 'cf-mitigated': 'challenge' }).end('Just a moment...') },
   '/file.pdf': (req, res) => { res.writeHead(200, { 'content-type': 'application/pdf' }).end('%PDF-1.4') },
   // Headers, then nothing: a client reading the body before deciding would wait out its timeout.
@@ -271,11 +280,49 @@ test.describe('web access', () => {
     assert.equal(none.total, 0, 'a page outside the prefix is never listed')
   })
 
-  test('the tools stop a run at its call budget', async () => {
+  test('the tools stop a run at its call budget, which their descriptions state', async () => {
     const tools = createWebTools({ ...context(), maxCalls: 2 })
     const execute = (tools[FETCH_URL_TOOL_NAME] as any).execute
+    for (const name of Object.keys(tools)) assert.match((tools[name] as any).description, /may make 2 calls of fetch_url and list_site_pages in all/)
+    // an address outside the allowlist is refused before any request, and spends nothing
+    await assert.rejects(execute({ url: 'https://example.com/' }), /not under this agent's allowed URLs/)
     await execute({ url: `${base}/data.json` })
     await execute({ url: `${base}/data.json` })
     await assert.rejects(execute({ url: `${base}/data.json` }), /used all of its 2 web tool calls/)
+  })
+
+  test('a 429 says it is a rate limit and not to call again at once, and is never cached', async () => {
+    const ctx = context()
+    await assert.rejects(fetchUrl({ url: `${base}/limited` }, ctx), /answered HTTP 429: the site limits how often it may be read and asks to wait 60 s\. Calling it again now fails the same way/)
+    await assert.rejects(fetchUrl({ url: `${base}/limited` }, ctx), /HTTP 429/)
+    // cached, the second call would have answered the same without asking: every agent of the instance, for ten minutes
+    assert.equal(hits['/limited'], 2)
+  })
+
+  test('a 429 asking for a short wait is retried once by the client, and the page read', async () => {
+    const result = await fetchUrl({ url: `${base}/limited-once` }, context())
+    assert.match(result.content, /"ok": true/)
+    assert.equal(hits['/limited-once'], 2)
+  })
+
+  test('a 429 saying nothing is retried once after the default wait, then says it waited', async () => {
+    const ctx = context({ retry: { maxWaitMs: 1000, defaultWaitMs: 10 } })
+    await assert.rejects(fetchUrl({ url: `${base}/limited-quiet` }, ctx), /answered HTTP 429, again after waiting 0 s and trying once more: the site limits/)
+    assert.equal(hits['/limited-quiet'], 2)
+  })
+
+  test('a retry\'s wait ends when the turn is aborted', async () => {
+    const ctx = { ...context({ retry: { maxWaitMs: 60_000, defaultWaitMs: 30_000 } }), signal: AbortSignal.timeout(50) }
+    const started = Date.now()
+    await assert.rejects(fetchUrl({ url: `${base}/limited-quiet` }, ctx))
+    assert.ok(Date.now() - started < 5000, 'the wait did not run its 30 s')
+    assert.equal(hits['/limited-quiet'], 1)
+  })
+
+  test('a 404 is still cached', async () => {
+    const ctx = context()
+    await assert.rejects(fetchUrl({ url: `${base}/nowhere` }, ctx), /HTTP 404/)
+    await assert.rejects(fetchUrl({ url: `${base}/nowhere` }, ctx), /HTTP 404/)
+    assert.equal(hits['/nowhere'], 1)
   })
 })

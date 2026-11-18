@@ -118,7 +118,7 @@ test.describe('Tool-output tripwire', () => {
     assert.match(outputOf(echo), /echo:FALSE_ALARM/)
     assert.equal(echo.toolMetadata?.tripwire, undefined)
     // The one-word screen, then the confirmation it called for.
-    assert.equal(moderatorCalls(run).filter((c: any) => !c.note).length, 2, JSON.stringify(run.calls))
+    assert.equal(moderatorCalls(run).filter((c: any) => c.note === 'tripwire').length, 2, JSON.stringify(run.calls))
   })
 
   test('a confirmation step that fails counts as suspected', async () => {
@@ -208,7 +208,7 @@ test.describe('Tool-output tripwire', () => {
     const agent = await createFilesAgent()
     const { run } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool echo {"value":"hello"}')
     assert.equal(run.stopReason, 'completed')
-    const classified = moderatorCalls(run).filter((c: any) => !c.note)
+    const classified = moderatorCalls(run).filter((c: any) => c.note === 'tripwire')
     assert.ok(classified.length >= 1 && classified.every((c: any) => c.credits > 0), JSON.stringify(run.calls))
     const spent = run.calls.reduce((sum: number, c: any) => sum + (c.credits ?? 0), 0)
     assert.ok(Math.abs(run.credits - spent) < 1e-9, `run credits ${run.credits} vs its calls ${spent}`)

@@ -15,7 +15,8 @@
  * STICKY: the loop guards rebuild each step from the full responses (loop-guards.ts), so a result cleared at
  * step N arrives whole at step N+1. The cleared ids are kept and re-applied with the same deterministic
  * placeholder (computed from the tier-0 bounded text both times), so the prefix is byte-identical from step to
- * step and the provider's cache of it survives. Nothing here touches the record.
+ * step and the provider's cache of it survives. Nothing here touches the stored messages: what it removed is
+ * reported to `onRemoved` (the step it first did, and why), for the run's `context.removed`.
  *
  * IMAGES first (./model-images.ts): only the most recent one is sent, and none to a model without `imageInput`;
  * the fill counts each image sent at its real cost.
@@ -47,7 +48,12 @@ const mapResults = (messages: ModelMessage[], rewrite: (part: ResultPart) => Res
     return changed ? { ...message, content } as ModelMessage : message
   })
 
-export const createStepContext = (budget: number, { imageInput }: { imageInput: boolean }) => {
+export type RemovedReason = 'cleared' | 'image-earlier' | 'image-unsupported'
+
+export const createStepContext = (
+  budget: number,
+  { imageInput, onRemoved }: { imageInput: boolean, onRemoved?: (toolCallId: string, reason: RemovedReason, step: number) => void }
+) => {
   const cleared = new Set<string>()
   // The cleared ids re-applied to the tier-0 bounded messages; the placeholder depends on the bounded text only.
   const applyCleared = (bounded: ModelMessage[]) => cleared.size === 0
@@ -58,8 +64,18 @@ export const createStepContext = (budget: number, { imageInput }: { imageInput: 
       const text = toolResultText(part.output)
       return { ...part, output: { type: 'text', value: clearedToolResultText(part.toolName, text.length, text) } }
     })
-  return (messages: ModelMessage[]): ModelMessage[] => {
-    const bounded = mapResults(limitModelImages(messages, { imageInput }), part => {
+  // Each removal reported once, at the first step it applied: an image or a cleared result stays removed after.
+  const reported = new Set<string>()
+  const report = (toolCallId: string, reason: RemovedReason, step: number) => {
+    const key = `${reason}:${toolCallId}`
+    if (reported.has(key)) return
+    reported.add(key)
+    onRemoved?.(toolCallId, reason, step)
+  }
+  // `step`: the step these messages are for, from 1.
+  return (messages: ModelMessage[], step = 1): ModelMessage[] => {
+    const limited = limitModelImages(messages, { imageInput, onReplaced: (id, reason) => report(id, reason === 'earlier' ? 'image-earlier' : 'image-unsupported', step) })
+    const bounded = mapResults(limited, part => {
       const text = textOf(part.output)
       if (text === undefined) return part
       const result = boundToolResult(text).result
@@ -71,7 +87,7 @@ export const createStepContext = (budget: number, { imageInput }: { imageInput: 
     // Decided on the UNCLEARED messages: clearing a placeholder again would rewrite its length.
     const decision = clearOldToolResults(bounded, budget)
     if (!decision.clear) return sticky
-    for (const id of decision.clearedToolCallIds) cleared.add(id)
+    for (const id of decision.clearedToolCallIds) { cleared.add(id); report(id, 'cleared', step) }
     return applyCleared(bounded)
   }
 }

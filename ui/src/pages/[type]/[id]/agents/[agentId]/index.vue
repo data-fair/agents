@@ -80,15 +80,24 @@
           :tabs="tabs"
         >
           <template #windows>
-            <v-tabs-window-item value="tasks">
-              <agent-tasks-tab
+            <v-tabs-window-item value="conversations">
+              <!-- The org page's list of stored conversations, narrowed to this agent. -->
+              <review-list
+                :account-type="accountType"
+                :account-id="accountId"
+                :agent-id="agent.id"
+                :base="`/${accountType}/${accountId}`"
+              />
+            </v-tabs-window-item>
+            <v-tabs-window-item value="runs">
+              <agent-runs-tab
                 :agent="agent"
                 :account-type="accountType"
                 :account-id="accountId"
               />
             </v-tabs-window-item>
-            <v-tabs-window-item value="history">
-              <agent-history-tab
+            <v-tabs-window-item value="tasks">
+              <agent-tasks-tab
                 :agent="agent"
                 :account-type="accountType"
                 :account-id="accountId"
@@ -135,8 +144,9 @@
 en:
   agents: Agents
   activity: Activity
+  conversations: Conversations
+  runs: Task runs
   tasks: Scheduled tasks
-  history: History
   enabled: Enabled
   enableFailed: The autonomous agent could not be switched on or off
   actions: Actions
@@ -153,8 +163,9 @@ en:
 fr:
   agents: Agents
   activity: Activité
+  conversations: Conversations
+  runs: Exécutions de tâches
   tasks: Tâches planifiées
-  history: Historique
   enabled: Activé
   enableFailed: L'agent autonome n'a pas pu être activé ou désactivé
   actions: Actions
@@ -174,7 +185,7 @@ fr:
 import { computed, nextTick, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useRoute, useRouter } from 'vue-router'
-import { mdiCalendarClock, mdiDelete, mdiDotsVertical, mdiHistory } from '@mdi/js'
+import { mdiCalendarClock, mdiDelete, mdiDotsVertical, mdiForum, mdiHistory } from '@mdi/js'
 import DfSectionTabs from '@data-fair/lib-vuetify/section-tabs.vue'
 import { useFetch } from '@data-fair/lib-vue/fetch.js'
 import { getAccountRole, useSession } from '@data-fair/lib-vue/session.js'
@@ -182,7 +193,8 @@ import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import AgentConfiguration from '~/components/agent-page/AgentConfiguration.vue'
 import ChatPanelNotice from '~/components/ChatPanelNotice.vue'
 import AgentTasksTab from '~/components/agent-page/AgentTasksTab.vue'
-import AgentHistoryTab from '~/components/agent-page/AgentHistoryTab.vue'
+import AgentRunsTab from '~/components/agent-page/AgentRunsTab.vue'
+import ReviewList from '~/components/ReviewList.vue'
 import AutonomousAgentStateChips from '~/components/AutonomousAgentStateChips.vue'
 import { setBreadcrumbs } from '~/utils/breadcrumbs'
 import { autonomousAgentEditDraft } from '~/utils/autonomous-agent-draft'
@@ -193,7 +205,7 @@ import { $apiPath, $fetch, $uiConfig } from '~/context'
 
 const { t } = useI18n()
 const { sendUiNotif } = useUiNotif()
-const route = useRoute('/[type]/[id]/agents/[agentId]')
+const route = useRoute('/[type]/[id]/agents/[agentId]/')
 const router = useRouter()
 const session = useSession()
 const accountType = route.params.type as string
@@ -229,23 +241,27 @@ const unavailable = computed(() => {
 })
 
 const tabs = computed(() => [
-  { key: 'tasks', title: t('tasks'), icon: mdiCalendarClock },
-  { key: 'history', title: t('history'), icon: mdiHistory }
+  { key: 'conversations', title: t('conversations'), icon: mdiForum },
+  { key: 'runs', title: t('runs'), icon: mdiHistory },
+  { key: 'tasks', title: t('tasks'), icon: mdiCalendarClock }
 ])
 
-// The Activity tab lives in the query under `tab`, so a notification url (`?tab=history&run=…`, built in
-// api/src/tasks/operations.ts) opens the right one and a reload keeps it.
+// The Activity tab lives in the query under `tab`, so a notification url (`?tab=tasks`, built in
+// api/src/autonomous-agents/page-url.ts) opens the right one and a reload keeps it.
 const tab = computed({
   get: () => {
-    const queried = route.query.tab
-    return tabs.value.some(tabInfo => tabInfo.key === queried) ? queried as string : 'tasks'
+    // `history`: the earlier name of the task runs tab, in links sent before.
+    const queried = route.query.tab === 'history' ? 'runs' : route.query.tab
+    return tabs.value.some(tabInfo => tabInfo.key === queried) ? queried as string : 'conversations'
   },
-  // An open run belongs to the history: leaving the tab closes it.
-  set: (value) => {
-    const { run, ...query } = route.query
-    router.replace({ query: { ...(value === 'history' ? route.query : query), tab: value } })
-  }
+  set: (value) => { router.replace({ query: { ...route.query, tab: value } }) }
 })
+
+// Links sent before runs had their own page (`?tab=history&run=…`): on to that page, which also sends
+// a conversation run on to its conversation.
+if (typeof route.query.run === 'string') {
+  router.replace(`/${accountType}/${accountId}/agents/${agentId}/runs/${route.query.run}`)
+}
 
 // ---- the on/off switch: saved at once, from the stored agent, never from the configuration's draft ----
 

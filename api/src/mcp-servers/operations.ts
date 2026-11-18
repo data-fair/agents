@@ -148,8 +148,6 @@ export interface SiteCredentials {
   homeSite?: string
   /** The IP of the person a chat turn acts for, forwarded to site-bound servers; undefined on a task run (nobody's address). */
   clientIp?: string
-  /** Other account sites a call may name with `portal`, as origins. */
-  portals: string[]
   /**
    * How the turn acts on its home site: as itself (`account`, one of its account's sites), anonymously
    * because that site is outside its account (`anonymous`), or anonymously because its account's sites
@@ -173,7 +171,6 @@ export function personSiteCredentials (socketSite: string | undefined, cookie: s
   return {
     homeSite: socketSite,
     clientIp,
-    portals: [],
     home: 'account',
     credentialFor: async site => site === socketSite && cookie ? { cookie } : undefined,
     listingIdentity: cookie ? `person:${createHash('sha256').update(cookie).digest('hex')}` : 'anonymous'
@@ -219,42 +216,6 @@ export function listingKey (server: GlobalMcpServer, siteUrl: string | undefined
 /** One open connection of a turn per server, and per site for a site-bound one: the site is fixed at connect (its session is not). */
 export function connectionKey (server: GlobalMcpServer, siteUrl: string | undefined): string {
   return server.auth === 'nhi-session' ? `${server.id}\0${server.url}\0${siteUrl ?? ''}` : `${server.id}\0${server.url}`
-}
-
-/** The argument a site-bound tool takes to act on another site of the agent's organization. */
-export const PORTAL_ARGUMENT = 'portal'
-
-/**
- * A site-bound tool's input schema, with an optional `portal` naming another account site. Not added
- * when there is none, nor over a `portal` the tool declares itself — that one is the tool's own and is
- * passed through untouched (see splitPortalArgument).
- */
-export function withPortalArgument (inputSchema: unknown, portalHosts: string[]): { schema: Record<string, any>, injected: boolean } {
-  const schema = (inputSchema && typeof inputSchema === 'object' ? inputSchema : { type: 'object', properties: {} }) as Record<string, any>
-  if (!portalHosts.length || schema.type !== 'object' || schema.properties?.[PORTAL_ARGUMENT]) return { schema, injected: false }
-  return {
-    injected: true,
-    schema: {
-      ...schema,
-      properties: {
-        ...schema.properties,
-        [PORTAL_ARGUMENT]: {
-          type: 'string',
-          enum: portalHosts,
-          description: 'Run this on another portal of your organization instead of the site you are working on. Omit it for the current site.'
-        }
-      }
-    }
-  }
-}
-
-/** The call's own arguments, and the portal it names when the argument is ours. */
-export function splitPortalArgument (args: Record<string, unknown> | undefined, injected: boolean): { portal?: string, args: Record<string, unknown> } {
-  const all = { ...(args ?? {}) }
-  if (!injected) return { args: all }
-  const portal = all[PORTAL_ARGUMENT]
-  delete all[PORTAL_ARGUMENT]
-  return typeof portal === 'string' ? { portal, args: all } : { args: all }
 }
 
 /**
