@@ -207,6 +207,23 @@ export const rejectedCallMessage = (toolName: string, reason?: string) => `${too
  */
 export const pausedScriptDenialText = (toolName: string, reason?: string) => `The script was paused before its call to ${toolName}, waiting for the person's approval, and did not resume: the calls before it ran, nothing after it ran.${reason ? ` ${reason}` : ''}`
 
+/** The name a script's signatures give the return type of an MCP tool that declares none (MCP_CODE_OUTPUT_SCHEMA). */
+export const TOOL_RESULT_TYPE = 'ToolResult'
+
+/**
+ * The package writes every return type inline: the same union for every MCP tool without an output schema, 135
+ * times on a production autonomous agent (28k characters). Named once instead, declared in the tools' own block.
+ * `rendered` is that union as the package renders it (./tool.ts renders it with the package itself): a rendering
+ * that changes leaves the description as the package wrote it, never a broken one.
+ */
+export const nameToolResultType = (packageDescription: string, rendered: string): string => {
+  const inline = `=> Promise<${rendered}>;`
+  if (!packageDescription.includes(inline)) return packageDescription
+  return packageDescription
+    .split(inline).join(`=> Promise<${TOOL_RESULT_TYPE}>;`)
+    .replace('declare const tools: {', `type ${TOOL_RESULT_TYPE} = ${rendered.replace(/\n {2}/g, '\n')};\ndeclare const tools: {`)
+}
+
 export const describeScriptTool = (packageDescription: string, opts: { reviewed?: boolean, timeoutMs?: number, person?: boolean } = {}): string => {
   const head = packageDescription.split('\nTool call examples:')[0].trimEnd()
   return [

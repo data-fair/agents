@@ -52,7 +52,12 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
   | Record<string, unknown>>`. With `unknown` there, a script twice took a link tool's one-line text for the
   file's content and imported it (the code-mode simulation, 2026-10-13 and 2026-10-14): a model that cannot see the
   shape writes code that guesses keys. A union a script can branch on is truthful where an exact type is not
-  knowable; an exact one would need data-fair's MCP to mark its file tools in the listing. We also drop the
+  knowable; an exact one would need data-fair's MCP to mark its file tools in the listing. That union is
+  **named once**, `type ToolResult = …` at the top of the tools' block, and each such signature returns
+  `Promise<ToolResult>` (`nameToolResultType`): the package writes every return type inline, and it was the same
+  union 135 times on a production autonomous agent (26k characters). The package cannot emit a name, so
+  `./tool.ts` renders the union with the package itself (a probe tool) and replaces that exact text; a rendering
+  that changes leaves the package's description as it was. We also drop the
   package's "Tool call examples" block and append a short paragraph of ours (`describeScriptTool`): console
   output, failures as exceptions, **the conventions of what a tool returns** (an MCP tool its structured result
   as an object when it has one, otherwise its text as a string to `JSON.parse`; a result carrying files

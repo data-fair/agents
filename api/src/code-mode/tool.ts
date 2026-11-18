@@ -16,9 +16,17 @@ import {
   experimental_isCodeModeApprovalInterrupt as isCodeModeApprovalInterrupt,
   type CodeModeOptions
 } from '@ai-sdk/code-mode'
-import { CODE_MODE_POLICY, withoutPrototypeKeys, MAX_BRACKET_DEPTH, SCRIPT_ARGUMENT_DESCRIPTION, bracketDepth, bracketDepthMessage, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, PAUSED_SCRIPT_MAX_AGE_MS, SCRIPT_RESUME_FAILED_MESSAGE, scriptPauseTooLargeMessage, type CodeModePolicy } from './operations.ts'
+import { CODE_MODE_POLICY, withoutPrototypeKeys, MAX_BRACKET_DEPTH, SCRIPT_ARGUMENT_DESCRIPTION, bracketDepth, bracketDepthMessage, WRAPPER_BYTES, wrapScript, renderScriptResult, scriptErrorMessage, describeScriptTool, PAUSED_SCRIPT_MAX_AGE_MS, SCRIPT_RESUME_FAILED_MESSAGE, scriptPauseTooLargeMessage, nameToolResultType, type CodeModePolicy } from './operations.ts'
+import { codeOutputSchemaFor } from '../mcp-servers/operations.ts'
 import { noScriptSpent, type ScriptPauses } from './code-tools.ts'
 import { LoopSignal } from '../conversations/operations.ts'
+
+/** An MCP tool's return type without an output schema (codeOutputSchemaFor) as the package renders a return type, read off its own description of a probe tool (nameToolResultType). */
+const renderedToolResult = (() => {
+  const probe = tool({ inputSchema: jsonSchema({ type: 'object', properties: {} }), outputSchema: jsonSchema(codeOutputSchemaFor(undefined)), execute: async () => '' })
+  const description = createCodeModeTool({ probe } as Record<string, Tool>).description
+  return /probe: \(input: [^)]*\) => Promise<([\s\S]*?)>;\n\};/.exec(description)?.[1] ?? ''
+})()
 
 /**
  * Set once, at startup: the process-wide worker pool's size (config.codeModeMaxWorkers), and the key signing a paused
@@ -76,7 +84,7 @@ export const createScriptTool = (tools: Record<string, Tool>, opts: { policy?: P
     }
   }
   return tool({
-    description: describeScriptTool(inner.description, { reviewed: opts.reviewed, timeoutMs: policy.timeoutMs, person: !!pauses }),
+    description: describeScriptTool(nameToolResultType(inner.description, renderedToolResult), { reviewed: opts.reviewed, timeoutMs: policy.timeoutMs, person: !!pauses }),
     // The package's own input, `{ js }`, with our description of it (SCRIPT_ARGUMENT_DESCRIPTION).
     inputSchema: jsonSchema<{ js: string }>({
       type: 'object',
