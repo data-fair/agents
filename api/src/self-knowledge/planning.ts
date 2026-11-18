@@ -91,7 +91,9 @@ export const createPlanningTools = ({ agent, run }: ServiceToolContext): Record<
       }
     }),
     update_task: tool({
-      description: `Change one of your planned tasks: give its id and the whole new task (title, prompt, scheduling, enabled), not only what changes. ${APPROVAL_NOTE} ${DELIVERY_NOTE} ${SCHEDULE_NOTE} ${REFUSAL_NOTE}`,
+      // The delivery, schedule and refusal notes are plan_task's, always offered beside it (the three come as one set):
+      // said twice they were 2.5k characters of every request. The approval note stays: it is about this call's result.
+      description: `Change one of your planned tasks: give its id and the whole new task (title, prompt, scheduling, enabled), not only what changes. ${APPROVAL_NOTE} What plan_task says about who hears about a run, schedules and refusals holds here too.`,
       inputSchema: jsonSchema<unknown>({
         ...taskSchema,
         required: ['taskId', ...taskSchema.required],
