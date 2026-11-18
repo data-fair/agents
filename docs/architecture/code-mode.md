@@ -34,7 +34,12 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
 - Input `{ js }`, the package's own. JavaScript; TypeScript syntax is stripped, not checked. Top-level
   `await` and `return`.
 - The description is the package's: the TypeScript signatures of every callable tool, generated from its
-  input schema, with its output schema as the return type (`Promise<unknown>` without one). The output schema
+  input schema, with its output schema as the return type (`Promise<unknown>` without one). **Without the tools'
+  own descriptions** (`codeFacingTools`): the package writes each as JSDoc above its signature, and every tool a
+  script can call is one the model has in the same step, its description in its own definition. Repeated, they
+  were 56% of the code_mode description, a quarter of a whole request on a production autonomous agent (2026-11-18:
+  109k of 438k characters, 141 tools, resent every step). Only a script-specific description stays
+  (`codeDescription`, below). The output schema
   is the code-facing tool's only (`SourcedTool.codeOutputSchema`, set in `codeFacingTools`; the model's tools
   are unchanged): the file tools declare a whole signature of their own (`FILE_CODE_SIGNATURES`, also
   `SourcedTool.codeDescription` and `codeInputSchema`: `read_file` takes a path and returns the whole text, with no

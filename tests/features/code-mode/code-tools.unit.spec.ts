@@ -218,6 +218,15 @@ test.describe('the trace of a script', () => {
     assert.match(description, /\{ text, files/)
   })
 
+  test('a tool\'s own description is not repeated in the script\'s signatures: the model reads it in the tool\'s definition', async () => {
+    const lookup = tool({ description: 'Look up one road closure by its id.', title: 'Lookup', inputSchema: jsonSchema({ type: 'object', properties: { id: { type: 'string' } } }), execute: async () => '' })
+    const fixed: any = { lookup: { tool: lookup, server: 'dev' }, ls: { tool: plain(async () => []), server: 'files', ...FILE_CODE_SIGNATURES.ls } }
+    const description = String(createScriptTool(codeFacingTools({ names: Object.keys(fixed), fixed, page: { page_tool: lookup }, callPath: {}, trace: trace() })).description)
+    assert.match(description, /lookup: \(input: \{[^}]*id\?: string/)
+    assert.doesNotMatch(description, /Look up one road closure|Lookup/)
+    assert.match(description, /\/\*\* List your files/, 'a script-specific description stays')
+  })
+
   test('an MCP tool that declares no output schema reads as what the call path can return, files included', async () => {
     const declared = { type: 'object', properties: { count: { type: 'number' } } }
     assert.equal(codeOutputSchemaFor(declared), declared)
