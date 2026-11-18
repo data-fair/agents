@@ -16,6 +16,11 @@
  *   raw-stream streaming with `stream_options.include_usage` (what our provider sends): cold, warm,
  *              with time to first token
  *   ai-sdk     our own `createModel` + `streamText`, read through `tokenCountsOf`: what the meters see
+ *   tools      what a tool load costs (docs/architecture/tool-loading.md): a request with TOOL_COUNT tool
+ *              definitions, cold then warm, then the same request with one more tool APPENDED, then with one
+ *              more INSERTED in the middle (where activeTools puts a loaded tool: the map's order). Cached
+ *              tokens near the warm call's: tools render after the cached part, a load is cheap. Near 0: the
+ *              template renders tools first, a load is a full-prefix miss.
  *
  * Reading it:
  *   cached > 0 on warm calls        upstream caches and reports it -> look at our pipeline again
@@ -28,6 +33,7 @@
  *   BENCH_BASE_URL=https://litellm.internal.koumoul.fr/v1 BENCH_API_KEY=sk-... \
  *     node dev/bench-prompt-cache.ts [model ...]
  *
+ * BENCH_PATHS (default `raw,raw-stream,ai-sdk,tools`) picks the paths, e.g. BENCH_PATHS=tools.
  * Models default to the three production GreenPT entries. BENCH_REASONING (default `none`) is sent as
  * `reasoning_effort`; set it empty to send nothing. Raw usage and LiteLLM headers of every call are
  * written to dev/logs/bench-prompt-cache-<time>.json.
@@ -47,6 +53,8 @@ const MODELS = process.argv.length > 2
 const PREFIX_CHARS = 32_000 // ~8k tokens
 const PAUSE_MS = 2000
 const MAX_TOKENS = 16
+const PATHS = new Set((process.env.BENCH_PATHS ?? 'raw,raw-stream,ai-sdk,tools').split(',').map(path => path.trim()))
+const TOOL_COUNT = 30
 
 if (!API_KEY) {
   console.error('BENCH_API_KEY is required (a temporary LiteLLM key)')
@@ -185,6 +193,52 @@ async function rawStream (model: string) {
   }
 }
 
+/** A deterministic function tool with a realistic schema (~400 characters). */
+const benchTool = (i: number) => ({
+  type: 'function',
+  function: {
+    name: `bench_tool_${String(i).padStart(2, '0')}`,
+    description: `Reference operation ${i}: reads or updates ${WORDS[i % WORDS.length]} records of a ${WORDS[(i * 7) % WORDS.length]} and returns them paged.`,
+    parameters: {
+      type: 'object',
+      properties: {
+        id: { type: 'string', description: `The ${WORDS[(i * 3) % WORDS.length]} identifier.` },
+        page: { type: 'integer', minimum: 1, description: 'Page number, from 1.' },
+        size: { type: 'integer', minimum: 1, maximum: 100, description: 'Results per page.' },
+        filter: { type: 'string', description: `A filter on ${WORDS[(i * 5) % WORDS.length]}.` }
+      },
+      required: ['id']
+    }
+  }
+})
+
+async function toolsPath (model: string) {
+  const messages = [{ role: 'system', content: systemFor(randomUUID()) }, { role: 'user', content: QUESTION }]
+  const base = Array.from({ length: TOOL_COUNT }, (_, i) => benchTool(i))
+  const appended = [...base, benchTool(TOOL_COUNT)]
+  const inserted = [...base.slice(0, TOOL_COUNT / 2), benchTool(TOOL_COUNT + 1), ...base.slice(TOOL_COUNT / 2)]
+  const calls: Array<[string, unknown[]]> = [['cold', base], ['warm 1', base], ['appended', appended], ['appended 2', appended], ['inserted', inserted], ['inserted 2', inserted]]
+  for (const [call, tools] of calls) {
+    const started = performance.now()
+    try {
+      // No tool_choice 'none': GreenPT then drops the tools from the prompt (prompt tokens did not change with the list).
+      const response = await post({ ...body(model, messages, false), tools })
+      const json: any = await response.json()
+      const latencyMs = Math.round(performance.now() - started)
+      if (!response.ok) throw new Error(`${response.status} ${JSON.stringify(json).slice(0, 200)}`)
+      record({
+        model, path: 'tools', call, latencyMs,
+        promptTokens: json.usage?.prompt_tokens, cachedTokens: cachedOf(json.usage),
+        cost: response.headers.get('x-litellm-response-cost') ?? undefined,
+        usage: json.usage, headers: litellmHeaders(response.headers)
+      })
+    } catch (err) {
+      record({ model, path: 'tools', call, latencyMs: Math.round(performance.now() - started), error: (err as Error).message })
+    }
+    await pause()
+  }
+}
+
 async function aiSdk (model: string) {
   // The provider exactly as production declares it (an openai-compatible entry in 'compatible' mode).
   const languageModel = createModel({
@@ -224,9 +278,10 @@ async function aiSdk (model: string) {
 console.log(`${BASE_URL}, prefix ~${Math.round(FILLER.length / 4)} tokens, reasoning_effort=${REASONING || '(not sent)'}\n`)
 console.log(['model'.padEnd(30), 'path'.padEnd(10), 'call'.padEnd(9), 'prompt'.padStart(7), 'cached'.padStart(7), 'latency'.padStart(8), 'ttft'.padStart(8), 'litellm cost'.padStart(12)].join(' '))
 for (const model of MODELS) {
-  await raw(model)
-  await rawStream(model)
-  await aiSdk(model)
+  if (PATHS.has('raw')) await raw(model)
+  if (PATHS.has('raw-stream')) await rawStream(model)
+  if (PATHS.has('ai-sdk')) await aiSdk(model)
+  if (PATHS.has('tools')) await toolsPath(model)
   console.log()
 }
 

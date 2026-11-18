@@ -23,6 +23,7 @@
     "eurosPerCredit",
     "defaultLimits",
     "compactionPercent",
+    "toolDeferralPercent",
     "turnCredits",
     "liveTurnsPerCaller",
     "turnTimeoutSeconds",
@@ -237,6 +238,14 @@
       "description": "Share of the assistant model's context window above which conversation history is compacted.",
       "default": 70,
       "minimum": 10,
+      "maximum": 100
+    },
+    "toolDeferralPercent": {
+      "type": "number",
+      "title": "Tool deferral percent",
+      "description": "Share of the assistant model's context window above which a turn's MCP tool definitions are deferred: listed in the system prompt and loaded by name with load_tools (docs/architecture/tool-loading.md). 100: never.",
+      "default": 10,
+      "minimum": 0,
       "maximum": 100
     },
     "turnCredits": {

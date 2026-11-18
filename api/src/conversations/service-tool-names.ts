@@ -13,6 +13,7 @@ import { REQUEST_MCP_ACCESS_TOOL_NAME } from '../mcp-servers/operations.ts'
 import { SELF_KNOWLEDGE_TOOL_NAMES, PLANNING_TOOL_NAMES } from '../self-knowledge/operations.ts'
 import { READ_SKILL_TOOL_NAME } from '../mcp-servers/read-skill.ts'
 import { CODE_MODE_TOOL_NAME } from '../code-mode/operations.ts'
+import { LOAD_TOOLS_TOOL_NAME } from './tool-loading.ts'
 
 /** How a planned task's run reports what it found or did (the task surface only). */
 export const REPORT_OUTCOME_TOOL_NAME = 'report_outcome'
@@ -22,7 +23,7 @@ export { OUTCOME_REMINDER } from './outcome-reminder.ts'
 export const reportedOutcome = (parts: readonly { type: string, toolName?: string, state?: string }[]): boolean =>
   parts.some(part => part.type === 'dynamic-tool' && part.toolName === REPORT_OUTCOME_TOOL_NAME && part.state === 'output-available')
 
-export const SERVICE_TOOL_NAMES: ReadonlySet<string> = new Set([WAIT_TOOL_NAME, MEMORY_TOOL_NAME, REPORT_OUTCOME_TOOL_NAME, ...WEB_TOOL_NAMES, ...FILE_TOOL_NAMES, REQUEST_MCP_ACCESS_TOOL_NAME, READ_SKILL_TOOL_NAME, ...SELF_KNOWLEDGE_TOOL_NAMES, ...PLANNING_TOOL_NAMES, CODE_MODE_TOOL_NAME])
+export const SERVICE_TOOL_NAMES: ReadonlySet<string> = new Set([WAIT_TOOL_NAME, MEMORY_TOOL_NAME, REPORT_OUTCOME_TOOL_NAME, ...WEB_TOOL_NAMES, ...FILE_TOOL_NAMES, REQUEST_MCP_ACCESS_TOOL_NAME, READ_SKILL_TOOL_NAME, ...SELF_KNOWLEDGE_TOOL_NAMES, ...PLANNING_TOOL_NAMES, CODE_MODE_TOOL_NAME, LOAD_TOOLS_TOOL_NAME])
 
 /** Whether a tool a page registers by this name may be offered: never a service tool's name. */
 export const mayBePageTool = (name: string): boolean => !SERVICE_TOOL_NAMES.has(name)

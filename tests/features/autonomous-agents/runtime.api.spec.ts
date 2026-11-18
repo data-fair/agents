@@ -1189,6 +1189,9 @@ test.describe('Autonomous agent run traces', () => {
       }
       throw new Error('run never settled')
     }
+    // A window this small defers the fixture's tools (docs/architecture/tool-loading.md): a first turn loads bulk (a
+    // turn here has one step, its budget being this tight), and it stays loaded for the others.
+    await turn('call tool load_tools {"names":["bulk"]}')
     for (let i = 0; i < 8; i++) await turn('call tool bulk {"chars":4000}')
 
     const conversation = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`))

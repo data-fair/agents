@@ -158,4 +158,4 @@ prefix is ignored, `api/src/sites/operations.ts`):
 | What an admin may read back | [Conversation review](./conversation-review.md) |
 | Putting the chat in a host application | [Embedding](./embedding.md), [Integration context](./integration-context.md) |
 | Test levels, the @smoke set, what runs on commit, push and pull request | [Test suite](./testing.md) |
-| Shelved | [Progressive tool disclosure](./tool-exploration.md) |
+| Holding a large MCP tool set back until the model loads what it needs | [On-demand tool loading](./tool-loading.md) |

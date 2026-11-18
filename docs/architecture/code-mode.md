@@ -33,7 +33,7 @@ The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-
 
 - Input `{ js }`, the package's own. JavaScript; TypeScript syntax is stripped, not checked. Top-level
   `await` and `return`.
-- The description is the package's: the TypeScript signatures of every callable tool, generated from its
+- The description is the package's: the TypeScript signatures of every callable tool (the loaded ones above the [deferral threshold](./tool-loading.md)), generated from its
   input schema, with its output schema as the return type (`Promise<unknown>` without one). **Without the tools'
   own descriptions** (`codeFacingTools`): the package writes each as JSDoc above its signature, and every tool a
   script can call is one the model has in the same step, its description in its own definition. Repeated, they
@@ -455,7 +455,9 @@ result ([context management](./context-management.md)), then "Console output:" a
 
 The signatures repeat the direct tools' input schemas, so every turn pays for the tool set roughly twice.
 That cost is the spec's choice: no tool is code-only, because hiding a tool from the model is a context
-optimisation to decide with measurements, not by default. The package's examples block called every tool in
+optimisation to decide with measurements, not by default. Above the deferral threshold the signatures are
+only those of the tools the model has loaded ([on-demand tool loading](./tool-loading.md)), so the
+duplicate shrinks with the set. The package's examples block called every tool in
 one `Promise.all`, growing linearly with the set, and was dropped. Measuring the footprint is macro review
 R4, pending.
 
