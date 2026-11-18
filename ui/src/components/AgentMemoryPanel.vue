@@ -17,7 +17,7 @@
         md="4"
       >
         <div class="text-caption text-medium-emphasis mb-2">
-          {{ t('usage', { documents: memory?.usage.documents ?? 0, maxDocuments: memory?.limits.documents ?? 0, chars: (memory?.usage.totalChars ?? 0).toLocaleString(), maxChars: (memory?.limits.totalChars ?? 0).toLocaleString() }) }}
+          {{ t('usage', { documents: memory?.usage.documents ?? 0, maxDocuments: memory?.limits.documents ?? 0, chars: (memory?.usage.totalChars ?? 0).toLocaleString(locale), maxChars: (memory?.limits.totalChars ?? 0).toLocaleString(locale) }) }}
         </div>
         <v-list density="compact">
           <v-list-item
@@ -331,6 +331,7 @@ fr:
 <script lang="ts" setup>
 import { computed, ref, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { useUiNotif } from '@data-fair/lib-vue/ui-notif.js'
 import { $apiPath, $fetch } from '~/context'
 import { historyEntries, type DiffLine, type MemoryVersionRow } from '~/utils/memory-history'
@@ -349,6 +350,7 @@ const props = defineProps<{
 }>()
 
 const { t, locale } = useI18n()
+const { dayjs } = useLocaleDayjs()
 const { sendUiNotif } = useUiNotif()
 
 const memory = ref<any>(null)
@@ -491,7 +493,7 @@ const authorLabel = (author: any) => {
   if (author.kind === 'agent') return author.taskId && !author.conversationId ? t('byAgentTask') : t('byAgentConversation')
   return t('byUser', { name: author.userName ?? author.userId })
 }
-const formatDate = (iso: string) => new Date(iso).toLocaleString(locale.value)
+const formatDate = (iso: string) => dayjs(iso).format('lll')
 </script>
 
 <style scoped>

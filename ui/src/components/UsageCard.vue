@@ -100,6 +100,7 @@ en:
 <script lang="ts" setup>
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { $apiPath } from '../context.ts'
 import { formatCredits } from '~/utils/credits'
 
@@ -109,6 +110,7 @@ const props = defineProps<{
 }>()
 
 const { t, locale } = useI18n()
+const { dayjs } = useLocaleDayjs()
 
 interface UsagePeriod {
   cost: number
@@ -146,6 +148,6 @@ function formatCost (amount: number): string {
 }
 
 function formatDate (iso: string): string {
-  return new Date(iso).toLocaleString()
+  return dayjs(iso).format('lll')
 }
 </script>

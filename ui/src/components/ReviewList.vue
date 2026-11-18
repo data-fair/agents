@@ -49,11 +49,13 @@ en:
 <script lang="ts" setup>
 import { ref, computed, watch } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { $apiPath } from '~/context'
 
 // `agentId`: one agent's conversations only, on that agent's page (where naming the agent on each row is noise).
 const props = defineProps<{ accountType: string, accountId: string, base: string, agentId?: string }>()
 const { t } = useI18n()
+const { dayjs } = useLocaleDayjs()
 const SIZE = 20
 
 const rows = ref<any[]>([])
@@ -61,7 +63,7 @@ const page = ref(1)
 const pageCount = ref(1)
 const loadError = ref('')
 
-const formatDate = (iso: string) => new Date(iso).toLocaleString()
+const formatDate = (iso: string) => dayjs(iso).format('lll')
 const rowLine = (row: any) => [row.userName || row.userId || '—', formatDate(row.lastMessageAt || row.startedAt), ...(props.agentId ? [] : [row.agentTitle ?? row.agentId])].join(' · ')
 
 const apiBase = computed(() => `${$apiPath}/review/${props.accountType}/${props.accountId}`)

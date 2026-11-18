@@ -96,6 +96,10 @@ jobs:
     - name: Init .env
       run: ./node_modules/.bin/df-dev init-env # local bin only: a bare npx would fetch an unrelated "df-dev" from the registry if the dependency were missing
 
+    # the lib-sim page perception units drive a real headless browser
+    - name: Install Chromium
+      run: npx playwright install --with-deps --only-shell chromium
+
     - name: Unit tests
       run: npx playwright test --project=unit
 

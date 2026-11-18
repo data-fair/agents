@@ -28,12 +28,11 @@ export type MCPServers = {
   toolFilter?: OnlyTheseTools;
 }[];
 export type ClientId = string;
-export type AccessRef =
-  UnMembreDeLOrganisation | UnEmail | UneOrganisationPartenaire | UnRoleOuDepartementDeMonOrganisation;
-export type Membre = string;
-export type AdresseMail = string;
-export type Partenaire = string;
-export type Departement = string;
+export type AccessRef = AnOrganizationMember | AnEmail | APartnerOrganization | ARoleOrDepartmentOfMyOrganization;
+export type Member = string;
+export type EmailAddress = string;
+export type Partner = string;
+export type Department = string;
 export type Roles = string[];
 /**
  * Admins of the owning organization are always allowed. Anyone matched here borrows this autonomous agent's permissions.
@@ -93,28 +92,28 @@ export type NonHumanIdentity = {
   siteUrl?: string;
   issuer?: string;
 }
-export type UnMembreDeLOrganisation = {
+export type AnOrganizationMember = {
   mode: "member";
   type: "user";
-  id: Membre;
+  id: Member;
 }
-export type UnEmail = {
+export type AnEmail = {
   mode: "member";
   type: "user";
-  email: AdresseMail;
+  email: EmailAddress;
 }
-export type UneOrganisationPartenaire = {
+export type APartnerOrganization = {
   mode: "member";
   type: "organization";
   department?: "*";
   roles?: string[];
-  id: Partenaire;
+  id: Partner;
 }
-export type UnRoleOuDepartementDeMonOrganisation = {
+export type ARoleOrDepartmentOfMyOrganization = {
   mode: "internal";
   type: "organization";
   id: string;
-  department?: Departement;
+  department?: Department;
   roles?: Roles;
 }
 /**

@@ -11,7 +11,6 @@ import { createReactiveSearchParams } from '@data-fair/lib-vue/reactive-search-p
 import { createLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { createSession } from '@data-fair/lib-vue/session.js'
 import { createUiNotif } from '@data-fair/lib-vue/ui-notif.js'
-import { createHead } from '@unhead/vue/client'
 import { createI18n } from 'vue-i18n'
 import App from './App.vue'
 
@@ -30,8 +29,7 @@ import App from './App.vue'
   vuetify.defaults.value!['VjsfVerticalTabs-VSheet'] = { border: false, color: 'background' }
   vuetify.defaults.value!['VjsfTabs-VSheet'] = { rounded: true, color: 'background' }
 
-  const i18n = createI18n({ locale: session.state.lang })
-  const head = createHead()
+  const i18n = createI18n({ legacy: false, locale: session.state.lang, fallbackLocale: 'en' })
 
   const app = createApp(App)
     .use(router)
@@ -42,7 +40,6 @@ import App from './App.vue'
     .use(uiNotif)
     .use(vuetify)
     .use(i18n)
-    .use(head)
 
   await router.isReady()
 

@@ -4,7 +4,7 @@
       class="text-medium-emphasis"
       :class="textClass"
     >
-      {{ new Date(run.startedAt).toLocaleString(locale) }} · {{ t(`trigger.${run.trigger}`) }}
+      {{ dayjs(run.startedAt).format('lll') }} · {{ t(`trigger.${run.trigger}`) }}
       <!-- A running run has not been billed yet: a figure would read as its final cost. -->
       <span
         v-if="run.status !== 'running'"
@@ -103,6 +103,7 @@ fr:
  */
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
+import { useLocaleDayjs } from '@data-fair/lib-vue/locale-dayjs.js'
 import { formatCredits } from '~/utils/credits'
 import { runStatusLabel } from '~/utils/run-statuses'
 
@@ -118,6 +119,7 @@ const textClass = computed(() => props.dense ? 'text-caption' : 'text-body-2')
 const clipClass = computed(() => props.clip ? (props.dense ? 'run-summary__clip run-summary__clip--1' : 'run-summary__clip') : '')
 
 const { t, locale } = useI18n()
+const { dayjs } = useLocaleDayjs()
 
 // A run that ended without report_outcome is reminded once (executor.ts performTurn), recorded as a part of its
 // answer. Only an open run carries its messages: the history's list does not, and says nothing of it.
