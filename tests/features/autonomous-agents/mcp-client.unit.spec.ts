@@ -7,7 +7,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { callHeaders, personSiteCredentials, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, PORTAL_ARGUMENT, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
+import { callHeaders, personSiteCredentials, listingKey, scopedListingIdentity, connectionKey, type GlobalMcpServer } from '../../../api/src/mcp-servers/operations.ts'
 
 const cookie = 'id_token=abc; id_token_sign=def'
 const credential = { cookie }
@@ -53,7 +53,6 @@ test.describe('personSiteCredentials', () => {
   test('the person\'s cookie goes to the site of their socket only', async () => {
     const sites = personSiteCredentials(portal, cookie)
     assert.equal(sites.homeSite, portal)
-    assert.deepEqual(sites.portals, [])
     assert.deepEqual(await sites.credentialFor(portal), credential)
     assert.equal(await sites.credentialFor('https://admin.example.org'), undefined)
   })
@@ -76,32 +75,6 @@ test.describe('listingKey and connectionKey', () => {
     const s = server({ auth: 'none' })
     assert.equal(listingKey(s, portal, 'agent:a1'), listingKey(s, undefined, 'anonymous'))
     assert.equal(connectionKey(s, portal), connectionKey(s, undefined))
-  })
-})
-
-test.describe('the portal argument', () => {
-  const schema = { type: 'object', properties: { q: { type: 'string' } }, required: ['q'] }
-  test('is added as an optional enum of hosts', () => {
-    const { schema: out, injected } = withPortalArgument(schema, ['portal.example.org'])
-    assert.equal(injected, true)
-    assert.deepEqual(out.properties[PORTAL_ARGUMENT].enum, ['portal.example.org'])
-    assert.deepEqual(out.required, ['q'])
-    assert.equal(schema.properties[PORTAL_ARGUMENT as 'q'], undefined, 'the listed schema is not mutated')
-  })
-  test('is not added without another site, nor over a tool\'s own `portal`', () => {
-    assert.equal(withPortalArgument(schema, []).injected, false)
-    const own = { type: 'object', properties: { portal: { type: 'number' } } }
-    const result = withPortalArgument(own, ['portal.example.org'])
-    assert.equal(result.injected, false)
-    assert.deepEqual(result.schema, own)
-  })
-  test('a missing schema becomes an object schema', () => {
-    assert.equal(withPortalArgument(undefined, ['portal.example.org']).schema.type, 'object')
-  })
-  test('is stripped before the call only when it was ours', () => {
-    assert.deepEqual(splitPortalArgument({ q: 'x', portal: 'portal.example.org' }, true), { portal: 'portal.example.org', args: { q: 'x' } })
-    assert.deepEqual(splitPortalArgument({ q: 'x', portal: 3 }, false), { args: { q: 'x', portal: 3 } })
-    assert.deepEqual(splitPortalArgument(undefined, true), { args: {} })
   })
 })
 

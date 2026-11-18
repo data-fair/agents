@@ -13,7 +13,7 @@ import { fileArgumentsOf, withResourceLinks, resourceLinksOf, hideLinkUris } fro
 import { checkedArgumentsOf } from '../approval-review/operations.ts'
 import { httpError } from '@data-fair/lib-express'
 import Debug from 'debug'
-import { callHeaders, listingKey, scopedListingIdentity, connectionKey, withPortalArgument, splitPortalArgument, codeOutputSchemaFor, platformMcpServer, type SiteCredentials, type SiteCredential, type GlobalMcpServer, type McpServerRef } from './operations.ts'
+import { callHeaders, listingKey, scopedListingIdentity, connectionKey, codeOutputSchemaFor, platformMcpServer, type SiteCredentials, type SiteCredential, type GlobalMcpServer, type McpServerRef } from './operations.ts'
 import { formatMcpToolResult, scriptViewOfMedia } from '@agents/shared/tool-result'
 import { credentialScopes } from '../nhi/operations.ts'
 import { toolDescription } from '@agents/shared/tool-description'
@@ -185,8 +185,6 @@ export const openAutonomousAgentTools = async (
   const catalog = config.mcpServers ?? []
   const refs = autonomousAgent.mcpServers ?? []
   const home = sites.homeSite
-  const portalByHost = new Map(sites.portals.map(origin => [new URL(origin).host, origin]))
-  const portalHosts = [...portalByHost.keys()]
 
   // This turn's connections, opened by the first call to each server — and each SITE, for a
   // site-bound server: the site is the connection's; its session is read again on every request.
@@ -246,12 +244,9 @@ export const openAutonomousAgentTools = async (
       // aggregator's Object.assign semantics — the provenance travels with the tool, so the recorded
       // server is the one whose tool will actually run.
       const siteBound = server.auth === 'nhi-session'
-      const { schema: portalSchema, injected } = siteBound
-        ? withPortalArgument(t.inputSchema, portalHosts)
-        : { schema: (t.inputSchema as any) ?? { type: 'object', properties: {} }, injected: false }
       // A file argument is a path of the turn's files (api/src/files/call-path.ts). Without files the model
       // could not fill it — the MCP server fetches only our signed URLs — so the tool is not offered (spec §2).
-      const { schema, fileArgs } = fileArgumentsOf(portalSchema)
+      const { schema, fileArgs } = fileArgumentsOf((t.inputSchema as any) ?? { type: 'object', properties: {} })
       if (fileArgs.length && !filesOn) {
         needsFiles.push({ name: t.name, server: server.id })
         continue
@@ -259,11 +254,11 @@ export const openAutonomousAgentTools = async (
       // The call's abort signal reaches the request, so Stop, the deadline or a script's end cancels it rather
       // than letting it complete unseen; what the server already did is not undone.
       const callMcp = async (rawArgs: any, signal?: AbortSignal) => {
-        const { portal, args } = splitPortalArgument(rawArgs, injected)
-        const site = portal === undefined ? home : portalByHost.get(portal)
-        if (portal !== undefined && !site) throw new Error(`"${portal}" is not a portal of your organization (${portalHosts.join(', ') || 'none'})`)
-        debug('call tool=%s server=%s site=%s', t.name, server.id, siteBound ? site : '-')
-        const client = await clientFor(server, siteBound ? site : undefined)
+        // Every call acts on the turn's home site: what a site-bound server does there is the account's, whichever
+        // of its sites it is called on (the platform server leaves the site-scoped catalog to the datasets server).
+        const args = rawArgs ?? {}
+        debug('call tool=%s server=%s site=%s', t.name, server.id, siteBound ? home : '-')
+        const client = await clientFor(server, siteBound ? home : undefined)
         // request() rather than callTool(): the latter also validates the result's structuredContent against
         // the declared outputSchema, and a server without one (openapi-mcp emits structured content without)
         // or with a drifting one would reject an otherwise usable call. The model's text form discards
@@ -282,7 +277,7 @@ export const openAutonomousAgentTools = async (
         }
         // Links stay links until the call path (api/src/files/call-path.ts) stores them; it needs to know the
         // call came from the catalog and which site it was bound to — the credential rule (spec §4.2).
-        return { callResult, formatted, origin: { catalog: true, ...(siteBound && site ? { site } : {}) } }
+        return { callResult, formatted, origin: { catalog: true, ...(siteBound && home ? { site: home } : {}) } }
       }
       const mcpTool = tool({
         description: t.description ?? '',

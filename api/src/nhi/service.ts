@@ -203,12 +203,12 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   const enrolled = siteOrigin(siteUrl)
   const home = socketSite ? siteOrigin(socketSite) : enrolled
   // Listing the account costs a token request. An agent none of whose servers is site-bound (`nhi-session`)
-  // never asks for a credential or a portal, so it must not pay for, nor depend on, a request it does not
+  // never asks for a credential, so it must not pay for, nor depend on, a request it does not
   // use: a turn on public tools stays as fast as before sites existed. data-fair's built-in server is
   // site-bound: an agent that gets it asks, or it would call data-fair anonymously, outside its scopes.
   const catalog = config.mcpServers ?? []
   if (!getsPlatformServer(autonomousAgent, config.privateMcpUrl) && autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
-    return { homeSite: home, clientIp, portals: [], home: 'account', credentialFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
+    return { homeSite: home, clientIp, home: 'account', credentialFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
   }
   let listed: string[] | undefined
   try {
@@ -217,11 +217,10 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
     // Its own state, not "the account is just the enrolment site": see accountPlacement.
     log.warn('could not list the account sites of an autonomous agent', { code: 'nhi-account-sites', agentId: autonomousAgent.id, err })
   }
-  const { account, portals, home: placement } = accountPlacement(enrolled, home, listed)
+  const { account, home: placement } = accountPlacement(enrolled, home, listed)
   return {
     homeSite: home,
     clientIp,
-    portals,
     home: placement,
     credentialFor: async site => {
       const origin = siteOrigin(site)
