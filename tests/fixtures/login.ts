@@ -64,7 +64,9 @@ export const test = base.extend<{
             // Fail on the response instead, naming the address actually tried.
             const [loginResponse] = await Promise.all([
               page.waitForResponse(res => res.url().includes('/api/auth/password')),
-              page.getByText('login', { exact: true }).click()
+              // 'login' before simple-directory 00492c3 (2026-11-16), 'Log in' after; the
+              // image is the floating master tag, so local checkouts may run either.
+              page.getByRole('button', { name: /^log ?in$/i }).click()
             ])
             if (!loginResponse.ok()) {
               throw new Error(`login failed for ${user}@test.com (${loginResponse.status()}) — is that user's email really <id>@test.com in dev/resources/users.template.json?`)
