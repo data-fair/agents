@@ -5,7 +5,7 @@
  */
 
 import type { SessionState } from '@data-fair/lib-express'
-import { siteOriginFromHeaders } from '../sites/operations.ts'
+import { reqOrigin } from '@data-fair/lib-express/req-origin.js'
 
 type Headers = Record<string, string | string[] | undefined>
 
@@ -27,7 +27,7 @@ export const upgradeRefusal = (headers: Headers, sessionState: SessionState): { 
   if (sessionState.user?.pseudoSession) return { status: 403, message: 'a pseudo session only allows reading' }
   const origin = Array.isArray(headers.origin) ? headers.origin[0] : headers.origin
   if (origin === undefined) return undefined
-  const site = siteOriginFromHeaders(headers)
+  const site = reqOrigin({ headers }, { optional: true })
   if (!site || origin !== site) return { status: 403, message: 'this socket can only be opened from a page of its own site' }
   return undefined
 }

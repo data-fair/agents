@@ -27,7 +27,7 @@
     "@aws-sdk/client-s3": "^3.1150.0",
     "@aws-sdk/lib-storage": "^3.1150.0",
     "@data-fair/lib-common-types": "^1.28.1",
-    "@data-fair/lib-express": "^2.0.0",
+    "@data-fair/lib-express": "^2.0.1",
     "@data-fair/lib-node": "^3.0.0",
     "@data-fair/lib-utils": "^1.15.0",
     "@data-fair/lib-validation": "^1.0.2",

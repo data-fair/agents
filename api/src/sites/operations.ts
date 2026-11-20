@@ -8,34 +8,10 @@
  * host). Sites' path prefix is ignored: it is being deprecated.
  */
 
-type Headers = Record<string, string | string[] | undefined>
-
-const first = (value: string | string[] | undefined): string | undefined =>
-  (Array.isArray(value) ? value[0] : value)?.split(',')[0].trim() || undefined
-
-/** The origin of a site URL: lowercase scheme and host, default port dropped, no path. */
+/** The origin of a site URL: lowercase scheme and host, default port dropped, no path. The site a proxied
+ * request came through is lib-express's reqOrigin, normalized the same way. */
 export function siteOrigin (url: string): string {
   return new URL(url).origin
-}
-
-/**
- * The site a proxied request came through, from its x-forwarded-* headers — what lib-express's
- * reqOrigin computes, but on the plain IncomingMessage of a websocket upgrade, and undefined rather
- * than a throw when the proxy said nothing usable.
- */
-export function siteOriginFromHeaders (headers: Headers): string | undefined {
-  const host = first(headers['x-forwarded-host'])
-  const proto = first(headers['x-forwarded-proto'])
-  if (!host || (proto !== 'http' && proto !== 'https')) return undefined
-  try {
-    const url = new URL(`${proto}://${host}`)
-    if (url.pathname !== '/' || url.username || url.search) return undefined
-    const port = first(headers['x-forwarded-port'])
-    if (port) url.port = port
-    return url.origin
-  } catch {
-    return undefined
-  }
 }
 
 /** What tells a stack service which site a server-to-server call acts on. */

@@ -29,6 +29,12 @@ test.describe('the agent-session upgrade guard', () => {
     assert.equal(upgradeRefusal(proxied('null'), person)?.status, 403, 'an opaque origin (sandboxed frame) names no site')
   })
 
+  test('an upgrade the proxy forwards with a websocket scheme is compared on its page\'s http scheme', () => {
+    // Traefik forwards a websocket upgrade with x-forwarded-proto wss: the page is still https
+    const traefik = { ...proxied('https://portal.example.com'), 'x-forwarded-proto': 'wss', 'x-forwarded-port': '443' }
+    assert.equal(upgradeRefusal(traefik, person), undefined)
+  })
+
   test('a browser origin with no site to compare it to is refused, not waved through', () => {
     assert.equal(upgradeRefusal({ origin: 'https://portal.example.com' }, person)?.status, 403)
   })

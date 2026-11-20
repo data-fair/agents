@@ -7,7 +7,7 @@
  */
 
 import type { Server, IncomingMessage } from 'node:http'
-import { reqIp } from '@data-fair/lib-express/req-origin.js'
+import { reqIp, reqOrigin } from '@data-fair/lib-express/req-origin.js'
 import { WebSocketServer, type WebSocket } from 'ws'
 import { session as expressSession, httpError, type AccountKeys } from '@data-fair/lib-express'
 import { sessionLogFields } from '@data-fair/lib-express/req-log-context.js'
@@ -33,7 +33,6 @@ import { decideAndContinue } from '../conversations/approvals.ts'
 import { settlePendingWait, wakeIfAnswered } from '../conversations/waits.ts'
 import { INTERRUPTED_RESULTS } from '../conversations/interrupted-turn.ts'
 import { getSettings } from '../settings/service.ts'
-import { siteOriginFromHeaders } from '../sites/operations.ts'
 import { upgradeRefusal, sessionExpiresAt } from './upgrade.ts'
 import log from '@data-fair/lib-node/log.js'
 import { ownerLogFields } from '../log-fields.ts'
@@ -104,7 +103,7 @@ export const startAgentSessions = (server: Server) => {
       sessionCookie: req.headers.cookie,
       // Read from the same upgrade request, for the same reason: where the person is, and so where the
       // turn acts and the only site their cookie may be sent to.
-      siteUrl: siteOriginFromHeaders(req.headers),
+      siteUrl: reqOrigin(req, { optional: true }),
       // Read from the upgrade request, like the cookie: the person's address, forwarded to the stack so
       // it limits them as if they called directly. Optional: a socket opened in-cluster has none.
       clientIp: reqIp(req, { optional: true }),
@@ -300,7 +299,7 @@ export const startAgentSessions = (server: Server) => {
       // A tab closed right behind its first message: nobody is left to answer, so no thread is started.
       if (ws.readyState !== ws.OPEN) throw new Error('the connection closed')
       const caller = callerOf()
-      const conversation = await createConversation(newThread.owner, newThread.agentId, caller, title, siteOriginFromHeaders(req.headers))
+      const conversation = await createConversation(newThread.owner, newThread.agentId, caller, title, reqOrigin(req, { optional: true }))
       newThread = undefined
       if (caller.kind === 'anonymous') anonymousThread = { id: conversation.id, owner: conversation.owner, usageUserId: caller.usageUserId }
       else log.info('conversation created', { code: 'agents.conversation.create', ...sessionLogFields(caller.session), conversationId: conversation.id, agentId: conversation.agentId, ...ownerLogFields(conversation.owner) })
