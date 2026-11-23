@@ -35,9 +35,17 @@ export const anonymousAx = axios()
 // prefix' — which would break every api spec that addresses /api/... directly.
 export const nginxAx = axios({ baseURL: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents` })
 
+/**
+ * A simple-directory anonymous action token, once usable: the directory may issue it with a not-before
+ * delay (ANONYMOUS_ACTION_NOT_BEFORE, against bots), and a token used before it is refused.
+ */
 export const getAnonymousActionToken = async (): Promise<string> => {
   const res = await anonymousAx.get(directoryUrl + '/api/auth/anonymous-action')
-  return typeof res.data === 'string' ? res.data : String(res.data)
+  const token = typeof res.data === 'string' ? res.data : String(res.data)
+  const nbf = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString() || '{}').nbf
+  const wait = typeof nbf === 'number' ? nbf * 1000 - Date.now() : 0
+  if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait + 100))
+  return token
 }
 
 export const axiosAuth = (user: string, opts?: { adminMode?: boolean, org?: string }) => {
