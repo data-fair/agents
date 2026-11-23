@@ -28,6 +28,7 @@ import { forgetAgentSessions } from '../nhi/service.ts'
 import { listScopeFiles, signScopeFileUrl, sweepFiles, removeTestOwnersFiles } from '../files/service.ts'
 import { isValidScope } from '../files/operations.ts'
 import { liveAgentSessions } from '../agent-session/service.ts'
+import { choosePlatformMcpUrl } from '../mcp-servers/platform-url.ts'
 
 /**
  * The events pushed, newest last, capped. It lets the tests see a notification without the events
@@ -174,6 +175,9 @@ export const createTestEnvRouter = () => {
       updatedAt: now
     }
     await mongo.autonomousAgents.replaceOne({ id: doc.id }, doc, { upsert: true })
+    // no built-in server unless the caller names one (platformMcpUrl: the dev stand-in, or the deployment's), so
+    // what a spec gathers does not depend on which server the deployment wires
+    choosePlatformMcpUrl(doc.id, req.body.platformMcpUrl ?? null)
     // This can change nhi.clientId/siteUrl/issuer for an id another spec already exchanged for, and
     // the cache keyed on the id alone would then serve that stale cookie for ~240s — so the test
     // whose whole point is to perform a real exchange would silently not perform one, and would keep
@@ -190,14 +194,17 @@ export const createTestEnvRouter = () => {
    * Deliberately not a real one: it unblocks the executor's "no enrolled identity" refusal so a test
    * can exercise everything downstream, and that is all. It proves nothing about the token exchange,
    * and it only suffices because the MCP servers those tests use are `auth: 'none'` and need no
-   * session. A test that needs a REAL identity uses POST /autonomous-agent above with a
-   * fixture client id.
+   * session — which is also why the agent gets no built-in data-fair server unless the spec names one
+   * (`platformMcpUrl`, the dev stand-in). A test that needs a REAL identity uses POST /autonomous-agent
+   * above with a fixture client id.
    */
   router.post('/enrol-autonomous-agent', async (req, res) => {
     await mongo.autonomousAgents.updateOne(
       { id: req.body.agentId },
       { $set: { nhi: { clientId: req.body.clientId ?? 'dev-fixture-nhi', siteUrl: req.body.siteUrl ?? 'http://localhost/agents', issuer: req.body.issuer ?? 'http://localhost/agents/api/nhi' } } }
     )
+    // a placeholder identity no MCP server accepts: no built-in server, unless the spec names one (platformMcpUrl)
+    choosePlatformMcpUrl(req.body.agentId, req.body.platformMcpUrl ?? null)
     res.send()
   })
   // Make the per-conversation serialisation testable deterministically: with an in-process executor the

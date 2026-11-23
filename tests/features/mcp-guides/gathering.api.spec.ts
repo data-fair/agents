@@ -9,6 +9,7 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { startTurnOverSocket, runOf } from '../../../dev/socket-turn.ts'
+import { STAND_IN_PLATFORM_MCP_URL } from '../../support/platform-mcp.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
@@ -130,7 +131,7 @@ test.describe('Server instructions and skills', () => {
 
   test('read_skill never reads from a server outside the turn: a wrong label falls back to the turn\'s server listing the URI, or reads nothing', async () => {
     const agent = await createAgent()
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id, platformMcpUrl: STAND_IN_PLATFORM_MCP_URL })
     const listed = await runTurn(agent.id, 'call tool read_skill {"server":"dev-session-mcp","uri":"skill://fixture/closures/SKILL.md"}')
     assert.match(toolCall(listed.assistant, 'read_skill').output, /^<skill server="dev-public-mcp"/)
     fixture.resetMethodCounts()

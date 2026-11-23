@@ -27,6 +27,7 @@ import { CONSENT_COOKIE, CONSENT_YES } from '../ui/src/review/review-consent.ts'
 import { turnOverSocket, type ConversationTarget } from './socket-turn.ts'
 import { PORTAL_ASSISTANT_ID } from '../shared/agent-audit.ts'
 import { autonomousAgentNhiBody, autonomousAgentSubject } from '../shared/autonomous-agent-identity.ts'
+import { DEPLOYMENT_PLATFORM_MCP_URL } from '../tests/support/platform-mcp.ts'
 
 const directoryUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/simple-directory`
 const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
@@ -208,6 +209,8 @@ async function seedAutonomousAgent (adminAx: any, orgAx: any) {
     clientId,
     siteUrl,
     issuer,
+    // the server the API wires, as an agent enrolled for real would have
+    platformMcpUrl: DEPLOYMENT_PLATFORM_MCP_URL,
     autonomousAgent: autonomousAgentBody
   })
   console.log(`seeded autonomous agent ${AUTONOMOUS_AGENT_ID} (organization/${ORG}, enrolled as ${clientId})`)

@@ -7,6 +7,7 @@
  * the two fixture identities of test_agents_org1. A test needing two agents at once takes both.
  */
 import { superAdmin } from './axios.ts'
+import { STAND_IN_PLATFORM_MCP_URL } from './platform-mcp.ts'
 
 const SLOTS = {
   'test-fixture': 'test_agents_org1_agent_nhi',
@@ -24,6 +25,7 @@ export const createEnrolledAgent = async (autonomousAgent: Record<string, unknow
     clientId: SLOTS[slot],
     siteUrl: home,
     issuer: `${home}/agents/api/nhi`,
+    platformMcpUrl: STAND_IN_PLATFORM_MCP_URL,
     autonomousAgent
   })).data
 }

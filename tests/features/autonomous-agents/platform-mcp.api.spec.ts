@@ -1,8 +1,8 @@
 /**
  * stateful API tests: data-fair's MCP is built into every autonomous agent with an identity.
  *
- * `privateMcpUrl` (api/config/development.js) points at the mcp pane's `/platform/` stand-in, which serves the
- * data-returning tools prefixed `platform_`: an agent's reach there is its identity's scopes, with nothing
+ * The enrolments name the dev stand-in (`/platform/` of the mcp process, STAND_IN_PLATFORM_MCP_URL), which serves
+ * the data-returning tools prefixed `platform_`: an agent's reach there is its identity's scopes, with nothing
  * to reference in `mcpServers`.
  */
 import { test } from 'playwright/test'
@@ -10,6 +10,7 @@ import assert from 'node:assert/strict'
 import { superAdmin, clean, axiosAuth } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
+import { STAND_IN_PLATFORM_MCP_URL } from '../../support/platform-mcp.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
@@ -22,6 +23,7 @@ const enrol = async () => await admin.post('/api/test-env/autonomous-agent', {
   clientId: 'test_agents_org1_agent_nhi',
   siteUrl: home,
   issuer: `${home}/agents/api/nhi`,
+  platformMcpUrl: STAND_IN_PLATFORM_MCP_URL,
   autonomousAgent: { title: 'Platform probe', persona: 'x', mcpServers: [], enabled: true }
 })
 
@@ -65,6 +67,7 @@ test.describe('The built-in data-fair server', () => {
       clientId: 'test_agents_org1_scoped_agent_nhi',
       siteUrl: home,
       issuer: `${home}/agents/api/nhi`,
+      platformMcpUrl: STAND_IN_PLATFORM_MCP_URL,
       autonomousAgent: { title: 'Scoped platform probe', persona: 'x', mcpServers: [], enabled: true }
     })
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-scoped-fixture' }, 'call tool get_my_configuration')

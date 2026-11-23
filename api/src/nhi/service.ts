@@ -18,6 +18,7 @@ import { siteOrigin, forwardedSiteHeaders, accountSites, type ListedSite } from 
 import { createSessionBroker } from './session-broker.ts'
 
 import { credentialHeaders, getsPlatformServer, type SiteCredentials } from '../mcp-servers/operations.ts'
+import { platformMcpUrlOf } from '../mcp-servers/platform-url.ts'
 import log from '@data-fair/lib-node/log.js'
 
 /**
@@ -207,7 +208,7 @@ export const agentSiteCredentials = async (autonomousAgent: EnrolledAutonomousAg
   // use: a turn on public tools stays as fast as before sites existed. data-fair's built-in server is
   // site-bound: an agent that gets it asks, or it would call data-fair anonymously, outside its scopes.
   const catalog = config.mcpServers ?? []
-  if (!getsPlatformServer(autonomousAgent, config.privateMcpUrl) && autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
+  if (!getsPlatformServer(autonomousAgent, platformMcpUrlOf(autonomousAgent.id)) && autonomousAgent.mcpServers && !autonomousAgent.mcpServers.some(ref => catalog.find(s => s.id === ref.serverId)?.auth === 'nhi-session')) {
     return { homeSite: home, clientIp, home: 'account', credentialFor: async () => undefined, listingIdentity: `agent:${autonomousAgent.id}` }
   }
   let listed: string[] | undefined

@@ -11,6 +11,7 @@ import { getAgentToken, agentSiteCredentials, forgetAgentSessions, listAccountSi
 import { credentialClaims, autonomousAgentSubject } from '../nhi/operations.ts'
 import { listAutonomousAgentToolDescriptors, type AutonomousAgentForTools, type SkippedServer } from '../mcp-servers/client.ts'
 import { listExternalToolDescriptors } from '../mcp-servers/external.ts'
+import { platformMcpUrlOf } from '../mcp-servers/platform-url.ts'
 import { envPublicIps } from '../web/public-lookup.ts'
 import { agentStoreId } from '../memory/operations.ts'
 import { deleteMemoryStore } from '../memory/service.ts'
@@ -183,7 +184,7 @@ export const describeAutonomousAgentTools = async (autonomousAgent: AutonomousAg
     ? await agentSiteCredentials(autonomousAgent)
     : personSiteCredentials(undefined, undefined)
   // `kind` as a turn records it (shared/tool-source.ts), so the chat's inspection dialog groups both alike.
-  const { descriptors } = await listAutonomousAgentToolDescriptors(autonomousAgent, sites, { platform: getsPlatformServer(autonomousAgent, config.privateMcpUrl) })
+  const { descriptors } = await listAutonomousAgentToolDescriptors(autonomousAgent, sites, { platform: getsPlatformServer(autonomousAgent, platformMcpUrlOf(autonomousAgent.id)) ? platformMcpUrlOf(autonomousAgent.id) : undefined })
   const results = descriptors.map(descriptor => ({ ...descriptor, kind: descriptor.server === PLATFORM_MCP_SERVER_ID ? 'platform' as const : 'catalog' as const }))
   if (!autonomousAgent.externalMcpServers?.length) return { results, skipped: [] as SkippedServer[] }
   const external = await listExternalToolDescriptors(autonomousAgent.externalMcpServers, { publicIps: envPublicIps() })

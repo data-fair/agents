@@ -191,6 +191,7 @@ export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
  */
 export async function seedAutonomousAgent (route: string, instructorUserId: string, agent: SimulatedAgentConfig = {}) {
   const { superAdmin } = await import('../../tests/support/axios.ts')
+  const { DEPLOYMENT_PLATFORM_MCP_URL } = await import('../../tests/support/platform-mcp.ts')
   const admin = await superAdmin
   const { owner, agentId } = parseAutonomousAgentRoute(route)
   const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
@@ -200,6 +201,8 @@ export async function seedAutonomousAgent (route: string, instructorUserId: stri
     clientId: 'test_agents_org1_agent_nhi',
     siteUrl,
     issuer: `${siteUrl}/agents/api/nhi`,
+    // the server the API wires, as an agent enrolled for real would have
+    platformMcpUrl: DEPLOYMENT_PLATFORM_MCP_URL,
     autonomousAgent: {
       ...DEFAULT_SIMULATED_AGENT,
       ...agent,
