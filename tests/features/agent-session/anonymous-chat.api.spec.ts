@@ -15,8 +15,8 @@ import { openAgentSession, type AgentSessionClient } from '../../../dev/agent-se
 
 const admin = await superAdmin
 
-const OWNER = { type: 'user', id: 'test-standalone1' } as const
-const OWNER_PATH = 'user/test-standalone1'
+const OWNER = { type: 'user', id: 'test_agents_standalone' } as const
+const OWNER_PATH = 'user/test_agents_standalone'
 
 const pricedSettings = (quotas: any = {}) => ({
   models: [{ model: mockModelRef, usage: ['assistant'], inputPricePerMillion: 8_000, outputPricePerMillion: 8_000 }],

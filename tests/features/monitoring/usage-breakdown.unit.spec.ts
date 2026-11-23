@@ -50,7 +50,7 @@ test.describe('breakdownDatasets', () => {
 
 test.describe('formatBreakdownValue', () => {
   test('strips the account type from owner keys', () => {
-    assert.equal(formatBreakdownValue('owner', 'organization/test1'), 'test1')
+    assert.equal(formatBreakdownValue('owner', 'organization/test_agents_org1'), 'test_agents_org1')
   })
 
   test('leaves model ids untouched', () => {

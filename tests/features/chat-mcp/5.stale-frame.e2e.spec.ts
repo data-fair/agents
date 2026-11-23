@@ -19,7 +19,7 @@ import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { waitForPageTools, expectNoPageTool } from '../../support/page-tools.ts'
 
-const USER = 'test-standalone1'
+const USER = 'test_agents_standalone'
 
 test.describe('Tools from a frame that goes away', () => {
   test.beforeEach(async () => {

@@ -19,8 +19,8 @@
     }
   },
   {
-    "id": "superadmin",
-    "email": "superadmin@test.com",
+    "id": "test_agents_superadmin",
+    "email": "test_agents_superadmin@test.com",
     "isAdmin": true,
     "password": {
       "clear": "passwd"
@@ -48,36 +48,43 @@
     }
   },
   {
-    "id": "test-standalone1",
-    "email": "test-standalone1@test.com",
+    "id": "test_agents_standalone",
+    "email": "test_agents_standalone@test.com",
     "password": {
       "clear": "passwd"
     }
   },
   {
-    "id": "test1-admin1",
-    "email": "test1-admin1@test.com",
+    "id": "test_agents_org1_admin",
+    "email": "test_agents_org1_admin@test.com",
     "password": {
       "clear": "passwd"
     }
   },
   {
-    "id": "test1-contrib1",
-    "email": "test1-contrib1@test.com",
+    "id": "test_agents_org1_contrib",
+    "email": "test_agents_org1_contrib@test.com",
     "password": {
       "clear": "passwd"
     }
   },
   {
-    "id": "test1-user1",
-    "email": "test1-user1@test.com",
+    "id": "test_agents_org1_user",
+    "email": "test_agents_org1_user@test.com",
     "password": {
       "clear": "passwd"
     }
   },
   {
-    "id": "test-autonomous-agent-nhi",
-    "email": "test-autonomous-agent-nhi@test.com",
+    "id": "test_agents_org2_user",
+    "email": "test_agents_org2_user@test.com",
+    "password": {
+      "clear": "passwd"
+    }
+  },
+  {
+    "id": "test_agents_org1_agent_nhi",
+    "email": "test_agents_org1_agent_nhi@test.com",
     "nhi": {
       "provider": {
         "issuer": "http://localhost:{NGINX_PORT}/agents/api/nhi"
@@ -96,14 +103,16 @@
     }
   },
   {
-    "id": "test-scoped-autonomous-agent-nhi",
-    "email": "test-scoped-autonomous-agent-nhi@test.com",
+    "id": "test_agents_org1_scoped_agent_nhi",
+    "email": "test_agents_org1_scoped_agent_nhi@test.com",
     "nhi": {
       "provider": {
         "issuer": "http://localhost:{NGINX_PORT}/agents/api/nhi"
       },
       "subject": "autonomous-agent:test-scoped-fixture",
-      "scopes": ["datasets:read"]
+      "scopes": [
+        "datasets:read"
+      ]
     }
   }
 ]

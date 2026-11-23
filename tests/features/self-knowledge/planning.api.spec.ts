@@ -12,13 +12,13 @@ import { decideOverSocket, decideOverSocketToRun, turnOverSocket } from '../../.
 import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 // An instructor, not an admin of the organization: never offered the planning tools, which only an
 // administrator may approve.
-const instructor = await axiosAuth('test1-user1', { org: 'test1' })
+const instructor = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 // The same administrator from their personal account: their role there is not the organization's.
-const adminElsewhere = await axiosAuth('test1-admin1')
-const AGENTS = '/api/autonomous-agents/organization/test1'
+const adminElsewhere = await axiosAuth('test_agents_org1_admin')
+const AGENTS = '/api/autonomous-agents/organization/test_agents_org1'
 const PLANNING_TOOLS = ['plan_task', 'update_task', 'delete_task']
 const weekly = { type: 'weekly', month: '*', dayOfWeek: '1', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
 const daily = (hour: number, minute: number) => ({ type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour, minute, timeZone: 'Europe/Paris' })
@@ -30,8 +30,8 @@ const createAgent = async (over: any = {}) => {
     persona: 'You answer briefly.',
     mcpServers: [],
     enabled: true,
-    // test1-admin1 by name too, so the same person may instruct from their personal account.
-    instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }, { mode: 'member', type: 'user', id: 'test1-admin1' }],
+    // test_agents_org1_admin by name too, so the same person may instruct from their personal account.
+    instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }, { mode: 'member', type: 'user', id: 'test_agents_org1_admin' }],
     ...over
   })
   return agent
@@ -40,7 +40,7 @@ const tasksOf = async (agentId: string) => (await admin.get(`${AGENTS}/${agentId
 const callPart = (message: any, toolName: string) => message.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === toolName)
 const offeredTools = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 const messageAt = async (conversationId: string, seq: number) =>
-  (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+  (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
 /** An administrator asks for a call; the turn ends on its approval card. */
 const ask = async (agentId: string, toolName: string, input: unknown) => {
@@ -58,7 +58,7 @@ const decide = async (asked: Awaited<ReturnType<typeof ask>>, toolName: string, 
 test.describe('Planning tools', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('plan_task ends the turn on an approval card, and nothing is planned yet', async () => {
@@ -79,7 +79,7 @@ test.describe('Planning tools', () => {
     const [task] = await tasksOf(agent.id)
     assert.ok(task, 'the task was created')
     assert.equal(task.title, 'Weekly digest')
-    assert.equal(task.createdBy.userId, 'test1-admin1')
+    assert.equal(task.createdBy.userId, 'test_agents_org1_admin')
     assert.equal(task.createdBy.conversationId, asked.conversationId)
     // The result states the outcome, so the model reports it rather than an approval still pending.
     const by = task.createdBy.userName ?? task.createdBy.userId
@@ -154,7 +154,7 @@ test.describe('Planning tools', () => {
     assert.equal(updated.part.state, 'output-available', JSON.stringify(updated.part))
     const [stored] = await tasksOf(agent.id)
     assert.equal(stored.title, 'Renamed digest')
-    assert.equal(stored.updatedBy.userId, 'test1-admin1')
+    assert.equal(stored.updatedBy.userId, 'test_agents_org1_admin')
     const by = stored.updatedBy.userName ?? stored.updatedBy.userId
     assert.ok(updated.part.output.includes(`Approved by ${by}. Task "Renamed digest" is updated (id ${task.id}) and active: every Monday at 08:00 (Europe/Paris), next run ${stored.nextRunAt}.`), updated.part.output)
 

@@ -8,9 +8,9 @@ import { putMockSettings } from '../../support/settings.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
-const conversationOf = async (conversationId: string) => (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data.conversation
+const conversationOf = async (conversationId: string) => (await orgAdmin.get(`/api/review/organization/test_agents_org1/${conversationId}`)).data.conversation
 const titled = async (conversationId: string) => {
   for (let i = 0; i < 50; i++) {
     const conversation = await conversationOf(conversationId)
@@ -23,11 +23,11 @@ const titled = async (conversationId: string) => {
 test.describe('Conversation titles', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('the first exchange titles the conversation, and a later turn keeps that title', { tag: '@smoke' }, async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Titled', persona: 'x', mcpServers: [], enabled: true })).data
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Titled', persona: 'x', mcpServers: [], enabled: true })).data
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'road closures in the city centre')
     const first = await titled(conversationId)

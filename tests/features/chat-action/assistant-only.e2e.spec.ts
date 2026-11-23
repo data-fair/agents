@@ -19,18 +19,18 @@ import { putMockSettings } from '../../support/settings.ts'
 import { findChatFrame } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
 const composer = (target: Page | Frame) => target.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])')
 
 test.describe('Action buttons reach the assistant only', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   const createAgent = async (title: string) => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title, persona: 'You answer briefly.', mcpServers: [], enabled: true
     })
     // Enrolled, or it refuses every turn: a refused button prompt would pass the tests below for the wrong reason.
@@ -40,18 +40,18 @@ test.describe('Action buttons reach the assistant only', () => {
   const backOfficeFrame = async (page: Page) => {
     let frame: Frame | undefined
     await expect(() => {
-      frame = page.frames().find(f => new URL(f.url()).pathname.endsWith('/organization/test1/chat'))
+      frame = page.frames().find(f => new URL(f.url()).pathname.endsWith('/organization/test_agents_org1/chat'))
       expect(frame).toBeTruthy()
     }).toPass({ timeout: 10000 })
     return frame!
   }
-  const threadsOf = async (id: string) => (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${id}`)).data.results
-  const userTurns = async (conversationId: string) => (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+  const threadsOf = async (id: string) => (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${id}`)).data.results
+  const userTurns = async (conversationId: string) => (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     .filter((m: any) => m.role === 'user')
 
   test('a chat pinned to a configured agent sends nothing of a button', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent('Pinned agent')
-    await goToWithAuth(`/agents/_dev/chat-action?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/_dev/chat-action?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const action = page.locator('.df-agent-chat-action').first()
     await expect(action).toBeVisible({ timeout: 10000 })
     await action.click()
@@ -72,12 +72,12 @@ test.describe('Action buttons reach the assistant only', () => {
     const agentId = await createAgent('Resumed agent')
 
     // The person's last conversation is with the autonomous agent: the back-office chat reopens it.
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}&agents=1`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}&agents=1`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await composer(page).fill('hello')
     await page.getByTestId('agent-chat-send').click()
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
 
-    await goToWithAuth('/agents/_dev/chat-action?agents=1', 'test1-admin1', { org: 'test1' })
+    await goToWithAuth('/agents/_dev/chat-action?agents=1', 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const action = page.locator('.df-agent-chat-action').first()
     await expect(action).toBeVisible({ timeout: 10000 })
     await action.click()
@@ -95,7 +95,7 @@ test.describe('Action buttons reach the assistant only', () => {
   test('a chat showing a conversation the person chose with an autonomous agent asks before leaving it', async ({ page, goToWithAuth }) => {
     test.setTimeout(60000)
     const agentId = await createAgent('Open agent')
-    await goToWithAuth('/agents/_dev/chat-action?agents=1', 'test1-admin1', { org: 'test1' })
+    await goToWithAuth('/agents/_dev/chat-action?agents=1', 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await page.locator('.df-agent-chat-toggle').click()
     const frame = await backOfficeFrame(page)
     await frame.getByTestId('agent-chat-agent-picker').click()

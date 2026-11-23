@@ -11,9 +11,9 @@ import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { createEnrolledAgent, type AgentSlot } from '../../support/agents.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
-const agentsBase = '/api/autonomous-agents/organization/test1'
+const agentsBase = '/api/autonomous-agents/organization/test_agents_org1'
 const SELF_TOOLS = ['get_my_configuration', 'list_my_runs', 'read_conversation']
 
 // `ignored` is listed by the fixture and left out of the filter: the filtered tool.
@@ -47,7 +47,7 @@ test.describe('Self-knowledge', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('in a chat, the configuration names a destructive tool as reviewed then put to the person, and a filtered one as not selected', async () => {
@@ -80,7 +80,7 @@ test.describe('Self-knowledge', () => {
     assert.ok(row, part.output)
     assert.match(row, /task Probe task/)
     assert.match(row, /outcome done: all good/)
-    assert.doesNotMatch(part.output, /test1-admin1|superadmin/, 'never who triggered a run')
+    assert.doesNotMatch(part.output, /test_agents_org1_admin|superadmin/, 'never who triggered a run')
   })
 
   test('a past task run\'s words come back inside the envelope, as data', async () => {
@@ -93,10 +93,10 @@ test.describe('Self-knowledge', () => {
   })
 
   test('another person\'s past conversation is readable: one history per agent', async () => {
-    const agent = await createAgent('Self reader', { instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    const agent = await createAgent('Self reader', { instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
     const past = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'please keep the road closures report short')
     // read_conversation, by another instructor, from a new thread: the export, from its first line
-    const instructor = await axiosAuth('test1-user1', { org: 'test1' })
+    const instructor = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
     const { assistant } = await turnOverSocket(instructor, { agentId: agent.id }, `call tool read_conversation {"conversationId":"${past.conversationId}","line":1}`)
     const read = callPart(assistant.parts, 'read_conversation')
     assert.equal(read.state, 'output-available', JSON.stringify(read))

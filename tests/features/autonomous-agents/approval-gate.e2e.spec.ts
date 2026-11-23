@@ -19,8 +19,8 @@ test.describe('Approval card', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
-    agentId = (await admin.post('/api/autonomous-agents/organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1')
+    agentId = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Gate probe', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
     })).data.id
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
@@ -32,7 +32,7 @@ test.describe('Approval card', () => {
   }
 
   test('approving from the card runs the call; the card survives a reload until decided', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tool wipe_everything {}')
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
     // One name for the call: the label says what the card's heading and the chip say.
@@ -69,7 +69,7 @@ test.describe('Approval card', () => {
   test('the card shows locked while the turn that asked finishes, then becomes decidable without a reload', async ({ page, goToWithAuth }) => {
     // `slow_lookup` holds the step open after the approval request: the server refuses a decision until
     // the turn has closed its message, so the card must not offer one before.
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tools slow_lookup wipe_everything')
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
     await expect(page.getByTestId('approval-approve')).toBeDisabled()
@@ -82,7 +82,7 @@ test.describe('Approval card', () => {
   })
 
   test('one click on reject declines the call: a declined chip, and nothing runs', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tool wipe_everything {}')
     await expect(page.getByTestId('approval-approve')).toBeEnabled({ timeout: 15000 })
     await page.getByTestId('approval-reject').click()
@@ -92,7 +92,7 @@ test.describe('Approval card', () => {
   })
 
   test('sending a message over a pending card cancels it, and the chip says cancelled, not declined', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tool wipe_everything {}')
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
     await expect(page.getByTestId('approval-typing-cancels')).toHaveText('Sending a message cancels this request.')
@@ -105,7 +105,7 @@ test.describe('Approval card', () => {
   })
 
   test('a reviewed destructive call shows the reviewer\'s view on the card, after a reload', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tool delete_note {"note":"ok"}')
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
     await page.reload()
@@ -118,7 +118,7 @@ test.describe('Approval card', () => {
   })
 
   test('an unsure review leads the card with its line for the person, the call\'s details folded', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tool set_note {"note":"REVIEW_UNSURE"}')
     const card = page.getByTestId('approval-card')
     await expect(card).toBeVisible({ timeout: 15000 })
@@ -131,7 +131,7 @@ test.describe('Approval card', () => {
   })
 
   test('a reviewer denial shows as a denied chip with its reason', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tool set_note {"note":"REVIEW_DENY"}')
     await expect(page.getByTestId('tool-chip').first()).toHaveText('Denied by the reviewer: set_note', { timeout: 15000 })
     // The way past it is the person's own words, which the next review reads: said, not a button.
@@ -141,9 +141,9 @@ test.describe('Approval card', () => {
   })
 
   test('the review page gives a reviewer denial\'s reason in the call\'s detail', async ({ page, goToWithAuth }) => {
-    const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+    const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
     const { conversationId } = await startTurnOverSocket(orgAdmin, { agentId }, 'call tool set_note {"note":"REVIEW_DENY"}')
-    await goToWithAuth(`/agents/organization/test1/review/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/review/${conversationId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const chip = page.getByTestId('tool-chip').first()
     await expect(chip).toHaveText('Denied by the reviewer: set_note', { timeout: 15000 })
     await chip.click()
@@ -154,7 +154,7 @@ test.describe('Approval card', () => {
   })
 
   test('the review page says who let each call run: the reviewer alone, or a person after it', async ({ page, goToWithAuth }) => {
-    const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+    const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
     // a write: the reviewer decides it alone
     const { conversationId } = await turnOverSocket(orgAdmin, { agentId }, 'call tool set_note {"note":"ok"}')
     // a destructive call: the reviewer, then the person's card
@@ -163,7 +163,7 @@ test.describe('Approval card', () => {
     await decideOverSocketToRun(orgAdmin, conversationId, approvalId, { approved: true })
     await expect.poll(() => fixture.invokedTools(), { timeout: 15000 }).toEqual(['set_note', 'delete_note'])
 
-    await goToWithAuth(`/agents/organization/test1/review/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/review/${conversationId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const chips = page.getByTestId('tool-chip')
     await expect(chips).toHaveCount(2, { timeout: 15000 })
     // the person's decision reads as the card they saw, their choice where the buttons were
@@ -183,9 +183,9 @@ test.describe('Approval card', () => {
   })
 
   test('the admin review page shows a pending approval read-only', async ({ page, goToWithAuth }) => {
-    const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+    const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
     const { conversationId } = await startTurnOverSocket(orgAdmin, { agentId }, 'call tool wipe_everything {}')
-    await goToWithAuth(`/agents/organization/test1/review/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/review/${conversationId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })
     await expect(page.getByTestId('approval-title')).toHaveText('Approve "Wipe everything"?')
     await expect(page.getByTestId('approval-readonly')).toHaveText("Awaiting the person's decision")
@@ -195,11 +195,11 @@ test.describe('Approval card', () => {
   })
 
   test('a request for more of the web reads as the addresses and the reason, not the tool\'s description', async ({ page, goToWithAuth }) => {
-    const webAgentId = (await admin.post('/api/autonomous-agents/organization/test1', {
+    const webAgentId = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Web probe', persona: 'You answer briefly.', mcpServers: [], enabled: true, web: { enabled: true, allowedUrls: [] }
     })).data.id
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: webAgentId })
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${webAgentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${webAgentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tool request_web_access {"add":["https://github.com/data-fair"],"reason":"the release notes"}')
     const card = page.getByTestId('approval-card')
     await expect(card).toBeVisible({ timeout: 15000 })

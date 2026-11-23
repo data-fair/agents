@@ -9,7 +9,7 @@ import { clean, superAdmin } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
-const AGENTS = '/api/autonomous-agents/organization/test1'
+const AGENTS = '/api/autonomous-agents/organization/test_agents_org1'
 const weekly = { type: 'weekly', month: '*', dayOfWeek: '1', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
 const digest = { title: 'Weekly digest', prompt: 'Summarize the week.', scheduling: [weekly] }
 
@@ -19,7 +19,7 @@ const createAgent = async (over: any = {}) => {
     persona: 'You answer briefly.',
     mcpServers: [],
     enabled: true,
-    instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }],
+    instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }],
     ...over
   })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
@@ -34,12 +34,12 @@ const ask = async (page: any, text: string) => {
 test.describe('Readable approval cards', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('plan_task shows the task in words, and approving it plans the task', async ({ page, goToWithAuth }) => {
     const agent = await createAgent()
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agent.id}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, `call tool plan_task ${JSON.stringify(digest)}`)
 
     const card = page.getByTestId('approval-card')
@@ -71,7 +71,7 @@ test.describe('Readable approval cards', () => {
   test('update_task shows the task before and after the change, keeping a disabled task disabled', async ({ page, goToWithAuth }) => {
     const agent = await createAgent()
     const task = (await admin.post(`${AGENTS}/${agent.id}/tasks`, { ...digest, enabled: false })).data
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agent.id}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
 
     const card = page.getByTestId('approval-card')
@@ -94,7 +94,7 @@ test.describe('Readable approval cards', () => {
     await admin.post('/api/test-env/scheduler-pass', { now: '2026-01-15T10:00:00.000Z' })
     await expect.poll(async () => (await admin.get(`${AGENTS}/${agent.id}/tasks/${task.id}`)).data.pausedReason).toBeTruthy()
 
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agent.id}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, `call tool update_task ${JSON.stringify({ taskId: task.id, ...digest, title: 'Renamed digest' })}`)
 
     const card = page.getByTestId('approval-card')

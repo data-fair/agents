@@ -12,9 +12,9 @@ import { putMockSettings } from '../../support/settings.ts'
 import { decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const instructor = await axiosAuth('test1-user1', { org: 'test1' })
-const AGENTS = '/api/autonomous-agents/organization/test1'
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const instructor = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
+const AGENTS = '/api/autonomous-agents/organization/test_agents_org1'
 
 const turn = async (ax: typeof orgAdmin, target: string | { agentId: string }, content: string) => {
   const { runId, conversationId, run, messages } = await turnOverSocket(ax, target, content)
@@ -31,7 +31,7 @@ const createAgent = async (over: any = {}) => {
     mcpServers: [],
     enabled: true,
     web: { enabled: true, allowedUrls: ['github.com/data-fair'] },
-    instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }],
+    instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }],
     ...over
   })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
@@ -43,7 +43,7 @@ const offeredTools = (run: any): string[] => run.calls.flatMap((c: any) => c.too
 test.describe('Web access of autonomous agents', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('the allowlist is stored as it is enforced, and an invalid entry is refused', async () => {

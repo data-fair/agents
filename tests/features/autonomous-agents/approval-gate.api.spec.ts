@@ -13,11 +13,11 @@ import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { decideOverSocket, decideOverSocketToRun, startTurnOverSocket, turnOverSocket, runOf } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const BASE = '/api/conversations/organization/test1'
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const BASE = '/api/conversations/organization/test_agents_org1'
 
 export const createGatedAgent = async (over: any = {}) => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+  const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
     title: 'Gate probe', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true, ...over
   })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
@@ -40,7 +40,7 @@ test.describe('The approval gate', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a destructive call is stopped by default: the turn ends awaiting approval and nothing ran', async () => {
@@ -58,7 +58,7 @@ test.describe('The approval gate', () => {
 
   test('an approvals object is refused', async () => {
     const agent = await createGatedAgent()
-    await assert.rejects(admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: {} }), { status: 400 })
+    await assert.rejects(admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvals: {} }), { status: 400 })
   })
 
   test('a destructive call routed to the reviewer alone runs once reviewed', async () => {
@@ -78,7 +78,7 @@ test.describe('The approval gate', () => {
   const decideRun = (conversationId: string, approvalId: string, body: { approved: boolean }) =>
     decideOverSocketToRun(orgAdmin, conversationId, approvalId, body)
   const messageAt = async (conversationId: string, seq: number) =>
-    (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+    (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
   test('speaking while an approved call runs stops that run and settles the call as unknown', async () => {
     // Over the socket, writing takes the turn back (a live run is stopped), so a message can no longer land
@@ -115,10 +115,10 @@ test.describe('The approval gate', () => {
     assert.deepEqual(fixture.invokedTools(), ['wipe_everything'])
     const part = callPart(await messageAt(conv.id, seq), 'wipe_everything')
     assert.equal(part.state, 'output-available', 'the result is settled on the call\'s own part')
-    assert.equal(part.toolMetadata.decision.userId, 'test1-admin1')
+    assert.equal(part.toolMetadata.decision.userId, 'test_agents_org1_admin')
     // The SDK executes an approved call on replay without announcing it again, so the continuation's own
     // message carries no second part for it.
-    const continuation = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conv.id}/messages`)).data.results.find((m: any) => m.runId === runId)
+    const continuation = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conv.id}/messages`)).data.results.find((m: any) => m.runId === runId)
     assert.equal(callPart(continuation, 'wipe_everything'), undefined, 'no duplicate call part')
 
     // A further turn replays an approved call WITH its result, so it must not run again.
@@ -156,14 +156,14 @@ test.describe('The approval gate', () => {
 
   test('only the person whose conversation it is decides', async () => {
     const { conv, approvalId } = await pendingApproval()
-    const member = await axiosAuth('test1-user1', { org: 'test1' })
+    const member = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
     await assert.rejects(decideOverSocket(member, conv.id, approvalId, { approved: true }), { status: 403 })
     assert.deepEqual(fixture.invokedTools(), [])
   })
 
   test('an autonomous agent disabled before the decision does not run the approved call', async () => {
     const { agent, conv, approvalId, seq } = await pendingApproval()
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: false })
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: false })
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await awaitRun(orgAdmin, conv.id, runId)
     assert.deepEqual(fixture.invokedTools(), [])
@@ -173,7 +173,7 @@ test.describe('The approval gate', () => {
     assert.match(part.errorText, /^Approved, but it did not run: the turn was refused: This autonomous agent is currently disabled/)
 
     // Re-enabled, a further turn replays the call WITH that result, so it does not run late.
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true })
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { run } = await turn(conv.id, 'hello')
     assert.equal(run.stopReason, 'completed')
@@ -182,7 +182,7 @@ test.describe('The approval gate', () => {
 
   test('the route relaxed to the reviewer alone between the request and the decision runs the approved call exactly once', async () => {
     const { agent, conv, approvalId, seq } = await pendingApproval()
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvalRoutes: { write: 'reviewer', destructive: 'reviewer' } })
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: agent.mcpServers, enabled: true, approvalRoutes: { write: 'reviewer', destructive: 'reviewer' } })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { runId } = await decideRun(conv.id, approvalId, { approved: true })
     await awaitRun(orgAdmin, conv.id, runId)
@@ -226,7 +226,7 @@ test.describe('The approval gate', () => {
   })
 
   const noApprovedCallLeft = async (conversationId: string) => {
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     assert.ok(!messages.some((m: any) => (m.parts ?? []).some((p: any) => p.state === 'approval-responded' || p.state === 'approval-requested')),
       'no approved or pending call left without a result')
   }
@@ -254,7 +254,7 @@ test.describe('The approval gate', () => {
     // no cached listing), on the fixture's address, with the fixture down: gathering its tools throws.
     await fixture.close()
     try {
-      await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: [{ serverId: 'dev-apikey-mcp' }], enabled: true })
+      await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: agent.title, persona: agent.persona, mcpServers: [{ serverId: 'dev-apikey-mcp' }], enabled: true })
       await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
       const { runId } = await decideRun(conv.id, approvalId, { approved: true })
       const run = await awaitRun(orgAdmin, conv.id, runId)
@@ -277,7 +277,7 @@ test.describe('The approval gate', () => {
     const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'call tools slow_lookup wipe_everything')
     let asking: any
     for (let i = 0; i < 100 && !asking; i++) {
-      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
       const message = messages.find((m: any) => m.runId === runId)
       if (message && callPart(message, 'wipe_everything')?.state === 'approval-requested') asking = message
       else await new Promise(resolve => setTimeout(resolve, 50))
@@ -299,7 +299,7 @@ test.describe('The approval gate', () => {
     assert.deepEqual(fixture.invokedTools().sort(), ['slow_lookup', 'wipe_everything'])
     const part = callPart(await messageAt(conversationId, asking.seq), 'wipe_everything')
     assert.equal(part.state, 'output-available')
-    assert.equal(part.toolMetadata.decision.userId, 'test1-admin1', 'who approved is on the record')
+    assert.equal(part.toolMetadata.decision.userId, 'test_agents_org1_admin', 'who approved is on the record')
   })
 
   test('an approval run cut by a restart settles its approved call, and the conversation goes on', async () => {
@@ -372,7 +372,7 @@ test.describe('The approval gate', () => {
     const part = callPart(await messageAt(conversationId, assistant.seq), 'bulk_update')
     assert.equal(part.state, 'output-available')
     assert.ok(part.toolMetadata.truncated?.totalChars > 150000, 'the size it had before the cut')
-    assert.equal(part.toolMetadata.decision.userId, 'test1-admin1', 'beside the decision, not instead of it')
+    assert.equal(part.toolMetadata.decision.userId, 'test_agents_org1_admin', 'beside the decision, not instead of it')
   })
 
   test('a message posted while the asking turn is still finishing still rejects its approval', async () => {
@@ -383,7 +383,7 @@ test.describe('The approval gate', () => {
     const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'call tools slow_lookup wipe_everything')
     let asking: any
     for (let i = 0; i < 100 && !asking; i++) {
-      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
       const message = messages.find((m: any) => m.runId === runId)
       if (message && callPart(message, 'wipe_everything')?.state === 'approval-requested') asking = message
       else await new Promise(resolve => setTimeout(resolve, 50))
@@ -398,7 +398,7 @@ test.describe('The approval gate', () => {
     const part = callPart(await messageAt(conversationId, asking.seq), 'wipe_everything')
     assert.equal(part.state, 'output-denied')
     assert.equal(part.approval.reason, 'The person sent a new message instead of deciding.')
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     assert.ok(!messages.some((m: any) => (m.parts ?? []).some((p: any) => p.state === 'approval-requested')))
     assert.ok(!fixture.invokedTools().includes('wipe_everything'))
   })
@@ -408,7 +408,7 @@ test.describe('Deciding over the socket', () => {
   let fixture: McpFixture
   test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
-  test.beforeEach(async () => { await clean(); fixture.resetInvokedTools(); await putMockSettings(admin, 'organization/test1') })
+  test.beforeEach(async () => { await clean(); fixture.resetInvokedTools(); await putMockSettings(admin, 'organization/test_agents_org1') })
 
   const collectUntil = async (socket: any, done: (frames: any[]) => boolean) => {
     const frames: any[] = []
@@ -417,13 +417,13 @@ test.describe('Deciding over the socket', () => {
   }
 
   const messageAt = async (conversationId: string, seq: number) =>
-    (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+    (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
   test('the frame decides; a socket bound to another conversation cannot', async () => {
     const agent = await createGatedAgent()
     const other = { id: (await turn({ agentId: agent.id }, 'hello')).conversationId }
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
-    socket.send(newThreadHello('organization/test1', { agentId: agent.id }))
+    socket.send(newThreadHello('organization/test_agents_org1', { agentId: agent.id }))
     await socket.next()
     socket.send({ type: 'prompt', content: 'call tool wipe_everything {}' })
     const frames = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
@@ -454,7 +454,7 @@ test.describe('Deciding over the socket', () => {
     // wait. The person acting on the page continues without it — as writing would — rather than leave a
     // card that, approved later, could never run.
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
-    socket.send(newThreadHello('organization/test1', { agentId: BACK_OFFICE_ASSISTANT_ID }))
+    socket.send(newThreadHello('organization/test_agents_org1', { agentId: BACK_OFFICE_ASSISTANT_ID }))
     await socket.next()
     socket.send({ type: 'prompt', content: 'wait and call wipe_everything' })
     const asked = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
@@ -465,7 +465,7 @@ test.describe('Deciding over the socket', () => {
     socket.send({ type: 'host-events', events: [{ name: 'clicked Create', detail: 'the wizard', at: Date.now() }] })
     const woke = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
     assert.equal(woke.find(f => f.type === 'turn-end').stopReason, 'completed')
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${socket.conversationId()}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${socket.conversationId()}/messages`)).data.results
     const part = messages.find((m: any) => m.seq === pending.seq).parts.find((p: any) => p.toolName === 'wipe_everything')
     assert.equal(part.state, 'output-denied')
     assert.equal(part.approval.reason, 'The person acted on the page instead of deciding.')
@@ -479,7 +479,7 @@ test.describe('Deciding over the socket', () => {
     // move: the wait is settled (nothing is left waiting, no later page action wakes the thread), and the
     // continuation replays a step whose every call has a result.
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
-    socket.send(newThreadHello('organization/test1', { agentId: BACK_OFFICE_ASSISTANT_ID }))
+    socket.send(newThreadHello('organization/test_agents_org1', { agentId: BACK_OFFICE_ASSISTANT_ID }))
     await socket.next()
     socket.send({ type: 'prompt', content: 'wait and call wipe_everything' })
     const asked = await collectUntil(socket, fs => fs.some(f => f.type === 'turn-end'))
@@ -511,7 +511,7 @@ test.describe('Which tools a turn takes', () => {
   let fixture: McpFixture
   test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
-  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test1') })
+  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test_agents_org1') })
 
   test('a configured agent works through MCP only, even beside a page that declares tools', async () => {
     // The rule for now (usesPageTools): the personal assistants take their page's tools, a configured agent
@@ -519,7 +519,7 @@ test.describe('Which tools a turn takes', () => {
     // page reports: only the chat's facts about itself.
     const agent = await createGatedAgent()
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
-    socket.send(newThreadHello('organization/test1', { agentId: agent.id, tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }] }))
+    socket.send(newThreadHello('organization/test_agents_org1', { agentId: agent.id, tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }] }))
     await socket.next()
     socket.send({ type: 'host-state', state: { language: 'fr' } })
     socket.send({ type: 'host-events', events: [{ name: 'location', key: 'location', detail: 'the stored conversation page', at: Date.now() }, { name: 'clicked Save', at: Date.now() }] })

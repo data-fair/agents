@@ -21,14 +21,14 @@ const typeInEditor = async (page: Page, text: string) => {
 test.describe('Agent memory dialog', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('view, edit, then restore the previous version', async ({ page, goToWithAuth }) => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
-    await admin.put(`/api/memory/organization/test1/${agent.id}/document`, { description: 'Core facts', content: '- first fact' }, { params: { path: 'MEMORY.md' } })
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
+    await admin.put(`/api/memory/organization/test_agents_org1/${agent.id}/document`, { description: 'Core facts', content: '- first fact' }, { params: { path: 'MEMORY.md' } })
 
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agent.id}?config=memory`, 'test_agents_superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-config-tab-memory').click({ timeout: 20000 })
     await page.getByTestId('memory-document-MEMORY.md').click()
     await expect.poll(() => editorValue(page)).toBe('- first fact')
@@ -53,10 +53,10 @@ test.describe('Agent memory dialog', () => {
 
   test('the editor preview renders memory text sanitized: HTML in it does not run', async ({ page, goToWithAuth }) => {
     // Memory text can come from tool output: the preview must not be EasyMDE's unsanitized renderer.
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
-    await admin.put(`/api/memory/organization/test1/${agent.id}/document`, { description: 'Notes', content: '**bold** <img src="https://images.example.com/x.png" onerror="window.__memoryXss = 1">' }, { params: { path: 'notes.md' } })
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
+    await admin.put(`/api/memory/organization/test_agents_org1/${agent.id}/document`, { description: 'Notes', content: '**bold** <img src="https://images.example.com/x.png" onerror="window.__memoryXss = 1">' }, { params: { path: 'notes.md' } })
 
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agent.id}?config=memory`, 'test_agents_superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-config-tab-memory').click({ timeout: 20000 })
     await page.getByTestId('memory-document-notes.md').click()
     await page.getByTestId('memory-content').locator('.editor-toolbar button.preview').click()
@@ -68,12 +68,12 @@ test.describe('Agent memory dialog', () => {
   })
 
   test('a deleted document is listed and restored from its history', async ({ page, goToWithAuth }) => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
-    const url = `/api/memory/organization/test1/${agent.id}/document`
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
+    const url = `/api/memory/organization/test_agents_org1/${agent.id}/document`
     await admin.put(url, { description: 'Notes', content: '- keep me' }, { params: { path: 'notes.md' } })
     await admin.delete(url, { params: { path: 'notes.md', version: 1 } })
 
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agent.id}?config=memory`, 'test_agents_superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-config-tab-memory').click({ timeout: 20000 })
     await page.getByTestId('memory-deleted-notes.md').click()
     const rows = page.getByTestId('memory-history').getByTestId('memory-version')
@@ -88,11 +88,11 @@ test.describe('Agent memory dialog', () => {
   })
 
   test('a save over a document changed underneath is refused and says so', async ({ page, goToWithAuth }) => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
-    const url = `/api/memory/organization/test1/${agent.id}/document`
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true } })).data
+    const url = `/api/memory/organization/test_agents_org1/${agent.id}/document`
     const created = (await admin.put(url, { description: 'Core facts', content: '- first fact' }, { params: { path: 'MEMORY.md' } })).data
 
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
+    await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agent.id}?config=memory`, 'test_agents_superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-config-tab-memory').click({ timeout: 20000 })
     await page.getByTestId('memory-document-MEMORY.md').click()
     await expect.poll(() => editorValue(page)).toBe('- first fact')
@@ -107,15 +107,15 @@ test.describe('Agent memory dialog', () => {
   })
 
   test('the memory stays reachable for an autonomous agent with memory off, and says so', async ({ page, goToWithAuth }) => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true })).data
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true })).data
+    await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agent.id}?config=memory`, 'test_agents_superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-config-tab-memory').click({ timeout: 20000 })
     await expect(page.getByText('Memory is turned off for this agent')).toBeVisible()
   })
 
   test('enabling memory in the tab and saving removes the "turned off" notice without a reload', async ({ page, goToWithAuth }) => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true })).data
-    await goToWithAuth(`/agents/organization/test1/agents/${agent.id}?config=memory`, 'superadmin', { adminMode: true })
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Mem agent', persona: 'x', mcpServers: [], enabled: true })).data
+    await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agent.id}?config=memory`, 'test_agents_superadmin', { adminMode: true })
     await page.getByTestId('autonomous-agent-config-tab-memory').click({ timeout: 20000 })
     await expect(page.getByText('Memory is turned off for this agent')).toBeVisible()
     await page.getByRole('checkbox', { name: 'Keep a memory across conversations' }).check()

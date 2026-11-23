@@ -11,10 +11,10 @@ import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
 import { createEnrolledAgent, type AgentSlot } from '../../support/agents.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const member = await axiosAuth('test1-user1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const member = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
-const agentBase = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}`
+const agentBase = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}`
 
 test.describe('Run history', () => {
   let fixture: McpFixture
@@ -22,7 +22,7 @@ test.describe('Run history', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('list filters, one run with content, and the JSONL export', async () => {
@@ -77,7 +77,7 @@ test.describe('Run history', () => {
   })
 
   test('a run of another agent, a conversation run export and a bad since are refused', async () => {
-    // two agents at once: one per fixture identity of test1
+    // two agents at once: one per fixture identity of test_agents_org1
     const make = async (title: string, slot: AgentSlot) => {
       const agent = await createEnrolledAgent({ title, persona: 'x', mcpServers: [], enabled: true }, slot)
       return agent

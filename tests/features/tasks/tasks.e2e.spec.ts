@@ -13,18 +13,18 @@ const asSuperAdmin = { adminMode: true } as const
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
 
 const createAgent = async (over: any = {}) => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+  const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
     title: 'Tasks agent', persona: 'You answer briefly.', mcpServers: [], enabled: true, ...over
   })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
   return agent.id as string
 }
-const tasksUrl = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
+const tasksUrl = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}/tasks`
 const createTask = async (agentId: string, over: any = {}) =>
   (await admin.post(tasksUrl(agentId), { title: 'Morning digest', prompt: 'hello', scheduling: [daily], ...over })).data
 const awaitRunEnd = async (agentId: string, runId: string) => {
   for (let i = 0; i < 150; i++) {
-    const run = (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`)).data
+    const run = (await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}/runs/${runId}`)).data
     if (run.status !== 'running') return
     await new Promise(resolve => setTimeout(resolve, 100))
   }
@@ -40,7 +40,7 @@ const pausedTask = async (agentId: string) => {
 }
 
 const openTasks = async (page: Page, goToWithAuth: any, agentId: string) => {
-  await goToWithAuth(`/agents/organization/test1/agents/${agentId}?tab=tasks`, 'superadmin', asSuperAdmin)
+  await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agentId}?tab=tasks`, 'test_agents_superadmin', asSuperAdmin)
   await expect(page.getByRole('button', { name: 'New task' })).toBeVisible({ timeout: 20000 })
 }
 const taskItem = (page: Page, title: string) => page.getByTestId('agent-task').filter({ hasText: title })
@@ -73,7 +73,7 @@ const fillTaskForm = async (page: Page, title: string, type: string) => {
 test.describe('Agent page, Tasks tab', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a weekly task is created through the form, described and given a next run', async ({ page, goToWithAuth }) => {
@@ -148,7 +148,7 @@ test.describe('Agent page, Tasks tab', () => {
     await item.getByRole('button', { name: 'Run now' }).click()
     await expect(page.getByText('The run has started')).toBeVisible()
     await expect(item.getByTestId('agent-task-run-error')).toBeHidden()
-    const runs = (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}/runs`, { params: { taskId: task.id } })).data.results
+    const runs = (await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}/runs`, { params: { taskId: task.id } })).data.results
     expect(runs.map((r: any) => r.trigger)).toEqual(['manual'])
     await awaitRunEnd(agentId, runs[0].id)
   })
@@ -213,7 +213,7 @@ test.describe('Agent page, Tasks tab', () => {
     await expect(frame).toHaveAttribute('src', /\/events\/embed\/subscribe\?/)
     const src = new URL(String(await frame.getAttribute('src')), 'http://x')
     expect(src.searchParams.get('key')?.split(',')).toEqual(['done', 'needs-attention', 'failed', 'paused'].map(kind => `agents:task-${kind}:${task.id}`))
-    expect(src.searchParams.get('sender')?.split(',')).toEqual(Array(4).fill('organization:test1'))
+    expect(src.searchParams.get('sender')?.split(',')).toEqual(Array(4).fill('organization:test_agents_org1'))
     expect(src.searchParams.get('register')).toBe('false')
   })
 })

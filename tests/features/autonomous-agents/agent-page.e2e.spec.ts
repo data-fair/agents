@@ -11,14 +11,14 @@ const admin = await superAdmin
 const asSuperAdmin = { adminMode: true } as const
 
 const createAgent = async (over: any = {}) => {
-  const created = await admin.post('/api/autonomous-agents/organization/test1', {
+  const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
     title: 'Page agent', persona: 'You answer briefly.', mcpServers: [], enabled: true, ...over
   })
   return created.data.id as string
 }
 
-const pageUrl = (agentId: string, query = '') => `/agents/organization/test1/agents/${agentId}${query}`
-const getAgent = async (agentId: string) => (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).data
+const pageUrl = (agentId: string, query = '') => `/agents/organization/test_agents_org1/agents/${agentId}${query}`
+const getAgent = async (agentId: string) => (await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}`)).data
 // The Save of the configuration block, in its top bar rather than below the form.
 /** An option of the security tab's route for changes (the destructive route offers the same two). */
 const changesRoute = (page: Page, option: string) =>
@@ -33,7 +33,7 @@ const deleteFromHeader = async (page: Page) => {
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
 /** A task run, seeded and waited to its end as history.e2e.spec.ts does it. */
 const seedRun = async (agentId: string) => {
-  const base = `/api/autonomous-agents/organization/test1/${agentId}`
+  const base = `/api/autonomous-agents/organization/test_agents_org1/${agentId}`
   const task = (await admin.post(`${base}/tasks`, { title: 'Greeting', prompt: 'hello', scheduling: [daily] })).data
   const runId = (await admin.post(`${base}/tasks/${task.id}/run`)).data.runId as string
   for (let i = 0; i < 150; i++) {
@@ -46,15 +46,15 @@ const seedRun = async (agentId: string) => {
 test.describe('Autonomous agent page', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('the org page lists the agent as a link to its page', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agent-list').getByRole('link', { name: /Page agent/ }).click({ timeout: 20000 })
 
-    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/agents/${agentId}`))
+    await expect(page).toHaveURL(new RegExp(`/agents/organization/test_agents_org1/agents/${agentId}`))
     // The form is loaded from the stored agent, not merely rendered empty.
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent', { timeout: 20000 })
   })
@@ -66,7 +66,7 @@ test.describe('Autonomous agent page', () => {
     // schema gains a property the form does not carry.
     const agentId = await createAgent({ approvalRoutes: { write: 'reviewer+person' } })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     const persona = page.getByRole('textbox', { name: 'Persona' })
     await expect(persona).toHaveValue('You answer briefly.', { timeout: 20000 })
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent')
@@ -82,7 +82,7 @@ test.describe('Autonomous agent page', () => {
     await persona.fill('You answer at length.')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect(page.getByRole('button', { name: 'Save' })).toBeHidden({ timeout: 10000 })
-    const saved = (await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).data
+    const saved = (await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}`)).data
     expect(saved.persona).toBe('You answer at length.')
     expect(saved.nhi?.clientId).toBe('dev-fixture-nhi')
     expect(saved.approvalRoutes.write).toBe('reviewer+person')
@@ -104,11 +104,11 @@ test.describe('Autonomous agent page', () => {
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
     const runId = await seedRun(agentId)
 
-    await goToWithAuth(pageUrl(agentId, `?tab=history&run=${runId}`), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId, `?tab=history&run=${runId}`), 'test_agents_superadmin', asSuperAdmin)
     await expect(page).toHaveURL(new RegExp(`/agents/${agentId}/runs/${runId}$`), { timeout: 20000 })
     await expect(page.getByTestId('task-run-view')).toContainText('Greeting', { timeout: 20000 })
 
-    await goToWithAuth(pageUrl(agentId, '?tab=tasks'), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId, '?tab=tasks'), 'test_agents_superadmin', asSuperAdmin)
     const activity = page.locator('#autonomous-agent-activity')
     await expect(activity.getByRole('tab', { name: 'Scheduled tasks' })).toHaveAttribute('aria-selected', 'true', { timeout: 20000 })
     // the configuration is there too, above
@@ -119,13 +119,13 @@ test.describe('Autonomous agent page', () => {
     await expect(page).toHaveURL(/tab=runs/)
     await expect(activity.getByTestId('agent-run')).toHaveCount(1)
     // the earlier name of that tab still opens it
-    await goToWithAuth(pageUrl(agentId, '?tab=history'), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId, '?tab=history'), 'test_agents_superadmin', asSuperAdmin)
     await expect(activity.getByRole('tab', { name: 'Task runs' })).toHaveAttribute('aria-selected', 'true', { timeout: 20000 })
   })
 
   test('header toggle keeps unsaved edits', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     const persona = page.getByRole('textbox', { name: 'Persona' })
     await persona.fill('You answer at length.', { timeout: 20000 })
 
@@ -149,34 +149,34 @@ test.describe('Autonomous agent page', () => {
 
   test('deleting an autonomous agent', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     await deleteFromHeader(page)
-    await expect(page).toHaveURL(/\/agents\/organization\/test1$/, { timeout: 20000 })
-    await expect(admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).rejects.toMatchObject({ status: 404 })
+    await expect(page).toHaveURL(/\/agents\/organization\/test_agents_org1$/, { timeout: 20000 })
+    await expect(admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}`)).rejects.toMatchObject({ status: 404 })
   })
 
   test('deleting an autonomous agent whose identity the directory refuses to delete', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     // The DELETE must actually reach the directory, which (file storage in dev) refuses it — and only
     // after the agent's own DELETE.
     const order: string[] = []
     page.on('request', req => {
       if (req.method() !== 'DELETE') return
       const path = new URL(req.url()).pathname
-      if (path === '/simple-directory/api/organizations/test1/nhis/dev-fixture-nhi') order.push('identity')
-      else if (path.endsWith(`/api/autonomous-agents/organization/test1/${agentId}`)) order.push('agent')
+      if (path === '/simple-directory/api/organizations/test_agents_org1/nhis/dev-fixture-nhi') order.push('identity')
+      else if (path.endsWith(`/api/autonomous-agents/organization/test_agents_org1/${agentId}`)) order.push('agent')
     })
     const removal = page.waitForRequest(req => req.method() === 'DELETE' &&
-      new URL(req.url()).pathname === '/simple-directory/api/organizations/test1/nhis/dev-fixture-nhi')
+      new URL(req.url()).pathname === '/simple-directory/api/organizations/test_agents_org1/nhis/dev-fixture-nhi')
     await deleteFromHeader(page)
     await removal
     expect(order).toEqual(['agent', 'identity'])
     await expect(page.locator('.v-snackbar').filter({ hasText: 'identity' })).toBeVisible({ timeout: 10000 })
     // the agent itself is deleted all the same
-    await expect(page).toHaveURL(/\/agents\/organization\/test1$/, { timeout: 20000 })
-    await expect(admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)).rejects.toMatchObject({ status: 404 })
+    await expect(page).toHaveURL(/\/agents\/organization\/test_agents_org1$/, { timeout: 20000 })
+    await expect(admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}`)).rejects.toMatchObject({ status: 404 })
   })
 
   test('a failing agent deletion leaves its identity alone', async ({ page, goToWithAuth }) => {
@@ -186,11 +186,11 @@ test.describe('Autonomous agent page', () => {
     page.on('request', req => {
       if (req.method() === 'DELETE' && req.url().includes('/simple-directory/')) directoryDeletes.push(req.url())
     })
-    await page.route(`**/api/autonomous-agents/organization/test1/${agentId}`, async route => {
+    await page.route(`**/api/autonomous-agents/organization/test_agents_org1/${agentId}`, async route => {
       if (route.request().method() !== 'DELETE') return route.continue()
       await route.fulfill({ status: 500, json: { message: 'boom' } })
     })
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     await deleteFromHeader(page)
     await expect(page.locator('.v-snackbar').filter({ hasText: /boom|delete/i })).toBeVisible({ timeout: 10000 })
     await expect(page).toHaveURL(new RegExp(`/agents/${agentId}`))
@@ -199,13 +199,13 @@ test.describe('Autonomous agent page', () => {
   })
 
   test('an unknown agent says so instead of leaving the page blank', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(pageUrl('no-such-agent'), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl('no-such-agent'), 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-unavailable')).toContainText('does not exist', { timeout: 20000 })
   })
 
   test('configuration is split in tabs with save in the bar', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     for (const key of ['mission', 'tools', 'security', 'memory']) {
       await expect(page.getByTestId(`autonomous-agent-config-tab-${key}`)).toBeVisible({ timeout: 20000 })
     }
@@ -234,7 +234,7 @@ test.describe('Autonomous agent page', () => {
 
   test('the mission tab edits the persona and the instructions directly', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent({ approvalRoutes: { write: 'reviewer', destructive: 'reviewer' } })
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-config-tab-mission')).toHaveText('Mission', { timeout: 20000 })
     const persona = page.getByRole('textbox', { name: 'Persona' })
     await expect(persona).toHaveValue('You answer briefly.')
@@ -254,11 +254,11 @@ test.describe('Autonomous agent page', () => {
   test('identity sync failure is reported', async ({ page, goToWithAuth }) => {
     const agentId = await createAgent()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     await page.getByRole('textbox', { name: 'Name' }).fill('Renamed agent', { timeout: 20000 })
     // The PATCH must actually reach the directory, which (file storage in dev) refuses it.
     const patch = page.waitForRequest(req => req.method() === 'PATCH' &&
-      new URL(req.url()).pathname === '/simple-directory/api/organizations/test1/nhis/dev-fixture-nhi')
+      new URL(req.url()).pathname === '/simple-directory/api/organizations/test_agents_org1/nhis/dev-fixture-nhi')
     await saveButton(page).click()
     expect((await patch).postDataJSON()).toEqual({ name: 'Renamed agent (autonomous agent)' })
 
@@ -275,7 +275,7 @@ test.describe('Autonomous agent page', () => {
     // The blank example has no instructions: a stored '' once read as a permanent unsaved change, and the
     // leave guard then made every link on the page inert.
     const agentId = await createAgent({ instructions: '' })
-    await goToWithAuth(pageUrl(agentId), 'superadmin', asSuperAdmin)
+    await goToWithAuth(pageUrl(agentId), 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Page agent', { timeout: 20000 })
     await expect(saveButton(page)).toBeHidden()
 
@@ -291,15 +291,15 @@ test.describe('Autonomous agent page', () => {
   test('a non-admin instructor is told to use the chat panel, and can post to the agent from the chat', async ({ page, goToWithAuth }) => {
     // The capability the cross-account instructor grant exists for, on the same chat every other
     // person uses (the server side: runtime.api.spec.ts).
-    const agentId = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    const agentId = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
     // An unenrolled agent refuses every turn; dev cannot complete a real enrolment.
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
-    await goToWithAuth(pageUrl(agentId), 'test1-user1', { org: 'test1' })
+    await goToWithAuth(pageUrl(agentId), 'test_agents_org1_user', { org: 'test_agents_org1' })
     await expect(page.getByTestId('chat-panel-notice')).toContainText('open the chat panel', { timeout: 20000 })
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveCount(0)
 
     // The chat the panel loads, with this agent picked.
-    await page.goto(`/agents/organization/test1/chat?agentId=${agentId}&agents=1`)
+    await page.goto(`/agents/organization/test_agents_org1/chat?agentId=${agentId}&agents=1`)
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
     await expect(page.getByTestId('agent-chat-error')).toBeHidden()
     await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill('hello')

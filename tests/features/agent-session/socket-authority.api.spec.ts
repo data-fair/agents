@@ -13,14 +13,14 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 import { turnOverSocket, startTurnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
+const orgMember = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
-const AGENTS = '/api/autonomous-agents/organization/test1'
+const AGENTS = '/api/autonomous-agents/organization/test_agents_org1'
 const agentBody = (over: any = {}) => ({ title: 'Authority probe', persona: 'You answer briefly.', mcpServers: [], enabled: true, ...over })
-const instructedByMember = agentBody({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+const instructedByMember = agentBody({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
 
 const userMessages = async (conversationId: string) =>
-  (await admin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+  (await admin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     .filter((m: any) => m.role === 'user').length
 
 test.describe('Authority over a thread', () => {

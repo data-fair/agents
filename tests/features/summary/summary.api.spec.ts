@@ -7,9 +7,9 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, axios, clean, defaultQuotas, getAnonymousActionToken } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 const admin = await superAdmin
-const otherUser = await axiosAuth('test1-user1')
+const otherUser = await axiosAuth('test_agents_org1_user')
 
 const mockModel = { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
 const assistantOnly = {
@@ -23,13 +23,13 @@ test.describe('Summary API', () => {
   })
 
   test('should summarize content with default prompt', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       ...assistantOnly,
       quotas: defaultQuotas
     })
 
-    const res = await user.post('/api/summary/user/test-standalone1', {
+    const res = await user.post('/api/summary/user/test_agents_standalone', {
       content: 'This is a long piece of text that needs to be summarized. It contains multiple sentences and describes various things that happened during the day.'
     })
 
@@ -39,13 +39,13 @@ test.describe('Summary API', () => {
   })
 
   test('should ignore a caller-supplied prompt (system prompt is pinned)', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       ...assistantOnly,
       quotas: defaultQuotas
     })
 
-    const res = await user.post('/api/summary/user/test-standalone1', {
+    const res = await user.post('/api/summary/user/test_agents_standalone', {
       prompt: 'Create a bullet-point summary:',
       content: 'First point. Second point. Third point.'
     })
@@ -59,7 +59,7 @@ test.describe('Summary API', () => {
   // instead of 404ing. "Agent not configured" is now reachable only when the
   // deployment itself ships no default for the role.
   test('should fall back to the global default model when nothing is configured', async () => {
-    const res = await user.post('/api/summary/user/test-standalone1', { content: 'Test content' })
+    const res = await user.post('/api/summary/user/test_agents_standalone', { content: 'Test content' })
     assert.equal(res.status, 200)
     assert.ok(res.data.summary)
   })
@@ -67,7 +67,7 @@ test.describe('Summary API', () => {
   test('should use summarizer model when configured', async () => {
     const summarizerModel = { id: 'summary-model', name: 'Summary Model', provider: { type: 'mock', id: 'mock', name: 'Mock' } }
 
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: [
         { model: mockModel, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
@@ -80,7 +80,7 @@ test.describe('Summary API', () => {
       quotas: defaultQuotas
     })
 
-    const res = await user.post('/api/summary/user/test-standalone1', {
+    const res = await user.post('/api/summary/user/test_agents_standalone', {
       content: 'Test content to summarize'
     })
 
@@ -89,7 +89,7 @@ test.describe('Summary API', () => {
   })
 
   test('should fail when not authenticated', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       ...assistantOnly,
       quotas: defaultQuotas
@@ -97,26 +97,26 @@ test.describe('Summary API', () => {
     const unauthenticatedUser = axios()
 
     await assert.rejects(
-      unauthenticatedUser.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
+      unauthenticatedUser.post('/api/summary/user/test_agents_standalone', { content: 'Test content' }),
       (err: any) => err.status === 403
     )
   })
 
   test('should fail when other user has no permission', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       ...assistantOnly,
       quotas: defaultQuotas
     })
 
     await assert.rejects(
-      otherUser.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
+      otherUser.post('/api/summary/user/test_agents_standalone', { content: 'Test content' }),
       (err: any) => err.status === 403
     )
   })
 
   test('external user can summarize when external quota is positive', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       ...assistantOnly,
       quotas: {
@@ -125,7 +125,7 @@ test.describe('Summary API', () => {
       }
     })
 
-    const res = await otherUser.post('/api/summary/user/test-standalone1', {
+    const res = await otherUser.post('/api/summary/user/test_agents_standalone', {
       content: 'Content to summarize'
     })
     assert.equal(res.status, 200)
@@ -133,27 +133,27 @@ test.describe('Summary API', () => {
   })
 
   test('should fail when content is missing', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       ...assistantOnly,
       quotas: defaultQuotas
     })
 
     await assert.rejects(
-      user.post('/api/summary/user/test-standalone1', {}),
+      user.post('/api/summary/user/test_agents_standalone', {}),
       (err: any) => err.status === 400
     )
   })
 
   test('should handle empty content', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       ...assistantOnly,
       quotas: defaultQuotas
     })
 
     await assert.rejects(
-      user.post('/api/summary/user/test-standalone1', { content: '' }),
+      user.post('/api/summary/user/test_agents_standalone', { content: '' }),
       (err: any) => err.status === 400
     )
   })
@@ -166,28 +166,28 @@ test.describe('Summary API', () => {
   const anonQuotas = { ...defaultQuotas, anonymous: { unlimited: false, monthlyLimit: 100 } }
 
   test('anonymous summary without token is rejected', async () => {
-    await putSettings(admin, 'user/test-standalone1', anonSettings(anonQuotas))
+    await putSettings(admin, 'user/test_agents_standalone', anonSettings(anonQuotas))
     const anon = axios()
     await assert.rejects(
-      anon.post('/api/summary/user/test-standalone1', { content: 'Test content' }),
+      anon.post('/api/summary/user/test_agents_standalone', { content: 'Test content' }),
       (err: any) => err.status === 401
     )
   })
 
   test('anonymous summary with invalid token is rejected', async () => {
-    await putSettings(admin, 'user/test-standalone1', anonSettings(anonQuotas))
+    await putSettings(admin, 'user/test_agents_standalone', anonSettings(anonQuotas))
     const anon = axios()
     await assert.rejects(
-      anon.post('/api/summary/user/test-standalone1', { content: 'Test content' }, { headers: { 'x-anonymous-token': 'not-a-real-token' } }),
+      anon.post('/api/summary/user/test_agents_standalone', { content: 'Test content' }, { headers: { 'x-anonymous-token': 'not-a-real-token' } }),
       (err: any) => err.status === 401
     )
   })
 
   test('anonymous summary with valid token succeeds', async () => {
-    await putSettings(admin, 'user/test-standalone1', anonSettings(anonQuotas))
+    await putSettings(admin, 'user/test_agents_standalone', anonSettings(anonQuotas))
     const token = await getAnonymousActionToken()
     const anon = axios()
-    const res = await anon.post('/api/summary/user/test-standalone1', { content: 'Some content to summarize' }, { headers: { 'x-anonymous-token': token, 'x-forwarded-for': '203.0.113.7' } })
+    const res = await anon.post('/api/summary/user/test_agents_standalone', { content: 'Some content to summarize' }, { headers: { 'x-anonymous-token': token, 'x-forwarded-for': '203.0.113.7' } })
     assert.equal(res.status, 200)
     assert.ok(res.data.summary)
   })

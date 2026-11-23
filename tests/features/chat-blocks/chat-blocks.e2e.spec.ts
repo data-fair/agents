@@ -20,11 +20,11 @@ const follows = (a: Element, b: Element) => !!(a.compareDocumentPosition(b) & No
 test.describe('The steps of a turn, as the chat shows them', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('each step\'s reasoning is a folded line where it happened, and nothing is left running', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test_agents_standalone')
     await waitForPageTools(page, 'set_data')
 
     await page.getByPlaceholder('Type your message...').fill('preface and call tool set_data {"data":"Hello"}')
@@ -56,7 +56,7 @@ test.describe('The steps of a turn, as the chat shows them', () => {
   })
 
   test('a call that failed says so on its chip', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test_agents_standalone')
     await waitForPageTools(page, 'set_data')
 
     // A tool nobody offers: the call fails, the model is told, and the chip used to turn green anyway.

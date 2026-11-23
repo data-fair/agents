@@ -14,7 +14,7 @@ import WebSocket from 'ws'
 import { openAgentSession, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
 const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
 
@@ -53,9 +53,9 @@ test.describe('Agent session socket', () => {
     // because "it happened to work" and "we decided it works" look identical until someone adds a
     // guard. On an account open to them, with an action token: anonymous-chat.api.spec.ts covers
     // the refusals.
-    await putMockSettings(admin, 'organization/test1', { quotas: { anonymous: { unlimited: true, monthlyLimit: 0 } } })
+    await putMockSettings(admin, 'organization/test_agents_org1', { quotas: { anonymous: { unlimited: true, monthlyLimit: 0 } } })
     const session = await open()
-    session.send({ ...helloWith(['select_row']), account: { type: 'organization', id: 'test1' }, anonymousToken: await getAnonymousActionToken() })
+    session.send({ ...helloWith(['select_row']), account: { type: 'organization', id: 'test_agents_org1' }, anonymousToken: await getAnonymousActionToken() })
     const attached = await session.next()
     assert.equal(attached.type, 'attached')
     assert.equal(attached.anonymous, true)

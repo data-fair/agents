@@ -23,7 +23,7 @@ import { createChatDriver } from '../../../lib-sim/chat-driver.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { waitForPageTools } from '../../support/page-tools.ts'
 
-const USER = 'test-standalone1'
+const USER = 'test_agents_standalone'
 
 test.describe('Host events', () => {
   test.beforeEach(async () => {

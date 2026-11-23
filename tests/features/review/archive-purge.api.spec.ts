@@ -18,9 +18,9 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 const admin = await superAdmin
-const OWNER = 'user/test-standalone1'
+const OWNER = 'user/test_agents_standalone'
 
 // External visitors unlimited, and the account offers review.
 const reviewSettings = { quotas: { external: { unlimited: true, monthlyLimit: 0 } }, reviewPersonalAssistant: true }
@@ -57,7 +57,7 @@ test.describe('Purging a conversation', () => {
     assert.ok(before.messages >= 2, 'the exchange is stored')
     assert.ok(before.runs >= 1, 'and so is its run')
 
-    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
+    await admin.delete(`/api/review/${OWNER}?userId=test_agents_standalone`)
 
     assert.deepEqual(await counts(conversationId), { conversations: 0, messages: 0, runs: 0 })
   })
@@ -70,14 +70,14 @@ test.describe('Purging a conversation', () => {
     assert.equal((await counts(conversationId)).conversations, 1, 'archived, not deleted')
     assert.ok((await counts(conversationId)).messages >= 2, 'with its messages retained for review')
 
-    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
+    await admin.delete(`/api/review/${OWNER}?userId=test_agents_standalone`)
     assert.deepEqual(await counts(conversationId), { conversations: 0, messages: 0, runs: 0 })
   })
 
   // A paused script's continuation holds what its calls returned (api/src/code-mode/pauses.ts): it goes with the thread,
   // not 24 h later with its TTL — when the person deletes it, and when it is purged.
   test('a paused script\'s continuation goes when the thread is deleted, and when it is purged', async () => {
-    const pause = (conversationId: string) => ({ conversationId, toolCallId: 'cm', owner: { type: 'user', id: 'test-standalone1' }, interrupt: '{}', decisions: [], createdAt: new Date(), expiresAt: new Date(Date.now() + 3600_000) })
+    const pause = (conversationId: string) => ({ conversationId, toolCallId: 'cm', owner: { type: 'user', id: 'test_agents_standalone' }, interrupt: '{}', decisions: [], createdAt: new Date(), expiresAt: new Date(Date.now() + 3600_000) })
     const pauses = (conversationId: string) => db.collection('script-pauses').countDocuments({ conversationId })
     const deleted = await runTurn(user, OWNER)
     await db.collection('script-pauses').insertOne(pause(deleted.conversationId))
@@ -86,7 +86,7 @@ test.describe('Purging a conversation', () => {
 
     const purged = await runTurn(user, OWNER)
     await db.collection('script-pauses').insertOne(pause(purged.conversationId))
-    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
+    await admin.delete(`/api/review/${OWNER}?userId=test_agents_standalone`)
     assert.equal(await pauses(purged.conversationId), 0, 'dropped by the purge')
   })
 
@@ -95,7 +95,7 @@ test.describe('Purging a conversation', () => {
     const { conversationId } = await runTurn(user, OWNER)
     await user.delete(`/api/conversations/${OWNER}/${conversationId}`)
 
-    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
+    await admin.delete(`/api/review/${OWNER}?userId=test_agents_standalone`)
     assert.deepEqual(await counts(conversationId), { conversations: 0, messages: 0, runs: 0 })
   })
 

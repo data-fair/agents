@@ -30,14 +30,14 @@ test.describe('S3Backend', () => {
   test('a listing reads every page, under the prefix with a trailing slash, paths relative to it', async () => {
     const at = new Date('2026-10-13T10:00:00Z')
     s3.on(ListObjectsV2Command)
-      .resolvesOnce({ Contents: [{ Key: 'agent-files/organization/test1/c1/a.csv', Size: 3, LastModified: at }], IsTruncated: true, NextContinuationToken: 'page-2' })
-      .resolvesOnce({ Contents: [{ Key: 'agent-files/organization/test1/c1/b.json', Size: 5, LastModified: at }], IsTruncated: false })
-    const listed = await backend().lsrWithStats('agent-files/organization/test1/c1')
+      .resolvesOnce({ Contents: [{ Key: 'agent-files/organization/test_agents_org1/c1/a.csv', Size: 3, LastModified: at }], IsTruncated: true, NextContinuationToken: 'page-2' })
+      .resolvesOnce({ Contents: [{ Key: 'agent-files/organization/test_agents_org1/c1/b.json', Size: 5, LastModified: at }], IsTruncated: false })
+    const listed = await backend().lsrWithStats('agent-files/organization/test_agents_org1/c1')
     assert.deepEqual(listed, [{ path: 'a.csv', size: 3, lastModified: at }, { path: 'b.json', size: 5, lastModified: at }])
     const calls = s3.commandCalls(ListObjectsV2Command).map(call => call.args[0].input)
     assert.equal(calls.length, 2)
     assert.equal(calls[0].Bucket, 'agents')
-    assert.equal(calls[0].Prefix, 'agent-files/organization/test1/c1/', 'a trailing slash: `c1` must not match `c10`')
+    assert.equal(calls[0].Prefix, 'agent-files/organization/test_agents_org1/c1/', 'a trailing slash: `c1` must not match `c10`')
     assert.equal(calls[1].ContinuationToken, 'page-2')
   })
 

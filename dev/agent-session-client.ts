@@ -21,9 +21,9 @@ export interface AgentSessionClient {
 
 /**
  * A hello that starts a fresh thread: the account it is on (an `owner` path such as
- * `organization/test1`) and the agent. The first prompt after it creates the thread.
+ * `organization/test_agents_org1`) and the agent. The first prompt after it creates the thread.
  */
-export const newThreadHello = (owner = 'organization/test1', extra: Record<string, unknown> = {}) => {
+export const newThreadHello = (owner = 'organization/test_agents_org1', extra: Record<string, unknown> = {}) => {
   const [type, id] = owner.split('/')
   return { type: 'hello', tools: [], account: { type, id }, agentId: 'portal-assistant', ...extra }
 }

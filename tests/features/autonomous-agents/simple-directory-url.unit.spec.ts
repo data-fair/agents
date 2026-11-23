@@ -8,15 +8,15 @@ import { rewriteSimpleDirectoryUrl } from '../../../ui/src/utils/simple-director
 test.describe('rewriteSimpleDirectoryUrl', () => {
   test('a root-mounted directory is left alone', () => {
     assert.equal(
-      rewriteSimpleDirectoryUrl('http://localhost:3080/simple-directory/api/organizations/test1/members', '/simple-directory'),
-      'http://localhost:3080/simple-directory/api/organizations/test1/members'
+      rewriteSimpleDirectoryUrl('http://localhost:3080/simple-directory/api/organizations/test_agents_org1/members', '/simple-directory'),
+      'http://localhost:3080/simple-directory/api/organizations/test_agents_org1/members'
     )
   })
 
   test('the prefix is moved under the site path, query preserved', () => {
     assert.equal(
-      rewriteSimpleDirectoryUrl('http://localhost:3080/simple-directory/api/organizations/test1/members?q=a', '/agents/simple-directory'),
-      'http://localhost:3080/agents/simple-directory/api/organizations/test1/members?q=a'
+      rewriteSimpleDirectoryUrl('http://localhost:3080/simple-directory/api/organizations/test_agents_org1/members?q=a', '/agents/simple-directory'),
+      'http://localhost:3080/agents/simple-directory/api/organizations/test_agents_org1/members?q=a'
     )
   })
 

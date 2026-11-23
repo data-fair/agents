@@ -85,7 +85,7 @@ test.describe('enrolmentErrorMessage', () => {
     const message = enrolmentErrorMessage({
       data: '',
       status: 500,
-      message: '[POST] "/simple-directory/api/organizations/test1/nhis": 500 Internal Server Error'
+      message: '[POST] "/simple-directory/api/organizations/test_agents_org1/nhis": 500 Internal Server Error'
     })
     assert.match(message, /500 Internal Server Error/)
   })

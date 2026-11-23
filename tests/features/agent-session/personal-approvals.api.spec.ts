@@ -16,7 +16,7 @@ import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const member = await axiosAuth('test1-user1', { org: 'test1' })
+const member = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
 const callPart = (message: any, toolName: string) =>
   message.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === toolName)
@@ -28,7 +28,7 @@ test.describe('The personal assistant\'s approval gate', () => {
   test.beforeEach(async () => {
     await clean()
     // A plain member may use the assistant once their role has a model quota.
-    await putMockSettings(admin, 'organization/test1', { quotas: { ...defaultQuotas, user: { unlimited: true, monthlyLimit: 0 } } })
+    await putMockSettings(admin, 'organization/test_agents_org1', { quotas: { ...defaultQuotas, user: { unlimited: true, monthlyLimit: 0 } } })
   })
 
   test('a write waits for the person, who approves it on their own thread', async () => {
@@ -40,7 +40,7 @@ test.describe('The personal assistant\'s approval gate', () => {
     const { runId } = await decideOverSocketToRun(member, conversationId, part.approval.id, { approved: true })
     const continuation = await awaitRun(member, conversationId, runId)
     assert.equal(continuation.stopReason, 'completed', JSON.stringify(continuation))
-    const messages = (await member.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await member.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     assert.equal(callPart(messages.find((m: any) => m.seq === assistant.seq), 'echo').state, 'output-available')
   })
 

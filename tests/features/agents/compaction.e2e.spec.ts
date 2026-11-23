@@ -26,7 +26,7 @@ import { putSettings } from '../../support/settings.ts'
 import { runTurn, setReviewConsent } from '../../support/turn.ts'
 
 const admin = await superAdmin
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 
 const settingsData = {
   providers: [
@@ -67,28 +67,28 @@ test.describe('History Compaction', () => {
   // review page rendering the summarizer call. That the call is recorded and billed on the run is
   // runtime.api.spec.ts's ('a compaction is BILLED').
   test('a compacted turn is recorded as a summarizer call and shows up in review', async ({ page, goToWithAuth }) => {
-    await putSettings(admin, 'user/test-standalone1', { ...settingsData, reviewPersonalAssistant: true })
+    await putSettings(admin, 'user/test_agents_standalone', { ...settingsData, reviewPersonalAssistant: true })
     // Consent, so the thread is reviewable.
     await setReviewConsent(user, true)
 
     // The first turn establishes a measured history; each further turn adds roughly the previous
     // exchange to the measured fill, so a few wordy ones cross the window. Fewer than this is
     // tuning the test to a knife edge — the budget is a share of 200 tokens, not 200.
-    const { conversationId } = await runTurn(user, 'user/test-standalone1', 'hello')
+    const { conversationId } = await runTurn(user, 'user/test_agents_standalone', 'hello')
     for (let i = 0; i < 4; i++) {
-      await runTurn(user, 'user/test-standalone1', `question number ${i} with enough words in it to grow the history measurably`, { conversationId })
+      await runTurn(user, 'user/test_agents_standalone', `question number ${i} with enough words in it to grow the history measurably`, { conversationId })
     }
 
     // Compaction really ran — asserted on the run telemetry, which is where the summarizer's own
     // call is recorded. A DOM-only assertion here would pass whether or not it happened.
     await expect.poll(async () => {
-      const res = await admin.get(`/api/review/user/test-standalone1/${conversationId}`).catch(() => null)
+      const res = await admin.get(`/api/review/user/test_agents_standalone/${conversationId}`).catch(() => null)
       const calls = (res?.data.runs ?? []).flatMap((run: any) => (run.calls ?? []).filter((call: any) => call.modelRole === 'summarizer'))
       return calls[0]?.model
     }, { timeout: 10000 }).toBe('mock-summarizer')
 
     // And an admin can see it on the review page, in the per-call detail.
-    await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test_agents_standalone/review/${conversationId}`, 'test_agents_standalone')
     const turn = page.getByTestId('review-turn').filter({ hasText: 'mock-summarizer' }).first()
     await expect(turn).toBeAttached({ timeout: 15000 })
     await turn.locator(':scope > summary').click()
@@ -98,9 +98,9 @@ test.describe('History Compaction', () => {
 
   test('compaction is invisible to the person: every turn they sent is still there, and it keeps answering', async ({ page, goToWithAuth }) => {
     // reviewPersonalAssistant off, so no consent sheet can overlay the composer during three sends.
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test_agents_standalone', settingsData)
 
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
+    await goToWithAuth('/agents/user/test_agents_standalone/chat', 'test_agents_standalone')
     const input = page.getByPlaceholder('Type your message...')
     await expect(input).toBeEnabled({ timeout: 10000 })
 

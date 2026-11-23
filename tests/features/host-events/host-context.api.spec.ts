@@ -24,9 +24,9 @@ import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 
-const OWNER = 'user/test-standalone1'
+const OWNER = 'user/test_agents_standalone'
 const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
 
 test.describe('Host context reaching the model', () => {

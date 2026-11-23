@@ -12,7 +12,7 @@ const admin = await superAdmin
 test.describe('Chat consumption tab', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'organization/test1', {
+    await putSettings(admin, 'organization/test_agents_org1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [{
         model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
@@ -26,7 +26,7 @@ test.describe('Chat consumption tab', () => {
   })
 
   test('shows the conversation cost and the quota windows, reset zeroes the conversation', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1/chat', 'test1-contrib1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1/chat', 'test_agents_org1_contrib', { org: 'test_agents_org1' })
 
     await page.getByRole('textbox').fill('hello')
     await page.keyboard.press('Enter')
@@ -51,9 +51,9 @@ test.describe('Chat consumption tab', () => {
   test('a quota refusal reads as which limit and when it resets', async ({ page, goToWithAuth }) => {
     // seed the member's daily usage past the daily limit (1000 / 4 = 250)
     await anonymousAx.post(`http://localhost:${process.env.DEV_API_PORT}/api/test-env/usage`, {
-      owner: { type: 'organization', id: 'test1' }, userId: 'test1-contrib1', cost: 300
+      owner: { type: 'organization', id: 'test_agents_org1' }, userId: 'test_agents_org1_contrib', cost: 300
     })
-    await goToWithAuth('/agents/organization/test1/chat', 'test1-contrib1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1/chat', 'test_agents_org1_contrib', { org: 'test_agents_org1' })
     await page.getByRole('textbox').fill('hello')
     await page.keyboard.press('Enter')
     await expect(page.getByText(/Your daily AI quota is used up\. It resets on/)).toBeVisible()

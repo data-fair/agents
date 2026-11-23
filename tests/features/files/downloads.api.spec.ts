@@ -10,7 +10,7 @@ import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { FIXTURE_PORT, FIXTURE_ORIGIN, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 let fixture: McpFixture
 
 test.describe('Downloads with fetch_url', () => {
@@ -18,7 +18,7 @@ test.describe('Downloads with fetch_url', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('saveAs stores the response, which read_file then reads', async () => {

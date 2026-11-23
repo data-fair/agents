@@ -7,8 +7,8 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
 import { mockModels, deepMerge, mockSettings, putSettings } from '../../support/settings.ts'
 
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const orgMember = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 const admin = await superAdmin
 
 test.describe('Catalog API', () => {
@@ -17,7 +17,7 @@ test.describe('Catalog API', () => {
   })
 
   test('org admin GET returns the global mock model with no settings stored', { tag: '@smoke' }, async () => {
-    const res = await orgAdmin.get('/api/catalog/organization/test1')
+    const res = await orgAdmin.get('/api/catalog/organization/test_agents_org1')
     assert.equal(res.status, 200)
     assert.equal(res.data.count, res.data.results.length)
     const globalModel = res.data.results.find((m: any) => m.id === 'mock-model' && m.source === 'global')
@@ -26,9 +26,9 @@ test.describe('Catalog API', () => {
   })
 
   test('org admin GET returns global + org models after a settings PUT', async () => {
-    await putSettings(admin, 'organization/test1', deepMerge(structuredClone(mockSettings), { models: mockModels() }))
+    await putSettings(admin, 'organization/test_agents_org1', deepMerge(structuredClone(mockSettings), { models: mockModels() }))
 
-    const res = await orgAdmin.get('/api/catalog/organization/test1')
+    const res = await orgAdmin.get('/api/catalog/organization/test_agents_org1')
     assert.equal(res.status, 200)
 
     const globalModel = res.data.results.find((m: any) => m.id === 'mock-model' && m.source === 'global')
@@ -42,7 +42,7 @@ test.describe('Catalog API', () => {
   test('?usage=moderator filters to models flagged for that role', async () => {
     const guardModel = { id: 'guard-model', name: 'Guard Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
     const assistantOnlyModel = { id: 'assistant-only-model', name: 'Assistant Only', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
-    await putSettings(admin, 'organization/test1', {
+    await putSettings(admin, 'organization/test_agents_org1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
         { model: guardModel, usage: ['moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 },
@@ -52,7 +52,7 @@ test.describe('Catalog API', () => {
       quotas: defaultQuotas
     })
 
-    const res = await orgAdmin.get('/api/catalog/organization/test1?usage=moderator')
+    const res = await orgAdmin.get('/api/catalog/organization/test_agents_org1?usage=moderator')
     assert.equal(res.status, 200)
     for (const m of res.data.results) {
       assert.ok(m.usage.includes('moderator'), `expected model ${m.id} to be flagged for "moderator"`)
@@ -64,7 +64,7 @@ test.describe('Catalog API', () => {
   })
 
   test('defaults report what each role resolves to when left unmapped', async () => {
-    const res = await orgAdmin.get('/api/catalog/organization/test1')
+    const res = await orgAdmin.get('/api/catalog/organization/test_agents_org1')
     assert.equal(res.status, 200)
     // only assistant has a global default in the dev config; every other role
     // walks its fallback chain down to it
@@ -76,26 +76,26 @@ test.describe('Catalog API', () => {
 
   test('a mapped role\'s default ignores its own mapping but follows the others', async () => {
     const orgModel = { id: 'org-model', name: 'Org Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
-    await putSettings(admin, 'organization/test1', {
+    await putSettings(admin, 'organization/test_agents_org1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [{ model: orgModel, usage: ['assistant', 'summarizer'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
       modelMapping: { assistant: { provider: 'mock-provider', id: 'org-model' } },
       quotas: defaultQuotas
     })
 
-    const res = await orgAdmin.get('/api/catalog/organization/test1?usage=summarizer')
+    const res = await orgAdmin.get('/api/catalog/organization/test_agents_org1?usage=summarizer')
     assert.equal(res.data.defaults.assistant.id, 'mock-model')
     assert.equal(res.data.defaults.summarizer.id, 'org-model')
   })
 
   test('unknown usage value yields an empty result set', async () => {
-    const res = await orgAdmin.get('/api/catalog/organization/test1?usage=not-a-role')
+    const res = await orgAdmin.get('/api/catalog/organization/test_agents_org1?usage=not-a-role')
     assert.equal(res.status, 200)
     assert.deepEqual(res.data.results, [])
     assert.equal(res.data.count, 0)
   })
 
   test('plain org member (non-admin) is forbidden', async () => {
-    await assert.rejects(orgMember.get('/api/catalog/organization/test1'), { status: 403 })
+    await assert.rejects(orgMember.get('/api/catalog/organization/test_agents_org1'), { status: 403 })
   })
 })

@@ -63,13 +63,13 @@ test.describe('Simulation evidence', () => {
 test.describe('Simulation evidence of an unattended run', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('the runner runs a planned task and reads it back in the export format the judge reads', async () => {
-    const route = '/agents/organization/test1/chat?agentId=test-fixture'
+    const route = '/agents/organization/test_agents_org1/chat?agentId=test-fixture'
     // No catalog server: nothing to exchange an identity for, so the run needs no MCP server running.
-    await seedAutonomousAgent(route, 'test1-user1', { mcpServers: [] })
+    await seedAutonomousAgent(route, 'test_agents_org1_user', { mcpServers: [] })
     const { owner, agentId, run } = await runPlannedTask(route, {
       title: 'Probe',
       prompt: 'call tool report_outcome {"status":"done","summary":"all good"}',

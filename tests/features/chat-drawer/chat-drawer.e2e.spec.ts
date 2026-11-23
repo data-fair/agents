@@ -27,11 +27,11 @@ async function closeDrawer (page: Page) {
 test.describe('Chat Drawer Integration', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('FAB opens the drawer, the chat works inside it, and stays alive with a waiting-user status once closed', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-drawer', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-drawer', 'test_agents_standalone')
 
     const fab = page.locator(fabSelector)
     await expect(fab).toBeAttached()
@@ -58,7 +58,7 @@ test.describe('Chat Drawer Integration', () => {
   })
 
   test('Unread badge appears for new messages when drawer is closed', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-drawer', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-drawer', 'test_agents_standalone')
 
     const fab = page.locator(fabSelector)
     await clickFab(page)

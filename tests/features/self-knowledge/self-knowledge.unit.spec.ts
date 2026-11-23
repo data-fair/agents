@@ -124,7 +124,7 @@ const run = (over: any = {}): any => ({
   agentId: 'a1',
   kind: 'task',
   taskId: 't1',
-  owner: { type: 'organization', id: 'test1' },
+  owner: { type: 'organization', id: 'test_agents_org1' },
   trigger: 'schedule',
   triggeredBy: { userId: 'u1', userName: 'Jane Secret' },
   status: 'done',

@@ -16,7 +16,7 @@ import { reviewerDenialText, reviewUnavailableText } from '../../../api/src/appr
 import { serviceUp } from '../../support/optional-services.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const eventsUp = await serviceUp('EVENTS_PORT')
 const events = async () => (await admin.get('/api/test-env/pushed-events')).data as any[]
 const poll = async <T>(read: () => Promise<T>, done: (value: T) => boolean, ms = 10_000): Promise<T> => {
@@ -30,7 +30,7 @@ const poll = async <T>(read: () => Promise<T>, done: (value: T) => boolean, ms =
 }
 
 const createAgent = async (over: any = {}) => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+  const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
     title: 'Review probe', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true, ...over
   })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
@@ -48,14 +48,14 @@ const turn = async (target: string | { agentId: string }, content: string) => {
 const callPart = (message: any, toolName: string) =>
   message.parts.find((p: any) => p.type === 'dynamic-tool' && p.toolName === toolName)
 const messageAt = async (conversationId: string, seq: number) =>
-  (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+  (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 const offered = (run: any): string[] => (run.calls ?? []).flatMap((c: any) => c.toolNames ?? [])
 const script = (js: string) => `call tool code_mode ${JSON.stringify({ js })}`
 const nestedCalls = (message: any) =>
   (message.parts.find((p: any) => p.type === 'data-trace' && p.data?.name === 'code_mode')?.data.parts ?? []).filter((p: any) => p.type === 'dynamic-tool')
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
 const runTask = async (agentId: string, prompt: string) => {
-  const base = `/api/autonomous-agents/organization/test1/${agentId}/tasks`
+  const base = `/api/autonomous-agents/organization/test_agents_org1/${agentId}/tasks`
   const task = (await admin.post(base, { title: 'Probe', prompt, scheduling: [daily] })).data
   const runId = (await admin.post(`${base}/${task.id}/run`)).data.runId as string
   return await awaitAgentRun(orgAdmin, agentId, runId)
@@ -69,7 +69,7 @@ test.describe('The approval reviewer', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a reviewed write runs without a card', async () => {
@@ -217,7 +217,7 @@ test.describe('The approval reviewer', () => {
     assert.equal(part.state, 'output-denied', JSON.stringify(part))
     assert.equal(part.approval.reason, reviewerDenialText('mock deny'))
     assert.equal(part.toolMetadata.review.outcome, 'deny')
-    const stored = (await admin.get(`/api/autonomous-agents/organization/test1/${agent.id}`)).data
+    const stored = (await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`)).data
     assert.deepEqual(stored.web.allowedUrls, ['https://github.com/data-fair'])
   })
 

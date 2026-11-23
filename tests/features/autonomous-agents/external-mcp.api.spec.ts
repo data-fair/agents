@@ -13,15 +13,15 @@ import { externalToolName } from '../../../api/src/mcp-servers/operations.ts'
 import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const instructor = await axiosAuth('test1-user1', { org: 'test1' })
-const AGENTS = '/api/autonomous-agents/organization/test1'
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const instructor = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
+const AGENTS = '/api/autonomous-agents/organization/test_agents_org1'
 let external: McpFixture
 // the external server listens on a port of its own choosing, read once it is up
 let externalUrl: string
 
 const createAgent = async (over: any = {}) => {
-  const agent = await createEnrolledAgent({ title: 'Interop', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }], instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }], ...over })
+  const agent = await createEnrolledAgent({ title: 'Interop', persona: 'x', mcpServers: [], enabled: true, externalMcpServers: [{ url: externalUrl }], instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }], ...over })
   return agent
 }
 
@@ -35,7 +35,7 @@ test.describe('External MCP servers', () => {
   test.afterAll(async () => { await external.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
     external.resetInvokedTools()
   })
 

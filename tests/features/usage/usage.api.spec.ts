@@ -8,9 +8,9 @@ import { axiosAuth, superAdmin, anonymousAx, clean, getAnonymousActionToken } fr
 import { putMockSettings, mockModelRef } from '../../support/settings.ts'
 import { runTurn } from '../../support/turn.ts'
 
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 const admin = await superAdmin
-const otherUser = await axiosAuth('test1-user1')
+const otherUser = await axiosAuth('test_agents_org1_user')
 
 // 8 000 EUR/M at the 0.008 EUR/credit peg makes one token cost one credit (credits = tokens × price / 1e6 /
 // eurosPerCredit), so a single mock request produces a measurable, non-zero usage record. This suite
@@ -20,13 +20,13 @@ const pricedSettings = { models: [{ model: mockModelRef, usage: ['assistant'], i
 test.describe('Usage API', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1', pricedSettings)
+    await putMockSettings(admin, 'user/test_agents_standalone', pricedSettings)
   })
 
   test('should return usage with limits after a turn', async () => {
-    await runTurn(user, 'user/test-standalone1')
+    await runTurn(user, 'user/test_agents_standalone')
 
-    const res = await user.get('/api/usage/user/test-standalone1')
+    const res = await user.get('/api/usage/user/test_agents_standalone')
     assert.equal(res.status, 200)
     assert.ok(res.data.daily)
     assert.ok(res.data.weekly)
@@ -44,30 +44,30 @@ test.describe('Usage API', () => {
   })
 
   test('should record usage dimensions for a turn', async () => {
-    await runTurn(user, 'user/test-standalone1')
+    await runTurn(user, 'user/test_agents_standalone')
 
     const today = new Date().toISOString().slice(0, 10)
     const todayEntry = (entries: any[]) => entries.find(e => e.label === today)
 
-    const byRole = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=modelRole')
+    const byRole = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily&days=7&dimension=modelRole')
     assert.equal(byRole.status, 200)
     assert.ok(todayEntry(byRole.data.entries).breakdown.assistant > 0)
 
-    const byModel = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=model')
+    const byModel = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily&days=7&dimension=model')
     assert.ok(todayEntry(byModel.data.entries).breakdown['mock-model'] > 0)
 
-    const byProfile = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=profile')
+    const byProfile = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily&days=7&dimension=profile')
     const profile = todayEntry(byProfile.data.entries).breakdown
     assert.equal(Object.keys(profile).length, 1)
 
-    const byToken = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=tokenType')
+    const byToken = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily&days=7&dimension=tokenType')
     const tokens = todayEntry(byToken.data.entries).breakdown
     assert.ok(tokens.input > 0)
     assert.ok(tokens.output > 0)
   })
 
   test('should return zero usage when no requests made', async () => {
-    const res = await user.get('/api/usage/user/test-standalone1')
+    const res = await user.get('/api/usage/user/test_agents_standalone')
     assert.equal(res.status, 200)
     assert.equal(res.data.daily.cost, 0)
     assert.equal(res.data.weekly.cost, 0)
@@ -75,7 +75,7 @@ test.describe('Usage API', () => {
   })
 
   test('should filter by period=daily', async () => {
-    const res = await user.get('/api/usage/user/test-standalone1?period=daily')
+    const res = await user.get('/api/usage/user/test_agents_standalone?period=daily')
     assert.equal(res.status, 200)
     assert.ok(res.data.daily)
     assert.equal(res.data.monthly, undefined)
@@ -83,7 +83,7 @@ test.describe('Usage API', () => {
   })
 
   test('should filter by period=monthly', async () => {
-    const res = await user.get('/api/usage/user/test-standalone1?period=monthly')
+    const res = await user.get('/api/usage/user/test_agents_standalone?period=monthly')
     assert.equal(res.status, 200)
     assert.equal(res.data.daily, undefined)
     assert.ok(res.data.monthly)
@@ -92,7 +92,7 @@ test.describe('Usage API', () => {
 
   test('should reject unauthorized access', async () => {
     await assert.rejects(
-      otherUser.get('/api/usage/user/test-standalone1'),
+      otherUser.get('/api/usage/user/test_agents_standalone'),
       { status: 403 }
     )
   })
@@ -107,10 +107,10 @@ test.describe('Anonymous Usage', () => {
   // is not — is covered where it is served, over the agent session:
   // tests/features/agent-session/anonymous-chat.api.spec.ts.
   test('should deny anonymous summary access with default quotas', async () => {
-    await putMockSettings(admin, 'user/test-standalone1', pricedSettings)
+    await putMockSettings(admin, 'user/test_agents_standalone', pricedSettings)
 
     await assert.rejects(
-      anonymousAx.post('/api/summary/user/test-standalone1', {
+      anonymousAx.post('/api/summary/user/test_agents_standalone', {
         content: 'some text to summarize'
       }),
       { status: 403 }
@@ -118,10 +118,10 @@ test.describe('Anonymous Usage', () => {
   })
 
   test('should allow anonymous summary access when anonymous quota is configured', async () => {
-    await putMockSettings(admin, 'user/test-standalone1', { ...pricedSettings, quotas: { anonymous: { unlimited: false, monthlyLimit: 10 } } })
+    await putMockSettings(admin, 'user/test_agents_standalone', { ...pricedSettings, quotas: { anonymous: { unlimited: false, monthlyLimit: 10 } } })
 
     const token = await getAnonymousActionToken()
-    const res = await anonymousAx.post('/api/summary/user/test-standalone1', {
+    const res = await anonymousAx.post('/api/summary/user/test_agents_standalone', {
       content: 'some text to summarize'
     }, { headers: { 'x-anonymous-token': token, 'x-forwarded-for': '203.0.113.7' } })
     assert.equal(res.status, 200)

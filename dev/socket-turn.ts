@@ -30,7 +30,7 @@ export type ConversationTarget = string | { agentId: string, title?: string }
 export interface SocketTurnOptions {
   /** Open the socket through this host (default: localhost:NGINX_PORT). */
   host?: string
-  /** The account path the conversation lives under. Default `organization/test1`. */
+  /** The account path the conversation lives under. Default `organization/test_agents_org1`. */
   owner?: string
   /** Per-frame wait. Generous: a turn against the mock provider streams, and some tests stall one on purpose. */
   timeoutMs?: number
@@ -50,7 +50,7 @@ const runsOf = async (ax: Ax, owner: string, conversationId: string): Promise<an
  * One run of a conversation, as its owner reads it: through the conversation's runs, the only route a
  * conversation run has (a task run is read through its agent's `GET …/runs/:runId`).
  */
-export const runOf = async (ax: Ax, conversationId: string, runId: string, owner = 'organization/test1'): Promise<any> => {
+export const runOf = async (ax: Ax, conversationId: string, runId: string, owner = 'organization/test_agents_org1'): Promise<any> => {
   const run = (await runsOf(ax, owner, conversationId)).find(r => r.id === runId)
   if (!run) throw new Error(`no run ${runId} in conversation ${conversationId}`)
   return run
@@ -112,7 +112,7 @@ export const startTurnOverSocket = async (
   content: string,
   opts: SocketTurnOptions = {}
 ): Promise<StartedSocketTurn> => {
-  const owner = opts.owner ?? 'organization/test1'
+  const owner = opts.owner ?? 'organization/test_agents_org1'
   const timeoutMs = opts.timeoutMs ?? 60_000
   const known = new Set(typeof target === 'string' ? (await runsOf(ax, owner, target).catch(() => [])).map(r => r.id) : [])
   const { socket, history } = await attach(ax, target, owner, timeoutMs, opts.host)
@@ -189,7 +189,7 @@ export const turnOverSocket = async (
   content: string,
   opts: SocketTurnOptions = {}
 ): Promise<SocketTurnResult> => {
-  const owner = opts.owner ?? 'organization/test1'
+  const owner = opts.owner ?? 'organization/test_agents_org1'
   const started = await startTurnOverSocket(ax, target, content, opts)
   const { conversationId } = started
   const frames = await started.done
@@ -213,7 +213,7 @@ export const decideOverSocket = async (
   decision: { approved: boolean },
   opts: SocketTurnOptions = {}
 ): Promise<{ runId: string } | { pending: number }> => {
-  const owner = opts.owner ?? 'organization/test1'
+  const owner = opts.owner ?? 'organization/test_agents_org1'
   const timeoutMs = opts.timeoutMs ?? 60_000
   const known = new Set((await runsOf(ax, owner, conversationId)).map(r => r.id))
   const { socket } = await attach(ax, conversationId, owner, timeoutMs, opts.host)

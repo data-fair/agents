@@ -200,7 +200,7 @@ export const createTestEnvRouter = () => {
       kind: 'task' as const,
       agentId,
       taskId,
-      owner: { type: 'organization' as const, id: 'test1' },
+      owner: { type: 'organization' as const, id: 'test_agents_org1' },
       trigger: 'manual' as const,
       status,
       startedAt: new Date().toISOString(),

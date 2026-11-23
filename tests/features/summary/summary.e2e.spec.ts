@@ -14,7 +14,7 @@ test.describe('Summary UI', () => {
   // No account settings: the deployment's global default model covers the
   // summarizer role (the account-configured variants are covered by summary.api).
   test('Summarize is disabled while empty, then shows the summary', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/summary', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/summary', 'test_agents_standalone')
     await expect(page.getByRole('heading', { name: 'Summary Dev', level: 1 })).toBeVisible()
 
     const button = page.getByRole('button', { name: 'Summarize' })

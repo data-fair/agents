@@ -13,9 +13,9 @@ import { awaitRun } from '../../support/turn.ts'
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-// Not a member of user/test-standalone1: 'external' there.
-const outsider = await axiosAuth('test1-user1')
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+// Not a member of user/test_agents_standalone: 'external' there.
+const outsider = await axiosAuth('test_agents_org1_user')
 const offered = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 const trace = (message: any) => message.parts.find((p: any) => p.type === 'data-trace' && p.data?.name === 'code_mode')?.data
 const script = (js: string) => `call tool code_mode ${JSON.stringify({ js })}`
@@ -26,7 +26,7 @@ test.describe('code_mode', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a script chains two catalog tools and gets structuredContent; each nested call is recorded', async () => {
@@ -93,8 +93,8 @@ test.describe('code_mode', () => {
   test('someone outside the account is not offered code_mode', async () => {
     // Scripts run on a small per-process worker pool shared by every tenant: an orchestration tool, which a
     // visitor or an outsider does not need, and which a few waiting scripts could hold for everyone.
-    await putMockSettings(admin, 'user/test-standalone1', { quotas: { ...defaultQuotas, external: { unlimited: true, monthlyLimit: 0 }, untrusted: { unlimited: true, monthlyLimit: 0 } } })
-    const { run } = await turnOverSocket(outsider, { agentId: 'portal-assistant' }, 'hello', { owner: 'user/test-standalone1' })
+    await putMockSettings(admin, 'user/test_agents_standalone', { quotas: { ...defaultQuotas, external: { unlimited: true, monthlyLimit: 0 }, untrusted: { unlimited: true, monthlyLimit: 0 } } })
+    const { run } = await turnOverSocket(outsider, { agentId: 'portal-assistant' }, 'hello', { owner: 'user/test_agents_standalone' })
     assert.equal(run.triggeredByRole, 'external')
     assert.ok(offered(run).length, 'the turn ran and offered tools')
     assert.ok(!offered(run).includes('code_mode'), offered(run).join())
@@ -116,7 +116,7 @@ test.describe('code_mode', () => {
     const { runId } = await decideOverSocketToRun(orgAdmin, conversationId, call.approval.id, { approved: true })
     const approvalRun = await awaitRun(orgAdmin, conversationId, runId)
     assert.equal(approvalRun.stopReason, 'completed', JSON.stringify(approvalRun))
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     const settled = callPart(messages.find((m: any) => m.seq === assistant.seq), 'code_mode')
     assert.equal(settled.state, 'output-available', outputOf(settled))
     assert.match(outputOf(settled), /"updated": "updated slowly"/)
@@ -126,7 +126,7 @@ test.describe('code_mode', () => {
   })
 
   const messageAt = async (conversationId: string, seq: number) =>
-    (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
+    (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results.find((m: any) => m.seq === seq)
 
   test('a rejected call throws inside the resumed script, which may catch it', async () => {
     fixture.resetInvokedTools()

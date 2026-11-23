@@ -117,7 +117,7 @@ test.describe('case registry', () => {
   })
 
   test('the approval premise holds only when the person decided on the card', () => {
-    const decision = (approved: boolean) => ({ toolMetadata: { decision: { userId: 'test1-user1', approved, at: '2026-10-08T00:00:00.000Z' } } })
+    const decision = (approved: boolean) => ({ toolMetadata: { decision: { userId: 'test_agents_org1_user', approved, at: '2026-10-08T00:00:00.000Z' } } })
     // Approved and run, then rejected: both are the person deciding.
     assert.equal(approvalDecided.holds([exportOf('c', [toolPart('wipe_everything', { approval: { id: 'a', approved: true }, ...decision(true) })])]), true)
     assert.equal(approvalDecided.holds([exportOf('c', [toolPart('wipe_everything', { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false }, ...decision(false) })])]), true)
@@ -157,11 +157,11 @@ test.describe('case registry', () => {
     const names = cases.map(c => c.name)
     const at = names.indexOf('autonomous-agent-approval')
     assert.deepEqual(names.slice(at, at + 3), ['autonomous-agent-approval', 'autonomous-agent-overreach', 'autonomous-agent-reviewed-write'])
-    for (const name of names.slice(at, at + 3)) assert.equal(cases.find(c => c.name === name)?.route, '/agents/organization/test1/chat?agentId=test-fixture')
+    for (const name of names.slice(at, at + 3)) assert.equal(cases.find(c => c.name === name)?.route, '/agents/organization/test_agents_org1/chat?agentId=test-fixture')
   })
 
   test('the plan-task premise holds only when the person decided on a plan_task card', () => {
-    const decision = (approved: boolean) => ({ toolMetadata: { decision: { userId: 'test1-user1', approved, at: '2026-10-08T00:00:00.000Z' } } })
+    const decision = (approved: boolean) => ({ toolMetadata: { decision: { userId: 'test_agents_org1_user', approved, at: '2026-10-08T00:00:00.000Z' } } })
     assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('plan_task', { approval: { id: 'a', approved: true }, ...decision(true) })])]), true)
     assert.equal(planTaskDecided.holds([exportOf('c', [toolPart('plan_task', { state: 'output-denied', output: undefined, approval: { id: 'a', approved: false }, ...decision(false) })])]), true)
     // Pending, talked past, another tool decided, or never gated: not the case.

@@ -13,7 +13,7 @@ import { createTurnFiles, type TurnFiles } from '../../../api/src/files/turn-fil
 import { checkFileSignature, FileError } from '../../../api/src/files/operations.ts'
 import type { FileBackend } from '../../../api/src/files/types.ts'
 
-const scope = { ownerType: 'organization' as const, ownerId: 'test1', scopeId: 'conv1' }
+const scope = { ownerType: 'organization' as const, ownerId: 'test_agents_org1', scopeId: 'conv1' }
 const secret = 's'.repeat(32)
 let dir: string
 let backend: FsBackend
@@ -92,13 +92,13 @@ test.describe('TurnFiles', () => {
     const { url, file } = await files.signedUrl('/a.csv')
     assert.equal(file.path, '/a.csv')
     const parsed = new URL(url)
-    assert.ok(parsed.pathname.endsWith('/api/files/organization/test1/conv1/a.csv'))
+    assert.ok(parsed.pathname.endsWith('/api/files/organization/test_agents_org1/conv1/a.csv'))
     assert.equal(checkFileSignature(secret, scope, 'a.csv', parsed.searchParams.get('exp'), parsed.searchParams.get('sig'), 1000), 'valid')
     await assert.rejects(files.signedUrl('/b.csv'), /There is no file named \/b\.csv here/)
   })
 
   test('a store failure is named as one, without paths or keys', async () => {
-    const failing: FileBackend = { ...backend, lsrWithStats: async () => { throw Object.assign(new Error("EACCES: permission denied, open '/data/organization/test1/conv1/.a.csv.x.part'"), { code: 'EACCES' }) } } as any
+    const failing: FileBackend = { ...backend, lsrWithStats: async () => { throw Object.assign(new Error("EACCES: permission denied, open '/data/organization/test_agents_org1/conv1/.a.csv.x.part'"), { code: 'EACCES' }) } } as any
     await assert.rejects(make({ backend: failing }).list(), (err: any) => err instanceof FileError && err.message === 'The file store failed (EACCES); your other tools still work.' && !err.message.includes('/'))
   })
 

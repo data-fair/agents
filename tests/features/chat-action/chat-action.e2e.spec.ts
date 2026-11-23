@@ -16,11 +16,11 @@ const chatDrawerSelector = '.v-navigation-drawer:has(d-frame)'
 test.describe('Agent Chat Action Button', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('Clicking action buttons opens the drawer and appends their visible prompts, never the hidden context', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-action', 'test_agents_standalone')
 
     // Click the "Create a dataset" action button (opens the drawer via BroadcastChannel)
     await page.locator('.df-agent-chat-action').first().click()
@@ -45,7 +45,7 @@ test.describe('Agent Chat Action Button', () => {
   })
 
   test('Destroying action button preserves the conversation', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-action', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-action', 'test_agents_standalone')
 
     // Click the destroyable action (third button, opens the drawer)
     await page.locator('.df-agent-chat-action').nth(2).click()

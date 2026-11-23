@@ -19,7 +19,7 @@ import { NESTED_RESULT_HIDDEN } from '../../../api/src/self-knowledge/operations
 import { runStopReasonMessage, wrapToolResult } from '../../../api/src/conversations/operations.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const eventsUp = await serviceUp('EVENTS_PORT')
 const events = async () => (await admin.get('/api/test-env/pushed-events')).data as any[]
 const script = (js: string) => `call tool code_mode ${JSON.stringify({ js })}`
@@ -28,13 +28,13 @@ const moderatorCalls = (run: any) => run.calls.filter((c: any) => c.modelRole ==
 let fixture: McpFixture
 
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: (new Date().getUTCHours() + 12) % 24, minute: 0, timeZone: 'UTC' }
-const tasksOf = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
+const tasksOf = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}/tasks`
 // A task run's agent acts with its own identity (the built-in data-fair server included): a fixture NHI.
 const createTaskAgent = () => createEnrolledAgent({ title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true })
 const createTask = async (agentId: string, prompt: string) => (await admin.post(tasksOf(agentId), { title: 'Probe', prompt, scheduling: [daily] })).data
 // No session: a webhook sender is anonymous; its key travels in the x-webhook-key header.
 const anonymous = axios.create({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
-const messagesOf = async (conversationId: string) => (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results as any[]
+const messagesOf = async (conversationId: string) => (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results as any[]
 const promptOf = async (agentId: string, runId: string) => ((await awaitAgentRun(orgAdmin, agentId, runId)).messages[0].parts[0].text as string)
 // What the agent itself reads of a past run or conversation, from a chat of its own.
 const readBack = async (agentId: string, of: { runId: string } | { conversationId: string }) => {
@@ -59,7 +59,7 @@ test.describe('Tool-output tripwire', () => {
   test.beforeEach(async () => {
     await clean()
     await admin.delete('/api/test-env/pushed-events')
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a result addressed to the agent stops the turn and is withheld', async () => {
@@ -90,7 +90,7 @@ test.describe('Tool-output tripwire', () => {
     const { runId } = await decideOverSocketToRun(orgAdmin, gated.conversationId, asked.approval.id, { approved: true })
     const run = await awaitRun(orgAdmin, gated.conversationId, runId)
     assert.equal(run.stopReason, 'injection-suspected')
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${gated.conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${gated.conversationId}/messages`)).data.results
     const echo = callPart(messages.find((m: any) => m.seq === gated.assistant.seq), 'echo')
     assert.equal(echo.state, 'output-error')
     assert.ok(echo.errorText.includes(WITHHELD_RESULT) && !echo.errorText.includes('INJECTION_PROBE'), echo.errorText)
@@ -204,7 +204,7 @@ test.describe('Tool-output tripwire', () => {
   })
 
   test('the classifier\'s credits count in the run\'s', async () => {
-    await putMockSettings(admin, 'organization/test1', { models: mockModels({ inputPricePerMillion: 1, outputPricePerMillion: 1 }) })
+    await putMockSettings(admin, 'organization/test_agents_org1', { models: mockModels({ inputPricePerMillion: 1, outputPricePerMillion: 1 }) })
     const agent = await createFilesAgent()
     const { run } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'call tool echo {"value":"hello"}')
     assert.equal(run.stopReason, 'completed')

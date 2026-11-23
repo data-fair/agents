@@ -34,7 +34,7 @@ export interface RunTurnResult {
 /**
  * Run one turn: the first of a new conversation with the personal assistant, or one in `conversationId`.
  *
- * `owner` is the account path segment pair, e.g. `user/test-standalone1` or `organization/test1`.
+ * `owner` is the account path segment pair, e.g. `user/test_agents_standalone` or `organization/test_agents_org1`.
  * Returns once the turn has ended, so a caller can immediately assert on
  * whatever the turn was supposed to produce.
  */
@@ -61,10 +61,10 @@ export async function awaitRun (ax: AxiosInstance, conversationId: string, runId
   throw new Error(`run ${runId} never reached a terminal status`)
 }
 
-/** The same for any run of an agent of organization/test1 — a task run has no conversation. */
+/** The same for any run of an agent of organization/test_agents_org1 — a task run has no conversation. */
 export async function awaitAgentRun (ax: AxiosInstance, agentId: string, runId: string, tries = 150) {
   for (let i = 0; i < tries; i++) {
-    const run = (await ax.get(`/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`)).data
+    const run = (await ax.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}/runs/${runId}`)).data
     if (run.status !== 'running') return run
     await sleep(100)
   }

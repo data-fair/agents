@@ -26,28 +26,38 @@
     ]
   },
   {
-    "id": "test1",
+    "id": "test_agents_org1",
     "name": "Test Organization 1",
     "members": [
       {
-        "id": "test1-admin1",
+        "id": "test_agents_org1_admin",
         "role": "admin"
       },
       {
-        "id": "test1-contrib1",
+        "id": "test_agents_org1_contrib",
         "role": "contrib"
       },
       {
-        "id": "test1-user1",
+        "id": "test_agents_org1_user",
         "role": "user"
       },
       {
-        "id": "test-autonomous-agent-nhi",
+        "id": "test_agents_org1_agent_nhi",
         "role": "contrib"
       },
       {
-        "id": "test-scoped-autonomous-agent-nhi",
+        "id": "test_agents_org1_scoped_agent_nhi",
         "role": "contrib"
+      }
+    ]
+  },
+  {
+    "id": "test_agents_org2",
+    "name": "Test Organization 2",
+    "members": [
+      {
+        "id": "test_agents_org2_user",
+        "role": "user"
       }
     ]
   }

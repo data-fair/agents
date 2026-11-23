@@ -8,7 +8,7 @@ import { autonomousAgentEditDraft } from '../../../ui/src/utils/autonomous-agent
 test.describe('autonomousAgentEditDraft', () => {
   const stored = {
     id: 'a1',
-    owner: { type: 'organization', id: 'test1' },
+    owner: { type: 'organization', id: 'test_agents_org1' },
     title: 'Support triage',
     persona: 'You triage.',
     instructions: 'In French.',

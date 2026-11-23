@@ -105,7 +105,7 @@ test.describe('dev NHI fixtures', () => {
       // Each seam call names both, within a few lines of each other.
       for (const call of source.matchAll(/id:\s*'([^']+)'[\s\S]{0,400}?clientId:\s*'([^']+)'/g)) {
         const [, agentId, clientId] = call
-        if (!clientId.endsWith('-autonomous-agent-nhi')) continue
+        if (!clientId.endsWith('_nhi')) continue
         assert.equal(
           subjectOf(clientId), autonomousAgentSubject(agentId),
           `${spec} pairs ${clientId} with agent id ${agentId}, so that NHI's subject must be ${autonomousAgentSubject(agentId)}`

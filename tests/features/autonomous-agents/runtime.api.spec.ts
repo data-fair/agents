@@ -19,8 +19,8 @@ import { startTurnOverSocket, turnOverSocket, runOf } from '../../../dev/socket-
 const toolCalls = (message: any) => (message.parts ?? []).filter((p: any) => p.type === 'dynamic-tool')
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const orgMember = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
 const agentBody = (over: any = {}) => ({
   title: 'Runtime probe', persona: 'You answer briefly.', mcpServers: [], enabled: true, ...over
@@ -30,7 +30,7 @@ const agentBody = (over: any = {}) => ({
 const PER_RUN_CREDIT_BUDGET = 500
 
 const createAgent = async (over: any = {}) =>
-  (await admin.post('/api/autonomous-agents/organization/test1', agentBody(over))).data
+  (await admin.post('/api/autonomous-agents/organization/test_agents_org1', agentBody(over))).data
 
 // These cover routing and the run LIFECYCLE — locking, pickup, terminal state, terminal
 // message, restart sweep. The agents here are deliberately left unconfigured and unenrolled,
@@ -55,14 +55,14 @@ test.describe('Autonomous agent conversations', () => {
     const agent = await createAgent()
     const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id, title: 'First thread' }, 'hello')
 
-    const list = await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`)
+    const list = await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`)
     assert.equal(list.data.count, 1)
     assert.equal(list.data.results[0].id, conversationId)
     assert.equal(list.data.results[0].title, 'First thread')
   })
 
   test('a listed instructor who is not an admin can start a thread', async () => {
-    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
     const { conversationId } = await turnOverSocket(orgMember, { agentId: agent.id }, 'hello')
     assert.ok(conversationId)
   })
@@ -74,8 +74,8 @@ test.describe('Autonomous agent conversations', () => {
       (err: any) => { assert.equal(err.status, 403); assert.match(err.data, /instruct/i); return true }
     )
     // Granted afterwards, so their own list of this agent's threads can be read: still empty.
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, agentBody({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] }))
-    assert.equal((await orgMember.get(`/api/conversations/organization/test1?agentId=${agent.id}`)).data.count, 0)
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, agentBody({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] }))
+    assert.equal((await orgMember.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`)).data.count, 0)
   })
 
   test('a thread for an unknown autonomous agent is refused 404', async () => {
@@ -86,13 +86,13 @@ test.describe('Autonomous agent conversations', () => {
     const agent = await createAgent()
     const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id, title: 'Used' }, 'hello')
 
-    const list = await orgAdmin.get('/api/conversations/organization/test1')
+    const list = await orgAdmin.get('/api/conversations/organization/test_agents_org1')
     assert.equal(list.status, 200)
     assert.deepEqual(list.data.results.map((c: any) => c.id), [conversationId])
 
     // The caller's own threads only — a member with no grant sees nothing of an agent they cannot use,
     // which is the same privacy rule the per-agent list applies.
-    const memberList = await orgMember.get('/api/conversations/organization/test1')
+    const memberList = await orgMember.get('/api/conversations/organization/test_agents_org1')
     assert.equal(memberList.data.count, 0)
 
     // Rows, not documents: a conversation carries its cached recap, which a history never shows.
@@ -106,10 +106,10 @@ test.describe('Autonomous agent conversations', () => {
     // Spoken in again, so the OLDER thread is the newest by activity: activity wins over creation, so
     // the thread the person was in is the one resumed.
     await turnOverSocket(orgAdmin, older.conversationId, 'hello again')
-    const latest = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}&size=1`)).data.results
+    const latest = (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}&size=1`)).data.results
     assert.deepEqual(latest.map((c: any) => c.id), [older.conversationId])
     for (const size of ['0', '51', 'x']) {
-      await assert.rejects(orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}&size=${size}`), { status: 400 })
+      await assert.rejects(orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}&size=${size}`), { status: 400 })
     }
   })
 
@@ -118,19 +118,19 @@ test.describe('Autonomous agent conversations', () => {
     // reopened whichever person's thread was the latest on the account.
     const agent = await createAgent()
     const theirs = await turnOverSocket(orgAdmin, { agentId: agent.id, title: 'Theirs' }, 'hello')
-    const history = (await admin.get('/api/conversations/organization/test1')).data
+    const history = (await admin.get('/api/conversations/organization/test_agents_org1')).data
     assert.equal(history.results.some((c: any) => c.id === theirs.conversationId), false)
-    const oneAgent = (await admin.get(`/api/conversations/organization/test1?agentId=${agent.id}`)).data
+    const oneAgent = (await admin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`)).data
     assert.equal(oneAgent.results.some((c: any) => c.id === theirs.conversationId), false)
   })
 
   test('the agents list offers the personal assistant and the enabled autonomous agents this person may instruct', async () => {
-    await putMockSettings(admin, 'organization/test1')
-    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    await putMockSettings(admin, 'organization/test_agents_org1')
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
     await createAgent({ title: 'Disabled', enabled: false })
     await createAgent({ title: 'Hidden' })
 
-    const adminList = (await orgAdmin.get('/api/conversations/organization/test1/agents')).data.results
+    const adminList = (await orgAdmin.get('/api/conversations/organization/test_agents_org1/agents')).data.results
     // The personal assistant is offered because the mock settings grant every role a model quota; it
     // is exactly the gate conversation creation applies.
     assert.ok(adminList.some((a: any) => a.id === 'back-office-assistant'))
@@ -143,7 +143,7 @@ test.describe('Autonomous agent conversations', () => {
     // enumerate every configured agent is itself a disclosure. The personal assistant is absent for
     // them here because defaultQuotas grants no `user` quota — the same gate that would refuse their
     // first personal-assistant message, so the picker not offering it is the honest answer.
-    const memberList = (await orgMember.get('/api/conversations/organization/test1/agents')).data.results
+    const memberList = (await orgMember.get('/api/conversations/organization/test_agents_org1/agents')).data.results
     assert.ok(memberList.some((a: any) => a.id === agent.id))
     assert.ok(!memberList.some((a: any) => a.id === 'back-office-assistant'))
     assert.ok(!memberList.some((a: any) => a.title === 'Hidden'))
@@ -154,7 +154,7 @@ test.describe('Autonomous agent conversations', () => {
     const posted = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
     assert.ok(posted.runId, 'a prompt creates a run, which the caller can follow')
 
-    const messages = await orgAdmin.get(`/api/test-env/conversations/organization/test1/${posted.conversationId}/messages`)
+    const messages = await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${posted.conversationId}/messages`)
     const user = messages.data.results.find((m: any) => m.role === 'user')
     assert.ok(user)
     assert.equal(user.seq, 1)
@@ -166,24 +166,24 @@ test.describe('Autonomous agent conversations', () => {
     // was the capability this design deliberately drops. What survives is the agent-level grant: a
     // listed instructor may still START their own conversation with the agent, because that grant is
     // about borrowing the agent's permissions, which has not changed.
-    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
     const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
-    const conv = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`)).data.results[0]
+    const conv = (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`)).data.results[0]
     assert.equal(conv.id, conversationId)
-    assert.equal(conv.userId, 'test1-admin1', 'a conversation records the one person it belongs to')
+    assert.equal(conv.userId, 'test_agents_org1_admin', 'a conversation records the one person it belongs to')
 
     // The listed instructor may use the agent...
     const theirs = await turnOverSocket(orgMember, { agentId: agent.id, title: 'mine' }, 'hello')
 
     // ...but not read, write or erase the admin's thread.
-    await assert.rejects(orgMember.get(`/api/test-env/conversations/organization/test1/${conv.id}/messages`), { status: 403 })
+    await assert.rejects(orgMember.get(`/api/test-env/conversations/organization/test_agents_org1/${conv.id}/messages`), { status: 403 })
     await assert.rejects(turnOverSocket(orgMember, conv.id, 'hello'), { status: 403 })
-    await assert.rejects(orgMember.delete(`/api/conversations/organization/test1/${conv.id}`), { status: 403 })
+    await assert.rejects(orgMember.delete(`/api/conversations/organization/test_agents_org1/${conv.id}`), { status: 403 })
 
     // And listing shows each person only their own.
-    const mine = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`)).data
+    const mine = (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`)).data
     assert.deepEqual(mine.results.map((c: any) => c.id), [conv.id])
-    const theirList = (await orgMember.get(`/api/conversations/organization/test1?agentId=${agent.id}`)).data
+    const theirList = (await orgMember.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`)).data
     assert.deepEqual(theirList.results.map((c: any) => c.id), [theirs.conversationId])
   })
 
@@ -193,7 +193,7 @@ test.describe('Autonomous agent conversations', () => {
     await assert.rejects(turnOverSocket(orgAdmin, conversationId, '   '), { status: 400 })
     // Nor does it start a thread: an empty first message is refused before anything is created.
     await assert.rejects(turnOverSocket(orgAdmin, { agentId: agent.id }, '   '), { status: 400 })
-    assert.equal((await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`)).data.count, 1)
+    assert.equal((await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`)).data.count, 1)
   })
 
   test('a conversation of another account cannot be reached', async () => {
@@ -204,14 +204,14 @@ test.describe('Autonomous agent conversations', () => {
     // come from another account (the cross-account instruct grant). Owner scoping is
     // therefore enforced by the lookup itself, which simply does not find it.
     await assert.rejects(
-      orgAdmin.get(`/api/test-env/conversations/organization/dev1/${conversationId}/messages`),
+      orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org2/${conversationId}/messages`),
       { status: 404 }
     )
   })
 
   test('a personal-account owner is refused, as autonomous agents are org-only', async () => {
     await assert.rejects(
-      turnOverSocket(orgAdmin, { agentId: 'x' }, 'hello', { owner: 'user/test1-admin1' }),
+      turnOverSocket(orgAdmin, { agentId: 'x' }, 'hello', { owner: 'user/test_agents_org1_admin' }),
       { status: 400 }
     )
   })
@@ -229,7 +229,7 @@ test.describe('Autonomous agent conversations', () => {
 
   const pollAssistants = async (conversationId: string, atLeast: number) => {
     for (let i = 0; i < 80; i++) {
-      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
       const done = messages.filter((m: any) => m.role === 'assistant' && m.pending === false)
       if (done.length >= atLeast) return done
       await new Promise(resolve => setTimeout(resolve, 100))
@@ -245,7 +245,7 @@ test.describe('Autonomous agent conversations', () => {
     assert.notEqual(run.status, 'running')
     assert.ok(run.endedAt)
 
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     assert.ok(assistant, 'a run must always leave an assistant message — failure is a message, not a silence')
     assert.equal(assistant.runId, runId)
@@ -269,7 +269,7 @@ test.describe('Autonomous agent conversations', () => {
     await new Promise(resolve => setTimeout(resolve, 300))
     const blocked = await runOf(orgAdmin, conversationId, first.runId)
     assert.equal(blocked.status, 'running', 'a run whose conversation is locked must stay queued, not be dropped or failed')
-    const during = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const during = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     assert.equal(during.filter((m: any) => m.role === 'assistant' && m.pending === false).length, 1, 'only the first turn answered')
 
     await admin.post('/api/test-env/unlock-conversation', { conversationId })
@@ -301,7 +301,7 @@ test.describe('Autonomous agent conversations', () => {
     const run = await runOf(orgAdmin, conversationId, runId)
     assert.equal(run.status, 'interrupted')
     assert.ok(run.endedAt)
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     const forRun = messages.filter((m: any) => m.role === 'assistant' && m.runId === runId)
     assert.equal(forRun.length, 1, 'the sweep must not append a second message beside the one already there')
     assert.equal(forRun[0].pending, false)
@@ -317,13 +317,13 @@ test.describe('Autonomous agent conversations', () => {
     const agent = await createAgent()
     const { runId, conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
     await pollRun(conversationId, runId)
-    const before = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const before = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
       .find((m: any) => m.role === 'assistant' && m.runId === runId)
 
     await admin.post('/api/test-env/orphan-run', { runId, messageClosed: true })
     await admin.post('/api/test-env/recover-ownerless-runs', {})
 
-    const after = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const after = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
       .filter((m: any) => m.role === 'assistant' && m.runId === runId)
     assert.equal(after.length, 1)
     assert.deepEqual(after[0].parts, before.parts, 'a closed message keeps its parts exactly')
@@ -352,7 +352,7 @@ test.describe('Autonomous agent conversations', () => {
 
     const run = await runOf(orgAdmin, conversationId, runId)
     assert.equal(run.status, 'interrupted', 'a started run must be interrupted, never resumed')
-    const forRun = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const forRun = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
       .filter((m: any) => m.role === 'assistant' && m.runId === runId)
     assert.equal(forRun.length, 1, 'resuming would append a second assistant message for the same run')
     assert.equal(forRun[0].pending, false, 'and would leave the first one pending for ever')
@@ -375,7 +375,7 @@ test.describe('Autonomous agent conversations', () => {
 
     const run = await pollRun(conversationId, runId)
     assert.equal(run.status, 'done', 'a never-started run must be run, not written off')
-    const forRun = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const forRun = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
       .filter((m: any) => m.role === 'assistant' && m.runId === runId)
     assert.equal(forRun.length, 1)
     assert.equal(partsText(forRun[0].parts), 'world', 'the resumed turn really ran')
@@ -420,7 +420,7 @@ test.describe('Autonomous agent conversations', () => {
 
     const run = await pollRun(conversationId, runId)
     assert.ok(run.endedAt, 'it must not be left running for ever')
-    const forRun = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const forRun = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
       .filter((m: any) => m.role === 'assistant' && m.runId === runId)
     assert.equal(forRun.length, 1, 'exactly one, even when the turn could not run')
     assert.ok(partsText(forRun[0].parts).length > 0, 'and it explains itself rather than being blank')
@@ -435,7 +435,7 @@ test.describe('Autonomous agent conversations', () => {
     const agent = await createAgent()
     const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
 
-    const stored = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`))
+    const stored = (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`))
       .data.results.find((c: any) => c.id === conversationId)
     const schema = (await import('../../../api/types/conversation/schema.js')).default
     const declared = new Set(Object.keys(schema.properties))
@@ -448,7 +448,7 @@ test.describe('Autonomous agent conversations', () => {
     const agent = await createAgent()
     const { conversationId } = await startTurnOverSocket(orgAdmin, { agentId: agent.id }, 'hello')
     await assert.rejects(
-      orgAdmin.get(`/api/conversations/organization/dev1/${conversationId}/runs`),
+      orgAdmin.get(`/api/conversations/organization/test_agents_org2/${conversationId}/runs`),
       { status: 404 }
     )
   })
@@ -463,7 +463,7 @@ test.describe('Autonomous agent model loop', () => {
     await clean()
     fixture.resetInvokedTools()
     // The org needs a resolvable assistant model; the mock provider is the deterministic seam.
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   /** Dev cannot complete a real enrolment (see the seam's comment), so set the field directly. */
@@ -480,7 +480,7 @@ test.describe('Autonomous agent model loop', () => {
       if (run.status !== 'running') break
       await new Promise(resolve => setTimeout(resolve, 100))
     }
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     return { conversationId, run, messages, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
   }
 
@@ -657,7 +657,7 @@ test.describe('Autonomous agent model loop', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     const { conversationId } = await runOnce(agent.id, 'hello')
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, {
       title: agent.title, persona: agent.persona, mcpServers: [], enabled: false
     })
     // enabled is the kill switch; if it does not stop a turn it stops nothing at all. A prompt on the
@@ -739,7 +739,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   const enrol = async (agentId: string) => { await admin.post('/api/test-env/enrol-autonomous-agent', { agentId }) }
@@ -750,10 +750,10 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
   }
 
   const messagesOf = async (conversationId: string) =>
-    (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
 
   test('an exhausted account credit cap refuses the turn before any model call', async () => {
-    await orgAdmin.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
+    await orgAdmin.post(`/api/v1/limits/organization/test_agents_org1?key=${SECRET}`, {
       name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 10, consumption: 10 }
     })
     const agent = await createAgent()
@@ -779,16 +779,16 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const agent = await createAgent()
     await enrol(agent.id)
     // Non-zero prices, otherwise a mock turn costs 0 credits and records nothing at all.
-    await putMockSettings(admin, 'organization/test1', { models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000 }) })
+    await putMockSettings(admin, 'organization/test_agents_org1', { models: mockModels({ inputPricePerMillion: 1000, outputPricePerMillion: 1000 }) })
     const { conv, runId } = await startTurn(agent.id, 'hello')
     const run = await awaitRun(orgAdmin, conv.id, runId)
     assert.equal(run.status, 'done')
     assert.ok(run.credits > 0, 'a priced turn must record what it cost')
 
-    const usage = (await orgAdmin.get('/api/usage/organization/test1/history?scope=users&days=7')).data
+    const usage = (await orgAdmin.get('/api/usage/organization/test_agents_org1/history?scope=users&days=7')).data
     const flat = JSON.stringify(usage)
     assert.match(flat, new RegExp(`autonomous-agent:${agent.id}`), 'spend must be keyed on the agent')
-    assert.doesNotMatch(flat, /test1-admin1/, 'the instructing user must not be billed for an autonomous run')
+    assert.doesNotMatch(flat, /test_agents_org1_admin/, 'the instructing user must not be billed for an autonomous run')
   })
 
   test('the per-run credit budget stops a turn that would otherwise keep calling tools', async () => {
@@ -796,7 +796,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     await enrol(agent.id)
     // Priced so a single step blows the global per-run budget, which must then cut the loop
     // in fewer steps than the repeated-call guard would have taken.
-    await putMockSettings(admin, 'organization/test1', { models: mockModels({ inputPricePerMillion: 100_000_000, outputPricePerMillion: 100_000_000 }) })
+    await putMockSettings(admin, 'organization/test_agents_org1', { models: mockModels({ inputPricePerMillion: 100_000_000, outputPricePerMillion: 100_000_000 }) })
     const { conv, runId } = await startTurn(agent.id, 'loop forever')
     const run = await awaitRun(orgAdmin, conv.id, runId)
 
@@ -816,7 +816,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // Re-checking the account cap between steps bounds that to roughly one step per concurrent run.
     // This asserts the single-run half of it, which is the mechanism: the cap is crossed during the
     // turn and must stop it, rather than the turn running on to its own budget.
-    await orgAdmin.post(`/api/v1/limits/organization/test1?key=${SECRET}`, {
+    await orgAdmin.post(`/api/v1/limits/organization/test_agents_org1?key=${SECRET}`, {
       name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 200, consumption: 0 }
     })
     const agent = await createAgent({ mcpServers: [{ serverId: 'dev-public-mcp' }] })
@@ -829,7 +829,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // nothing (at the former 4,000/M one step was ~750). It is also well under the 200 account cap, so
     // prompts can roughly double before a single step crosses it (steps >= 2 below says so if they do);
     // the cap is crossed on the second or third step.
-    await putMockSettings(admin, 'organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1', {
       models: mockModels({ inputPricePerMillion: 400, outputPricePerMillion: 400 })
     })
     const { conv, runId } = await startTurn(agent.id, 'loop forever')
@@ -841,7 +841,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
 
     // The overshoot is what this bounds: spend past the cap must be about one step, not a whole
     // per-run budget.
-    const { consumption } = (await orgAdmin.get('/api/v1/limits/organization/test1' + `?key=${SECRET}`)).data.ai_credits
+    const { consumption } = (await orgAdmin.get('/api/v1/limits/organization/test_agents_org1' + `?key=${SECRET}`)).data.ai_credits
     assert.ok(consumption > 200, 'the cap is crossed — that is the premise')
     assert.ok(consumption < 200 + PER_RUN_CREDIT_BUDGET, `overshoot must be bounded by roughly one step, got ${consumption}`)
     assert.ok(run.steps >= 2, `the cap must be crossed MID-RUN, after a first step, got ${run.steps} steps`)
@@ -877,7 +877,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     const { conv, runId } = await startTurn(agent.id, 'stall')
     await new Promise(resolve => setTimeout(resolve, 300))
 
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, {
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, {
       title: agent.title, persona: agent.persona, mcpServers: [], enabled: false
     })
 
@@ -899,7 +899,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     await awaitRun(orgAdmin, conv.id, runId)
     assert.ok((await messagesOf(conv.id)).length >= 2, 'the thread has to exist before deleting proves anything')
 
-    await admin.delete(`/api/autonomous-agents/organization/test1/${agent.id}`)
+    await admin.delete(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`)
 
     // Nothing resolves through the deleted agent any more, so the only honest check is the store — read
     // through the dev seam rather than through a route that now 404s for the wrong reason.
@@ -910,22 +910,22 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
   test('the person a thread belongs to can delete it without deleting the autonomous agent, and it is archived', async () => {
     // The means to comply with an erasure request while the agent stays in use. The actor is now the
     // thread's OWNER rather than any instructor of the agent — erasure follows ownership, like reading.
-    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
     await enrol(agent.id)
     const { conv, runId } = await startTurn(agent.id, 'hello')
     await awaitRun(orgAdmin, conv.id, runId)
     const other = await startTurn(agent.id, 'hello')
     await awaitRun(orgAdmin, other.conv.id, other.runId)
 
-    const res = await orgAdmin.delete(`/api/conversations/organization/test1/${conv.id}`)
+    const res = await orgAdmin.delete(`/api/conversations/organization/test_agents_org1/${conv.id}`)
     assert.equal(res.status, 204)
 
     // A configured agent's thread is never private (shared/agent-audit.ts): the person's delete
     // ARCHIVES it, so it is gone for them but not purged — the organization's record stays.
     const left = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
     assert.equal(left.conversations, 2, 'the archived thread is kept beside the untouched one')
-    await assert.rejects(orgAdmin.get(`/api/test-env/conversations/organization/test1/${conv.id}/messages`), { status: 404 })
-    const reviewed = await orgAdmin.get(`/api/review/organization/test1/${conv.id}`)
+    await assert.rejects(orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conv.id}/messages`), { status: 404 })
+    const reviewed = await orgAdmin.get(`/api/review/organization/test_agents_org1/${conv.id}`)
     assert.ok(reviewed.data.conversation.archivedAt, 'still reviewable by an org admin')
     assert.ok(reviewed.data.messages.length >= 2)
     const remaining = await messagesOf(other.conv.id)
@@ -935,11 +935,11 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
   test('erasing someone else\'s thread is refused, even for a listed instructor', async () => {
     // Being allowed to USE the agent is not being allowed to touch another person's conversation with
     // it — the distinction the ownership model introduces.
-    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
     await enrol(agent.id)
     const { conv } = await startTurn(agent.id, 'hello')
     await assert.rejects(
-      orgMember.delete(`/api/conversations/organization/test1/${conv.id}`),
+      orgMember.delete(`/api/conversations/organization/test_agents_org1/${conv.id}`),
       { status: 403 }
     )
   })
@@ -949,7 +949,7 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // grant, which let any listed instructor stop anyone else's turn. The abort route now serves task
     // runs only — a conversation run is stopped by the `abort` frame of the socket bound to its thread,
     // which only the thread's owner can bind.
-    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+    const agent = await createAgent({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
     await enrol(agent.id)
     const live = await startTurn(agent.id, 'stall')
     await new Promise(resolve => setTimeout(resolve, 300))
@@ -957,9 +957,9 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
     // A listed instructor of the agent, but not this thread's owner: the run is not theirs to read nor to
     // abort, and the task-run abort route is refused for the owner too (an admin here), since it is not
     // how a conversation turn is stopped.
-    const abortRoute = `/api/autonomous-agents/organization/test1/${agent.id}/runs/${live.runId}/abort`
+    const abortRoute = `/api/autonomous-agents/organization/test_agents_org1/${agent.id}/runs/${live.runId}/abort`
     await assert.rejects(orgMember.post(abortRoute, {}), { status: 403 })
-    await assert.rejects(orgMember.get(`/api/conversations/organization/test1/${live.conv.id}/runs`), { status: 403 })
+    await assert.rejects(orgMember.get(`/api/conversations/organization/test_agents_org1/${live.conv.id}/runs`), { status: 403 })
     await assert.rejects(orgAdmin.post(abortRoute, {}), { status: 404 })
     assert.equal((await runOf(orgAdmin, live.conv.id, live.runId)).status, 'running', 'the refused route stopped nothing')
 
@@ -974,12 +974,12 @@ test.describe('Autonomous agent budgets, quotas and abort', () => {
 test.describe('Autonomous agent turn close', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   const enrol = async (agentId: string) => { await admin.post('/api/test-env/enrol-autonomous-agent', { agentId }) }
   const messagesOf = async (conversationId: string) =>
-    (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data
+    (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data
 
   /** Post a turn and wait for its run to reach a terminal state. */
   const runTurn = async (content: string) => {
@@ -1060,7 +1060,7 @@ test.describe('Autonomous agent run traces', () => {
 
   /** Every assistant call of a conversation, newest history-bound last. */
   const assistantCallsOf = async (conversationId: string) => {
-    const runs = (await admin.get(`/api/conversations/organization/test1/${conversationId}/runs`)).data.results
+    const runs = (await admin.get(`/api/conversations/organization/test_agents_org1/${conversationId}/runs`)).data.results
     const calls = runs.flatMap((run: any) => run.calls ?? [])
     return calls
       .filter((call: any) => call.modelRole === 'assistant')
@@ -1084,7 +1084,7 @@ test.describe('Autonomous agent run traces', () => {
     // was COPIED into a second collection; there is no copy any more, and a model id with a token
     // count is the account's own operational record of its own spend, not content about a person.
     // What the setting gates now is whether an admin may READ THE CONVERSATION.
-    await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: false })
+    await putMockSettings(admin, 'organization/test_agents_org1', { reviewPersonalAssistant: false })
     const { conv, runId } = await runTurnFor()
     assert.ok((await callsOf(conv.id, runId)).length >= 1, 'spend must be attributable even with review off')
   })
@@ -1107,7 +1107,7 @@ test.describe('Autonomous agent run traces', () => {
     //
     // Non-zero prices, or computeCreditBreakdown returns 0 and `if (total > 0)` skips the recording,
     // which would make this pass for the wrong reason. A tiny context window forces the compaction.
-    await putMockSettings(admin, 'organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1', {
       reviewPersonalAssistant: false,
       models: [{
         model: mockModelRef,
@@ -1138,7 +1138,7 @@ test.describe('Autonomous agent run traces', () => {
 
     // 1. the account ledger knows the summarizer ran.
     const today = new Date().toISOString().slice(0, 10)
-    const byRole = await admin.get('/api/usage/organization/test1/history?scope=account-daily&days=7&dimension=modelRole')
+    const byRole = await admin.get('/api/usage/organization/test_agents_org1/history?scope=account-daily&days=7&dimension=modelRole')
     const breakdown = byRole.data.entries.find((e: any) => e.label === today)?.breakdown ?? {}
     assert.ok(breakdown.summarizer > 0, `compaction must reach the usage ledger, got ${JSON.stringify(breakdown)}`)
     // The title call (conversations/title.ts) is summarizer spend too: that the summarizer call is the
@@ -1147,7 +1147,7 @@ test.describe('Autonomous agent run traces', () => {
 
     // 2. and the run it happened during carries the cost, so the per-run budget can see it.
     assert.ok(second.credits > 0)
-    const conversation = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`))
+    const conversation = (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`))
       .data.results.find((c: any) => c.id === conv.id)
     assert.ok(conversation.compaction, 'this test is only meaningful if a compaction actually happened')
   })
@@ -1160,7 +1160,7 @@ test.describe('Autonomous agent run traces', () => {
     // `bulk` returns a big result from a tiny request, so the history is dominated by clearable payload —
     // which is what a real MCP conversation looks like, and what makes this provable without tuning the
     // budget to a knife edge.
-    await putMockSettings(admin, 'organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1', {
       // On, so the model's OWN reported input size can be compared against the stored conversation —
       // the only way to show the context really shrank rather than never having grown.
       reviewPersonalAssistant: true,
@@ -1194,20 +1194,20 @@ test.describe('Autonomous agent run traces', () => {
     await turn('call tool load_tools {"names":["bulk"]}')
     for (let i = 0; i < 8; i++) await turn('call tool bulk {"chars":4000}')
 
-    const conversation = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`))
+    const conversation = (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`))
       .data.results.find((c: any) => c.id === conv.id)
     assert.equal(conversation.compaction, undefined, 'clearing must have sufficed, so no recap should exist')
 
     // And no turn called the summarizer, which is the cost this avoids. Read on the runs, where a
     // compaction records its call, not in the account ledger: the conversation's title call (once, after
     // the first exchange, conversations/title.ts) is summarizer spend too, and is not a compaction.
-    const runs = (await admin.get(`/api/conversations/organization/test1/${conv.id}/runs`)).data.results
+    const runs = (await admin.get(`/api/conversations/organization/test_agents_org1/${conv.id}/runs`)).data.results
     const summarizerCalls = runs.flatMap((run: any) => run.calls ?? []).filter((call: any) => call.modelRole === 'summarizer')
     assert.deepEqual(summarizerCalls, [], 'no compaction call expected')
 
     // The conversation itself is untouched: clearing only ever changes what the MODEL is sent, so every
     // payload is still in the store and the thread still replays in full.
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conv.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conv.id}/messages`)).data.results
     const payloads = messages.flatMap((m: any) => (m.parts ?? [])
       .filter((p: any) => p.type === 'dynamic-tool' && p.toolName === 'bulk')
       .map((p: any) => String(p.output ?? '')))
@@ -1244,7 +1244,7 @@ test.describe('Autonomous agent run traces', () => {
     // result can be a quarter of the budget.
     //
     // A tiny context window forces the threshold with a couple of short turns.
-    await putMockSettings(admin, 'organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1', {
       reviewPersonalAssistant: true,
       // A COMPLETE entry: overrides deep-merge, and an array element is replaced wholesale rather than
       // merged, so a partial one loses the required model/usage/price fields and the PUT 400s.
@@ -1277,7 +1277,7 @@ test.describe('Autonomous agent run traces', () => {
     await turn('long answer')
 
     // Via the list route: there is no single-conversation GET, and the list returns the full document.
-    const conversation = (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${agent.id}`))
+    const conversation = (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${agent.id}`))
       .data.results.find((c: any) => c.id === conv.id)
     assert.ok(conversation.compaction, 'a compaction must leave a persisted recap behind')
     assert.ok(conversation.compaction.summary.length > 0)
@@ -1285,13 +1285,13 @@ test.describe('Autonomous agent run traces', () => {
 
     // The recap covers a STORED MESSAGE boundary, never mid-turn — otherwise the model context could
     // not be rebuilt identically from [recap, ...messages after it].
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conv.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conv.id}/messages`)).data.results
     const seqs = messages.map((m: any) => m.seq)
     assert.ok(seqs.includes(conversation.compaction.coversUpToSeq), 'coversUpToSeq must name a real stored message')
 
     // The recap is on the run that wrote it, and every later run names it: what the review and the export show
     // in place of the messages it covers.
-    const runs = (await admin.get(`/api/conversations/organization/test1/${conv.id}/runs`)).data.results
+    const runs = (await admin.get(`/api/conversations/organization/test_agents_org1/${conv.id}/runs`)).data.results
     // the latest compaction's, since a tiny window compacts on more than one turn
     const writer = runs.filter((run: any) => run.context?.recap?.written).pop()
     assert.ok(writer, JSON.stringify(runs.map((run: any) => run.context)))
@@ -1334,7 +1334,7 @@ test.describe('Autonomous agent run traces', () => {
     // credits on both sides: comparing credits to a price in euros only held while the prompt stayed under
     // ~1 008 mock tokens. `cache <n>` is a mock directive matched against the whole prompt; `hello` stays on
     // the last line so the answer is still 'world'.
-    await putMockSettings(admin, 'organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1', {
       models: mockModels({ inputPricePerMillion: 8000, outputPricePerMillion: 8000, cachedInputPricePerMillion: 0 })
     })
     const { conv, runId } = await runTurnFor({}, 'cache 1000\nhello')

@@ -11,11 +11,11 @@ import { createEnrolledAgent } from '../../support/agents.ts'
 import { apiLogs } from '../../support/api-logs.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 // 12 hours from now, in UTC: a fixed hour put the scheduled slot before "last start + minimum interval" for
 // a run in the hour before it, and the minimum-interval assertions failed at that time of day.
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: (new Date().getUTCHours() + 12) % 24, minute: 0, timeZone: 'UTC' }
-const base = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
+const base = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}/tasks`
 // No session: a webhook sender is anonymous.
 const anonymous = axios.create({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
 
@@ -35,7 +35,7 @@ const trigger = (agentId: string, taskId: string, key: string | undefined, body?
 test.describe('Webhook triggers', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('the key is 16 url-safe characters, read by an admin, regenerated, and absent from every task read', async () => {
@@ -54,7 +54,7 @@ test.describe('Webhook triggers', () => {
   test('the key routes need the write access of task routes', async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id)
-    const member = await axiosAuth('test1-user1', { org: 'test1' })
+    const member = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
     await assert.rejects(member.get(`${base(agent.id)}/${task.id}/webhook-key`), { status: 403 })
   })
 
@@ -111,7 +111,7 @@ test.describe('Webhook triggers', () => {
     await admin.put(`${base(agent.id)}/${task.id}`, { title: 'Hook', prompt: 'hello', scheduling: [daily], enabled: false })
     assert.equal((await trigger(agent.id, task.id, key)).status, 409)
     await admin.put(`${base(agent.id)}/${task.id}`, { title: 'Hook', prompt: 'hello', scheduling: [daily], enabled: true })
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Hooked', persona: 'You answer briefly.', mcpServers: [], enabled: false })
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: 'Hooked', persona: 'You answer briefly.', mcpServers: [], enabled: false })
     assert.equal((await trigger(agent.id, task.id, key)).status, 409)
   })
 
@@ -120,11 +120,11 @@ test.describe('Webhook triggers', () => {
     const agent = await createAgent()
     const task = await createTask(agent.id)
     const key = await keyOf(agent.id, task.id)
-    await orgAdmin.post('/api/v1/limits/organization/test1?key=secretlimits', {
+    await orgAdmin.post('/api/v1/limits/organization/test_agents_org1?key=secretlimits', {
       name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 5, consumption: 5 }
     })
     for (let i = 0; i < 3; i++) assert.equal((await trigger(agent.id, task.id, key)).status, 409)
-    const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs`)).data.results
+    const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}/runs`)).data.results
     assert.equal(runs.length, 1)
     assert.equal(runs[0].status, 'skipped')
   })
@@ -147,7 +147,7 @@ test.describe('Webhook triggers', () => {
     assert.equal(pending.nextRunAt, new Date(new Date(firstRun.startedAt).getTime() + 3600_000).toISOString())
     const passed = (await admin.post('/api/test-env/scheduler-pass', { now: new Date(Date.now() + 2 * 3600_000).toISOString() })).data
     assert.equal(passed.fired, 1)
-    const runs = (await admin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs`, { params: { taskId: task.id } })).data.results
+    const runs = (await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}/runs`, { params: { taskId: task.id } })).data.results
     assert.equal(runs.length, 2)
     const second = await awaitAgentRun(orgAdmin, agent.id, runs[0].id)
     assert.equal(second.trigger, 'webhook')

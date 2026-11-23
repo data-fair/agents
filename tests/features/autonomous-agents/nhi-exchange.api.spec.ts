@@ -38,24 +38,24 @@ test.describe('NHI exchange', () => {
     const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
     const created = await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-autonomous-agent-nhi',
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_agent_nhi',
       siteUrl,
       issuer,
       autonomousAgent: { title: 'Identity probe', persona: 'You probe identity.', mcpServers: [], enabled: true }
     })
-    assert.equal(created.data.nhi.clientId, 'test-autonomous-agent-nhi')
+    assert.equal(created.data.nhi.clientId, 'test_agents_org1_agent_nhi')
 
     // The diagnostic endpoint performs the exchange and reports WHICH identity came back, without
     // ever returning the cookie. Reaching it at all proves assertion minting, the declared audience,
     // OIDC discovery against our own issuer, and JWKS verification all agree.
-    const session = await admin.get('/api/autonomous-agents/organization/test1/test-fixture/session')
+    const session = await admin.get('/api/autonomous-agents/organization/test_agents_org1/test-fixture/session')
     assert.equal(session.status, 200)
     // Asserted field by field, not as a regex over the serialised object: a loose match is satisfied
     // by the id turning up in `userName`, and says nothing about the two claims that actually carry
     // the meaning here.
-    assert.equal(session.data.userId, 'test-autonomous-agent-nhi')
-    assert.equal(session.data.organization, 'test1')
+    assert.equal(session.data.userId, 'test_agents_org1_agent_nhi')
+    assert.equal(session.data.organization, 'test_agents_org1')
     // The one claim distinguishing this from any ordinary user session.
     assert.equal(session.data.nhi, true, 'the session must be a non-human-identity session')
     // simple-directory caps the session at min(assertion.exp, 30m), and we request a 300s assertion —
@@ -82,21 +82,21 @@ test.describe('NHI exchange', () => {
     const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
     const fixture = (clientId: string) => admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
+      owner: { type: 'organization', id: 'test_agents_org1' },
       clientId,
       siteUrl,
       issuer,
       autonomousAgent: { title: 'Identity probe', persona: 'You probe identity.', mcpServers: [], enabled: true }
     })
-    const sessionRoute = '/api/autonomous-agents/organization/test1/test-fixture/session'
-    await fixture('test-autonomous-agent-nhi')
+    const sessionRoute = '/api/autonomous-agents/organization/test_agents_org1/test-fixture/session'
+    await fixture('test_agents_org1_agent_nhi')
     const first = (await admin.get(sessionRoute)).data
     await new Promise(resolve => setTimeout(resolve, 2100))
     const second = (await admin.get(sessionRoute)).data
     assert.ok(second.expiresIn <= first.expiresIn - 2, `the same session, older: ${first.expiresIn} then ${second.expiresIn}`)
     // A save that keeps the identity still starts afresh: an admin may have just fixed the NHI.
-    await admin.put(throughNginx('/api/autonomous-agents/organization/test1/test-fixture'), {
-      title: 'Identity probe', persona: 'You probe identity.', mcpServers: [], enabled: true, nhi: { clientId: 'test-autonomous-agent-nhi' }
+    await admin.put(throughNginx('/api/autonomous-agents/organization/test_agents_org1/test-fixture'), {
+      title: 'Identity probe', persona: 'You probe identity.', mcpServers: [], enabled: true, nhi: { clientId: 'test_agents_org1_agent_nhi' }
     })
     const third = (await admin.get(sessionRoute)).data
     assert.ok(third.expiresIn > second.expiresIn, `a new session after the save: ${second.expiresIn} then ${third.expiresIn}`)
@@ -111,12 +111,12 @@ test.describe('NHI exchange', () => {
   })
 
   test('enrolling from a site that is not an issuer is refused, naming both causes', async () => {
-    // a portal of test1: its own sites have no token endpoint, only the issuer of its realm (the platform's main site)
+    // a portal of test_agents_org1: its own sites have no token endpoint, only the issuer of its realm (the platform's main site)
     const portal = portalHost('test1-enrol')
-    const siteId = await createSite(portal, { type: 'organization', id: 'test1', name: 'Test 1' })
+    const siteId = await createSite(portal, { type: 'organization', id: 'test_agents_org1', name: 'Test 1' })
     try {
       await assert.rejects(
-        admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
+        admin.post(throughNginx('/api/autonomous-agents/organization/test_agents_org1'), {
           title: 'Portal enrolment', persona: 'x', mcpServers: [], enabled: true, nhi: { clientId: 'nhi-portal-probe' }
         }, { headers: { 'x-forwarded-host': portal, host: portal } }),
         (err: any) => {
@@ -147,7 +147,7 @@ test.describe('NHI exchange', () => {
     // Deliberately a hard assert.rejects rather than a `.catch(err => err)` / `if (stored)` pattern:
     // that is exactly what let this test decay into zero assertions once before.
     await assert.rejects(
-      admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
+      admin.post(throughNginx('/api/autonomous-agents/organization/test_agents_org1'), {
         title: 'Injection probe',
         persona: 'x',
         mcpServers: [],
@@ -166,7 +166,7 @@ test.describe('NHI exchange', () => {
     )
 
     // and no autonomous agent with that title was persisted
-    const list = await admin.get('/api/autonomous-agents/organization/test1')
+    const list = await admin.get('/api/autonomous-agents/organization/test_agents_org1')
     assert.equal(list.data.results.find((a: any) => a.title === 'Injection probe'), undefined)
     assert.equal(JSON.stringify(list.data).includes('attacker.example'), false)
   })
@@ -178,7 +178,7 @@ test.describe('NHI exchange', () => {
     // accepted and the attacker-supplied siteUrl/issuer persisted verbatim while enrolment
     // verification was skipped.
     await assert.rejects(
-      admin.post(throughNginx('/api/autonomous-agents/organization/test1'), {
+      admin.post(throughNginx('/api/autonomous-agents/organization/test_agents_org1'), {
         title: 'Empty clientId probe',
         persona: 'x',
         mcpServers: [],
@@ -193,34 +193,34 @@ test.describe('NHI exchange', () => {
       }
     )
 
-    const list = await admin.get('/api/autonomous-agents/organization/test1')
+    const list = await admin.get('/api/autonomous-agents/organization/test_agents_org1')
     const stored = list.data.results.find((a: any) => a.title === 'Empty clientId probe')
     assert.equal(stored, undefined, 'nothing should have been persisted')
     assert.equal(JSON.stringify(list.data).includes('attacker.example'), false)
   })
 
   test('an autonomous agent with no enrolled identity is refused', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'No identity',
       persona: 'x',
       mcpServers: [],
       enabled: true
     })
     await assert.rejects(
-      admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}/session`),
+      admin.get(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}/session`),
       (err: any) => { assert.equal(err.status, 400); assert.match(JSON.stringify(err.data), /non-human identity/); return true }
     )
   })
 
   test('saving a bogus nhi.clientId is refused at configuration time', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Bad enrolment', persona: 'x', mcpServers: [], enabled: true
     })
     // Sent through nginx: the body carries nhi.clientId, so the PUT handler calls
     // reqSiteUrl(req) to capture siteUrl/issuer before verification runs, and that
     // throws under the direct client (see the top-of-file comment / throughNginx above).
     await assert.rejects(
-      admin.put(throughNginx(`/api/autonomous-agents/organization/test1/${created.data.id}`), {
+      admin.put(throughNginx(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`), {
         title: 'Bad enrolment',
         persona: 'x',
         mcpServers: [],
@@ -246,12 +246,12 @@ test.describe('NHI exchange', () => {
   // closing this test gap needs the same environment fix as the skipped test above.
 
   test('a save with no nhi at all is unaffected by enrolment verification', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'No nhi', persona: 'x', mcpServers: [], enabled: true
     })
     // No nhi.clientId anywhere in the body, so assertEnrolmentWorks must never be
     // invoked and this ordinary edit must succeed without attempting any exchange.
-    const updated = await admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, {
+    const updated = await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`, {
       title: 'No nhi renamed', persona: 'x', mcpServers: [], enabled: true
     })
     assert.equal(updated.status, 200)
@@ -263,16 +263,16 @@ test.describe('NHI exchange', () => {
     // The fixture carries the site it was captured on, as a first enrolment would have stored it.
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-autonomous-agent-nhi',
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_agent_nhi',
       siteUrl: publicUrl,
       issuer,
       autonomousAgent: { title: 'Home keeper', persona: 'x', mcpServers: [], enabled: true }
     })
     // `admin` reaches the API directly: no x-forwarded-host, so a re-capture would throw. Keeping the
     // identity must not need one.
-    const res = await admin.put('/api/autonomous-agents/organization/test1/test-fixture', {
-      title: 'Home keeper, renamed', persona: 'x', mcpServers: [], enabled: true, nhi: { clientId: 'test-autonomous-agent-nhi' }
+    const res = await admin.put('/api/autonomous-agents/organization/test_agents_org1/test-fixture', {
+      title: 'Home keeper, renamed', persona: 'x', mcpServers: [], enabled: true, nhi: { clientId: 'test_agents_org1_agent_nhi' }
     })
     assert.equal(res.status, 200)
     assert.equal(res.data.nhi.siteUrl, publicUrl)

@@ -16,7 +16,7 @@ import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
 import { partsText } from '../../../api/src/conversations/operations.ts'
 
 const admin = await superAdmin
-const member = await axiosAuth('test1-user1', { org: 'test1' })
+const member = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
 test.describe('Quotas while a turn runs', () => {
   let fixture: McpFixture
@@ -28,7 +28,7 @@ test.describe('Quotas while a turn runs', () => {
     // Priced so one step costs ~90 credits, under the 500-credit per-run budget; a daily window of 150
     // (monthly / 4) is crossed by the second step. `loop forever` repeats a read-only call, which the
     // personal assistant makes without asking, until the repeated-call guard stops it at step 5.
-    await putMockSettings(admin, 'organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1', {
       models: mockModels({ inputPricePerMillion: 1_000, outputPricePerMillion: 1_000 }),
       quotas: { ...defaultQuotas, user: { unlimited: false, monthlyLimit: 600 } }
     })
@@ -36,7 +36,7 @@ test.describe('Quotas while a turn runs', () => {
     const run = await awaitRun(member, conversationId, runId)
     assert.notEqual(run.stopReason, 'repeated-calls', 'the quota must stop it, not the loop guard')
     assert.ok(run.steps <= 3, `stopped about one step past the quota, after ${run.steps} steps`)
-    const messages = (await admin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await admin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     assert.match(partsText(messages.find((m: any) => m.role === 'assistant').parts), /quota|limit/i)
   })
 })
@@ -44,7 +44,7 @@ test.describe('Quotas while a turn runs', () => {
 test.describe('Turns at once', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1', { quotas: { ...defaultQuotas, user: { unlimited: true, monthlyLimit: 0 } } })
+    await putMockSettings(admin, 'organization/test_agents_org1', { quotas: { ...defaultQuotas, user: { unlimited: true, monthlyLimit: 0 } } })
   })
 
   test('one person runs a bounded number of turns at once, and the next is refused until one ends', async () => {

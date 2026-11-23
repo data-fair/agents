@@ -11,10 +11,10 @@ import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { startTurnOverSocket, runOf } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
 const createAgent = async (over: any = {}) =>
-  (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Guides probe', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true, ...over })).data
+  (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Guides probe', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true, ...over })).data
 
 /** One turn of an agent's new thread, waited for; the run and the thread's messages. */
 const runTurn = async (agentId: string, content: string) => {
@@ -25,7 +25,7 @@ const runTurn = async (agentId: string, content: string) => {
     if (run.status !== 'running') break
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+  const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
   return { conversationId, run, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
 }
 
@@ -33,7 +33,7 @@ const issuer = `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`
 
 /** The system prompt a run had, as the review page reads it (a configured agent's thread is audited). */
 const systemPromptOf = async (conversationId: string, runId: string) =>
-  (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data.runs.find((r: any) => r.id === runId).systemPrompt as string
+  (await orgAdmin.get(`/api/review/organization/test_agents_org1/${conversationId}`)).data.runs.find((r: any) => r.id === runId).systemPrompt as string
 
 const toolCall = (assistant: any, name: string) => (assistant.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.toolName === name)
 
@@ -44,7 +44,7 @@ test.describe('Server instructions and skills', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.failSkillsList(false)
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a turn lists the server\'s skills with its tools, never reads a body, and declares the skills capability', async () => {
@@ -117,8 +117,8 @@ test.describe('Server instructions and skills', () => {
   test('read_skill over a session entry presents the agent\'s own session', async () => {
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-autonomous-agent-nhi',
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_agent_nhi',
       siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
       issuer,
       autonomousAgent: { title: 'Guides probe', persona: 'x', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true }

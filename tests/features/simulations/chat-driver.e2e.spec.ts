@@ -20,8 +20,8 @@ test.describe('Simulation chat driver', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
-    agentId = (await admin.post('/api/autonomous-agents/organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1')
+    agentId = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Driver probe', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
     })).data.id
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
@@ -37,7 +37,7 @@ test.describe('Simulation chat driver', () => {
       ws.connectToServer()
       sockets.push(ws)
     })
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const chat = createChatDriver(page)
     await chat.prepare()
     await chat.sendMessage('call tool wipe_everything {}')
@@ -58,12 +58,12 @@ test.describe('Simulation chat driver', () => {
     expect(after.slice(-2)).toEqual([{ role: 'user', text: 'hello' }, { role: 'assistant', text: 'world' }])
 
     // One conversation, holding the message: not a second thread started by the reopened socket.
-    const listed = (await admin.get('/api/review/organization/test1?size=10')).data.results
+    const listed = (await admin.get('/api/review/organization/test_agents_org1?size=10')).data.results
     expect(listed.filter((c: any) => c.agentId === agentId)).toHaveLength(1)
   })
 
   test('a new conversation empties the chat and takes the next message as its first', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const chat = createChatDriver(page)
     await chat.prepare()
     await chat.sendMessage('hello')
@@ -77,7 +77,7 @@ test.describe('Simulation chat driver', () => {
     expect((await chat.readConversation()).map(m => m.role)).toEqual(['user', 'assistant'])
 
     // Two threads on the server, not one thread shown twice.
-    const listed = (await admin.get('/api/review/organization/test1?size=10')).data.results
+    const listed = (await admin.get('/api/review/organization/test_agents_org1?size=10')).data.results
     expect(listed.filter((c: any) => c.agentId === agentId)).toHaveLength(2)
   })
 })

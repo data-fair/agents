@@ -7,28 +7,28 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const instructor = await axiosAuth('test1-user1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const instructor = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
-const createAgent = async () => (await admin.post('/api/autonomous-agents/organization/test1', {
+const createAgent = async () => (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
   title: 'Tasker',
   persona: 'x',
   mcpServers: [],
   enabled: true,
-  instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
+  instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }]
 })).data
-const tasks = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
+const tasks = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}/tasks`
 
 test.describe('Planned tasks', () => {
-  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test1') })
+  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test_agents_org1') })
 
   test('an admin creates a task; its next run is planned and the creator recorded', async () => {
     const agent = await createAgent()
     const task = (await admin.post(tasks(agent.id), { title: 'Daily digest', prompt: 'summarise', scheduling: [daily] })).data
     assert.equal(task.enabled, true)
     assert.ok(new Date(task.nextRunAt) > new Date())
-    assert.equal(task.createdBy.userId, 'superadmin')
+    assert.equal(task.createdBy.userId, 'test_agents_superadmin')
     const listed = (await orgAdmin.get(tasks(agent.id))).data
     assert.deepEqual(listed.results.map((t: any) => t.id), [task.id])
   })
@@ -74,7 +74,7 @@ test.describe('Planned tasks', () => {
     assert.equal(off.nextRunAt, undefined)
     const on = (await admin.put(`${tasks(agent.id)}/${task.id}`, { title: 't', prompt: 'p', scheduling: [daily], enabled: true })).data
     assert.ok(on.nextRunAt)
-    await admin.delete(`/api/autonomous-agents/organization/test1/${agent.id}`)
+    await admin.delete(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`)
     await assert.rejects(admin.get(`${tasks(agent.id)}/${task.id}`), { status: 404 })
   })
 

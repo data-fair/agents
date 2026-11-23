@@ -13,9 +13,9 @@ import { createEnrolledAgent } from '../../support/agents.ts'
 import { serviceUp, NEEDS_EVENTS } from '../../support/optional-services.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
-const base = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
+const base = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}/tasks`
 
 const createAgent = async (over: any = {}) => {
   const agent = await createEnrolledAgent({
@@ -41,7 +41,7 @@ test.describe('Task runs', () => {
     await clean()
     fixture.resetInvokedTools()
     await admin.delete('/api/test-env/pushed-events')
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('run now: one turn on the task prompt, recorded on the run, outcome reported', { tag: '@smoke' }, async () => {
@@ -70,7 +70,7 @@ test.describe('Task runs', () => {
     const task = await createTask(agent.id, 'call tool report_outcome {"status":"needs-attention","summary":"look"}')
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, task.id))
     const event = (await events()).find(e => e.topic.key === `agents:task-needs-attention:${task.id}`)
-    assert.equal(event.url, `${siteUrl}/agents/organization/test1/agents/${agent.id}/runs/${run.id}`)
+    assert.equal(event.url, `${siteUrl}/agents/organization/test_agents_org1/agents/${agent.id}/runs/${run.id}`)
   })
 
   test('a run that ends without report_outcome is reminded once, in the same run, and its outcome recorded', async () => {
@@ -130,7 +130,7 @@ test.describe('Task runs', () => {
     const runId = await runNow(agent.id, task.id)
     await assert.rejects(admin.post(`${base(agent.id)}/${task.id}/run`), { status: 409 })
     await awaitAgentRun(orgAdmin, agent.id, runId)
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: false })
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: false })
     await assert.rejects(admin.post(`${base(agent.id)}/${task.id}/run`), { status: 409 })
   })
 
@@ -146,7 +146,7 @@ test.describe('Task runs', () => {
     for (const task of [paused, off]) {
       const runId = await runNow(agent.id, task.id)
       assert.ok(runId)
-      const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs`, { params: { taskId: task.id } })).data.results
+      const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}/runs`, { params: { taskId: task.id } })).data.results
       assert.deepEqual(runs.map((r: any) => [r.id, r.trigger]), [[runId, 'manual']])
       await awaitAgentRun(orgAdmin, agent.id, runId)
     }
@@ -156,7 +156,7 @@ test.describe('Task runs', () => {
     const agent = await createAgent()
     const runId = await runNow(agent.id, (await createTask(agent.id, 'stall')).id)
     await new Promise(resolve => setTimeout(resolve, 300))
-    assert.equal((await orgAdmin.post(`/api/autonomous-agents/organization/test1/${agent.id}/runs/${runId}/abort`)).data.aborted, true)
+    assert.equal((await orgAdmin.post(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}/runs/${runId}/abort`)).data.aborted, true)
     const run = await awaitAgentRun(orgAdmin, agent.id, runId)
     assert.equal(run.status, 'aborted')
   })
@@ -178,7 +178,7 @@ test.describe('Task runs', () => {
     const agent = await createAgent()
     const runId = await runNow(agent.id, (await createTask(agent.id, 'stall')).id)
     await new Promise(resolve => setTimeout(resolve, 300))
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: false })
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: false })
     const run = await awaitAgentRun(orgAdmin, agent.id, runId)
     assert.equal(run.status, 'aborted')
     assert.ok(run.abortRequestedAt)
@@ -200,7 +200,7 @@ test.describe('Task runs', () => {
   test('an exhausted account credit cap skips the run: recorded with the reason, refused, not notified', async () => {
     const agent = await createAgent()
     const task = await createTask(agent.id, 'hello')
-    await orgAdmin.post(`/api/v1/limits/organization/test1?key=${LIMITS_SECRET}`, {
+    await orgAdmin.post(`/api/v1/limits/organization/test_agents_org1?key=${LIMITS_SECRET}`, {
       name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 5, consumption: 5 }
     })
     await assert.rejects(admin.post(`${base(agent.id)}/${task.id}/run`), (err: any) => {
@@ -208,7 +208,7 @@ test.describe('Task runs', () => {
       assert.match(JSON.stringify(err.data), /credit limit/i)
       return true
     })
-    const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agent.id}/runs`)).data.results
+    const runs = (await orgAdmin.get(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}/runs`)).data.results
     assert.equal(runs.length, 1)
     assert.equal(runs[0].status, 'skipped')
     assert.match(runs[0].error, /credit limit/i)
@@ -218,8 +218,8 @@ test.describe('Task runs', () => {
   test('a quota refusal at the turn\'s gate skips the run rather than failing it', async () => {
     const agent = await createAgent()
     // The agent bills as role admin under its own usage id: cap that role, and spend past it.
-    await putMockSettings(admin, 'organization/test1', { quotas: { admin: { unlimited: false, monthlyLimit: 1 } } })
-    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test1' }, userId: `autonomous-agent:${agent.id}`, cost: 5 })
+    await putMockSettings(admin, 'organization/test_agents_org1', { quotas: { admin: { unlimited: false, monthlyLimit: 1 } } })
+    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test_agents_org1' }, userId: `autonomous-agent:${agent.id}`, cost: 5 })
     const task = await createTask(agent.id, 'hello')
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, task.id))
     assert.equal(run.status, 'skipped')

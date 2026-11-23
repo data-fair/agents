@@ -6,18 +6,18 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const instructor = await axiosAuth('test1-user1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const instructor = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
-const createAgent = async () => (await admin.post('/api/autonomous-agents/organization/test1', {
+const createAgent = async () => (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
   title: 'Mem',
   persona: 'x',
   mcpServers: [],
   enabled: true,
   memory: { enabled: true },
-  instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
+  instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }]
 })).data
-const base = (agentId: string) => `/api/memory/organization/test1/${agentId}`
+const base = (agentId: string) => `/api/memory/organization/test_agents_org1/${agentId}`
 const command = (agentId: string, input: any) => admin.post(`/api/test-env/memory-command/${agentId}`, { input })
 const put = (agentId: string, path: string, body: any) => admin.put(`${base(agentId)}/document`, body, { params: { path } })
 
@@ -96,7 +96,7 @@ test.describe('Agent memory admin API', () => {
   })
 
   test('someone who may not instruct the agent cannot read its memory', async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Mem', persona: 'x', mcpServers: [], enabled: true, memory: { enabled: true }
     })).data
     await assert.rejects(instructor.get(base(agent.id)), { status: 403 })
@@ -222,7 +222,7 @@ test.describe('Agent memory admin API', () => {
   test('deleting the agent erases its memory and history', async () => {
     const agent = await createAgent()
     await put(agent.id, 'x.md', { description: 'd', content: 'a' })
-    await admin.delete(`/api/autonomous-agents/organization/test1/${agent.id}`)
+    await admin.delete(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`)
     const data = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
     assert.equal(data.memories, 0)
     assert.equal(data.memoryVersions, 0)

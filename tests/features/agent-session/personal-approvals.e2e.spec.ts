@@ -16,11 +16,11 @@ test.describe('The personal assistant\'s approval card', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1', { quotas: { ...defaultQuotas, user: { unlimited: true, monthlyLimit: 0 } } })
+    await putMockSettings(admin, 'organization/test_agents_org1', { quotas: { ...defaultQuotas, user: { unlimited: true, monthlyLimit: 0 } } })
   })
 
   test('a member approves their assistant\'s write, and it runs', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1/chat', 'test1-user1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1/chat', 'test_agents_org1_user', { org: 'test_agents_org1' })
     await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill('call tool echo {"value":"x"}')
     await page.getByTestId('agent-chat-send').click()
     await expect(page.getByTestId('approval-card')).toBeVisible({ timeout: 15000 })

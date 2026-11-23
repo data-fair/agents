@@ -17,9 +17,9 @@ import { putMockSettings } from '../../support/settings.ts'
 import { runTurn, setReviewConsent } from '../../support/turn.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 const admin = await superAdmin
-const OWNER = 'user/test-standalone1'
+const OWNER = 'user/test_agents_standalone'
 
 // External visitors unlimited; whether the account offers review is the test's.
 const reviewSettings = (reviewPersonalAssistant: boolean) => ({ quotas: { external: { unlimited: true, monthlyLimit: 0 } }, reviewPersonalAssistant })
@@ -87,7 +87,7 @@ test.describe('Deleting a reviewable conversation', () => {
     await user.delete(`/api/conversations/${OWNER}/${conversationId}`)
     assert.equal((await admin.get(`/api/review/${OWNER}`)).data.count, 1, 'archived and visible')
 
-    await admin.delete(`/api/review/${OWNER}?userId=test-standalone1`)
+    await admin.delete(`/api/review/${OWNER}?userId=test_agents_standalone`)
     assert.equal((await admin.get(`/api/review/${OWNER}`)).data.count, 0, 'and erasable by an admin')
   })
 

@@ -43,7 +43,7 @@ export const axiosAuth = (user: string, opts?: { adminMode?: boolean, org?: stri
   return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, org: opts?.org, axiosOpts, directoryUrl })
 }
 
-export const superAdmin = axiosAuth('superadmin', { adminMode: true })
+export const superAdmin = axiosAuth('test_agents_superadmin', { adminMode: true })
 
 export const defaultQuotas = {
   admin: { unlimited: true, monthlyLimit: 0 },

@@ -7,7 +7,7 @@ import { test } from '../../fixtures/login.ts'
 import { superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 
-const owner = { type: 'user', id: 'test-standalone1' }
+const owner = { type: 'user', id: 'test_agents_standalone' }
 
 function dailyPeriod (daysAgo: number): string {
   const d = new Date()
@@ -28,11 +28,11 @@ test.describe('Monitoring UI', () => {
 
   test('Shows per-user histogram with day selector', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
 
     await admin.post('/api/test-env/usage', { owner, userId: 'user-a', cost: 10, period: dailyPeriod(0) })
 
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/user/test_agents_standalone', 'test_agents_superadmin', { adminMode: true })
 
     await page.locator('#section-activity').scrollIntoViewIfNeeded()
     await page.locator('#section-activity').getByRole('tab', { name: 'Per user' }).click()
@@ -45,7 +45,7 @@ test.describe('Monitoring UI', () => {
 
   test('Shows the monthly and daily histograms, stackable with a breakdown selector', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
 
     await admin.post('/api/test-env/usage', {
       owner,
@@ -60,7 +60,7 @@ test.describe('Monitoring UI', () => {
       breakdown: { modelRole: { assistant: 30 } }
     })
 
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/user/test_agents_standalone', 'test_agents_superadmin', { adminMode: true })
 
     await page.locator('#section-activity').scrollIntoViewIfNeeded()
     await expect(page.getByText('Monthly usage (12 months)')).toBeVisible()
@@ -78,10 +78,10 @@ test.describe('Monitoring UI', () => {
     const admin = await superAdmin
     await admin.post('/api/test-env/usage', { owner, cost: 5, period: dailyPeriod(0) })
     await admin.post('/api/test-env/usage', { owner, cost: 5, period: monthlyPeriod(0) })
-    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test1' }, cost: 3, period: dailyPeriod(0) })
-    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test1' }, cost: 3, period: monthlyPeriod(0) })
+    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test_agents_org1' }, cost: 3, period: dailyPeriod(0) })
+    await admin.post('/api/test-env/usage', { owner: { type: 'organization', id: 'test_agents_org1' }, cost: 3, period: monthlyPeriod(0) })
 
-    await goToWithAuth('/agents/admin', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin', 'test_agents_superadmin', { adminMode: true })
 
     await page.locator('#section-platform').scrollIntoViewIfNeeded()
     await expect(page.getByText('Platform monthly usage (12 months)')).toBeVisible()
@@ -91,15 +91,15 @@ test.describe('Monitoring UI', () => {
     // drilling down on one account keeps the same chart shape
     const selects = page.locator('#section-platform .v-select')
     await selects.nth(1).click()
-    await page.getByRole('option', { name: 'test-standalone1' }).click()
+    await page.getByRole('option', { name: 'test_agents_standalone' }).click()
     await expect(page.locator('#section-platform canvas')).toHaveCount(2)
   })
 
   test('Shows no data message when empty', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
 
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/user/test_agents_standalone', 'test_agents_superadmin', { adminMode: true })
 
     await page.locator('#section-activity').scrollIntoViewIfNeeded()
     // Both histograms should show no data

@@ -15,7 +15,7 @@ export const BRIDGE_URL = process.env.BRIDGE_URL ??
   (bridgePort
     ? `http://localhost:${bridgePort}/v1`
     : (() => { throw new Error('BRIDGE_PORT is not set — simulations load .env via playwright.sim.config.ts, so regenerate it with "npx --no df-dev init-env --force" if it predates the drawn bridge port') })())
-export const OWNER = { type: 'user', id: 'test-standalone1' } as const
+export const OWNER = { type: 'user', id: 'test_agents_standalone' } as const
 
 const provider = {
   id: 'bridge',
@@ -118,7 +118,7 @@ export async function seedSettings (assistantModelId: string, toolsModelId: stri
   const { superadminBody, orgBody } = splitSettingsBody(bridgeSettings(assistantModelId, toolsModelId))
   // Owner-parameterised because a case may drive a surface that belongs to a DIFFERENT account than
   // the default one. Seeding only OWNER while driving another account is silent and total: that
-  // account keeps whatever mapping it had — for organization/dev1 the dev fixtures' mock model — so
+  // account keeps whatever mapping it had — for organization/test_demo_org the dev fixtures' mock model — so
   // assertBridgeUp() still passes, the run is recorded valid, and the judge grades the mock's
   // "what do you mean ?" as if it were the product.
   await admin.put(`/api/settings/${owner.type}/${owner.id}`, superadminBody)
@@ -127,7 +127,7 @@ export async function seedSettings (assistantModelId: string, toolsModelId: stri
 
 /**
  * The account and autonomous agent a chat route addresses, e.g.
- * `/agents/organization/test1/chat?agentId=test-fixture`.
+ * `/agents/organization/test_agents_org1/chat?agentId=test-fixture`.
  *
  * Parsed from the route rather than restated as extra case fields, so the account whose settings get
  * seeded and the page actually opened cannot disagree. It points at the chat page the autonomous
@@ -183,7 +183,7 @@ export const DEFAULT_SIMULATED_AGENT: Required<SimulatedAgentConfig> = {
  * replaces the default's; the identity, the instructor grant and `enabled` are the runner's.
  *
  * The sim seeds its own rather than relying on `npm run dev-fixtures`: that would be an unstated
- * prerequisite, it would point the run at organization/dev1 whose settings are deliberately the mock
+ * prerequisite, it would point the run at organization/test_demo_org whose settings are deliberately the mock
  * model, and seeding the bridge over them would break the fixtures a human reviews by hand.
  *
  * The NHI's subject is pinned to `autonomous-agent:<agentId>`, so the agent id is not free — it must
@@ -197,14 +197,14 @@ export async function seedAutonomousAgent (route: string, instructorUserId: stri
   await admin.post('/api/test-env/autonomous-agent', {
     id: agentId,
     owner,
-    clientId: 'test-autonomous-agent-nhi',
+    clientId: 'test_agents_org1_agent_nhi',
     siteUrl,
     issuer: `${siteUrl}/agents/api/nhi`,
     autonomousAgent: {
       ...DEFAULT_SIMULATED_AGENT,
       ...agent,
       // A listed instructor, so a case can be driven by someone who is NOT an org admin. A case that plans
-      // tasks is driven by an org admin (test1-admin1), who may instruct anyway: listing them is harmless.
+      // tasks is driven by an org admin (test_agents_org1_admin), who may instruct anyway: listing them is harmless.
       instructors: [{ mode: 'member', type: 'user', id: instructorUserId }],
       enabled: true
     }

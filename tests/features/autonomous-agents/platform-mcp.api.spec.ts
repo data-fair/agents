@@ -12,14 +12,14 @@ import { putMockSettings } from '../../support/settings.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const home = `http://localhost:${process.env.NGINX_PORT}`
-const AGENTS = '/api/autonomous-agents/organization/test1'
+const AGENTS = '/api/autonomous-agents/organization/test_agents_org1'
 
 const enrol = async () => await admin.post('/api/test-env/autonomous-agent', {
   id: 'test-fixture',
-  owner: { type: 'organization', id: 'test1' },
-  clientId: 'test-autonomous-agent-nhi',
+  owner: { type: 'organization', id: 'test_agents_org1' },
+  clientId: 'test_agents_org1_agent_nhi',
   siteUrl: home,
   issuer: `${home}/agents/api/nhi`,
   autonomousAgent: { title: 'Platform probe', persona: 'x', mcpServers: [], enabled: true }
@@ -28,7 +28,7 @@ const enrol = async () => await admin.post('/api/test-env/autonomous-agent', {
 test.describe('The built-in data-fair server', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('an enrolled agent with no servers has data-fair\'s tools', async () => {
@@ -58,11 +58,11 @@ test.describe('The built-in data-fair server', () => {
   // The point of the built-in server: it is called AS the agent, so its scopes apply. An agent referencing no
   // site-bound catalog server used to skip asking for a session altogether, and called data-fair anonymously.
   test('an agent with no catalog server calls data-fair as itself, under its scopes', { tag: '@smoke' }, async () => {
-    // test-scoped-autonomous-agent-nhi holds the maximum scopes ["datasets:read"] (dev/resources/users.template.json)
+    // test_agents_org1_scoped_agent_nhi holds the maximum scopes ["datasets:read"] (dev/resources/users.template.json)
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-scoped-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-scoped-autonomous-agent-nhi',
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_scoped_agent_nhi',
       siteUrl: home,
       issuer: `${home}/agents/api/nhi`,
       autonomousAgent: { title: 'Scoped platform probe', persona: 'x', mcpServers: [], enabled: true }

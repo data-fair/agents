@@ -19,9 +19,9 @@ import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 
-const OWNER = 'user/test-standalone1'
+const OWNER = 'user/test_agents_standalone'
 const SPOKE_DURING_WAIT = 'Interrupted: the person wrote to you while you were waiting for them (you to click Create).'
 const STOPPED = 'Interrupted: the person stopped the reply before this finished.'
 

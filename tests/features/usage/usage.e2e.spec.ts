@@ -19,7 +19,7 @@ test.describe('Usage UI', () => {
     const admin = await superAdmin
 
     // Seed settings
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
         {
@@ -35,7 +35,7 @@ test.describe('Usage UI', () => {
       quotas: defaultQuotas
     })
 
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/user/test_agents_standalone', 'test_agents_superadmin', { adminMode: true })
 
     // Verify usage card title is visible — the card's own title: the Activity section's "Usage" tab
     // carries the same word, and matched alone while the card's fetch was pending (or both matched
@@ -51,13 +51,13 @@ test.describe('Usage UI', () => {
   // The org-wide credit allowance pushed by the customers service, as the usage
   // card reads it back from GET /api/usage (its `credits` field).
   test('Shows the pushed credit cap and its consumption', async ({ page, goToWithAuth }) => {
-    await anonymousAx.post(`/api/v1/limits/organization/test1?key=${LIMITS_SECRET}`, {
+    await anonymousAx.post(`/api/v1/limits/organization/test_agents_org1?key=${LIMITS_SECRET}`, {
       name: 'Test Organization 1',
       lastUpdate: new Date().toISOString(),
       ai_credits: { limit: 100, consumption: 12 }
     })
 
-    await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_org1_admin', { org: 'test_agents_org1' })
 
     await expect(page.getByText('Credits consumed')).toBeVisible({ timeout: 15000 })
     await expect(page.getByText('12 / 100 credits')).toBeVisible()

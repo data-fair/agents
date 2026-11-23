@@ -7,20 +7,20 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const member = await axiosAuth('test1-user1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const member = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
 const createAgent = async () => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Tasker', persona: 'x', mcpServers: [], enabled: true })).data
+  const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Tasker', persona: 'x', mcpServers: [], enabled: true })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
   return agent
 }
-const runRoute = (agentId: string, runId: string) => `/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`
+const runRoute = (agentId: string, runId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}/runs/${runId}`
 const insertTaskRun = async (agentId: string, over: any = {}) =>
   (await admin.post('/api/test-env/task-run', { agentId, taskId: 'task-1', status: 'running', ...over })).data
 
 test.describe('Task runs in the store', () => {
-  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test1') })
+  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test_agents_org1') })
 
   test('an admin reads a task run; a member cannot', async () => {
     const agent = await createAgent()
@@ -57,7 +57,7 @@ test.describe('Task runs in the store', () => {
     const agent = await createAgent()
     await insertTaskRun(agent.id, { status: 'done' })
     assert.equal((await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data.runs, 1)
-    await admin.delete(`/api/autonomous-agents/organization/test1/${agent.id}`)
+    await admin.delete(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`)
     const data = (await admin.get(`/api/test-env/autonomous-agent-data/${agent.id}`)).data
     assert.equal(data.runs, 0)
   })

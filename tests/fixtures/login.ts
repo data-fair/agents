@@ -59,8 +59,7 @@ export const test = base.extend<{
             // A login that fails leaves us on the login page, and waitForURL then simply
             // waits out the whole test timeout with no indication why — 15 minutes of
             // silence for a simulation. The usual cause is a `user` whose email is not
-            // `<id>@test.com` (dev/resources/users.template.json has several: albanm,
-            // dmeadus0), which simple-directory answers with a 400 no assertion sees.
+            // `<id>@test.com`, which simple-directory answers with a 400 no assertion sees.
             // Fail on the response instead, naming the address actually tried.
             const [loginResponse] = await Promise.all([
               page.waitForResponse(res => res.url().includes('/api/auth/password')),

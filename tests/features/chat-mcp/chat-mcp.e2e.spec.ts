@@ -13,11 +13,11 @@ const admin = await superAdmin
 test.describe('Chat MCP UI', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('Page loads, and the debug dialog lists the page tool with its description', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test_agents_standalone')
     await expect(page.getByRole('heading', { name: 'Chat MCP Dev', level: 1 })).toBeVisible()
     await expect(page.getByLabel('Data')).toBeVisible()
 
@@ -31,7 +31,7 @@ test.describe('Chat MCP UI', () => {
   })
 
   test('Agent can call set_data tool', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test_agents_standalone')
 
     // Wait for tools to be discovered via BroadcastChannel before sending a message
     await waitForPageTools(page, 'set_data')
@@ -58,7 +58,7 @@ test.describe('Chat MCP UI', () => {
   })
 
   test('A turn runs on the server and streams into the page, and Reset clears it', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test_agents_standalone')
     await page.getByPlaceholder('Type your message...').fill('hello')
     await page.getByRole('button', { name: 'Send' }).click()
 

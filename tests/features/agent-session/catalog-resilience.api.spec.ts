@@ -18,7 +18,7 @@ import { openAgentSession, newThreadHello, type AgentSessionClient } from '../..
 import { startTurnOverSocket, runOf } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
 const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
 
@@ -27,7 +27,7 @@ test.describe('An unreachable catalog entry', () => {
 
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
@@ -54,7 +54,7 @@ test.describe('An unreachable catalog entry', () => {
   test('still FAILS a configured agent, because its selection was deliberate', async () => {
     // The other half of the decision. An admin chose these servers, so one being unreachable is a
     // misconfiguration and must say so — a toolless turn would read as a capability problem instead.
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Configured', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
     })).data
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
@@ -68,7 +68,7 @@ test.describe('An unreachable catalog entry', () => {
       await new Promise(resolve => setTimeout(resolve, 100))
     }
     assert.equal(run.status, 'error')
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     const text = assistant.parts.find((p: any) => p.type === 'text')?.text ?? ''
     assert.match(text, /dev-public-mcp/, 'it must name the server that failed, so an admin can fix it')

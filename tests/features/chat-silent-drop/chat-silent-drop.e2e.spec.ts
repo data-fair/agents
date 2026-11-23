@@ -21,11 +21,11 @@ const admin = await superAdmin
 test.describe('Chat silent-drop protection', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('An empty completion shows a fallback, and a mid-stream error an alert, instead of a silent turn', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test_agents_standalone')
 
     await page.getByPlaceholder('Type your message...').fill('empty')
     await page.getByRole('button', { name: 'Send' }).click()

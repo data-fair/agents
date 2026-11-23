@@ -30,11 +30,11 @@ const admin = await superAdmin
 test.describe('Chat hang protection', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('A stalled stream shows a thinking indicator and the turn recovers instead of hanging', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test_agents_standalone')
 
     await page.getByPlaceholder('Type your message...').fill('slow hello')
     await page.getByRole('button', { name: 'Send' }).click()

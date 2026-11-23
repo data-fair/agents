@@ -17,9 +17,9 @@ setup('warm up the dev UI routes', async ({ page, goToWithAuth }, testInfo) => {
     last = Date.now()
   }
 
-  await visit('/agents/organization/test1', 'superadmin', { adminMode: true })
-  await visit('/agents/organization/test1/chat', 'superadmin', { adminMode: true })
-  await visit('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
-  await visit('/agents/user/test-standalone1/chat', 'test-standalone1')
-  await visit('/agents/_dev/chat-mcp', 'test-standalone1')
+  await visit('/agents/organization/test_agents_org1', 'test_agents_superadmin', { adminMode: true })
+  await visit('/agents/organization/test_agents_org1/chat', 'test_agents_superadmin', { adminMode: true })
+  await visit('/agents/admin/user/test_agents_standalone', 'test_agents_superadmin', { adminMode: true })
+  await visit('/agents/user/test_agents_standalone/chat', 'test_agents_standalone')
+  await visit('/agents/_dev/chat-mcp', 'test_agents_standalone')
 })

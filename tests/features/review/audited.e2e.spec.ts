@@ -11,21 +11,21 @@ const admin = await superAdmin
 test.describe('Audited chat notice', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: true })
+    await putMockSettings(admin, 'organization/test_agents_org1', { reviewPersonalAssistant: true })
   })
 
   test('an instructor reads, from the notice, what the agent remembers, and cannot change it', async ({ page, goToWithAuth }) => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Audited',
       persona: 'x',
       mcpServers: [],
       enabled: true,
       memory: { enabled: true },
-      instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
+      instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }]
     })).data
-    await admin.put(`/api/memory/organization/test1/${agent.id}/document`, { description: 'Core facts', content: '- the sales dataset is "ventes"' }, { params: { path: 'MEMORY.md' } })
-    await admin.put(`/api/memory/organization/test1/${agent.id}/document`, { description: 'Notes', content: '<img src="https://images.example.com/x.png" onerror="window.__memoryXss = 1"> plain' }, { params: { path: 'notes.md' } })
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-user1', { org: 'test1' })
+    await admin.put(`/api/memory/organization/test_agents_org1/${agent.id}/document`, { description: 'Core facts', content: '- the sales dataset is "ventes"' }, { params: { path: 'MEMORY.md' } })
+    await admin.put(`/api/memory/organization/test_agents_org1/${agent.id}/document`, { description: 'Notes', content: '<img src="https://images.example.com/x.png" onerror="window.__memoryXss = 1"> plain' }, { params: { path: 'notes.md' } })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agent.id}`, 'test_agents_org1_user', { org: 'test_agents_org1' })
     await expect(page.getByTestId('agent-chat-audited-notice')).toContainText('not private', { timeout: 20000 })
     await page.getByTestId('agent-chat-audited-details').click()
     await expect(page.getByText('other people it talks with')).toBeVisible()
@@ -45,9 +45,9 @@ test.describe('Audited chat notice', () => {
   })
 
   test('an audited chat shows the notice, no consent sheet, and its debug dialog offers the review link and no consent toggle, whatever reviewPersonalAssistant says', async ({ page, goToWithAuth }) => {
-    await putMockSettings(admin, 'organization/test1', { reviewPersonalAssistant: false })
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Audited', persona: 'x', mcpServers: [], enabled: true })).data
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agent.id}`, 'test1-admin1', { org: 'test1' })
+    await putMockSettings(admin, 'organization/test_agents_org1', { reviewPersonalAssistant: false })
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Audited', persona: 'x', mcpServers: [], enabled: true })).data
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agent.id}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await expect(page.getByTestId('agent-chat-audited-notice')).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('agent-chat-input')).toBeVisible({ timeout: 20000 })
     const input = page.getByPlaceholder('Type your message...')
@@ -66,7 +66,7 @@ test.describe('Audited chat notice', () => {
   })
 
   test('the personal assistant shows no audited notice', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1/chat', 'test1-admin1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1/chat', 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await expect(page.getByTestId('agent-chat-input')).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('agent-chat-audited-notice')).toHaveCount(0)
   })

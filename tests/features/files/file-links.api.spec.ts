@@ -11,7 +11,7 @@ import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { FIXTURE_PORT, FIXTURE_ORIGIN, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const PORT = process.env.NGINX_PORT
 const home = `http://localhost:${PORT}`
 let fixture: McpFixture
@@ -19,8 +19,8 @@ let fixture: McpFixture
 /** The fixture agent with its NHI, on the site-bound entry (tests/features/autonomous-agents/multi-host.api.spec.ts). */
 const enrolSiteBound = async (over: Record<string, unknown> = {}) => await admin.post('/api/test-env/autonomous-agent', {
   id: 'test-fixture',
-  owner: { type: 'organization', id: 'test1' },
-  clientId: 'test-autonomous-agent-nhi',
+  owner: { type: 'organization', id: 'test_agents_org1' },
+  clientId: 'test_agents_org1_agent_nhi',
   siteUrl: home,
   issuer: `${home}/agents/api/nhi`,
   autonomousAgent: { title: 'Link probe', persona: 'x', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true, ...over }
@@ -32,7 +32,7 @@ test.describe('File links', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetExportRequests()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a link without extension is stored under the name its response gives, and the text names the stored path', async () => {
@@ -70,6 +70,6 @@ test.describe('File links', () => {
     const output = outputOf(callPart(assistant, 'export_my_profile'))
     assert.match(output, /Saved to your files: \/me\.json \(application\/json/)
     const read = await turnOverSocket(orgAdmin, conversationId, 'call tool read_file {"file_path":"/me.json"}')
-    assert.match(outputOf(callPart(read.assistant, 'read_file')), /test-autonomous-agent-nhi/)
+    assert.match(outputOf(callPart(read.assistant, 'read_file')), /test_agents_org1_agent_nhi/)
   })
 })
