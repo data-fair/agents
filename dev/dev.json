@@ -23,7 +23,6 @@
   },
   "url": "http://localhost:${NGINX_PORT}/agents/",
   "setup": [
-    "node dev/render-users.ts",
     "npm run build-libs"
   ],
   "optional": {

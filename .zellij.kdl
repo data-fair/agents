@@ -2,9 +2,9 @@
 layout {
   pane split_direction="vertical" {
     pane name="agents" borderless=true
+    // the dev world's accounts are not seeded here: npm run dev-world once the containers are up
     pane name="status" command="bash" {
-      // users.json carries the drawn ports (dev/render-users.ts): rendered right before the containers start
-      args "-c" "node dev/render-users.ts && exec ./node_modules/.bin/df-status --start-deps"
+      args "-c" "exec ./node_modules/.bin/df-status --start-deps"
     }
     // Claude Code subscription models for the dev workspace and npm run simulate (AGENTS.md): press Enter to start it
     pane name="bridge" command="bash" {

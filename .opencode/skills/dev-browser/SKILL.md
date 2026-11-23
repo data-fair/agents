@@ -35,25 +35,22 @@ After login the browser redirects to the target page automatically. For subseque
 playwright-cli -s=dev goto "http://localhost:<NGINX_PORT>/some-other-page"
 ```
 
-### Test users
+### Dev users
 
-All passwords are `passwd`.
+The dev world (`dev/resources/demo-world.json`, seeded by `npm run dev-world`). All passwords are `passwd`.
 
 | id | email | admin | orgs |
 |---|---|---|---|
-| dmeadus0 | dmeadus0@answers.com | no | dev1 (admin) |
-| superadmin | superadmin@test.com | yes (superadmin) | none |
-| dev-standalone1 | dev-standalone1@answers.com | no | none |
-| dev1-contrib1 | dev1-contrib1@answers.com | no | dev1 (admin) |
-| dev1-user1 | dev1-user1@answers.com | no | dev1 (admin) |
+| test_demo_dev | test_demo_dev@example.org | yes (superadmin) | test_demo_org (admin) |
+| test_demo_contrib | test_demo_contrib@example.org | no | test_demo_org (contrib) |
+| test_demo_outsider | test_demo_outsider@example.org | no | none (external on test_demo_org) |
 
 ### Choosing a user
 
 Pick the user that matches the scenario:
-- **General browsing / standard user**: `dmeadus0@answers.com` (member of dev1)
-- **Admin features**: `superadmin`
-- **Org-specific roles**: use `dev1-*` users for the `dev1` organization
-- **No org context**: `dev-standalone1`
+- **Admin features, org admin**: `test_demo_dev@example.org`
+- **Org member without admin rights**: `test_demo_contrib@example.org`
+- **No org context, external visitor**: `test_demo_outsider@example.org`
 
 If the caller specifies a user, use that one. Otherwise, pick the most appropriate user for the task.
 

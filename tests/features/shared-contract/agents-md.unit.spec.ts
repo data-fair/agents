@@ -8,7 +8,7 @@
  * The paths are plain backticked text, never `@path`: CLAUDE.md imports AGENTS.md, and an `@` import
  * inlines the file it names into every session, which is the opposite of "read on a need-to-know basis".
  *
- * A gitignored path counts as real: the dev logs and the rendered users.json are outputs of the dev
+ * A gitignored path counts as real: the dev logs are outputs of the dev
  * stack, present wherever it runs and absent from a fresh checkout, which is what CI tests.
  */
 import { test } from 'playwright/test'

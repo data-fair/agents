@@ -58,7 +58,7 @@ test.describe('The built-in data-fair server', () => {
   // The point of the built-in server: it is called AS the agent, so its scopes apply. An agent referencing no
   // site-bound catalog server used to skip asking for a session altogether, and called data-fair anonymously.
   test('an agent with no catalog server calls data-fair as itself, under its scopes', { tag: '@smoke' }, async () => {
-    // test_agents_org1_scoped_agent_nhi holds the maximum scopes ["datasets:read"] (dev/resources/users.template.json)
+    // test_agents_org1_scoped_agent_nhi holds the maximum scopes ["datasets:read"] (tests/support/sd-fixtures.ts)
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-scoped-fixture',
       owner: { type: 'organization', id: 'test_agents_org1' },

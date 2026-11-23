@@ -498,7 +498,7 @@ export const cases: LocalCase[] = [
       title: 'Weekly city-centre road closures',
       prompt: 'Every Monday: list the current road closures in the city centre, with the street, the dates and the reason for each, and report the outcome.',
       // Monday 08:00, Paris: within the deployment's minimum interval, and it never fires on its own —
-      // in development the scheduler leaves `test*` accounts alone.
+      // in development the scheduler leaves the `test_agents_` accounts alone.
       scheduling: [{ type: 'weekly', month: '*', dayOfMonth: '*', dayOfWeek: '1', hour: 8, minute: 0, timeZone: 'Europe/Paris' }]
     },
     persona: 'Nobody is present while this runs. The reader is the organization admin who planned the task: they read its reported outcome afterwards, in the run history, and act on it.',

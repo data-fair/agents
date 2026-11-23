@@ -82,11 +82,11 @@ const every = (ms: number, name: string, job: () => Promise<unknown>, opts: { no
 }
 
 /**
- * In development, the real-clock jobs leave `test*` owners alone: the api specs drive those owners'
- * scheduler and consolidation passes through the test-env seams, with an injected clock, and a real
- * pass would claim their slots first.
+ * In development, the real-clock jobs leave the owners of the test suites' sub-space (test_agents_) alone:
+ * the api specs drive those owners' scheduler and consolidation passes through the test-env seams, with an
+ * injected clock, and a real pass would claim their slots first. The dev world's owners keep the real clock.
  */
-const realClockScope = process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test/ } } : {}
+const realClockScope = process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test_agents_/ } } : {}
 
 export const start = async () => {
   if (config.observer?.active) await startObserver(config.observer.port)

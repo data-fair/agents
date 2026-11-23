@@ -2,7 +2,7 @@
  * One stateful test run at a time against the dev stack.
  *
  * WHY THIS EXISTS. The api and e2e projects share one database, and every spec starts with `clean()`,
- * which deletes every `test*` document — settings, conversations, runs, usage. Playwright serialises
+ * which deletes every document of the test sub-space `test_agents_` — settings, conversations, runs, usage. Playwright serialises
  * tests WITHIN a run (`workers: 1`), but nothing stopped a SECOND run: its `clean()` lands in the middle
  * of the first run's tests and deletes what they just seeded. The result looked exactly like product
  * flakiness — a different pair of failures each time, every one passing alone, typically a 403 because
@@ -56,7 +56,7 @@ export function takeStatefulLock (): void {
       if (holder && holder !== owner && isAlive(holder)) {
         throw new Error(
           `Another stateful test run (Playwright pid ${holder}) is using the dev database.\n` +
-          'Two runs wipe each other\'s data — every spec\'s clean() deletes all test* documents — which ' +
+          'Two runs wipe each other\'s data — every spec\'s clean() deletes all test_agents_ documents — which ' +
           'produces failures that change from run to run and never reproduce alone.\n' +
           `Wait for it to finish, or stop it. If no run is active, delete ${LOCK_PATH}.\n` +
           'If you are an agent: do not start a test run while one you launched earlier is still going.'

@@ -1,5 +1,5 @@
 /**
- * stateless unit tests for the dev NHI fixtures
+ * stateless unit tests for the NHI fixtures of the test accounts (tests/support/sd-fixtures.ts)
  *
  * These assert a fixture CAN work, without needing the stack up. Each check corresponds to something
  * simple-directory requires of an NHI — verified in its source — where getting it wrong produces a
@@ -9,9 +9,9 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { SERVICE_PATH_PART, autonomousAgentSubject } from '../../../api/src/nhi/operations.ts'
+import { sdFixtures } from '../../support/sd-fixtures.ts'
 
-const users = JSON.parse(readFileSync('dev/resources/users.template.json', 'utf8')) as any[]
-const organizations = JSON.parse(readFileSync('dev/resources/organizations.json', 'utf8')) as any[]
+const { users, organizations } = sdFixtures({ DEV_HOST: 'localhost', NGINX_PORT: '5700' }) as { users: any[], organizations: any[] }
 const nhiUsers = users.filter(user => user.nhi)
 
 test.describe('dev NHI fixtures', () => {
@@ -20,8 +20,8 @@ test.describe('dev NHI fixtures', () => {
   })
 
   test('each has an email', () => {
-    // simple-directory's FileStorage.cleanUser does `res.email.toLowerCase()` unguarded, so a
-    // fixture without one throws on every read of it — not just on the exchange.
+    // simple-directory lowercases it unguarded, so a fixture without one throws on every read of
+    // it — not just on the exchange — and its test seed refuses an email out of the sub-space.
     for (const user of nhiUsers) {
       assert.equal(typeof user.email, 'string', `${user.id} needs an email`)
       assert.ok(user.email.length > 0)
@@ -29,8 +29,8 @@ test.describe('dev NHI fixtures', () => {
   })
 
   test('each belongs to exactly one organization', () => {
-    // The exchange refuses unless `user.organizations.length === 1`, and FileStorage derives that
-    // from organizations.json membership rather than from the user entry.
+    // The exchange refuses unless `user.organizations.length === 1`, and the test seed derives that
+    // from the organizations' members rather than from the user entry.
     for (const user of nhiUsers) {
       const orgs = organizations.filter(org => org.members.some((m: any) => m.id === user.id))
       assert.equal(orgs.length, 1, `${user.id} is in ${orgs.length} organizations, needs exactly 1`)
@@ -66,33 +66,21 @@ test.describe('dev NHI fixtures', () => {
   })
 
   test('every consumer pairs an NHI with the agent id that NHI\'s subject pins', () => {
-    // THE coupling everything here rests on, and the one nothing pinned: an NHI's subject is fixed in
-    // the template, our assertions derive the subject from the agent's id, and simple-directory
-    // answers a mismatch with the same uniform 401 as every other misconfiguration. Renaming
-    // AUTONOMOUS_AGENT_ID (or editing a subject) therefore broke `npm run dev-fixtures` and the specs
-    // at their first tool call with nothing pointing at the cause, while every test still passed —
-    // AGENTS.md claimed this file enforced it, and it only checked the SHAPE, deriving the agent id
-    // from the subject it was checking.
+    // THE coupling everything here rests on: an NHI's subject is fixed in the fixtures, our assertions
+    // derive the subject from the agent's id, and simple-directory answers a mismatch with the same
+    // uniform 401 as every other misconfiguration. Renaming an agent id (or editing a subject) would
+    // break the specs at their first tool call with nothing pointing at the cause.
     //
     // Read from the consumers' source rather than restated, for the same reason the chat driver's
-    // selectors are: a copy here would drift with them and prove nothing.
+    // selectors are: a copy here would drift with them and prove nothing. (dev/fixtures.ts is not a
+    // consumer: it enrols its agent's identity with the subject derived from the agent id.)
     const subjectOf = (nhiUserId: string) => {
       const user = users.find(u => u.id === nhiUserId)
-      assert.ok(user, `no fixture NHI ${nhiUserId} in users.template.json`)
+      assert.ok(user, `no fixture NHI ${nhiUserId} in tests/support/sd-fixtures.ts`)
       return user.nhi?.subject
     }
 
-    // 1. dev/fixtures.ts — the pair `npm run dev-fixtures` uses.
-    const fixtures = readFileSync('dev/fixtures.ts', 'utf8')
-    const devAgentId = fixtures.match(/AUTONOMOUS_AGENT_ID\s*=\s*'([^']+)'/)?.[1]
-    const devNhi = fixtures.match(/AUTONOMOUS_AGENT_NHI\s*=\s*'([^']+)'/)?.[1]
-    assert.ok(devAgentId && devNhi, 'dev/fixtures.ts must still declare AUTONOMOUS_AGENT_ID and AUTONOMOUS_AGENT_NHI')
-    assert.equal(
-      subjectOf(devNhi), autonomousAgentSubject(devAgentId),
-      `dev/fixtures.ts pairs ${devNhi} with agent id ${devAgentId}, so that NHI's subject must be ${autonomousAgentSubject(devAgentId)}`
-    )
-
-    // 2. every spec that creates an agent through the dev seam with a chosen id.
+    // every spec that creates an agent through the dev seam with a chosen id.
     const specs = [
       'tests/features/autonomous-agents/mcp-tools.api.spec.ts',
       'tests/features/autonomous-agents/nhi-exchange.api.spec.ts',
@@ -135,20 +123,21 @@ test.describe('dev NHI fixtures', () => {
     }
   })
 
-  test('the template hardcodes no port, so a checkout cannot silently use the wrong one', () => {
-    // df-dev init-env draws every port, so a literal one would be correct in exactly one
-    // checkout and wrong everywhere else, including CI.
-    for (const user of nhiUsers) {
-      assert.doesNotMatch(user.nhi.provider.issuer, /:\d{4,5}\b/, `${user.id} should use {NGINX_PORT}, not a literal port`)
-      assert.match(user.nhi.provider.issuer, /\{NGINX_PORT\}/)
+  test('the issuer follows the environment, so a checkout cannot silently use the wrong port', () => {
+    // a literal port would be correct in exactly one environment and wrong everywhere else
+    for (const user of sdFixtures({ DEV_HOST: 'dev.example', NGINX_PORT: '1234' }).users.filter((u: any) => u.nhi) as any[]) {
+      assert.equal(user.nhi.provider.issuer, `http://dev.example:1234/${SERVICE_PATH_PART}/api/nhi`)
     }
   })
 
-  test('the fixtures the tests and the dev seeds use are distinct', () => {
-    // clean() wipes owner.id /^test/ only, so dev fixtures must not share an identity with test
-    // ones or a suite run would invalidate what a human was reviewing.
+  test('the identities the tests and the dev fixtures use are distinct', () => {
+    // clean() wipes the test sub-space only, so the dev fixtures' agent must not share an identity
+    // with the test ones or a suite run would invalidate what a human was reviewing.
     const subjects = nhiUsers.map(user => user.nhi.subject)
     assert.equal(new Set(subjects).size, subjects.length, 'two fixtures share a subject')
+    const devAgentId = readFileSync('dev/fixtures.ts', 'utf8').match(/AUTONOMOUS_AGENT_ID\s*=\s*'([^']+)'/)?.[1]
+    assert.ok(devAgentId, 'dev/fixtures.ts must still declare AUTONOMOUS_AGENT_ID')
+    assert.ok(!subjects.includes(autonomousAgentSubject(devAgentId)), 'the dev agent shares a subject with a test fixture')
   })
 })
 

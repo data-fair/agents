@@ -170,7 +170,7 @@ test.describe('Approval card', () => {
     const decided = page.getByTestId('decided-approval-card')
     await expect(decided).toHaveCount(1)
     await expect(decided.getByTestId('approval-review')).toContainText('Reviewed: allowed, your confirmation is required')
-    await expect(decided.getByTestId('approval-decided')).toContainText('Approved by Test1-admin1 on ')
+    await expect(decided.getByTestId('approval-decided')).toContainText('Approved by Org1 Admin on ')
     await expect(decided.getByTestId('approval-approve')).toHaveCount(0)
     await expect(decided.getByTestId('approval-readonly')).toHaveCount(0)
     await chips.nth(0).click()
@@ -179,7 +179,7 @@ test.describe('Approval card', () => {
     const personal = page.getByTestId('tool-call-review').nth(1)
     await expect(personal).toContainText('Allowed by the reviewer.')
     await expect(personal).toContainText('mock allow')
-    await expect(personal).toContainText('Approved by Test1-admin1')
+    await expect(personal).toContainText('Approved by Org1 Admin')
   })
 
   test('the admin review page shows a pending approval read-only', async ({ page, goToWithAuth }) => {

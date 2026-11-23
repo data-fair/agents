@@ -28,10 +28,9 @@ test.describe('NHI exchange', () => {
   /**
    * The real exchange, end to end.
    *
-   * What made this impossible until now was creating the NHI: simple-directory's FileStorage cannot
-   * (createUser throws), and its API therefore 500s. The fixture in dev/resources/users.template.json
-   * replaces that step — the identity already exists, carrying this service's issuer and the subject
-   * our assertions actually sign. The agent's id is chosen through the dev seam precisely so that
+   * The NHI is not created through simple-directory's API: the fixture in tests/support/sd-fixtures.ts
+   * is seeded with the test accounts — the identity already exists, carrying this service's issuer and
+   * the subject our assertions actually sign. The agent's id is chosen through the dev seam precisely so that
    * subject matches; see the seam's comment in app.ts.
    */
   test('an enrolled autonomous agent obtains a real simple-directory session', { tag: '@smoke' }, async () => {

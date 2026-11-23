@@ -134,7 +134,7 @@ test.describe('Sites of an autonomous agent', () => {
   })
 
   test('a scoped identity\'s session carries its maximum scopes to a site-bound server', async () => {
-    // test_agents_org1_scoped_agent_nhi holds the maximum scopes ["datasets:read"] (dev/resources/users.template.json);
+    // test_agents_org1_scoped_agent_nhi holds the maximum scopes ["datasets:read"] (tests/support/sd-fixtures.ts);
     // the exchange asks for no scope, so its session is granted exactly those.
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-scoped-fixture',

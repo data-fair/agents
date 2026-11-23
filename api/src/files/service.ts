@@ -84,12 +84,12 @@ export const signScopeFileUrl = (scope: FileScope, name: string, now: Date): str
   return signedFileUrl(config.files.publicUrl, config.files.secret, scope, name, Math.floor(now.getTime() / 1000))
 }
 
-/** The files of every `test*` owner, as the reset removes their documents. */
-export const removeTestOwnersFiles = async (): Promise<void> => {
+/** The files of the owners of a test sub-space (ids starting with `prefix`), as its cleanup removes their documents. */
+export const removeTestOwnersFiles = async (prefix: string): Promise<void> => {
   const backend = fileStore()
   if (!backend) return
   for (const ownerType of ['organization', 'user']) {
-    const owners = new Set((await backend.lsrWithStats(`${FILES_ROOT}/${ownerType}/`)).map(file => file.path.split('/')[0]).filter(id => id.startsWith('test')))
+    const owners = new Set((await backend.lsrWithStats(`${FILES_ROOT}/${ownerType}/`)).map(file => file.path.split('/')[0]).filter(id => id.startsWith(prefix)))
     for (const ownerId of owners) await backend.removeDir(`${FILES_ROOT}/${ownerType}/${ownerId}/`)
   }
 }

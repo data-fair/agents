@@ -68,7 +68,7 @@ export const test = base.extend<{
               page.getByRole('button', { name: /^log ?in$/i }).click()
             ])
             if (!loginResponse.ok()) {
-              throw new Error(`login failed for ${user}@test.com (${loginResponse.status()}) — is that user's email really <id>@test.com in dev/resources/users.template.json?`)
+              throw new Error(`login failed for ${user}@test.com (${loginResponse.status()}) — is that user's email really <id>@test.com in tests/support/sd-fixtures.ts?`)
             }
             await page.waitForURL(url)
             // Simple-directory keeps a server-side session reference per user and drops

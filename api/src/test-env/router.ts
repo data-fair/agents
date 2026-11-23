@@ -47,6 +47,14 @@ const recordPushedEvents = () => {
   }
 }
 
+// Prefixed test sub-spaces: a test suite owns the accounts whose ids start with its own prefix (test_<suite>_)
+// and the data they own, cleaned without touching the other suites nor the unprefixed accounts
+const testPrefixRegexp = /^test_[a-z0-9]+(?:_[a-z0-9]+)*_$/
+
+// The sub-space of this repository's test suites: the sweep seams below act on it unless a test names
+// an owner, so a run never touches (or bills, with the dev bridge) the dev world's or a simulation's data.
+const SUITE_PREFIX = 'test_agents_'
+
 export const createTestEnvRouter = () => {
   recordPushedEvents()
   const router = Router()
@@ -69,31 +77,40 @@ export const createTestEnvRouter = () => {
     } catch (err) { next(err) }
   })
 
+  /**
+   * Cleanup of a test sub-space (DELETE /?prefix=test_<suite>_): what the accounts whose ids start with the
+   * prefix own — documents and files — and the in-process caches. The other sub-spaces (the dev world
+   * test_demo_, a simulation's context) and the unprefixed accounts are left alone.
+   */
   router.delete('/', async (req, res) => {
+    const prefix = req.query.prefix
+    if (typeof prefix !== 'string' || !testPrefixRegexp.test(prefix)) throw httpError(400, 'invalid test prefix')
+    // the prefix only holds [a-z0-9_], safe in a regexp
+    const ownerFilter = { 'owner.id': new RegExp('^' + prefix) }
     getModelsForOwner.clear()
     clearToolListings()
     invalidateSettings()
-    await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('moderation-events').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('moderation-strikes').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('limits').deleteMany({ id: /^test/ })
+    await mongo.db.collection('settings').deleteMany(ownerFilter)
+    await mongo.db.collection('usage').deleteMany(ownerFilter)
+    await mongo.db.collection('moderation-events').deleteMany(ownerFilter)
+    await mongo.db.collection('moderation-strikes').deleteMany(ownerFilter)
+    await mongo.db.collection('limits').deleteMany({ id: new RegExp('^' + prefix) })
     // The NHI session cache is in-process and keyed by AGENT ID alone, so deleting the documents is
     // not enough: a later spec re-creating the same id would be served the cookie obtained for the
     // previous one, silently skipping the exchange it means to test.
-    for (const agent of await mongo.db.collection('autonomous-agents').find({ 'owner.id': /^test/ }, { projection: { id: 1 } }).toArray()) {
+    for (const agent of await mongo.db.collection('autonomous-agents').find(ownerFilter, { projection: { id: 1 } }).toArray()) {
       forgetAgentSessions(agent.id as string)
     }
-    await mongo.db.collection('autonomous-agent-tasks').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('autonomous-agents').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('conversations').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('messages').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('runs').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('script-pauses').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('agent-memories').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('agent-memory-versions').deleteMany({ 'owner.id': /^test/ })
-    await removeTestOwnersFiles()
-    res.send()
+    await mongo.db.collection('autonomous-agent-tasks').deleteMany(ownerFilter)
+    await mongo.db.collection('autonomous-agents').deleteMany(ownerFilter)
+    await mongo.db.collection('conversations').deleteMany(ownerFilter)
+    await mongo.db.collection('messages').deleteMany(ownerFilter)
+    await mongo.db.collection('runs').deleteMany(ownerFilter)
+    await mongo.db.collection('script-pauses').deleteMany(ownerFilter)
+    await mongo.db.collection('agent-memories').deleteMany(ownerFilter)
+    await mongo.db.collection('agent-memory-versions').deleteMany(ownerFilter)
+    await removeTestOwnersFiles(prefix)
+    res.status(204).send()
   })
   // Dev-only: a scope's files as the product lists them, so a spec can see deletion and the sweep act.
   router.get('/files/:ownerType/:ownerId/:scopeId', async (req, res) => {
@@ -132,7 +149,7 @@ export const createTestEnvRouter = () => {
    * Also sets `nhi` directly, which the real write route cannot do from a test client: it rebuilds
    * that field from the request and needs an x-forwarded-host the direct clients do not send.
    *
-   * Pass the FIXTURE client id (see dev/resources/users.template.json) for a real exchange.
+   * Pass the FIXTURE client id (see tests/support/sd-fixtures.ts) for a real exchange.
    *
    * UNAUTHENTICATED, like every seam in this block, and unreachable outside development (the
    * NODE_ENV guard above, with the /api 404 catch-all after it). Worth stating plainly because this
@@ -323,10 +340,9 @@ export const createTestEnvRouter = () => {
       res.json({ ok: false, error: err.message, durationMs: performance.now() - startedAt })
     }
   })
-  // The sweep seams act on `test*` owners unless a test names another filter, so a run never touches
-  // (or bills, with the dev bridge) the real dev accounts' data — the same rule as clean().
+  // The sweep seams act on the suite's sub-space unless a test names an owner (see SUITE_PREFIX).
   const testOwnerScope = (owner: unknown): Record<string, unknown> =>
-    owner && typeof owner === 'object' ? { 'owner.id': (owner as any).id } : { 'owner.id': /^test/ }
+    owner && typeof owner === 'object' ? { 'owner.id': (owner as any).id } : { 'owner.id': new RegExp('^' + SUITE_PREFIX) }
   // Dev-only: one agent's pass, or the sweep, as of a chosen time — due by the sweep's own rule either way.
   router.post('/consolidate-memory', async (req, res) => {
     res.json(await maybeConsolidate(String(req.body.agentId), req.body.now ? new Date(req.body.now) : undefined))

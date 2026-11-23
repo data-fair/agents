@@ -272,7 +272,7 @@ export const TASK_RUN_TIMEOUT_MS = 10 * 60 * 1000
  *
  * Through the product's own routes, as an admin presses the button: the run is the same one a
  * scheduled slot starts (trigger `manual`), so nothing about its content depends on how it was
- * started. Not through the scheduler: in development its poll leaves `test*` accounts alone, and an
+ * started. Not through the scheduler: in development its poll leaves the `test_agents_` accounts alone, and an
  * injected-clock pass would add a seam to a case whose subject is the run, not the schedule.
  *
  * Returns the run as it ended. A `skipped` start (the account's credit cap) is refused by the route

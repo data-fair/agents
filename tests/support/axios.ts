@@ -1,6 +1,7 @@
 import { axiosBuilder } from '@data-fair/lib-node/axios.js'
 import { privateHttpAgent, privateHttpsAgent } from '@data-fair/lib-node/http-agents.js'
 import { axiosAuth as _axiosAuth } from '@data-fair/lib-node/axios-auth.js'
+import { prefix } from './sd-fixtures.ts'
 
 export const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
 export const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
@@ -54,6 +55,7 @@ export const defaultQuotas = {
   untrusted: { unlimited: false, monthlyLimit: 0 }
 }
 
+/** Remove what the accounts of the test sub-space (tests/support/sd-fixtures.ts) own, nothing else. */
 export const clean = async () => {
-  await anonymousAx.delete(`http://localhost:${process.env.DEV_API_PORT}/api/test-env`)
+  await anonymousAx.delete(`http://localhost:${process.env.DEV_API_PORT}/api/test-env`, { params: { prefix } })
 }

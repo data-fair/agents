@@ -65,7 +65,7 @@ test.describe('Autonomous agent tools', () => {
    * The point of the whole identity design: the far end saw a session, and it is the AGENT's own.
    *
    * Previously unprovable because no NHI could be created in dev. The fixture in
-   * dev/resources/users.template.json supplies one, and the agent's id is chosen so the fixture's
+   * tests/support/sd-fixtures.ts supplies one, and the agent's id is chosen so the fixture's
    * pinned subject matches — see the seam in app.ts.
    */
   test('a session server receives the autonomous agent\'s own bearer token', { tag: '@smoke' }, async () => {

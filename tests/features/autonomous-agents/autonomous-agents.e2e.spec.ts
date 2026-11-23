@@ -30,6 +30,15 @@ test.describe('Autonomous agents configuration', () => {
   // (autonomousAgentsRequireAdminMode), so every write here needs a superadmin in admin mode.
   const asSuperAdmin = { adminMode: true } as const
 
+  // simple-directory refusing to create an NHI: the request still leaves the browser for the directory's
+  // URL (what the enrolment test pins), and is answered with a refusal instead of creating the identity
+  const refuseIdentityCreation = async (page: import('@playwright/test').Page) => {
+    await page.route('**/simple-directory/api/organizations/test_agents_org1/nhis', async route => {
+      if (route.request().method() !== 'POST') return await route.fallback()
+      await route.fulfill({ status: 400, contentType: 'text/plain', body: 'identity creation refused (test)' })
+    })
+  }
+
   test('creation asks only for a name, a role, its scopes and an example', async ({ page, goToWithAuth }) => {
     await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
@@ -46,7 +55,8 @@ test.describe('Autonomous agents configuration', () => {
   })
 
   test('creation without directory lands on the page with a retry', async ({ page, goToWithAuth }) => {
-    // In dev, simple-directory is file-storage: the identity cannot be created, which is the path to pin.
+    // simple-directory refuses to create the identity, which is the path to pin.
+    await refuseIdentityCreation(page)
     await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
     await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Quality agent')
@@ -143,10 +153,9 @@ test.describe('Autonomous agents configuration', () => {
     // The two services are federated CLIENT-side: this button calls simple-directory's own NHI API
     // with the admin's session, so the admin never leaves this UI.
     //
-    // The SUCCESS path cannot run here: simple-directory's NHI management is mongo-only (createUser
-    // throws under the file storage every data-fair dev stack uses), so creation fails. That makes
-    // the failure path the valuable one to pin — an inert button would be the likely bug, and this
-    // asserts the directory's own refusal is surfaced instead.
+    // The failure path is the valuable one to pin — an inert button would be the likely bug — so the
+    // directory's answer to the creation is a refusal here, and this asserts it is surfaced.
+    await refuseIdentityCreation(page)
     const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Unenrolled agent', persona: 'x', mcpServers: [], enabled: true
     })
