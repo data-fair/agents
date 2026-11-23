@@ -6,6 +6,7 @@ dotenv.config({ path: import.meta.resolve('../../.env').replace('file://', '') }
 if (!process.env.DEV_API_PORT) throw new Error('missing DEV_API_PORT env variable, run "npm run dev-deps" to create the .env file')
 
 // an optional service is absent when its port variable is empty
+/** @param {string | undefined} port */
 const optionalUrl = (port) => port ? `http://localhost:${port}` : null
 
 export default {
