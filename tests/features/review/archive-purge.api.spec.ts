@@ -17,6 +17,7 @@ import { MongoClient } from 'mongodb'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { runTurn, setReviewConsent } from '../../support/turn.ts'
+import { devMongoUrl } from '../../support/mongo-url.ts'
 
 const user = await axiosAuth('test_agents_standalone')
 const admin = await superAdmin
@@ -37,7 +38,7 @@ const counts = async (conversationId: string) => ({
 test.describe('Purging a conversation', () => {
   test.beforeAll(async () => {
     // The same database the dev server writes to (api/config/development.js).
-    client = new MongoClient(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+    client = new MongoClient(devMongoUrl)
     await client.connect()
     db = client.db()
   })

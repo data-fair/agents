@@ -10,6 +10,7 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { devMongoUrl } from '../../support/mongo-url.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
@@ -24,7 +25,7 @@ test.describe('Page skills', () => {
   let mongo: MongoClient
   test.beforeAll(async () => {
     fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT))
-    mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+    mongo = await MongoClient.connect(devMongoUrl)
   })
   test.afterAll(async () => { await fixture.close(); await mongo.close() })
   test.beforeEach(async () => {

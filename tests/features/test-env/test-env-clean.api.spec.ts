@@ -15,6 +15,7 @@ import { MongoClient, type Db } from 'mongodb'
 import { nanoid } from 'nanoid'
 import { anonymousAx } from '../../support/axios.ts'
 import { prefix } from '../../support/sd-fixtures.ts'
+import { devMongoUrl } from '../../support/mongo-url.ts'
 
 const testEnvUrl = `http://localhost:${process.env.DEV_API_PORT}/api/test-env`
 
@@ -36,7 +37,7 @@ const conversation = (owner: typeof own) => ({
 test.describe('Cleanup of a test sub-space', () => {
   test.beforeAll(async () => {
     // The same database the dev server writes to (api/config/development.js).
-    client = new MongoClient(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+    client = new MongoClient(devMongoUrl)
     await client.connect()
     db = client.db()
   })

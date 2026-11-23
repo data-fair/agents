@@ -15,6 +15,7 @@ import { MongoClient } from 'mongodb'
 import { axiosAuth, superAdmin, getAnonymousActionToken, directoryUrl, defaultQuotas } from '../tests/support/axios.ts'
 import { putSettings } from '../tests/support/settings.ts'
 import { openAgentSession } from './agent-session-client.ts'
+import { devMongoUrl } from '../tests/support/mongo-url.ts'
 
 const anonymous = process.argv.includes('--anonymous')
 await putSettings(await superAdmin, 'organization/test_agents_org1', {
@@ -28,7 +29,7 @@ await putSettings(await superAdmin, 'organization/test_agents_org1', {
   modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } },
   quotas: { ...defaultQuotas, contrib: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: true, monthlyLimit: 0 } }
 })
-const mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+const mongo = await MongoClient.connect(devMongoUrl)
 const db = mongo.db()
 
 let cookie: string | undefined

@@ -14,6 +14,7 @@ import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
 import { MongoClient } from 'mongodb'
+import { devMongoUrl } from '../../support/mongo-url.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
@@ -456,7 +457,7 @@ test.describe('A turn over the agent session', () => {
     // A backstop: a thread whose first prompt's socket closed mid-creation is created but never
     // spoken in. Written straight to the store, since that window cannot be hit reliably from here.
     const listedId = await personalConversation()
-    const client = new MongoClient(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+    const client = new MongoClient(devMongoUrl)
     try {
       await client.db().collection('conversations').insertOne({
         id: 'test-empty-thread',

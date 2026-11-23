@@ -18,6 +18,7 @@ import { MongoClient } from 'mongodb'
 import { superAdmin, axiosAuth, getAnonymousActionToken, directoryUrl, defaultQuotas } from '../tests/support/axios.ts'
 import { putSettings } from '../tests/support/settings.ts'
 import { openAgentSession, type AgentSessionClient } from './agent-session-client.ts'
+import { devMongoUrl } from '../tests/support/mongo-url.ts'
 
 const arg = (name: string, fallback: string) => {
   const at = process.argv.indexOf(`--${name}`)
@@ -190,7 +191,7 @@ const main = async () => {
     quotas: { ...defaultQuotas, contrib: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: true, monthlyLimit: 0 } }
   })
   token = await getAnonymousActionToken()
-  const mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+  const mongo = await MongoClient.connect(devMongoUrl)
   const pid = apiPid()
   const leftBefore = await leftoverAnonymous(mongo)
   console.log(`dev-api pid ${pid}, rss ${rssMb(pid).toFixed(0)}MB, anonymous threads before: ${leftBefore}\n`)
