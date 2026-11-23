@@ -45,7 +45,7 @@ test.describe('Moderation E2E (server-enforced)', () => {
   })
 
   test('a blocked turn shows the refusal, and appears on the activity page and in review', async ({ page, context, goToWithAuth }) => {
-    await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
+    await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: process.env.DEV_HOST, path: '/' }])
 
     // produce one blocked check as the external user via the chat
     await goToWithAuth('/agents/user/test_agents_standalone/chat', 'test_agents_org1_user')

@@ -25,7 +25,7 @@ export const test = base.extend<{
         await context.addCookies([{
           name: 'i18n_lang',
           value: 'en',
-          domain: 'localhost',
+          domain: process.env.DEV_HOST,
           path: '/',
         }])
         await use(page)

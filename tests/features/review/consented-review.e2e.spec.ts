@@ -36,7 +36,7 @@ test.describe('Consented review flow', () => {
     await context.addCookies([{
       name: 'agent-chat-trace-consent',
       value: 'yes',
-      domain: 'localhost',
+      domain: process.env.DEV_HOST,
       path: '/'
     }])
 
