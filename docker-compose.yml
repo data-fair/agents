@@ -47,9 +47,10 @@ services:
       - SECRET_SITES=secret-sites
       - SECRET_EVENTS=secret-events
       - SECRET_SENDMAILS=secret-sendmails
-      # host network: sd's default SMTP localhost:1025 would reach another env's maildev; nothing listens
-      # on this one (agents' notifications go through events, which tests the mail delivery)
-      - MAILS_TRANSPORT={"host":"localhost","port":${MAILDEV_SMTP_PORT},"ignoreTLS":true}
+      # no mail server here (agents' notifications go through events, which tests the mail delivery): port 1
+      # refuses the connection, where sd's default SMTP localhost:1025 would reach another env's maildev.
+      # Not jsonTransport: it has no verify, and sd waits for its verify at startup
+      - MAILS_TRANSPORT={"host":"localhost","port":1,"ignoreTLS":true}
       - MANAGE_NHIS=true
       # dev only: the issuer is http://localhost, which assertSafeIssuer would reject
       # for being non-https on a private host
@@ -67,8 +68,8 @@ services:
       timeout: 2s
       retries: 60
 
-  # optional (npx --no df-dev up events): without it the API runs with privateEventsUrl unset
-  # (dev/dev.json "optional"), and the task notification specs skip
+  # optional (npm run dev -- --profile events): without it the API runs with privateEventsUrl unset
+  # (EVENTS_PORT blanked by dev/run.sh), and the task notification specs skip
   events:
     profiles:
       - events

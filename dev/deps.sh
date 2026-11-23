@@ -1,0 +1,29 @@
+#!/usr/bin/env bash
+# Start the dev dependencies (mongo, simple-directory, nginx, optionally events) with docker compose.
+# Usage: npm run dev-deps [-- <docker compose args, e.g. --profile events>]
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+if [ ! -f .env ]; then
+  cp dev/default.env .env
+  echo "created .env from dev/default.env (edit .env to override, it is never overwritten)"
+fi
+
+# generated types, workspace packages and ui build needed by the api, the ui and the tests, built once
+npm run dev-setup
+
+# simple-directory reads users.json verbatim: the NHI fixtures' issuers carry NGINX_PORT from .env
+node dev/render-users.ts
+
+# --scale only applies to "up", the other arguments (e.g. --profile) are global compose options
+global_args=()
+scale_args=()
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --scale) scale_args+=(--scale "$2"); shift 2 ;;
+    --scale=*) scale_args+=("$1"); shift ;;
+    *) global_args+=("$1"); shift ;;
+  esac
+done
+
+docker compose --progress quiet ${global_args[@]+"${global_args[@]}"} up -d --wait ${scale_args[@]+"${scale_args[@]}"}

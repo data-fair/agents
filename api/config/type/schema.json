@@ -63,7 +63,7 @@
       "pattern": "^/"
     },
     "privateEventsUrl": {
-      "type": "string"
+      "type": ["string", "null"]
     },
     "privateMcpUrl": {
       "type": "string",
