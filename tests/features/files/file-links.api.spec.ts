@@ -13,7 +13,7 @@ import { FIXTURE_PORT, FIXTURE_ORIGIN, createFilesAgent, callPart, outputOf } fr
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const PORT = process.env.NGINX_PORT
-const home = `http://localhost:${PORT}`
+const home = `http://${process.env.DEV_HOST}:${PORT}`
 let fixture: McpFixture
 
 /** The fixture agent with its NHI, on the site-bound entry (tests/features/autonomous-agents/multi-host.api.spec.ts). */

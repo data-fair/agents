@@ -17,7 +17,7 @@ import type { AxiosInstance } from 'axios'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from './agent-session-client.ts'
 import { readConsent } from '../ui/src/review/review-consent.ts'
 
-const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
+const directoryUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/simple-directory`
 
 type Ax = AxiosInstance & { cookieJar?: any }
 
@@ -28,7 +28,7 @@ type Ax = AxiosInstance & { cookieJar?: any }
 export type ConversationTarget = string | { agentId: string, title?: string }
 
 export interface SocketTurnOptions {
-  /** Open the socket through this host (default: localhost:NGINX_PORT). */
+  /** Open the socket through this host (default: DEV_HOST:NGINX_PORT). */
   host?: string
   /** The account path the conversation lives under. Default `organization/test_agents_org1`. */
   owner?: string

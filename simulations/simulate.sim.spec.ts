@@ -45,7 +45,7 @@ for (const simCase of selected) {
     // Consent answered up front: the run is read back through the conversation export, which only
     // covers threads the person agreed to have reviewed — and the consent sheet is not what a case is
     // about, so the persona is not asked.
-    await page.context().addCookies([{ name: CONSENT_COOKIE, value: CONSENT_YES, url: `http://localhost:${process.env.NGINX_PORT}` }])
+    await page.context().addCookies([{ name: CONSENT_COOKIE, value: CONSENT_YES, url: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}` }])
 
     const conversation: Array<{ role: string, text: string }> = []
     // Cast rather than annotated: it is assigned inside converse(), which control-flow analysis does

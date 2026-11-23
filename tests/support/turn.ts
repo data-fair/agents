@@ -14,7 +14,7 @@ import type { AxiosInstance } from 'axios'
 import { turnOverSocket, runOf } from '../../dev/socket-turn.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../ui/src/review/review-consent.ts'
 
-const apiOrigin = `http://localhost:${process.env.NGINX_PORT}/agents`
+const apiOrigin = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents`
 
 /**
  * Give (or withhold) this caller's consent to admin review of their conversations.

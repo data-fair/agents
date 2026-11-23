@@ -52,7 +52,7 @@ test.describe('Authority over a thread', () => {
 test.describe('The agent-session upgrade', () => {
   /** Open the socket through nginx as a browser on `origin` would. Resolves to the handshake's status. */
   const upgradeFrom = async (origin: string) => {
-    const ws = new WebSocket(`ws://localhost:${process.env.NGINX_PORT}/agents/api/agent-session`, {
+    const ws = new WebSocket(`ws://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/agent-session`, {
       headers: { cookie: await orgMember.cookieJar.getCookieString(directoryUrl) },
       origin
     })
@@ -65,7 +65,7 @@ test.describe('The agent-session upgrade', () => {
   }
 
   test('a page of the same site opens it', async () => {
-    assert.equal(await upgradeFrom(`http://localhost:${process.env.NGINX_PORT}`), 101)
+    assert.equal(await upgradeFrom(`http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`), 101)
   })
 
   test('a page of another site is refused at the handshake', async () => {

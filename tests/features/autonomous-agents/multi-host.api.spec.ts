@@ -27,7 +27,7 @@ const whoami = (assistant: any) => {
   return { forwardedHost, userId }
 }
 const PORT = process.env.NGINX_PORT
-const home = `http://localhost:${PORT}`
+const home = `http://${process.env.DEV_HOST}:${PORT}`
 const issuer = `${home}/agents/api/nhi`
 const ownPortal = portalHost('test1-portal')
 const foreignPortal = portalHost('test2-portal')
@@ -77,7 +77,7 @@ test.describe('Sites of an autonomous agent', () => {
   test('a chat on its own site acts there, as the agent', async () => {
     await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami')
-    assert.deepEqual(whoami(assistant), { forwardedHost: `localhost:${PORT}`, userId: 'test_agents_org1_agent_nhi' })
+    assert.deepEqual(whoami(assistant), { forwardedHost: `${process.env.DEV_HOST}:${PORT}`, userId: 'test_agents_org1_agent_nhi' })
   })
 
   test('a chat on a portal of its organization acts there, as the agent', async () => {

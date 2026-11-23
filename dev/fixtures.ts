@@ -28,7 +28,7 @@ import { turnOverSocket, type ConversationTarget } from './socket-turn.ts'
 import { PORTAL_ASSISTANT_ID } from '../shared/agent-audit.ts'
 import { autonomousAgentNhiBody, autonomousAgentSubject } from '../shared/autonomous-agent-identity.ts'
 
-const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
+const directoryUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/simple-directory`
 const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
 // Like tests/support/axios.ts: the API is addressed directly instead of through
 // nginx, so nothing sets the x-forwarded-* headers the session middleware needs
@@ -199,7 +199,7 @@ async function enrolIdentity (orgAx: any, issuer: string): Promise<string> {
 }
 
 async function seedAutonomousAgent (adminAx: any, orgAx: any) {
-  const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+  const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
   const issuer = `${siteUrl}/agents/api/nhi`
   const clientId = await enrolIdentity(orgAx, issuer)
   await adminAx.post('/api/test-env/autonomous-agent', {
@@ -464,7 +464,9 @@ async function main () {
     adminMode,
     ...(person.org ? { org: person.org } : {}),
     axiosOpts: { baseURL, headers: proxyHeaders, httpAgent: privateHttpAgent, httpsAgent: privateHttpsAgent },
-    directoryUrl
+    directoryUrl,
+    // the session is on the site (DEV_HOST), the API is called directly on localhost
+    globalCookies: true
   })
   // adminMode so the settings PUT (which requires admin mode) is accepted; test_demo_dev is a simple-directory admin.
   const adminAx = await login({ email: PEOPLE.dev.email }, true)
@@ -479,7 +481,7 @@ async function main () {
   const sessions: Record<string, any> = {}
   for (const [key, person] of Object.entries(PEOPLE)) {
     sessions[key] = await login(person)
-    await sessions[key].cookieJar.setCookie(`${CONSENT_COOKIE}=${CONSENT_YES}; Path=/`, baseURL)
+    await sessions[key].cookieJar.setCookie(`${CONSENT_COOKIE}=${CONSENT_YES}; Path=/`, directoryUrl)
   }
 
   console.log('chats:')
@@ -489,7 +491,7 @@ async function main () {
 
   await seedConsumption()
 
-  const ui = `http://localhost:${process.env.NGINX_PORT}/agents`
+  const ui = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents`
   console.log(`
 Done. Log in with any of these (password "passwd"):
   test_demo_dev@example.org       superadmin; admin of ${ORG} (switch to its account in the session menu)

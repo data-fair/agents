@@ -29,7 +29,7 @@ const runTurn = async (agentId: string, content: string) => {
   return { conversationId, run, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
 }
 
-const issuer = `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`
+const issuer = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/nhi`
 
 /** The system prompt a run had, as the review page reads it (a configured agent's thread is audited). */
 const systemPromptOf = async (conversationId: string, runId: string) =>
@@ -119,7 +119,7 @@ test.describe('Server instructions and skills', () => {
       id: 'test-fixture',
       owner: { type: 'organization', id: 'test_agents_org1' },
       clientId: 'test_agents_org1_agent_nhi',
-      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
+      siteUrl: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`,
       issuer,
       autonomousAgent: { title: 'Guides probe', persona: 'x', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true }
     })

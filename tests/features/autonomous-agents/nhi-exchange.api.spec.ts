@@ -11,7 +11,7 @@ import { createSite, deleteSite, portalHost } from '../../support/sites.ts'
 
 const admin = await superAdmin
 
-const publicUrl = `http://localhost:${process.env.NGINX_PORT}/agents`
+const publicUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents`
 const issuer = `${publicUrl}/api/nhi`
 
 // `admin` addresses the API directly on DEV_API_PORT (see tests/support/axios.ts), which
@@ -34,7 +34,7 @@ test.describe('NHI exchange', () => {
    * subject matches; see the seam's comment in app.ts.
    */
   test('an enrolled autonomous agent obtains a real simple-directory session', { tag: '@smoke' }, async () => {
-    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
     const created = await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
       owner: { type: 'organization', id: 'test_agents_org1' },
@@ -78,7 +78,7 @@ test.describe('NHI exchange', () => {
    * rejected identity is not asked again for a while (api/src/nhi/session-broker.ts).
    */
   test('a session is reused across requests until a save, and a rejected identity is not asked again at once', async () => {
-    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
     const fixture = (clientId: string) => admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
       owner: { type: 'organization', id: 'test_agents_org1' },

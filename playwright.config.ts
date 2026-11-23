@@ -17,7 +17,7 @@ export default defineConfig({
   reporter: [['dot'], ['json', { outputFile: 'dev/logs/test-timings.json' }]],
 
   use: {
-    baseURL: 'http://localhost:' + process.env.NGINX_PORT,
+    baseURL: 'http://' + process.env.DEV_HOST + ':' + process.env.NGINX_PORT,
     // on a failure: npx playwright show-trace test-results/<test>/trace.zip
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

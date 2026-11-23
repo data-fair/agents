@@ -37,12 +37,12 @@ const env = Object.fromEntries(
       return [line.slice(0, index).trim(), line.slice(index + 1).trim().replace(/^["']|["']$/g, '')]
     })
 )
-const base = `http://localhost:${env.NGINX_PORT}/agents`
+const base = `http://${env.DEV_HOST}:${env.NGINX_PORT}/agents`
 
 const percentile = (sorted: number[], p: number) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * p))]
 
 const main = async () => {
-  const ws = new WebSocket(`ws://localhost:${env.NGINX_PORT}/agents/api/agent-session`)
+  const ws = new WebSocket(`ws://${env.DEV_HOST}:${env.NGINX_PORT}/agents/api/agent-session`)
   const pendingFrames: any[] = []
   const waiters: Array<(frame: any) => void> = []
   ws.on('message', raw => {

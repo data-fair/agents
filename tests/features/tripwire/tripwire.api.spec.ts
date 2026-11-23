@@ -33,7 +33,7 @@ const tasksOf = (agentId: string) => `/api/autonomous-agents/organization/test_a
 const createTaskAgent = () => createEnrolledAgent({ title: 'Tasker', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true })
 const createTask = async (agentId: string, prompt: string) => (await admin.post(tasksOf(agentId), { title: 'Probe', prompt, scheduling: [daily] })).data
 // No session: a webhook sender is anonymous; its key travels in the x-webhook-key header.
-const anonymous = axios.create({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
+const anonymous = axios.create({ baseURL: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
 const messagesOf = async (conversationId: string) => (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results as any[]
 const promptOf = async (agentId: string, runId: string) => ((await awaitAgentRun(orgAdmin, agentId, runId)).messages[0].parts[0].text as string)
 // What the agent itself reads of a past run or conversation, from a chat of its own.

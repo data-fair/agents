@@ -66,7 +66,7 @@ test.describe('Task runs', () => {
     test.skip(!eventsUp, NEEDS_EVENTS)
     const agent = await createAgent()
     // its enrolment site (tests/support/agents.ts)
-    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
     const task = await createTask(agent.id, 'call tool report_outcome {"status":"needs-attention","summary":"look"}')
     const run = await awaitAgentRun(orgAdmin, agent.id, await runNow(agent.id, task.id))
     const event = (await events()).find(e => e.topic.key === `agents:task-needs-attention:${task.id}`)

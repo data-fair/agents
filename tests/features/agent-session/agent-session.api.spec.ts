@@ -137,7 +137,7 @@ test.describe('Agent session socket', () => {
 
   test('a frame over the payload cap closes the socket rather than being read', async () => {
     // ws accepts 100 MiB frames by default, all of it parsed on the main thread.
-    const ws = new WebSocket(`ws://localhost:${process.env.NGINX_PORT}/agents/api/agent-session`, {
+    const ws = new WebSocket(`ws://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/agent-session`, {
       headers: { cookie: await cookieOf(orgAdmin) }
     })
     await new Promise((resolve, reject) => { ws.once('open', resolve); ws.once('error', reject) })

@@ -46,7 +46,7 @@ export const test = base.extend<{
             await context.addCookies(cached)
             await page.goto(url)
           } else {
-            const query: Record<string, string> = { redirect: 'http://localhost:' + process.env.NGINX_PORT + url }
+            const query: Record<string, string> = { redirect: 'http://' + process.env.DEV_HOST + ':' + process.env.NGINX_PORT + url }
             if (opts?.adminMode) query.adminMode = 'true'
             // log straight into the organization account: pages scoped to an org
             // check the role of the session's CURRENT account (getAccountRole

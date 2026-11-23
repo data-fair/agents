@@ -17,7 +17,7 @@ const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_o
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: (new Date().getUTCHours() + 12) % 24, minute: 0, timeZone: 'UTC' }
 const base = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}/tasks`
 // No session: a webhook sender is anonymous.
-const anonymous = axios.create({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
+const anonymous = axios.create({ baseURL: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents`, validateStatus: () => true })
 
 const createAgent = async () => {
   const agent = await createEnrolledAgent({

@@ -3,7 +3,7 @@ import { privateHttpAgent, privateHttpsAgent } from '@data-fair/lib-node/http-ag
 import { axiosAuth as _axiosAuth } from '@data-fair/lib-node/axios-auth.js'
 import { prefix } from './sd-fixtures.ts'
 
-export const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
+export const directoryUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/simple-directory`
 export const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
 
 // API tests address the server directly on DEV_API_PORT, so unlike every real client
@@ -33,7 +33,7 @@ export const anonymousAx = axios()
 // createSiteMiddleware('agents') is called with no options, so a non-internal request
 // whose path lacks an /agents segment throws 404 'URL path does not contain service
 // prefix' — which would break every api spec that addresses /api/... directly.
-export const nginxAx = axios({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents` })
+export const nginxAx = axios({ baseURL: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents` })
 
 export const getAnonymousActionToken = async (): Promise<string> => {
   const res = await anonymousAx.get(directoryUrl + '/api/auth/anonymous-action')
@@ -41,7 +41,8 @@ export const getAnonymousActionToken = async (): Promise<string> => {
 }
 
 export const axiosAuth = (user: string, opts?: { adminMode?: boolean, org?: string }) => {
-  return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, org: opts?.org, axiosOpts, directoryUrl })
+  // globalCookies: the session is on the site (DEV_HOST), the API is called directly on localhost
+  return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, org: opts?.org, axiosOpts, directoryUrl, globalCookies: true })
 }
 
 export const superAdmin = axiosAuth('test_agents_superadmin', { adminMode: true })

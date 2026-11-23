@@ -17,7 +17,7 @@ export type AgentSlot = keyof typeof SLOTS
 
 export const createEnrolledAgent = async (autonomousAgent: Record<string, unknown>, slot: AgentSlot = 'test-fixture'): Promise<any> => {
   const admin = await superAdmin
-  const home = `http://localhost:${process.env.NGINX_PORT}`
+  const home = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
   return (await admin.post('/api/test-env/autonomous-agent', {
     id: slot,
     owner: { type: 'organization', id: 'test_agents_org1' },

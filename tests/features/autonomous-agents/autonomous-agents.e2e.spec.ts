@@ -193,7 +193,7 @@ test.describe('Autonomous agents configuration', () => {
   })
 
   test('an enrolled autonomous agent shows its identity instead of offering to enrol', async ({ page, goToWithAuth }) => {
-    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
       owner: { type: 'organization', id: 'test_agents_org1' },
@@ -481,7 +481,7 @@ const pickScope = async (page: Page, scope: string) => {
 
 test.describe('Scopes of an autonomous agent\'s identity', () => {
   const asSuperAdmin = { adminMode: true } as const
-  const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+  const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
   const AGENT_PAGE = '/agents/organization/test_agents_org1/agents/test-fixture?config=security'
   test.beforeEach(async () => {
     await clean()

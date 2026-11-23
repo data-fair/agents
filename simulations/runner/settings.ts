@@ -193,7 +193,7 @@ export async function seedAutonomousAgent (route: string, instructorUserId: stri
   const { superAdmin } = await import('../../tests/support/axios.ts')
   const admin = await superAdmin
   const { owner, agentId } = parseAutonomousAgentRoute(route)
-  const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+  const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
   await admin.post('/api/test-env/autonomous-agent', {
     id: agentId,
     owner,

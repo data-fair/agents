@@ -17,7 +17,7 @@ export default defineConfig({
   timeout: 15 * 60 * 1000,
   reporter: 'list',
   use: {
-    baseURL: 'http://localhost:' + process.env.NGINX_PORT,
+    baseURL: 'http://' + process.env.DEV_HOST + ':' + process.env.NGINX_PORT,
     trace: 'retain-on-failure'
   },
   projects: [

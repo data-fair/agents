@@ -69,7 +69,7 @@ const retainedHeapMb = async () => {
   return `heap used ${(body.heapUsed / 1048576).toFixed(0)}MB / total ${(body.heapTotal / 1048576).toFixed(0)}MB, external ${(body.external / 1048576).toFixed(0)}MB, rss ${(body.rss / 1048576).toFixed(0)}MB`
 }
 const OWNER = { type: 'organization', id: 'test_agents_org1' } as const
-const nginx = `http://localhost:${process.env.NGINX_PORT}/agents`
+const nginx = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents`
 
 /** The dev-api node process of THIS worktree: the one running index.ts from its api/ directory. */
 const apiPid = () => {

@@ -9,7 +9,7 @@ import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { isIP } from 'node:net'
 
 const admin = await superAdmin
-const issuer = `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`
+const issuer = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/nhi`
 
 let fixture: McpFixture
 
@@ -69,7 +69,7 @@ test.describe('Autonomous agent tools', () => {
    * pinned subject matches — see the seam in app.ts.
    */
   test('a session server receives the autonomous agent\'s own bearer token', { tag: '@smoke' }, async () => {
-    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
       owner: { type: 'organization', id: 'test_agents_org1' },
@@ -86,7 +86,7 @@ test.describe('Autonomous agent tools', () => {
     // A real simple-directory access token, issued by a real token request, presented to a real MCP server.
     assert.match(authorization, /^Bearer [\w-]+\.[\w-]+\.[\w-]+$/, `expected a bearer token at the MCP server, got: ${authorization}`)
     assert.equal(fixture.lastHeaders().cookie, undefined, 'no cookie beside it')
-    assert.equal(fixture.lastHeaders()['x-forwarded-host'], `localhost:${process.env.NGINX_PORT}`)
+    assert.equal(fixture.lastHeaders()['x-forwarded-host'], `${process.env.DEV_HOST}:${process.env.NGINX_PORT}`)
     // and nothing that could mint another one
     assert.equal(JSON.stringify(res.data).includes(authorization.slice(7)), false)
     assert.equal(authorization.includes('assertion'), false)
@@ -99,7 +99,7 @@ test.describe('Autonomous agent tools', () => {
       id: 'test-fixture',
       owner: { type: 'organization', id: 'test_agents_org1' },
       clientId: 'test_agents_org1_agent_nhi',
-      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
+      siteUrl: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`,
       issuer,
       autonomousAgent: agentBody({ mcpServers: [{ serverId: 'dev-session-mcp' }] })
     })

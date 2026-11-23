@@ -5,7 +5,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { nginxAx } from '../../support/axios.ts'
 
-const publicUrl = `http://localhost:${process.env.NGINX_PORT}/agents`
+const publicUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents`
 const expectedIssuer = `${publicUrl}/api/nhi`
 
 test.describe('NHI issuer endpoints', () => {

@@ -53,9 +53,8 @@ and the specs that need it skip. CI starts every profile.
 Worktrees, from the main checkout: `npx --no df-worktree <branch>` / `npx --no df-worktree-delete <branch>`
 (branch names: letters, digits, `.`, `_`, `-`, no `/`, and `agents_<branch>` at most 60 characters).
 
-Ports are drawn per checkout into `.env` (`npx --no df-dev init-env`). Do not modify them. The URLs stay on
-`localhost:$NGINX_PORT` (not the `DEV_HOST` df-dev also writes): the NHI fixtures' issuers and the
-multi-host specs name it.
+Ports are drawn per checkout into `.env` (`npx --no df-dev init-env`). Do not modify them. The site is
+`http://$DEV_HOST:$NGINX_PORT`: the tests and dev scripts name it so (the NHI issuers, the multi-host specs).
 
 The dev file store of autonomous agents is the gitignored dev/data/files (api/config/development.js files).
 

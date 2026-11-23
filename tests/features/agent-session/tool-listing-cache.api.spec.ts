@@ -87,8 +87,8 @@ test.describe('Tool listings across turns', () => {
       id: 'test-fixture',
       owner: { type: 'organization', id: 'test_agents_org1' },
       clientId: 'test_agents_org1_agent_nhi',
-      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
-      issuer: `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`,
+      siteUrl: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`,
+      issuer: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/nhi`,
       autonomousAgent: { title: 'Lister', persona: 'p', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true }
     })
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))

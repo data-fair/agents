@@ -13,7 +13,7 @@ import { turnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
 const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
-const home = `http://localhost:${process.env.NGINX_PORT}`
+const home = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
 const AGENTS = '/api/autonomous-agents/organization/test_agents_org1'
 
 const enrol = async () => await admin.post('/api/test-env/autonomous-agent', {
