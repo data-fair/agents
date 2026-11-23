@@ -3,8 +3,9 @@
  * id (and every email) starts with the prefix, so the suite seeds and cleans them without touching the
  * accounts of other sub-spaces (e.g. the dev world test_demo_ of dev/resources/demo-world.json).
  *
- * Seeded by tests/state-setup.ts through simple-directory's test API (POST /api/test-env/seed), after a
- * cleanup of the prefix (DELETE /api/test-env?prefix=). Every user with a password uses 'passwd' and an
+ * Upserted by tests/global-setup.ts through simple-directory's test API (POST /api/test-env/seed) before
+ * the spec files are loaded (never for a unit-only run), then cleaned (DELETE /api/test-env?prefix=) and
+ * seeded again by tests/state-setup.ts, under the stateful lock. Every user with a password uses 'passwd' and an
  * email `<id>@test.com`, which is what the login helpers derive (tests/support/axios.ts, tests/fixtures/login.ts).
  */
 export const prefix = 'test_agents_'
