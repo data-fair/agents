@@ -16,7 +16,8 @@
  * Taken by the `state-setup` project, so only runs that touch the database take it: a unit-only run
  * neither needs it nor waits for it.
  */
-import { closeSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
+import { closeSync, mkdirSync, openSync, readFileSync, rmSync, writeSync } from 'node:fs'
+import { dirname } from 'node:path'
 
 /** Under dev/logs, which Playwright does not wipe — `test-results/` is cleared at the start of every
  * run, so a lock there would be deleted by exactly the run it is meant to stop. */
@@ -41,6 +42,9 @@ const isAlive = (pid: number): boolean => {
 
 export function takeStatefulLock (): void {
   const owner = runnerPid()
+  // dev/logs only exists once a process logged there: a fresh checkout whose dev processes log elsewhere
+  // (DEV_LOG_DIR) has none
+  mkdirSync(dirname(LOCK_PATH), { recursive: true })
   // Twice at most: the second attempt follows clearing a STALE lock, and a race lost there means a
   // live run took it in between — which is exactly the case to refuse.
   for (let attempt = 0; attempt < 2; attempt++) {
