@@ -1,7 +1,7 @@
 /**
  * stateful API tests: the tool-output tripwire in real turns — a result addressed to the agent is withheld and
  * stops the turn, a benign one passes, a broken or slow classifier fails open, and the classifier is metered.
- * docs/superpowers/specs/2026-11-02-tool-output-tripwire-design.md
+ * docs/architecture/moderation.md, "Tool-output tripwire"
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'

@@ -1,7 +1,7 @@
 /**
  * service.ts contains the stateful side of the approval reviewer: the model it runs on, its two stage calls
  * through the shared guard engine, their metering and telemetry. One reviewer per turn, created by the loop
- * and handed to the gate (./gate.ts). docs/superpowers/specs/2026-11-03-auto-approval-design.md
+ * and handed to the gate (./gate.ts). docs/architecture/moderation.md, "Approval reviewer"
  *
  * It never throws and never allows on a failure: no model, an error, a timeout or an unparseable answer is the
  * `review-failed` record, unsure (reviewOutcomeToRecord) — a card in a chat, a deny elsewhere.

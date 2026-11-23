@@ -2,7 +2,7 @@
  * The approval routes of a configured autonomous agent: who decides each class of its catalog calls. In
  * shared/ because the server applies them to every turn and the admin page diffs against their default:
  * one copy, so the default a page shows is the one a turn applies.
- * docs/superpowers/specs/2026-11-03-auto-approval-design.md, "The routing"
+ * docs/architecture/autonomous-agents.md, "Routes"
  */
 
 export type ApprovalClass = 'readOnly' | 'write' | 'destructive'

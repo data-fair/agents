@@ -4,7 +4,7 @@
  * (one exception: ../conversations/compaction-prompt.ts, pure too, for the recap's marker)
  *
  * The automated approval reviewer: an LLM guard that judges each proposed write before it runs, against what
- * the people instructing the agent asked (docs/superpowers/specs/2026-11-03-auto-approval-design.md, "The
+ * the people instructing the agent asked (docs/architecture/moderation.md, "Approval
  * reviewer"). It sees the intent and the proposed call, never a tool's output, the assistant's own text, memory
  * or past conversations: what it never sees is the injection defense. Same engine as moderation and the
  * tripwire (api/src/guard): two wrappers carrying a per-call nonce, the task restated after them, stage 1 one

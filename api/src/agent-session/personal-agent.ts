@@ -7,7 +7,7 @@
  *
  * SYNTHETIC, not stored: no collection, no migration, no lifecycle. Built per call. What differs between
  * the two is their servers, which the deployment configures (`personalAssistants`, see
- * docs/superpowers/specs/2026-10-14-two-personal-assistants.md).
+ * docs/architecture/configuration.md).
  */
 
 import { PORTAL_ASSISTANT_ID, BACK_OFFICE_ASSISTANT_ID, PERSONAL_AGENT_IDS, isPersonalAgentId, usesPageTools } from '@agents/shared/agent-audit'

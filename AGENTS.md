@@ -21,46 +21,38 @@ Types are mostly managed from JSON schemas (for example `api/types/settings/sche
 
 ## Dev environment
 
-The dev environment is the shared one of the data-fair services (`@data-fair/lib-dev`, the
-`data-fair-service` skill of data-fair/lib): one zellij session per checkout, readable by humans,
-operated by agents only through `df-dev`. `dev/dev.json` declares what is specific to this repo (drawn
-ports, panes and their readiness URLs, setup steps, optional containers), `.zellij.kdl` the panes: `status`
-(containers), `ui`, `api`, `mcp` (the dev MCP server), `bridge` (suspended until someone presses Enter in
-it), and a free shell.
+Docker runs the containers (nginx, simple-directory, mongo; `events` is optional, compose profile `events`);
+the api, the ui and the dev MCP server run as node processes.
 
-The user starts the session (`npm run dev-zellij`). An agent never starts or kills it.
+- `npm run dev` — the containers (`npm run dev-deps`), then the api, the ui and the dev MCP server in the
+  terminal (Ctrl+C stops them), at `http://localhost:5700/agents/`. Their logs are in `dev/logs/`
+  (`DEV_LOG_DIR`, `DEV_LOG_PREFIX`); `npm run dev` accepts docker compose arguments (`-- --profile events`).
+- `npm run dev-deps` — the containers only, plus `npm run dev-setup` and the dev world (`npm run dev-world`).
+- `npm run dev-setup` — idempotent builds (types, workspace packages, ui), no container.
+- `npm run dev:api`, `dev:ui`, `dev:mcp`, `dev:bridge` — one process each, with the variables of `.env`
+  exported (`dev:bridge`, the Claude Code bridge, is not started by `npm run dev`).
+- `npm run stop-dev-deps` — stops the containers.
 
-| Need | Command |
-|---|---|
-| What runs, what is broken | `npx --no df-dev status` (containers, panes running / exited / **not ready**, memory) |
-| A process's output | `npx --no df-dev logs <pane> -n 100` (`api`, `ui`, `mcp`, `bridge`) |
-| Restart one process | `npx --no df-dev restart <pane>`: Ctrl+C, rerun, waits for the pane's readiness URL |
-| An optional container | `npx --no df-dev up events` / `down events`, then `restart api` so the config sees it |
+Default ports (5700-5711) are in `dev/default.env`, copied to `.env` the first time: `.env` overrides it and is
+never overwritten. Production names (`MONGO_URL`,
+`PRIVATE_DIRECTORY_URL`, `PRIVATE_MCP_URL`...) override `api/config/development.js`. The optional events
+service is absent when `EVENTS_PORT` is empty (`npm run dev` blanks it when its container is not running),
+and the specs that need it skip. CI runs the same path with every profile.
 
-- Read the logs before restarting: nodemon and vite already reload on file changes (the `mcp` pane too, on
-  `dev/mcp-server.ts` and `tests/support/mcp-fixture.ts`).
-- "not ready" from `restart` → report to the user with the logs, never retry in a loop.
-- Never `docker compose restart`, `kill`, `zellij action`, nor `npm ci` / `npm install` while the env runs
-  (watchers restart on half-installed modules).
-- Always `npx --no`: a bare `npx df-dev` downloads an unrelated public package when the dependency is
-  missing (dependency confusion). Scripts and CI call `./node_modules/.bin/df-dev`.
+The site is `http://$DEV_HOST:$NGINX_PORT`: the tests and dev scripts name it so (the NHI issuers, the
+multi-host specs).
 
-Containers: nginx, simple-directory and mongo are the core; `events` is optional (compose profile
-`events`, started with `npm run dev-zellij -- --services events` or `df-dev up events`). While it does not
-run, the api pane starts with `privateEventsUrl` unset (`df-dev absent-config`, dev/dev.json "optional"),
-and the specs that need it skip. CI starts every profile.
-
-Worktrees, from the main checkout: `npx --no df-worktree <branch>` / `npx --no df-worktree-delete <branch>`
-(branch names: letters, digits, `.`, `_`, `-`, no `/`, and `agents_<branch>` at most 60 characters).
-
-Ports are drawn per checkout into `.env` (`npx --no df-dev init-env`). Do not modify them. The site is
-`http://$DEV_HOST:$NGINX_PORT`: the tests and dev scripts name it so (the NHI issuers, the multi-host specs).
+- Read the logs before restarting: nodemon and vite already reload on file changes (the `mcp` process too,
+  on `dev/mcp-server.ts` and `tests/support/mcp-fixture.ts`).
+- Do not start, stop or restart the dev processes or containers of the user: ask.
 
 The dev file store of autonomous agents is the gitignored dev/data/files (api/config/development.js files).
 
+Design specs and implementation plans are not kept in this repository; durable architecture docs live in `docs/architecture/`.
+
 ### The dev MCP server
 
-The `mcp` pane (`dev/mcp-server.ts`) serves the `dev-review-*-mcp` entries of the MCP catalog
+The `mcp` process (`dev/mcp-server.ts`, `npm run dev:mcp`) serves the `dev-review-*-mcp` entries of the MCP catalog
 (`api/config/development.js`), on `DEV_MCP_PORT` (the test fixture owns `MCP_FIXTURE_PORT`, and each spec
 starts and stops its own).
 
@@ -87,18 +79,16 @@ discover this is not running. nodemon restarts it on a change to it or to `tests
 
 ### Running on Claude Code models
 
-The `bridge` pane runs a local OpenAI-compatible server on `BRIDGE_PORT` (drawn in `.env` like every
-other dev port; it used to default to a fixed 3194, which meant two worktrees fought over it and the
-second simply failed to start) backed by your Claude Code subscription, so the dev workspace can run on
-real models without an API key. It starts suspended: the user presses Enter in it when they want it, so
-it being idle is normal. Its output: `npx --no df-dev logs bridge`.
+The bridge (`npm run dev:bridge`) runs a local OpenAI-compatible server on `BRIDGE_PORT` (in `.env` like
+every other dev port) backed by your Claude Code subscription, so the dev workspace can run on real models
+without an API key. `npm run dev` does not start it: the user starts it when they want it.
 
 Configure it in the settings UI as an **OpenAI Compatible** provider with base URL
 `http://localhost:$BRIDGE_PORT/v1` — the value in `.env`, not a fixed port — and **Compatibility
 Mode `compatible`** (the default mode
 targets `/v1/responses`, which the bridge does not implement). Leave the API key empty.
 Model listing for org providers goes through lib-node's SSRF-guarded axios, which refuses
-loopback; `df-dev init-env` writes `SSRF_PUBLIC_IPS=127.0.0.1,::1` to `.env` so the bridge is reachable.
+loopback; `dev/default.env` sets `SSRF_PUBLIC_IPS=127.0.0.1,::1` so the bridge is reachable.
 
 Tick **Reads images** (`imageInput`) on its models for page screenshots and other tool images to reach Claude:
 the bridge hands them on as MCP image parts (live tool loop) or image blocks (replayed history). Unset, an
@@ -113,9 +103,9 @@ single version after any bump touching it.
 
 Claude Code cuts an MCP tool's description at 2048 characters, and the bridge serves every tool to it as an MCP tool: a longer description is cut in the listing with a pointer, and given whole in the system prompt (`lib-sim/bridge/openai.ts`, `MCP_DESCRIPTION_LIMIT`). Before that, `code_mode` was simulated without anything past its first tool signatures. No role it serves (assistant, persona, judge) learns more about the product than the product tells it: each query runs in a neutral temp cwd with no tools and a private `CLAUDE_CONFIG_DIR` carrying none of the operator's identity, and fails closed otherwise (`lib-sim/isolation.ts`, asserted by a test). Nothing caches below about 4k tokens of system prompt, so short dev chats showing no cache activity is expected.
 
-### The api pane watches `shared/` too
+### The api process watches `shared/` too
 
-The api pane runs nodemon from `api/`, so its default watch covers `api/**` only — while `shared/` reaches
+The api process runs nodemon from `api/`, so its default watch covers `api/**` only — while `shared/` reaches
 the server through a workspace symlink under `node_modules`, which nodemon neither follows nor would see.
 Editing the context policy or the loop guards therefore left the running server on the OLD code, silently
 invalidating any api or e2e test of that change (it passed a mutation check that should have failed).
@@ -124,17 +114,17 @@ invalidating any api or e2e test of that change (it passed a mutation check that
 Two things to know when it still looks stale:
 
 - **nodemon reads its own config only at startup.** Changing `api/nodemon.json` restarts the app but not
-  nodemon, so a watch-list change needs the pane restarted once: `npx --no df-dev restart api`.
+  nodemon, so a watch-list change needs the process restarted once (ask the user).
 - Verify with the log, not with a guess: look for a fresh `API server listening` line in
-  `npx --no df-dev logs api`. A restart takes a second or two, and a test fired too early
+  the API's log (`dev/logs/api.log` under `npm run dev`). A restart takes a second or two, and a test fired too early
   runs against the old process.
 
 ### When something is down
 
 If a service is down, do not try to fix the infrastructure. Instead:
-1. Run `npx --no df-dev status` to identify what's down.
-2. Read the pane's logs (`npx --no df-dev logs <pane>`), or `docker compose logs <service>` for a container.
-3. Report the problem clearly to the user with the status output and any relevant log lines.
+1. Check what answers (`curl -s http://localhost:$DEV_API_PORT/api/ping`, `docker compose ps`).
+2. Read the process's log (`dev/logs/`), or `docker compose logs <service>` for a container.
+3. Report the problem clearly to the user with what you checked and any relevant log lines.
 
 ## Testing
 
@@ -146,7 +136,7 @@ The suite runs in two levels (`docs/architecture/testing.md`): the pre-push hook
 the type check, the unit tests, the `@smoke` api/e2e set and the spec files the push changed; pull
 requests and release tags run everything. When iterating, run only the related specs.
 
-If a test fails with a connection error, run `npx --no df-dev status` to diagnose, then stop and ask the user for help.
+If a test fails with a connection error, check what is down (above), then stop and ask the user for help.
 
 **One stateful run at a time.** The api and e2e projects share the dev database, and every spec's `clean()` deletes all the documents of the test sub-space `test_agents_` — so a second run started while one is going wipes the first's freshly seeded data. That looks exactly like product flakiness: a different pair of failures each time, each passing alone, typically a 403 because a spec's own quota settings vanished. `tests/support/stateful-lock.ts` now refuses a second run at setup with an explicit message; do not work around it. In practice this means: never launch a test run in the background while an earlier one you started is still going, and wait for it before re-running a single spec. A unit-only run takes no lock and can run any time.
 
@@ -164,7 +154,7 @@ In case of failures you might find error contexts in `test-results`.
 
 This project has workspace packages whose compiled `.js` files are gitignored, so they must be built before the code that imports them will run.
 
-`npx --no df-dev setup` builds them all, `npm run build-libs` again after a change.
+`npm run dev-setup` builds them all, `npm run build-libs` again after a change.
 
 `lib-vuetify/` and `lib-vue/` are needed for **e2e** tests.
 
@@ -181,7 +171,7 @@ When e2e tests fail, follow this order:
 4. Only then dig into component code
 
 A single e2e test failing at random, a different one each run, is first a question for
-the ui pane's output (`npx --no df-dev logs ui`): a vite `optimized dependencies changed. reloading` line during the run reloaded
+the ui process's output (`dev/logs/ui.log` under `npm run dev`): a vite `optimized dependencies changed. reloading` line during the run reloaded
 whatever page the test was on. `ui/vite.config.ts` gives vite every dependency at startup so this
 does not happen; a line naming a new dependency means that list missed it.
 
@@ -201,7 +191,7 @@ the same file used to debug a real session — so the seeded account stores
 traces and the browser carries the consent cookie. Needs the
 dev stack and built workspace packages — `lib-sim` included: `simulations/`
 imports it by package name, so a stale build silently runs the old code and
-still reports the run valid — and the `bridge` pane started. Orchestrated by the
+still reports the run valid — and the bridge started (`npm run dev:bridge`). Orchestrated by the
 `/agents-sim` skill; cases live in `simulations/cases/index.ts`. A case may declare a `premise` —
 what must have happened for the run to test it, such as the person writing during a wait — and a run
 where it did not hold is recorded invalid rather than judged. A case may span several conversations

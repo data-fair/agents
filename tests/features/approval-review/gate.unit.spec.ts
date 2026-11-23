@@ -1,6 +1,6 @@
 /**
  * The review gate: the one `toolApproval` function deciding each tool call of a configured agent's turn
- * (docs/superpowers/specs/2026-11-03-auto-approval-design.md, "The routing"). Pure: the review is a parameter.
+ * (docs/architecture/autonomous-agents.md, "Routes"). Pure: the review is a parameter.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'

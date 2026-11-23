@@ -1,6 +1,6 @@
 /**
  * stateful API tests for the approval reviewer in a configured agent's turn
- * (docs/superpowers/specs/2026-11-03-auto-approval-design.md). The mock reviewer answers from the proposed call's
+ * (docs/architecture/moderation.md, "Approval reviewer"). The mock reviewer answers from the proposed call's
  * arguments (api/src/models/mock-model.ts): REVIEW_DENY, REVIEW_UNSURE, REVIEW_BROKEN, otherwise allow. Whether a
  * tool ran is read from the MCP fixture's own record of calls (`invokedTools`), never from what the model says.
  */

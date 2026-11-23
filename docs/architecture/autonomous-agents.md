@@ -479,7 +479,7 @@ classes routed to a person get the reviewer **first, then the person, in series*
 (Anthropic measured 93% of permission prompts accepted, the figure that motivated auto mode), so the reviewer is
 a floor a person cannot click past — as Codex re-reviews a retry a person grants — and a rare card that carries
 the reviewer's view gets read rather than clicked. The breaker follows Codex's: 3 consecutive denials, or 10 in the last 50 reviews of a turn there; here 10 in
-a turn, which a turn's step and call limits keep close to it. The design and its decisions: `docs/superpowers/specs/2026-11-03-auto-approval-design.md`. Sources:
+a turn, which a turn's step and call limits keep close to it. Sources:
 [Claude Code auto mode](https://www.anthropic.com/engineering/claude-code-auto-mode),
 [Managed Agents permission policies](https://platform.claude.com/docs/en/managed-agents/permission-policies),
 [Codex auto-review](https://learn.chatgpt.com/docs/sandboxing/auto-review).

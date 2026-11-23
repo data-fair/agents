@@ -3,7 +3,7 @@
  * should not reference #mongo, #config, store state in memory or import anything else than other operations.ts
  *
  * The tool-output injection tripwire: a classifier screens the results of tools that bring outside text
- * (web pages, datasets, files) before the model sees them (docs/superpowers/specs/2026-11-02-tool-output-tripwire-design.md).
+ * (web pages, datasets, files) before the model sees them (docs/architecture/moderation.md, "Tool-output tripwire").
  */
 import type { ConversationRun } from '#types'
 import { z } from 'zod'

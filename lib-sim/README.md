@@ -351,7 +351,7 @@ writer agree.
 `df-agents-sim-init` copies the skill **verbatim**, and the skill refers to npm
 scripts by the names the origin repository uses. It cannot know yours, so define
 these two in your `package.json` (adjust the paths to your layout), and give the
-bridge a pane of your zellij layout (`.zellij.kdl`, see `@data-fair/lib-dev`):
+bridge a process of your dev environment:
 
 ```json
 {

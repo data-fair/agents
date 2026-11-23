@@ -124,7 +124,7 @@ async function runChatTurn (ax: any, owner: string, target: ConversationTarget, 
   try {
     return await turnOverSocket(ax, target, content, { owner })
   } catch (err: any) {
-    throw new Error(`a turn of ${JSON.stringify(target)} never settled (${err.message}) — check "npx --no df-dev logs api"`)
+    throw new Error(`a turn of ${JSON.stringify(target)} never settled (${err.message}) — check the API's logs`)
   }
 }
 
