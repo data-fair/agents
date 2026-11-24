@@ -5,6 +5,7 @@
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { awaitRun } from '../../support/turn.ts'
 import { openAgentSession, newThreadHello } from '../../../dev/agent-session-client.ts'
 import { putMockSettings } from '../../support/settings.ts'
@@ -408,7 +409,13 @@ test.describe('Deciding over the socket', () => {
   let fixture: McpFixture
   test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
-  test.beforeEach(async () => { await clean(); fixture.resetInvokedTools(); await putMockSettings(admin, 'organization/test_agents_org1') })
+  test.beforeEach(async () => {
+    await clean()
+    fixture.resetInvokedTools()
+    await putMockSettings(admin, 'organization/test_agents_org1')
+    // the back-office assistant's tests call the gated dev fixture: named here, whatever servers the deployment gives it
+    await giveAssistantsDevServers()
+  })
 
   const collectUntil = async (socket: any, done: (frames: any[]) => boolean) => {
     const frames: any[] = []
@@ -447,8 +454,8 @@ test.describe('Deciding over the socket', () => {
   })
 
   // A wait hands a page over, so only an agent that works through its page has one (usesPageTools): the
-  // back-office assistant, whose deployment servers include the gated fixture (api/config/development.js),
-  // and whose non-read-only calls always wait for approval.
+  // back-office assistant, given the dev servers with the gated fixture in beforeEach, and whose
+  // non-read-only calls always wait for approval.
   test('acting on the page a wait handed over rejects a call stopped beside it', async () => {
     // The handover wins the step, so the turn ends `waiting` with a call awaiting approval beside the
     // wait. The person acting on the page continues without it — as writing would — rather than leave a

@@ -10,6 +10,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { runTurn } from '../../support/turn.ts'
 import { startMcpFixture, SNAPSHOT_PNG, type McpFixture } from '../../support/mcp-fixture.ts'
 
@@ -24,6 +25,8 @@ test.describe('Images from MCP tools', () => {
   test.beforeEach(async () => {
     await clean()
     await putMockSettings(admin, OWNER)
+    // the dev fixture serving `snapshot`, on the assistant whatever servers the deployment gives it
+    await giveAssistantsDevServers()
   })
 
   const messagesOf = async (conversationId: string) =>

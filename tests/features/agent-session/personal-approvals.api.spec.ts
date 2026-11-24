@@ -12,6 +12,7 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
 import { awaitRun } from '../../support/turn.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { decideOverSocketToRun, turnOverSocket } from '../../../dev/socket-turn.ts'
 
@@ -29,6 +30,8 @@ test.describe('The personal assistant\'s approval gate', () => {
     await clean()
     // A plain member may use the assistant once their role has a model quota.
     await putMockSettings(admin, 'organization/test_agents_org1', { quotas: { ...defaultQuotas, user: { unlimited: true, monthlyLimit: 0 } } })
+    // the dev fixtures serving `echo` and `slow_lookup`, on the assistant whatever servers the deployment gives it
+    await giveAssistantsDevServers()
   })
 
   test('a write waits for the person, who approves it on their own thread', async () => {

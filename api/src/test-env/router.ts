@@ -14,6 +14,7 @@ import locks from '@data-fair/lib-node/locks.js'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
 import { httpError, reqSessionAuthenticated, type AccountKeys } from '@data-fair/lib-express/index.js'
 import mongo from '#mongo'
+import config from '#config'
 import { getModelsForOwner } from '../models/router.ts'
 import { clearToolListings } from '../mcp-servers/client.ts'
 import { invalidateSettings } from '../settings/service.ts'
@@ -29,6 +30,8 @@ import { listScopeFiles, signScopeFileUrl, sweepFiles, removeTestOwnersFiles } f
 import { isValidScope } from '../files/operations.ts'
 import { liveAgentSessions } from '../agent-session/service.ts'
 import { choosePlatformMcpUrl } from '../mcp-servers/platform-url.ts'
+import { choosePersonalAssistants, forgetPersonalAssistantsOf } from '../agent-session/personal-servers.ts'
+import { assertPersonalAssistantsConfig } from '../mcp-servers/operations.ts'
 
 /**
  * The events pushed, newest last, capped. It lets the tests see a notification without the events
@@ -90,6 +93,7 @@ export const createTestEnvRouter = () => {
     const ownerFilter = { 'owner.id': new RegExp('^' + prefix) }
     getModelsForOwner.clear()
     clearToolListings()
+    forgetPersonalAssistantsOf(prefix)
     invalidateSettings()
     await mongo.db.collection('settings').deleteMany(ownerFilter)
     await mongo.db.collection('usage').deleteMany(ownerFilter)
@@ -206,6 +210,19 @@ export const createTestEnvRouter = () => {
     // a placeholder identity no MCP server accepts: no built-in server, unless the spec names one (platformMcpUrl)
     choosePlatformMcpUrl(req.body.agentId, req.body.platformMcpUrl ?? null)
     res.send()
+  })
+  /**
+   * The personal assistants' servers for one account, in place of the deployment's `personalAssistants`
+   * (`personalAssistants` absent or null: back to the deployment's). A spec that needs catalog servers on an
+   * assistant names them here, after its reset (which forgets the choice), so it passes whichever servers the
+   * deployment gives the assistants.
+   */
+  router.post('/personal-assistants', async (req, res) => {
+    const { owner, personalAssistants } = req.body ?? {}
+    if (!owner?.type || !owner?.id) throw httpError(400, 'owner { type, id } is required')
+    if (personalAssistants != null) assertPersonalAssistantsConfig(personalAssistants, config.mcpServers ?? [])
+    choosePersonalAssistants(owner, personalAssistants ?? undefined)
+    res.status(204).send()
   })
   // Make the per-conversation serialisation testable deterministically: with an in-process executor the
   // first of two back-to-back messages often finishes before the second lands, so without a held lock

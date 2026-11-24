@@ -10,6 +10,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
@@ -26,6 +27,8 @@ test.describe('Tool listings across turns', () => {
     // clean() also forgets the cached listings, so each test starts from a cold cache.
     await clean()
     await putMockSettings(admin, 'organization/test_agents_org1')
+    // the dev servers whose listings are counted, on the assistant whatever servers the deployment gives it
+    await giveAssistantsDevServers()
     fixture.resetMethodCounts()
     fixture.resetInvokedTools()
   })

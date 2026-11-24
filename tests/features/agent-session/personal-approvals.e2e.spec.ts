@@ -6,6 +6,7 @@ import { expect } from '@playwright/test'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin, defaultQuotas } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
@@ -17,6 +18,8 @@ test.describe('The personal assistant\'s approval card', () => {
   test.beforeEach(async () => {
     await clean()
     await putMockSettings(admin, 'organization/test_agents_org1', { quotas: { ...defaultQuotas, user: { unlimited: true, monthlyLimit: 0 } } })
+    // the dev fixture serving `echo`, on the assistant whatever servers the deployment gives it
+    await giveAssistantsDevServers()
   })
 
   test('a member approves their assistant\'s write, and it runs', async ({ page, goToWithAuth }) => {

@@ -220,6 +220,8 @@ JSON object: the servers of the two built-in personal assistants, `portal` (`por
 
 Unset, an assistant has **no** catalog servers: the catalog is shared with configured agents, which need write tools, so an assistant never takes it whole. An unknown `serverId` fails the boot (`assertPersonalAssistantsConfig`). The built-in data-fair server is never a personal assistant's. Whatever is configured, an assistant's calls that are not read-only wait for the person's approval (see [the approval gate](./autonomous-agents.md#the-approval-gate)).
 
+In dev, `api/config/development.js` gives both assistants the four dev catalog entries. node-config merges this variable's JSON over that config, so `{}` changes nothing there: a dev environment that wants production's assistants sets `{ "portal": { "mcpServers": [] }, "backOffice": { "mcpServers": [] } }`. A spec whose assistant turns call the dev servers does not rely on either: it names them for its own account through the test seam `POST /api/test-env/personal-assistants` (`tests/support/personal-assistants.ts`).
+
 ### `MCP_PATH` and simple-directory's authorization server
 
 An autonomous agent's tokens come from simple-directory's OAuth token endpoint, which is **off by default**: the simple-directory it uses must run with `OAUTH_SERVER_ENABLED=true` (with it off, the endpoint answers 404 and every enrolment is refused, naming that cause). For each site it acts on, the agent asks for the resource `<site><MCP_PATH>/mcp`; `MCP_PATH` (`mcpPath`, default `/mcp-server`) must equal simple-directory's own, which is where the stack's MCP servers are mounted. See [Autonomous agents](./autonomous-agents.md#identity-the-agent-acts-as-itself).
