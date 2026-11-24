@@ -1,5 +1,5 @@
 // Maps the live Vuetify theme palette (useTheme().current.value.colors) to Mermaid
-// `themeVariables`, reusing the variable set proven in /home/alban/koumoul/doc.
+// `themeVariables`, reusing the variable set proven in the Mermaid theme of our documentation site.
 // Keeping it pure makes it unit-testable and independent of the mermaid import.
 //
 // The nested `xyChart` block is necessary because xychart-beta ignores the generic
