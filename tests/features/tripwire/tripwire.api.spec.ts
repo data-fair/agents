@@ -7,6 +7,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings, mockModels } from '../../support/settings.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { serviceUp, NEEDS_EVENTS } from '../../support/optional-services.ts'
 import { turnOverSocket, decideOverSocketToRun, runOf } from '../../../dev/socket-turn.ts'
@@ -60,6 +61,9 @@ test.describe('Tool-output tripwire', () => {
     await clean()
     await admin.delete('/api/test-env/pushed-events')
     await putMockSettings(admin, 'organization/test_agents_org1')
+    // the portal assistant's trip calls the dev fixture's list_road_closures: named here, whatever servers the
+    // deployment gives the assistants
+    await giveAssistantsDevServers()
   })
 
   test('a result addressed to the agent stops the turn and is withheld', async () => {

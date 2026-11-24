@@ -10,6 +10,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
 import { putMockSettings, mockModels } from '../../support/settings.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { awaitRun } from '../../support/turn.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
@@ -22,7 +23,12 @@ test.describe('Quotas while a turn runs', () => {
   let fixture: McpFixture
   test.beforeAll(async () => { fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT)) })
   test.afterAll(async () => { await fixture.close() })
-  test.beforeEach(async () => { await clean() })
+  test.beforeEach(async () => {
+    await clean()
+    // `loop forever` calls the dev fixture's get_schema: named here, whatever servers the deployment gives the
+    // assistants (without it, the loop repeats an unknown-tool error instead of a read)
+    await giveAssistantsDevServers()
+  })
 
   test('a person\'s quota crossed during a turn stops it at the next step', async () => {
     // Priced so one step costs ~90 credits, under the 500-credit per-run budget; a daily window of 150
