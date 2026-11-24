@@ -159,7 +159,7 @@ jobs:
 
     # every later step gets the variables of .env, as npm run dev exports them to its processes
     - name: Export .env to the next steps
-      run: cat .env >> "$GITHUB_ENV"
+      run: grep -vE '^\s*(#|$)' .env >> "$GITHUB_ENV" # GITHUB_ENV accepts only NAME=value lines, no comments
 
     # every profile, not only the core services: CI tests every integration (events included); the
     # build outputs are downloaded above, so dev-setup has nothing left to build
