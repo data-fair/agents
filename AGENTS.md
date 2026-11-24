@@ -33,7 +33,7 @@ the api, the ui and the dev MCP server run as node processes.
   exported (`dev:bridge`, the Claude Code bridge, is not started by `npm run dev`).
 - `npm run stop-dev-deps` — stops the containers.
 
-Default ports (5700-5711) are in `dev/default.env`, copied to `.env` the first time: `.env` overrides it and is
+Default ports (5700-5710) are in `dev/default.env`, copied to `.env` the first time: `.env` overrides it and is
 never overwritten. Production names (`MONGO_URL`,
 `PRIVATE_DIRECTORY_URL`, `PRIVATE_MCP_URL`...) override `api/config/development.js`. The optional events
 service is absent when `EVENTS_PORT` is empty (`npm run dev` blanks it when its container is not running),

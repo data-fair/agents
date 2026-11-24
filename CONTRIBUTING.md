@@ -24,7 +24,7 @@ Then, in another terminal:
 npm test
 ```
 
-The default ports (5700-5711) are in `dev/default.env`, copied to `.env` the first time: `.env` overrides
+The default ports (5700-5710) are in `dev/default.env`, copied to `.env` the first time: `.env` overrides
 `dev/default.env` and is never overwritten. `npm run dev-deps` only starts the containers (extra arguments go
 to docker compose, e.g. `npm run dev-deps -- --profile events`); `npm run dev` accepts the same arguments.
 
