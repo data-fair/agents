@@ -29,7 +29,7 @@ import { forgetAgentSessions } from '../nhi/service.ts'
 import { listScopeFiles, signScopeFileUrl, sweepFiles, removeTestOwnersFiles } from '../files/service.ts'
 import { isValidScope } from '../files/operations.ts'
 import { liveAgentSessions } from '../agent-session/service.ts'
-import { choosePlatformMcpUrl } from '../mcp-servers/platform-url.ts'
+import { choosePlatformMcpUrl, forgetPlatformMcpUrlsOf } from '../mcp-servers/platform-url.ts'
 import { choosePersonalAssistants, forgetPersonalAssistantsOf } from '../agent-session/personal-servers.ts'
 import { assertPersonalAssistantsConfig } from '../mcp-servers/operations.ts'
 
@@ -94,6 +94,7 @@ export const createTestEnvRouter = () => {
     getModelsForOwner.clear()
     clearToolListings()
     forgetPersonalAssistantsOf(prefix)
+    forgetPlatformMcpUrlsOf(prefix)
     invalidateSettings()
     await mongo.db.collection('settings').deleteMany(ownerFilter)
     await mongo.db.collection('usage').deleteMany(ownerFilter)
@@ -181,7 +182,7 @@ export const createTestEnvRouter = () => {
     await mongo.autonomousAgents.replaceOne({ id: doc.id }, doc, { upsert: true })
     // no built-in server unless the caller names one (platformMcpUrl: the dev stand-in, or the deployment's), so
     // what a spec gathers does not depend on which server the deployment wires
-    choosePlatformMcpUrl(doc.id, req.body.platformMcpUrl ?? null)
+    choosePlatformMcpUrl(doc, req.body.platformMcpUrl ?? null)
     // This can change nhi.clientId/siteUrl/issuer for an id another spec already exchanged for, and
     // the cache keyed on the id alone would then serve that stale cookie for ~240s — so the test
     // whose whole point is to perform a real exchange would silently not perform one, and would keep
@@ -203,12 +204,13 @@ export const createTestEnvRouter = () => {
    * above with a fixture client id.
    */
   router.post('/enrol-autonomous-agent', async (req, res) => {
-    await mongo.autonomousAgents.updateOne(
+    const agent = await mongo.autonomousAgents.findOneAndUpdate(
       { id: req.body.agentId },
-      { $set: { nhi: { clientId: req.body.clientId ?? 'dev-fixture-nhi', siteUrl: req.body.siteUrl ?? 'http://localhost/agents', issuer: req.body.issuer ?? 'http://localhost/agents/api/nhi' } } }
+      { $set: { nhi: { clientId: req.body.clientId ?? 'dev-fixture-nhi', siteUrl: req.body.siteUrl ?? 'http://localhost/agents', issuer: req.body.issuer ?? 'http://localhost/agents/api/nhi' } } },
+      { projection: { _id: 0, id: 1, owner: 1 } }
     )
     // a placeholder identity no MCP server accepts: no built-in server, unless the spec names one (platformMcpUrl)
-    choosePlatformMcpUrl(req.body.agentId, req.body.platformMcpUrl ?? null)
+    if (agent) choosePlatformMcpUrl(agent, req.body.platformMcpUrl ?? null)
     res.send()
   })
   /**

@@ -13,7 +13,7 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { MongoClient, type Db } from 'mongodb'
 import { nanoid } from 'nanoid'
-import { anonymousAx } from '../../support/axios.ts'
+import { anonymousAx, superAdmin } from '../../support/axios.ts'
 import { prefix } from '../../support/sd-fixtures.ts'
 import { devMongoUrl } from '../../support/mongo-url.ts'
 
@@ -63,6 +63,36 @@ test.describe('Cleanup of a test sub-space', () => {
     } finally {
       await db.collection('conversations').deleteOne({ id: neighbourConversation.id })
       if (upsertedCount) await db.collection('settings').deleteOne({ 'owner.type': neighbour.type, 'owner.id': neighbour.id })
+    }
+  })
+
+  // The seams' choice of data-fair's built-in server is in-process, keyed by agent: a later spec (or a
+  // simulation) re-creating the same agent id must get the deployment's server, not the forgotten spec's.
+  test('a prefixed clean forgets the platform url choices of its agents', async () => {
+    const admin = await superAdmin
+    const home = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
+    const tools = `/api/autonomous-agents/organization/${own.id}/test-fixture/tools`
+    // the stand-in's plain endpoint (dev/mcp-server.ts): its unprefixed tools are served by no deployment's data-fair
+    const { data: agent } = await admin.post('/api/test-env/autonomous-agent', {
+      id: 'test-fixture', // the agent the fixture identity pins (tests/support/sd-fixtures.ts)
+      owner: { type: own.type, id: own.id },
+      clientId: `${own.id}_agent_nhi`,
+      siteUrl: home,
+      issuer: `${home}/agents/api/nhi`,
+      platformMcpUrl: `http://localhost:${process.env.DEV_MCP_PORT}/mcp`,
+      autonomousAgent: { title: 'Clean probe', persona: 'x', mcpServers: [], enabled: true }
+    })
+    const dataFairEcho = async () => (await admin.get(tools)).data.results.some((t: any) => t.server === 'data-fair' && t.name === 'echo')
+    assert.ok(await dataFairEcho(), 'the chosen server is the built-in one before the clean')
+
+    const res = await anonymousAx.delete(testEnvUrl, { params: { prefix } })
+    assert.equal(res.status, 204)
+    // the same agent again, written without the seam: it gets the deployment's server
+    await db.collection('autonomous-agents').insertOne({ ...agent })
+    try {
+      assert.equal(await dataFairEcho(), false)
+    } finally {
+      await anonymousAx.delete(testEnvUrl, { params: { prefix } })
     }
   })
 
