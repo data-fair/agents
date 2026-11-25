@@ -38,14 +38,15 @@ writes the logs of the processes.
 The fixed ports mean one environment per machine: stop the containers of one checkout
 (`npm run stop-dev-deps`) before starting another.
 
-### Browser automation skills
+### Browser automation
 
 For the `@web-browser` coding agent:
 
 ```bash
 npm install -g @playwright/cli@latest
-playwright-cli install --skills
 ```
+
+Agent skills for this service are provided by the development environment, not by files in this repository.
 
 ### Running Tests
 

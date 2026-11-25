@@ -142,7 +142,7 @@ The repository ships no dev data. A manual session needs, under another prefix t
 
 The two `test_agents_org1_*_agent_nhi` users are non-human identities an autonomous agent authenticates as. Each needs an `email` (simple-directory lowercases it unguarded), must belong to exactly one organization, and must carry no `allowedIps`/`ipBinding` — every autonomous agent shares one egress address. Their `nhi.subject` must equal `autonomous-agent:<agent id>`, which is why a dev-only seam creates a fixture agent with a chosen id. `tests/features/autonomous-agents/nhi-fixtures.unit.spec.ts` enforces all of this — including the pairing itself, read out of the specs rather than restated, so renaming an agent id without renaming the subject fails a unit test instead of surfacing as that uniform 401.
 
-Tests are separated in playwright projects: unit (pure functions), api (stateful API endpoints through HTTP) and e2e (UI with playwright browser intrumentation). When working on the e2e part you can use the Claude Code agents `playwright-test-generator` and `playwright-test-generator`.
+Tests are separated in playwright projects: unit (pure functions), api (stateful API endpoints through HTTP) and e2e (UI with playwright browser intrumentation). When working on the e2e part the Playwright test agents provided by the development environment can help.
 
 In case of failures you might find error contexts in `test-results`.
 
