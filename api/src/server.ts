@@ -25,6 +25,7 @@ import { runSchedulerPass } from './tasks/scheduler.ts'
 import { configureCodeMode } from './code-mode/tool.ts'
 import { securityKey } from './cipher/service.ts'
 import { getContinuationSigningKey } from './cipher/operations.ts'
+import { realClockScope as realClockScopeFor } from './real-clock-scope.ts'
 
 /**
  * Run pending upgrade/<version>/*.js migrations (see @data-fair/lib-node/upgrade-scripts.js).
@@ -81,12 +82,8 @@ const every = (ms: number, name: string, job: () => Promise<unknown>, opts: { no
   intervals.push(setInterval(run, ms))
 }
 
-/**
- * In development, the real-clock jobs leave the owners of the test suites' sub-space (test_agents_) alone:
- * the api specs drive those owners' scheduler and consolidation passes through the test-env seams, with an
- * injected clock, and a real pass would claim their slots first. The dev world's owners keep the real clock.
- */
-const realClockScope = process.env.NODE_ENV === 'development' ? { 'owner.id': { $not: /^test_agents_/ } } : {}
+// the owners whose clock is driven elsewhere (the suites' and the simulations'): real-clock-scope.ts
+const realClockScope = realClockScopeFor(process.env.NODE_ENV)
 
 export const start = async () => {
   if (config.observer?.active) await startObserver(config.observer.port)
