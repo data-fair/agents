@@ -30,8 +30,7 @@ to docker compose, e.g. `npm run dev-deps -- --profile events`); `npm run dev` a
 
 Each dev process has its own npm script and reads its settings from environment variables (every key of
 `dev/default.env`): `npm run dev-setup` (idempotent builds, no container), then `npm run dev:api`,
-`npm run dev:ui`, `npm run dev:mcp` (and `npm run dev:bridge`, the Claude Code bridge of the dev workspace and
-the simulations, not started by `npm run dev`), each in its own terminal with the variables of `.env`
+`npm run dev:ui`, `npm run dev:mcp`, each in its own terminal with the variables of `.env`
 exported. The optional events service is absent when `EVENTS_PORT` is empty; `npm run dev` blanks it when
 its container is not running. `DEV_LOG_DIR` (default `dev/logs`) and `DEV_LOG_PREFIX` set where `npm run dev`
 writes the logs of the processes.

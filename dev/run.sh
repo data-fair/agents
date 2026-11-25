@@ -48,7 +48,6 @@ npm run dev:mcp < /dev/null > "$log_dir/${log_prefix}mcp.log" 2>&1 &
 pids+=($!)
 
 echo "logs in $log_dir (${log_prefix}api.log, ${log_prefix}ui.log, ${log_prefix}mcp.log)"
-echo "the Claude Code model bridge is not started: npm run dev:bridge in another terminal when needed"
 echo "dev server available at http://localhost:$NGINX_PORT/agents/"
 # stop everything as soon as one process exits
 wait -n || true

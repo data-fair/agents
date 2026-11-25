@@ -1,9 +1,8 @@
 # Test suite
 
 Playwright is the runner of every level: `unit`, `api` and `e2e` projects, specs organised by feature
-under `tests/features/<feature>/<name>.<unit|api|e2e>.spec.ts`. The judged agent simulations live under
-their own `playwright.sim.config.ts`, so a bare `npm test` can never spend plan quota on them (AGENTS.md,
-"Scenario simulations").
+under `tests/features/<feature>/<name>.<unit|api|e2e>.spec.ts`. The judged agent simulations are not kept in
+this repository, so a bare `npm test` can never spend plan quota on them (AGENTS.md, "Scenario simulations").
 
 | Suffix | What | Needs |
 |---|---|---|

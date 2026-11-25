@@ -19,7 +19,6 @@ test-results
 docs/superpowers/
 .superpowers/
 docs/presentation-fr/*.pdf
-simulations/tmp
 
 # the dev file store of autonomous agents (api/config/development.js files.dataDir)
 dev/data/

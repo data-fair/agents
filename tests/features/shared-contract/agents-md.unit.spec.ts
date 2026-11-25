@@ -21,7 +21,7 @@ const agentsMd = readFileSync(`${root}AGENTS.md`, 'utf8')
 
 test.describe('AGENTS.md references', () => {
   test('every backticked file path resolves to a real file', () => {
-    const referenced = [...agentsMd.matchAll(/`((?:api|ui|lib-vue|lib-vuetify|lib-sim|shared|tests|dev|docs|simulations)\/[^`\s*]+\.[a-z]+)`/g)]
+    const referenced = [...agentsMd.matchAll(/`((?:api|ui|lib-vue|lib-vuetify|shared|tests|dev|docs)\/[^`\s*]+\.[a-z]+)`/g)]
       .map(match => match[1])
     assert.ok(referenced.length >= 8, `expected AGENTS.md to cite real paths, found ${referenced.length}`)
 
@@ -33,7 +33,7 @@ test.describe('AGENTS.md references', () => {
   })
 
   test('no @-import of a repo file', () => {
-    const imports = [...agentsMd.matchAll(/(^|\s)@((?:api|ui|lib-vue|lib-vuetify|lib-sim|shared|tests|dev|docs|test-results)\b[^\s]*)/g)].map(match => match[2])
+    const imports = [...agentsMd.matchAll(/(^|\s)@((?:api|ui|lib-vue|lib-vuetify|shared|tests|dev|docs|test-results)\b[^\s]*)/g)].map(match => match[2])
     assert.deepEqual(imports, [])
   })
 })

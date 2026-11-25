@@ -8,16 +8,18 @@
  * half of a business corpus on another one. Re-run it on every model a deployment puts on the `moderator` role,
  * and after any change to a policy (docs/architecture/moderation.md, "Measuring the guards").
  *
- *   node dev/guard-eval/index.ts                       # the dev bridge (BRIDGE_PORT in .env), model haiku
- *   GUARD_EVAL_MODEL=sonnet node dev/guard-eval/index.ts
+ *   GUARD_EVAL_BASE_URL=http://localhost:<port>/v1 node dev/guard-eval/index.ts     # a Claude Code bridge, model haiku
+ *   GUARD_EVAL_BASE_URL=http://localhost:<port>/v1 GUARD_EVAL_MODEL=sonnet node dev/guard-eval/index.ts
  *   GUARD_EVAL_BASE_URL=https://… GUARD_EVAL_API_KEY=… GUARD_EVAL_MODEL=glm-5.3-flash-greenpt node dev/guard-eval/index.ts
+ *
+ * GUARD_EVAL_BASE_URL is any OpenAI-compatible base URL, a local Claude Code bridge included: this repository does
+ * not run one.
  *
  * Other knobs: GUARD_EVAL_GUARDS=tripwire,moderation,reviewer (default all three), GUARD_EVAL_REPEAT (default 1: runs of every
  * case, to see unstable verdicts), GUARD_EVAL_CONCURRENCY (default 4), GUARD_EVAL_CASES (comma-separated ids),
  * GUARD_EVAL_OUT (a JSON file for the raw results). Exit code 1 when any case was misjudged.
  */
-import { existsSync, writeFileSync } from 'node:fs'
-import { resolve } from 'node:path'
+import { writeFileSync } from 'node:fs'
 import type { LanguageModel, LanguageModelUsage } from 'ai'
 import type { Provider } from '#types'
 import { createModel } from '../../api/src/models/operations.ts'
@@ -30,10 +32,11 @@ import { TRIPWIRE_CASES, MODERATION_CASES, REVIEW_CASES } from './corpus.ts'
 import { runReviewCase, reviewReport, percentile as pct, share, type ReviewRow } from './reviewer.ts'
 
 const env = process.env
-// The bridge's port is drawn per checkout into .env (AGENTS.md): read it there when the shell does not carry it.
-const dotEnv = resolve(import.meta.dirname, '../../.env')
-if (!env.GUARD_EVAL_BASE_URL && !env.BRIDGE_PORT && existsSync(dotEnv)) process.loadEnvFile(dotEnv)
-const baseURL = env.GUARD_EVAL_BASE_URL ?? `http://localhost:${env.BRIDGE_PORT ?? 3194}/v1`
+const baseURL = env.GUARD_EVAL_BASE_URL
+if (!baseURL) {
+  console.error('GUARD_EVAL_BASE_URL is not set: the OpenAI-compatible base URL of the model to evaluate (e.g. a Claude Code bridge, http://localhost:<port>/v1)')
+  process.exit(1)
+}
 const modelId = env.GUARD_EVAL_MODEL ?? 'haiku'
 const repeat = Number(env.GUARD_EVAL_REPEAT ?? 1)
 const concurrency = Number(env.GUARD_EVAL_CONCURRENCY ?? 4)

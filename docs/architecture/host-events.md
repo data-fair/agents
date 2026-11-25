@@ -285,11 +285,10 @@ and `3.host-events.e2e.spec.ts` for what needs a browser — the page emitting t
 wait, the label outliving the handover, a reload while waiting). Simulation case:
 `workflow-hand-back`.
 
-The judged simulation harness drives its persona only *between* runner turns, and
-`waitForTurn` reports a pending wait as the turn handing control back
-(`lib-sim/chat-driver.ts`, matched on the activity's kind via `data-activity`), so the
-runner lets the person act and the wake continues on what they did; the e2e spec drives that
-driver against a real wait. A `workflow-hand-back` run was judged doing exactly that (when the
+The judged simulation harness drives its persona only *between* runner turns, and its chat
+driver reports a pending wait as the turn handing control back (matched on the activity's kind,
+the `data-activity` attribute of `AgentChatMessages.vue`), so the runner lets the person act and
+the wake continues on what they did. A `workflow-hand-back` run was judged doing exactly that (when the
 wait still blocked inside its turn): the person clicked Create, and the assistant continued into a
 second bubble reporting the creation before they said anything.
 

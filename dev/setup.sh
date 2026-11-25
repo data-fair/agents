@@ -6,5 +6,5 @@ cd "$(dirname "$0")/.."
 
 # the api .type modules are committed, the shared ones are generated
 [ -d shared/agent-session-client-frame/.type ] || npm run build-types
-[ -f lib-sim/index.js ] || npm run build-libs
+[ -f lib-vuetify/index.js ] || npm run build-libs
 [ -f ui/dist/index.html ] || npm -w ui run build

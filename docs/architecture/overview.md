@@ -29,7 +29,6 @@ graph TB
 | `shared/` | What both the server and the browser read: the agent session protocol and its frame schemas, host events, message parts, the audited-agent rule — and nothing else (a unit test enforces that every module has a UI consumer) |
 | `lib-vue/` | Vue composables: WebMCP tool and skill registration, BroadcastChannel transport |
 | `lib-vuetify/` | Embeddable Vuetify components: chat drawer, menu, action button, toggle FAB |
-| `lib-sim/` | The scenario-simulation harness (`npm run simulate`) and the dev bridge to Claude Code models |
 
 Every conversation runs on ONE loop, on the server (`api/src/conversations/executor.ts`): the in-page
 chat's personal assistant and configured [autonomous agents](./autonomous-agents.md) alike. The chat

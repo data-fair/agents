@@ -29,8 +29,7 @@ the api, the ui and the dev MCP server run as node processes.
   (`DEV_LOG_DIR`, `DEV_LOG_PREFIX`); `npm run dev` accepts docker compose arguments (`-- --profile events`).
 - `npm run dev-deps` — the containers only, plus `npm run dev-setup` and the dev world (`npm run dev-world`).
 - `npm run dev-setup` — idempotent builds (types, workspace packages, ui), no container.
-- `npm run dev:api`, `dev:ui`, `dev:mcp`, `dev:bridge` — one process each, with the variables of `.env`
-  exported (`dev:bridge`, the Claude Code bridge, is not started by `npm run dev`).
+- `npm run dev:api`, `dev:ui`, `dev:mcp` — one process each, with the variables of `.env` exported.
 - `npm run stop-dev-deps` — stops the containers.
 
 Default ports (5700-5710) are in `dev/default.env`, copied to `.env` the first time: `.env` overrides it and is
@@ -79,29 +78,26 @@ discover this is not running. nodemon restarts it on a change to it or to `tests
 
 ### Running on Claude Code models
 
-The bridge (`npm run dev:bridge`) runs a local OpenAI-compatible server on `BRIDGE_PORT` (in `.env` like
-every other dev port) backed by your Claude Code subscription, so the dev workspace can run on real models
-without an API key. `npm run dev` does not start it: the user starts it when they want it.
+A Claude Code bridge (a local OpenAI-compatible server backed by a Claude Code subscription, run outside this
+repository) lets the dev workspace run on real models without an API key.
 
-Configure it in the settings UI as an **OpenAI Compatible** provider with base URL
-`http://localhost:$BRIDGE_PORT/v1` — the value in `.env`, not a fixed port — and **Compatibility
-Mode `compatible`** (the default mode
+Configure it in the settings UI as an **OpenAI Compatible** provider with the bridge's base URL
+(`http://localhost:<its port>/v1`) and **Compatibility Mode `compatible`** (the default mode
 targets `/v1/responses`, which the bridge does not implement). Leave the API key empty.
 Model listing for org providers goes through lib-node's SSRF-guarded axios, which refuses
 loopback; `dev/default.env` sets `SSRF_PUBLIC_IPS=127.0.0.1,::1` so the bridge is reachable.
 
 Tick **Reads images** (`imageInput`) on its models for page screenshots and other tool images to reach Claude:
 the bridge hands them on as MCP image parts (live tool loop) or image blocks (replayed history). Unset, an
-OpenAI-compatible provider gets placeholders instead. The simulation runners set it.
+OpenAI-compatible provider gets placeholders instead.
 
-`GET /_bridge/status` reports how many conversations are holding a live `claude` session.
-It binds `127.0.0.1` only: it is unauthenticated and spends your subscription.
+`dev/guard-eval` measures the guards on such a model: `GUARD_EVAL_BASE_URL=http://localhost:<port>/v1 node dev/guard-eval/index.ts`.
 
 The whole tree is on one zod major (4). A second zod major makes `api`'s inference blow the
 instantiation depth limit (TS2589 in `api/src/moderation/service.ts`): check `npm ls zod` shows a
 single version after any bump touching it.
 
-Claude Code cuts an MCP tool's description at 2048 characters, and the bridge serves every tool to it as an MCP tool: a longer description is cut in the listing with a pointer, and given whole in the system prompt (`lib-sim/bridge/openai.ts`, `MCP_DESCRIPTION_LIMIT`). Before that, `code_mode` was simulated without anything past its first tool signatures. No role it serves (assistant, persona, judge) learns more about the product than the product tells it: each query runs in a neutral temp cwd with no tools and a private `CLAUDE_CONFIG_DIR` carrying none of the operator's identity, and fails closed otherwise (`lib-sim/isolation.ts`, asserted by a test). Nothing caches below about 4k tokens of system prompt, so short dev chats showing no cache activity is expected.
+On a Claude Code bridge, nothing caches below about 4k tokens of system prompt, so short dev chats showing no cache activity is expected.
 
 ### The api process watches `shared/` too
 
@@ -158,8 +154,6 @@ This project has workspace packages whose compiled `.js` files are gitignored, s
 
 `lib-vuetify/` and `lib-vue/` are needed for **e2e** tests.
 
-`lib-sim/` is needed for **`npm run simulate`**, and for the specs importing `simulations/cases` (`tests/features/simulations/cases.unit.spec.ts`, `tests/features/lib-sim/cases.unit.spec.ts`, `tests/features/lib-sim/persona.unit.spec.ts`, `tests/features/simulations/exports.api.spec.ts`), which reach the built package through it — unbuilt, the whole run fails at collection with `Cannot find module …/lib-agents-sim/index.js`.
-
 If e2e tests fail with "element(s) not found", check that `lib-vuetify` and `lib-vue` are built before investigating further.
 
 ### Debugging e2e failures
@@ -177,28 +171,19 @@ does not happen; a line naming a new dependency means that list missed it.
 
 ### Scenario simulations
 
-`npm run simulate` drives judged browser conversations: a simulated user with a
-persona and a goal talks to the real chat on a `_dev` page, or to the same chat
-opened on an autonomous agent (`surface: 'autonomous-agent'`), whose account and agent the
-runner seeds itself — settings included, since a case driving an account whose
-model mapping points at the mock would be graded on the mock's canned reply while
-still reporting a valid run. The persona can also
-look at, click and type on the page itself (not the composer), so a claim like
-"I don't see it" is checkable against what it actually observed, not invented.
-A judge agent (`simulation-judge`) then reads the transcript, observations included, and the
-server's record of the run: the runner downloads each conversation's export —
-the same file used to debug a real session — so the seeded account stores
-traces and the browser carries the consent cookie. Needs the
-dev stack and built workspace packages — `lib-sim` included: `simulations/`
-imports it by package name, so a stale build silently runs the old code and
-still reports the run valid — and the bridge started (`npm run dev:bridge`). Orchestrated by the
-`/agents-sim` skill; cases live in `simulations/cases/index.ts`. A case may declare a `premise` —
-what must have happened for the run to test it, such as the person writing during a wait — and a run
-where it did not hold is recorded invalid rather than judged. A case may span several conversations
-(`conversations`: the person's DONE ends one and the runner opens the next), or be `unattended`: a
-planned task the runner runs itself, with no persona at all, judged from the run's export. Never added to
-`playwright.config.ts` — a bare `npm run test` would otherwise spend plan
-quota.
+The judged scenario simulations of this chat (a simulated person on the `_dev` pages, on the chat opened on an
+autonomous agent, and unattended task runs) are not kept in this repository: they run against a whole-platform
+dev environment, never from `npm run test`. They drive what this repository serves in development, so a change
+to one of these is a change to them too:
+
+- the `_dev` pages (`ui/src/pages/_dev/`);
+- the dev MCP process (`dev/mcp-server.ts` over `tests/support/mcp-fixture.ts`): the `platform_*` stand-in, the
+  `dev-review-*` catalog servers of `api/config/development.js`, the `/exports/` pages and the planted injection
+  sources (`INJECTED_*`);
+- the development seams of `api/src/test-env/router.ts`: `autonomous-agent` (an agent enrolled with a fixture
+  identity and a chosen platform server), `personal-assistants`, `age-agent-history`, `consolidate-memory`, and
+  the prefixed clean;
+- the conversation and task run exports (`docs/architecture/conversation-review.md`), the record a run is judged on.
 
 ## AI SDK version
 

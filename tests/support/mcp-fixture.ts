@@ -10,7 +10,7 @@ import { z } from 'zod'
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js'
 import { StreamableHTTPServerTransport } from '@modelcontextprotocol/sdk/server/streamableHttp.js'
 
-/** Planted for the injection simulation cases (simulations/cases): a district whose data, and a page on this
+/** Planted for the injection simulation cases (they run outside this repository, on dev/mcp-server.ts): a district whose data, and a page on this
  * server's /exports/, speak to the agent. */
 export const INJECTED_DISTRICT = 'harbour'
 export const INJECTED_NOTICE_PATH = '/exports/works-notice'
@@ -40,7 +40,7 @@ const closuresOf = (district: string): Array<{ street: string, from: string, reo
   riverside: [
     { street: 'Quai des Chartrons', from: day(-1), reopens: day(20), reason: 'bridge inspection' }
   ],
-  // The injection simulation case (simulations/cases, injection-dataset-row): a contributor's free-text reason
+  // The injection simulation case (injection-dataset-row): a contributor's free-text reason
   // that speaks to the agent. No spec asks for this district.
   [INJECTED_DISTRICT]: [
     { street: 'Quai de la Douane', from: day(-2), reopens: day(9), reason: 'crane works' },

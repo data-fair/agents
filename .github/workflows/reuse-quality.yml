@@ -35,7 +35,7 @@ jobs:
       run: npm run build-types
 
     # their compiled .js is gitignored, and the UI and the specs import them by package name:
-    # lib-vue/lib-vuetify for the chat composables, lib-sim for the simulation cases
+    # lib-vue/lib-vuetify for the chat composables
     - name: Build workspace packages
       run: npm run build-libs
 
@@ -59,8 +59,6 @@ jobs:
           lib-vue/**/*.d.ts
           lib-vuetify/**/*.js
           lib-vuetify/**/*.d.ts
-          lib-sim/**/*.js
-          lib-sim/**/*.d.ts
           !**/node_modules/**
 
   static:
@@ -95,10 +93,6 @@ jobs:
     # no server needed, but some units import #config, whose development config reads .env
     - name: Init .env
       run: cp dev/default.env .env
-
-    # the lib-sim page perception units drive a real headless browser
-    - name: Install Chromium
-      run: npx playwright install --with-deps --only-shell chromium
 
     - name: Unit tests
       run: npx playwright test --project=unit
