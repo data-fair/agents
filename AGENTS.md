@@ -27,7 +27,7 @@ the api, the ui and the dev MCP server run as node processes.
 - `npm run dev` — the containers (`npm run dev-deps`), then the api, the ui and the dev MCP server in the
   terminal (Ctrl+C stops them), at `http://localhost:5700/agents/`. Their logs are in `dev/logs/`
   (`DEV_LOG_DIR`, `DEV_LOG_PREFIX`); `npm run dev` accepts docker compose arguments (`-- --profile events`).
-- `npm run dev-deps` — the containers only, plus `npm run dev-setup` and the dev world (`npm run dev-world`).
+- `npm run dev-deps` — the containers only, plus `npm run dev-setup`.
 - `npm run dev-setup` — idempotent builds (types, workspace packages, ui), no container.
 - `npm run dev:api`, `dev:ui`, `dev:mcp` — one process each, with the variables of `.env` exported.
 - `npm run stop-dev-deps` — stops the containers.
@@ -73,7 +73,7 @@ its skills under `skill://platform/` — so the built-in server, which wins a na
 tool of the per-spec fixture, whose call log a spec asserts on. CI starts it too (`reuse-quality.yml`).
 
 Only autonomous agents need it. Without it, every agent with an identity fails with a 502 the moment it
-gathers its tools — the seeded dev fixtures can then be read but not used, which is a confusing way to
+gathers its tools — an agent seeded as dev data can then be read but not used, which is a confusing way to
 discover this is not running. nodemon restarts it on a change to it or to `tests/support/mcp-fixture.ts`.
 
 ### Running on Claude Code models
@@ -138,9 +138,9 @@ If a test fails with a connection error, check what is down (above), then stop a
 
 Test users live in `tests/support/sd-fixtures.ts`: the test sub-space `test_agents_` (every user, organization and member id, and every email, starts with it; emails are `<id>@test.com`, passwords `passwd`). `tests/global-setup.ts` upserts it in simple-directory (db mode, its prefixed test API) before the spec files are loaded (not for a unit-only run), `tests/state-setup.ts` cleans and seeds it again under the stateful lock, and `clean()` (`DELETE /api/test-env?prefix=test_agents_`) only removes what these accounts own here. Edit that file to add or change a test account, nothing to restart.
 
-The dev account is `test_demo_dev@example.org` / `passwd`, a simple-directory admin and admin of `test_demo_org`, with `test_demo_contrib@example.org` (contrib) and `test_demo_outsider@example.org` (no membership, external on the organization): the dev world `test_demo_` of `dev/resources/demo-world.json`, seeded by `npm run dev-world` (run by `npm run dev-deps`) and never cleaned by the tests. `npm run dev-fixtures` then gives these accounts settings, conversations, an autonomous agent and consumption history.
+The repository ships no dev data. A manual session needs, under another prefix than `test_agents_` so that the tests never clean it: an organization admin, a contributor and an outsider (seeded through simple-directory's test API, `POST /api/test-env/seed`, as `tests/support/sd-fixtures.ts` does), and settings for their organization with a model (the `mock` provider needs no key). Conversations, an autonomous agent and a usage history are optional; the api tests seed their own.
 
-The two `test_agents_org1_*_agent_nhi` users are non-human identities an autonomous agent authenticates as. Each needs an `email` (simple-directory lowercases it unguarded), must belong to exactly one organization, and must carry no `allowedIps`/`ipBinding` — every autonomous agent shares one egress address. Their `nhi.subject` must equal `autonomous-agent:<agent id>`, which is why a dev-only seam creates a fixture agent with a chosen id. `tests/features/autonomous-agents/dev-fixtures.unit.spec.ts` enforces all of this — including the pairing itself, read out of the specs rather than restated (`dev/fixtures.ts` enrols its agent's identity with the subject derived from the agent id), so renaming an agent id without renaming the subject fails a unit test instead of surfacing as that uniform 401.
+The two `test_agents_org1_*_agent_nhi` users are non-human identities an autonomous agent authenticates as. Each needs an `email` (simple-directory lowercases it unguarded), must belong to exactly one organization, and must carry no `allowedIps`/`ipBinding` — every autonomous agent shares one egress address. Their `nhi.subject` must equal `autonomous-agent:<agent id>`, which is why a dev-only seam creates a fixture agent with a chosen id. `tests/features/autonomous-agents/nhi-fixtures.unit.spec.ts` enforces all of this — including the pairing itself, read out of the specs rather than restated, so renaming an agent id without renaming the subject fails a unit test instead of surfacing as that uniform 401.
 
 Tests are separated in playwright projects: unit (pure functions), api (stateful API endpoints through HTTP) and e2e (UI with playwright browser intrumentation). When working on the e2e part you can use the Claude Code agents `playwright-test-generator` and `playwright-test-generator`.
 

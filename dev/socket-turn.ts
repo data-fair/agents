@@ -3,7 +3,7 @@
  *
  * There is no HTTP route that starts a turn or decides an approval, because two ways to do each thing
  * is two places for the ownership check and the run record to drift. Tests that need a turn as the
- * thing under test, or as a side effect, and the dev seed (./fixtures.ts) therefore go through the same
+ * thing under test, or as a side effect, therefore go through the same
  * door as the UI, using the client in ./agent-session-client.ts. In dev/ rather than tests/ because the
  * seed uses it, and a dev script does not depend on the test suite.
  *

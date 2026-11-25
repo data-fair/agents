@@ -37,20 +37,15 @@ playwright-cli -s=dev goto "http://localhost:<NGINX_PORT>/some-other-page"
 
 ### Dev users
 
-The dev world (`dev/resources/demo-world.json`, seeded by `npm run dev-world`). All passwords are `passwd`.
-
-| id | email | admin | orgs |
-|---|---|---|---|
-| test_demo_dev | test_demo_dev@example.org | yes (superadmin) | test_demo_org (admin) |
-| test_demo_contrib | test_demo_contrib@example.org | no | test_demo_org (contrib) |
-| test_demo_outsider | test_demo_outsider@example.org | no | none (external on test_demo_org) |
+The repository ships no dev accounts. Use the accounts of the dev environment the caller names. Otherwise, the test accounts of `tests/support/sd-fixtures.ts` exist once a test run has seeded them (password `passwd`); a test run cleans what they own, so do not rely on their data while tests run.
 
 ### Choosing a user
 
 Pick the user that matches the scenario:
-- **Admin features, org admin**: `test_demo_dev@example.org`
-- **Org member without admin rights**: `test_demo_contrib@example.org`
-- **No org context, external visitor**: `test_demo_outsider@example.org`
+- **Superadmin**: `test_agents_superadmin@test.com`
+- **Admin features, org admin**: `test_agents_org1_admin@test.com`
+- **Org member without admin rights**: `test_agents_org1_contrib@test.com`
+- **No org context**: `test_agents_standalone@test.com`
 
 If the caller specifies a user, use that one. Otherwise, pick the most appropriate user for the task.
 

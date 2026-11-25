@@ -3,8 +3,7 @@
  *
  * A suite owns the accounts whose ids start with its prefix (test_agents_ here, see
  * tests/support/sd-fixtures.ts) and cleans what they own without touching the other sub-spaces —
- * the dev world test_demo_ of dev/resources/demo-world.json above all, which a human may be
- * reviewing while the suite runs.
+ * dev data under another prefix above all, which a human may be reviewing while the suite runs.
  *
  * Asserted against the database the server writes to: the documents are inserted there directly,
  * so the test does not depend on the routes that would create them.
@@ -20,7 +19,7 @@ import { devMongoUrl } from '../../support/mongo-url.ts'
 const testEnvUrl = `http://localhost:${process.env.DEV_API_PORT}/api/test-env`
 
 const own = { type: 'organization', id: `${prefix}org1`, name: 'Test Organization 1' }
-const neighbour = { type: 'organization', id: 'test_demo_org', name: 'Fixtures Demo' }
+const neighbour = { type: 'organization', id: 'test_other_org', name: 'Other Organization' }
 
 let client: MongoClient
 let db: Db
@@ -48,7 +47,7 @@ test.describe('Cleanup of a test sub-space', () => {
     const neighbourConversation = conversation(neighbour)
     // an earlier spec may have left settings to this owner: matched by its keys, not the whole sub-document
     await db.collection('settings').updateOne({ 'owner.type': own.type, 'owner.id': own.id }, { $setOnInsert: { owner: own } }, { upsert: true })
-    // The dev world may hold real settings for its organization: they are kept as they are, and a
+    // Dev data may hold real settings for this organization: they are kept as they are, and a
     // probe inserted here is removed afterwards.
     const { upsertedCount } = await db.collection('settings').updateOne({ 'owner.type': neighbour.type, 'owner.id': neighbour.id }, { $setOnInsert: { owner: neighbour } }, { upsert: true })
     await db.collection('conversations').insertMany([ownConversation, neighbourConversation])

@@ -14,7 +14,7 @@ import { sdFixtures } from '../../support/sd-fixtures.ts'
 const { users, organizations } = sdFixtures({ DEV_HOST: 'localhost', NGINX_PORT: '5700' }) as { users: any[], organizations: any[] }
 const nhiUsers = users.filter(user => user.nhi)
 
-test.describe('dev NHI fixtures', () => {
+test.describe('test NHI fixtures', () => {
   test('there is at least one, or every test built on them is silently vacuous', () => {
     assert.ok(nhiUsers.length >= 1)
   })
@@ -72,8 +72,7 @@ test.describe('dev NHI fixtures', () => {
     // break the specs at their first tool call with nothing pointing at the cause.
     //
     // Read from the consumers' source rather than restated, for the same reason the chat driver's
-    // selectors are: a copy here would drift with them and prove nothing. (dev/fixtures.ts is not a
-    // consumer: it enrols its agent's identity with the subject derived from the agent id.)
+    // selectors are: a copy here would drift with them and prove nothing.
     const subjectOf = (nhiUserId: string) => {
       const user = users.find(u => u.id === nhiUserId)
       assert.ok(user, `no fixture NHI ${nhiUserId} in tests/support/sd-fixtures.ts`)
@@ -130,23 +129,9 @@ test.describe('dev NHI fixtures', () => {
     }
   })
 
-  test('the identities the tests and the dev fixtures use are distinct', () => {
-    // clean() wipes the test sub-space only, so the dev fixtures' agent must not share an identity
-    // with the test ones or a suite run would invalidate what a human was reviewing.
+  test('no two fixtures share a subject', () => {
+    // a subject pins one agent id: two NHIs on the same subject would make the exchange ambiguous
     const subjects = nhiUsers.map(user => user.nhi.subject)
     assert.equal(new Set(subjects).size, subjects.length, 'two fixtures share a subject')
-    const devAgentId = readFileSync('dev/fixtures.ts', 'utf8').match(/AUTONOMOUS_AGENT_ID\s*=\s*'([^']+)'/)?.[1]
-    assert.ok(devAgentId, 'dev/fixtures.ts must still declare AUTONOMOUS_AGENT_ID')
-    assert.ok(!subjects.includes(autonomousAgentSubject(devAgentId)), 'the dev agent shares a subject with a test fixture')
-  })
-})
-
-test.describe('the dev fixtures script', () => {
-  test('loads: a script nothing type-checks must at least parse', async () => {
-    // dev/ is outside every tsconfig, so the script broke silently once — two top-level `conversations`
-    // after a merge — and stayed broken until someone ran it. Importing it is enough to catch that: it
-    // only seeds when run directly, so the import has no side effects.
-    const fixtures = await import('../../../dev/fixtures.ts')
-    assert.equal(typeof fixtures.seedConsumption, 'function')
   })
 })

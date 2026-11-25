@@ -195,7 +195,7 @@ test.describe('Platform History API', () => {
   })
 
   // These tests run against a shared dev database that can legitimately hold other
-  // owners' consumption (dev fixtures, manual testing), so they never assert the
+  // owners' consumption (dev data, manual testing), so they never assert the
   // aggregate totals: they scope every expectation to the seeded test owners.
   test('should stack by owner by default across all accounts', async () => {
     await admin.post('/api/test-env/usage', { owner, cost: 4, period: dailyPeriod(0) })

@@ -1,7 +1,7 @@
 /**
  * The accounts of this service's test sub-space in simple-directory: every user, organization and member
  * id (and every email) starts with the prefix, so the suite seeds and cleans them without touching the
- * accounts of other sub-spaces (e.g. the dev world test_demo_ of dev/resources/demo-world.json).
+ * accounts of other sub-spaces (dev data under another prefix, a simulation's context).
  *
  * Upserted by tests/global-setup.ts through simple-directory's test API (POST /api/test-env/seed) before
  * the spec files are loaded (never for a unit-only run), then cleaned (DELETE /api/test-env?prefix=) and
@@ -35,7 +35,7 @@ export const sdFixtures = (env: Record<string, string | undefined> = process.env
     // a member of another organization than test_agents_org1
     person('org2_user', 'Org2', 'User'),
     // The identities of the autonomous agents of test_agents_org1. Each subject pins the agent id
-    // (autonomous-agent:<id>), see tests/features/autonomous-agents/dev-fixtures.unit.spec.ts.
+    // (autonomous-agent:<id>), see tests/features/autonomous-agents/nhi-fixtures.unit.spec.ts.
     {
       id: `${prefix}org1_agent_nhi`,
       email: `${prefix}org1_agent_nhi@test.com`,

@@ -56,7 +56,7 @@ const recordPushedEvents = () => {
 const testPrefixRegexp = /^test_[a-z0-9]+(?:_[a-z0-9]+)*_$/
 
 // The sub-space of this repository's test suites: the sweep seams below act on it unless a test names
-// an owner, so a run never touches (or bills, with the dev bridge) the dev world's or a simulation's data.
+// an owner, so a run never touches (or bills, with the dev bridge) dev data or a simulation's data.
 const SUITE_PREFIX = 'test_agents_'
 
 export const createTestEnvRouter = () => {
@@ -83,8 +83,8 @@ export const createTestEnvRouter = () => {
 
   /**
    * Cleanup of a test sub-space (DELETE /?prefix=test_<suite>_): what the accounts whose ids start with the
-   * prefix own — documents and files — and the in-process caches. The other sub-spaces (the dev world
-   * test_demo_, a simulation's context) and the unprefixed accounts are left alone.
+   * prefix own — documents and files — and the in-process caches. The other sub-spaces (dev data under
+   * another prefix, a simulation's context) and the unprefixed accounts are left alone.
    */
   router.delete('/', async (req, res) => {
     const prefix = req.query.prefix

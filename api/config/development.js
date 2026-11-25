@@ -35,7 +35,7 @@ export default {
   // on another checkout or in CI.
   mcpServers: (() => {
     // MCP_FIXTURE_PORT belongs to the TEST fixture, which each spec starts and stops itself. DEV_MCP_PORT
-    // belongs to the long-running mcp pane, used for manual review and by the dev fixtures. They are
+    // belongs to the long-running mcp pane, used for manual review and by dev data. They are
     // deliberately separate: they would otherwise fight over one port, and since the mcp process runs
     // in every dev session that would make the api suite unrunnable there.
     const fixtureUrl = `http://localhost:${process.env.MCP_FIXTURE_PORT}/mcp`

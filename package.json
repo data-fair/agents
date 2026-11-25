@@ -19,8 +19,6 @@
     "dev:ui": "cd ui && FORCE_COLOR=1 NODE_CONFIG_DIR=../api/config/ exec ../node_modules/.bin/vite --port ${DEV_UI_PORT}",
     "dev:mcp": "FORCE_COLOR=1 exec ./node_modules/.bin/nodemon -e ts --watch dev/mcp-server.ts --watch tests/support/mcp-fixture.ts --exec node dev/mcp-server.ts",
     "stop-dev-deps": "docker compose --profile '*' stop",
-    "dev-world": "node dev/world.ts",
-    "dev-fixtures": "dotenv run -- node dev/fixtures.ts",
     "build-types": "mkdir -p ui/src/components/vjsf && df-build-types . --vjsf-dir ui/src/components/vjsf",
     "build-libs": "npm -w lib-vue run build && npm -w lib-vuetify run build",
     "prepare": "husky || true",
