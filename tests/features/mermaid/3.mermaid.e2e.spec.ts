@@ -14,9 +14,9 @@ test.describe('Mermaid bounded auto-fix (e2e)', () => {
 
   test('a diagram that fails to render is fixed automatically', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
 
-    await goToWithAuth('/agents/_dev/chat-mcp', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-mcp', 'test_agents_standalone')
 
     // The mock answers "broken mermaid" with an invalid diagram, then a valid one once the
     // auto-fix resends (its hidden context mentions the diagram "failed to render").

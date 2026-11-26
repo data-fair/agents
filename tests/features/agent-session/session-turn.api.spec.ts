@@ -14,10 +14,11 @@ import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { CONSENT_COOKIE, CONSENT_YES } from '../../../ui/src/review/review-consent.ts'
 import { MongoClient } from 'mongodb'
+import { devMongoUrl } from '../../support/mongo-url.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const orgMember = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
 const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
 
@@ -32,7 +33,7 @@ test.describe('A turn over the agent session', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
@@ -48,7 +49,7 @@ test.describe('A turn over the agent session', () => {
 
   /** The stored conversation, as its owner lists it. */
   const storedConversation = async (id: string) =>
-    (await orgAdmin.get('/api/conversations/organization/test1?agentId=portal-assistant')).data.results.find((c: any) => c.id === id)
+    (await orgAdmin.get('/api/conversations/organization/test_agents_org1?agentId=portal-assistant')).data.results.find((c: any) => c.id === id)
 
   /** Collect frames until one of `type` arrives, returning everything seen. */
   const collectUntil = async (socket: AgentSessionClient, type: string, timeoutMs = 15000) => {
@@ -68,7 +69,7 @@ test.describe('A turn over the agent session', () => {
     const hello = await session.next()
     assert.equal(hello.type, 'attached')
     assert.equal(hello.conversationId, undefined, 'nothing is created by the hello')
-    assert.equal((await orgAdmin.get('/api/conversations/organization/test1?agentId=portal-assistant')).data.count, 0)
+    assert.equal((await orgAdmin.get('/api/conversations/organization/test_agents_org1?agentId=portal-assistant')).data.count, 0)
 
     // The title travels with the prompt that creates the thread: the chat stamps it at send time.
     session.send({ type: 'prompt', content: 'hello', title: 'portal-assistant' })
@@ -83,14 +84,14 @@ test.describe('A turn over the agent session', () => {
 
     // The personal assistant exists without being stored, and a thread with it belongs to its user.
     assert.equal(conversation.agentId, 'portal-assistant')
-    assert.equal(conversation.userId, 'test1-admin1')
+    assert.equal(conversation.userId, 'test_agents_org1_admin')
     assert.equal(conversation.title, 'portal-assistant')
   })
 
   test('a person who may not talk to the agent is refused at the hello and at the first prompt, and nothing is created', async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Not theirs', persona: 'x', mcpServers: [], enabled: true })).data
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Not theirs', persona: 'x', mcpServers: [], enabled: true })).data
     const session = await open(await cookieOf(orgMember))
-    session.send(newThreadHello('organization/test1', { agentId: agent.id }))
+    session.send(newThreadHello('organization/test_agents_org1', { agentId: agent.id }))
     assert.equal((await session.next()).type, 'attached')
     // Right away, so the chat can say so when it opens.
     const atHello = await session.next()
@@ -113,7 +114,7 @@ test.describe('A turn over the agent session', () => {
     const consentCookie = `${await cookieOf(orgAdmin)}; ${CONSENT_COOKIE}=${CONSENT_YES}`
     const startThread = async (hello: Record<string, unknown>) => {
       const session = await open(consentCookie)
-      session.send(newThreadHello('organization/test1', hello))
+      session.send(newThreadHello('organization/test_agents_org1', hello))
       session.send({ type: 'prompt', content: 'hello' })
       await collectUntil(session, 'turn-end')
       return await storedConversation(session.conversationId()!)
@@ -139,7 +140,7 @@ test.describe('A turn over the agent session', () => {
     assert.equal(frames[frames.length - 1].stopReason, 'completed')
 
     // And it is stored, because the conversation is the record whether or not anyone was watching.
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversation.id}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversation.id}/messages`)).data.results
     assert.deepEqual(messages.map((m: any) => m.role), ['user', 'assistant'])
   })
 
@@ -148,7 +149,7 @@ test.describe('A turn over the agent session', () => {
     // browser, the browser answers, and the model continues from that answer. The mock's `call tool`
     // seam drives it.
     const session = await open(await cookieOf(orgAdmin))
-    session.send(newThreadHello('organization/test1', {
+    session.send(newThreadHello('organization/test_agents_org1', {
       tools: [{ name: 'select_row', description: 'selects a row on this page', inputSchema: { type: 'object', properties: { id: { type: 'number' } } } }]
     }))
     await session.next()
@@ -174,7 +175,7 @@ test.describe('A turn over the agent session', () => {
 
     // The record proves the model got the answer: the stored call carries the page's result, inside the
     // provenance envelope, exactly as an MCP tool's would.
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${session.conversationId()}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${session.conversationId()}/messages`)).data.results
     const assistant = messages.find((m: any) => m.role === 'assistant')
     const call = (assistant.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'select_row')
     assert.ok(call, 'the page tool call must be in the conversation record')
@@ -207,7 +208,7 @@ test.describe('A turn over the agent session', () => {
     await session.closed()
 
     for (let i = 0; i < 100; i++) {
-      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversation.id}/messages`)).data.results
+      const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversation.id}/messages`)).data.results
       const assistant = messages.find((m: any) => m.role === 'assistant')
       if (assistant && assistant.pending === false) {
         const text = assistant.parts.find((p: any) => p.type === 'text')?.text ?? ''
@@ -274,7 +275,7 @@ test.describe('A turn over the agent session', () => {
     // better than the browser loop did: it sees the step boundaries and tool results directly rather
     // than inferring them from a stream.
     const session = await open(await cookieOf(orgAdmin))
-    session.send(newThreadHello('organization/test1', {
+    session.send(newThreadHello('organization/test_agents_org1', {
       tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }]
     }))
     await session.next()
@@ -298,7 +299,7 @@ test.describe('A turn over the agent session', () => {
     // Text, a call, then text again: the label used to be cleared on the turn's first text only, so
     // "Analyzing tool result…" stayed under the answer while it streamed.
     const session = await open(await cookieOf(orgAdmin))
-    session.send(newThreadHello('organization/test1', {
+    session.send(newThreadHello('organization/test_agents_org1', {
       tools: [{ name: 'select_row', description: 'selects a row', inputSchema: { type: 'object' } }]
     }))
     await session.next()
@@ -341,7 +342,7 @@ test.describe('A turn over the agent session', () => {
     // page tools and stream there. Nothing is stored.
     first.send({ type: 'prompt', content: 'hello' })
     assert.deepEqual(await first.next(), { type: 'displaced', conversationId })
-    const stored = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const stored = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     // The fixture's own first turn only.
     assert.equal(stored.filter((m: any) => m.role === 'user').length, 1, 'the refused prompt was not stored')
 
@@ -383,13 +384,13 @@ test.describe('A turn over the agent session', () => {
     }
     const threads = frames.filter(f => f.type === 'attached' && f.conversationId).map(f => f.conversationId)
     assert.equal(new Set(threads).size, 1, 'one thread')
-    const listed = (await orgAdmin.get('/api/conversations/organization/test1?agentId=portal-assistant')).data.results
+    const listed = (await orgAdmin.get('/api/conversations/organization/test_agents_org1?agentId=portal-assistant')).data.results
     assert.deepEqual(listed.map((c: any) => c.id), [threads[0]])
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${threads[0]}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${threads[0]}/messages`)).data.results
     const userTexts = messages.filter((m: any) => m.role === 'user').map((m: any) => m.parts.find((p: any) => p.type === 'text')?.text)
     assert.deepEqual(userTexts, ['slow hello', 'second'])
     // The first turn was stopped by the second message, not left to answer the question before.
-    const runs = (await orgAdmin.get(`/api/conversations/organization/test1/${threads[0]}/runs`)).data.results
+    const runs = (await orgAdmin.get(`/api/conversations/organization/test_agents_org1/${threads[0]}/runs`)).data.results
       .sort((a: any, b: any) => a.startedAt.localeCompare(b.startedAt))
     assert.deepEqual(runs.map((r: any) => r.status), ['aborted', 'done'])
     const interrupted = messages.find((m: any) => m.role === 'assistant')
@@ -403,14 +404,14 @@ test.describe('A turn over the agent session', () => {
     // the second one, which its own run classifies again: billed twice, and a block was two strikes.
     // The account moderates its admins here, with the deterministic mock moderator, so the gate runs.
     const moderator = { id: 'mock-moderator', name: 'Mock Moderator', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } }
-    await putMockSettings(admin, 'organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1', {
       models: [...mockModels(), { model: moderator, usage: ['moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
       modelMapping: { ...mockModelMapping, moderator: { provider: 'mock-provider', id: 'mock-moderator', name: 'Mock Moderator' } },
       moderation: { enabled: true, categories: ['admin'] }
     })
     const conversationId = await personalConversation()
-    const runsOf = async () => (await orgAdmin.get(`/api/conversations/organization/test1/${conversationId}/runs`)).data.results
-    const events = async () => (await admin.get('/api/moderation/organization/test1/events')).data.results
+    const runsOf = async () => (await orgAdmin.get(`/api/conversations/organization/test_agents_org1/${conversationId}/runs`)).data.results
+    const events = async () => (await admin.get('/api/moderation/organization/test_agents_org1/events')).data.results
     // Events are written fire-and-forget: wait for the first turn's one before counting from it.
     let before: any[] = []
     for (let i = 0; i < 40 && !before.length; i++) {
@@ -448,7 +449,7 @@ test.describe('A turn over the agent session', () => {
     await new Promise(resolve => setTimeout(resolve, 500))
     assert.equal((await events()).length, 2, 'one moderation of the second message, not two')
     // One assistant message per run still holds for the run that did nothing.
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     assert.equal(messages.filter((m: any) => m.role === 'assistant' && m.runId === stopped.id).length, 1)
   })
 
@@ -456,13 +457,13 @@ test.describe('A turn over the agent session', () => {
     // A backstop: a thread whose first prompt's socket closed mid-creation is created but never
     // spoken in. Written straight to the store, since that window cannot be hit reliably from here.
     const listedId = await personalConversation()
-    const client = new MongoClient(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+    const client = new MongoClient(devMongoUrl)
     try {
       await client.db().collection('conversations').insertOne({
         id: 'test-empty-thread',
         agentId: 'portal-assistant',
-        owner: { type: 'organization', id: 'test1' },
-        userId: 'test1-admin1',
+        owner: { type: 'organization', id: 'test_agents_org1' },
+        userId: 'test_agents_org1_admin',
         title: 'never spoken in',
         createdAt: new Date().toISOString(),
         messageSeq: 0,
@@ -471,7 +472,7 @@ test.describe('A turn over the agent session', () => {
     } finally {
       await client.close()
     }
-    const listed = (await orgAdmin.get('/api/conversations/organization/test1')).data.results.map((c: any) => c.id)
+    const listed = (await orgAdmin.get('/api/conversations/organization/test_agents_org1')).data.results.map((c: any) => c.id)
     assert.deepEqual(listed, [listedId])
   })
 })

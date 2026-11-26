@@ -10,9 +10,10 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
+import { devMongoUrl } from '../../support/mongo-url.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const cookieOf = async (ax: any) => await ax.cookieJar.getCookieString(directoryUrl)
 
 const skill = { name: 'fill-form', description: 'How to fill the page form', uri: 'skill://fill-form/SKILL.md', body: '# Filling the page form\n\nRead the form first.' }
@@ -24,12 +25,12 @@ test.describe('Page skills', () => {
   let mongo: MongoClient
   test.beforeAll(async () => {
     fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT))
-    mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+    mongo = await MongoClient.connect(devMongoUrl)
   })
   test.afterAll(async () => { await fixture.close(); await mongo.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
   test.afterEach(() => { for (const socket of sockets.splice(0)) socket.close() })
 
@@ -37,7 +38,7 @@ test.describe('Page skills', () => {
   const turn = async (content: string, hello: Record<string, unknown> = {}) => {
     const session = await openAgentSession(await cookieOf(orgAdmin))
     sockets.push(session)
-    session.send(newThreadHello('organization/test1', { tools: pageTools, skills: [skill], ...hello }))
+    session.send(newThreadHello('organization/test_agents_org1', { tools: pageTools, skills: [skill], ...hello }))
     assert.equal((await session.next()).type, 'attached')
     session.send({ type: 'prompt', content })
     for (;;) {
@@ -46,7 +47,7 @@ test.describe('Page skills', () => {
     }
     const conversationId = session.conversationId()!
     const run = await mongo.db().collection('runs').findOne({ conversationId }, { sort: { createdAt: -1 } })
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     return { run: run as any, assistant: messages.find((m: any) => m.role === 'assistant') }
   }
 
@@ -64,7 +65,7 @@ test.describe('Page skills', () => {
   })
 
   test('a configured agent is shown none of the page\'s skills, as none of its tools', async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', { title: 'No page', persona: 'x', mcpServers: [], enabled: true })).data
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'No page', persona: 'x', mcpServers: [], enabled: true })).data
     const { run } = await turn('hello', { agentId: agent.id })
     assert.doesNotMatch(run.systemPrompt ?? '', /the-page · fill-form/)
   })

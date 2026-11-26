@@ -1,6 +1,6 @@
 /**
  * The review gate: the one AI SDK `toolApproval` function deciding each tool call of a configured agent's turn
- * (docs/superpowers/specs/2026-11-03-auto-approval-design.md, "The routing"). Pure: the review itself is a
+ * (docs/architecture/autonomous-agents.md, "Routes"). Pure: the review itself is a
  * parameter (createTurnReviewer, ./service.ts), so the decision table is unit-tested on its own.
  *
  * A function form of `toolApproval` replaces the tools' own `needsApproval` (the SDK consults only one), so the

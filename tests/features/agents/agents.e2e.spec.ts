@@ -12,7 +12,7 @@ const admin = await superAdmin
 test.describe('Chat UI', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   // The plain hello → world exchange is covered by compaction.e2e.spec.ts (same user, same page,
@@ -21,7 +21,7 @@ test.describe('Chat UI', () => {
     const errors: string[] = []
     page.on('pageerror', e => errors.push(e.message))
 
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
+    await goToWithAuth('/agents/user/test_agents_standalone/chat', 'test_agents_standalone')
 
     const input = page.getByPlaceholder('Type your message...')
     await expect(input).toBeEnabled({ timeout: 10000 })

@@ -248,7 +248,7 @@ export const buildServiceTools = async (ctx: ServiceToolContext): Promise<BuiltS
   const built: BuiltServiceTools = { tools: {} }
   for (const entry of ENTRIES) if (entry.applies(ctx)) await entry.build(ctx, built)
   // THE CAPABILITY GRANTS go reviewer first, then the admin (their own `needsApproval`): never the reviewer
-  // alone, and a reviewer's denial is final (docs/superpowers/specs/2026-11-03-auto-approval-design.md).
+  // alone, and a reviewer's denial is final (docs/architecture/autonomous-agents.md, "The approval gate").
   for (const name of CAPABILITY_GRANT_TOOL_NAMES) {
     const sourced = built.tools[name]
     if (sourced) sourced.review = { route: 'reviewer+person', cls: 'write', kind: 'grant' }

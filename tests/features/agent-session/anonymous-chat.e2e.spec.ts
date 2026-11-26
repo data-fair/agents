@@ -15,7 +15,7 @@ const admin = await superAdmin
 test.describe('Anonymous chat', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'organization/test1', {
+    await putSettings(admin, 'organization/test_agents_org1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [{
         model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
@@ -29,7 +29,7 @@ test.describe('Anonymous chat', () => {
   })
 
   test('a signed-out visitor gets an answer, and a reload starts over', { tag: '@smoke' }, async ({ page }) => {
-    await page.goto('/agents/organization/test1/chat')
+    await page.goto('/agents/organization/test_agents_org1/chat')
 
     await page.getByRole('textbox').fill('hello')
     await page.keyboard.press('Enter')

@@ -12,13 +12,13 @@ import { startTurnOverSocket } from '../../../dev/socket-turn.ts'
 import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const asSuperAdmin = { adminMode: true } as const
 const daily = { type: 'daily', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: 8, minute: 0, timeZone: 'Europe/Paris' }
 // matches api/config/development.js secretKeys.limits
 const LIMITS_SECRET = 'secretlimits'
 
-const agentBase = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}`
+const agentBase = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}`
 const createAgent = async () => {
   const agent = await createEnrolledAgent({
     title: 'History agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
@@ -45,24 +45,24 @@ const runTask = async (agentId: string, title: string, prompt: string, wait = tr
 /** The credit-cap path of the tasks api specs: an exhausted cap records a skipped run, and refuses. */
 const skippedRun = async (agentId: string) => {
   const task = await createTask(agentId, 'Capped digest', 'hello')
-  await orgAdmin.post(`/api/v1/limits/organization/test1?key=${LIMITS_SECRET}`, {
+  await orgAdmin.post(`/api/v1/limits/organization/test_agents_org1?key=${LIMITS_SECRET}`, {
     name: 'Test 1', lastUpdate: new Date().toISOString(), ai_credits: { limit: 5, consumption: 5 }
   })
   await admin.post(`${agentBase(agentId)}/tasks/${task.id}/run`).catch(() => {})
 }
 
 const openRuns = async (page: Page, goToWithAuth: any, agentId: string, tab = 'runs') => {
-  await goToWithAuth(`/agents/organization/test1/agents/${agentId}?tab=${tab}`, 'superadmin', asSuperAdmin)
+  await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agentId}?tab=${tab}`, 'test_agents_superadmin', asSuperAdmin)
 }
 const openRun = async (page: Page, goToWithAuth: any, agentId: string, runId: string) => {
-  await goToWithAuth(`/agents/organization/test1/agents/${agentId}/runs/${runId}`, 'superadmin', asSuperAdmin)
+  await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agentId}/runs/${runId}`, 'test_agents_superadmin', asSuperAdmin)
 }
 const runItem = (page: Page, text: string) => page.getByTestId('agent-run').filter({ hasText: text })
 
 test.describe('Agent page, activity', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('each state of a task run reads distinctly', async ({ page, goToWithAuth }) => {
@@ -228,11 +228,11 @@ test.describe('Agent page, activity', () => {
     await expect(rows).toHaveCount(1, { timeout: 20000 })
     await expect(rows).toContainText('hello')
     await rows.click()
-    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/review/${first.conversationId}`))
+    await expect(page).toHaveURL(new RegExp(`/agents/organization/test_agents_org1/review/${first.conversationId}`))
     await expect(page.locator('.agent-chat__user-bubble').first()).toHaveText('hello')
 
     // a conversation run's page (a tripwire or reviewer notification can name one) sends on to the review
     await openRun(page, goToWithAuth, agentId, second.runId)
-    await expect(page).toHaveURL(new RegExp(`/agents/organization/test1/review/${first.conversationId}`), { timeout: 20000 })
+    await expect(page).toHaveURL(new RegExp(`/agents/organization/test_agents_org1/review/${first.conversationId}`), { timeout: 20000 })
   })
 })

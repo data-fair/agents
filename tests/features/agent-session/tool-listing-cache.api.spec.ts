@@ -10,11 +10,12 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
 test.describe('Tool listings across turns', () => {
   const sockets: AgentSessionClient[] = []
@@ -25,7 +26,9 @@ test.describe('Tool listings across turns', () => {
   test.beforeEach(async () => {
     // clean() also forgets the cached listings, so each test starts from a cold cache.
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
+    // the dev servers whose listings are counted, on the assistant whatever servers the deployment gives it
+    await giveAssistantsDevServers()
     fixture.resetMethodCounts()
     fixture.resetInvokedTools()
   })
@@ -85,15 +88,15 @@ test.describe('Tool listings across turns', () => {
   test('a configured agent\'s session-bound server is listed once across its turns', async () => {
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-autonomous-agent-nhi',
-      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
-      issuer: `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`,
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_agent_nhi',
+      siteUrl: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`,
+      issuer: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/nhi`,
       autonomousAgent: { title: 'Lister', persona: 'p', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true }
     })
     const socket = await openAgentSession(await orgAdmin.cookieJar.getCookieString(directoryUrl))
     sockets.push(socket)
-    socket.send(newThreadHello('organization/test1', { agentId: 'test-fixture' }))
+    socket.send(newThreadHello('organization/test_agents_org1', { agentId: 'test-fixture' }))
     await socket.next()
     await turn(socket, 'hello')
     await turn(socket, 'hello')
@@ -101,11 +104,11 @@ test.describe('Tool listings across turns', () => {
   })
 
   test('a fresh listing is still what the diagnostic endpoint shows', async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Diag', persona: 'p', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
     })).data
-    await admin.get(`/api/autonomous-agents/organization/test1/${agent.id}/tools`)
-    await admin.get(`/api/autonomous-agents/organization/test1/${agent.id}/tools`)
+    await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}/tools`)
+    await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}/tools`)
     assert.equal(fixture.methodCounts()['tools/list'], 2)
   })
 })

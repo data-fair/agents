@@ -6,10 +6,10 @@
  */
 import axios from 'axios'
 
-const sitesUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory/api/sites`
+const sitesUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/simple-directory/api/sites`
 const key = 'secret-sites'
 
-export const portalHost = (name: string) => `${name}.localhost:${process.env.NGINX_PORT}`
+export const portalHost = (name: string) => `${name}.${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
 
 /**
  * `auth` sets the site's authentication mode, which the secret route does not take: simple-directory's PATCH

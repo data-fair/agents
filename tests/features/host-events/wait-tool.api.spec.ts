@@ -16,9 +16,9 @@ import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 
-const OWNER = 'user/test-standalone1'
+const OWNER = 'user/test_agents_standalone'
 const STOPPED = 'Interrupted: the person stopped the reply before this finished.'
 
 test.describe('wait_for_user_action over the socket', () => {
@@ -115,7 +115,7 @@ test.describe('wait_for_user_action over the socket', () => {
     assert.equal(run.stopReason, 'waiting')
     const waiting = await conversation(conversationId)
     assert.equal(waiting.pendingWait.expecting, 'you to click Create')
-    assert.equal(waiting.pendingWait.triggeredBy.userId, 'test-standalone1')
+    assert.equal(waiting.pendingWait.triggeredBy.userId, 'test_agents_standalone')
   })
 
   test('the person acting wakes a new turn, which continues from what they did', async () => {
@@ -140,7 +140,7 @@ test.describe('wait_for_user_action over the socket', () => {
     assert.equal(all.length, 2)
     const wake = all.find(r => r.trigger === 'wake')
     assert.ok(wake, 'a wake run, not a user one: the person said nothing')
-    assert.equal(wake.triggeredBy.userId, 'test-standalone1', 'billed as the person who handed over')
+    assert.equal(wake.triggeredBy.userId, 'test_agents_standalone', 'billed as the person who handed over')
     assert.equal((await conversation(conversationId)).pendingWait, undefined)
     // Exactly one message of the person's: a wake adds none.
     const messages = (await user.get(`/api/test-env/conversations/${OWNER}/${conversationId}/messages`)).data.results

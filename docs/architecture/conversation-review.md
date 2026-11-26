@@ -134,8 +134,8 @@ entries. Its test passed because it asserted a type-chip label, which renders ei
 ## The export
 
 `api/src/review/operations.ts` turns one stored conversation into a single **JSON Lines** file,
-`conversation-<id>.jsonl`. `.claude/skills/conversation-export/SKILL.md` explains how to read it; the
-file also carries a `guide` field so it is usable without the skill. It has three readers: a maintainer
+`conversation-<id>.jsonl`. The
+file carries a `guide` field that explains how to read it, so it is usable without any skill. It has three readers: a maintainer
 who downloads it, the simulation judge, and the agent itself, which reads its own past conversations
 in this format with `read_conversation` (by line and offset instead of `sed`, see
 [self-knowledge](./planned-tasks.md#self-knowledge-and-planning)).

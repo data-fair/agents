@@ -28,7 +28,7 @@ test.describe('withCallPath', () => {
   test.beforeEach(async () => {
     received.length = 0
     dir = await mkdtemp(join(tmpdir(), 'call-path-'))
-    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents:8080' })
+    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents:8080' })
     await files.writeText('/clean.csv', 'a,b\n')
   })
   test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
@@ -37,7 +37,7 @@ test.describe('withCallPath', () => {
     const wrapped = withCallPath({ tool: target(() => 'imported'), server: 's', fileArgs: ['file'] }, { files })
     const input = { file: '/clean.csv', title: 'Clean' }
     assert.equal(await run(wrapped, input), 'imported')
-    assert.match(received[0].file, /^http:\/\/agents:8080\/api\/files\/organization\/test1\/c1\/clean\.csv\?exp=\d+&sig=/)
+    assert.match(received[0].file, /^http:\/\/agents:8080\/api\/files\/organization\/test_agents_org1\/c1\/clean\.csv\?exp=\d+&sig=/)
     assert.equal(received[0].title, 'Clean')
     assert.deepEqual(input, { file: '/clean.csv', title: 'Clean' })
   })
@@ -87,7 +87,7 @@ test.describe('withCallPath', () => {
 test.describe('withCallPath — links', () => {
   test.beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'call-path-links-'))
-    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents:8080' })
+    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents:8080' })
   })
   test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
 
@@ -155,7 +155,7 @@ test.describe('withCallPath — links', () => {
 test.describe('withCallPath — errors carry no signed URL', () => {
   test.beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'call-path-err-'))
-    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents:8080' })
+    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents:8080' })
     await files.writeText('/clean.csv', 'a,b\n')
   })
   test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })

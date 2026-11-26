@@ -9,9 +9,9 @@ import { putMockSettings } from '../../support/settings.ts'
 import { createEnrolledAgent } from '../../support/agents.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const hourly = { type: 'hours', month: '*', dayOfWeek: '*', dayOfMonth: '*', hour: '*', hourStep: 1, minute: 0, timeZone: 'UTC' }
-const base = (agentId: string) => `/api/autonomous-agents/organization/test1/${agentId}/tasks`
+const base = (agentId: string) => `/api/autonomous-agents/organization/test_agents_org1/${agentId}/tasks`
 
 const createAgent = async (enabled = true) => {
   const agent = await createEnrolledAgent({ title: 'Tasker', persona: 'x', mcpServers: [], enabled })
@@ -24,14 +24,14 @@ const dueTask = async (agentId: string, prompt = 'hello', dueAt = '2026-01-15T10
 }
 const settleRun = async (agentId: string, runId: string) => {
   for (let i = 0; i < 150; i++) {
-    const run = (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agentId}/runs/${runId}`)).data
+    const run = (await orgAdmin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}/runs/${runId}`)).data
     if (run.status !== 'running') return
     await new Promise(resolve => setTimeout(resolve, 100))
   }
 }
 const pass = async (now: string) => (await admin.post('/api/test-env/scheduler-pass', { now })).data
 const runsOf = async (agentId: string, taskId: string) =>
-  (await orgAdmin.get(`/api/autonomous-agents/organization/test1/${agentId}/runs`, { params: { taskId } })).data.results
+  (await orgAdmin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}/runs`, { params: { taskId } })).data.results
 // Until no run of the task is still going (a run is recorded `running` at once, and the turn is not awaited).
 const settle = async (agentId: string, taskId: string) => {
   const deadline = Date.now() + 15000
@@ -43,7 +43,7 @@ const settle = async (agentId: string, taskId: string) => {
 }
 
 test.describe('The scheduler', () => {
-  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test1') })
+  test.beforeEach(async () => { await clean(); await putMockSettings(admin, 'organization/test_agents_org1') })
 
   test('a due task fires once, and its next run moves past now', async () => {
     const agent = await createAgent()

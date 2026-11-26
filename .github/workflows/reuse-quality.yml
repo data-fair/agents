@@ -35,7 +35,7 @@ jobs:
       run: npm run build-types
 
     # their compiled .js is gitignored, and the UI and the specs import them by package name:
-    # lib-vue/lib-vuetify for the chat composables, lib-sim for the simulation cases
+    # lib-vue/lib-vuetify for the chat composables
     - name: Build workspace packages
       run: npm run build-libs
 
@@ -59,8 +59,6 @@ jobs:
           lib-vue/**/*.d.ts
           lib-vuetify/**/*.js
           lib-vuetify/**/*.d.ts
-          lib-sim/**/*.js
-          lib-sim/**/*.d.ts
           !**/node_modules/**
 
   static:
@@ -94,11 +92,7 @@ jobs:
 
     # no server needed, but some units import #config, whose development config reads .env
     - name: Init .env
-      run: ./node_modules/.bin/df-dev init-env # local bin only: a bare npx would fetch an unrelated "df-dev" from the registry if the dependency were missing
-
-    # the lib-sim page perception units drive a real headless browser
-    - name: Install Chromium
-      run: npx playwright install --with-deps --only-shell chromium
+      run: cp dev/default.env .env
 
     - name: Unit tests
       run: npx playwright test --project=unit
@@ -155,43 +149,39 @@ jobs:
       run: npx playwright install-deps chromium
 
     - name: Init .env
-      run: ./node_modules/.bin/df-dev init-env # local bin only: a bare npx would fetch an unrelated "df-dev" from the registry if the dependency were missing
+      run: cp dev/default.env .env
 
-    # the zellij panes get .env from df-dev; here every later step does
+    # every later step gets the variables of .env, as npm run dev exports them to its processes
     - name: Export .env to the next steps
-      run: cat .env >> "$GITHUB_ENV"
+      run: grep -vE '^\s*(#|$)' .env >> "$GITHUB_ENV" # GITHUB_ENV accepts only NAME=value lines, no comments
 
-    # simple-directory reads it verbatim: the NHI fixtures' issuers carry the drawn NGINX_PORT
-    - name: Render users.json
-      run: node dev/render-users.ts
-
-    # every profile, not only the core services: CI tests every integration (events included)
+    # every profile, not only the core services: CI tests every integration (events included); the
+    # build outputs are downloaded above, so dev-setup has nothing left to build
     - name: Start services
-      run: docker compose --profile '*' up -d --wait
+      run: npm run dev-deps -- --profile '*'
 
-    # same commands as the panes of .zellij.kdl, logs in dev/logs for the upload below
+    # the processes of npm run dev, logs in dev/logs for the upload below
     - name: Start dev API
       run: |
         mkdir -p dev/logs
-        NODE_CONFIG=$(./node_modules/.bin/df-dev absent-config)
-        export NODE_CONFIG
-        cd api && NODE_ENV=development node index.ts > ../dev/logs/api.log 2>&1 &
+        npm run dev:api > dev/logs/api.log 2>&1 &
 
     - name: Start dev UI
       if: matrix.project == 'e2e'
-      run: cd ui && NODE_CONFIG_DIR=../api/config/ ../node_modules/.bin/vite --port "$DEV_UI_PORT" > ../dev/logs/ui.log 2>&1 &
+      run: npm run dev:ui > dev/logs/ui.log 2>&1 &
 
     # data-fair's stand-in: privateMcpUrl (api/config/development.js) points at its /platform/ endpoint, so
     # without it every turn of an autonomous agent with an identity fails to list its built-in server
     - name: Start dev MCP server
-      run: node dev/mcp-server.ts > dev/logs/mcp.log 2>&1 &
+      run: npm run dev:mcp > dev/logs/mcp.log 2>&1 &
 
     # fail here, with the processes' own output, rather than later in the tests' state setup;
-    # the e2e-warmup project then pays vite's first-request transforms
+    # the e2e-warmup project then pays vite's first-request transforms. Each process is polled on its own port,
+    # not through nginx: a refused connection there would make an nginx worker skip that upstream for 10s
     - name: Wait for API, MCP server and UI
       run: |
-        urls="http://localhost:$NGINX_PORT/agents/api/ping"
-        if [ "${{ matrix.project }}" = e2e ]; then urls="$urls http://localhost:$NGINX_PORT/agents/"; fi
+        urls="http://localhost:$DEV_API_PORT/api/ping"
+        if [ "${{ matrix.project }}" = e2e ]; then urls="$urls http://localhost:$DEV_UI_PORT/agents/"; fi
         for url in $urls; do
           for _ in $(seq 120); do curl -sf -o /dev/null "$url" && break; sleep 1; done
           curl -sf -o /dev/null "$url" || { echo "not ready: $url"; tail -n 50 dev/logs/*.log; exit 1; }

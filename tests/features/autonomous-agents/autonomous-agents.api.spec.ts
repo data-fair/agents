@@ -5,8 +5,8 @@ import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const orgMember = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 const admin = await superAdmin
 
 const validAgent = () => ({
@@ -23,13 +23,13 @@ test.describe('Autonomous agents API', () => {
 
   test('a title longer than the directory accepts for an identity name is refused', async () => {
     // simple-directory caps an NHI name at 150 characters and ours adds " (autonomous agent)"
-    await assert.rejects(admin.post('/api/autonomous-agents/organization/test1', { ...validAgent(), title: 'x'.repeat(132) }), { status: 400 })
-    const ok = await admin.post('/api/autonomous-agents/organization/test1', { ...validAgent(), title: 'x'.repeat(131) })
+    await assert.rejects(admin.post('/api/autonomous-agents/organization/test_agents_org1', { ...validAgent(), title: 'x'.repeat(132) }), { status: 400 })
+    const ok = await admin.post('/api/autonomous-agents/organization/test_agents_org1', { ...validAgent(), title: 'x'.repeat(131) })
     assert.equal(ok.status, 200)
   })
 
   test('the MCP catalog lists the dev servers without credentials', async () => {
-    const res = await admin.get('/api/autonomous-agents/organization/test1/mcp-servers')
+    const res = await admin.get('/api/autonomous-agents/organization/test_agents_org1/mcp-servers')
     assert.equal(res.status, 200)
     assert.equal(res.data.count, res.data.results.length)
     const publicServer = res.data.results.find((s: any) => s.id === 'dev-public-mcp')
@@ -51,46 +51,46 @@ test.describe('Autonomous agents API', () => {
   })
 
   test('a non-admin member cannot read the MCP catalog', async () => {
-    await assert.rejects(orgMember.get('/api/autonomous-agents/organization/test1/mcp-servers'), { status: 403 })
+    await assert.rejects(orgMember.get('/api/autonomous-agents/organization/test_agents_org1/mcp-servers'), { status: 403 })
   })
 
   // A user is always 'admin' of their own personal account (getAccountRole in
   // @data-fair/lib-common-types/session), so assertAccountRole alone never refuses
   // owner.type: 'user' — including the user's OWN personal account, with no org
   // switching needed. assertOrganizationOwner is the only thing standing in front of
-  // this. Uses orgMember (test1-user1) precisely because it is otherwise a nobody —
-  // a plain member of test1, not an admin of anything — yet still self-admin of its
+  // this. Uses orgMember (test_agents_org1_user) precisely because it is otherwise a nobody —
+  // a plain member of test_agents_org1, not an admin of anything — yet still self-admin of its
   // own personal account.
   test('a personal account owner is refused reading the MCP catalog, even the caller\'s own', async () => {
     await assert.rejects(
-      orgMember.get('/api/autonomous-agents/user/test1-user1/mcp-servers'),
+      orgMember.get('/api/autonomous-agents/user/test_agents_org1_user/mcp-servers'),
       (err: any) => { assert.equal(err.status, 400); assert.match(String(err.data), /organization/); return true }
     )
   })
 
   test('a personal account owner is refused creating an autonomous agent, even the caller\'s own', async () => {
     await assert.rejects(
-      orgMember.post('/api/autonomous-agents/user/test1-user1', validAgent()),
+      orgMember.post('/api/autonomous-agents/user/test_agents_org1_user', validAgent()),
       (err: any) => { assert.equal(err.status, 400); assert.match(String(err.data), /organization/); return true }
     )
   })
 
   test('a superadmin creates an autonomous agent and reads it back', { tag: '@smoke' }, async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     assert.equal(created.status, 200)
     assert.ok(created.data.id, 'expected a generated id')
     assert.equal(created.data.owner.type, 'organization')
-    assert.equal(created.data.owner.id, 'test1')
+    assert.equal(created.data.owner.id, 'test_agents_org1')
     assert.ok(created.data.createdAt)
 
-    const read = await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)
+    const read = await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`)
     assert.equal(read.status, 200)
     assert.equal(read.data.title, 'Support triage')
   })
 
   test('listing returns only the autonomous agents of that account', async () => {
-    await admin.post('/api/autonomous-agents/organization/test1', validAgent())
-    const res = await admin.get('/api/autonomous-agents/organization/test1')
+    await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
+    const res = await admin.get('/api/autonomous-agents/organization/test_agents_org1')
     assert.equal(res.status, 200)
     assert.equal(res.data.count, 1)
     assert.equal(res.data.results[0].title, 'Support triage')
@@ -99,18 +99,18 @@ test.describe('Autonomous agents API', () => {
   test('an unknown serverId is refused with 400 naming the id', async () => {
     const body = { ...validAgent(), mcpServers: [{ serverId: 'no-such-server' }] }
     await assert.rejects(
-      admin.post('/api/autonomous-agents/organization/test1', body),
+      admin.post('/api/autonomous-agents/organization/test_agents_org1', body),
       (err: any) => { assert.equal(err.status, 400); assert.match(String(err.data), /no-such-server/); return true }
     )
   })
 
   test('a body missing persona is refused with 400', async () => {
     const { persona, ...noPersona } = validAgent()
-    await assert.rejects(admin.post('/api/autonomous-agents/organization/test1', noPersona), { status: 400 })
+    await assert.rejects(admin.post('/api/autonomous-agents/organization/test_agents_org1', noPersona), { status: 400 })
   })
 
   test('the rollout gate refuses an org admin who is not in admin mode', async () => {
-    await assert.rejects(orgAdmin.post('/api/autonomous-agents/organization/test1', validAgent()), { status: 403 })
+    await assert.rejects(orgAdmin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent()), { status: 403 })
   })
 
   // assertAccountRole now runs BEFORE the reqWriteSession rollout gate (see router.ts),
@@ -121,14 +121,14 @@ test.describe('Autonomous agents API', () => {
   // ('super admin only') instead of assertAccountRole ('requires admin role(s)').
   test('a non-admin org member is refused POST by the role check, not merely the rollout gate', async () => {
     await assert.rejects(
-      orgMember.post('/api/autonomous-agents/organization/test1', validAgent()),
+      orgMember.post('/api/autonomous-agents/organization/test_agents_org1', validAgent()),
       (err: any) => { assert.equal(err.status, 403); assert.match(String(err.data), /requires admin/); return true }
     )
   })
 
   test('an org admin can READ even while the rollout gate blocks writes', async () => {
-    await admin.post('/api/autonomous-agents/organization/test1', validAgent())
-    const res = await orgAdmin.get('/api/autonomous-agents/organization/test1')
+    await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
+    const res = await orgAdmin.get('/api/autonomous-agents/organization/test_agents_org1')
     assert.equal(res.status, 200)
     assert.equal(res.data.count, 1)
   })
@@ -140,38 +140,38 @@ test.describe('Autonomous agents API', () => {
   // that specific case still can't be exercised with the `admin` client. The
   // org-member write-path cases just below cover the role check on the write path.
   test('an org admin is refused a cross-account list', async () => {
-    await assert.rejects(orgAdmin.get('/api/autonomous-agents/organization/dev1'), { status: 403 })
+    await assert.rejects(orgAdmin.get('/api/autonomous-agents/organization/test_agents_org2'), { status: 403 })
   })
 
   test('an org admin is refused a cross-account MCP catalog read', async () => {
-    await assert.rejects(orgAdmin.get('/api/autonomous-agents/organization/dev1/mcp-servers'), { status: 403 })
+    await assert.rejects(orgAdmin.get('/api/autonomous-agents/organization/test_agents_org2/mcp-servers'), { status: 403 })
   })
 
   test('an org admin is refused a cross-account read by id', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     // 404, not 403: this read is now gated on canInstruct rather than on the owner's admin role, so a
     // listed instructor — including one from another account, which is the whole point of the grant —
     // can open the agent's thread. canInstruct is a property of the AGENT's instructors list, so the
     // document must be fetched before it can be evaluated, and an agent that is not this owner's is
     // simply not found. Same structural consequence as the runtime routes, and 404 discloses less
     // than a 403 would.
-    await assert.rejects(orgAdmin.get(`/api/autonomous-agents/organization/dev1/${created.data.id}`), { status: 404 })
+    await assert.rejects(orgAdmin.get(`/api/autonomous-agents/organization/test_agents_org2/${created.data.id}`), { status: 404 })
   })
 
   test('a non-admin who may not instruct is refused a read by id', async () => {
     // The refusal that replaced the admin gate: same account, no grant.
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     await assert.rejects(
-      orgMember.get(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      orgMember.get(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`),
       (err: any) => { assert.equal(err.status, 403); assert.match(JSON.stringify(err.data), /instruct/i); return true }
     )
   })
 
   test('a listed instructor reads the agent, but not its identity or the other instructors', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
-      ...validAgent(), instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
+      ...validAgent(), instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }]
     })
-    const res = await orgMember.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)
+    const res = await orgMember.get(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`)
     assert.equal(res.status, 200)
     assert.equal(res.data.title, validAgent().title)
     // Driving an autonomous agent does not mean seeing the identity it acts as, nor who else was
@@ -184,121 +184,121 @@ test.describe('Autonomous agents API', () => {
   })
 
   test('PUT replaces the writable fields and preserves the server-owned ones', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
 
-    const updated = await admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, {
+    const updated = await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`, {
       ...validAgent(),
       title: 'Renamed',
       instructions: 'Answer in French.',
-      instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }]
+      instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }]
     })
 
     assert.equal(updated.status, 200)
     assert.equal(updated.data.title, 'Renamed')
     assert.equal(updated.data.instructions, 'Answer in French.')
-    assert.deepEqual(updated.data.instructors, [{ mode: 'member', type: 'user', id: 'test1-user1' }])
+    assert.deepEqual(updated.data.instructors, [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }])
     assert.equal(updated.data.id, created.data.id)
     assert.equal(updated.data.createdAt, created.data.createdAt)
     assert.notEqual(updated.data.updatedAt, created.data.createdAt)
     // What was stored, not only what was answered.
-    const stored = (await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)).data
+    const stored = (await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`)).data
     assert.deepEqual(stored, updated.data)
     assert.ok(stored.createdBy, 'set at creation')
     assert.deepEqual(stored.createdBy, created.data.createdBy)
   })
 
   test('PUT drops a field that is absent from the new body', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', { ...validAgent(), instructions: 'Initial.' })
-    const updated = await admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', { ...validAgent(), instructions: 'Initial.' })
+    const updated = await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`, validAgent())
     assert.equal('instructions' in updated.data, false)
-    const stored = (await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)).data
+    const stored = (await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`)).data
     assert.equal('instructions' in stored, false)
   })
 
   test('PUT refuses an unknown serverId', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     await assert.rejects(
-      admin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, { ...validAgent(), mcpServers: [{ serverId: 'no-such-server' }] }),
+      admin.put(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`, { ...validAgent(), mcpServers: [{ serverId: 'no-such-server' }] }),
       (err: any) => { assert.equal(err.status, 400); assert.match(String(err.data), /no-such-server/); return true }
     )
   })
 
   test('PUT on an unknown autonomous agent is a 404', async () => {
     await assert.rejects(
-      admin.put('/api/autonomous-agents/organization/test1/no-such-agent', validAgent()),
+      admin.put('/api/autonomous-agents/organization/test_agents_org1/no-such-agent', validAgent()),
       { status: 404 }
     )
   })
 
   test('the rollout gate refuses a PUT from an org admin not in admin mode', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     await assert.rejects(
-      orgAdmin.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, { ...validAgent(), title: 'Nope' }),
+      orgAdmin.put(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`, { ...validAgent(), title: 'Nope' }),
       { status: 403 }
     )
   })
 
   test('a non-admin org member is refused PUT by the role check, not merely the rollout gate', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     await assert.rejects(
-      orgMember.put(`/api/autonomous-agents/organization/test1/${created.data.id}`, { ...validAgent(), title: 'Nope' }),
+      orgMember.put(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`, { ...validAgent(), title: 'Nope' }),
       (err: any) => { assert.equal(err.status, 403); assert.match(String(err.data), /requires admin/); return true }
     )
   })
 
   test('DELETE removes it and a second DELETE is a 404', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
 
-    const deleted = await admin.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`)
+    const deleted = await admin.delete(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`)
     assert.equal(deleted.status, 204)
 
     await assert.rejects(
-      admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      admin.get(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`),
       { status: 404 }
     )
     await assert.rejects(
-      admin.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      admin.delete(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`),
       { status: 404 }
     )
   })
 
   test('an autonomous agent of another account cannot be reached by id', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     await assert.rejects(
-      admin.get(`/api/autonomous-agents/organization/dev1/${created.data.id}`),
+      admin.get(`/api/autonomous-agents/organization/test_agents_org2/${created.data.id}`),
       { status: 404 }
     )
   })
 
   test('DELETE is scoped by owner — a foreign account path does not delete it', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
 
     // The superadmin satisfies assertAccountRole for any account, so the mongo filter's
     // owner clauses are the ONLY protection here. Unlike PUT, DELETE does no
     // owner-scoped fetch first, so dropping them would silently allow a cross-account
     // delete that every other test in this file would still pass.
     await assert.rejects(
-      admin.delete(`/api/autonomous-agents/organization/dev1/${created.data.id}`),
+      admin.delete(`/api/autonomous-agents/organization/test_agents_org2/${created.data.id}`),
       { status: 404 }
     )
 
-    const stillThere = await admin.get(`/api/autonomous-agents/organization/test1/${created.data.id}`)
+    const stillThere = await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`)
     assert.equal(stillThere.status, 200)
     assert.equal(stillThere.data.id, created.data.id)
   })
 
   test('the rollout gate refuses a DELETE from an org admin not in admin mode', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     await assert.rejects(
-      orgAdmin.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      orgAdmin.delete(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`),
       { status: 403 }
     )
   })
 
   test('a non-admin org member is refused DELETE by the role check, not merely the rollout gate', async () => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', validAgent())
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', validAgent())
     await assert.rejects(
-      orgMember.delete(`/api/autonomous-agents/organization/test1/${created.data.id}`),
+      orgMember.delete(`/api/autonomous-agents/organization/test_agents_org1/${created.data.id}`),
       (err: any) => { assert.equal(err.status, 403); assert.match(String(err.data), /requires admin/); return true }
     )
   })

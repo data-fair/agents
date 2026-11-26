@@ -21,9 +21,9 @@ export interface AgentSessionClient {
 
 /**
  * A hello that starts a fresh thread: the account it is on (an `owner` path such as
- * `organization/test1`) and the agent. The first prompt after it creates the thread.
+ * `organization/test_agents_org1`) and the agent. The first prompt after it creates the thread.
  */
-export const newThreadHello = (owner = 'organization/test1', extra: Record<string, unknown> = {}) => {
+export const newThreadHello = (owner = 'organization/test_agents_org1', extra: Record<string, unknown> = {}) => {
   const [type, id] = owner.split('/')
   return { type: 'hello', tools: [], account: { type, id }, agentId: 'portal-assistant', ...extra }
 }
@@ -39,7 +39,7 @@ export const newThreadHello = (owner = 'organization/test1', extra: Record<strin
 export const openAgentSession = async (cookieString?: string, host?: string): Promise<AgentSessionClient> => {
   // `host`: open the socket as if through another of the platform's domains. nginx forwards the Host
   // header as x-forwarded-host, which is all that tells the service which site a socket is on.
-  const ws = new WebSocket(`ws://localhost:${process.env.NGINX_PORT}/agents/api/agent-session`, {
+  const ws = new WebSocket(`ws://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/agent-session`, {
     headers: { ...(cookieString ? { cookie: cookieString } : {}), ...(host ? { host } : {}) }
   })
   const inbox: any[] = []

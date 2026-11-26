@@ -29,7 +29,6 @@ graph TB
 | `shared/` | What both the server and the browser read: the agent session protocol and its frame schemas, host events, message parts, the audited-agent rule — and nothing else (a unit test enforces that every module has a UI consumer) |
 | `lib-vue/` | Vue composables: WebMCP tool and skill registration, BroadcastChannel transport |
 | `lib-vuetify/` | Embeddable Vuetify components: chat drawer, menu, action button, toggle FAB |
-| `lib-sim/` | The scenario-simulation harness (`npm run simulate`) and the dev bridge to Claude Code models |
 
 Every conversation runs on ONE loop, on the server (`api/src/conversations/executor.ts`): the in-page
 chat's personal assistant and configured [autonomous agents](./autonomous-agents.md) alike. The chat
@@ -76,7 +75,7 @@ changes. The server never reads that cookie.
 
 AI provider/model configuration and credit-based quotas are layered across deploy-time env vars, per-org superadmin definitions, and org-admin distribution — see [Configuration](./configuration.md). Every model call, whoever makes it, is charged through one function, `chargeModelCall` (`api/src/usage/charge.ts`) — see [Quotas & usage](./quotas-usage.md).
 
-**Development seams.** What the test suites need from the server — a reset of every `test*` document
+**Development seams.** What the test suites need from the server — a reset of the documents of a test sub-space (`DELETE /api/test-env?prefix=test_agents_`)
 and in-process cache, state manufactured on purpose (orphaned runs, held locks), clocks passed in as
 data, a thread's stored messages read over HTTP — lives in one router, `api/src/test-env/router.ts`,
 mounted under `/api/test-env` only when `NODE_ENV` is `development`. Product code does not know it

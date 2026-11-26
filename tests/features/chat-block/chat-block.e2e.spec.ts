@@ -15,11 +15,11 @@ const admin = await superAdmin
 test.describe('Chat Block Integration', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('Block renders the chat iframe inline without any toggle, and the chat works inside it', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-block', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-block', 'test_agents_standalone')
 
     // The chat is rendered flat: the iframe is present and visible immediately,
     // with no FAB/toggle to click.

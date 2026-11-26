@@ -54,10 +54,10 @@ export function autonomousAgentNhiBody (opts: {
     // roles has only config.roles.defaults = ['admin', 'user'] — so 'contrib' would be rejected.
     // 'user' is also the least privilege an agent can hold.
     //
-    // This applies to what is sent THROUGH THIS ROUTE only. dev/resources/organizations.json lists
-    // both fixture NHIs as "contrib" and that is fine: FileStorage reads membership roles from the
-    // file without validating them (the pre-existing dev1-user1 even carries the non-existent role
-    // "user1"). A reader comparing the two should not conclude the fixtures are wrong.
+    // This applies to what is sent THROUGH THIS ROUTE only. tests/support/sd-fixtures.ts lists
+    // both fixture NHIs as "contrib" and that is fine: simple-directory's test seed writes the
+    // memberships without validating their roles. A reader comparing the two should not conclude the
+    // fixtures are wrong.
     role: opts.role ?? 'user',
     provider: { issuer: opts.issuer },
     subject: autonomousAgentSubject(opts.agentId),

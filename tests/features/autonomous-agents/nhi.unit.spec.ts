@@ -189,7 +189,7 @@ test.describe('buildAssertionClaims', () => {
 })
 
 test.describe('credentialClaims', () => {
-  const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: 1_700_000_300 }
+  const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test_agents_org1' }, nhi: 1, exp: 1_700_000_300 }
   const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
 
   test('reads the claims out of the id_token cookie', () => {
@@ -213,7 +213,7 @@ test.describe('credentialClaims', () => {
   // it cannot be unit-tested directly — but its decode step and its projection are pure,
   // and are pinned here.
   test('a realistic two-cookie session string yields only claims, never the raw token', () => {
-    const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: 1_700_000_300 }
+    const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test_agents_org1' }, nhi: 1, exp: 1_700_000_300 }
     const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
     // a realistic Set-Cookie-derived header: id_token carries header.payload, id_token_sign
     // the signature — exactly the two cookies simple-directory splits the session JWT across.
@@ -229,7 +229,7 @@ test.describe('credentialClaims', () => {
     // Mirrors describeAutonomousAgentSession's projection (api/src/autonomous-agents/service.ts)
     // exactly, built on the pure decode step only, so the no-secret-leak property stays
     // testable at unit level without an NHI or #config.
-    const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test1' }, nhi: 1, exp: Math.floor(Date.now() / 1000) + 120 }
+    const claims = { id: 'nhi-abc', name: 'agent', organization: { id: 'test_agents_org1' }, nhi: 1, exp: Math.floor(Date.now() / 1000) + 120 }
     const idToken = 'eyJhbGciOiJSUzI1NiJ9.' + Buffer.from(JSON.stringify(claims)).toString('base64url')
     const cookieHeader = `id_token=${idToken}; id_token_sign=zzz-signature-blob`
     const decoded = credentialClaims({ cookie: cookieHeader })

@@ -42,12 +42,12 @@ const settingsWithoutStorage = {
 test.describe('Review consent sheet', () => {
   test.beforeEach(async () => {
     await clean()
-    await putSettings(admin, 'user/test-standalone1', settingsWithStorage)
+    await putSettings(admin, 'user/test_agents_standalone', settingsWithStorage)
   })
 
   test('consent sheet appears after first response and Accept persists cookie', async ({ page, context, goToWithAuth }) => {
     // Navigate to the chat page (no consent cookie set yet)
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
+    await goToWithAuth('/agents/user/test_agents_standalone/chat', 'test_agents_standalone')
 
     // Send a message: the sheet waits for a first assistant response
     const input = page.getByPlaceholder('Type your message...')
@@ -87,9 +87,9 @@ test.describe('Review consent sheet', () => {
   // The Settings tab's consent toggle: consented-review.e2e.spec.ts, in the same chat before it reviews.
 
   test('consent sheet does not appear when reviewPersonalAssistant is disabled', async ({ page, goToWithAuth }) => {
-    await putSettings(admin, 'user/test-standalone1', settingsWithoutStorage)
+    await putSettings(admin, 'user/test_agents_standalone', settingsWithoutStorage)
 
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
+    await goToWithAuth('/agents/user/test_agents_standalone/chat', 'test_agents_standalone')
 
     // Send a message
     const input = page.getByPlaceholder('Type your message...')

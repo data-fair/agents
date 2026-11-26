@@ -18,7 +18,7 @@ const openTab = (page: Page, name: string) => page.locator('#configuration').get
 const seedProviderAndModel = async () => {
   const admin = await superAdmin
   // superadmin-owned half only: the org half is what the form under test writes
-  await putSettings(admin, 'organization/test1', {
+  await putSettings(admin, 'organization/test_agents_org1', {
     providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
     models: [{
       model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
@@ -37,7 +37,7 @@ test.describe('Org admin config UI', () => {
   test('maps a role from the catalog, sets a profile quota, toggles personal-assistant review and persists', async ({ page, goToWithAuth }) => {
     await seedProviderAndModel()
 
-    await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
     await page.waitForTimeout(800)
 
@@ -60,7 +60,7 @@ test.describe('Org admin config UI', () => {
     await expect(page.getByRole('combobox', { name: 'Moderator' })).toHaveAttribute('placeholder', 'Default: Global Mock Model (Global Mock)')
 
     // Map the assistant role through the catalog-backed autocomplete: the option
-    // list proves GET /api/catalog/organization/test1?usage=assistant answered.
+    // list proves GET /api/catalog/organization/test_agents_org1?usage=assistant answered.
     await page.getByRole('combobox', { name: 'Assistant' }).click()
     await expect(page.getByRole('option', { name: 'Global Mock Model (Global Mock)' })).toBeVisible()
     await page.getByRole('option', { name: 'Mock Model (Mock Provider)' }).click()
@@ -93,7 +93,7 @@ test.describe('Org admin config UI', () => {
   // always-visible switch was toggled on an otherwise empty config.
   // The same edit then checks that Cancel discards it after confirmation.
   test('Toggling review on an empty config raises no required error, and Cancel discards it', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
 
     await openTab(page, 'Moderation and conversation review')
@@ -116,7 +116,7 @@ test.describe('Org admin config UI', () => {
   // org-only profiles there (`context.accountType`), which vjsf then prunes
   // from the body — the endpoint must still accept it.
   test('a personal account can save its own config', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1', 'test-standalone1')
+    await goToWithAuth('/agents/user/test_agents_standalone', 'test_agents_standalone')
     await expect(page.getByRole('tab', { name: 'Model per role' })).toBeVisible({ timeout: 15000 })
     await expect(page.getByRole('cell', { name: 'Admins', exact: true })).toBeVisible()
     await expect(page.getByRole('cell', { name: 'Contributors', exact: true })).not.toBeVisible()
@@ -135,7 +135,7 @@ test.describe('Org admin config UI', () => {
   })
 
   test('a non-admin member is pointed to the chat panel', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1', 'test1-user1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_org1_user', { org: 'test_agents_org1' })
     await expect(page.getByTestId('chat-panel-notice')).toBeVisible({ timeout: 15000 })
     await expect(page.getByRole('tab', { name: 'Model per role' })).toHaveCount(0)
   })

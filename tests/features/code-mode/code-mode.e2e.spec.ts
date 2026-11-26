@@ -19,12 +19,12 @@ test.describe('Panel of a code_mode call', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
     agentId = (await createFilesAgent()).id
   })
 
   test('a script is a chip in the chat with its calls beside it, and a panel on the review page', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const js = 'const s = await tools.closure_stats({ district: "city-center" }); return s.count'
     await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill(`call tool code_mode ${JSON.stringify({ js })}`)
     await page.getByTestId('agent-chat-send').click()
@@ -43,11 +43,11 @@ test.describe('Panel of a code_mode call', () => {
     // that closure_stats was called could not tell a reviewer.
     let conversationId: string | undefined
     await expect.poll(async () => {
-      const res = await admin.get('/api/review/organization/test1?page=1&size=20').catch(() => null)
+      const res = await admin.get('/api/review/organization/test_agents_org1?page=1&size=20').catch(() => null)
       conversationId = res?.data.results?.[0]?.conversationId
       return conversationId
     }, { timeout: 12000 }).toBeTruthy()
-    await goToWithAuth(`/agents/organization/test1/review/${conversationId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/review/${conversationId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const reviewed = page.getByTestId('trace-panel').filter({ hasText: 'Script' })
     await reviewed.getByTestId('trace-panel-header').click({ timeout: 15000 })
     const body = reviewed.getByTestId('trace-panel-body')
@@ -62,7 +62,7 @@ test.describe('Panel of a code_mode call', () => {
   })
 
   test('a script calling a tool several times names it once, with its count', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const js = 'for (const district of ["a", "b", "c"]) await tools.closure_stats({ district }); return await tools.echo({ value: "x" })'
     await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill(`call tool code_mode ${JSON.stringify({ js })}`)
     await page.getByTestId('agent-chat-send').click()
@@ -75,7 +75,7 @@ test.describe('Panel of a code_mode call', () => {
 
   test('a call needing the person pauses the script: its card under the script\'s chip, Approve, the chip settles', async ({ page, goToWithAuth }) => {
     agentId = (await createFilesAgent({ approvalRoutes: { write: 'reviewer+person' } })).id
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     const js = 'const s = await tools.closure_stats({ district: "city-center" }); const u = await tools.slow_update({}); return { count: s.count, u }'
     await page.getByTestId('agent-chat-input').locator('textarea:not([aria-hidden="true"])').fill(`call tool code_mode ${JSON.stringify({ js })}`)
     await page.getByTestId('agent-chat-send').click()

@@ -14,8 +14,8 @@ import { buildConversationExport, exportFilename, EXTRACT_THRESHOLD } from '../.
 const conversation = {
   id: 'conv-1',
   agentId: 'portal-assistant',
-  owner: { type: 'organization', id: 'test1' },
-  userId: 'test1-user1',
+  owner: { type: 'organization', id: 'test_agents_org1' },
+  userId: 'test_agents_org1_user',
   title: 'A thread',
   createdAt: '2026-10-01T10:00:00.000Z',
   consentedToReview: true

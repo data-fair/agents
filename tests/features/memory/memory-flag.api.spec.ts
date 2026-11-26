@@ -12,18 +12,18 @@ test.describe('Agent memory flag', () => {
   test.beforeEach(async () => { await clean() })
 
   test('absent by default, which means disabled', async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', body())).data
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', body())).data
     assert.equal(agent.memory, undefined)
   })
 
   test('round-trips through create and update', async () => {
-    const agent = (await admin.post('/api/autonomous-agents/organization/test1', body({ memory: { enabled: true } }))).data
+    const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', body({ memory: { enabled: true } }))).data
     assert.deepEqual(agent.memory, { enabled: true })
-    const updated = (await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, body({ memory: { enabled: false } }))).data
+    const updated = (await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, body({ memory: { enabled: false } }))).data
     assert.deepEqual(updated.memory, { enabled: false })
   })
 
   test('rejects unknown memory properties', async () => {
-    await assert.rejects(admin.post('/api/autonomous-agents/organization/test1', body({ memory: { enabled: true, shared: true } })), { status: 400 })
+    await assert.rejects(admin.post('/api/autonomous-agents/organization/test_agents_org1', body({ memory: { enabled: true, shared: true } })), { status: 400 })
   })
 })

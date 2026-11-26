@@ -172,9 +172,9 @@ const listServer = async (server: GlobalMcpServer, siteUrl: string | undefined, 
 export const openAutonomousAgentTools = async (
   autonomousAgent: AutonomousAgentForTools,
   sites: SiteCredentials,
-  // `platform`: data-fair's built-in server is gathered too (operations.ts, platformMcpServer) — for an agent
-  // with an identity only, whose scopes are what it may do there.
-  opts?: { onServerError?: 'throw' | 'skip', fresh?: boolean, files?: boolean, platform?: boolean }
+  // `platform`: the address of data-fair's built-in server, gathered too (operations.ts, platformMcpServer) — for an
+  // agent with an identity only, whose scopes are what it may do there.
+  opts?: { onServerError?: 'throw' | 'skip', fresh?: boolean, files?: boolean, platform?: string }
 ): Promise<OpenAutonomousAgentTools> => {
   const filesOn = opts?.files ?? !!config.files
   const needsFiles: { name: string, server: string }[] = []
@@ -211,7 +211,7 @@ export const openAutonomousAgentTools = async (
 
   // The agent's references, then data-fair's built-in server: LAST, so on a name collision its tool is the
   // one kept (below) and no catalog entry can stand in for a platform tool. No toolFilter: its scopes are the filter.
-  const platform = opts?.platform ? platformMcpServer(config.privateMcpUrl) : undefined
+  const platform = platformMcpServer(opts?.platform)
   const entries = [
     ...refs.map(ref => ({ ref, server: catalog.find(s => s.id === ref.serverId) })),
     ...(platform ? [{ ref: { serverId: platform.id } as McpServerRef, server: platform }] : [])
@@ -356,7 +356,7 @@ export interface McpToolDescriptor {
 export const listAutonomousAgentToolDescriptors = async (
   autonomousAgent: AutonomousAgentForTools,
   sites: SiteCredentials,
-  opts?: { platform?: boolean }
+  opts?: { platform?: string }
 ): Promise<{ descriptors: McpToolDescriptor[] }> => {
   const { tools, close } = await openAutonomousAgentTools(autonomousAgent, sites, { fresh: true, ...opts })
   await close()

@@ -21,14 +21,14 @@ test.describe('Chat inspection dialog', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
     agentId = (await createEnrolledAgent({
       title: 'Inspected agent', persona: 'You answer briefly.', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true
     })).id
   })
 
   test('an admin sees the agent\'s MCP tools before its first turn, then the offered tools by source', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
 
     await openDialog(page)

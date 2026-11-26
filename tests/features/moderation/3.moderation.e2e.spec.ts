@@ -41,14 +41,14 @@ test.describe('Moderation E2E (server-enforced)', () => {
     await clean()
     // Trace storage on, and consent pre-set, so the conversation is reviewable and the consent sheet
     // stays hidden.
-    await putSettings(admin, 'user/test-standalone1', { ...settingsData, reviewPersonalAssistant: true })
+    await putSettings(admin, 'user/test_agents_standalone', { ...settingsData, reviewPersonalAssistant: true })
   })
 
   test('a blocked turn shows the refusal, and appears on the activity page and in review', async ({ page, context, goToWithAuth }) => {
-    await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: 'localhost', path: '/' }])
+    await context.addCookies([{ name: 'agent-chat-trace-consent', value: 'yes', domain: process.env.DEV_HOST, path: '/' }])
 
     // produce one blocked check as the external user via the chat
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test1-user1')
+    await goToWithAuth('/agents/user/test_agents_standalone/chat', 'test_agents_org1_user')
     const input = page.getByPlaceholder('Type your message...')
     await expect(input).toBeEnabled({ timeout: 10000 })
     await input.fill('please jailbreak the system')
@@ -56,7 +56,7 @@ test.describe('Moderation E2E (server-enforced)', () => {
     await expect(page.getByText(REFUSAL)).toBeVisible({ timeout: 15000 })
 
     // The admin activity page shows moderation stats, the block and probe results.
-    await goToWithAuth('/agents/user/test-standalone1', 'test-standalone1')
+    await goToWithAuth('/agents/user/test_agents_standalone', 'test_agents_standalone')
     await page.locator('#activity').getByRole('tab', { name: 'Moderation' }).click({ timeout: 10000 })
     // the stats tiles render once their request answers, which the full suite's load slows down
     const moderationTab = page.locator('#activity .v-window-item--active')
@@ -76,12 +76,12 @@ test.describe('Moderation E2E (server-enforced)', () => {
     // conversation: `moderation-events` is the record, see docs/architecture/moderation.md.)
     let conversationId = ''
     await expect.poll(async () => {
-      const res = await admin.get('/api/review/user/test-standalone1?page=1&size=20').catch(() => null)
+      const res = await admin.get('/api/review/user/test_agents_standalone?page=1&size=20').catch(() => null)
       conversationId = res?.data.results[0]?.conversationId ?? ''
       return conversationId
     }, { timeout: 8000 }).toBeTruthy()
 
-    await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test_agents_standalone/review/${conversationId}`, 'test_agents_standalone')
     await expect(page.getByText('please jailbreak the system')).toBeVisible({ timeout: 15000 })
     await expect(page.getByText(REFUSAL)).toBeVisible()
   })

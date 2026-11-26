@@ -1,8 +1,8 @@
 /**
  * stateful API tests: which sites an autonomous agent acts on, and as whom.
  *
- * The organization test1 gets a second domain, dev1 gets one too. The agent's account is its
- * enrolment site plus test1's domains: dev1's is outside it.
+ * The organization test_agents_org1 gets a second domain, test_agents_org2 gets one too. The agent's account is its
+ * enrolment site plus test_agents_org1's domains: test_agents_org2's is outside it.
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
@@ -14,7 +14,7 @@ import { createSite, deleteSite, portalHost } from '../../support/sites.ts'
 import { credentialScopes } from '../../../api/src/nhi/operations.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 let fixture: McpFixture
 
 const whoami = (assistant: any) => {
@@ -27,18 +27,18 @@ const whoami = (assistant: any) => {
   return { forwardedHost, userId }
 }
 const PORT = process.env.NGINX_PORT
-const home = `http://localhost:${PORT}`
+const home = `http://${process.env.DEV_HOST}:${PORT}`
 const issuer = `${home}/agents/api/nhi`
 const ownPortal = portalHost('test1-portal')
-const foreignPortal = portalHost('dev1-portal')
-// test1's too, but its own sign-in realm: no token for it from the platform issuer
+const foreignPortal = portalHost('test2-portal')
+// test_agents_org1's too, but its own sign-in realm: no token for it from the platform issuer
 const ssoPortal = portalHost('test1-sso')
-const AGENT = '/api/autonomous-agents/organization/test1/test-fixture'
+const AGENT = '/api/autonomous-agents/organization/test_agents_org1/test-fixture'
 
 const enrol = async (siteUrl = home, over: any = {}) => await admin.post('/api/test-env/autonomous-agent', {
   id: 'test-fixture',
-  owner: { type: 'organization', id: 'test1' },
-  clientId: 'test-autonomous-agent-nhi',
+  owner: { type: 'organization', id: 'test_agents_org1' },
+  clientId: 'test_agents_org1_agent_nhi',
   siteUrl,
   issuer,
   autonomousAgent: { title: 'Site probe', persona: 'x', mcpServers: [], enabled: true, ...over }
@@ -48,14 +48,14 @@ test.describe('Sites of an autonomous agent', () => {
   const siteIds: string[] = []
   test.beforeAll(async () => {
     fixture = await startMcpFixture(Number(process.env.MCP_FIXTURE_PORT))
-    siteIds.push(await createSite(ownPortal, { type: 'organization', id: 'test1', name: 'Test 1' }))
-    siteIds.push(await createSite(foreignPortal, { type: 'organization', id: 'dev1', name: 'Dev 1' }))
-    siteIds.push(await createSite(ssoPortal, { type: 'organization', id: 'test1', name: 'Test 1' }, { authMode: 'ssoBackOffice' }))
+    siteIds.push(await createSite(ownPortal, { type: 'organization', id: 'test_agents_org1', name: 'Test 1' }))
+    siteIds.push(await createSite(foreignPortal, { type: 'organization', id: 'test_agents_org2', name: 'Test Org 2' }))
+    siteIds.push(await createSite(ssoPortal, { type: 'organization', id: 'test_agents_org1', name: 'Test 1' }, { authMode: 'ssoBackOffice' }))
   })
   test.afterAll(async () => { for (const id of siteIds) await deleteSite(id); await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('its account is its enrolment site and its organization\'s sites, not another organization\'s', async () => {
@@ -77,13 +77,13 @@ test.describe('Sites of an autonomous agent', () => {
   test('a chat on its own site acts there, as the agent', async () => {
     await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami')
-    assert.deepEqual(whoami(assistant), { forwardedHost: `localhost:${PORT}`, userId: 'test-autonomous-agent-nhi' })
+    assert.deepEqual(whoami(assistant), { forwardedHost: `${process.env.DEV_HOST}:${PORT}`, userId: 'test_agents_org1_agent_nhi' })
   })
 
   test('a chat on a portal of its organization acts there, as the agent', async () => {
     await enrol(home, { mcpServers: [{ serverId: 'dev-session-mcp' }] })
     const { assistant } = await turnOverSocket(orgAdmin, { agentId: 'test-fixture' }, 'call tool whoami', { host: ownPortal })
-    assert.deepEqual(whoami(assistant), { forwardedHost: ownPortal, userId: 'test-autonomous-agent-nhi' })
+    assert.deepEqual(whoami(assistant), { forwardedHost: ownPortal, userId: 'test_agents_org1_agent_nhi' })
   })
 
   test('a chat on another organization\'s site acts there anonymously, and the agent is told', async () => {
@@ -107,8 +107,8 @@ test.describe('Sites of an autonomous agent', () => {
   test('an agent with an identity but no enrolment site is refused, not run anonymously', async () => {
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-autonomous-agent-nhi',
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_agent_nhi',
       autonomousAgent: { title: 'Half enrolled', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true }
     })
     await assert.rejects(admin.get(`${AGENT}/tools`), (err: any) => {
@@ -130,16 +130,16 @@ test.describe('Sites of an autonomous agent', () => {
     const [header, payload] = token.split('.').slice(0, 2).map(part => JSON.parse(Buffer.from(part, 'base64url').toString('utf8')))
     assert.equal(header.typ, 'at+jwt')
     assert.deepEqual(payload.aud, [`http://${ownPortal}/mcp-server`, `http://${ownPortal}`])
-    assert.equal(payload.id, 'test-autonomous-agent-nhi')
+    assert.equal(payload.id, 'test_agents_org1_agent_nhi')
   })
 
   test('a scoped identity\'s session carries its maximum scopes to a site-bound server', async () => {
-    // test-scoped-autonomous-agent-nhi holds the maximum scopes ["datasets:read"] (dev/resources/users.template.json);
+    // test_agents_org1_scoped_agent_nhi holds the maximum scopes ["datasets:read"] (tests/support/sd-fixtures.ts);
     // the exchange asks for no scope, so its session is granted exactly those.
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-scoped-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-scoped-autonomous-agent-nhi',
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_scoped_agent_nhi',
       siteUrl: home,
       issuer,
       autonomousAgent: { title: 'Scoped probe', persona: 'x', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true }

@@ -4,9 +4,9 @@
  * Scenario:
  *   1. PUT settings with reviewPersonalAssistant: true and a mock provider/assistant model.
  *   2. Run a consented turn so the conversation is reviewable.
- *   3. Poll GET /api/review/organization/test1 until the conversation is listed.
- *   4. Open /agents/organization/test1 as superadmin in adminMode, click the row in the
- *      "Stored conversations" tab, land on /organization/test1/review/:id.
+ *   3. Poll GET /api/review/organization/test_agents_org1 until the conversation is listed.
+ *   4. Open /agents/organization/test_agents_org1 as superadmin in adminMode, click the row in the
+ *      "Stored conversations" tab, land on /organization/test_agents_org1/review/:id.
  *   5. Assert the conversation, its telemetry and the JSONL download.
  */
 
@@ -25,23 +25,23 @@ const reviewSettings = { quotas: { external: { unlimited: true, monthlyLimit: 0 
 test.describe('Activity and review pages', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1', reviewSettings)
+    await putMockSettings(admin, 'organization/test_agents_org1', reviewSettings)
   })
 
   test('a stored conversation is listed, opens on the review page, and downloads as JSONL', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
     // Run a real turn, which is what makes a conversation reviewable. Consent travels in the cookie
     // both boundaries read; the conversation id is the server's, not ours to choose.
     await setReviewConsent(admin, true)
-    const convId = (await runTurn(admin, 'organization/test1', 'hello review page')).conversationId
+    const convId = (await runTurn(admin, 'organization/test_agents_org1', 'hello review page')).conversationId
 
     // Reviewable means BOTH gates are satisfied: the org enabled review and the person consented. The
     // list only shows it then, so its absence here is the consent write not having landed yet.
     await expect.poll(async () => {
-      const res = await admin.get('/api/review/organization/test1?page=1&size=20').catch(() => null)
+      const res = await admin.get('/api/review/organization/test_agents_org1?page=1&size=20').catch(() => null)
       return res?.data.results?.some((r: any) => r.conversationId === convId)
     }, { timeout: 12000 }).toBe(true)
 
-    await goToWithAuth('/agents/organization/test1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', { adminMode: true })
 
     // The stored conversations are a tab of the activity section
     await page.locator('#activity').getByRole('tab', { name: 'Stored conversations' }).click({ timeout: 15000 })
@@ -54,7 +54,7 @@ test.describe('Activity and review pages', () => {
 
     // Clicking the row navigates to the review page
     await convRow.click()
-    await expect(page).toHaveURL(new RegExp(`/organization/test1/review/${convId}`), { timeout: 10000 })
+    await expect(page).toHaveURL(new RegExp(`/organization/test_agents_org1/review/${convId}`), { timeout: 10000 })
 
     await expect(page.getByText('Conversation not found or access denied.', { exact: false })).toHaveCount(0)
     // Who it was between: the agent by its name, not its id, and the person.

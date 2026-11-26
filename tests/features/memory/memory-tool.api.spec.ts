@@ -12,10 +12,10 @@ import { openAgentSession, newThreadHello } from '../../../dev/agent-session-cli
 import { startTurnOverSocket, runOf } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
 const createAgent = async (memory?: { enabled: boolean }) => {
-  const agent = (await admin.post('/api/autonomous-agents/organization/test1', {
+  const agent = (await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
     title: 'Mem', persona: 'You answer briefly.', mcpServers: [], enabled: true, ...(memory ? { memory } : {})
   })).data
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
@@ -31,7 +31,7 @@ const turn = async (target: string | { agentId: string }, content: string) => {
     if (run.status !== 'running') break
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+  const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
   return { conversationId, run, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
 }
 const call = (args: object) => `call tool memory ${JSON.stringify(args)}`
@@ -39,7 +39,7 @@ const call = (args: object) => `call tool memory ${JSON.stringify(args)}`
 test.describe('The memory tool', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a write lands in the store with the run as its provenance', async () => {
@@ -51,9 +51,9 @@ test.describe('The memory tool', () => {
     assert.equal(part.toolMetadata.serverId, 'agent-memory')
     assert.match(part.output, /<tool-result server="agent-memory" tool="memory">/)
 
-    const memory = (await orgAdmin.get(`/api/memory/organization/test1/${agent.id}`)).data
+    const memory = (await orgAdmin.get(`/api/memory/organization/test_agents_org1/${agent.id}`)).data
     assert.equal(memory.documents[0].path, 'MEMORY.md')
-    const versions = (await orgAdmin.get(`/api/memory/organization/test1/${agent.id}/versions`)).data
+    const versions = (await orgAdmin.get(`/api/memory/organization/test_agents_org1/${agent.id}/versions`)).data
     assert.deepEqual(
       { kind: versions.results[0].author.kind, runId: versions.results[0].author.runId, conversationId: versions.results[0].author.conversationId },
       { kind: 'agent', runId: run.id, conversationId }
@@ -74,7 +74,7 @@ test.describe('The memory tool', () => {
     const first = await turn({ agentId: agent.id }, call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- the sales dataset is ventes' }))
     const { conversationId } = first
     const second = await turn(conversationId, 'hello')
-    const review = (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data
+    const review = (await orgAdmin.get(`/api/review/organization/test_agents_org1/${conversationId}`)).data
     const prompts = Object.fromEntries(review.runs.map((r: any) => [r.id, r.systemPrompt]))
     assert.match(prompts[first.run.id], /Your memory is empty/)
     assert.match(prompts[second.run.id], /the sales dataset is ventes/)
@@ -84,7 +84,7 @@ test.describe('The memory tool', () => {
     const agent = await createAgent({ enabled: true })
     await turn({ agentId: agent.id }, call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- shared fact' }))
     const { run, conversationId: other } = await turn({ agentId: agent.id }, 'hello')
-    const review = (await orgAdmin.get(`/api/review/organization/test1/${other}`)).data
+    const review = (await orgAdmin.get(`/api/review/organization/test_agents_org1/${other}`)).data
     assert.match(review.runs.find((r: any) => r.id === run.id).systemPrompt, /shared fact/)
   })
 
@@ -94,7 +94,7 @@ test.describe('The memory tool', () => {
     const part = assistant.parts.find((p: any) => p.type === 'dynamic-tool')
     // the model asked for a tool the turn does not offer
     assert.notEqual(part?.state, 'output-available')
-    const review = (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data
+    const review = (await orgAdmin.get(`/api/review/organization/test_agents_org1/${conversationId}`)).data
     assert.doesNotMatch(review.runs.find((r: any) => r.id === run.id).systemPrompt, /agent-memory/)
   })
 
@@ -104,7 +104,7 @@ test.describe('The memory tool', () => {
     const { conversationId } = await turn({ agentId: agent.id }, call({ command: 'create', path: 'MEMORY.md', description: 'Core', file_text: '- x' }))
     // No `nhi` in the body (the PUT replaces the document and would otherwise un-enrol or re-exchange):
     // enrol again right after, as runtime.api.spec.ts does.
-    await admin.put(`/api/autonomous-agents/organization/test1/${agent.id}`, { title: 'Mem', persona: 'You answer briefly.', mcpServers: [], enabled: true, memory: { enabled: false } })
+    await admin.put(`/api/autonomous-agents/organization/test_agents_org1/${agent.id}`, { title: 'Mem', persona: 'You answer briefly.', mcpServers: [], enabled: true, memory: { enabled: false } })
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
     const { run } = await turn(conversationId, 'hello')
     assert.equal(run.status, 'done')
@@ -117,7 +117,7 @@ test.describe('The memory tool', () => {
     try {
       // The page claims a tool by the service's name. Were it offered, the call would go to the page,
       // which never answers here — the turn would hang until its ceiling.
-      socket.send(newThreadHello('organization/test1', { agentId: agent.id, tools: [{ name: 'memory', description: 'page memory', inputSchema: { type: 'object', properties: {} } }] }))
+      socket.send(newThreadHello('organization/test_agents_org1', { agentId: agent.id, tools: [{ name: 'memory', description: 'page memory', inputSchema: { type: 'object', properties: {} } }] }))
       await socket.next()
       socket.send({ type: 'prompt', content: call({ command: 'view' }) })
       const frames: any[] = []

@@ -24,9 +24,9 @@ test.describe('Live tool set (mid-turn refresh)', () => {
 
   test('a tool registered by a panel opened mid-turn is callable in the same turn, and stops being offered once unmounted', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
 
-    await goToWithAuth('/agents/_dev/chat-live-tools', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-live-tools', 'test_agents_standalone')
 
     // Wait for the initial aggregate: open_panel is there, set_display is NOT — the panel
     // is closed, so nothing has registered it yet.

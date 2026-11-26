@@ -21,7 +21,7 @@ const call = (name: string, input: unknown) => (tools[name] as any).execute(inpu
 test.describe('file tools', () => {
   test.beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'file-tools-'))
-    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' })
+    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' })
     tools = createFileTools(files)
   })
   test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
@@ -50,7 +50,7 @@ test.describe('file tools', () => {
   })
 
   test('read_file of a binary file says what it is and what to do with it', async () => {
-    const files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' })
+    const files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' })
     const { Readable } = await import('node:stream')
     await files.save('blob.bin', Readable.from([Buffer.alloc(3)]), 3)
     assert.equal(await call('read_file', { file_path: '/blob.bin' }), '/blob.bin is application/octet-stream (3 B): a binary file, which cannot be read here. Pass its path to a tool that takes a file.')
@@ -82,7 +82,7 @@ test.describe('renderTextPage', () => {
 test.describe('file tools from a script', () => {
   test.beforeEach(async () => {
     dir = await mkdtemp(join(tmpdir(), 'file-code-'))
-    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' })
+    files = createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents' })
   })
   test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
 

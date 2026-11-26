@@ -18,7 +18,7 @@ test.describe('Approval card of a file upload', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
     agentId = (await createFilesAgent({ approvalRoutes: { write: 'reviewer+person' } })).id
   })
 
@@ -28,7 +28,7 @@ test.describe('Approval card of a file upload', () => {
   }
 
   test('shows the file, and approving sends it', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await ask(page, 'call tool write_file {"file_path":"/clean.csv","content":"a,b\\n1,2\\n"}')
     await expect(page.getByTestId('tool-chip').first()).toBeVisible({ timeout: 15000 })
     await ask(page, 'call tool import_table {"file":"/clean.csv","title":"Clean"}')

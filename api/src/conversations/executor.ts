@@ -33,6 +33,7 @@ import type { ServerGuide } from '../mcp-servers/guides.ts'
 import { openExternalMcpTools } from '../mcp-servers/external.ts'
 import { envPublicIps } from '../web/public-lookup.ts'
 import { personSiteCredentials, PLATFORM_MCP_SERVER_ID, getsPlatformServer, type SiteCredentials } from '../mcp-servers/operations.ts'
+import { platformMcpUrlOf } from '../mcp-servers/platform-url.ts'
 import { applyApprovalPolicy, personalAssistantTools, unattended } from './approval-policy.ts'
 import { agentSiteCredentials } from '../nhi/service.ts'
 import { notifyMessage } from '../agent-session/registry.ts'
@@ -174,7 +175,9 @@ const performTurn = async (run: ConversationRun, abortSignal: AbortSignal, targe
       files: !!files,
       // data-fair's built-in server, as the agent's own identity: never without one, so never as the
       // session of whoever instructs an unenrolled agent.
-      platform: !isPersonalAgentId(autonomousAgent.id) && getsPlatformServer(autonomousAgent, config.privateMcpUrl)
+      platform: !isPersonalAgentId(autonomousAgent.id) && getsPlatformServer(autonomousAgent, platformMcpUrlOf(autonomousAgent.id))
+        ? platformMcpUrlOf(autonomousAgent.id)
+        : undefined
     })
   // Everything from here on releases the connections however it ends: an open that succeeded and a later
   // step that throws (the service tools, say) must not leave clients and sockets behind.

@@ -13,14 +13,14 @@ import { axiosAuth, superAdmin, clean, directoryUrl } from '../../support/axios.
 import { turnOverSocket, startTurnOverSocket } from '../../../dev/socket-turn.ts'
 
 const admin = await superAdmin
-const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
+const orgMember = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
-const AGENTS = '/api/autonomous-agents/organization/test1'
+const AGENTS = '/api/autonomous-agents/organization/test_agents_org1'
 const agentBody = (over: any = {}) => ({ title: 'Authority probe', persona: 'You answer briefly.', mcpServers: [], enabled: true, ...over })
-const instructedByMember = agentBody({ instructors: [{ mode: 'member', type: 'user', id: 'test1-user1' }] })
+const instructedByMember = agentBody({ instructors: [{ mode: 'member', type: 'user', id: 'test_agents_org1_user' }] })
 
 const userMessages = async (conversationId: string) =>
-  (await admin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+  (await admin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     .filter((m: any) => m.role === 'user').length
 
 test.describe('Authority over a thread', () => {
@@ -52,7 +52,7 @@ test.describe('Authority over a thread', () => {
 test.describe('The agent-session upgrade', () => {
   /** Open the socket through nginx as a browser on `origin` would. Resolves to the handshake's status. */
   const upgradeFrom = async (origin: string) => {
-    const ws = new WebSocket(`ws://localhost:${process.env.NGINX_PORT}/agents/api/agent-session`, {
+    const ws = new WebSocket(`ws://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/agent-session`, {
       headers: { cookie: await orgMember.cookieJar.getCookieString(directoryUrl) },
       origin
     })
@@ -65,7 +65,7 @@ test.describe('The agent-session upgrade', () => {
   }
 
   test('a page of the same site opens it', async () => {
-    assert.equal(await upgradeFrom(`http://localhost:${process.env.NGINX_PORT}`), 101)
+    assert.equal(await upgradeFrom(`http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`), 101)
   })
 
   test('a page of another site is refused at the handshake', async () => {

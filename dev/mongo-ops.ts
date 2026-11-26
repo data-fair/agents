@@ -4,10 +4,10 @@
  *
  *   npx dotenv -- node dev/mongo-ops.ts [--anonymous]
  *
- * It sets organization/test1's settings first — the mock model PRICED, because a model call's usage
+ * It sets organization/test_agents_org1's settings first — the mock model PRICED, because a model call's usage
  * accounting only runs when the call costs something, and an unpriced profile hides it entirely.
  *
- * Signed in by default (test1-admin1); `--anonymous` drives the anonymous path, whose close also
+ * Signed in by default (test_agents_org1_admin); `--anonymous` drives the anonymous path, whose close also
  * purges the thread. Either way the profiled turn is a thread's first, so the thread's creation by
  * its prompt is counted: it is part of every thread's cost.
  */
@@ -15,9 +15,10 @@ import { MongoClient } from 'mongodb'
 import { axiosAuth, superAdmin, getAnonymousActionToken, directoryUrl, defaultQuotas } from '../tests/support/axios.ts'
 import { putSettings } from '../tests/support/settings.ts'
 import { openAgentSession } from './agent-session-client.ts'
+import { devMongoUrl } from '../tests/support/mongo-url.ts'
 
 const anonymous = process.argv.includes('--anonymous')
-await putSettings(await superAdmin, 'organization/test1', {
+await putSettings(await superAdmin, 'organization/test_agents_org1', {
   providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
   models: [{
     model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
@@ -28,17 +29,17 @@ await putSettings(await superAdmin, 'organization/test1', {
   modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } },
   quotas: { ...defaultQuotas, contrib: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: true, monthlyLimit: 0 } }
 })
-const mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+const mongo = await MongoClient.connect(devMongoUrl)
 const db = mongo.db()
 
 let cookie: string | undefined
 if (!anonymous) {
-  const member = await axiosAuth('test1-admin1', { org: 'test1' })
+  const member = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
   cookie = await member.cookieJar.getCookieString(directoryUrl)
 }
 const token = anonymous ? await getAnonymousActionToken() : undefined
 // Every turn profiled is a thread's first, created by its prompt — the one way a thread starts.
-const hello = { type: 'hello', tools: [], account: { type: 'organization', id: 'test1' }, ...(token ? { anonymousToken: token } : {}) }
+const hello = { type: 'hello', tools: [], account: { type: 'organization', id: 'test_agents_org1' }, ...(token ? { anonymousToken: token } : {}) }
 // A warm-up turn on its own thread, so the caches (settings, tool listings) are in the state a
 // running server keeps them in: the profile is of a steady-state turn, not a cold one.
 {

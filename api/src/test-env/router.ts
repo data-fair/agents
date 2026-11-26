@@ -14,6 +14,7 @@ import locks from '@data-fair/lib-node/locks.js'
 import eventsQueue from '@data-fair/lib-node/events-queue.js'
 import { httpError, reqSessionAuthenticated, type AccountKeys } from '@data-fair/lib-express/index.js'
 import mongo from '#mongo'
+import config from '#config'
 import { getModelsForOwner } from '../models/router.ts'
 import { clearToolListings } from '../mcp-servers/client.ts'
 import { invalidateSettings } from '../settings/service.ts'
@@ -28,6 +29,9 @@ import { forgetAgentSessions } from '../nhi/service.ts'
 import { listScopeFiles, signScopeFileUrl, sweepFiles, removeTestOwnersFiles } from '../files/service.ts'
 import { isValidScope } from '../files/operations.ts'
 import { liveAgentSessions } from '../agent-session/service.ts'
+import { choosePlatformMcpUrl, forgetPlatformMcpUrlsOf } from '../mcp-servers/platform-url.ts'
+import { choosePersonalAssistants, forgetPersonalAssistantsOf } from '../agent-session/personal-servers.ts'
+import { assertPersonalAssistantsConfig } from '../mcp-servers/operations.ts'
 
 /**
  * The events pushed, newest last, capped. It lets the tests see a notification without the events
@@ -46,6 +50,14 @@ const recordPushedEvents = () => {
     return pushEvent(event)
   }
 }
+
+// Prefixed test sub-spaces: a test suite owns the accounts whose ids start with its own prefix (test_<suite>_)
+// and the data they own, cleaned without touching the other suites nor the unprefixed accounts
+const testPrefixRegexp = /^test_[a-z0-9]+(?:_[a-z0-9]+)*_$/
+
+// The sub-space of this repository's test suites: the sweep seams below act on it unless a test names
+// an owner, so a run never touches (or bills, with the dev bridge) dev data or a simulation's data.
+const SUITE_PREFIX = 'test_agents_'
 
 export const createTestEnvRouter = () => {
   recordPushedEvents()
@@ -69,31 +81,42 @@ export const createTestEnvRouter = () => {
     } catch (err) { next(err) }
   })
 
+  /**
+   * Cleanup of a test sub-space (DELETE /?prefix=test_<suite>_): what the accounts whose ids start with the
+   * prefix own — documents and files — and the in-process caches. The other sub-spaces (dev data under
+   * another prefix, a simulation's context) and the unprefixed accounts are left alone.
+   */
   router.delete('/', async (req, res) => {
+    const prefix = req.query.prefix
+    if (typeof prefix !== 'string' || !testPrefixRegexp.test(prefix)) throw httpError(400, 'invalid test prefix')
+    // the prefix only holds [a-z0-9_], safe in a regexp
+    const ownerFilter = { 'owner.id': new RegExp('^' + prefix) }
     getModelsForOwner.clear()
     clearToolListings()
+    forgetPersonalAssistantsOf(prefix)
+    forgetPlatformMcpUrlsOf(prefix)
     invalidateSettings()
-    await mongo.db.collection('settings').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('usage').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('moderation-events').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('moderation-strikes').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('limits').deleteMany({ id: /^test/ })
+    await mongo.db.collection('settings').deleteMany(ownerFilter)
+    await mongo.db.collection('usage').deleteMany(ownerFilter)
+    await mongo.db.collection('moderation-events').deleteMany(ownerFilter)
+    await mongo.db.collection('moderation-strikes').deleteMany(ownerFilter)
+    await mongo.db.collection('limits').deleteMany({ id: new RegExp('^' + prefix) })
     // The NHI session cache is in-process and keyed by AGENT ID alone, so deleting the documents is
     // not enough: a later spec re-creating the same id would be served the cookie obtained for the
     // previous one, silently skipping the exchange it means to test.
-    for (const agent of await mongo.db.collection('autonomous-agents').find({ 'owner.id': /^test/ }, { projection: { id: 1 } }).toArray()) {
+    for (const agent of await mongo.db.collection('autonomous-agents').find(ownerFilter, { projection: { id: 1 } }).toArray()) {
       forgetAgentSessions(agent.id as string)
     }
-    await mongo.db.collection('autonomous-agent-tasks').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('autonomous-agents').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('conversations').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('messages').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('runs').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('script-pauses').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('agent-memories').deleteMany({ 'owner.id': /^test/ })
-    await mongo.db.collection('agent-memory-versions').deleteMany({ 'owner.id': /^test/ })
-    await removeTestOwnersFiles()
-    res.send()
+    await mongo.db.collection('autonomous-agent-tasks').deleteMany(ownerFilter)
+    await mongo.db.collection('autonomous-agents').deleteMany(ownerFilter)
+    await mongo.db.collection('conversations').deleteMany(ownerFilter)
+    await mongo.db.collection('messages').deleteMany(ownerFilter)
+    await mongo.db.collection('runs').deleteMany(ownerFilter)
+    await mongo.db.collection('script-pauses').deleteMany(ownerFilter)
+    await mongo.db.collection('agent-memories').deleteMany(ownerFilter)
+    await mongo.db.collection('agent-memory-versions').deleteMany(ownerFilter)
+    await removeTestOwnersFiles(prefix)
+    res.status(204).send()
   })
   // Dev-only: a scope's files as the product lists them, so a spec can see deletion and the sweep act.
   router.get('/files/:ownerType/:ownerId/:scopeId', async (req, res) => {
@@ -132,7 +155,7 @@ export const createTestEnvRouter = () => {
    * Also sets `nhi` directly, which the real write route cannot do from a test client: it rebuilds
    * that field from the request and needs an x-forwarded-host the direct clients do not send.
    *
-   * Pass the FIXTURE client id (see dev/resources/users.template.json) for a real exchange.
+   * Pass the FIXTURE client id (see tests/support/sd-fixtures.ts) for a real exchange.
    *
    * UNAUTHENTICATED, like every seam in this block, and unreachable outside development (the
    * NODE_ENV guard above, with the /api 404 catch-all after it). Worth stating plainly because this
@@ -157,6 +180,9 @@ export const createTestEnvRouter = () => {
       updatedAt: now
     }
     await mongo.autonomousAgents.replaceOne({ id: doc.id }, doc, { upsert: true })
+    // no built-in server unless the caller names one (platformMcpUrl: the dev stand-in, or the deployment's), so
+    // what a spec gathers does not depend on which server the deployment wires
+    choosePlatformMcpUrl(doc, req.body.platformMcpUrl ?? null)
     // This can change nhi.clientId/siteUrl/issuer for an id another spec already exchanged for, and
     // the cache keyed on the id alone would then serve that stale cookie for ~240s — so the test
     // whose whole point is to perform a real exchange would silently not perform one, and would keep
@@ -173,15 +199,32 @@ export const createTestEnvRouter = () => {
    * Deliberately not a real one: it unblocks the executor's "no enrolled identity" refusal so a test
    * can exercise everything downstream, and that is all. It proves nothing about the token exchange,
    * and it only suffices because the MCP servers those tests use are `auth: 'none'` and need no
-   * session. A test that needs a REAL identity uses POST /autonomous-agent above with a
-   * fixture client id.
+   * session — which is also why the agent gets no built-in data-fair server unless the spec names one
+   * (`platformMcpUrl`, the dev stand-in). A test that needs a REAL identity uses POST /autonomous-agent
+   * above with a fixture client id.
    */
   router.post('/enrol-autonomous-agent', async (req, res) => {
-    await mongo.autonomousAgents.updateOne(
+    const agent = await mongo.autonomousAgents.findOneAndUpdate(
       { id: req.body.agentId },
-      { $set: { nhi: { clientId: req.body.clientId ?? 'dev-fixture-nhi', siteUrl: req.body.siteUrl ?? 'http://localhost/agents', issuer: req.body.issuer ?? 'http://localhost/agents/api/nhi' } } }
+      { $set: { nhi: { clientId: req.body.clientId ?? 'dev-fixture-nhi', siteUrl: req.body.siteUrl ?? 'http://localhost/agents', issuer: req.body.issuer ?? 'http://localhost/agents/api/nhi' } } },
+      { projection: { _id: 0, id: 1, owner: 1 } }
     )
+    // a placeholder identity no MCP server accepts: no built-in server, unless the spec names one (platformMcpUrl)
+    if (agent) choosePlatformMcpUrl(agent, req.body.platformMcpUrl ?? null)
     res.send()
+  })
+  /**
+   * The personal assistants' servers for one account, in place of the deployment's `personalAssistants`
+   * (`personalAssistants` absent or null: back to the deployment's). A spec that needs catalog servers on an
+   * assistant names them here, after its reset (which forgets the choice), so it passes whichever servers the
+   * deployment gives the assistants.
+   */
+  router.post('/personal-assistants', async (req, res) => {
+    const { owner, personalAssistants } = req.body ?? {}
+    if (!owner?.type || !owner?.id) throw httpError(400, 'owner { type, id } is required')
+    if (personalAssistants != null) assertPersonalAssistantsConfig(personalAssistants, config.mcpServers ?? [])
+    choosePersonalAssistants(owner, personalAssistants ?? undefined)
+    res.status(204).send()
   })
   // Make the per-conversation serialisation testable deterministically: with an in-process executor the
   // first of two back-to-back messages often finishes before the second lands, so without a held lock
@@ -200,7 +243,7 @@ export const createTestEnvRouter = () => {
       kind: 'task' as const,
       agentId,
       taskId,
-      owner: { type: 'organization' as const, id: 'test1' },
+      owner: { type: 'organization' as const, id: 'test_agents_org1' },
       trigger: 'manual' as const,
       status,
       startedAt: new Date().toISOString(),
@@ -323,10 +366,9 @@ export const createTestEnvRouter = () => {
       res.json({ ok: false, error: err.message, durationMs: performance.now() - startedAt })
     }
   })
-  // The sweep seams act on `test*` owners unless a test names another filter, so a run never touches
-  // (or bills, with the dev bridge) the real dev accounts' data — the same rule as clean().
+  // The sweep seams act on the suite's sub-space unless a test names an owner (see SUITE_PREFIX).
   const testOwnerScope = (owner: unknown): Record<string, unknown> =>
-    owner && typeof owner === 'object' ? { 'owner.id': (owner as any).id } : { 'owner.id': /^test/ }
+    owner && typeof owner === 'object' ? { 'owner.id': (owner as any).id } : { 'owner.id': new RegExp('^' + SUITE_PREFIX) }
   // Dev-only: one agent's pass, or the sweep, as of a chosen time — due by the sweep's own rule either way.
   router.post('/consolidate-memory', async (req, res) => {
     res.json(await maybeConsolidate(String(req.body.agentId), req.body.now ? new Date(req.body.now) : undefined))

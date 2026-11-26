@@ -14,8 +14,7 @@ them); `get_my_configuration` says files are off and lists those tools as needin
 same code path as the personal assistant's (`files` undefined in `performTurn`), which the tests use.
 
 [Code mode](./code-mode.md) builds on this: a script reads and writes the same files and passes them to the
-same tools, through the same call path ([Files from a script](#files-from-a-script)). The design:
-`docs/superpowers/specs/2026-10-12-agent-files-and-scripting-design.md`.
+same tools, through the same call path ([Files from a script](#files-from-a-script)).
 
 ## The store
 

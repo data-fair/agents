@@ -11,7 +11,7 @@ import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { FIXTURE_PORT, createFilesAgent } from '../../support/files.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const CONTENT = 'street,reason\nRue A,works\n'
 let fixture: McpFixture
 
@@ -19,7 +19,7 @@ let fixture: McpFixture
 const withFile = async () => {
   const agent = await createFilesAgent()
   const { conversationId } = await turnOverSocket(orgAdmin, { agentId: agent.id }, `call tool write_file {"file_path":"/notes.csv","content":${JSON.stringify(CONTENT)}}`)
-  return { scope: { ownerType: 'organization', ownerId: 'test1', scopeId: conversationId }, conversationId, agentId: agent.id }
+  return { scope: { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: conversationId }, conversationId, agentId: agent.id }
 }
 const sign = async (scope: any, name: string, now = new Date()) =>
   (await anonymousAx.post('/api/test-env/sign-file-url', { scope, name, now: now.toISOString() })).data.url as string
@@ -30,13 +30,13 @@ test.describe('Signed file URLs', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a valid URL serves the file with its exact length and type, without a session', async () => {
     const { scope } = await withFile()
     const url = await sign(scope, 'notes.csv')
-    assert.ok(url.startsWith(`http://localhost:${process.env.DEV_API_PORT}/api/files/organization/test1/${scope.scopeId}/notes.csv?exp=`))
+    assert.ok(url.startsWith(`http://localhost:${process.env.DEV_API_PORT}/api/files/organization/test_agents_org1/${scope.scopeId}/notes.csv?exp=`))
     const res = await get(url)
     assert.equal(res.status, 200)
     assert.equal(res.data, CONTENT)
@@ -67,9 +67,9 @@ test.describe('Signed file URLs', () => {
   test('a path that is not a stored file name is refused before any signature check', async () => {
     const { scope } = await withFile()
     const valid = new URL(await sign(scope, 'notes.csv'))
-    const traversal = `${valid.origin}/api/files/organization/test1/${scope.scopeId}/..%2F..%2Fsecret.csv${valid.search}`
+    const traversal = `${valid.origin}/api/files/organization/test_agents_org1/${scope.scopeId}/..%2F..%2Fsecret.csv${valid.search}`
     assert.equal((await get(traversal)).status, 400)
-    assert.equal((await get(`${valid.origin}/api/files/group/test1/${scope.scopeId}/notes.csv${valid.search}`)).status, 400)
+    assert.equal((await get(`${valid.origin}/api/files/group/test_agents_org1/${scope.scopeId}/notes.csv${valid.search}`)).status, 400)
   })
 
   test('a validly signed URL for a file that does not exist is a 404', async () => {
@@ -79,32 +79,32 @@ test.describe('Signed file URLs', () => {
 
   test('deleting the conversation removes its files at once, though the conversation is archived', async () => {
     const { scope, conversationId } = await withFile()
-    assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results.length, 1)
-    await orgAdmin.delete(`/api/conversations/organization/test1/${conversationId}`)
-    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
+    assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test_agents_org1/${scope.scopeId}`)).data.results.length, 1)
+    await orgAdmin.delete(`/api/conversations/organization/test_agents_org1/${conversationId}`)
+    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test_agents_org1/${scope.scopeId}`)).data.results, [])
   })
 
   test('an admin erasure purges the conversation and its files at once', async () => {
     const { scope } = await withFile()
-    assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results.length, 1)
-    await orgAdmin.delete('/api/review/organization/test1?userId=test1-admin1')
-    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
+    assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test_agents_org1/${scope.scopeId}`)).data.results.length, 1)
+    await orgAdmin.delete('/api/review/organization/test_agents_org1?userId=test_agents_org1_admin')
+    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test_agents_org1/${scope.scopeId}`)).data.results, [])
   })
 
   test('deleting the agent removes its conversations\' files at once', async () => {
     const { scope, agentId } = await withFile()
-    assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results.length, 1)
-    await admin.delete(`/api/autonomous-agents/organization/test1/${agentId}`)
-    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
+    assert.equal((await anonymousAx.get(`/api/test-env/files/organization/test_agents_org1/${scope.scopeId}`)).data.results.length, 1)
+    await admin.delete(`/api/autonomous-agents/organization/test_agents_org1/${agentId}`)
+    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test_agents_org1/${scope.scopeId}`)).data.results, [])
   })
 
   test('the sweep removes what was last written more than 7 days ago, and keeps the rest', async () => {
     const { scope } = await withFile()
-    const prefix = 'agent-files/organization/test1/'
+    const prefix = 'agent-files/organization/test_agents_org1/'
     const sixDays = new Date(Date.now() + 6 * 24 * 3600_000).toISOString()
     assert.equal((await anonymousAx.post('/api/test-env/sweep-files', { now: sixDays, prefix })).data.removed, 0)
     const eightDays = new Date(Date.now() + 8 * 24 * 3600_000).toISOString()
     assert.equal((await anonymousAx.post('/api/test-env/sweep-files', { now: eightDays, prefix })).data.removed, 1)
-    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test1/${scope.scopeId}`)).data.results, [])
+    assert.deepEqual((await anonymousAx.get(`/api/test-env/files/organization/test_agents_org1/${scope.scopeId}`)).data.results, [])
   })
 })

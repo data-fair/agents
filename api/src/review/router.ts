@@ -207,8 +207,7 @@ router.get('/:type/:id/:conversationId', async (req, res, next) => {
  * source-exploration proxy, all of which existed to let someone ask questions about a recorded
  * conversation. A download plus a skill answers the same questions with none of that surface, and
  * with a far more capable agent than the one the platform could host. See ./operations.ts for why
- * the file is line-addressable JSONL, and .claude/skills/conversation-export/SKILL.md for how to
- * read it.
+ * the file is line-addressable JSONL, and the `guide` field of the export for how to read it.
  *
  * SUPERADMIN ONLY, and a tighter gate than the review page it is reached from — though not for what it
  * discloses: the page shows an account admin the same thing, every tool argument and result included.

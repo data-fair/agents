@@ -10,7 +10,7 @@ import {
   resourceLinksOf, withResourceLinks, isLinkedToolResult, linkCredentialSite, dispositionFilename, storedNameForLink, uniqueName, rewriteLinkText
 } from '../../../api/src/files/operations.ts'
 
-const scope = { ownerType: 'organization' as const, ownerId: 'test1', scopeId: 'conv1' }
+const scope = { ownerType: 'organization' as const, ownerId: 'test_agents_org1', scopeId: 'conv1' }
 const secret = 'x'.repeat(32)
 
 test.describe('file names', () => {
@@ -67,18 +67,18 @@ test.describe('hostile names', () => {
 
 test.describe('scopes and keys', () => {
   test('a conversation run is scoped by its conversation, a task run by itself', () => {
-    assert.deepEqual(scopeOfRun({ kind: 'conversation', id: 'r1', conversationId: 'c1', owner: { type: 'organization', id: 'test1' } }), { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' })
+    assert.deepEqual(scopeOfRun({ kind: 'conversation', id: 'r1', conversationId: 'c1', owner: { type: 'organization', id: 'test_agents_org1' } }), { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: 'c1' })
     assert.deepEqual(scopeOfRun({ kind: 'task', id: 'r2', owner: { type: 'user', id: 'u1' } }), { ownerType: 'user', ownerId: 'u1', scopeId: 'r2' })
   })
 
   test('keys follow the layout, and a scope with a traversal component is invalid', () => {
-    assert.equal(scopePrefix(scope), 'agent-files/organization/test1/conv1/')
-    assert.equal(fileKey(scope, 'report.csv'), 'agent-files/organization/test1/conv1/report.csv')
+    assert.equal(scopePrefix(scope), 'agent-files/organization/test_agents_org1/conv1/')
+    assert.equal(fileKey(scope, 'report.csv'), 'agent-files/organization/test_agents_org1/conv1/report.csv')
     assert.equal(isValidScope(scope), true)
     assert.equal(isValidScope({ ...scope, ownerType: 'group' }), false)
     assert.equal(isValidScope({ ...scope, ownerId: '..' }), false)
     assert.equal(isValidScope({ ...scope, scopeId: 'a/b' }), false)
-    assert.throws(() => scopeOfRun({ kind: 'conversation', id: 'r', conversationId: '../x', owner: { type: 'organization', id: 'test1' } }))
+    assert.throws(() => scopeOfRun({ kind: 'conversation', id: 'r', conversationId: '../x', owner: { type: 'organization', id: 'test_agents_org1' } }))
   })
 })
 
@@ -99,7 +99,7 @@ test.describe('types', () => {
 test.describe('signed file URLs', () => {
   test('a URL carries its expiry and a signature over the scope, the name and the expiry', () => {
     const url = new URL(signedFileUrl('http://agents:8080/', secret, scope, 'report.csv', 1000))
-    assert.equal(url.origin + url.pathname, 'http://agents:8080/api/files/organization/test1/conv1/report.csv')
+    assert.equal(url.origin + url.pathname, 'http://agents:8080/api/files/organization/test_agents_org1/conv1/report.csv')
     assert.equal(url.searchParams.get('exp'), String(1000 + SIGNED_URL_TTL_SECONDS))
     assert.equal(url.searchParams.get('sig'), fileSignature(secret, scope, 'report.csv', 1000 + SIGNED_URL_TTL_SECONDS))
   })

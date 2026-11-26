@@ -35,25 +35,17 @@ After login the browser redirects to the target page automatically. For subseque
 playwright-cli -s=dev goto "http://localhost:<NGINX_PORT>/some-other-page"
 ```
 
-### Test users
+### Dev users
 
-All passwords are `passwd`.
-
-| id | email | admin | orgs |
-|---|---|---|---|
-| dmeadus0 | dmeadus0@answers.com | no | dev1 (admin) |
-| superadmin | superadmin@test.com | yes (superadmin) | none |
-| dev-standalone1 | dev-standalone1@answers.com | no | none |
-| dev1-contrib1 | dev1-contrib1@answers.com | no | dev1 (admin) |
-| dev1-user1 | dev1-user1@answers.com | no | dev1 (admin) |
+The repository ships no dev accounts. Use the accounts of the dev environment the caller names. Otherwise, the test accounts of `tests/support/sd-fixtures.ts` exist once a test run has seeded them (password `passwd`); a test run cleans what they own, so do not rely on their data while tests run.
 
 ### Choosing a user
 
 Pick the user that matches the scenario:
-- **General browsing / standard user**: `dmeadus0@answers.com` (member of dev1)
-- **Admin features**: `superadmin`
-- **Org-specific roles**: use `dev1-*` users for the `dev1` organization
-- **No org context**: `dev-standalone1`
+- **Superadmin**: `test_agents_superadmin@test.com`
+- **Admin features, org admin**: `test_agents_org1_admin@test.com`
+- **Org member without admin rights**: `test_agents_org1_contrib@test.com`
+- **No org context**: `test_agents_standalone@test.com`
 
 If the caller specifies a user, use that one. Otherwise, pick the most appropriate user for the task.
 

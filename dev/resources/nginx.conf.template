@@ -44,8 +44,7 @@ proxy_buffers 4 32k;
 
 server {
   listen ${NGINX_PORT};
-  # agents' dev env is still served on localhost (not DEV_HOST): the NHI issuers of the fixtures and the
-  # multi-host specs name it
+  # any host: the site is DEV_HOST (localhost by default), the multi-host specs add <name>.DEV_HOST portals
   server_name _;
 
   rewrite ^(/simple-directory|/events|/agents)$ $1/ redirect;

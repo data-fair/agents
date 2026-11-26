@@ -17,7 +17,7 @@ import { putMockSettings } from '../../support/settings.ts'
 import { waitForChatFrame, findChatFrame } from '../../support/chat-frame.ts'
 
 const admin = await superAdmin
-const standalone = await axiosAuth('test-standalone1')
+const standalone = await axiosAuth('test_agents_standalone')
 
 const drawerUrl = '/agents/_dev/chat-drawer'
 const activeDrawer = '.v-navigation-drawer:has(d-frame).v-navigation-drawer--active'
@@ -26,11 +26,11 @@ const openDrawer = (page: Page) => page.locator('.df-agent-chat-toggle').dispatc
 test.describe('Chat across tabs', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('a new tab starts closed and on a new conversation; the first tab keeps its own', async ({ page, context, goToWithAuth }) => {
-    await goToWithAuth(drawerUrl, 'test-standalone1')
+    await goToWithAuth(drawerUrl, 'test_agents_standalone')
     await openDrawer(page)
     const first = await waitForChatFrame(page)
     await first.getByPlaceholder('Type your message...').fill('hello')
@@ -60,7 +60,7 @@ test.describe('Chat across tabs', () => {
   })
 
   test('a tab that opens the same conversation takes it over, and the first can continue there', async ({ page, context, goToWithAuth }) => {
-    await goToWithAuth(drawerUrl, 'test-standalone1')
+    await goToWithAuth(drawerUrl, 'test_agents_standalone')
     await openDrawer(page)
     const first = await waitForChatFrame(page)
     await first.getByPlaceholder('Type your message...').fill('hello')
@@ -96,16 +96,16 @@ test.describe('Chat across tabs', () => {
   })
 
   test('a tab whose conversation was deleted meanwhile starts a new one rather than a blocked chat', async ({ page, goToWithAuth }) => {
-    await goToWithAuth(drawerUrl, 'test-standalone1')
+    await goToWithAuth(drawerUrl, 'test_agents_standalone')
     await openDrawer(page)
     const first = await waitForChatFrame(page)
     await first.getByPlaceholder('Type your message...').fill('hello')
     await first.getByRole('button', { name: 'Send' }).click()
     await expect(first.locator('.assistant-content').last()).toContainText('world', { timeout: 15000 })
 
-    const remembered = JSON.parse(await first.evaluate(() => sessionStorage.getItem('df-agents-conversation:user:test-standalone1') ?? 'null'))
+    const remembered = JSON.parse(await first.evaluate(() => sessionStorage.getItem('df-agents-conversation:user:test_agents_standalone') ?? 'null'))
     expect(remembered?.id).toBeTruthy()
-    await standalone.delete(`/api/conversations/user/test-standalone1/${remembered.id}`)
+    await standalone.delete(`/api/conversations/user/test_agents_standalone/${remembered.id}`)
 
     await page.reload()
     const reloaded = await waitForChatFrame(page)

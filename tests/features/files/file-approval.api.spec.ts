@@ -13,7 +13,7 @@ import { turnOverSocket, decideOverSocketToRun } from '../../../dev/socket-turn.
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const CONTENT = 'street,reason\nRue A,works\n'
 let fixture: McpFixture
 
@@ -23,7 +23,7 @@ test.describe('Approving a call that sends a file', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('the card records path, type and size; the approved call sends that file', async () => {
@@ -39,7 +39,7 @@ test.describe('Approving a call that sends a file', () => {
     const { runId } = await decideOverSocketToRun(orgAdmin, conversationId, part.approval.id, { approved: true })
     await awaitRun(orgAdmin, conversationId, runId)
     assert.deepEqual(fixture.invokedTools(), ['import_table'])
-    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+    const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
     const settled = messages.flatMap((m: any) => m.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.toolName === 'import_table')
     assert.match(outputOf(settled), new RegExp(createHash('sha256').update(CONTENT).digest('hex')))
     assert.ok(!JSON.stringify(messages).includes('sig='), 'no signed URL in the record')

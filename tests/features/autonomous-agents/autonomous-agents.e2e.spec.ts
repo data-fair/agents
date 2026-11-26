@@ -9,7 +9,7 @@ import { putMockSettings } from '../../support/settings.ts'
 import { exampleFields } from '../../../ui/src/utils/autonomous-agent-examples.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
 // The unified chat's composer. The wrapper carries the test id; v-textarea with auto-grow renders a
 // second aria-hidden sizer textarea beside the real control.
@@ -23,15 +23,24 @@ const fillAndSend = async (page: Page, text: string) => {
 test.describe('Autonomous agents configuration', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   // Configuring an autonomous agent is behind the progressive rollout gate
   // (autonomousAgentsRequireAdminMode), so every write here needs a superadmin in admin mode.
   const asSuperAdmin = { adminMode: true } as const
 
+  // simple-directory refusing to create an NHI: the request still leaves the browser for the directory's
+  // URL (what the enrolment test pins), and is answered with a refusal instead of creating the identity
+  const refuseIdentityCreation = async (page: import('@playwright/test').Page) => {
+    await page.route('**/simple-directory/api/organizations/test_agents_org1/nhis', async route => {
+      if (route.request().method() !== 'POST') return await route.fallback()
+      await route.fulfill({ status: 400, contentType: 'text/plain', body: 'identity creation refused (test)' })
+    })
+  }
+
   test('creation asks only for a name, a role, its scopes and an example', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
     const dialog = page.locator('.v-overlay--active')
     await expect(dialog.getByTestId('autonomous-agent-create-title')).toBeVisible()
@@ -46,15 +55,16 @@ test.describe('Autonomous agents configuration', () => {
   })
 
   test('creation without directory lands on the page with a retry', async ({ page, goToWithAuth }) => {
-    // In dev, simple-directory is file-storage: the identity cannot be created, which is the path to pin.
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    // simple-directory refuses to create the identity, which is the path to pin.
+    await refuseIdentityCreation(page)
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
     await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Quality agent')
     await page.getByTestId('autonomous-agent-create-example-quality').click()
     await page.getByTestId('autonomous-agent-save').click()
-    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/agents\/organization\/test_agents_org1\/agents\/[^/?]+/, { timeout: 20000 })
 
-    const listed = (await admin.get('/api/autonomous-agents/organization/test1')).data.results
+    const listed = (await admin.get('/api/autonomous-agents/organization/test_agents_org1')).data.results
     const agent = listed.find((a: any) => a.title === 'Quality agent')
     expect(agent.role).toBe('user')
     expect(agent.approvalRoutes).toEqual({ write: 'reviewer+person', destructive: 'reviewer+person' })
@@ -70,7 +80,7 @@ test.describe('Autonomous agents configuration', () => {
   })
 
   test('a refused attach deletes the identity it just created', async ({ page, goToWithAuth }) => {
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Attach refused', persona: 'x', mcpServers: [], enabled: true
     })
     const directoryDeletes: string[] = []
@@ -83,15 +93,15 @@ test.describe('Autonomous agents configuration', () => {
       }
       return route.continue()
     })
-    await page.route('**/api/autonomous-agents/organization/test1/*', async route => {
+    await page.route('**/api/autonomous-agents/organization/test_agents_org1/*', async route => {
       if (route.request().method() !== 'PUT') return route.continue()
       await route.fulfill({ status: 400, json: { message: 'exchange refused' } })
     })
-    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
+    await goToWithAuth(`/agents/organization/test_agents_org1/agents/${created.data.id}`, 'test_agents_superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agent-enrol').click({ timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-enrol-error')).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-enrol-error')).toContainText('exchange refused')
-    await expect.poll(() => directoryDeletes).toEqual(['/simple-directory/api/organizations/test1/nhis/nhi-stub'])
+    await expect.poll(() => directoryDeletes).toEqual(['/simple-directory/api/organizations/test_agents_org1/nhis/nhi-stub'])
   })
 
   test('creation enrols the identity when the directory accepts it', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
@@ -102,16 +112,16 @@ test.describe('Autonomous agents configuration', () => {
       await route.fulfill({ status: 201, json: { id: 'nhi-stub' } })
     })
     // the real PUT performs a token exchange that would fail against a stub identity
-    await page.route('**/api/autonomous-agents/organization/test1/*', async route => {
+    await page.route('**/api/autonomous-agents/organization/test_agents_org1/*', async route => {
       if (route.request().method() !== 'PUT') return route.continue()
       const current = await (await route.fetch({ method: 'GET' })).json()
       await route.fulfill({ status: 200, json: { ...current, ...route.request().postDataJSON() } })
     })
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
     await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Enrolled by creation')
     await page.getByTestId('autonomous-agent-save').click()
-    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/agents\/organization\/test_agents_org1\/agents\/[^/?]+/, { timeout: 20000 })
     expect(nhiBody.role).toBe('user')
     expect(nhiBody.name).toMatch(/ \(autonomous agent\)$/)
     expect('scopes' in nhiBody).toBe(false)
@@ -125,17 +135,17 @@ test.describe('Autonomous agents configuration', () => {
       nhiBody = route.request().postDataJSON()
       await route.fulfill({ status: 201, json: { id: 'nhi-stub' } })
     })
-    await page.route('**/api/autonomous-agents/organization/test1/*', async route => {
+    await page.route('**/api/autonomous-agents/organization/test_agents_org1/*', async route => {
       if (route.request().method() !== 'PUT') return route.continue()
       const current = await (await route.fetch({ method: 'GET' })).json()
       await route.fulfill({ status: 200, json: { ...current, ...route.request().postDataJSON() } })
     })
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
     await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Scoped by creation')
     await pickScope(page, 'datasets:read')
     await page.getByTestId('autonomous-agent-save').click()
-    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/, { timeout: 20000 })
+    await expect(page).toHaveURL(/\/agents\/organization\/test_agents_org1\/agents\/[^/?]+/, { timeout: 20000 })
     expect(nhiBody.scopes).toEqual(['datasets:read'])
   })
 
@@ -143,16 +153,15 @@ test.describe('Autonomous agents configuration', () => {
     // The two services are federated CLIENT-side: this button calls simple-directory's own NHI API
     // with the admin's session, so the admin never leaves this UI.
     //
-    // The SUCCESS path cannot run here: simple-directory's NHI management is mongo-only (createUser
-    // throws under the file storage every data-fair dev stack uses), so creation fails. That makes
-    // the failure path the valuable one to pin — an inert button would be the likely bug, and this
-    // asserts the directory's own refusal is surfaced instead.
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+    // The failure path is the valuable one to pin — an inert button would be the likely bug — so the
+    // directory's answer to the creation is a refusal here, and this asserts it is surfaced.
+    await refuseIdentityCreation(page)
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Unenrolled agent', persona: 'x', mcpServers: [], enabled: true
     })
     expect(created.data.nhi?.clientId).toBeFalsy()
 
-    await goToWithAuth(`/agents/organization/test1/agents/${created.data.id}`, 'superadmin', asSuperAdmin)
+    await goToWithAuth(`/agents/organization/test_agents_org1/agents/${created.data.id}`, 'test_agents_superadmin', asSuperAdmin)
     const enrol = page.getByTestId('autonomous-agent-enrol')
 
     // Enrolling waits for unsaved edits to be saved or cancelled: it re-reads the agent, which would
@@ -168,12 +177,12 @@ test.describe('Autonomous agents configuration', () => {
     // /agents/api/simple-directory/... by $fetch's baseURL and answered by our own /api 404 — the
     // directory was never contacted, and our 404 body read plausibly like a refusal from it.
     const nhiRequest = page.waitForRequest(req =>
-      req.url().includes('/simple-directory/api/organizations/test1/nhis') && req.method() === 'POST',
+      req.url().includes('/simple-directory/api/organizations/test_agents_org1/nhis') && req.method() === 'POST',
     { timeout: 20000 })
     // Direct: one click creates the identity, no dialog in between.
     await enrol.click()
     const sent = await nhiRequest
-    expect(new URL(sent.url()).pathname).toBe('/simple-directory/api/organizations/test1/nhis')
+    expect(new URL(sent.url()).pathname).toBe('/simple-directory/api/organizations/test_agents_org1/nhis')
 
     // Whatever simple-directory answers, the admin is told — not left with a spinner that stops and
     // a button that does nothing.
@@ -184,20 +193,20 @@ test.describe('Autonomous agents configuration', () => {
   })
 
   test('an enrolled autonomous agent shows its identity instead of offering to enrol', async ({ page, goToWithAuth }) => {
-    const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
+    const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-autonomous-agent-nhi',
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_agent_nhi',
       siteUrl,
       issuer: `${siteUrl}/agents/api/nhi`,
       autonomousAgent: { title: 'Enrolled agent', persona: 'x', mcpServers: [], enabled: true }
     })
 
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-list')).toContainText('Identity enrolled', { timeout: 20000 })
 
-    await goToWithAuth('/agents/organization/test1/agents/test-fixture', 'superadmin', asSuperAdmin)
+    await goToWithAuth('/agents/organization/test_agents_org1/agents/test-fixture', 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByText('Identity enrolled')).toBeVisible({ timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-enrol')).toHaveCount(0)
   })
@@ -211,16 +220,16 @@ test.describe('Autonomous agents configuration', () => {
     // simple-directory's NHI management is mongo-only, so the UI's Enrol button fails locally (see the
     // test above, which pins that failure being reported). The seam stands in for it here so the rest
     // of the journey is exercised rather than blocked.
-    await goToWithAuth('/agents/organization/test1', 'superadmin', asSuperAdmin)
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_superadmin', asSuperAdmin)
     // Generous: the first navigation after a dev-server restart pays vite's compile cost.
     await page.getByTestId('autonomous-agents-add').click({ timeout: 20000 })
     await page.getByTestId('autonomous-agent-create-title').locator('input').fill('Journey agent')
     await page.getByTestId('autonomous-agent-save').click()
     // The url first: the create dialog's own Name field holds the same value until it closes.
-    await expect(page).toHaveURL(/\/agents\/organization\/test1\/agents\/[^/?]+/)
+    await expect(page).toHaveURL(/\/agents\/organization\/test_agents_org1\/agents\/[^/?]+/)
     await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue('Journey agent', { timeout: 20000 })
 
-    const listed = (await admin.get('/api/autonomous-agents/organization/test1')).data.results
+    const listed = (await admin.get('/api/autonomous-agents/organization/test_agents_org1')).data.results
     const journeyAgent = listed.find((agent: any) => agent.title === 'Journey agent')
     expect(journeyAgent).toBeTruthy()
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: journeyAgent.id })
@@ -235,7 +244,7 @@ test.describe('Autonomous agents configuration', () => {
     await page.getByTestId('autonomous-agent-list').getByRole('link', { name: /Journey agent/ }).click({ timeout: 20000 })
 
     // The chat on that agent, as the panel loads it once the agent is picked.
-    await page.goto(`/agents/organization/test1/chat?agentId=${journeyAgent.id}`)
+    await page.goto(`/agents/organization/test_agents_org1/chat?agentId=${journeyAgent.id}`)
 
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
     // The chat names the agent it was opened on. Without this, a page pointed at an autonomous agent
@@ -252,7 +261,7 @@ test.describe('Autonomous agents configuration', () => {
   test('an org admin without admin mode is not offered the configuration form', async ({ page, goToWithAuth }) => {
     // The rollout gate means the API would refuse every save; offering the form anyway would be a
     // UI that cannot work. The section still explains itself rather than vanishing silently.
-    await goToWithAuth('/agents/organization/test1', 'test1-admin1', { org: 'test1' })
+    await goToWithAuth('/agents/organization/test_agents_org1', 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await expect(page.getByTestId('autonomous-agents-section')).toBeVisible({ timeout: 10000 })
     await expect(page.getByTestId('autonomous-agents-add')).toBeHidden()
     await expect(page.getByTestId('autonomous-agents-gated')).toBeVisible()
@@ -264,10 +273,10 @@ test.describe('Autonomous agent chat', () => {
 
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
     // Created through the API rather than the UI: this block is about the chat, and driving the
     // configuration form again would make every failure here ambiguous.
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'Thread agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
     })
     agentId = created.data.id
@@ -275,17 +284,17 @@ test.describe('Autonomous agent chat', () => {
     // produces the SAME generic failure text as a provider error, so a silently no-op fixture would
     // make several tests below pass for entirely the wrong reason. Assert it took.
     await admin.post('/api/test-env/enrol-autonomous-agent', { agentId })
-    const enrolled = await admin.get(`/api/autonomous-agents/organization/test1/${agentId}`)
+    const enrolled = await admin.get(`/api/autonomous-agents/organization/test_agents_org1/${agentId}`)
     expect(enrolled.data.nhi?.clientId).toBeTruthy()
   })
 
-  const openChat = async (goToWithAuth: any, user = 'superadmin', opts: any = { adminMode: true }) =>
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}`, user, opts)
+  const openChat = async (goToWithAuth: any, user = 'test_agents_superadmin', opts: any = { adminMode: true }) =>
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}`, user, opts)
 
   test('opening creates no thread, posting shows the answer, and reopening resumes it', async ({ page, goToWithAuth }) => {
     // Opening the chat creates nothing: a thread starts with its first message. It used to be created
     // on open, and each visit by someone who never typed left one more behind.
-    const threads = async () => (await admin.get(`/api/conversations/organization/test1?agentId=${agentId}`)).data.results.length
+    const threads = async () => (await admin.get(`/api/conversations/organization/test_agents_org1?agentId=${agentId}`)).data.results.length
     await openChat(goToWithAuth)
     await page.getByTestId('agent-chat-input').waitFor({ state: 'visible', timeout: 20000 })
     await openChat(goToWithAuth)
@@ -326,7 +335,7 @@ test.describe('Autonomous agent chat', () => {
     // Asserting the TEXT, not merely that some alert appeared: the chat's error is set on any
     // rejection, so a 404, a 500 or a typo in the url would satisfy a bare visibility assertion. This
     // message is the only thing that pins the forbidden branch.
-    await openChat(goToWithAuth, 'test1-user1', { org: 'test1' })
+    await openChat(goToWithAuth, 'test_agents_org1_user', { org: 'test_agents_org1' })
     await expect(page.getByTestId('agent-chat-error'))
       .toContainText('not allowed to instruct this autonomous agent', { timeout: 15000 })
     // No message can change that: no composer inviting one.
@@ -341,8 +350,8 @@ test.describe('Agent switcher and conversation history', () => {
 
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
-    const created = await admin.post('/api/autonomous-agents/organization/test1', {
+    await putMockSettings(admin, 'organization/test_agents_org1')
+    const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
       title: 'History agent', persona: 'You answer briefly.', mcpServers: [], enabled: true
     })
     agentId = created.data.id
@@ -353,7 +362,7 @@ test.describe('Agent switcher and conversation history', () => {
   // so a superadmin in admin mode on someone else's org counts as `external` and the personal
   // assistant is (correctly) not offered there.
   const openBackOfficeChat = async (goToWithAuth: any) =>
-    await goToWithAuth(`/agents/organization/test1/chat?agentId=${agentId}&agents=1`, 'test1-admin1', { org: 'test1' })
+    await goToWithAuth(`/agents/organization/test_agents_org1/chat?agentId=${agentId}&agents=1`, 'test_agents_org1_admin', { org: 'test_agents_org1' })
 
   test('a new conversation starts empty, threads are listed and resuming one restores it', async ({ page, goToWithAuth }) => {
     await openBackOfficeChat(goToWithAuth)
@@ -413,17 +422,17 @@ test.describe('Agent switcher and conversation history', () => {
     await fillAndSend(page, 'hello')
     await expect(page.getByTestId('agent-chat-transcript')).toContainText('world', { timeout: 15000 })
 
-    const threadsOf = async (id: string) => (await orgAdmin.get(`/api/conversations/organization/test1?agentId=${id}`)).data.results
+    const threadsOf = async (id: string) => (await orgAdmin.get(`/api/conversations/organization/test_agents_org1?agentId=${id}`)).data.results
     expect((await threadsOf('back-office-assistant')).length).toBe(1)
     const [agentThread] = await threadsOf(agentId)
-    const agentMessages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${agentThread.id}/messages`)).data.results
+    const agentMessages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${agentThread.id}/messages`)).data.results
     expect(agentMessages.filter((m: any) => m.role === 'user')).toHaveLength(1)
   })
 
   test('a back office that names no agent reopens the last conversation, whatever agent it was with', async ({ page, goToWithAuth }) => {
     // The data-fair back office embeds the chat without an agent: a reload used to open an empty thread
     // with the back-office assistant even when the person had just been talking to an autonomous agent.
-    const openUnnamed = async () => await goToWithAuth('/agents/organization/test1/chat?agents=1', 'test1-admin1', { org: 'test1' })
+    const openUnnamed = async () => await goToWithAuth('/agents/organization/test_agents_org1/chat?agents=1', 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await openUnnamed()
     await expect(page.getByTestId('agent-chat-agent-picker')).toContainText('Back-office assistant', { timeout: 20000 })
     await page.getByTestId('agent-chat-agent-picker').click()
@@ -438,7 +447,7 @@ test.describe('Agent switcher and conversation history', () => {
 
   test('a reopened conversation shows its latest exchange', async ({ page, goToWithAuth }) => {
     await page.setViewportSize({ width: 600, height: 500 })
-    const openUnnamed = async () => await goToWithAuth('/agents/organization/test1/chat?agents=1', 'test1-admin1', { org: 'test1' })
+    const openUnnamed = async () => await goToWithAuth('/agents/organization/test_agents_org1/chat?agents=1', 'test_agents_org1_admin', { org: 'test_agents_org1' })
     await openBackOfficeChat(goToWithAuth)
     await expect(page.getByTestId('agent-chat-agent-picker')).toBeVisible({ timeout: 20000 })
     for (const answers of [1, 2, 3]) {
@@ -472,15 +481,15 @@ const pickScope = async (page: Page, scope: string) => {
 
 test.describe('Scopes of an autonomous agent\'s identity', () => {
   const asSuperAdmin = { adminMode: true } as const
-  const siteUrl = `http://localhost:${process.env.NGINX_PORT}`
-  const AGENT_PAGE = '/agents/organization/test1/agents/test-fixture?config=security'
+  const siteUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`
+  const AGENT_PAGE = '/agents/organization/test_agents_org1/agents/test-fixture?config=security'
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-autonomous-agent-nhi',
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_agent_nhi',
       siteUrl,
       issuer: `${siteUrl}/agents/api/nhi`,
       autonomousAgent: { title: 'Scoped agent', persona: 'x', mcpServers: [], enabled: true }
@@ -491,13 +500,13 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
   const stubDirectory = async (page: Page, stored: string[] | undefined, patchAnswer?: { status: number, json: any }) => {
     await stubScopes(page)
     const sent: Array<{ method: string, path: string, body: any }> = []
-    await page.route('**/simple-directory/api/organizations/test1/nhis**', async route => {
+    await page.route('**/simple-directory/api/organizations/test_agents_org1/nhis**', async route => {
       const req = route.request()
-      if (req.method() === 'GET') return route.fulfill({ json: { count: 1, results: [{ id: 'test-autonomous-agent-nhi', ...(stored ? { scopes: stored } : {}) }] } })
+      if (req.method() === 'GET') return route.fulfill({ json: { count: 1, results: [{ id: 'test_agents_org1_agent_nhi', ...(stored ? { scopes: stored } : {}) }] } })
       sent.push({ method: req.method(), path: new URL(req.url()).pathname, body: req.postDataJSON() })
       return route.fulfill(patchAnswer ?? { status: 200, json: {} })
     })
-    await page.route('**/agents/api/autonomous-agents/organization/test1/test-fixture', async route => {
+    await page.route('**/agents/api/autonomous-agents/organization/test_agents_org1/test-fixture', async route => {
       if (route.request().method() === 'PUT') sent.push({ method: 'PUT', path: new URL(route.request().url()).pathname, body: null })
       return route.continue()
     })
@@ -506,7 +515,7 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
 
   test('the identity tab shows the scopes and their absence', async ({ page, goToWithAuth }) => {
     await stubDirectory(page, ['datasets:read'])
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-scopes-unrestricted')).toHaveCount(0)
     // the one control of what it may do on data-fair, whose server it has without picking it
@@ -516,38 +525,38 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
   test('the sites of the organization it cannot act on as itself are listed', async ({ page, goToWithAuth }) => {
     await stubDirectory(page, ['datasets:read'])
     const sessionReads: string[] = []
-    await page.route('**/agents/api/autonomous-agents/organization/test1/test-fixture/session', async route => {
+    await page.route('**/agents/api/autonomous-agents/organization/test_agents_org1/test-fixture/session', async route => {
       sessionReads.push(route.request().url())
-      return route.fulfill({ json: { userId: 'test-autonomous-agent-nhi', accountSites: [siteUrl], unreachableSites: ['http://sso.example.org'] } })
+      return route.fulfill({ json: { userId: 'test_agents_org1_agent_nhi', accountSites: [siteUrl], unreachableSites: ['http://sso.example.org'] } })
     })
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-unreachable-sites')).toContainText('sso.example.org', { timeout: 20000 })
     expect(sessionReads.length).toBe(1)
   })
 
   test('no unreachable site, no warning', async ({ page, goToWithAuth }) => {
     await stubDirectory(page, ['datasets:read'])
-    await page.route('**/agents/api/autonomous-agents/organization/test1/test-fixture/session', route =>
-      route.fulfill({ json: { userId: 'test-autonomous-agent-nhi', accountSites: [siteUrl], unreachableSites: [] } }))
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await page.route('**/agents/api/autonomous-agents/organization/test_agents_org1/test-fixture/session', route =>
+      route.fulfill({ json: { userId: 'test_agents_org1_agent_nhi', accountSites: [siteUrl], unreachableSites: [] } }))
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
     await expect(page.getByTestId('autonomous-agent-unreachable-sites')).toHaveCount(0)
   })
 
   test('no stored scopes reads as no restriction', async ({ page, goToWithAuth }) => {
     await stubDirectory(page, undefined)
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes-unrestricted')).toBeVisible({ timeout: 20000 })
   })
 
   test('changing only the scopes saves the agent after the identity', async ({ page, goToWithAuth }) => {
     const sent = await stubDirectory(page, ['datasets:read'])
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
     await pickScope(page, 'applications:read')
     await page.getByRole('button', { name: 'Save' }).click()
     await expect.poll(() => sent.map(r => r.method)).toEqual(['PATCH', 'PUT'])
-    expect(sent[0].path).toBe('/simple-directory/api/organizations/test1/nhis/test-autonomous-agent-nhi')
+    expect(sent[0].path).toBe('/simple-directory/api/organizations/test_agents_org1/nhis/test_agents_org1_agent_nhi')
     expect([...sent[0].body.scopes].sort()).toEqual(['applications:read', 'datasets:read'])
   })
 
@@ -555,14 +564,14 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
     const sent = await stubDirectory(page, ['datasets:read'])
     let puts = 0
     // registered last, so it answers before stubDirectory's handler: the first PUT fails
-    await page.route('**/agents/api/autonomous-agents/organization/test1/test-fixture', async route => {
+    await page.route('**/agents/api/autonomous-agents/organization/test_agents_org1/test-fixture', async route => {
       if (route.request().method() === 'PUT' && puts++ === 0) {
         sent.push({ method: 'PUT', path: new URL(route.request().url()).pathname, body: null })
         return route.fulfill({ status: 500, json: 'boom' })
       }
       return route.fallback()
     })
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
     await pickScope(page, 'applications:read')
     await page.getByRole('button', { name: 'Save' }).click()
@@ -574,7 +583,7 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
 
   test('clearing the scopes sends null', async ({ page, goToWithAuth }) => {
     const sent = await stubDirectory(page, ['datasets:read'])
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
     await pickScope(page, 'datasets:read')
     await expect(page.getByTestId('autonomous-agent-scopes-unrestricted')).toBeVisible()
@@ -585,7 +594,7 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
 
   test('a refused scope write stops the save', async ({ page, goToWithAuth }) => {
     const sent = await stubDirectory(page, ['datasets:read'], { status: 400, json: 'unknown scope "datasets:write"' })
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes')).toContainText('datasets:read', { timeout: 20000 })
     await pickScope(page, 'datasets:write')
     await page.getByRole('button', { name: 'Save' }).click()
@@ -595,8 +604,8 @@ test.describe('Scopes of an autonomous agent\'s identity', () => {
 
   test('an identity declared outside the directory API shows its scopes read-only', async ({ page, goToWithAuth }) => {
     await stubScopes(page)
-    await page.route('**/simple-directory/api/organizations/test1/nhis**', route => route.fulfill({ json: { count: 0, results: [] } }))
-    await goToWithAuth(AGENT_PAGE, 'superadmin', asSuperAdmin)
+    await page.route('**/simple-directory/api/organizations/test_agents_org1/nhis**', route => route.fulfill({ json: { count: 0, results: [] } }))
+    await goToWithAuth(AGENT_PAGE, 'test_agents_superadmin', asSuperAdmin)
     await expect(page.getByTestId('autonomous-agent-scopes-elsewhere')).toBeVisible({ timeout: 20000 })
   })
 })

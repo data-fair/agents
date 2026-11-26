@@ -13,8 +13,8 @@ import { putMockSettings } from '../../support/settings.ts'
 import { openAgentSession, newThreadHello, type AgentSessionClient } from '../../../dev/agent-session-client.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const OWNER = 'organization/test1'
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const OWNER = 'organization/test_agents_org1'
 
 test.describe('Attaching mid-turn', () => {
   const sockets: AgentSessionClient[] = []
@@ -114,7 +114,7 @@ test.describe('Attaching mid-turn', () => {
     owner.send({ type: 'prompt', content: 'hello' })
     const conversation = { id: (await until(owner, frame => frame.type === 'attached' && frame.conversationId)).pop().conversationId }
 
-    const other = await axiosAuth('test1-user1', { org: 'test1' })
+    const other = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
     const intruder = await openAgentSession(await other.cookieJar.getCookieString(directoryUrl))
     sockets.push(intruder)
     intruder.send({ type: 'hello', conversationId: conversation.id, tools: [] })

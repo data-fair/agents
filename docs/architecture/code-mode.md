@@ -27,8 +27,6 @@ script's return value still reaches the model inside the provenance envelope (se
 may quote tool output verbatim, and it is screened by the [tool-output tripwire](./moderation.md#tool-output-tripwire);
 the nested calls are not, since what they return reaches the model only through that value.
 
-The design and its alternatives: `docs/superpowers/specs/2026-10-12-agent-files-and-scripting-design.md`, §6.
-
 ## The tool
 
 - Input `{ js }`, the package's own. JavaScript; TypeScript syntax is stripped, not checked. Top-level

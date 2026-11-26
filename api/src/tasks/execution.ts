@@ -144,7 +144,7 @@ export const startTaskRun = async (
  * fired its tools, and one that did not is simply the next slot's to run. Ownerless when nobody holds its
  * task's lock and this process is not running it. Closed `interrupted`, which notifies and counts toward
  * the task's pause like any failure. The conversation half is `recoverOwnerlessRuns` (executor.ts). `scope`
- * narrows the runs considered (the real-clock job leaves the specs' `test*` owners to their test-env seam).
+ * narrows the runs considered (in development the real-clock job leaves the specs' `test_agents_` and the simulations' `test_sim_` owners alone: api/src/real-clock-scope.ts).
  */
 export const recoverOwnerlessTaskRuns = async (scope: Record<string, unknown> = {}): Promise<{ interrupted: number, skipped: number }> => {
   let interrupted = 0

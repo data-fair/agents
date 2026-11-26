@@ -9,12 +9,13 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { startTurnOverSocket, runOf } from '../../../dev/socket-turn.ts'
+import { STAND_IN_PLATFORM_MCP_URL } from '../../support/platform-mcp.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 
 const createAgent = async (over: any = {}) =>
-  (await admin.post('/api/autonomous-agents/organization/test1', { title: 'Guides probe', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true, ...over })).data
+  (await admin.post('/api/autonomous-agents/organization/test_agents_org1', { title: 'Guides probe', persona: 'x', mcpServers: [{ serverId: 'dev-public-mcp' }], enabled: true, ...over })).data
 
 /** One turn of an agent's new thread, waited for; the run and the thread's messages. */
 const runTurn = async (agentId: string, content: string) => {
@@ -25,15 +26,15 @@ const runTurn = async (agentId: string, content: string) => {
     if (run.status !== 'running') break
     await new Promise(resolve => setTimeout(resolve, 100))
   }
-  const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test1/${conversationId}/messages`)).data.results
+  const messages = (await orgAdmin.get(`/api/test-env/conversations/organization/test_agents_org1/${conversationId}/messages`)).data.results
   return { conversationId, run, assistant: messages.find((m: any) => m.role === 'assistant' && m.runId === runId) }
 }
 
-const issuer = `http://localhost:${process.env.NGINX_PORT}/agents/api/nhi`
+const issuer = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents/api/nhi`
 
 /** The system prompt a run had, as the review page reads it (a configured agent's thread is audited). */
 const systemPromptOf = async (conversationId: string, runId: string) =>
-  (await orgAdmin.get(`/api/review/organization/test1/${conversationId}`)).data.runs.find((r: any) => r.id === runId).systemPrompt as string
+  (await orgAdmin.get(`/api/review/organization/test_agents_org1/${conversationId}`)).data.runs.find((r: any) => r.id === runId).systemPrompt as string
 
 const toolCall = (assistant: any, name: string) => (assistant.parts ?? []).find((p: any) => p.type === 'dynamic-tool' && p.toolName === name)
 
@@ -44,7 +45,7 @@ test.describe('Server instructions and skills', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.failSkillsList(false)
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('a turn lists the server\'s skills with its tools, never reads a body, and declares the skills capability', async () => {
@@ -117,9 +118,9 @@ test.describe('Server instructions and skills', () => {
   test('read_skill over a session entry presents the agent\'s own session', async () => {
     await admin.post('/api/test-env/autonomous-agent', {
       id: 'test-fixture',
-      owner: { type: 'organization', id: 'test1' },
-      clientId: 'test-autonomous-agent-nhi',
-      siteUrl: `http://localhost:${process.env.NGINX_PORT}`,
+      owner: { type: 'organization', id: 'test_agents_org1' },
+      clientId: 'test_agents_org1_agent_nhi',
+      siteUrl: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}`,
       issuer,
       autonomousAgent: { title: 'Guides probe', persona: 'x', mcpServers: [{ serverId: 'dev-session-mcp' }], enabled: true }
     })
@@ -130,7 +131,7 @@ test.describe('Server instructions and skills', () => {
 
   test('read_skill never reads from a server outside the turn: a wrong label falls back to the turn\'s server listing the URI, or reads nothing', async () => {
     const agent = await createAgent()
-    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id })
+    await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: agent.id, platformMcpUrl: STAND_IN_PLATFORM_MCP_URL })
     const listed = await runTurn(agent.id, 'call tool read_skill {"server":"dev-session-mcp","uri":"skill://fixture/closures/SKILL.md"}')
     assert.match(toolCall(listed.assistant, 'read_skill').output, /^<skill server="dev-public-mcp"/)
     fixture.resetMethodCounts()

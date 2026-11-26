@@ -11,7 +11,7 @@ import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const offered = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 let fixture: McpFixture
 
@@ -20,7 +20,7 @@ test.describe('File tools', () => {
   test.afterAll(async () => { await fixture.close() })
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('written, listed and read within a conversation; another conversation has none of them', async () => {

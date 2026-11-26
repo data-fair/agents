@@ -14,7 +14,7 @@ import { putMockSettings } from '../../support/settings.ts'
 import { runTurn } from '../../support/turn.ts'
 import { runOf } from '../../../dev/socket-turn.ts'
 
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 const admin = await superAdmin
 
 /** The text of a stored message, which is one or more text parts. */
@@ -23,13 +23,13 @@ const partsText = (parts: any[]) => (parts ?? []).filter(p => p.type === 'text')
 test.describe('Chat API', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('a turn reaches the model and the answer is stored', async () => {
-    const { conversationId } = await runTurn(user, 'user/test-standalone1', 'hello')
+    const { conversationId } = await runTurn(user, 'user/test_agents_standalone', 'hello')
 
-    const res = await user.get(`/api/test-env/conversations/user/test-standalone1/${conversationId}/messages`)
+    const res = await user.get(`/api/test-env/conversations/user/test_agents_standalone/${conversationId}/messages`)
     const messages = res.data.results as any[]
 
     // The person's own turn is stored, not only the answer: the server is the single source of the
@@ -46,11 +46,11 @@ test.describe('Chat API', () => {
   })
 
   test('the run reaches a terminal status, so a caller can tell the turn ended', async () => {
-    const { conversationId, runId } = await runTurn(user, 'user/test-standalone1', 'hello')
+    const { conversationId, runId } = await runTurn(user, 'user/test_agents_standalone', 'hello')
     assert.ok(runId, 'the turn must have a run for the caller to follow')
 
     // A conversation's runs are read through the conversation, by the person it belongs to.
-    const run = await runOf(user, conversationId, runId, 'user/test-standalone1')
+    const run = await runOf(user, conversationId, runId, 'user/test_agents_standalone')
     assert.equal(run.status, 'done')
     assert.equal(run.stopReason, 'completed')
   })

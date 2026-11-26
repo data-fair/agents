@@ -1,7 +1,7 @@
 /**
  * service.ts contains the stateful side of the tool-output injection tripwire: the classifier calls, their
  * metering and telemetry, and what a trip leaves behind (a log line, an event for a configured agent).
- * docs/superpowers/specs/2026-11-02-tool-output-tripwire-design.md
+ * docs/architecture/moderation.md, "Tool-output tripwire"
  */
 import mongo from '#mongo'
 import config from '#config'

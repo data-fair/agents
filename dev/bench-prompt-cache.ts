@@ -30,7 +30,7 @@
  *
  * Use a temporary LiteLLM key dedicated to the bench, so its spend in LiteLLM is the bench's alone.
  *
- *   BENCH_BASE_URL=https://litellm.internal.koumoul.fr/v1 BENCH_API_KEY=sk-... \
+ *   BENCH_BASE_URL=https://<litellm-host>/v1 BENCH_API_KEY=sk-... \
  *     node dev/bench-prompt-cache.ts [model ...]
  *
  * BENCH_PATHS (default `raw,raw-stream,ai-sdk,tools`) picks the paths, e.g. BENCH_PATHS=tools.
@@ -44,7 +44,7 @@ import { streamText } from 'ai'
 import { createModel } from '../api/src/models/operations.ts'
 import { tokenCountsOf } from '../api/src/usage/operations.ts'
 
-const BASE_URL = (process.env.BENCH_BASE_URL ?? 'https://litellm.internal.koumoul.fr/v1').replace(/\/$/, '')
+const BASE_URL = (process.env.BENCH_BASE_URL ?? '').replace(/\/$/, '')
 const API_KEY = process.env.BENCH_API_KEY
 const REASONING = process.env.BENCH_REASONING ?? 'none'
 const MODELS = process.argv.length > 2
@@ -56,6 +56,10 @@ const MAX_TOKENS = 16
 const PATHS = new Set((process.env.BENCH_PATHS ?? 'raw,raw-stream,ai-sdk,tools').split(',').map(path => path.trim()))
 const TOOL_COUNT = 30
 
+if (!BASE_URL) {
+  console.error('BENCH_BASE_URL is required (the OpenAI-compatible base URL of the LiteLLM proxy, e.g. https://<litellm-host>/v1)')
+  process.exit(1)
+}
 if (!API_KEY) {
   console.error('BENCH_API_KEY is required (a temporary LiteLLM key)')
   process.exit(1)

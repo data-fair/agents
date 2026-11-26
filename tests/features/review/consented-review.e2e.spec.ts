@@ -2,18 +2,18 @@
  * E2E test for the consented review flow.
  *
  * Scenario:
- *   1. Seed settings for user/test-standalone1 with reviewPersonalAssistant: true, a mock
+ *   1. Seed settings for user/test_agents_standalone with reviewPersonalAssistant: true, a mock
  *      provider and an assistant model.
  *   2. Pre-set the agent-chat-trace-consent cookie to "yes" via the Playwright
  *      browser context so the chat says the consent over the agent session and the
  *      consent bottom-sheet never appears.
- *   3. Open /agents/user/test-standalone1/chat as test-standalone1 and send
+ *   3. Open /agents/user/test_agents_standalone/chat as test_agents_standalone and send
  *      "hello". Wait for the assistant to reply with "world" (mock provider).
  *      With consent active, this conversation is stored server-side.
  *   4. Open the chat's debug dialog: exactly three tabs, and the consent toggle in Settings.
- *   5. Poll GET /api/review/user/test-standalone1 until the conversation appears
+ *   5. Poll GET /api/review/user/test_agents_standalone until the conversation appears
  *      and grab its conversationId.
- *   6. Navigate to /agents/user/test-standalone1/review/:id as test-standalone1.
+ *   6. Navigate to /agents/user/test_agents_standalone/review/:id as test_agents_standalone.
  *   7. Assert the conversation rendered — both sides of the exchange, not a type label.
  */
 
@@ -27,7 +27,7 @@ const admin = await superAdmin
 test.describe('Consented review flow', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1', { reviewPersonalAssistant: true })
+    await putMockSettings(admin, 'user/test_agents_standalone', { reviewPersonalAssistant: true })
   })
 
   test('real chat with consent is reviewable on the review page', async ({ page, context, goToWithAuth }) => {
@@ -36,12 +36,12 @@ test.describe('Consented review flow', () => {
     await context.addCookies([{
       name: 'agent-chat-trace-consent',
       value: 'yes',
-      domain: 'localhost',
+      domain: process.env.DEV_HOST,
       path: '/'
     }])
 
-    // Step 2: Open the chat page as test-standalone1
-    await goToWithAuth('/agents/user/test-standalone1/chat', 'test-standalone1')
+    // Step 2: Open the chat page as test_agents_standalone
+    await goToWithAuth('/agents/user/test_agents_standalone/chat', 'test_agents_standalone')
 
     // Step 3: Send a message and wait for the assistant response
     const input = page.getByPlaceholder('Type your message...')
@@ -65,13 +65,13 @@ test.describe('Consented review flow', () => {
     // Step 5: Poll the list API until the stored conversation appears
     let conversationId = ''
     await expect.poll(async () => {
-      const res = await admin.get('/api/review/user/test-standalone1?page=1&size=20').catch(() => null)
+      const res = await admin.get('/api/review/user/test_agents_standalone?page=1&size=20').catch(() => null)
       conversationId = res?.data.results[0]?.conversationId ?? ''
       return conversationId
     }, { timeout: 8000 }).not.toBe('')
 
     // Step 6: Navigate to the review page
-    await goToWithAuth(`/agents/user/test-standalone1/review/${conversationId}`, 'test-standalone1')
+    await goToWithAuth(`/agents/user/test_agents_standalone/review/${conversationId}`, 'test_agents_standalone')
 
     // Step 7: the exchange itself. The old assertion looked for a `user-message` TYPE CHIP, which
     // the reconstruction layer emitted whether or not the entry had content — it kept passing after

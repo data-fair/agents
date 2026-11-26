@@ -25,7 +25,7 @@ export const test = base.extend<{
         await context.addCookies([{
           name: 'i18n_lang',
           value: 'en',
-          domain: 'localhost',
+          domain: process.env.DEV_HOST,
           path: '/',
         }])
         await use(page)
@@ -46,7 +46,7 @@ export const test = base.extend<{
             await context.addCookies(cached)
             await page.goto(url)
           } else {
-            const query: Record<string, string> = { redirect: 'http://localhost:' + process.env.NGINX_PORT + url }
+            const query: Record<string, string> = { redirect: 'http://' + process.env.DEV_HOST + ':' + process.env.NGINX_PORT + url }
             if (opts?.adminMode) query.adminMode = 'true'
             // log straight into the organization account: pages scoped to an org
             // check the role of the session's CURRENT account (getAccountRole
@@ -59,8 +59,7 @@ export const test = base.extend<{
             // A login that fails leaves us on the login page, and waitForURL then simply
             // waits out the whole test timeout with no indication why — 15 minutes of
             // silence for a simulation. The usual cause is a `user` whose email is not
-            // `<id>@test.com` (dev/resources/users.template.json has several: albanm,
-            // dmeadus0), which simple-directory answers with a 400 no assertion sees.
+            // `<id>@test.com`, which simple-directory answers with a 400 no assertion sees.
             // Fail on the response instead, naming the address actually tried.
             const [loginResponse] = await Promise.all([
               page.waitForResponse(res => res.url().includes('/api/auth/password')),
@@ -69,7 +68,7 @@ export const test = base.extend<{
               page.getByRole('button', { name: /^log ?in$/i }).click()
             ])
             if (!loginResponse.ok()) {
-              throw new Error(`login failed for ${user}@test.com (${loginResponse.status()}) — is that user's email really <id>@test.com in dev/resources/users.template.json?`)
+              throw new Error(`login failed for ${user}@test.com (${loginResponse.status()}) — is that user's email really <id>@test.com in tests/support/sd-fixtures.ts?`)
             }
             await page.waitForURL(url)
             // Simple-directory keeps a server-side session reference per user and drops

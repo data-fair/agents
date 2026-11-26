@@ -10,7 +10,7 @@ import type { SessionStateAuthenticated, User } from '@data-fair/lib-common-type
 const human = (id: string, email = `${id}@test.com`): User => ({ id, email, name: id, organizations: [] })
 
 const agentWith = (instructors: AccessRef[]): InstructableAgent => ({
-  owner: { type: 'organization', id: 'test1' },
+  owner: { type: 'organization', id: 'test_agents_org1' },
   instructors
 })
 
@@ -19,7 +19,7 @@ const listedAgent = agentWith([{ mode: 'member', type: 'user', id: 'listed-user'
 const session = (over: Partial<SessionStateAuthenticated> = {}): SessionStateAuthenticated => ({
   lang: 'fr',
   user: human('someone'),
-  account: { type: 'organization', id: 'test1', name: 'Test 1' },
+  account: { type: 'organization', id: 'test_agents_org1', name: 'Test 1' },
   accountRole: 'user',
   ...over
 })
@@ -74,21 +74,21 @@ test.describe('canInstruct', () => {
   })
 
   test('an internal role/department ref matches the owning organization', () => {
-    const agent = agentWith([{ mode: 'internal', type: 'organization', id: 'test1', department: '*', roles: ['admin'] }])
+    const agent = agentWith([{ mode: 'internal', type: 'organization', id: 'test_agents_org1', department: '*', roles: ['admin'] }])
     assert.equal(canInstruct(agent, session({ accountRole: 'admin' })), true)
     assert.equal(canInstruct(agent, session({ accountRole: 'user' })), false)
   })
 
   test('an internal department ref matches its department and refuses another', () => {
-    const agent = agentWith([{ mode: 'internal', type: 'organization', id: 'test1', department: 'd1', roles: [] }])
-    assert.equal(canInstruct(agent, session({ account: { type: 'organization', id: 'test1', name: 'Test 1', department: 'd1' } })), true)
-    assert.equal(canInstruct(agent, session({ account: { type: 'organization', id: 'test1', name: 'Test 1', department: 'd2' } })), false)
+    const agent = agentWith([{ mode: 'internal', type: 'organization', id: 'test_agents_org1', department: 'd1', roles: [] }])
+    assert.equal(canInstruct(agent, session({ account: { type: 'organization', id: 'test_agents_org1', name: 'Test 1', department: 'd1' } })), true)
+    assert.equal(canInstruct(agent, session({ account: { type: 'organization', id: 'test_agents_org1', name: 'Test 1', department: 'd2' } })), false)
   })
 
   test('a department admin cannot instruct an org-root agent', () => {
     // The owner rule keeps its exact department comparison; matchAccessRef would treat the absent
     // department as "all departments" and grant this.
-    const departmentAdmin = session({ account: { type: 'organization', id: 'test1', name: 'Test 1', department: 'd1' }, accountRole: 'admin' })
+    const departmentAdmin = session({ account: { type: 'organization', id: 'test_agents_org1', name: 'Test 1', department: 'd1' }, accountRole: 'admin' })
     assert.equal(canInstruct(listedAgent, departmentAdmin), false)
   })
 })

@@ -116,10 +116,10 @@ In the map the MCP tools come first, so without it a load would insert near the 
 
 ## In simulations
 
-data-fair's five autonomous-agent cases (`simulations/cases/autonomous-agents.ts` there), 2026-11-18, on the
+data-fair's five autonomous-agent simulation cases, 2026-11-18, on the
 Claude Code bridge (sonnet), the agent's identity at full scope: 31 tools, data-fair's MCP alone, under the
 threshold of a 128k window, so deferral was forced (`TOOL_DEFERRAL_PERCENT=3`) against the same image with
-`100`. One round each, judged by `simulation-judge`:
+`100`. One round each, judged by the simulation judge:
 
 | | off | on |
 |---|---|---|

@@ -7,12 +7,13 @@ import assert from 'node:assert/strict'
 import { createHash } from 'node:crypto'
 import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import { putMockSettings } from '../../support/settings.ts'
+import { giveAssistantsDevServers } from '../../support/personal-assistants.ts'
 import { startMcpFixture, type McpFixture } from '../../support/mcp-fixture.ts'
 import { turnOverSocket } from '../../../dev/socket-turn.ts'
 import { FIXTURE_PORT, FIXTURE_ORIGIN, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const offered = (run: any): string[] => run.calls.flatMap((c: any) => c.toolNames ?? [])
 const field = (text: string, name: string) => new RegExp(`${name}\\\\?":\\\\?"?([^",\\\\]+)`).exec(text)?.[1]
 let fixture: McpFixture
@@ -23,7 +24,9 @@ test.describe('File arguments', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
+    // the personal assistant's test needs a catalog: the dev servers, whatever servers the deployment gives it
+    await giveAssistantsDevServers()
   })
 
   test('download, read, write a cleaned file, and upload it: the target fetches exactly those bytes', async () => {
@@ -46,13 +49,13 @@ test.describe('File arguments', () => {
     // The record keeps the path; the URL went to the target only.
     assert.deepEqual(part.input, { file: '/clean.csv', title: 'Clean' })
     const [url] = fixture.fileUrls()
-    assert.match(url, new RegExp(`^http://localhost:${process.env.DEV_API_PORT}/api/files/organization/test1/${conversationId}/clean\\.csv\\?exp=\\d+&sig=`))
+    assert.match(url, new RegExp(`^http://localhost:${process.env.DEV_API_PORT}/api/files/organization/test_agents_org1/${conversationId}/clean\\.csv\\?exp=\\d+&sig=`))
     const stored = JSON.stringify(uploaded.messages)
     assert.ok(!stored.includes('sig=') && !stored.includes('/api/files/'), 'no signed URL anywhere in the conversation')
     // ...nor in the run's call telemetry, nor in the export an admin downloads to debug a session.
     const telemetry = JSON.stringify(uploaded.run.calls)
     assert.ok(!telemetry.includes('sig=') && !telemetry.includes('/api/files/'), 'no signed URL in the run telemetry')
-    const exported = (await admin.get(`/api/review/organization/test1/${conversationId}/export`, { responseType: 'text', transformResponse: r => r })).data as string
+    const exported = (await admin.get(`/api/review/organization/test_agents_org1/${conversationId}/export`, { responseType: 'text', transformResponse: r => r })).data as string
     assert.ok(exported.includes('import_table'), 'the export holds the call')
     assert.ok(!exported.includes('sig=') && !exported.includes('/api/files/'), 'no signed URL in the conversation export')
   })

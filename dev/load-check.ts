@@ -6,11 +6,11 @@
  * what concurrent streaming turns do to the API's responsiveness, and whether anything is left
  * behind when the sockets go away.
  *
- * Run it (dev env must be up — `npx --no df-dev status`):
+ * Run it (the dev servers must be up — `npm run dev`):
  *   npm run dev-load-check -- [--idle 300] [--turns 10,50,100,200] [--signed-in 50]
  *
  * It drives ANONYMOUS sessions (no login per socket, and the anonymous path now runs the same
- * executor) against organization/test1, whose settings it overwrites — the test suites rewrite them
+ * executor) against organization/test_agents_org1, whose settings it overwrites — the test suites rewrite them
  * on every run anyway. Plus one signed-in batch, which adds a person's session and permission checks.
  */
 import { readFileSync, readlinkSync, readdirSync } from 'node:fs'
@@ -18,6 +18,7 @@ import { MongoClient } from 'mongodb'
 import { superAdmin, axiosAuth, getAnonymousActionToken, directoryUrl, defaultQuotas } from '../tests/support/axios.ts'
 import { putSettings } from '../tests/support/settings.ts'
 import { openAgentSession, type AgentSessionClient } from './agent-session-client.ts'
+import { devMongoUrl } from '../tests/support/mongo-url.ts'
 
 const arg = (name: string, fallback: string) => {
   const at = process.argv.indexOf(`--${name}`)
@@ -68,8 +69,8 @@ const retainedHeapMb = async () => {
   const body = await res.json() as any
   return `heap used ${(body.heapUsed / 1048576).toFixed(0)}MB / total ${(body.heapTotal / 1048576).toFixed(0)}MB, external ${(body.external / 1048576).toFixed(0)}MB, rss ${(body.rss / 1048576).toFixed(0)}MB`
 }
-const OWNER = { type: 'organization', id: 'test1' } as const
-const nginx = `http://localhost:${process.env.NGINX_PORT}/agents`
+const OWNER = { type: 'organization', id: 'test_agents_org1' } as const
+const nginx = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents`
 
 /** The dev-api node process of THIS worktree: the one running index.ts from its api/ directory. */
 const apiPid = () => {
@@ -190,7 +191,7 @@ const main = async () => {
     quotas: { ...defaultQuotas, contrib: { unlimited: true, monthlyLimit: 0 }, anonymous: { unlimited: true, monthlyLimit: 0 } }
   })
   token = await getAnonymousActionToken()
-  const mongo = await MongoClient.connect(`mongodb://localhost:${process.env.MONGO_PORT}/data-fair-agents-development`)
+  const mongo = await MongoClient.connect(devMongoUrl)
   const pid = apiPid()
   const leftBefore = await leftoverAnonymous(mongo)
   console.log(`dev-api pid ${pid}, rss ${rssMb(pid).toFixed(0)}MB, anonymous threads before: ${leftBefore}\n`)
@@ -250,7 +251,7 @@ const main = async () => {
   // 3. SIGNED-IN BATCH. The same turn, but through the checks a person's thread goes through — and
   //    leaving stored threads behind, as it should.
   if (SIGNED_IN > 0) {
-    const member = await axiosAuth('test1-contrib1', { org: 'test1' })
+    const member = await axiosAuth('test_agents_org1_contrib', { org: 'test_agents_org1' })
     const cookie = await member.cookieJar.getCookieString(directoryUrl)
     const signedInOpen = async () => {
       const socket = await openAgentSession(cookie)

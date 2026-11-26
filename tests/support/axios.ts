@@ -1,8 +1,9 @@
 import { axiosBuilder } from '@data-fair/lib-node/axios.js'
 import { privateHttpAgent, privateHttpsAgent } from '@data-fair/lib-node/http-agents.js'
 import { axiosAuth as _axiosAuth } from '@data-fair/lib-node/axios-auth.js'
+import { prefix } from './sd-fixtures.ts'
 
-export const directoryUrl = `http://localhost:${process.env.NGINX_PORT}/simple-directory`
+export const directoryUrl = `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/simple-directory`
 export const baseURL = `http://localhost:${process.env.DEV_API_PORT}`
 
 // API tests address the server directly on DEV_API_PORT, so unlike every real client
@@ -32,18 +33,27 @@ export const anonymousAx = axios()
 // createSiteMiddleware('agents') is called with no options, so a non-internal request
 // whose path lacks an /agents segment throws 404 'URL path does not contain service
 // prefix' — which would break every api spec that addresses /api/... directly.
-export const nginxAx = axios({ baseURL: `http://localhost:${process.env.NGINX_PORT}/agents` })
+export const nginxAx = axios({ baseURL: `http://${process.env.DEV_HOST}:${process.env.NGINX_PORT}/agents` })
 
+/**
+ * A simple-directory anonymous action token, once usable: the directory may issue it with a not-before
+ * delay (ANONYMOUS_ACTION_NOT_BEFORE, against bots), and a token used before it is refused.
+ */
 export const getAnonymousActionToken = async (): Promise<string> => {
   const res = await anonymousAx.get(directoryUrl + '/api/auth/anonymous-action')
-  return typeof res.data === 'string' ? res.data : String(res.data)
+  const token = typeof res.data === 'string' ? res.data : String(res.data)
+  const nbf = JSON.parse(Buffer.from(token.split('.')[1] ?? '', 'base64url').toString() || '{}').nbf
+  const wait = typeof nbf === 'number' ? nbf * 1000 - Date.now() : 0
+  if (wait > 0) await new Promise(resolve => setTimeout(resolve, wait + 100))
+  return token
 }
 
 export const axiosAuth = (user: string, opts?: { adminMode?: boolean, org?: string }) => {
-  return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, org: opts?.org, axiosOpts, directoryUrl })
+  // globalCookies: the session is on the site (DEV_HOST), the API is called directly on localhost
+  return _axiosAuth({ email: user + '@test.com', password: 'passwd', adminMode: opts?.adminMode, org: opts?.org, axiosOpts, directoryUrl, globalCookies: true })
 }
 
-export const superAdmin = axiosAuth('superadmin', { adminMode: true })
+export const superAdmin = axiosAuth('test_agents_superadmin', { adminMode: true })
 
 export const defaultQuotas = {
   admin: { unlimited: true, monthlyLimit: 0 },
@@ -54,6 +64,7 @@ export const defaultQuotas = {
   untrusted: { unlimited: false, monthlyLimit: 0 }
 }
 
+/** Remove what the accounts of the test sub-space (tests/support/sd-fixtures.ts) own, nothing else. */
 export const clean = async () => {
-  await anonymousAx.delete(`http://localhost:${process.env.DEV_API_PORT}/api/test-env`)
+  await anonymousAx.delete(`http://localhost:${process.env.DEV_API_PORT}/api/test-env`, { params: { prefix } })
 }

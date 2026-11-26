@@ -8,11 +8,11 @@ import { axiosAuth, superAdmin, clean } from '../../support/axios.ts'
 import dayjs from 'dayjs'
 import { putMockSettings } from '../../support/settings.ts'
 
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 const admin = await superAdmin
-const otherUser = await axiosAuth('test1-user1')
+const otherUser = await axiosAuth('test_agents_org1_user')
 
-const owner = { type: 'user', id: 'test-standalone1' }
+const owner = { type: 'user', id: 'test_agents_standalone' }
 
 function dateFromDaysAgo (daysAgo: number): string {
   const d = dayjs().subtract(daysAgo, 'day')
@@ -35,7 +35,7 @@ function monthlyPeriod (monthsAgo: number): string {
 test.describe('Monitoring History API', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('should return account daily history with zero-filled entries', async () => {
@@ -43,7 +43,7 @@ test.describe('Monitoring History API', () => {
     await admin.post('/api/test-env/usage', { owner, cost: 2, period: dailyPeriod(2) })
     await admin.post('/api/test-env/usage', { owner, cost: 3, period: dailyPeriod(5) })
 
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily&days=7')
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.entries))
     assert.equal(res.data.entries.length, 7)
@@ -65,7 +65,7 @@ test.describe('Monitoring History API', () => {
     await admin.post('/api/test-env/usage', { owner, cost: 50, period: monthlyPeriod(0) })
     await admin.post('/api/test-env/usage', { owner, cost: 30, period: monthlyPeriod(2) })
 
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=account-monthly&months=4')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-monthly&months=4')
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.entries))
     assert.equal(res.data.entries.length, 4)
@@ -85,7 +85,7 @@ test.describe('Monitoring History API', () => {
     await admin.post('/api/test-env/usage', { owner, userId: 'user-b', cost: 3, period: dailyPeriod(0) })
     await admin.post('/api/test-env/usage', { owner, userId: 'user-a', cost: 1, period: dailyPeriod(1) })
 
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=users&days=7')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=users&days=7')
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.users))
 
@@ -114,7 +114,7 @@ test.describe('Monitoring History API', () => {
       breakdown: { modelRole: { assistant: 2 } }
     })
 
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7&dimension=modelRole')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily&days=7&dimension=modelRole')
     assert.equal(res.status, 200)
 
     const today = res.data.entries.find((e: any) => e.label === dateFromDaysAgo(0))
@@ -137,7 +137,7 @@ test.describe('Monitoring History API', () => {
       breakdown: { model: { 'gpt-3.5-turbo': 5 } }
     })
 
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=users&days=7&dimension=model')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=users&days=7&dimension=model')
     assert.equal(res.status, 200)
 
     const userA = res.data.users.find((u: any) => u.userId === 'user-a')
@@ -147,13 +147,13 @@ test.describe('Monitoring History API', () => {
 
   test('should reject an unknown breakdown dimension', async () => {
     await assert.rejects(
-      user.get('/api/usage/user/test-standalone1/history?scope=account-daily&dimension=unknown'),
+      user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily&dimension=unknown'),
       { status: 400 }
     )
   })
 
   test('should return empty entries when no data exists', async () => {
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily&days=7')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily&days=7')
     assert.equal(res.status, 200)
     assert.equal(res.data.entries.length, 7)
     for (const entry of res.data.entries) {
@@ -163,39 +163,39 @@ test.describe('Monitoring History API', () => {
 
   test('should reject unauthorized access', async () => {
     await assert.rejects(
-      otherUser.get('/api/usage/user/test-standalone1/history'),
+      otherUser.get('/api/usage/user/test_agents_standalone/history'),
       { status: 403 }
     )
   })
 
   test('should default to 30 days for account-daily scope', async () => {
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=account-daily')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-daily')
     assert.equal(res.status, 200)
     assert.equal(res.data.entries.length, 30)
   })
 
   test('should default to 12 months for account-monthly scope', async () => {
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=account-monthly')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=account-monthly')
     assert.equal(res.status, 200)
     assert.equal(res.data.entries.length, 12)
   })
 
   test('should default to 7 days for users scope', async () => {
-    const res = await user.get('/api/usage/user/test-standalone1/history?scope=users')
+    const res = await user.get('/api/usage/user/test_agents_standalone/history?scope=users')
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.users))
   })
 })
 
 test.describe('Platform History API', () => {
-  const otherOwner = { type: 'organization', id: 'test1' }
+  const otherOwner = { type: 'organization', id: 'test_agents_org1' }
 
   test.beforeEach(async () => {
     await clean()
   })
 
   // These tests run against a shared dev database that can legitimately hold other
-  // owners' consumption (dev fixtures, manual testing), so they never assert the
+  // owners' consumption (dev data, manual testing), so they never assert the
   // aggregate totals: they scope every expectation to the seeded test owners.
   test('should stack by owner by default across all accounts', async () => {
     await admin.post('/api/test-env/usage', { owner, cost: 4, period: dailyPeriod(0) })
@@ -205,10 +205,10 @@ test.describe('Platform History API', () => {
     assert.equal(res.status, 200)
 
     const today = res.data.entries.find((e: any) => e.label === dateFromDaysAgo(0))
-    assert.equal(today.breakdown['user/test-standalone1'], 4)
-    assert.equal(today.breakdown['organization/test1'], 2)
-    assert.ok(res.data.owners.some((o: any) => o.type === 'organization' && o.id === 'test1'))
-    assert.ok(res.data.owners.some((o: any) => o.type === 'user' && o.id === 'test-standalone1'))
+    assert.equal(today.breakdown['user/test_agents_standalone'], 4)
+    assert.equal(today.breakdown['organization/test_agents_org1'], 2)
+    assert.ok(res.data.owners.some((o: any) => o.type === 'organization' && o.id === 'test_agents_org1'))
+    assert.ok(res.data.owners.some((o: any) => o.type === 'user' && o.id === 'test_agents_standalone'))
   })
 
   test('should merge dimensions across owners', async () => {
@@ -240,8 +240,8 @@ test.describe('Platform History API', () => {
     assert.equal(res.status, 200)
     const today = res.data.entries.find((e: any) => e.label === dateFromDaysAgo(0))
     assert.equal(today.cost, 2)
-    assert.ok(res.data.owners.some((o: any) => o.type === 'organization' && o.id === 'test1'))
-    assert.ok(res.data.owners.some((o: any) => o.type === 'user' && o.id === 'test-standalone1'))
+    assert.ok(res.data.owners.some((o: any) => o.type === 'organization' && o.id === 'test_agents_org1'))
+    assert.ok(res.data.owners.some((o: any) => o.type === 'user' && o.id === 'test_agents_standalone'))
   })
 
   test('should return monthly platform history with zero-filled entries', async () => {

@@ -12,7 +12,7 @@ import { putMockSettings } from '../../support/settings.ts'
 const admin = await superAdmin
 
 const createAgent = async (title: string, over: any = {}) => {
-  const created = await admin.post('/api/autonomous-agents/organization/test1', {
+  const created = await admin.post('/api/autonomous-agents/organization/test_agents_org1', {
     title, persona: 'You answer briefly.', mcpServers: [], enabled: true, web: { enabled: true, allowedUrls: ['github.com/data-fair'] }, ...over
   })
   await admin.post('/api/test-env/enrol-autonomous-agent', { agentId: created.data.id })
@@ -20,7 +20,7 @@ const createAgent = async (title: string, over: any = {}) => {
 }
 
 const openPage = async (page: Page, goToWithAuth: any, agentId: string, title: string) => {
-  await goToWithAuth(`/agents/organization/test1/agents/${agentId}`, 'superadmin', { adminMode: true })
+  await goToWithAuth(`/agents/organization/test_agents_org1/agents/${agentId}`, 'test_agents_superadmin', { adminMode: true })
   await expect(page.getByRole('textbox', { name: 'Name' })).toHaveValue(title, { timeout: 20000 })
   // web access is in the Tools tab
   await page.getByTestId('autonomous-agent-config-tab-tools').click()
@@ -29,7 +29,7 @@ const openPage = async (page: Page, goToWithAuth: any, agentId: string, title: s
 test.describe('Web access configuration', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
   })
 
   test('renders the stored allowlist, and an edit can be saved', async ({ page, goToWithAuth }) => {

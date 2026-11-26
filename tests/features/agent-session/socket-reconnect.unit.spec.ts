@@ -39,7 +39,7 @@ const setup = () => {
   const agent = useAgentSession({
     url: 'ws://test/agent-session',
     tools: ref({}),
-    account: { type: 'organization', id: 'test1' },
+    account: { type: 'organization', id: 'test_agents_org1' },
     onDisconnect: () => { disconnects.push(Date.now()) }
   })
   return { agent, disconnects }

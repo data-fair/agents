@@ -26,11 +26,11 @@ const fabSelector = '.df-agent-chat-toggle'
 test.describe('Naming an agent instead of handing it a prompt', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('the drawer hands an agent id as init config, and no prose', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-drawer?agentId=portal-assistant', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-drawer?agentId=portal-assistant', 'test_agents_standalone')
 
     await expect(page.locator(fabSelector)).toBeVisible()
     await page.locator(fabSelector).dispatchEvent('click')
@@ -49,7 +49,7 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
     // Writing the init config is half of it: the chat read only its `title`, so an embedded chat always
     // opened the personal assistant whatever its host named. Naming one that does not exist is the
     // observable proof the id is used: opening the conversation is refused.
-    await goToWithAuth('/agents/_dev/chat-drawer?agentId=no-such-agent', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-drawer?agentId=no-such-agent', 'test_agents_standalone')
     await page.locator(fabSelector).dispatchEvent('click')
     const frame = await findChatFrame(page)
     // The refusal in the transcript, not any alert: a named agent other than the personal one also
@@ -59,7 +59,7 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
   })
 
   test('prose in a ?systemPrompt= query parameter no longer reaches the system prompt', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/user/test-standalone1/chat?systemPrompt=' + encodeURIComponent(MARKER), 'test-standalone1')
+    await goToWithAuth('/agents/user/test_agents_standalone/chat?systemPrompt=' + encodeURIComponent(MARKER), 'test_agents_standalone')
 
     await expect(page.getByPlaceholder('Type your message...')).toBeVisible({ timeout: 15000 })
 
@@ -73,12 +73,12 @@ test.describe('Naming an agent instead of handing it a prompt', () => {
 
     // Wait for a fact the page DOES report before asserting the marker's absence: against a run whose
     // telemetry has not landed yet, the absence assertion would pass for the wrong reason.
-    const user = await axiosAuth('test-standalone1')
+    const user = await axiosAuth('test_agents_standalone')
     let run: any
     await expect.poll(async () => {
-      const conversations = (await user.get('/api/conversations/user/test-standalone1')).data.results
+      const conversations = (await user.get('/api/conversations/user/test_agents_standalone')).data.results
       if (!conversations.length) return undefined
-      run = (await user.get(`/api/conversations/user/test-standalone1/${conversations[0].id}/runs`)).data.results.at(-1)
+      run = (await user.get(`/api/conversations/user/test_agents_standalone/${conversations[0].id}/runs`)).data.results.at(-1)
       return run?.hostContext
     }, { timeout: 15000 }).toContain('language:')
     expect(run.systemPrompt).not.toContain('SYSPROMPT_E2E_MARKER')

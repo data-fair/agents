@@ -18,8 +18,8 @@ import { UNTRUSTED_POOL_ID } from '../../../api/src/usage/operations.ts'
 
 const standard = { id: 'portal-assistant', title: 'Assistant' }
 const configured = { id: 'support-triage', title: 'Support triage' }
-const org = { type: 'organization' as const, id: 'test1' }
-const personal = { type: 'user' as const, id: 'dmeadus0' }
+const org = { type: 'organization' as const, id: 'test_agents_org1' }
+const personal = { type: 'user' as const, id: 'test_agents_standalone' }
 
 test.describe('usageIdentityFor — the personal assistant bills the PERSON', () => {
   test("carries the person's own role, so their quota applies", () => {
@@ -62,7 +62,7 @@ test.describe('usageIdentityFor — the personal assistant bills the PERSON', ()
 
   test("a personal account's owner is not tracked per user", () => {
     // The account's own totals already say what they spent.
-    const identity = usageIdentityFor(standard, { owner: personal, triggeredBy: { userId: 'dmeadus0' }, triggeredByRole: 'admin' })
+    const identity = usageIdentityFor(standard, { owner: personal, triggeredBy: { userId: 'test_agents_standalone' }, triggeredByRole: 'admin' })
     assert.equal(identity.trackPerUser, false)
     assert.equal(identity.usageUserId, undefined)
   })

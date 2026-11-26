@@ -5,6 +5,8 @@ const ci = !!process.env.CI
 
 export default defineConfig({
   testDir: './tests',
+  // the test accounts in simple-directory, before the spec files (which log in at import time) are loaded
+  globalSetup: './tests/global-setup.ts',
   // api and e2e tests share the dev env state (one clean() wipes every test owner): one worker
   workers: 1,
   fullyParallel: false,
@@ -15,7 +17,7 @@ export default defineConfig({
   reporter: [['dot'], ['json', { outputFile: 'dev/logs/test-timings.json' }]],
 
   use: {
-    baseURL: 'http://localhost:' + process.env.NGINX_PORT,
+    baseURL: 'http://' + process.env.DEV_HOST + ':' + process.env.NGINX_PORT,
     // on a failure: npx playwright show-trace test-results/<test>/trace.zip
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',

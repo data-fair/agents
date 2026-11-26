@@ -14,10 +14,10 @@ test.describe('Models API', () => {
   })
 
   test('mock provider models advertise a context window', async () => {
-    await admin.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }]
     })
-    const res = await admin.get('/api/models/user/test-standalone1')
+    const res = await admin.get('/api/models/user/test_agents_standalone')
     assert.equal(res.status, 200)
     const model = res.data.results.find((m: any) => m.id === 'mock-model')
     assert.ok(model)

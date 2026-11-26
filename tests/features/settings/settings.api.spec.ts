@@ -7,11 +7,11 @@ import assert from 'node:assert/strict'
 import { axiosAuth, superAdmin, clean, defaultQuotas } from '../../support/axios.ts'
 import { putSettings } from '../../support/settings.ts'
 
-const user = await axiosAuth('test-standalone1')
+const user = await axiosAuth('test_agents_standalone')
 const admin = await superAdmin
-const otherUser = await axiosAuth('test1-user1')
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
-const orgMember = await axiosAuth('test1-user1', { org: 'test1' })
+const otherUser = await axiosAuth('test_agents_org1_user')
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
+const orgMember = await axiosAuth('test_agents_org1_user', { org: 'test_agents_org1' })
 
 // These provider-CRUD tests each declare their own unrelated providers, so the
 // org model below is deliberately an orphan (its `mock` provider is never in
@@ -49,15 +49,15 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const createRes = await putSettings(admin, 'user/test-standalone1', settingsData)
+    const createRes = await putSettings(admin, 'user/test_agents_standalone', settingsData)
     assert.equal(createRes.status, 200)
     assert.equal(createRes.data.owner.type, 'user')
-    assert.equal(createRes.data.owner.id, 'test-standalone1')
+    assert.equal(createRes.data.owner.id, 'test_agents_standalone')
     assert.equal(createRes.data.providers.length, 1)
     assert.equal(createRes.data.providers[0].type, 'openai')
     assert.equal(createRes.data.providers[0].openai.apiKey, 'sk-test-key-123')
 
-    const getRes = await user.get('/api/settings/user/test-standalone1')
+    const getRes = await user.get('/api/settings/user/test_agents_standalone')
     assert.equal(getRes.status, 200)
   })
 
@@ -69,7 +69,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const updateRes = await putSettings(admin, 'user/test-standalone1', settingsData)
+    const updateRes = await putSettings(admin, 'user/test_agents_standalone', settingsData)
     assert.equal(updateRes.status, 200)
     assert.equal(updateRes.data.models[0].model.id, 'mock-model')
     assert.deepEqual(updateRes.data.models[0].usage, ['assistant'])
@@ -91,9 +91,9 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test_agents_standalone', settingsData)
 
-    const res = await user.get('/api/models/user/test-standalone1')
+    const res = await user.get('/api/models/user/test_agents_standalone')
     assert.equal(res.status, 200)
     assert.ok(Array.isArray(res.data.results))
 
@@ -115,9 +115,9 @@ test.describe('Settings API', () => {
       modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
-    await putSettings(admin, 'user/test-standalone1', settingsData)
+    await putSettings(admin, 'user/test_agents_standalone', settingsData)
 
-    const res = await user.get('/api/models/user/test-standalone1')
+    const res = await user.get('/api/models/user/test_agents_standalone')
     assert.equal(res.status, 200)
 
     // the working provider still returns its models
@@ -134,22 +134,22 @@ test.describe('Settings API', () => {
   })
 
   test('reports no errors when every provider lists successfully', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: orgModels,
       modelMapping: mockModelMapping,
       quotas: defaultQuotas
     })
-    const res = await user.get('/api/models/user/test-standalone1')
+    const res = await user.get('/api/models/user/test_agents_standalone')
     assert.equal(res.status, 200)
     assert.deepEqual(res.data.errors, [])
   })
 
   test('should return empty defaults when no settings exist', async () => {
-    const res = await user.get('/api/settings/user/test-standalone1')
+    const res = await user.get('/api/settings/user/test_agents_standalone')
     assert.equal(res.status, 200)
     assert.equal(res.data.owner.type, 'user')
-    assert.equal(res.data.owner.id, 'test-standalone1')
+    assert.equal(res.data.owner.id, 'test_agents_standalone')
     assert.deepEqual(res.data.providers, [])
   })
 
@@ -172,7 +172,7 @@ test.describe('Settings API', () => {
         quotas: defaultQuotas
       }
 
-      const res = await putSettings(admin, 'user/test-standalone1', settingsData)
+      const res = await putSettings(admin, 'user/test_agents_standalone', settingsData)
       assert.equal(res.status, 200)
       assert.equal(res.data.providers.length, 1)
       assert.equal(res.data.providers[0].type, p.type)
@@ -197,7 +197,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    await putSettings(admin, 'user/test-standalone1', initialData)
+    await putSettings(admin, 'user/test_agents_standalone', initialData)
 
     const updateData = {
       providers: [
@@ -214,13 +214,13 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await putSettings(admin, 'user/test-standalone1', updateData)
+    const res = await putSettings(admin, 'user/test_agents_standalone', updateData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers[0].name, 'OpenAI Updated')
     assert.equal(res.data.providers[0].enabled, false)
     assert.equal(res.data.providers[0].apiKey, '********')
 
-    const getRes = await user.get('/api/settings/user/test-standalone1')
+    const getRes = await user.get('/api/settings/user/test_agents_standalone')
     assert.equal(getRes.data.providers[0].apiKey, '********')
   })
 
@@ -240,7 +240,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await putSettings(admin, 'user/test-standalone1', settingsData)
+    const res = await putSettings(admin, 'user/test_agents_standalone', settingsData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers[0].type, 'openai-compatible')
     assert.equal(res.data.providers[0].baseURL, 'http://localhost:1234/v1')
@@ -263,7 +263,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await putSettings(admin, 'user/test-standalone1', settingsData)
+    const res = await putSettings(admin, 'user/test_agents_standalone', settingsData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers[0].type, 'ollama')
     assert.equal(res.data.providers[0].baseURL, 'http://localhost:11434')
@@ -277,7 +277,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res1 = await putSettings(admin, 'user/test-standalone1', settingsData1)
+    const res1 = await putSettings(admin, 'user/test_agents_standalone', settingsData1)
     assert.equal(res1.status, 200)
 
     const settingsData2 = {
@@ -287,12 +287,12 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res2 = await putSettings(admin, 'user/test-standalone1', settingsData2)
+    const res2 = await putSettings(admin, 'user/test_agents_standalone', settingsData2)
     assert.equal(res2.status, 200)
     assert.equal(res2.data.providers.length, 1)
     assert.equal(res2.data.providers[0].name, 'Mock 2')
 
-    const getRes = await user.get('/api/settings/user/test-standalone1')
+    const getRes = await user.get('/api/settings/user/test_agents_standalone')
     assert.equal(getRes.data.providers[0].name, 'Mock 2')
   })
 
@@ -304,7 +304,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await putSettings(admin, 'user/test-standalone1', settingsData)
+    const res = await putSettings(admin, 'user/test_agents_standalone', settingsData)
     assert.equal(res.status, 200)
     assert.deepEqual(res.data.providers, [])
   })
@@ -325,7 +325,7 @@ test.describe('Settings API', () => {
     }
 
     await assert.rejects(
-      putSettings(admin, 'user/test-standalone1', settingsData),
+      putSettings(admin, 'user/test_agents_standalone', settingsData),
       { status: 400 }
     )
   })
@@ -344,29 +344,29 @@ test.describe('Settings API', () => {
     }
 
     await assert.rejects(
-      putSettings(admin, 'user/test-standalone1', settingsData),
+      putSettings(admin, 'user/test_agents_standalone', settingsData),
       { status: 400 }
     )
   })
 
   test('should fail when accessing another user settings', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [],
       models: orgModels,
       modelMapping: mockModelMapping,
       quotas: defaultQuotas
     })
-    await assert.rejects(otherUser.get('/api/settings/user/test-standalone1'), { status: 403 })
+    await assert.rejects(otherUser.get('/api/settings/user/test_agents_standalone'), { status: 403 })
   })
 
   test('should fail when updating another user settings', async () => {
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [],
       models: orgModels,
       modelMapping: mockModelMapping,
       quotas: defaultQuotas
     })
-    await assert.rejects(otherUser.put('/api/settings/user/test-standalone1', {
+    await assert.rejects(otherUser.put('/api/settings/user/test_agents_standalone', {
       providers: [],
       models: orgModels,
       modelMapping: mockModelMapping,
@@ -385,7 +385,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await putSettings(admin, 'user/test-standalone1', settingsData)
+    const res = await putSettings(admin, 'user/test_agents_standalone', settingsData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers.length, 2)
   })
@@ -401,7 +401,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    await putSettings(admin, 'user/test-standalone1', initialData)
+    await putSettings(admin, 'user/test_agents_standalone', initialData)
 
     const updateData = {
       providers: [
@@ -412,7 +412,7 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas
     }
 
-    const res = await putSettings(admin, 'user/test-standalone1', updateData)
+    const res = await putSettings(admin, 'user/test_agents_standalone', updateData)
     assert.equal(res.status, 200)
     assert.equal(res.data.providers.length, 1)
     assert.equal(res.data.providers[0].id, 'p1')
@@ -426,8 +426,8 @@ test.describe('Settings API', () => {
       quotas: defaultQuotas,
       reviewPersonalAssistant: true
     }
-    await putSettings(admin, 'user/test-standalone1', base)
-    const res = await admin.get('/api/settings/user/test-standalone1')
+    await putSettings(admin, 'user/test_agents_standalone', base)
+    const res = await admin.get('/api/settings/user/test_agents_standalone')
     assert.equal(res.data.reviewPersonalAssistant, true)
 
     // verify the default: omitting reviewPersonalAssistant should persist false
@@ -437,8 +437,8 @@ test.describe('Settings API', () => {
       modelMapping: mockModelMapping,
       quotas: defaultQuotas
     }
-    await putSettings(admin, 'user/test-standalone1', withoutFlag)
-    const res2 = await admin.get('/api/settings/user/test-standalone1')
+    await putSettings(admin, 'user/test_agents_standalone', withoutFlag)
+    const res2 = await admin.get('/api/settings/user/test_agents_standalone')
     assert.equal(res2.data.reviewPersonalAssistant, false)
   })
 
@@ -446,14 +446,14 @@ test.describe('Settings API', () => {
     // The org-write half of the same rule assertGlobalAiConfig enforces at boot:
     // a model that is free by omission would be an uncapped consumer of the
     // deployment's provider keys.
-    await assert.rejects(admin.put('/api/settings/user/test-standalone1', {
+    await assert.rejects(admin.put('/api/settings/user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: [{ model: mockModel, usage: ['assistant'] }]
     }), { status: 400 })
   })
 
   test('should accept a model entry priced at zero', async () => {
-    const res = await admin.put('/api/settings/user/test-standalone1', {
+    const res = await admin.put('/api/settings/user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: [{ model: mockModel, usage: ['assistant'], inputPricePerMillion: 0, outputPricePerMillion: 0 }]
     })
@@ -461,7 +461,7 @@ test.describe('Settings API', () => {
   })
 
   test('should persist per-class prices on a model entry', async () => {
-    const res = await admin.put('/api/settings/user/test-standalone1', {
+    const res = await admin.put('/api/settings/user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: [{
         model: mockModel,
@@ -476,12 +476,12 @@ test.describe('Settings API', () => {
     assert.equal(res.data.models[0].cachedInputPricePerMillion, 0.08)
     assert.equal(res.data.models[0].outputPricePerMillion, 0.8)
 
-    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    const getRes = await admin.get('/api/settings/user/test_agents_standalone')
     assert.equal(getRes.data.models[0].cachedInputPricePerMillion, 0.08)
   })
 
   test('should persist a model context window, both the snapshot and the hand-entered one', async () => {
-    const res = await admin.put('/api/settings/user/test-standalone1', {
+    const res = await admin.put('/api/settings/user/test_agents_standalone', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: [{
         // the snapshot the provider listing gave when the model was picked, and the
@@ -497,7 +497,7 @@ test.describe('Settings API', () => {
     assert.equal(res.data.models[0].contextWindow, 128000)
     assert.equal(res.data.models[0].model.contextWindow, 200000)
 
-    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    const getRes = await admin.get('/api/settings/user/test_agents_standalone')
     assert.equal(getRes.data.models[0].contextWindow, 128000)
     assert.equal(getRes.data.models[0].model.contextWindow, 200000)
   })
@@ -507,7 +507,7 @@ test.describe('Settings API', () => {
 // The mapping in these tests targets the deployment's global default model
 // (global-mock/mock-model, from api/config/development.js) so the scenario needs
 // no org-level providers/models at all — it also exercises the $setOnInsert
-// upsert path (no settings doc exists yet for organization/test1).
+// upsert path (no settings doc exists yet for organization/test_agents_org1).
 test.describe('Org-admin settings endpoint', () => {
   test.beforeEach(async () => {
     await clean()
@@ -519,33 +519,33 @@ test.describe('Org-admin settings endpoint', () => {
       quotas: { ...defaultQuotas, contrib: { unlimited: false, monthlyLimit: 42 } },
       reviewPersonalAssistant: true
     }
-    const res = await orgAdmin.put('/api/settings/organization/test1/org', body)
+    const res = await orgAdmin.put('/api/settings/organization/test_agents_org1/org', body)
     assert.equal(res.status, 200)
     assert.equal(res.data.modelMapping.assistant.id, 'mock-model')
     assert.equal(res.data.quotas.contrib.monthlyLimit, 42)
     assert.equal(res.data.reviewPersonalAssistant, true)
 
-    const getRes = await orgAdmin.get('/api/settings/organization/test1')
+    const getRes = await orgAdmin.get('/api/settings/organization/test_agents_org1')
     assert.equal(getRes.data.modelMapping.assistant.id, 'mock-model')
     assert.equal(getRes.data.quotas.contrib.monthlyLimit, 42)
     assert.equal(getRes.data.reviewPersonalAssistant, true)
   })
 
   test('plain org member (non-admin) is forbidden', async () => {
-    await assert.rejects(orgMember.put('/api/settings/organization/test1/org', {
+    await assert.rejects(orgMember.put('/api/settings/organization/test_agents_org1/org', {
       modelMapping: { assistant: { provider: 'global-mock', id: 'mock-model', name: 'Global Mock Model' } }
     }), { status: 403 })
   })
 
   test('mapping to a nonexistent model is rejected', async () => {
-    await assert.rejects(orgAdmin.put('/api/settings/organization/test1/org', {
+    await assert.rejects(orgAdmin.put('/api/settings/organization/test_agents_org1/org', {
       modelMapping: { assistant: { provider: 'no-such-provider', id: 'no-such-model' } }
     }), { status: 400 })
   })
 
   test('mapping a role to a model not flagged for that usage is rejected', async () => {
     // define an org model flagged only for 'summarizer' via the superadmin route
-    await admin.put('/api/settings/organization/test1', {
+    await admin.put('/api/settings/organization/test_agents_org1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [{
         model: { id: 'mock-model', name: 'Mock Model', provider: { type: 'mock', name: 'Mock Provider', id: 'mock-provider' } },
@@ -555,20 +555,20 @@ test.describe('Org-admin settings endpoint', () => {
       }]
     })
 
-    await assert.rejects(orgAdmin.put('/api/settings/organization/test1/org', {
+    await assert.rejects(orgAdmin.put('/api/settings/organization/test_agents_org1/org', {
       modelMapping: { assistant: { provider: 'mock-provider', id: 'mock-model', name: 'Mock Model' } }
     }), { status: 400 })
   })
 
   test('superadmin PUT with { providers, models } does not clobber previously saved org fields', async () => {
-    await orgAdmin.put('/api/settings/organization/test1/org', {
+    await orgAdmin.put('/api/settings/organization/test_agents_org1/org', {
       modelMapping: { assistant: { provider: 'global-mock', id: 'mock-model', name: 'Global Mock Model' } },
       quotas: { ...defaultQuotas, contrib: { unlimited: false, monthlyLimit: 42 } },
       moderation: { enabled: true, categories: ['anonymous', 'external'] },
       reviewPersonalAssistant: true
     })
 
-    const putRes = await admin.put('/api/settings/organization/test1', {
+    const putRes = await admin.put('/api/settings/organization/test_agents_org1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: orgModels
     })
@@ -579,7 +579,7 @@ test.describe('Org-admin settings endpoint', () => {
     assert.equal(putRes.data.moderation.enabled, true)
     assert.equal(putRes.data.reviewPersonalAssistant, true)
 
-    const getRes = await admin.get('/api/settings/organization/test1')
+    const getRes = await admin.get('/api/settings/organization/test_agents_org1')
     assert.equal(getRes.data.modelMapping.assistant.id, 'mock-model')
     assert.equal(getRes.data.quotas.contrib.monthlyLimit, 42)
     assert.equal(getRes.data.moderation.enabled, true)
@@ -589,21 +589,21 @@ test.describe('Org-admin settings endpoint', () => {
   })
 
   test('org admin PUT does not wipe previously saved providers/models', async () => {
-    await admin.put('/api/settings/organization/test1', {
+    await admin.put('/api/settings/organization/test_agents_org1', {
       providers: [{ id: 'mock', type: 'mock', name: 'Mock', enabled: true }],
       models: orgModels
     })
 
-    await orgAdmin.put('/api/settings/organization/test1/org', { quotas: defaultQuotas })
+    await orgAdmin.put('/api/settings/organization/test_agents_org1/org', { quotas: defaultQuotas })
 
-    const getRes = await admin.get('/api/settings/organization/test1')
+    const getRes = await admin.get('/api/settings/organization/test_agents_org1')
     assert.equal(getRes.data.providers.length, 1)
     assert.equal(getRes.data.providers[0].id, 'mock')
     assert.equal(getRes.data.models.length, 1)
   })
 
   test('superadmin PUT body containing an org-owned field is rejected (schema narrowed)', async () => {
-    await assert.rejects(admin.put('/api/settings/user/test-standalone1', {
+    await assert.rejects(admin.put('/api/settings/user/test_agents_standalone', {
       providers: [],
       quotas: defaultQuotas
     }), { status: 400 })
@@ -613,13 +613,13 @@ test.describe('Org-admin settings endpoint', () => {
   // (see task 8 fix), so an empty body must not silently wipe the stored
   // providers (and their encrypted API keys) — it must be rejected outright.
   test('superadmin PUT with an empty body is rejected (providers is required)', async () => {
-    await admin.put('/api/settings/user/test-standalone1', {
+    await admin.put('/api/settings/user/test_agents_standalone', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true, apiKey: 'sk-should-survive' }]
     })
 
-    await assert.rejects(admin.put('/api/settings/user/test-standalone1', {}), { status: 400 })
+    await assert.rejects(admin.put('/api/settings/user/test_agents_standalone', {}), { status: 400 })
 
-    const getRes = await admin.get('/api/settings/user/test-standalone1')
+    const getRes = await admin.get('/api/settings/user/test_agents_standalone')
     assert.equal(getRes.data.providers.length, 1)
     assert.equal(getRes.data.providers[0].id, 'mock-provider')
   })

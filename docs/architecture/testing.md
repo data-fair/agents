@@ -1,9 +1,8 @@
 # Test suite
 
 Playwright is the runner of every level: `unit`, `api` and `e2e` projects, specs organised by feature
-under `tests/features/<feature>/<name>.<unit|api|e2e>.spec.ts`. The judged agent simulations live under
-their own `playwright.sim.config.ts`, so a bare `npm test` can never spend plan quota on them (AGENTS.md,
-"Scenario simulations").
+under `tests/features/<feature>/<name>.<unit|api|e2e>.spec.ts`. The judged agent simulations are not kept in
+this repository, so a bare `npm test` can never spend plan quota on them (AGENTS.md, "Scenario simulations").
 
 | Suffix | What | Needs |
 |---|---|---|
@@ -51,11 +50,11 @@ A feature-specific regression is what the pull request gate is for. Run it alone
 ## Optional services
 
 The core containers (nginx, simple-directory, mongo) always run. Each optional one has a compose
-profile named after itself, and an entry in `dev/dev.json` "optional" unplugging it from the API's config
-while it does not run (today: `events`). A test that needs one skips when it is down
+profile named after itself, and the API's config leaves it out when its port variable is empty (today:
+`events`, `EVENTS_PORT`; `npm run dev` blanks it when its container is not running). A test that needs one skips when it is down
 (`tests/support/optional-services.ts`), so the default local env and the smoke set only need the core,
 while CI starts every profile and runs them all. To work on an integration locally:
-`npx --no df-dev up events`, then `npx --no df-dev restart api`.
+`npm run dev-deps -- --profile events`, then restart `npm run dev`.
 
 ## On a failure
 

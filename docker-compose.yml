@@ -21,11 +21,8 @@ services:
   #####
 
   simple-directory:
-    # Needs the readonly guard on the NHI exchange's updateLogged call (merged upstream): without it
-    # FileStorage's SYNCHRONOUS throw propagates as a 500 and an NHI can never obtain a session under
-    # file storage, which is what the autonomous-agent fixture NHIs need. If the two exchange tests in
-    # tests/features/autonomous-agents/nhi-exchange.api.spec.ts start failing with a 500 from the token
-    # exchange, this image predates that fix — `docker compose pull simple-directory`.
+    # master (>= 8.24): the prefixed test API (POST /api/test-env/seed, DELETE /api/test-env?prefix=) the
+    # tests seed their accounts with — `docker compose pull simple-directory` if older
     image: ghcr.io/data-fair/simple-directory:master
     network_mode: host
     depends_on:
@@ -37,8 +34,14 @@ services:
       - MONGO_URL=mongodb://localhost:${MONGO_PORT}/simple-directory
       - OBSERVER_ACTIVE=false
       - CIPHER_PASSWORD=dev
-      - STORAGE_TYPE=file
-      - ADMINS=["superadmin@test.com","alban.mouton@koumoul.com"]
+      # accounts in mongo: the test suite seeds and cleans its own sub-space (test_agents_,
+      # tests/support/sd-fixtures.ts) through the test API
+      - STORAGE_TYPE=mongo
+      - ENABLE_TEST_API=1
+      # the test API needs NODE_ENV=development, the configuration stays the image's production one
+      - NODE_ENV=development
+      - NODE_CONFIG_ENV=production
+      - ADMINS=["test_agents_superadmin@test.com"]
       - CONTACT=contact@test.com
       # tests log in through the API many times per minute
       - AUTHRATELIMIT_ATTEMPTS=500
@@ -47,9 +50,10 @@ services:
       - SECRET_SITES=secret-sites
       - SECRET_EVENTS=secret-events
       - SECRET_SENDMAILS=secret-sendmails
-      # host network: sd's default SMTP localhost:1025 would reach another env's maildev; nothing listens
-      # on this one (agents' notifications go through events, which tests the mail delivery)
-      - MAILS_TRANSPORT={"host":"localhost","port":${MAILDEV_SMTP_PORT},"ignoreTLS":true}
+      # no mail server here (agents' notifications go through events, which tests the mail delivery): port 1
+      # refuses the connection, where sd's default SMTP localhost:1025 would reach another env's maildev.
+      # Not jsonTransport: it has no verify, and sd waits for its verify at startup
+      - MAILS_TRANSPORT={"host":"localhost","port":1,"ignoreTLS":true}
       - MANAGE_NHIS=true
       # dev only: the issuer is http://localhost, which assertSafeIssuer would reject
       # for being non-https on a private host
@@ -58,17 +62,14 @@ services:
       - OAUTH_SERVER_ENABLED=true
       - ANONYMOUS_CONTACT_FORM=true
       - ANONYMOUS_ACTION_NOT_BEFORE=0s
-    volumes:
-      - ./dev/resources/users.json:/app/data/users.json
-      - ./dev/resources/organizations.json:/app/data/organizations.json
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "${SD_PORT}"]
       interval: 2s
       timeout: 2s
       retries: 60
 
-  # optional (npx --no df-dev up events): without it the API runs with privateEventsUrl unset
-  # (dev/dev.json "optional"), and the task notification specs skip
+  # optional (npm run dev -- --profile events): without it the API runs with privateEventsUrl unset
+  # (EVENTS_PORT blanked by dev/run.sh), and the task notification specs skip
   events:
     profiles:
       - events

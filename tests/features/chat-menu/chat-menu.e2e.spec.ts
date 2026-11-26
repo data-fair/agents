@@ -27,11 +27,11 @@ async function closeMenu (page: Page) {
 test.describe('Chat Menu Integration', () => {
   test.beforeEach(async () => {
     await clean()
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
   })
 
   test('Button opens the menu, the chat works inside it, stays alive with a waiting-user status once closed, and the menu starts closed after a reload', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-menu', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-menu', 'test_agents_standalone')
 
     const fab = page.locator(fabSelector)
     await expect(fab).toBeAttached()
@@ -65,7 +65,7 @@ test.describe('Chat Menu Integration', () => {
   })
 
   test('Unread badge appears for new messages when menu is closed', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/_dev/chat-menu', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-menu', 'test_agents_standalone')
 
     const fab = page.locator(fabSelector)
     await clickFab(page)

@@ -17,7 +17,7 @@ test.describe('Settings UI', () => {
   // Save button appearing on the change, and deleting it again through the
   // collapsed item's menu and its confirmation dialog.
   test('Can add a Mock provider, see Save appear, and delete it', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/user/test_agents_standalone', 'test_agents_superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
 
     // Initially Save button should not be visible (no changes)
@@ -51,7 +51,7 @@ test.describe('Settings UI', () => {
   test('Can add a model definition with a usage and per-class prices', async ({ page, goToWithAuth }) => {
     // Seed valid settings via API
     const admin = await superAdmin
-    await putSettings(admin, 'user/test-standalone1', {
+    await putSettings(admin, 'user/test_agents_standalone', {
       providers: [{ id: 'seed-provider', type: 'mock', name: 'Mock Seed', enabled: true }],
       models: [
         {
@@ -67,7 +67,7 @@ test.describe('Settings UI', () => {
       quotas: defaultQuotas
     })
 
-    await goToWithAuth('/agents/admin/user/test-standalone1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/user/test_agents_standalone', 'test_agents_superadmin', { adminMode: true })
 
     // Wait for page to load
     await expect(page.getByText('AI Providers', { exact: true })).toBeVisible()
@@ -123,7 +123,7 @@ test.describe('Settings UI', () => {
   // handing it to the form and to the diff.
   test('A populated config loads clean and stays clean across a save and reload', { tag: '@smoke' }, async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putSettings(admin, 'organization/test1', {
+    await putSettings(admin, 'organization/test_agents_org1', {
       providers: [{ id: 'mock-provider', type: 'mock', name: 'Mock Provider', enabled: true }],
       models: [
         {
@@ -139,7 +139,7 @@ test.describe('Settings UI', () => {
       quotas: defaultQuotas
     })
 
-    await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/organization/test_agents_org1', 'test_agents_superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(800)
 
@@ -171,7 +171,7 @@ test.describe('Settings UI', () => {
   // is now adding a provider (which is also what makes the models section
   // appear, i.e. exactly the transition this regression lived on).
   test('Saving an empty config converges: Save button stays hidden after reload', async ({ page, goToWithAuth }) => {
-    await goToWithAuth('/agents/admin/organization/test1', 'superadmin', { adminMode: true })
+    await goToWithAuth('/agents/admin/organization/test_agents_org1', 'test_agents_superadmin', { adminMode: true })
     await expect(page.getByText('AI Providers', { exact: true })).toBeVisible({ timeout: 10000 })
     await page.waitForTimeout(500)
 

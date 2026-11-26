@@ -33,7 +33,7 @@ export type ApiConfig = {
   tmpDir: string;
   privateDirectoryUrl: string;
   mcpPath: string;
-  privateEventsUrl?: string;
+  privateEventsUrl?: string | null;
   /**
    * data-fair's MCP endpoint, built into every autonomous agent with an identity. Unset: none.
    */

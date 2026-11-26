@@ -1,13 +1,18 @@
 import { resolve } from 'node:path'
 import dotenv from 'dotenv'
+// .env fills the variables the environment does not set already (dotenv never overrides them)
 dotenv.config({ path: import.meta.resolve('../../.env').replace('file://', '') })
 
-if (!process.env.DEV_API_PORT) throw new Error('missing DEV_API_PORT env variable, run "npx --no df-dev setup" to create the .env file')
+if (!process.env.DEV_API_PORT) throw new Error('missing DEV_API_PORT env variable, run "npm run dev-deps" to create the .env file')
+
+// an optional service is absent when its port variable is empty
+/** @param {string | undefined} port */
+const optionalUrl = (port) => port ? `http://localhost:${port}` : null
 
 export default {
   port: process.env.DEV_API_PORT,
   privateDirectoryUrl: `http://localhost:${process.env.SD_PORT}`,
-  privateEventsUrl: `http://localhost:${process.env.EVENTS_PORT}`,
+  privateEventsUrl: optionalUrl(process.env.EVENTS_PORT),
   // the mcp pane's stand-in for data-fair (dev/mcp-server.ts, tests/support/mcp-fixture.ts): its data tools only,
   // prefixed `platform_` so the built-in server never shadows a tool of the per-spec fixture (MCP_FIXTURE_PORT).
   privateMcpUrl: `http://localhost:${process.env.DEV_MCP_PORT}/platform/mcp`,
@@ -26,13 +31,13 @@ export default {
   providers: [{ type: 'mock', id: 'global-mock', name: 'Global Mock', enabled: true }],
   models: [{ id: 'mock-model', name: 'Global Mock Model', provider: 'global-mock', usage: ['assistant', 'summarizer', 'moderator'], inputPricePerMillion: 0, outputPricePerMillion: 0 }],
   defaultModels: { assistant: { provider: 'global-mock', id: 'mock-model' } },
-  // Two MCP servers on two ports drawn in .env (dev/dev.json "ports"), so no literal port can be taken
+  // Two MCP servers on two ports of .env, so no literal port can be taken
   // on another checkout or in CI.
   mcpServers: (() => {
     // MCP_FIXTURE_PORT belongs to the TEST fixture, which each spec starts and stops itself. DEV_MCP_PORT
-    // belongs to the long-running mcp pane, used for manual review and by the dev fixtures. They are
-    // deliberately separate: they would otherwise fight over one port, and since the mcp pane is part of
-    // the zellij layout that would make the api suite unrunnable in a normal dev session.
+    // belongs to the long-running mcp pane, used for manual review and by dev data. They are
+    // deliberately separate: they would otherwise fight over one port, and since the mcp process runs
+    // in every dev session that would make the api suite unrunnable there.
     const fixtureUrl = `http://localhost:${process.env.MCP_FIXTURE_PORT}/mcp`
     const reviewUrl = `http://localhost:${process.env.DEV_MCP_PORT}/mcp`
     return [

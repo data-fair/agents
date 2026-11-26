@@ -16,14 +16,12 @@
 // navigation, a click — and the chat rendering the result. The loop's half does not.
 
 import { expect } from '@playwright/test'
-import assert from 'node:assert/strict'
 import { test } from '../../fixtures/login.ts'
 import { clean, superAdmin } from '../../support/axios.ts'
-import { createChatDriver } from '../../../lib-sim/chat-driver.ts'
 import { putMockSettings } from '../../support/settings.ts'
 import { waitForPageTools } from '../../support/page-tools.ts'
 
-const USER = 'test-standalone1'
+const USER = 'test_agents_standalone'
 
 test.describe('Host events', () => {
   test.beforeEach(async () => {
@@ -105,31 +103,6 @@ test.describe('Host events', () => {
     await expect(lastAnswer(page)).toContainText('"path":"/elsewhere"')
     await expect(page.getByTestId('chat-activity')).toHaveCount(0, { timeout: 15000 })
     await expect(page.getByPlaceholder('Type your message...')).toBeEditable()
-  })
-
-  test('the simulation driver reads an armed wait as the turn handing control back', async ({ page, goToWithAuth }) => {
-    // The harness runs the simulated person only BETWEEN turns, so a driver that
-    // waited for the Stop button alone could never let them act on a wait: every
-    // declared wait ran its whole window and was then recorded as a wedged turn.
-    // A wait is the assistant standing still and handing control back, which is
-    // exactly a turn boundary as far as the person is concerned.
-    await open(page, goToWithAuth)
-    await reachConfirmation(page)
-    const chat = createChatDriver(page as any)
-
-    await send(page, 'wait for me')
-    const started = Date.now()
-    // A generous ceiling: what is under test is that this returns on the wait
-    // rather than running to the end of it.
-    const outcome = await chat.waitForTurn(60_000)
-    assert.equal(outcome, 'waiting')
-    assert.ok(Date.now() - started < 30_000, 'the driver sat through the wait instead of reporting it')
-
-    // And control really is with the person: their click resolves the wait, the
-    // assistant finishes, and the same driver then reports an ordinary end.
-    await page.getByRole('button', { name: 'Create' }).click()
-    assert.equal(await chat.waitForTurn(60_000), 'ended')
-    await expect(lastAnswer(page)).toContainText('You did:')
   })
 
   test('a message typed during a wait is not lost when the wait resolves first', async ({ page, goToWithAuth }) => {

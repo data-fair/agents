@@ -38,7 +38,7 @@ test.describe('getEffectiveRole', () => {
   test('a superadmin in admin mode is an admin of any account', () => {
     // As the library's getAccountRole has it: billed and quota'd as an admin there, and allowed to decide
     // what only an admin decides (an approval of a planning call).
-    const session = { ...makeSession('user', 'superadmin', 'admin'), user: { id: 'superadmin', adminMode: true } }
+    const session = { ...makeSession('user', 'test_agents_superadmin', 'admin'), user: { id: 'test_agents_superadmin', adminMode: true } }
     assert.equal(getEffectiveRole(session as any, makeOwner('organization', 'org1')), 'admin')
   })
 

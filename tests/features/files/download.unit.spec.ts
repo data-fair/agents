@@ -131,7 +131,7 @@ test.describe('saveUrl', () => {
   let dir: string
   test.beforeEach(async () => { dir = await mkdtemp(join(tmpdir(), 'save-url-')) })
   test.afterEach(async () => { await rm(dir, { recursive: true, force: true }) })
-  const files = (limits?: { file: number, scope: number }) => createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents', limits })
+  const files = (limits?: { file: number, scope: number }) => createTurnFiles({ backend: new FsBackend(dir), scope: { ownerType: 'organization', ownerId: 'test_agents_org1', scopeId: 'c1' }, secret: 's'.repeat(32), publicUrl: 'http://agents', limits })
 
   test('stores the body under the given path and answers path, type, size and what tells a later version apart', async () => {
     assert.deepEqual(await saveUrl({ url: `${A}/data.csv`, path: '/copy.csv', allowedUrls: [A], files: files(), publicIps }), {

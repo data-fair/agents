@@ -14,7 +14,7 @@ import { awaitRun } from '../../support/turn.ts'
 import { FIXTURE_PORT, createFilesAgent, callPart, outputOf } from '../../support/files.ts'
 
 const admin = await superAdmin
-const orgAdmin = await axiosAuth('test1-admin1', { org: 'test1' })
+const orgAdmin = await axiosAuth('test_agents_org1_admin', { org: 'test_agents_org1' })
 const offered = (run: any): string[] => (run.calls ?? []).flatMap((c: any) => c.toolNames ?? [])
 const listed = (assistant: any): string[] => JSON.parse(assistant.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join(''))
 const text = (assistant: any): string => assistant.parts.filter((p: any) => p.type === 'text').map((p: any) => p.text).join('')
@@ -32,7 +32,7 @@ test.describe('tool loading', () => {
   test.beforeEach(async () => {
     await clean()
     fixture.resetInvokedTools()
-    await putMockSettings(admin, 'organization/test1', smallWindow)
+    await putMockSettings(admin, 'organization/test_agents_org1', smallWindow)
   })
 
   test('a large tool set offers load_tools and a catalog, not the definitions', async () => {
@@ -111,7 +111,7 @@ test.describe('tool loading', () => {
   })
 
   test('below the threshold nothing changes', async () => {
-    await putMockSettings(admin, 'organization/test1')
+    await putMockSettings(admin, 'organization/test_agents_org1')
     const agent = await createFilesAgent()
     const { assistant, run } = await turnOverSocket(orgAdmin, { agentId: agent.id }, 'list tools')
     assert.ok(listed(assistant).includes('echo'))

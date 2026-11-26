@@ -15,9 +15,9 @@ test.describe('Page skills', () => {
 
   test('a skill the page registers is loaded by the agent through read_skill', async ({ page, goToWithAuth }) => {
     const admin = await superAdmin
-    await putMockSettings(admin, 'user/test-standalone1')
+    await putMockSettings(admin, 'user/test_agents_standalone')
 
-    await goToWithAuth('/agents/_dev/chat-page-skills', 'test-standalone1')
+    await goToWithAuth('/agents/_dev/chat-page-skills', 'test_agents_standalone')
     await waitForPageTools(page, 'describe_note')
 
     await page.getByPlaceholder('Type your message...').fill('read page skill skill://note-guide/SKILL.md')

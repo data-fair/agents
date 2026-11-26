@@ -3,7 +3,7 @@
 # unit/api/e2e suite) runs on pull requests and release tags; `npm run quality` still runs it
 # locally on demand. See docs/architecture/testing.md.
 #
-# api/e2e tests need the dev env up (npx --no df-dev status).
+# api/e2e tests need the dev servers up (npm run dev).
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
