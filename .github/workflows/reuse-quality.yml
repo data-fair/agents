@@ -176,11 +176,12 @@ jobs:
       run: npm run dev:mcp > dev/logs/mcp.log 2>&1 &
 
     # fail here, with the processes' own output, rather than later in the tests' state setup;
-    # the e2e-warmup project then pays vite's first-request transforms
+    # the e2e-warmup project then pays vite's first-request transforms. Each process is polled on its own port,
+    # not through nginx: a refused connection there would make an nginx worker skip that upstream for 10s
     - name: Wait for API, MCP server and UI
       run: |
-        urls="http://localhost:$NGINX_PORT/agents/api/ping"
-        if [ "${{ matrix.project }}" = e2e ]; then urls="$urls http://localhost:$NGINX_PORT/agents/"; fi
+        urls="http://localhost:$DEV_API_PORT/api/ping"
+        if [ "${{ matrix.project }}" = e2e ]; then urls="$urls http://localhost:$DEV_UI_PORT/agents/"; fi
         for url in $urls; do
           for _ in $(seq 120); do curl -sf -o /dev/null "$url" && break; sleep 1; done
           curl -sf -o /dev/null "$url" || { echo "not ready: $url"; tail -n 50 dev/logs/*.log; exit 1; }
