@@ -323,7 +323,7 @@ publishes one listed skill and one reachable by URI only.
 - **Bounded** (`GUIDE_LIMITS`, `api/src/mcp-servers/guides.ts`): instructions 8,000 characters per server,
   50 skills, a description 1,024 characters. A skill naming tools (frontmatter `metadata.tools`) is
   hidden when the reference's `toolFilter` removed every one of them: the agent could not follow it.
-- **In the system prompt**, after the agent's persona, instructions and identity clauses and before the
+- **In the system prompt**, after the agent's persona, instructions, platform note and identity clauses and before the
   task note and memory (`buildSystemPrompt`): an "Instructions from tool servers" section, one
   `<server-instructions server="…">` envelope per server, and a "Skills" index with one line per skill —
   server label, name, description and URI, which is what `read_skill` takes. Server text is defused like

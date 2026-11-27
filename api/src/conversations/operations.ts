@@ -94,6 +94,14 @@ export function publicErrorDetail (err: unknown): string {
   return deliberate && message ? message : INTERNAL_ERROR_DETAIL
 }
 
+/**
+ * The platform every agent runs on (see buildSystemPrompt). A configured agent's persona is its owner's prose and
+ * the personal assistant's names no product, so nothing else tells the model where it is, nor that what it learned
+ * of Data Fair in training applies — while that knowledge may be out of date, hence the tools first. Portals carry
+ * their owner's brand, so the platform is named only when the person brings it up (like AUDIENCE_NOTE's internals).
+ */
+export const PLATFORM_NOTE = 'You run on Data Fair, the open source data platform developed by Koumoul: datasets and their APIs, applications (visualizations) built on them, portals that publish them, catalogs and processings that import and export them. What you know of Data Fair from training can guide you, but it may be outdated: the tools, their guidance and the page in front of the person are authoritative. Sites built on it often carry their owner\'s name: name the platform only when the person does or asks how the site works.'
+
 /** The system prompt's note on the task surface (see buildSystemPrompt). */
 export const TASK_SURFACE_NOTE = 'This is a scheduled execution of one of your planned tasks. Nobody is present: there is no one to ask, and no action can be approved. Do what the task asks with the tools you have, then end by calling report_outcome with what you found or did. Your earlier runs and what they reported are listed by list_my_runs (kind task) and read with read_conversation (runId): use them to compare and to say what changed, but do the task again — report only what this run read, never an earlier run\'s findings as current.'
 
@@ -201,6 +209,8 @@ export function buildSystemPrompt (autonomousAgent: PromptableAutonomousAgent, m
   const parts = [
     autonomousAgent.persona,
     autonomousAgent.instructions,
+    // After the owner's words, which open the prompt; stable, so the cached prefix keeps it.
+    PLATFORM_NOTE,
     // Which identity clause depends on which identity the agent actually has. Both say the same
     // underlying thing — your tools are bounded, do not assume more — but they bound DIFFERENT things,
     // and the wrong one is not merely imprecise: told it has a service identity, an agent acting as
