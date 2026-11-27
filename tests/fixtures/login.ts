@@ -1,5 +1,5 @@
 // tests/fixtures/auth-fixture.ts
-import { test as base } from '@playwright/test'
+import { test as base, expect } from '@playwright/test'
 import { withQuery } from 'ufo'
 
 const cookieCache = new Map<string, Awaited<ReturnType<import('@playwright/test').BrowserContext['cookies']>>>()
@@ -53,9 +53,22 @@ export const test = base.extend<{
             // without allAccounts), so a member still on their personal account
             // would be treated as a non-admin visitor.
             if (opts?.org) query.org = opts.org
+            // Log in from no session. A login posted while the context still holds another user's
+            // admin-mode session gets an exchange token carrying adminMode from simple-directory: the
+            // first keepalive of the new, non-admin user then answers 401 and the session is deleted
+            // (the warm-up visits as test_agents_superadmin in admin mode, then as test_agents_standalone).
+            await context.clearCookies({ name: SESSION_COOKIE })
             await page.goto(withQuery('/simple-directory/login', query))
-            await page.fill('input[name="email"]', user + '@test.com')
-            await page.fill('input[name="password"]', 'passwd')
+            // Both fields of simple-directory's login form carry `autofocus`, and the email field's can
+            // land late: it takes the focus back between the password fill's focus and its typing, and
+            // `passwd` ends up appended to the email ("…@test.compasswd"), the button stays disabled
+            // and the login waits out the whole timeout. Fill until both values are the expected ones.
+            await expect(async () => {
+              await page.fill('input[name="email"]', user + '@test.com')
+              await page.fill('input[name="password"]', 'passwd')
+              await expect(page.locator('input[name="email"]')).toHaveValue(user + '@test.com', { timeout: 500 })
+              await expect(page.locator('input[name="password"]')).toHaveValue('passwd', { timeout: 500 })
+            }).toPass({ timeout: 15000 })
             // A login that fails leaves us on the login page, and waitForURL then simply
             // waits out the whole test timeout with no indication why — 15 minutes of
             // silence for a simulation. The usual cause is a `user` whose email is not
