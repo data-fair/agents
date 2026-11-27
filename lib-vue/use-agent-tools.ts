@@ -15,8 +15,12 @@ export function useAgentTool<
   if (typeof window === 'undefined') return
 
   debug('register tool %s', agentTool.name)
+  // The WebMCP draft of 2026-04-23 removed unregisterTool(): a tool is unregistered by aborting
+  // the signal it was registered with. The registration also stays bound to the context that
+  // received it, even if navigator.modelContext is replaced afterwards (useFrameServer).
+  const controller = new AbortController()
   try {
-    navigator.modelContext.registerTool(agentTool)
+    navigator.modelContext.registerTool(agentTool, { signal: controller.signal })
   } catch (err) {
     // Warn instead of letting the throw (e.g. a duplicate tool name) abort the caller's setup().
     console.warn(`[df-agents] could not register agent tool "${agentTool.name}":`, err)
@@ -25,6 +29,6 @@ export function useAgentTool<
 
   onScopeDispose(() => {
     debug('unregister tool %s', agentTool.name)
-    window.navigator.modelContext.unregisterTool(agentTool.name)
+    controller.abort()
   })
 }

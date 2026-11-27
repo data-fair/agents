@@ -275,6 +275,14 @@ export function useSessionChat (options: UseSessionChatOptions) {
         newConversation().catch(() => {})
         return
       }
+      // The token this visitor kept from an earlier page load was refused (expired early, a key rotated in
+      // simple-directory): forget it and say hello again with a new one, once.
+      if (blocking && options.anonymous && !tokenRetried && /anonymous action token/i.test(message)) {
+        tokenRetried = true
+        resetAnonymousToken()
+        newConversation().catch(() => {})
+        return
+      }
       status.value = 'error'
       if (blocking) blocked.value = true
       error.value = message
@@ -316,11 +324,12 @@ export function useSessionChat (options: UseSessionChatOptions) {
     if (consent) agent.reportReviewConsent(consent === 'yes')
   })
 
-  // An anonymous visitor's action token, fetched before each hello that starts a thread.
+  // An anonymous visitor's action token, read before each hello that starts a thread. The one the visitor
+  // already holds is reused while it is far from its expiry (getAnonymousToken): the page loads of a quick
+  // browse must not each ask simple-directory for one, whose endpoint shares the login routes' rate limit.
   let anonymousToken: string | undefined
+  let tokenRetried = false
   const refreshAnonymousToken = async () => {
-    // A fresh one each time: a token is short-lived, and a reset can come long after the page loaded.
-    resetAnonymousToken()
     anonymousToken = await getAnonymousToken()
   }
 
@@ -402,8 +411,7 @@ export function useSessionChat (options: UseSessionChatOptions) {
     clearThread()
     activeAgentId.value = agentId
     try {
-      // An anonymous thread needs a fresh action token: a token is short-lived, and a reset can come
-      // long after the page loaded.
+      // A reset can come long after the page loaded: the token is checked again, and renewed near its expiry.
       if (options.anonymous) await refreshAnonymousToken()
       agent.reset({ agentId })
     } catch (err: any) {

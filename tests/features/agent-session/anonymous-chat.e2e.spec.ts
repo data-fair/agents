@@ -29,6 +29,13 @@ test.describe('Anonymous chat', () => {
   })
 
   test('a signed-out visitor gets an answer, and a reload starts over', { tag: '@smoke' }, async ({ page }) => {
+    // The action token is asked of simple-directory once, then reused by later page loads: its endpoint
+    // shares the login routes' rate limit, and a token per page load made a quick visitor hit 429s.
+    let tokenRequests = 0
+    page.on('request', request => {
+      if (request.url().includes('/api/auth/anonymous-action')) tokenRequests++
+    })
+
     await page.goto('/agents/organization/test_agents_org1/chat')
 
     await page.getByRole('textbox').fill('hello')
@@ -44,5 +51,11 @@ test.describe('Anonymous chat', () => {
     await page.reload()
     await expect(page.getByRole('textbox')).toBeVisible()
     await expect(page.getByText('world')).not.toBeVisible()
+
+    // The reloaded chat says hello with the kept token, and answers again.
+    await page.getByRole('textbox').fill('hello')
+    await page.keyboard.press('Enter')
+    await expect(page.getByText('world')).toBeVisible()
+    expect(tokenRequests).toBe(1)
   })
 })

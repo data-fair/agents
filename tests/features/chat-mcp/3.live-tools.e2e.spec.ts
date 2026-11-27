@@ -23,6 +23,11 @@ test.describe('Live tool set (mid-turn refresh)', () => {
   })
 
   test('a tool registered by a panel opened mid-turn is callable in the same turn, and stops being offered once unmounted', async ({ page, goToWithAuth }) => {
+    const deprecationWarnings: string[] = []
+    page.on('console', msg => {
+      if (msg.text().includes('unregisterTool() is deprecated')) deprecationWarnings.push(msg.text())
+    })
+
     const admin = await superAdmin
     await putMockSettings(admin, 'user/test_agents_standalone')
 
@@ -47,10 +52,19 @@ test.describe('Live tool set (mid-turn refresh)', () => {
     await expect(page.getByLabel('Display')).toHaveValue('Displayed by set_display')
 
     // The mirror case: reconciliation must remove as well as add, or the model keeps being
-    // offered tools that no longer have a component behind them. Reload with the panel closed
-    // again: set_display must be gone from the aggregate.
+    // offered tools that no longer have a component behind them. Unmounting the panel aborts
+    // the signal its tool was registered with: set_display must leave the aggregate.
+    await page.getByPlaceholder('Type your message...').fill('call tool close_panel')
+    await page.getByRole('button', { name: 'Send' }).click()
+    await expect(page.getByText(/Panel closed — set_display/)).toBeVisible({ timeout: 15000 })
+    await expectNoPageTool(page, 'set_display')
+
+    // Reload with the panel closed again: set_display is still absent.
     await page.reload()
     await waitForPageTools(page, 'open_panel')
     await expectNoPageTool(page, 'set_display')
+
+    // Unregistering goes through the AbortSignal, not the removed unregisterTool().
+    expect(deprecationWarnings).toEqual([])
   })
 })

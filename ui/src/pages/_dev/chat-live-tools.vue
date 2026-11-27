@@ -84,6 +84,19 @@ onMounted(() => {
       return { success: true, message: 'Panel opened' }
     }
   } as any)
+  useAgentTool({
+    name: 'close_panel',
+    title: 'Close panel',
+    description: 'Close the side panel, which takes its own tools away with it',
+    inputSchema: {
+      type: 'object',
+      properties: {}
+    } as any,
+    execute: () => {
+      panelOpen.value = false
+      return { success: true, message: 'Panel closed' }
+    }
+  } as any)
 })
 </script>
 
