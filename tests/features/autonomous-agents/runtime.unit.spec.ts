@@ -3,7 +3,7 @@
  */
 import { test } from 'playwright/test'
 import assert from 'node:assert/strict'
-import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL, REPLY_STYLE_NOTE, APPROVAL_NOTE } from '../../../api/src/conversations/operations.ts'
+import { runStopReasonMessage, buildSystemPrompt, wrapToolResult, publicErrorDetail, INTERNAL_ERROR_DETAIL, REPLY_STYLE_NOTE, APPROVAL_NOTE, PLATFORM_NOTE } from '../../../api/src/conversations/operations.ts'
 import { compactionSystemPrompt, recapMessage } from '../../../api/src/conversations/compaction-prompt.ts'
 import { STREAM_IDLE_TIMEOUT_MS } from '../../../api/src/conversations/loop-guards.ts'
 import { readFileSync } from 'node:fs'
@@ -56,6 +56,21 @@ test.describe('buildSystemPrompt', () => {
   // Carries an `nhi`, because that is what selects the identity clause below: this fixture is a
   // CONFIGURED agent, which is the kind that has a service identity of its own.
   const agent = { id: 'a1', title: 'Support triage', persona: 'You triage support questions.', instructions: 'Answer in French.', nhi: { clientId: 'c1' } }
+
+  test('every run is told it runs on Data Fair, after the owner\'s persona and instructions', () => {
+    // A configured agent's persona is its owner's prose, and the personal assistant's names no product: without
+    // this, nothing told the model which platform it works in, nor that what it knows of Data Fair applies.
+    for (const prompt of [buildSystemPrompt(agent, undefined, 'chat'), buildSystemPrompt({ ...agent, nhi: undefined }, undefined, 'task')]) {
+      assert.ok(prompt.includes(PLATFORM_NOTE))
+      assert.ok(prompt.indexOf(PLATFORM_NOTE) > prompt.indexOf(agent.instructions))
+    }
+    assert.ok(buildSystemPrompt(agent).indexOf(PLATFORM_NOTE) < buildSystemPrompt(agent).indexOf('own service identity'))
+    assert.match(PLATFORM_NOTE, /Data Fair/)
+    // What it knows from training is a start, not the truth of this deployment.
+    assert.match(PLATFORM_NOTE, /training[^]*outdated[^]*authoritative/)
+    // Portals carry their owner's brand.
+    assert.match(PLATFORM_NOTE, /name the platform only/)
+  })
 
   test('a chat turn carries the reply-style clause, for an agent with or without an identity', () => {
     assert.ok(buildSystemPrompt(agent, undefined, 'chat').includes(REPLY_STYLE_NOTE))
